@@ -9,6 +9,7 @@ enum GeofenceCubitStatus {
   checking,
   withinRange,
   outsideRange,
+
   /// Admin disabled GPS sign-in via attendance settings.
   gpsDisabledByAdmin,
   error,
@@ -31,18 +32,18 @@ class GeofenceState extends Equatable {
   });
 
   const GeofenceState.initial()
-      : status = GeofenceCubitStatus.initial,
-        schoolCode = '',
-        errorMessage = '',
-        distanceMeters = null,
-        radiusMeters = null,
-        gpsSignInEnabled = true,
-        parentGpsSignInEnabled = true,
-        isStaffSignedIn = false,
-        permissionLevel = LocationPermissionLevel.denied,
-        allChildrenSignedIn = false,
-        isSignInStatusLoading = false,
-        refreshNonce = 0;
+    : status = GeofenceCubitStatus.initial,
+      schoolCode = '',
+      errorMessage = '',
+      distanceMeters = null,
+      radiusMeters = null,
+      gpsSignInEnabled = true,
+      parentGpsSignInEnabled = true,
+      isStaffSignedIn = false,
+      permissionLevel = LocationPermissionLevel.denied,
+      allChildrenSignedIn = false,
+      isSignInStatusLoading = false,
+      refreshNonce = 0;
 
   final GeofenceCubitStatus status;
   final String schoolCode;
@@ -105,36 +106,35 @@ class GeofenceState extends Equatable {
     bool? allChildrenSignedIn,
     bool? isSignInStatusLoading,
     int? refreshNonce,
-  }) =>
-      GeofenceState(
-        status: status ?? this.status,
-        schoolCode: schoolCode ?? this.schoolCode,
-        errorMessage: errorMessage ?? this.errorMessage,
-        distanceMeters: distanceMeters ?? this.distanceMeters,
-        radiusMeters: radiusMeters ?? this.radiusMeters,
-        gpsSignInEnabled: gpsSignInEnabled ?? this.gpsSignInEnabled,
-        parentGpsSignInEnabled:
-            parentGpsSignInEnabled ?? this.parentGpsSignInEnabled,
-        isStaffSignedIn: isStaffSignedIn ?? this.isStaffSignedIn,
-        permissionLevel: permissionLevel ?? this.permissionLevel,
-        allChildrenSignedIn: allChildrenSignedIn ?? this.allChildrenSignedIn,
-        isSignInStatusLoading: isSignInStatusLoading ?? this.isSignInStatusLoading,
-        refreshNonce: refreshNonce ?? this.refreshNonce,
-      );
+  }) => GeofenceState(
+    status: status ?? this.status,
+    schoolCode: schoolCode ?? this.schoolCode,
+    errorMessage: errorMessage ?? this.errorMessage,
+    distanceMeters: distanceMeters ?? this.distanceMeters,
+    radiusMeters: radiusMeters ?? this.radiusMeters,
+    gpsSignInEnabled: gpsSignInEnabled ?? this.gpsSignInEnabled,
+    parentGpsSignInEnabled:
+        parentGpsSignInEnabled ?? this.parentGpsSignInEnabled,
+    isStaffSignedIn: isStaffSignedIn ?? this.isStaffSignedIn,
+    permissionLevel: permissionLevel ?? this.permissionLevel,
+    allChildrenSignedIn: allChildrenSignedIn ?? this.allChildrenSignedIn,
+    isSignInStatusLoading: isSignInStatusLoading ?? this.isSignInStatusLoading,
+    refreshNonce: refreshNonce ?? this.refreshNonce,
+  );
 
   @override
   List<Object?> get props => [
-        status,
-        schoolCode,
-        errorMessage,
-        distanceMeters,
-        radiusMeters,
-        gpsSignInEnabled,
-        parentGpsSignInEnabled,
-        isStaffSignedIn,
-        permissionLevel,
-        allChildrenSignedIn,
-        isSignInStatusLoading,
-        refreshNonce,
-      ];
+    status,
+    schoolCode,
+    errorMessage,
+    distanceMeters,
+    radiusMeters,
+    gpsSignInEnabled,
+    parentGpsSignInEnabled,
+    isStaffSignedIn,
+    permissionLevel,
+    allChildrenSignedIn,
+    isSignInStatusLoading,
+    refreshNonce,
+  ];
 }

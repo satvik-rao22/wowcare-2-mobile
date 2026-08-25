@@ -32,8 +32,7 @@ class StaffSelectionSignOutForm extends StatefulWidget {
       _StaffSelectionSignOutFormState();
 }
 
-class _StaffSelectionSignOutFormState
-    extends State<StaffSelectionSignOutForm> {
+class _StaffSelectionSignOutFormState extends State<StaffSelectionSignOutForm> {
   bool isSelectAllChecked = false;
   String? _selectedClassroomCode;
   List<String> _selectedTag = [];
@@ -99,13 +98,14 @@ class _StaffSelectionSignOutFormState
       final selectedClassroomCode = _selectedClassroomCode;
       final classroomCodes =
           selectedClassroomCode != null && selectedClassroomCode.isNotEmpty
-              ? <String>[selectedClassroomCode]
-              : null;
+          ? <String>[selectedClassroomCode]
+          : null;
 
       final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
 
-      final searchText =
-          _searchController.text.trim().isNotEmpty ? _searchController.text.trim() : null;
+      final searchText = _searchController.text.trim().isNotEmpty
+          ? _searchController.text.trim()
+          : null;
 
       final page = await _getStaffSignOutFormListUseCase(
         fromAttendanceDate: dateString,
@@ -129,7 +129,9 @@ class _StaffSelectionSignOutFormState
           classroomCode: item.classroomCode,
           classroomName: item.classroomName,
           photoUuid: null,
-          designation: item.designation.isNotEmpty ? item.designation.first : 'Staff',
+          designation: item.designation.isNotEmpty
+              ? item.designation.first
+              : 'Staff',
           staffCode: item.staffCode,
         );
       }).toList();
@@ -137,7 +139,9 @@ class _StaffSelectionSignOutFormState
       // Local filtering for Designation and Search
       List<StaffEntity> locallyFiltered = staffList;
       if (_selectedTag.isNotEmpty) {
-        final selected = _selectedTag.map((e) => e.trim().toUpperCase()).toSet();
+        final selected = _selectedTag
+            .map((e) => e.trim().toUpperCase())
+            .toSet();
         locallyFiltered = locallyFiltered.where((s) {
           final d = s.designation.trim().toUpperCase();
           return selected.contains(d);
@@ -161,7 +165,8 @@ class _StaffSelectionSignOutFormState
       setState(() {
         _filteredStaff = List.from(locallyFiltered);
         _isLoading = false;
-        isSelectAllChecked = _filteredStaff.isNotEmpty &&
+        isSelectAllChecked =
+            _filteredStaff.isNotEmpty &&
             _filteredStaff.every((s) => selectedStaff.contains(s));
       });
     } catch (e) {
@@ -206,8 +211,7 @@ class _StaffSelectionSignOutFormState
     if (selectedStaff.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Please select at least one staff member'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -218,9 +222,8 @@ class _StaffSelectionSignOutFormState
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => StaffSignOutForm(
-          staffList: selectedStaff.toList(),
-        ),
+        builder: (context) =>
+            StaffSignOutForm(staffList: selectedStaff.toList()),
       ),
     );
   }
@@ -234,157 +237,162 @@ class _StaffSelectionSignOutFormState
     return BlocProvider<ClassroomCubit>.value(
       value: _classroomCubit,
       child: StaffFormLayout(
-      title: 'Sign-Out',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const AppText.subtitle('Select Staff'),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: Colors.grey),
+        title: 'Sign-Out',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const AppText.subtitle('Select Staff'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: Colors.grey),
+              ),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search Staff',
+                  hintStyle: AppTextStyles.body.copyWith(
+                    color: Colors.grey[700],
+                  ),
+                  border: InputBorder.none,
+                  icon: const Icon(Icons.search, color: Colors.grey),
+                ),
+                onChanged: (_) => _loadStaff(),
+              ),
             ),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search Staff',
-                hintStyle: AppTextStyles.body.copyWith(
-                  color: Colors.grey[700],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                    builder: (context, state) {
+                      final classroomNames = state.classrooms
+                          .map((c) => c.name)
+                          .toList();
+                      if (_classroomNameToCode.isEmpty &&
+                          state.classrooms.isNotEmpty) {
+                        for (final c in state.classrooms) {
+                          _classroomNameToCode[c.name] = c.code;
+                        }
+                      }
+                      String? selectedName;
+                      for (final entry in _classroomNameToCode.entries) {
+                        if (entry.value == _selectedClassroomCode) {
+                          selectedName = entry.key;
+                          break;
+                        }
+                      }
+                      return CustomDropdown(
+                        hintText: 'Classroom',
+                        items: classroomNames,
+                        selectedItem: selectedName,
+                        onSelect: (value) {
+                          setState(() {
+                            _selectedClassroomCode = value == null
+                                ? null
+                                : _classroomNameToCode[value];
+                          });
+                          _loadStaff();
+                        },
+                      );
+                    },
+                  ),
                 ),
-                border: InputBorder.none,
-                icon: const Icon(Icons.search, color: Colors.grey),
-              ),
-              onChanged: (_) => _loadStaff(),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: CustomMultiSelectDropdown(
+                    hintText: 'Designation',
+                    items: _designations,
+                    selectedItems: _selectedTag,
+                    onChanged: (selectedItems) {
+                      setState(() {
+                        _selectedTag = selectedItems;
+                      });
+                      _loadStaff();
+                    },
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: BlocBuilder<ClassroomCubit, ClassroomState>(
-                  builder: (context, state) {
-                    final classroomNames = state.classrooms.map((c) => c.name).toList();
-                    if (_classroomNameToCode.isEmpty && state.classrooms.isNotEmpty) {
-                      for (final c in state.classrooms) {
-                        _classroomNameToCode[c.name] = c.code;
-                      }
-                    }
-                    String? selectedName;
-                    for (final entry in _classroomNameToCode.entries) {
-                      if (entry.value == _selectedClassroomCode) {
-                        selectedName = entry.key;
-                        break;
-                      }
-                    }
-                    return CustomDropdown(
-                      hintText: 'Classroom',
-                      items: classroomNames,
-                      selectedItem: selectedName,
-                      onSelect: (value) {
-                        setState(() {
-                          _selectedClassroomCode =
-                              value == null ? null : _classroomNameToCode[value];
-                        });
-                        _loadStaff();
-                      },
-                    );
-                  },
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: CustomCheckbox(
+                    value: isSelectAllChecked,
+                    onChanged: _toggleSelectAll,
+                    borderColor: AppColors.themeColor,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: CustomMultiSelectDropdown(
-                  hintText: 'Designation',
-                  items: _designations,
-                  selectedItems: _selectedTag,
-                  onChanged: (selectedItems) {
-                    setState(() {
-                      _selectedTag = selectedItems;
-                    });
-                    _loadStaff();
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: CustomCheckbox(
-                  value: isSelectAllChecked,
-                  onChanged: _toggleSelectAll,
-                  borderColor: AppColors.themeColor,
-                ),
-              ),
-              const AppText.body('Select All'),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: PrimaryCircularLoader())
-                : _errorMessage != null
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AppText.body(
-                              _errorMessage ?? 'Failed to load staff',
-                              style: const TextStyle(color: Colors.red),
-                              textAlign: TextAlign.center,
+                const AppText.body('Select All'),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: PrimaryCircularLoader())
+                  : _errorMessage != null
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AppText.body(
+                            _errorMessage ?? 'Failed to load staff',
+                            style: AppTextStyles.body.copyWith(
+                              color: Colors.red,
                             ),
-                            const SizedBox(height: 8),
-                            TextButton(
-                              onPressed: _loadStaff,
-                              child: const AppText.body('Retry'),
-                            ),
-                          ],
-                        ),
-                      )
-                    : _filteredStaff.isEmpty
-                        ? const Center(child: AppText.body('No staff found'))
-                        : GridView.builder(
-                            shrinkWrap: false,
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: isTablet ? 16 : 12,
-                              mainAxisSpacing: isTablet ? 16 : 12,
-                              mainAxisExtent: 72,
-                            ),
-                            itemCount: _filteredStaff.length,
-                            itemBuilder: (context, index) {
-                              final staff = _filteredStaff[index];
-                              final isSelected =
-                                  selectedStaff.contains(staff);
-
-                              return StaffListItem(
-                                staff: staff,
-                                isSelected: isSelected,
-                                onSelectionChanged: (value) =>
-                                    _toggleStaffSelection(staff, value),
-                              );
-                            },
+                            textAlign: TextAlign.center,
                           ),
+                          const SizedBox(height: 8),
+                          TextButton(
+                            onPressed: _loadStaff,
+                            child: const AppText.body('Retry'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : _filteredStaff.isEmpty
+                  ? const Center(child: AppText.body('No staff found'))
+                  : GridView.builder(
+                      shrinkWrap: false,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: isTablet ? 16 : 12,
+                        mainAxisSpacing: isTablet ? 16 : 12,
+                        mainAxisExtent: 72,
+                      ),
+                      itemCount: _filteredStaff.length,
+                      itemBuilder: (context, index) {
+                        final staff = _filteredStaff[index];
+                        final isSelected = selectedStaff.contains(staff);
+
+                        return StaffListItem(
+                          staff: staff,
+                          isSelected: isSelected,
+                          onSelectionChanged: (value) =>
+                              _toggleStaffSelection(staff, value),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+        bottomBar: Padding(
+          padding: EdgeInsets.only(bottom: safeAreaBottom),
+          child: CustomButtonLayout(
+            confirmButtonLabel: 'Next',
+            onPressedConfirm: _handleNext,
+            showCancelButton: false,
           ),
-        ],
-      ),
-      bottomBar: Padding(
-        padding: EdgeInsets.only(bottom: safeAreaBottom),
-        child: CustomButtonLayout(
-          confirmButtonLabel: 'Next',
-          onPressedConfirm: _handleNext,
-          showCancelButton: false,
         ),
       ),
-    ));
+    );
   }
-
 }
 
 class StaffListItem extends StatelessWidget {
@@ -405,9 +413,7 @@ class StaffListItem extends StatelessWidget {
       onTap: () => onSelectionChanged(!isSelected),
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(
-            color: AppColors.themeColor,
-          ),
+          border: Border.all(color: AppColors.themeColor),
           borderRadius: BorderRadius.circular(8),
           color: isSelected
               ? const Color.fromARGB(255, 249, 245, 250)
@@ -438,10 +444,8 @@ class StaffListItem extends StatelessWidget {
                   text: staff.name,
                   maxLines: 2,
                   preferLongPress: true,
-                  style: const TextStyle(
+                  style: AppTextStyles.sectionHeader.copyWith(
                     color: AppColors.primaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -452,4 +456,3 @@ class StaffListItem extends StatelessWidget {
     );
   }
 }
-

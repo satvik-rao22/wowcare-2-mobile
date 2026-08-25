@@ -189,8 +189,8 @@ class _AssignStaffToClassroomFormState
         }
 
         final rawPhoto = (s.profilePictureUrl ?? '').trim();
-        final looksLikeUrl = rawPhoto.startsWith('http://') ||
-            rawPhoto.startsWith('https://');
+        final looksLikeUrl =
+            rawPhoto.startsWith('http://') || rawPhoto.startsWith('https://');
 
         fetchedStaffs.add(
           Staff(
@@ -199,8 +199,9 @@ class _AssignStaffToClassroomFormState
             name: s.fullName,
             designation: s.designation,
             profileImageUrl: looksLikeUrl ? rawPhoto : null,
-            profilePhotoAssetCode:
-                (!looksLikeUrl && rawPhoto.isNotEmpty) ? rawPhoto : null,
+            profilePhotoAssetCode: (!looksLikeUrl && rawPhoto.isNotEmpty)
+                ? rawPhoto
+                : null,
             rooms: rooms,
           ),
         );
@@ -388,19 +389,13 @@ class _AssignStaffToClassroomFormState
             constraints: const BoxConstraints(minHeight: 44),
             hintText: 'Search Staffs',
             hintStyle: WidgetStatePropertyAll(
-              TextStyle(
-                fontFamily: 'Manrope',
-                color: Colors.grey[700],
-              ),
+              TextStyle(fontFamily: 'Manrope', color: Colors.grey[700]),
             ),
             backgroundColor: const WidgetStatePropertyAll<Color>(Colors.white),
             surfaceTintColor: const WidgetStatePropertyAll<Color>(Colors.white),
             elevation: const WidgetStatePropertyAll<double>(0),
             side: const WidgetStatePropertyAll(
-              BorderSide(
-                width: 1,
-                color: Color.fromARGB(255, 188, 173, 186),
-              ),
+              BorderSide(width: 1, color: Color.fromARGB(255, 188, 173, 186)),
             ),
             leading: const Icon(Icons.search, color: Colors.grey),
           ),
@@ -718,8 +713,9 @@ class _StaffConfirmationFormState extends State<StaffConfirmationForm> {
                       if (!mounted) return;
                       CoreUtils.showTopSnackBar(
                         context: context,
-                        message:
-                            message.isEmpty ? 'Assigned successfully' : message,
+                        message: message.isEmpty
+                            ? 'Assigned successfully'
+                            : message,
                         isSuccess: true,
                       );
 

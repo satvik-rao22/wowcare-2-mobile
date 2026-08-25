@@ -16,12 +16,5 @@ class StudentAttendanceExpectedSummary extends Equatable {
   final int notMarked;
 
   @override
-  List<Object?> get props => [
-        expected,
-        present,
-        absent,
-        signOut,
-        notMarked,
-      ];
+  List<Object?> get props => [expected, present, absent, signOut, notMarked];
 }
-

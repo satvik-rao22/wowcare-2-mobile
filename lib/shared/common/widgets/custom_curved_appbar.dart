@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class CustomCurvedAppBar extends StatelessWidget
     implements PreferredSizeWidget {
@@ -39,7 +40,7 @@ class CustomCurvedAppBar extends StatelessWidget
             onTap: _toggleScrollPosition,
             child: Text(
               title,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: AppTextStyles.screenTitle,
             ),
           ),
           backgroundColor:
@@ -73,7 +74,11 @@ class CurvedAppBarClipper extends CustomClipper<Path> {
     path.quadraticBezierTo(0, size.height, size.width * 0.2, size.height);
     path.lineTo(size.width * 0.8, size.height);
     path.quadraticBezierTo(
-        size.width, size.height, size.width, size.height * 0.8);
+      size.width,
+      size.height,
+      size.width,
+      size.height * 0.8,
+    );
     path.lineTo(size.width, 0);
     path.close();
 

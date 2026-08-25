@@ -35,13 +35,13 @@ class GeofenceConfig extends Equatable {
 
   @override
   List<Object?> get props => [
-        schoolCode,
-        latitude,
-        longitude,
-        radiusMeters,
-        gpsSignInEnabled,
-        parentGpsSignInEnabled,
-        autoSignOutEnabled,
-        autoSignOutDelayMinutes,
-      ];
+    schoolCode,
+    latitude,
+    longitude,
+    radiusMeters,
+    gpsSignInEnabled,
+    parentGpsSignInEnabled,
+    autoSignOutEnabled,
+    autoSignOutDelayMinutes,
+  ];
 }

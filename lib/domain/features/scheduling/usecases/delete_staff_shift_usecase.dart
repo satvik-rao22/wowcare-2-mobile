@@ -6,10 +6,7 @@ class DeleteStaffShiftUseCase {
 
   final StaffShiftRepository _repository;
 
-  Future<void> call({
-    required String shiftCode,
-    String? staffCode,
-  }) {
+  Future<void> call({required String shiftCode, String? staffCode}) {
     return _repository.deleteStaffShift(
       shiftCode: shiftCode,
       staffCode: staffCode,

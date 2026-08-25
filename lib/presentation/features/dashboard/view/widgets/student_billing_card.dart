@@ -10,6 +10,7 @@ import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_c
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 // ---------------------------------------------------------------------------
 // StudentBillingCard (parent dashboard)
@@ -37,9 +38,9 @@ void _openBillingScreen(BuildContext context) {
 /// refreshes the card's ledger if a payment was made.
 Future<void> _openPayNow(BuildContext context) async {
   final cubit = context.read<ParentBillingCubit>();
-  final paid = await Navigator.of(context).push<bool>(
-    MaterialPageRoute(builder: (_) => const PayNowAmountScreen()),
-  );
+  final paid = await Navigator.of(
+    context,
+  ).push<bool>(MaterialPageRoute(builder: (_) => const PayNowAmountScreen()));
   if (paid == true) cubit.refresh();
 }
 
@@ -108,11 +109,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
             name,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.primaryColor,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
+            style: AppTextStyles.title.copyWith(color: AppColors.primaryColor),
           ),
         ),
       ],
@@ -135,12 +132,10 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
               color: AppColors.billingPaymentBadgeColor,
               borderRadius: BorderRadius.circular(6),
             ),
-            child: const Text(
+            child: Text(
               'Payment',
-              style: TextStyle(
-                fontSize: 16,
+              style: AppTextStyles.bodyLarge.copyWith(
                 color: AppColors.secondaryColor,
-                fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
             ),
@@ -148,10 +143,8 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
           const SizedBox(height: 5),
           Text(
             'Status: ${transaction.status}',
-            style: const TextStyle(
-              fontSize: 12,
+            style: AppTextStyles.caption.copyWith(
               color: AppColors.primaryColor,
-              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -166,7 +159,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
           const SizedBox(height: 5),
           Text(
             'Paid On: ${_formatDate(transaction.date)}',
-            style: const TextStyle(fontSize: 14, color: AppColors.primaryColor),
+            style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
           ),
         ],
       ),
@@ -220,12 +213,10 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
               color: AppColors.billingInvoiceBadgeColor,
               borderRadius: BorderRadius.circular(6),
             ),
-            child: const Text(
+            child: Text(
               'Invoice',
-              style: TextStyle(
-                fontSize: 16,
+              style: AppTextStyles.bodyLarge.copyWith(
                 color: AppColors.secondaryColor,
-                fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
             ),
@@ -233,10 +224,8 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
           const SizedBox(height: 5),
           Text(
             'Status: ${invoice.status}',
-            style: const TextStyle(
-              fontSize: 12,
+            style: AppTextStyles.caption.copyWith(
               color: AppColors.primaryColor,
-              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -251,7 +240,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
           const SizedBox(height: 5),
           Text(
             'Created On: ${_formatDate(invoice.date)}',
-            style: const TextStyle(fontSize: 14, color: AppColors.primaryColor),
+            style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
           ),
         ],
       ),
@@ -276,8 +265,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
             children: [
               Text(
                 'Student Name',
-                style: TextStyle(
-                  fontSize: 14,
+                style: AppTextStyles.body.copyWith(
                   color: AppColors.primaryColor.withValues(alpha: 0.5),
                 ),
               ),
@@ -289,10 +277,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
         ],
         _detailRow('Description', invoice.description, expand: true),
         const SizedBox(height: 10),
-        _detailRow(
-          'Open balance',
-          '\$${invoice.balance.toStringAsFixed(2)}',
-        ),
+        _detailRow('Open balance', '\$${invoice.balance.toStringAsFixed(2)}'),
         const SizedBox(height: 10),
         CustomButtonLayout(
           isForm: false,
@@ -321,12 +306,10 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
               color: AppColors.billingRefundBadgeColor,
               borderRadius: BorderRadius.circular(6),
             ),
-            child: const Text(
+            child: Text(
               'Refund',
-              style: TextStyle(
-                fontSize: 16,
-                color: Color.fromRGBO(55, 65, 88, 1),
-                fontWeight: FontWeight.w500,
+              style: AppTextStyles.bodyLarge.copyWith(
+                color: const Color.fromRGBO(55, 65, 88, 1),
               ),
               textAlign: TextAlign.center,
             ),
@@ -334,10 +317,8 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
           const SizedBox(height: 5),
           Text(
             'Status: ${transaction.status}',
-            style: const TextStyle(
-              fontSize: 12,
+            style: AppTextStyles.caption.copyWith(
               color: AppColors.primaryColor,
-              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -352,7 +333,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
           const SizedBox(height: 5),
           Text(
             'Paid On: ${_formatDate(transaction.date)}',
-            style: const TextStyle(fontSize: 14, color: AppColors.primaryColor),
+            style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
           ),
         ],
       ),
@@ -387,11 +368,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
   Widget _detailRow(String label, String value, {bool expand = false}) {
     final valueWidget = Text(
       value,
-      style: const TextStyle(
-        fontSize: 16,
-        color: AppColors.primaryColor,
-        fontWeight: FontWeight.w500,
-      ),
+      style: AppTextStyles.bodyLarge.copyWith(color: AppColors.primaryColor),
       textAlign: TextAlign.end,
       overflow: TextOverflow.ellipsis,
       maxLines: 2,
@@ -401,8 +378,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontSize: 14,
+          style: AppTextStyles.body.copyWith(
             color: AppColors.primaryColor.withValues(alpha: 0.5),
           ),
         ),
@@ -420,12 +396,14 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
   ) {
     if (transactions.isEmpty) {
       return [
-        const Center(
+        Center(
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
               'No Transactions',
-              style: TextStyle(fontSize: 16, color: AppColors.primaryColor),
+              style: AppTextStyles.bodyLarge.copyWith(
+                color: AppColors.primaryColor,
+              ),
             ),
           ),
         ),
@@ -499,10 +477,10 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
                           Text(
                             state.errorMessage!,
                             textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color:
-                                  AppColors.primaryColor.withValues(alpha: 0.7),
+                            style: AppTextStyles.body.copyWith(
+                              color: AppColors.primaryColor.withValues(
+                                alpha: 0.7,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -528,11 +506,11 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
                         GridView.builder(
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 0,
-                            childAspectRatio: 2,
-                            crossAxisSpacing: 10,
-                          ),
+                                crossAxisCount: 2,
+                                mainAxisSpacing: 0,
+                                childAspectRatio: 2,
+                                crossAxisSpacing: 10,
+                              ),
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: students.length,
                           shrinkWrap: true,
@@ -560,19 +538,20 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
                               children: [
                                 Text(
                                   '\$${state.openBalance.toStringAsFixed(2)}',
-                                  style: const TextStyle(
+                                  style: AppTextStyles.display.copyWith(
                                     color: AppColors.themeColor,
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                                const Text(
+                                Text(
                                   'Current\nBalance',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Color.fromRGBO(65, 65, 76, 0.8),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
+                                  style: AppTextStyles.bodyLarge.copyWith(
+                                    color: const Color.fromRGBO(
+                                      65,
+                                      65,
+                                      76,
+                                      0.8,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -582,8 +561,9 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
                           Expanded(
                             flex: 3,
                             child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 20.0),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20.0,
+                              ),
                               child: CustomButtonLayout(
                                 isForm: false,
                                 showCancelButton: false,
@@ -602,8 +582,9 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
                       // ----------------------------------------------------
                       Column(
                         mainAxisSize: MainAxisSize.min,
-                        children:
-                            _buildTransactionList(state.visibleTransactions),
+                        children: _buildTransactionList(
+                          state.visibleTransactions,
+                        ),
                       ),
                     ],
                   );

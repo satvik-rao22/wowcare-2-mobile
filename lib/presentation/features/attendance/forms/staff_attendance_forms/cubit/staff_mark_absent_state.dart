@@ -1,4 +1,3 @@
-import 'package:wowcare/core/util/server_time_service.dart';
 part of 'staff_mark_absent_cubit.dart';
 
 /// Immutable form state for [StaffMarkAbsentFormCubit].
@@ -80,12 +79,12 @@ class StaffMarkAbsentState extends Equatable {
 
   @override
   List<Object?> get props => [
-        selectedStaff,
-        startDate,
-        endDate,
-        schoolIana,
-        isStaffAdminPersona,
-        currentStaffCode,
-        isSubmitting,
-      ];
+    selectedStaff,
+    startDate,
+    endDate,
+    schoolIana,
+    isStaffAdminPersona,
+    currentStaffCode,
+    isSubmitting,
+  ];
 }

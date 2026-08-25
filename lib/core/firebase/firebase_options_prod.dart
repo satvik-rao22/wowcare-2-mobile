@@ -4,7 +4,8 @@
 //       API keys between UAT and PROD in a live app.
 //       Run: flutterfire configure --project=<prod-project-id> --out=lib/core/firebase/firebase_options_prod.dart
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 
 class FirebaseOptionsProd {
   static FirebaseOptions get currentPlatform {

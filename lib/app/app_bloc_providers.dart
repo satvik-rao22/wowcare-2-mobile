@@ -10,7 +10,9 @@ import 'package:wowcare/presentation/features/notifications/cubit/push_notificat
 /// [MultiBlocProvider] providers nested inside the sizer/theme setup —
 /// cubits owned by the app's authenticated + kiosk shell.
 List<SingleChildWidget> appBlocProviders() => [
-  BlocProvider<AuthCubit>(create: (_) => serviceLocator<AuthCubit>()..initialize()),
+  BlocProvider<AuthCubit>(
+    create: (_) => serviceLocator<AuthCubit>()..initialize(),
+  ),
   BlocProvider<PushNotificationCubit>(
     create: (_) => serviceLocator<PushNotificationCubit>(),
   ),

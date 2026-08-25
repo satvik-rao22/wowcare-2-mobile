@@ -48,18 +48,18 @@ class StudentDocumentRequestModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        name,
-        type,
-        expiryDate,
-        storagePath,
-        mimeType,
-        size,
-        ownerType,
-        ownerId,
-        assetCode,
-        uploadedBy,
-        notes,
-      ];
+    name,
+    type,
+    expiryDate,
+    storagePath,
+    mimeType,
+    size,
+    ownerType,
+    ownerId,
+    assetCode,
+    uploadedBy,
+    notes,
+  ];
 }
 
 /// Response model for POST /api/v1/student-documents.
@@ -159,19 +159,19 @@ class StudentDocumentItemModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        name,
-        type,
-        expiryDate,
-        storagePath,
-        mimeType,
-        size,
-        assetCode,
-        ownerId,
-        notes,
-        createdAt,
-        uploadedBy,
-      ];
+    code,
+    name,
+    type,
+    expiryDate,
+    storagePath,
+    mimeType,
+    size,
+    assetCode,
+    ownerId,
+    notes,
+    createdAt,
+    uploadedBy,
+  ];
 }
 
 class StudentDocumentsPageModel extends Equatable {
@@ -194,7 +194,10 @@ class StudentDocumentsPageModel extends Equatable {
   factory StudentDocumentsPageModel.fromJson(Map<String, dynamic> json) {
     final content = json['content'] as List<dynamic>? ?? [];
     final items = content
-        .map((item) => StudentDocumentItemModel.fromJson(item as Map<String, dynamic>))
+        .map(
+          (item) =>
+              StudentDocumentItemModel.fromJson(item as Map<String, dynamic>),
+        )
         .toList();
 
     final pageable = json['pageable'] as Map<String, dynamic>? ?? {};
@@ -237,5 +240,12 @@ class StudentDocumentsPageModel extends Equatable {
   }
 
   @override
-  List<Object?> get props => [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 }

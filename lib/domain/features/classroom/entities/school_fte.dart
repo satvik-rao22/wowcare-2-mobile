@@ -1,10 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 class SchoolFte extends Equatable {
-  const SchoolFte({
-    required this.schoolCode,
-    required this.schoolFte,
-  });
+  const SchoolFte({required this.schoolCode, required this.schoolFte});
 
   final String schoolCode;
   final double schoolFte;

@@ -136,10 +136,7 @@ abstract class StaffShiftRepository {
   });
 
   /// `DELETE /api/v1/staff-shifts/{shiftCode}` — remove one shift occurrence.
-  Future<void> deleteStaffShift({
-    required String shiftCode,
-    String? staffCode,
-  });
+  Future<void> deleteStaffShift({required String shiftCode, String? staffCode});
 
   /// `DELETE /api/v1/staff-shifts/series/{seriesCode}` — remove every shift
   /// in a recurring series.

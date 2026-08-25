@@ -67,28 +67,25 @@ class ConversationEntityLocalDataSourceImpl
     required String schoolCode,
     ConversationType? type,
   }) async {
-    final all =
-        await cacheService.getAll<ConversationEntityCollection>();
+    final all = await cacheService.getAll<ConversationEntityCollection>();
 
     return all.where((c) {
       if (c.organizationCode != organizationCode) return false;
       if (c.schoolCode != schoolCode) return false;
       if (type != null && c.type != type.toApiString()) return false;
       return true;
-    }).toList()
-      ..sort((a, b) {
-        final aTime = a.lastMessageAt ?? a.updatedAt;
-        final bTime = b.lastMessageAt ?? b.updatedAt;
-        return bTime.compareTo(aTime); // newest first
-      });
+    }).toList()..sort((a, b) {
+      final aTime = a.lastMessageAt ?? a.updatedAt;
+      final bTime = b.lastMessageAt ?? b.updatedAt;
+      return bTime.compareTo(aTime); // newest first
+    });
   }
 
   @override
   Future<ConversationEntityCollection?> getConversation(
     String conversationCode,
   ) async {
-    final all =
-        await cacheService.getAll<ConversationEntityCollection>();
+    final all = await cacheService.getAll<ConversationEntityCollection>();
     try {
       return all.firstWhere((c) => c.code == conversationCode);
     } catch (_) {
@@ -102,8 +99,7 @@ class ConversationEntityLocalDataSourceImpl
     required String organizationCode,
     required String schoolCode,
   }) async {
-    final all =
-        await cacheService.getAll<ConversationEntityCollection>();
+    final all = await cacheService.getAll<ConversationEntityCollection>();
     return all
         .where(
           (c) =>
@@ -125,8 +121,7 @@ class ConversationEntityLocalDataSourceImpl
     required String organizationCode,
     required String schoolCode,
   }) async {
-    final all =
-        await cacheService.getAll<ConversationEntityCollection>();
+    final all = await cacheService.getAll<ConversationEntityCollection>();
     return all
         .where(
           (c) =>
@@ -144,8 +139,9 @@ class ConversationEntityLocalDataSourceImpl
 
   @override
   Future<void> saveConversations(List<ConversationEntity> entities) async {
-    final collections =
-        entities.map(ConversationEntityCollection.fromEntity).toList();
+    final collections = entities
+        .map(ConversationEntityCollection.fromEntity)
+        .toList();
     await cacheService.putAll(collections);
   }
 
@@ -156,8 +152,7 @@ class ConversationEntityLocalDataSourceImpl
 
   @override
   Future<void> deleteConversation(String conversationCode) async {
-    final all =
-        await cacheService.getAll<ConversationEntityCollection>();
+    final all = await cacheService.getAll<ConversationEntityCollection>();
     final match = all.where((c) => c.code == conversationCode).toList();
     for (final c in match) {
       await cacheService.delete<ConversationEntityCollection>(c.isarId);
@@ -170,8 +165,7 @@ class ConversationEntityLocalDataSourceImpl
     required String schoolCode,
     ConversationType? type,
   }) async {
-    final all =
-        await cacheService.getAll<ConversationEntityCollection>();
+    final all = await cacheService.getAll<ConversationEntityCollection>();
     final toDelete = all.where(
       (c) =>
           c.organizationCode == organizationCode &&
@@ -202,8 +196,9 @@ class ConversationEntityLocalDataSourceImpl
 
   @override
   Future<void> saveUnreadCounts(List<UnreadEntity> entities) async {
-    final collections =
-        entities.map(UnreadEntityCollection.fromEntity).toList();
+    final collections = entities
+        .map(UnreadEntityCollection.fromEntity)
+        .toList();
     await cacheService.putAll(collections);
   }
 

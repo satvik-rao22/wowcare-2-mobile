@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Resolves which student rows to PATCH when saving an edit.
 ///
@@ -90,12 +91,10 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
                   onChanged: (v) => _toggleSelectAll(v ?? false),
                 ),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Select All',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14,
+                    style: AppTextStyles.body.copyWith(
                       color: Color(0xff573353),
                     ),
                   ),
@@ -135,7 +134,10 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.themeColor, width: 1),
+                        border: Border.all(
+                          color: AppColors.themeColor,
+                          width: 1,
+                        ),
                         color: Colors.white,
                       ),
                       child: Row(
@@ -165,9 +167,7 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
                               maxLines: 2,
                               softWrap: true,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w500,
-                                fontSize: 14,
+                              style: AppTextStyles.body.copyWith(
                                 color: Color(0xff573353),
                               ),
                             ),

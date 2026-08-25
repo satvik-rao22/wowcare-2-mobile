@@ -99,5 +99,3 @@ const List<TimezoneOption> TIMEZONE_LIST = [
   TimezoneOption(name: 'Australia/Perth', label: 'Perth (AWST)'),
   TimezoneOption(name: 'Australia/Adelaide', label: 'Adelaide (ACST)'),
 ];
-
-

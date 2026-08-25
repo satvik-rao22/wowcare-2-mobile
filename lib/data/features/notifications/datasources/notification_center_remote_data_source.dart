@@ -6,12 +6,13 @@ import 'notification_inbox_remote_data_source.dart';
 
 /// REST-backed notification center (bell list + read/click + unread counts),
 /// talking to the `/api/v1/notification/inbox` endpoints.
-class NotificationCenterRemoteDataSource implements NotificationCenterDataSource {
+class NotificationCenterRemoteDataSource
+    implements NotificationCenterDataSource {
   NotificationCenterRemoteDataSource({
     required NotificationInboxRemoteDataSource inboxRemote,
     required StorageService storage,
-  })  : _inboxRemote = inboxRemote,
-        _storage = storage;
+  }) : _inboxRemote = inboxRemote,
+       _storage = storage;
 
   final NotificationInboxRemoteDataSource _inboxRemote;
   final StorageService _storage;
@@ -68,14 +69,14 @@ class NotificationCenterRemoteDataSource implements NotificationCenterDataSource
 
   /// Resolves the signed-in user context the inbox endpoints are scoped to.
   Future<({String userCode, String? schoolCode, String? role})>
-      _context() async {
-    final userCode =
-        (await _storage.getString(StorageKeys.userCode) ?? '').trim();
+  _context() async {
+    final userCode = (await _storage.getString(StorageKeys.userCode) ?? '')
+        .trim();
     if (userCode.isEmpty) {
       throw Exception('User not signed in');
     }
-    final schoolCode =
-        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final role = await _resolveRole(schoolCode);
     return (
       userCode: userCode,

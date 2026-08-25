@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_dialog.dart'
     show BillingActionCard;
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Shown from the Transactions tab "+" button: lets the user choose between
 /// creating an invoice or receiving a payment. Both flows start by selecting
@@ -25,9 +26,7 @@ class TransactionActionDialog extends StatelessWidget {
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: Padding(
@@ -38,13 +37,10 @@ class TransactionActionDialog extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'New Transaction',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                      style: AppTextStyles.title.copyWith(
                         color: AppColors.billingTextColor,
                       ),
                     ),
@@ -54,8 +50,11 @@ class TransactionActionDialog extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                     child: const Padding(
                       padding: EdgeInsets.all(6.0),
-                      child:
-                          Icon(Icons.close, size: 18, color: Color(0x99573353)),
+                      child: Icon(
+                        Icons.close,
+                        size: 18,
+                        color: Color(0x99573353),
+                      ),
                     ),
                   ),
                 ],
@@ -101,8 +100,7 @@ class TransactionActionDialog extends StatelessWidget {
                     Expanded(
                       child: BillingActionCard(
                         title: 'Add\nCredit',
-                        subtitle:
-                            'Add account credit for this family',
+                        subtitle: 'Add account credit for this family',
                         icon: Icons.account_balance_wallet_outlined,
                         onTap: onSelectAddCredit,
                       ),

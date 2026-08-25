@@ -15,16 +15,16 @@ class GeneralLedgerState extends Equatable {
   });
 
   GeneralLedgerState.initial()
-      : allLedgers = const [],
-        selectedCategory = null,
-        searchQuery = '',
-        statusFilter = 'ACTIVE',
-        isLoading = false,
-        isRefreshing = false,
-        isLoadingMore = false,
-        hasMore = true,
-        currentPage = 0,
-        errorMessage = null;
+    : allLedgers = const [],
+      selectedCategory = null,
+      searchQuery = '',
+      statusFilter = 'ACTIVE',
+      isLoading = false,
+      isRefreshing = false,
+      isLoadingMore = false,
+      hasMore = true,
+      currentPage = 0,
+      errorMessage = null;
 
   final List<LedgerAccountModel> allLedgers;
   final String? selectedCategory;
@@ -56,7 +56,9 @@ class GeneralLedgerState extends Equatable {
   }) {
     return GeneralLedgerState(
       allLedgers: allLedgers ?? this.allLedgers,
-      selectedCategory: selectedCategory != null ? selectedCategory() : this.selectedCategory,
+      selectedCategory: selectedCategory != null
+          ? selectedCategory()
+          : this.selectedCategory,
       searchQuery: searchQuery ?? this.searchQuery,
       statusFilter: statusFilter != null ? statusFilter() : this.statusFilter,
       isLoading: isLoading ?? this.isLoading,
@@ -70,7 +72,15 @@ class GeneralLedgerState extends Equatable {
 
   @override
   List<Object?> get props => [
-        allLedgers, selectedCategory, searchQuery, statusFilter,
-        isLoading, isRefreshing, isLoadingMore, hasMore, currentPage, errorMessage,
-      ];
+    allLedgers,
+    selectedCategory,
+    searchQuery,
+    statusFilter,
+    isLoading,
+    isRefreshing,
+    isLoadingMore,
+    hasMore,
+    currentPage,
+    errorMessage,
+  ];
 }

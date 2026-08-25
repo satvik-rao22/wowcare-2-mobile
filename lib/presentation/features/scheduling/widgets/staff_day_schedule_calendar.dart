@@ -67,7 +67,8 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
     super.didUpdateWidget(oldWidget);
     final scheduleChanged =
         oldWidget.dailyRoomSchedule != widget.dailyRoomSchedule;
-    final hoursChanged = oldWidget.schoolStartTime != widget.schoolStartTime ||
+    final hoursChanged =
+        oldWidget.schoolStartTime != widget.schoolStartTime ||
         oldWidget.schoolEndTime != widget.schoolEndTime;
     if (scheduleChanged) {
       _shifts = List<Shift>.of(widget.dailyRoomSchedule.shifts)
@@ -155,8 +156,12 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
 
     if (endTime.minute > 0 || endTime.second > 0) {
       endTime = endTime.add(const Duration(hours: 1));
-      endTime =
-          DateTime(endTime.year, endTime.month, endTime.day, endTime.hour);
+      endTime = DateTime(
+        endTime.year,
+        endTime.month,
+        endTime.day,
+        endTime.hour,
+      );
     }
 
     final slots = <String>[];
@@ -172,9 +177,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.primaryColor.withValues(alpha: 0.07),
-        border: const Border(
-          bottom: BorderSide(width: 1, color: Colors.grey),
-        ),
+        border: const Border(bottom: BorderSide(width: 1, color: Colors.grey)),
       ),
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -246,8 +249,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
 
   String _displayRoom(Shift shift) {
     if (shift.isBreakShift) return shift.room;
-    return widget.classroomResolver?.resolveShiftRoom(shift.room) ??
-        shift.room;
+    return widget.classroomResolver?.resolveShiftRoom(shift.room) ?? shift.room;
   }
 
   /// Returns the unobstructed vertical space at the top of a work-shift block,
@@ -401,10 +403,8 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
   Widget _buildTimeContainer(Shift shift) {
     final double height =
         _getTimeDifferenceInHours(shift.start, shift.end) * cellHeightRow;
-    final double topSpace = _getTimeDifferenceInHours(
-          _slotGridStartLabel(),
-          shift.start,
-        ) *
+    final double topSpace =
+        _getTimeDifferenceInHours(_slotGridStartLabel(), shift.start) *
         cellHeightRow;
 
     if (shift.isBreakShift) {
@@ -429,9 +429,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
       decoration: BoxDecoration(
         color: const Color.fromRGBO(234, 244, 255, 1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.themeColor.withValues(alpha: 0.15),
-        ),
+        border: Border.all(color: AppColors.themeColor.withValues(alpha: 0.15)),
       ),
       alignment: Alignment.topLeft,
       child: _buildSingleShift(shift, contentHeight),
@@ -468,10 +466,12 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
       widget.schoolStartTime,
       widget.schoolEndTime,
     ).length;
-    final workShifts =
-        _shifts.where((s) => !s.isBreakShift).toList(growable: false);
-    final breakShifts =
-        _shifts.where((s) => s.isBreakShift).toList(growable: false);
+    final workShifts = _shifts
+        .where((s) => !s.isBreakShift)
+        .toList(growable: false);
+    final breakShifts = _shifts
+        .where((s) => s.isBreakShift)
+        .toList(growable: false);
 
     return SizedBox(
       height: cellHeightRow * slotCount,

@@ -12,6 +12,7 @@ import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_c
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 // ---------------------------------------------------------------------------
 // UI-layer student model
@@ -377,11 +378,7 @@ class _MovementsCardState extends State<MovementsCard> {
       ),
       child: Text(
         status,
-        style: TextStyle(
-          fontSize: 16,
-          color: _statusColor(status),
-          fontWeight: FontWeight.w500,
-        ),
+        style: AppTextStyles.bodyLarge.copyWith(color: _statusColor(status)),
         textAlign: TextAlign.center,
       ),
     );
@@ -410,7 +407,7 @@ class _MovementsCardState extends State<MovementsCard> {
                 children: [
                   Text(
                     month,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    style: AppTextStyles.body.copyWith(color: Colors.grey[600]),
                   ),
                   Text(
                     day,
@@ -450,10 +447,7 @@ class _MovementsCardState extends State<MovementsCard> {
                             },
                             child: Text(
                               students.first.name,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: AppTextStyles.title,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -462,21 +456,9 @@ class _MovementsCardState extends State<MovementsCard> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              studentCount,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            Text(studentCount, style: AppTextStyles.title),
                             const SizedBox(width: 4),
-                            const Text(
-                              'Students',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            const Text('Students', style: AppTextStyles.title),
                           ],
                         ),
                       const SizedBox(width: 4),
@@ -517,7 +499,7 @@ class _MovementsCardState extends State<MovementsCard> {
             const SizedBox(height: 8),
             Text(
               'No movements scheduled',
-              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+              style: AppTextStyles.body.copyWith(color: Colors.grey[500]),
             ),
           ],
         ),

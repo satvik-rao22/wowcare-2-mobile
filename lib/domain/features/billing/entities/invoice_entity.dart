@@ -41,21 +41,21 @@ class InvoiceTransactionEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        type,
-        date,
-        familyCode,
-        familyName,
-        studentCode,
-        studentName,
-        description,
-        status,
-        method,
-        amount,
-        paidAmount,
-        refundedAmount,
-        invoiceCode,
-      ];
+    id,
+    type,
+    date,
+    familyCode,
+    familyName,
+    studentCode,
+    studentName,
+    description,
+    status,
+    method,
+    amount,
+    paidAmount,
+    refundedAmount,
+    invoiceCode,
+  ];
 }
 
 /// One page of transactions plus whether more pages exist.
@@ -86,8 +86,15 @@ class CreateInvoiceItemParams extends Equatable {
   final double? valueInput;
 
   @override
-  List<Object?> get props =>
-      [itemType, description, amount, quantity, sourceCode, valueType, valueInput];
+  List<Object?> get props => [
+    itemType,
+    description,
+    amount,
+    quantity,
+    sourceCode,
+    valueType,
+    valueInput,
+  ];
 }
 
 class CreateInvoiceParams extends Equatable {
@@ -119,17 +126,17 @@ class CreateInvoiceParams extends Equatable {
 
   @override
   List<Object?> get props => [
-        organizationCode,
-        schoolCode,
-        studentCode,
-        issueDate,
-        dueDate,
-        periodStart,
-        periodEnd,
-        items,
-        notes,
-        currency,
-      ];
+    organizationCode,
+    schoolCode,
+    studentCode,
+    issueDate,
+    dueDate,
+    periodStart,
+    periodEnd,
+    items,
+    notes,
+    currency,
+  ];
 }
 
 /// Params for `PATCH /api/v1/invoices/{invoiceCode}/draft` (edit draft invoice).
@@ -168,19 +175,19 @@ class UpdateInvoiceParams extends Equatable {
 
   @override
   List<Object?> get props => [
-        organizationCode,
-        schoolCode,
-        studentCode,
-        ownerType,
-        ownerCode,
-        issueDate,
-        dueDate,
-        periodStart,
-        periodEnd,
-        currency,
-        notes,
-        items,
-      ];
+    organizationCode,
+    schoolCode,
+    studentCode,
+    ownerType,
+    ownerCode,
+    issueDate,
+    dueDate,
+    periodStart,
+    periodEnd,
+    currency,
+    notes,
+    items,
+  ];
 }
 
 /// Aggregated billing totals from `GET /api/v1/invoices/overview`.
@@ -211,8 +218,14 @@ class InvoiceOverviewEntity extends Equatable {
   double get outstandingPercent => _pct(outstanding);
 
   @override
-  List<Object?> get props =>
-      [amountInvoiced, paid, refunded, netPaid, inProcess, outstanding];
+  List<Object?> get props => [
+    amountInvoiced,
+    paid,
+    refunded,
+    netPaid,
+    inProcess,
+    outstanding,
+  ];
 }
 
 /// Params for a payment (`/payments`) or refund (`/refunds`).
@@ -241,16 +254,16 @@ class InvoicePaymentParams extends Equatable {
 
   @override
   List<Object?> get props => [
-        schoolCode,
-        amount,
-        date,
-        ownerType,
-        ownerCode,
-        studentCode,
-        method,
-        reference,
-        narration,
-      ];
+    schoolCode,
+    amount,
+    date,
+    ownerType,
+    ownerCode,
+    studentCode,
+    method,
+    reference,
+    narration,
+  ];
 }
 
 /// Params for a credit (`POST /api/v1/invoices/credits`).
@@ -275,14 +288,14 @@ class CreateCreditParams extends Equatable {
 
   @override
   List<Object?> get props => [
-        schoolCode,
-        amount,
-        ownerType,
-        ownerCode,
-        studentCode,
-        reason,
-        description,
-      ];
+    schoolCode,
+    amount,
+    ownerType,
+    ownerCode,
+    studentCode,
+    reason,
+    description,
+  ];
 }
 
 class InvoicePaymentResultEntity extends Equatable {

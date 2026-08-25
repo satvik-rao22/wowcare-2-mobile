@@ -51,7 +51,10 @@ class InvoiceTransactionModel {
       studentName: (json['studentName'] ?? '').toString(),
       description: (json['description'] ?? '').toString(),
       status: (json['status'] ?? '').toString(),
-      method: ((json['method'] ?? json['paymentMode'] ?? json['paymentMethod']) as Object?)?.toString(),
+      method:
+          ((json['method'] ?? json['paymentMode'] ?? json['paymentMethod'])
+                  as Object?)
+              ?.toString(),
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
       paidAmount: (json['paidAmount'] as num?)?.toDouble() ?? 0.0,
       refundedAmount: (json['refundedAmount'] as num?)?.toDouble() ?? 0.0,
@@ -60,21 +63,21 @@ class InvoiceTransactionModel {
   }
 
   InvoiceTransactionEntity toEntity() => InvoiceTransactionEntity(
-        id: id,
-        type: type,
-        date: date,
-        familyCode: familyCode,
-        familyName: familyName,
-        studentCode: studentCode,
-        studentName: studentName,
-        description: description,
-        status: status,
-        method: method,
-        amount: amount,
-        paidAmount: paidAmount,
-        refundedAmount: refundedAmount,
-        invoiceCode: invoiceCode,
-      );
+    id: id,
+    type: type,
+    date: date,
+    familyCode: familyCode,
+    familyName: familyName,
+    studentCode: studentCode,
+    studentName: studentName,
+    description: description,
+    status: status,
+    method: method,
+    amount: amount,
+    paidAmount: paidAmount,
+    refundedAmount: refundedAmount,
+    invoiceCode: invoiceCode,
+  );
 }
 
 /// One page of invoice transactions plus whether more pages exist.
@@ -95,10 +98,13 @@ class InvoiceTransactionsPageModel {
     final content = map['content'];
     final items = content is List
         ? content
-            .whereType<Map>()
-            .map((e) =>
-                InvoiceTransactionModel.fromJson(Map<String, dynamic>.from(e)))
-            .toList()
+              .whereType<Map>()
+              .map(
+                (e) => InvoiceTransactionModel.fromJson(
+                  Map<String, dynamic>.from(e),
+                ),
+              )
+              .toList()
         : <InvoiceTransactionModel>[];
     // Prefer the Spring `last` flag; fall back to a full page meaning more.
     final last = map['last'];
@@ -112,9 +118,9 @@ class InvoiceTransactionsPageModel {
   }
 
   ({List<InvoiceTransactionEntity> items, bool hasMore, int totalElements})
-      toEntity() => (
-            items: items.map((e) => e.toEntity()).toList(),
-            hasMore: hasMore,
-            totalElements: totalElements,
-          );
+  toEntity() => (
+    items: items.map((e) => e.toEntity()).toList(),
+    hasMore: hasMore,
+    totalElements: totalElements,
+  );
 }

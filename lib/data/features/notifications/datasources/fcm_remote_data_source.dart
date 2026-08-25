@@ -31,7 +31,9 @@ class FcmRemoteDataSourceImpl implements FcmRemoteDataSource {
     );
 
     if (Platform.isIOS) {
-      debugPrint('[iOS PUSH] Permission status: ${settings.authorizationStatus}');
+      debugPrint(
+        '[iOS PUSH] Permission status: ${settings.authorizationStatus}',
+      );
       debugPrint('[iOS PUSH]   alert  : ${settings.alert}');
       debugPrint('[iOS PUSH]   badge  : ${settings.badge}');
       debugPrint('[iOS PUSH]   sound  : ${settings.sound}');
@@ -41,7 +43,9 @@ class FcmRemoteDataSourceImpl implements FcmRemoteDataSource {
         case AuthorizationStatus.authorized:
           debugPrint('[iOS PUSH] ✅ User granted full notification permission');
         case AuthorizationStatus.provisional:
-          debugPrint('[iOS PUSH] ⚠️  User granted provisional notification permission');
+          debugPrint(
+            '[iOS PUSH] ⚠️  User granted provisional notification permission',
+          );
         case AuthorizationStatus.denied:
           debugPrint('[iOS PUSH] ❌ User denied notification permission');
         case AuthorizationStatus.notDetermined:
@@ -59,16 +63,26 @@ class FcmRemoteDataSourceImpl implements FcmRemoteDataSource {
       String? apnsToken;
       for (int attempt = 1; attempt <= 5; attempt++) {
         apnsToken = await _messaging.getAPNSToken();
-        debugPrint('[iOS APNS] Attempt $attempt/5 → ${apnsToken != null ? "✅ token received" : "⏳ not yet available"}');
+        debugPrint(
+          '[iOS APNS] Attempt $attempt/5 → ${apnsToken != null ? "✅ token received" : "⏳ not yet available"}',
+        );
         if (apnsToken != null) break;
         await Future<void>.delayed(const Duration(seconds: 1));
       }
 
       if (apnsToken == null) {
-        debugPrint('[iOS APNS] ❌ APNS token not available after 5 attempts — push notifications will not work');
-        debugPrint('[iOS APNS]    Check: Push Notifications capability enabled in Apple Developer portal?');
-        debugPrint('[iOS APNS]    Check: aps-environment entitlement present in Runner.entitlements?');
-        debugPrint('[iOS APNS]    Check: Device connected to internet and signed into iCloud?');
+        debugPrint(
+          '[iOS APNS] ❌ APNS token not available after 5 attempts — push notifications will not work',
+        );
+        debugPrint(
+          '[iOS APNS]    Check: Push Notifications capability enabled in Apple Developer portal?',
+        );
+        debugPrint(
+          '[iOS APNS]    Check: aps-environment entitlement present in Runner.entitlements?',
+        );
+        debugPrint(
+          '[iOS APNS]    Check: Device connected to internet and signed into iCloud?',
+        );
         return null;
       }
 
@@ -80,7 +94,9 @@ class FcmRemoteDataSourceImpl implements FcmRemoteDataSource {
       if (fcmToken != null) {
         debugPrint('[iOS FCM] ✅ FCM token obtained: $fcmToken');
       } else {
-        debugPrint('[iOS FCM] ❌ FCM token is null — check Firebase project configuration');
+        debugPrint(
+          '[iOS FCM] ❌ FCM token is null — check Firebase project configuration',
+        );
       }
     }
     return fcmToken;
@@ -99,9 +115,9 @@ class FcmRemoteDataSourceImpl implements FcmRemoteDataSource {
       FirebaseMessaging.onMessage.map(PushNotificationModel.fromRemoteMessage);
 
   @override
-  Stream<PushNotificationModel> get onNotificationTap =>
-      FirebaseMessaging.onMessageOpenedApp
-          .map(PushNotificationModel.fromRemoteMessage);
+  Stream<PushNotificationModel> get onNotificationTap => FirebaseMessaging
+      .onMessageOpenedApp
+      .map(PushNotificationModel.fromRemoteMessage);
 
   @override
   Future<PushNotificationModel?> getInitialMessage() async {

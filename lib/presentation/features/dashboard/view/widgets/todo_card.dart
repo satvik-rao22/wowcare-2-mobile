@@ -3,6 +3,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// One actionable item in the [TodoCard] checklist.
 class _TodoTask {
@@ -119,7 +120,7 @@ class _TodoCardState extends State<TodoCard> {
           const SizedBox(width: 4),
           Text(
             task.dueDate,
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            style: AppTextStyles.body.copyWith(color: Colors.grey.shade600),
           ),
           const SizedBox(width: 8),
           DocumentImageWidget(

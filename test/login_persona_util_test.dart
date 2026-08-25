@@ -10,7 +10,7 @@ void main() {
           'role': 'KIOSK',
           'organizationCode': 'ORG_001',
           'schoolCode': 'SCH_123',
-        }
+        },
       ]);
 
       final result = shouldSkipStaffCodeResolutionForContext(
@@ -19,7 +19,11 @@ void main() {
         schoolCode: 'SCH_123',
       );
 
-      expect(result, isTrue, reason: 'KIOSK users should skip staff code resolution');
+      expect(
+        result,
+        isTrue,
+        reason: 'KIOSK users should skip staff code resolution',
+      );
     });
 
     test('returns true for GUARDIAN role to prevent staff lookup', () {
@@ -28,7 +32,7 @@ void main() {
           'role': 'GUARDIAN',
           'organizationCode': 'ORG_001',
           'schoolCode': 'SCH_123',
-        }
+        },
       ]);
 
       final result = shouldSkipStaffCodeResolutionForContext(
@@ -37,7 +41,11 @@ void main() {
         schoolCode: 'SCH_123',
       );
 
-      expect(result, isTrue, reason: 'GUARDIAN users should skip staff code resolution');
+      expect(
+        result,
+        isTrue,
+        reason: 'GUARDIAN users should skip staff code resolution',
+      );
     });
 
     test('returns false for STAFF role to enable staff lookup', () {
@@ -46,7 +54,7 @@ void main() {
           'role': 'STAFF',
           'organizationCode': 'ORG_001',
           'schoolCode': 'SCH_123',
-        }
+        },
       ]);
 
       final result = shouldSkipStaffCodeResolutionForContext(
@@ -55,7 +63,11 @@ void main() {
         schoolCode: 'SCH_123',
       );
 
-      expect(result, isFalse, reason: 'STAFF users should perform staff code resolution');
+      expect(
+        result,
+        isFalse,
+        reason: 'STAFF users should perform staff code resolution',
+      );
     });
 
     test('returns true for mixed KIOSK and STAFF roles', () {
@@ -69,7 +81,7 @@ void main() {
           'role': 'STAFF',
           'organizationCode': 'ORG_002',
           'schoolCode': 'SCH_456',
-        }
+        },
       ]);
 
       // When checking KIOSK context, should skip
@@ -78,7 +90,11 @@ void main() {
         organizationCode: 'ORG_001',
         schoolCode: 'SCH_123',
       );
-      expect(resultKiosk, isTrue, reason: 'KIOSK context should skip staff lookup');
+      expect(
+        resultKiosk,
+        isTrue,
+        reason: 'KIOSK context should skip staff lookup',
+      );
 
       // When checking STAFF context, should not skip
       final resultStaff = shouldSkipStaffCodeResolutionForContext(
@@ -86,7 +102,11 @@ void main() {
         organizationCode: 'ORG_002',
         schoolCode: 'SCH_456',
       );
-      expect(resultStaff, isFalse, reason: 'STAFF context should perform staff lookup');
+      expect(
+        resultStaff,
+        isFalse,
+        reason: 'STAFF context should perform staff lookup',
+      );
     });
 
     test('returns false for empty roles', () {
@@ -122,7 +142,7 @@ void main() {
           'role': 'KIOSK',
           'organizationCode': 'ORG_001',
           'schoolCode': 'SCH_123',
-        }
+        },
       ]);
 
       expect(result, isTrue);
@@ -134,7 +154,7 @@ void main() {
           'role': 'GUARDIAN',
           'organizationCode': 'ORG_001',
           'schoolCode': 'SCH_123',
-        }
+        },
       ]);
 
       expect(result, isFalse);
@@ -151,7 +171,7 @@ void main() {
           'role': 'KIOSK',
           'organizationCode': 'ORG_002',
           'schoolCode': 'SCH_456',
-        }
+        },
       ]);
 
       expect(result, isTrue);

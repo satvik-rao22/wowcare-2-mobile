@@ -6,11 +6,7 @@ import 'day_classroom_section.dart';
 /// Daily classroom schedule (PRD Use Case 6). Delegates to [DayClassroomSection].
 @Deprecated('Use DayClassroomSection with SchedulingViewMode.day instead.')
 class DayGanttTable extends StatelessWidget {
-  const DayGanttTable({
-    super.key,
-    required this.classrooms,
-    required this.day,
-  });
+  const DayGanttTable({super.key, required this.classrooms, required this.day});
 
   final List<ClassroomDaySchedule> classrooms;
   final DateTime day;

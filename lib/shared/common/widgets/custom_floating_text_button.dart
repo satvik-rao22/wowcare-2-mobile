@@ -38,10 +38,7 @@ class CustomFloatingTextButton extends StatelessWidget {
         onPressed: onPressed,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        child: Text(
-          label,
-          style: textStyle,
-        ),
+        child: Text(label, style: textStyle),
       ),
     );
   }
@@ -67,10 +64,7 @@ class CustomFloatingTextButton extends StatelessWidget {
           shaderCallback: (Rect bounds) =>
               AppColors.buildSecondaryGradient().createShader(bounds),
           blendMode: BlendMode.srcIn,
-          child: Text(
-            label,
-            style: textStyle,
-          ),
+          child: Text(label, style: textStyle),
         ),
       ),
     );

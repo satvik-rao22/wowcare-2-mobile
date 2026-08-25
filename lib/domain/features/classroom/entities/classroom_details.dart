@@ -21,10 +21,13 @@ class ClassroomDetails extends Equatable {
   final String code;
   final String name;
   final int capacity;
+
   /// Students per teacher (may be fractional, e.g. 4.5).
   final double studentsPerTeacher;
+
   /// Lower bound from API `minAge` (whole months).
   final int minAgeTotalMonths;
+
   /// Upper bound from API `maxAge` (whole months).
   final int maxAgeTotalMonths;
   final String type;
@@ -34,6 +37,7 @@ class ClassroomDetails extends Equatable {
   final DateTime? createdAt;
   final String updatedBy;
   final DateTime? updatedAt;
+
   /// Asset code for the classroom logo image.
   final String logoAssetCode;
 
@@ -107,19 +111,19 @@ class ClassroomDetails extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        name,
-        capacity,
-        studentsPerTeacher,
-        minAgeTotalMonths,
-        maxAgeTotalMonths,
-        type,
-        school,
-        status,
-        createdBy,
-        createdAt,
-        updatedBy,
-        updatedAt,
-        logoAssetCode,
-      ];
+    code,
+    name,
+    capacity,
+    studentsPerTeacher,
+    minAgeTotalMonths,
+    maxAgeTotalMonths,
+    type,
+    school,
+    status,
+    createdBy,
+    createdAt,
+    updatedBy,
+    updatedAt,
+    logoAssetCode,
+  ];
 }

@@ -16,6 +16,7 @@ import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_e
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class StudentNewslettersCard extends StatefulWidget {
   const StudentNewslettersCard({super.key});
@@ -152,10 +153,7 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
 }
 
 class _NewsletterRow extends StatelessWidget {
-  const _NewsletterRow({
-    required this.item,
-    required this.classroomName,
-  });
+  const _NewsletterRow({required this.item, required this.classroomName});
 
   final NewsletterEntity item;
   final String classroomName;
@@ -219,9 +217,8 @@ class _NewsletterRow extends StatelessWidget {
                           _formatCreatedAt(item.createdAt),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
+                          style: AppTextStyles.label.copyWith(
                             color: Colors.grey[600],
-                            fontSize: 13,
                           ),
                         ),
                       ),
@@ -238,17 +235,11 @@ class _NewsletterRow extends StatelessWidget {
                       //       '$recipientCount',
                       //       maxLines: 1,
                       //       overflow: TextOverflow.ellipsis,
-                      //       style: TextStyle(
-                      //         color: Colors.grey[600],
-                      //         fontSize: 13,
-                      //       ),
-                      //     ),
-                      //   ],
-                      // ),
+                      //       style: AppTextStyles.body,
+                      const SizedBox(height: 2),
+                      _MetaRow(label: 'Classroom', value: classroomName),
                     ],
                   ),
-                  const SizedBox(height: 2),
-                  _MetaRow(label: 'Classroom', value: classroomName),
                 ],
               ),
             ),
@@ -322,7 +313,7 @@ class _MetaRow extends StatelessWidget {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  style: AppTextStyles.label.copyWith(color: Colors.grey[600]),
                 ),
               ),
               const SizedBox(width: 8),
@@ -333,9 +324,8 @@ class _MetaRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.end,
-                  style: const TextStyle(
+                  style: AppTextStyles.label.copyWith(
                     color: AppColors.primaryColor,
-                    fontSize: 13,
                   ),
                 ),
               ),
@@ -361,10 +351,8 @@ class _EmptyState extends StatelessWidget {
         children: [
           Text(
             'No newsletters found',
-            style: TextStyle(
+            style: AppTextStyles.body.copyWith(
               color: AppColors.primaryColor.withValues(alpha: 0.7),
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 8),

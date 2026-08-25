@@ -39,18 +39,18 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
     required DeletePaymentMethodUseCase deleteMethod,
     required UpdatePaymentMethodUseCase updateMethod,
     required StorageService storage,
-  })  : _getForteConfig = getForteConfig,
-        _getPaymentSettings = getPaymentSettings,
-        _getStatus = getStatus,
-        _setStatus = setStatus,
-        _getMethods = getMethods,
-        _addMethod = addMethod,
-        _setPrimary = setPrimary,
-        _setAutopay = setAutopay,
-        _deleteMethod = deleteMethod,
-        _updateMethod = updateMethod,
-        _storage = storage,
-        super(const AutoPayMethodsState());
+  }) : _getForteConfig = getForteConfig,
+       _getPaymentSettings = getPaymentSettings,
+       _getStatus = getStatus,
+       _setStatus = setStatus,
+       _getMethods = getMethods,
+       _addMethod = addMethod,
+       _setPrimary = setPrimary,
+       _setAutopay = setAutopay,
+       _deleteMethod = deleteMethod,
+       _updateMethod = updateMethod,
+       _storage = storage,
+       super(const AutoPayMethodsState());
 
   final GetSchoolForteConfigUseCase _getForteConfig;
   final GetPaymentSettingsUseCase _getPaymentSettings;
@@ -69,10 +69,10 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
   String _guardianCode = '';
 
   GuardianScopeParams get _scope => GuardianScopeParams(
-        organizationCode: _organizationCode,
-        schoolCode: _schoolCode,
-        guardianCode: _guardianCode,
-      );
+    organizationCode: _organizationCode,
+    schoolCode: _schoolCode,
+    guardianCode: _guardianCode,
+  );
 
   /// True only when org/school/guardian scope is fully resolved.
   bool get hasScope =>
@@ -86,10 +86,10 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
     try {
       _organizationCode =
           (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      _schoolCode =
-          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      _guardianCode =
-          (await _storage.getString(StorageKeys.guardianCode) ?? '').trim();
+      _schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
+      _guardianCode = (await _storage.getString(StorageKeys.guardianCode) ?? '')
+          .trim();
 
       final config = await _getForteConfig(
         organizationCode: _organizationCode,
@@ -102,8 +102,7 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
       List<String> allowedMethods = const <String>[];
       if (_schoolCode.isNotEmpty) {
         try {
-          final settings =
-              await _getPaymentSettings(schoolCode: _schoolCode);
+          final settings = await _getPaymentSettings(schoolCode: _schoolCode);
           allowedMethods = settings?.allowedMethods ?? const <String>[];
         } catch (_) {
           allowedMethods = const <String>[];
@@ -120,25 +119,30 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
       if (isClosed) return;
       final selectedCode = _autopayCodeOf(methods) ?? _primaryCodeOf(methods);
       final enabled = status?.autopayEnabled ?? false;
-      emit(state.copyWith(
-        isLoading: false,
-        apiLoginId: config?.apiLoginId ?? '',
-        maxMethods: (config?.maxPaymentMethods != null &&
-                config!.maxPaymentMethods! > 0)
-            ? config.maxPaymentMethods!
-            : state.maxMethods,
-        autopayEnabled: enabled,
-        initialAutopayEnabled: enabled,
-        methods: methods,
-        allowedMethods: allowedMethods,
-        selectedMethodCode: () => selectedCode,
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          apiLoginId: config?.apiLoginId ?? '',
+          maxMethods:
+              (config?.maxPaymentMethods != null &&
+                  config!.maxPaymentMethods! > 0)
+              ? config.maxPaymentMethods!
+              : state.maxMethods,
+          autopayEnabled: enabled,
+          initialAutopayEnabled: enabled,
+          methods: methods,
+          allowedMethods: allowedMethods,
+          selectedMethodCode: () => selectedCode,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoading: false,
-        errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -159,17 +163,15 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
   Map<String, dynamic> buildWebviewPayload({
     String? title,
     String? defaultMethod,
-  }) =>
-      <String, dynamic>{
-        'env': ApiConstants.forteEnv,
-        'apiLoginId': state.apiLoginId,
-        'title': title ?? 'Add Payment Method',
-        if (defaultMethod != null) 'defaultMethod': defaultMethod,
-        // Restrict the webview's method dropdown to the school's accepted types
-        // (empty → no restriction).
-        if (state.allowedMethods.isNotEmpty)
-          'allowedMethods': state.allowedMethods,
-      };
+  }) => <String, dynamic>{
+    'env': ApiConstants.forteEnv,
+    'apiLoginId': state.apiLoginId,
+    'title': title ?? 'Add Payment Method',
+    if (defaultMethod != null) 'defaultMethod': defaultMethod,
+    // Restrict the webview's method dropdown to the school's accepted types
+    // (empty → no restriction).
+    if (state.allowedMethods.isNotEmpty) 'allowedMethods': state.allowedMethods,
+  };
 
   /// Number of whitespace-separated words in [name] (used to require a first
   /// and last name before sending a holder name to Forte).
@@ -202,9 +204,11 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
   }) async {
     if (state.isSaving) return false;
     if (!hasScope) {
-      emit(state.copyWith(
-        errorMessage: () => 'Account context unavailable. Please try again.',
-      ));
+      emit(
+        state.copyWith(
+          errorMessage: () => 'Account context unavailable. Please try again.',
+        ),
+      );
       return false;
     }
     emit(state.copyWith(isSaving: true, errorMessage: () => null));
@@ -217,44 +221,50 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
       if (_nameWordCount(holderName) < 2) {
         final (firstName, lastName) = await _guardianNames();
         final first = holderName.isNotEmpty ? holderName : firstName;
-        holderName = [first, lastName]
-            .where((p) => p.trim().isNotEmpty)
-            .join(' ')
-            .trim();
+        holderName = [
+          first,
+          lastName,
+        ].where((p) => p.trim().isNotEmpty).join(' ').trim();
       }
 
-      await _addMethod(AddPaymentMethodParams(
-        organizationCode: _organizationCode,
-        schoolCode: _schoolCode,
-        guardianCode: _guardianCode,
-        oneTimeToken: oneTimeToken,
-        methodType: methodType,
-        payMethodHolderName: holderName,
-        label: label,
-        makePrimary: makePrimary,
-        makeAutopay: makeAutopay,
-      ));
+      await _addMethod(
+        AddPaymentMethodParams(
+          organizationCode: _organizationCode,
+          schoolCode: _schoolCode,
+          guardianCode: _guardianCode,
+          oneTimeToken: oneTimeToken,
+          methodType: methodType,
+          payMethodHolderName: holderName,
+          label: label,
+          makePrimary: makePrimary,
+          makeAutopay: makeAutopay,
+        ),
+      );
 
       final status = await _getStatus(_scope);
       final methods = await _getMethods(_scope);
       if (isClosed) return true;
-      emit(state.copyWith(
-        isSaving: false,
-        autopayEnabled: status.autopayEnabled,
-        initialAutopayEnabled: status.autopayEnabled,
-        methods: methods,
-        selectedMethodCode: () =>
-            _autopayCodeOf(methods) ??
-            _primaryCodeOf(methods) ??
-            state.selectedMethodCode,
-      ));
+      emit(
+        state.copyWith(
+          isSaving: false,
+          autopayEnabled: status.autopayEnabled,
+          initialAutopayEnabled: status.autopayEnabled,
+          methods: methods,
+          selectedMethodCode: () =>
+              _autopayCodeOf(methods) ??
+              _primaryCodeOf(methods) ??
+              state.selectedMethodCode,
+        ),
+      );
       return true;
     } catch (e) {
       if (isClosed) return false;
-      emit(state.copyWith(
-        isSaving: false,
-        errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isSaving: false,
+          errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
       return false;
     }
   }
@@ -281,9 +291,11 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
   }) async {
     if (state.isSaving) return false;
     if (!hasScope) {
-      emit(state.copyWith(
-        errorMessage: () => 'Account context unavailable. Please try again.',
-      ));
+      emit(
+        state.copyWith(
+          errorMessage: () => 'Account context unavailable. Please try again.',
+        ),
+      );
       return false;
     }
     emit(state.copyWith(isSaving: true, errorMessage: () => null));
@@ -305,8 +317,8 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
           echeck: method.isEcheck
               ? PaymentMethodEcheckEntity(
                   accountHolder: (accountHolder ?? '').trim(),
-                  routingNumber:
-                      (routingNumber ?? method.echeck?.routingNumber)?.trim(),
+                  routingNumber: (routingNumber ?? method.echeck?.routingNumber)
+                      ?.trim(),
                   accountType: accountType ?? method.echeck?.accountType,
                   itemDescription:
                       (itemDescription ?? method.echeck?.itemDescription)
@@ -331,21 +343,25 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
       final status = await _getStatus(_scope);
       final methods = await _getMethods(_scope);
       if (isClosed) return true;
-      emit(state.copyWith(
-        isSaving: false,
-        autopayEnabled: status.autopayEnabled,
-        initialAutopayEnabled: status.autopayEnabled,
-        methods: methods,
-        selectedMethodCode: () =>
-            _autopayCodeOf(methods) ?? state.selectedMethodCode,
-      ));
+      emit(
+        state.copyWith(
+          isSaving: false,
+          autopayEnabled: status.autopayEnabled,
+          initialAutopayEnabled: status.autopayEnabled,
+          methods: methods,
+          selectedMethodCode: () =>
+              _autopayCodeOf(methods) ?? state.selectedMethodCode,
+        ),
+      );
       return true;
     } catch (e) {
       if (isClosed) return false;
-      emit(state.copyWith(
-        isSaving: false,
-        errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isSaving: false,
+          errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
       return false;
     }
   }
@@ -359,9 +375,11 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
     if (state.isSettingPrimary) return false;
     if (!state.autopayChanged && !state.methodChanged) return true;
     if (!hasScope) {
-      emit(state.copyWith(
-        errorMessage: () => 'Account context unavailable. Please try again.',
-      ));
+      emit(
+        state.copyWith(
+          errorMessage: () => 'Account context unavailable. Please try again.',
+        ),
+      );
       return false;
     }
 
@@ -381,21 +399,25 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
       final status = await _getStatus(_scope);
       final methods = await _getMethods(_scope);
       if (isClosed) return true;
-      emit(state.copyWith(
-        isSettingPrimary: false,
-        autopayEnabled: status.autopayEnabled,
-        initialAutopayEnabled: status.autopayEnabled,
-        methods: methods,
-        selectedMethodCode: () =>
-            _autopayCodeOf(methods) ?? state.selectedMethodCode,
-      ));
+      emit(
+        state.copyWith(
+          isSettingPrimary: false,
+          autopayEnabled: status.autopayEnabled,
+          initialAutopayEnabled: status.autopayEnabled,
+          methods: methods,
+          selectedMethodCode: () =>
+              _autopayCodeOf(methods) ?? state.selectedMethodCode,
+        ),
+      );
       return true;
     } catch (e) {
       if (isClosed) return false;
-      emit(state.copyWith(
-        isSettingPrimary: false,
-        errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isSettingPrimary: false,
+          errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
       return false;
     }
   }
@@ -405,15 +427,16 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
   Future<bool> deletePaymentMethod(String code) async {
     if (state.deletingMethodCode != null) return false;
     if (!hasScope) {
-      emit(state.copyWith(
-        errorMessage: () => 'Account context unavailable. Please try again.',
-      ));
+      emit(
+        state.copyWith(
+          errorMessage: () => 'Account context unavailable. Please try again.',
+        ),
+      );
       return false;
     }
-    emit(state.copyWith(
-      deletingMethodCode: () => code,
-      errorMessage: () => null,
-    ));
+    emit(
+      state.copyWith(deletingMethodCode: () => code, errorMessage: () => null),
+    );
     try {
       await _deleteMethod(paymentMethodCode: code, scope: _scope);
       final methods = await _getMethods(_scope);
@@ -422,18 +445,22 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
       final nextSelected = state.selectedMethodCode == code
           ? (_autopayCodeOf(methods) ?? _primaryCodeOf(methods))
           : state.selectedMethodCode;
-      emit(state.copyWith(
-        deletingMethodCode: () => null,
-        methods: methods,
-        selectedMethodCode: () => nextSelected,
-      ));
+      emit(
+        state.copyWith(
+          deletingMethodCode: () => null,
+          methods: methods,
+          selectedMethodCode: () => nextSelected,
+        ),
+      );
       return true;
     } catch (e) {
       if (isClosed) return false;
-      emit(state.copyWith(
-        deletingMethodCode: () => null,
-        errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          deletingMethodCode: () => null,
+          errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
       return false;
     }
   }

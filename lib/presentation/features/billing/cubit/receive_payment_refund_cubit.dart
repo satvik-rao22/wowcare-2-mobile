@@ -48,11 +48,11 @@ class ReceivePaymentRefundCubit extends Cubit<ReceivePaymentRefundState> {
     required CreateRefundUseCase createRefund,
     required GetFamilyLedgerUseCase getFamilyLedger,
     required StorageService storage,
-  })  : _createPayment = createPayment,
-        _createRefund = createRefund,
-        _getFamilyLedger = getFamilyLedger,
-        _storage = storage,
-        super(const ReceivePaymentRefundState.initial());
+  }) : _createPayment = createPayment,
+       _createRefund = createRefund,
+       _getFamilyLedger = getFamilyLedger,
+       _storage = storage,
+       super(const ReceivePaymentRefundState.initial());
 
   final CreatePaymentUseCase _createPayment;
   final CreateRefundUseCase _createRefund;
@@ -77,7 +77,8 @@ class ReceivePaymentRefundCubit extends Cubit<ReceivePaymentRefundState> {
         outstanding: fallbackOutstanding,
       ),
     ];
-    final bool isFamily = (ownerType ?? '').toUpperCase() == 'FAMILY' &&
+    final bool isFamily =
+        (ownerType ?? '').toUpperCase() == 'FAMILY' &&
         (ownerCode ?? '').trim().isNotEmpty;
     if (!isFamily) {
       emit(state.copyWith(payableStudents: single, isLoadingStudents: false));
@@ -85,10 +86,10 @@ class ReceivePaymentRefundCubit extends Cubit<ReceivePaymentRefundState> {
     }
     emit(state.copyWith(isLoadingStudents: true));
     try {
-      final org =
-          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final school =
-          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final org = (await _storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+      final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       final ledger = await _getFamilyLedger(
         organizationCode: org,
         school: school,
@@ -97,16 +98,20 @@ class ReceivePaymentRefundCubit extends Cubit<ReceivePaymentRefundState> {
       );
       if (isClosed) return;
       final students = ledger.students
-          .map((s) => PayableStudent(
-                code: s.code,
-                name: s.fullName,
-                outstanding: s.outstanding,
-              ))
+          .map(
+            (s) => PayableStudent(
+              code: s.code,
+              name: s.fullName,
+              outstanding: s.outstanding,
+            ),
+          )
           .toList();
-      emit(state.copyWith(
-        payableStudents: students.isNotEmpty ? students : single,
-        isLoadingStudents: false,
-      ));
+      emit(
+        state.copyWith(
+          payableStudents: students.isNotEmpty ? students : single,
+          isLoadingStudents: false,
+        ),
+      );
     } catch (_) {
       if (isClosed) return;
       emit(state.copyWith(payableStudents: single, isLoadingStudents: false));
@@ -137,33 +142,42 @@ class ReceivePaymentRefundCubit extends Cubit<ReceivePaymentRefundState> {
       return ReceivePaymentRefundResult.missingCheque;
     }
 
-    emit(state.copyWith(
-        amountError: false, isSubmitting: true, errorMessage: null));
+    emit(
+      state.copyWith(
+        amountError: false,
+        isSubmitting: true,
+        errorMessage: null,
+      ),
+    );
     try {
       final schoolCode =
           (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
       for (final entry in payable.entries) {
-        await _createPayment(InvoicePaymentParams(
-          schoolCode: schoolCode,
-          amount: entry.value,
-          date: AppTime.now(),
-          ownerType: ownerType,
-          ownerCode: ownerCode,
-          studentCode: entry.key.isNotEmpty ? entry.key : null,
-          method: state.selectedPaymentType,
-          reference: chequeNumber.trim().isEmpty ? null : chequeNumber.trim(),
-          narration: narration,
-        ));
+        await _createPayment(
+          InvoicePaymentParams(
+            schoolCode: schoolCode,
+            amount: entry.value,
+            date: AppTime.now(),
+            ownerType: ownerType,
+            ownerCode: ownerCode,
+            studentCode: entry.key.isNotEmpty ? entry.key : null,
+            method: state.selectedPaymentType,
+            reference: chequeNumber.trim().isEmpty ? null : chequeNumber.trim(),
+            narration: narration,
+          ),
+        );
       }
       if (isClosed) return ReceivePaymentRefundResult.success;
       emit(state.copyWith(isSubmitting: false));
       return ReceivePaymentRefundResult.success;
     } catch (e) {
       if (isClosed) return ReceivePaymentRefundResult.failure;
-      emit(state.copyWith(
-        isSubmitting: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isSubmitting: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
       return ReceivePaymentRefundResult.failure;
     }
   }
@@ -201,8 +215,13 @@ class ReceivePaymentRefundCubit extends Cubit<ReceivePaymentRefundState> {
       return ReceivePaymentRefundResult.missingCheque;
     }
 
-    emit(state.copyWith(
-        amountError: false, isSubmitting: true, errorMessage: null));
+    emit(
+      state.copyWith(
+        amountError: false,
+        isSubmitting: true,
+        errorMessage: null,
+      ),
+    );
     try {
       final schoolCode =
           (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
@@ -229,10 +248,12 @@ class ReceivePaymentRefundCubit extends Cubit<ReceivePaymentRefundState> {
       return ReceivePaymentRefundResult.success;
     } catch (e) {
       if (isClosed) return ReceivePaymentRefundResult.failure;
-      emit(state.copyWith(
-        isSubmitting: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isSubmitting: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
       return ReceivePaymentRefundResult.failure;
     }
   }

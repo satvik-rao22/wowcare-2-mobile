@@ -262,7 +262,12 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
       // Designation options (backend codes; UI shows human-readable labels).
       _designationList = List<String>.from(_designationCodes);
 
-      _attendanceStatusList = ['Signed-In', 'Signed-Out', 'Not-Marked', 'Absent'];
+      _attendanceStatusList = [
+        'Signed-In',
+        'Signed-Out',
+        'Not-Marked',
+        'Absent',
+      ];
     });
   }
 
@@ -507,9 +512,9 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
             // toggle) and Sort by is single, so they don't get Select All.
             final showSelectAll =
                 section == StaffFilterSection.primaryClassroom ||
-                    section == StaffFilterSection.allowedClassroom ||
-                    section == StaffFilterSection.classroom ||
-                    section == StaffFilterSection.attendanceStatus;
+                section == StaffFilterSection.allowedClassroom ||
+                section == StaffFilterSection.classroom ||
+                section == StaffFilterSection.attendanceStatus;
 
             return CustomMultiSelectDropdown(
               label: label,

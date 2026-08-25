@@ -23,6 +23,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/full_attachment_viewer.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class MessageBubble extends StatefulWidget {
   final Message message;
@@ -472,20 +473,15 @@ class _MessageBubbleState extends State<MessageBubble>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
+              Text(
                 'Delete Message',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF573353),
-                ),
+                style: AppTextStyles.heading.copyWith(color: Color(0xFF573353)),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Are you sure you want to delete this message?',
-                style: TextStyle(
-                  fontSize: 14,
+                style: AppTextStyles.body.copyWith(
                   color: Color.fromRGBO(87, 51, 83, 0.7),
                 ),
                 textAlign: TextAlign.center,
@@ -507,13 +503,9 @@ class _MessageBubbleState extends State<MessageBubble>
                     borderRadius: BorderRadius.circular(12),
                   ),
                   alignment: Alignment.center,
-                  child: const Text(
+                  child: Text(
                     'Delete',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: AppTextStyles.title.copyWith(color: Colors.white),
                   ),
                 ),
               ),
@@ -527,12 +519,10 @@ class _MessageBubbleState extends State<MessageBubble>
                     borderRadius: BorderRadius.circular(12),
                   ),
                   alignment: Alignment.center,
-                  child: const Text(
+                  child: Text(
                     'Cancel',
-                    style: TextStyle(
+                    style: AppTextStyles.title.copyWith(
                       color: Color(0xFF573353),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -784,10 +774,8 @@ class _MessageBubbleState extends State<MessageBubble>
                               ],
                               Text(
                                 senderLabel,
-                                style: const TextStyle(
+                                style: AppTextStyles.body.copyWith(
                                   color: Color.fromRGBO(87, 51, 83, 0.7),
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 14,
                                 ),
                               ),
                             ],
@@ -957,11 +945,10 @@ class _MessageBubbleState extends State<MessageBubble>
             child: isDeleted
                 ? Text(
                     'This message has been deleted.',
-                    style: TextStyle(
+                    style: AppTextStyles.body.copyWith(
                       color: useLightText
                           ? Colors.white.withValues(alpha: 0.75)
                           : const Color.fromRGBO(87, 51, 83, 0.6),
-                      fontSize: 14,
                       fontStyle: FontStyle.italic,
                     ),
                   )
@@ -1027,11 +1014,10 @@ class _MessageBubbleState extends State<MessageBubble>
                         const SizedBox(height: 6),
                         Text(
                           'Edited',
-                          style: TextStyle(
+                          style: AppTextStyles.bodySmall.copyWith(
                             color: useLightText
                                 ? Colors.white.withValues(alpha: 0.7)
                                 : Colors.grey,
-                            fontSize: 12,
                             decoration: TextDecoration.none,
                           ),
                         ),
@@ -1047,12 +1033,10 @@ class _MessageBubbleState extends State<MessageBubble>
                         children: [
                           Text(
                             _formatTime(widget.message.time),
-                            style: TextStyle(
+                            style: AppTextStyles.bodySmall.copyWith(
                               color: useLightText
                                   ? Colors.white.withValues(alpha: 0.7)
                                   : Colors.grey[600],
-                              fontSize: 12.0,
-                              fontWeight: FontWeight.w400,
                             ),
                           ),
                           if (message.isPrivate &&
@@ -1956,7 +1940,7 @@ class _StableHtmlState extends State<_StableHtml> {
     // (no Material/Scaffold wrapper in HeroDialogRoute) from leaking yellow
     // underlines into flutter_html's text span rendering.
     return DefaultTextStyle.merge(
-      style: const TextStyle(decoration: TextDecoration.none),
+      style: AppTextStyles.body.copyWith(decoration: TextDecoration.none),
       child: html.Html(
         anchorKey: _anchorKey,
         data: widget.data,
@@ -2236,10 +2220,9 @@ class _EmojiChip extends StatelessWidget {
       children: [
         Text(
           emoji,
-          style: const TextStyle(
-            fontSize: 14,
-            decoration: TextDecoration.none,
+          style: AppTextStyles.body.copyWith(
             height: 1.2,
+            decoration: TextDecoration.none,
           ),
         ),
         if (count > 1) ...[

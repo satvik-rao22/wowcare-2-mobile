@@ -33,6 +33,7 @@ import '../widgets/thread_message_tile.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class StaffMessagingThread extends StatefulWidget {
   const StaffMessagingThread({super.key, required this.staffInfo});
@@ -606,12 +607,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
               style: TextButton.styleFrom(overlayColor: Colors.transparent),
               child: Text(
                 'Save',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
+                style: AppTextStyles.heading.copyWith(color: Colors.white),
               ),
             ),
           ),
@@ -1454,7 +1450,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                         TextSpan(
                                           text: widget.staffInfo['designation']
                                               .toString(),
-                                          style: const TextStyle(
+                                          style: AppTextStyles.body.copyWith(
                                             color: Colors.black54,
                                           ),
                                         ),
@@ -1480,7 +1476,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                         TextSpan(
                                           text: widget.staffInfo['email']
                                               .toString(),
-                                          style: const TextStyle(
+                                          style: AppTextStyles.body.copyWith(
                                             color: Colors.black54,
                                           ),
                                         ),
@@ -1645,7 +1641,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         },
         onAttachmentError: (message) {
           if (!mounted) return;
-          CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: message,
+            isError: true,
+          );
         },
       ),
     );
@@ -1677,8 +1677,18 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
       label = 'Yesterday';
     } else {
       const monthNames = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
       ];
       label =
           "${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";

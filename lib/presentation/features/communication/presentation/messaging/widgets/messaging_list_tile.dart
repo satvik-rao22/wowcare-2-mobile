@@ -6,6 +6,7 @@ import 'package:wowcare/presentation/features/communication/shared/utils/message
 import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class MessagingListTile extends StatelessWidget {
   final Conversation conversation;
@@ -122,9 +123,7 @@ class MessagingListTile extends StatelessWidget {
                 ),
                 Text(
                   _formatMessageTime(conversation.lastMessageAt),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                  style: AppTextStyles.caption.copyWith(
                     color: Color(0xFFA0A0A0),
                   ),
                 ),
@@ -146,9 +145,8 @@ class MessagingListTile extends StatelessWidget {
                   _lastMessagePreviewText(conversation),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: AppTextStyles.body.copyWith(
                     color: Color(0xFF636E72),
-                    fontSize: 14,
                     height: 1.4,
                   ),
                 ),

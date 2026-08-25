@@ -58,10 +58,10 @@ class KioskPinResultModel extends KioskPinResultEntity {
     final persona = personaStr.contains('staff')
         ? KioskPersona.staff
         : (personaStr.contains('guardian') || personaStr.contains('pickup'))
-            ? KioskPersona.guardian
-            : (personaStr.contains('kiosk') || personaStr.contains('koisk'))
-                ? KioskPersona.kiosk
-                : KioskPersona.unknown;
+        ? KioskPersona.guardian
+        : (personaStr.contains('kiosk') || personaStr.contains('koisk'))
+        ? KioskPersona.kiosk
+        : KioskPersona.unknown;
 
     final studentsList = <KioskStudentModel>[];
     final studentsJson = json['students'] as List?;
@@ -95,17 +95,19 @@ class KioskPinResultModel extends KioskPinResultEntity {
     'guardianCode': guardianCode,
     'guardianName': guardianName,
     'students': students
-        .map((s) => s is KioskStudentModel
-            ? s.toJson()
-            : {
-              'studentCode': s.studentCode,
-              'fullName': s.fullName,
-              'classroomCode': s.classroomCode,
-              'classroomName': s.classroomName,
-              'status': s.status,
-              'studentProfileAssetCode': s.studentProfileAssetCode,
-              'expected': s.expected,
-            })
+        .map(
+          (s) => s is KioskStudentModel
+              ? s.toJson()
+              : {
+                  'studentCode': s.studentCode,
+                  'fullName': s.fullName,
+                  'classroomCode': s.classroomCode,
+                  'classroomName': s.classroomName,
+                  'status': s.status,
+                  'studentProfileAssetCode': s.studentProfileAssetCode,
+                  'expected': s.expected,
+                },
+        )
         .toList(),
     'staffCode': staffCode,
     'staffName': staffName,

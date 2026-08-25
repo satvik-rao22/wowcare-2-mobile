@@ -213,7 +213,9 @@ class _SignInScreenState extends State<SignInScreen>
       _saveCredentials();
 
       // KIOSK: detect from login response roles — no API call, no RoleCubit needed.
-      AppLogger.d('[SignIn] AuthLoaded - checking roles: ${state.loginResponse.roles.map((r) => r.role).toList()}');
+      AppLogger.d(
+        '[SignIn] AuthLoaded - checking roles: ${state.loginResponse.roles.map((r) => r.role).toList()}',
+      );
       if (loginResponseIsKioskUser(state.loginResponse.roles)) {
         AppLogger.d('[SignIn] Kiosk user detected - redirecting to /kiosk');
         if (context.mounted) {

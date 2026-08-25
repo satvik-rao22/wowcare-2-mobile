@@ -56,7 +56,10 @@ DateTime attendanceSchoolToday() {
   final iana = attendanceSchoolIana();
   if (!_isUsableZone(iana)) {
     final n = ServerTimeService.instance.now();
-    return (DateTime(n.year, n.month, n.day), TimeOfDay(hour: n.hour, minute: n.minute));
+    return (
+      DateTime(n.year, n.month, n.day),
+      TimeOfDay(hour: n.hour, minute: n.minute),
+    );
   }
   return SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
 }

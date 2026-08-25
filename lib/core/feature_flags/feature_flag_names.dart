@@ -25,13 +25,13 @@ class FeatureFlagNames {
 
   // Default values (what state they're in if never set)
   static const Map<String, bool> defaults = {
-    communicationEnabled: true,      // Master enable/disable
-    parentMessagingEnabled: true,    // Room Chat + Admin Chat
-    staffMessagingEnabled: true,     // Staff direct messages
-    adminChatEnabled: true,          // Admin Chat specifically
-    bulkMessagingEnabled: false,     // Admin feature, off by default
-    privateModeEnabled: true,        // Private mode available
-    realtimeEnabled: true,           // Firebase realtime
+    communicationEnabled: true, // Master enable/disable
+    parentMessagingEnabled: true, // Room Chat + Admin Chat
+    staffMessagingEnabled: true, // Staff direct messages
+    adminChatEnabled: true, // Admin Chat specifically
+    bulkMessagingEnabled: false, // Admin feature, off by default
+    privateModeEnabled: true, // Private mode available
+    realtimeEnabled: true, // Firebase realtime
   };
 
   /// Get default value for a flag

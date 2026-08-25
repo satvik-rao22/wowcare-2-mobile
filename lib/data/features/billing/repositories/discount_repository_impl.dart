@@ -34,8 +34,7 @@ class DiscountRepositoryImpl implements DiscountRepository {
 
   @override
   Future<DiscountEntity> createDiscount(CreateDiscountParams params) async {
-    final model =
-        await _dataSource.createDiscount(_toRequest(params));
+    final model = await _dataSource.createDiscount(_toRequest(params));
     return _mapModel(model);
   }
 
@@ -52,8 +51,7 @@ class DiscountRepositoryImpl implements DiscountRepository {
   }
 
   @override
-  Future<void> deleteDiscount(String code) =>
-      _dataSource.deleteDiscount(code);
+  Future<void> deleteDiscount(String code) => _dataSource.deleteDiscount(code);
 
   @override
   Future<void> deactivateDiscount(String code) =>
@@ -66,18 +64,18 @@ class DiscountRepositoryImpl implements DiscountRepository {
   // ─── Mappers ──────────────────────────────────────────────────────────────
 
   DiscountEntity _mapModel(DiscountModel m) => DiscountEntity(
-        code: m.code,
-        name: m.name,
-        description: m.description,
-        percentage: m.percentage,
-        deductionAmount: m.deductionAmount,
-        maxInvoiceAmount: m.maxInvoiceAmount,
-        reference: m.reference,
-        discountType: m.discountType,
-        price: m.price,
-        status: m.status,
-        school: m.school,
-      );
+    code: m.code,
+    name: m.name,
+    description: m.description,
+    percentage: m.percentage,
+    deductionAmount: m.deductionAmount,
+    maxInvoiceAmount: m.maxInvoiceAmount,
+    reference: m.reference,
+    discountType: m.discountType,
+    price: m.price,
+    status: m.status,
+    school: m.school,
+  );
 
   DiscountRequestModel _toRequest(CreateDiscountParams p) =>
       DiscountRequestModel(

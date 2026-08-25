@@ -17,8 +17,7 @@ class MessagingEventService {
   final StreamController<String> _markedReadController =
       StreamController<String>.broadcast();
 
-  Stream<String> get onConversationMarkedRead =>
-      _markedReadController.stream;
+  Stream<String> get onConversationMarkedRead => _markedReadController.stream;
 
   void notifyMarkedRead(String conversationCode) {
     if (!_markedReadController.isClosed) {

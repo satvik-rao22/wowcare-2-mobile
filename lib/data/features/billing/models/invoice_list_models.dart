@@ -36,15 +36,15 @@ class InvoiceListLineItemModel {
   }
 
   InvoiceListLineItemEntity toEntity() => InvoiceListLineItemEntity(
-        description: description,
-        quantity: quantity,
-        unitPrice: unitPrice,
-        totalPrice: totalPrice,
-        itemType: itemType,
-        sourceCode: sourceCode,
-        valueType: valueType,
-        valueInput: valueInput,
-      );
+    description: description,
+    quantity: quantity,
+    unitPrice: unitPrice,
+    totalPrice: totalPrice,
+    itemType: itemType,
+    sourceCode: sourceCode,
+    valueType: valueType,
+    valueInput: valueInput,
+  );
 }
 
 /// One invoice row from `data.content[]`.
@@ -132,26 +132,26 @@ class InvoiceListItemModel {
   }
 
   InvoiceListItemEntity toEntity() => InvoiceListItemEntity(
-        code: code,
-        organization: organization,
-        school: school,
-        studentCode: studentCode,
-        subjectOwnerType: subjectOwnerType,
-        subjectOwnerCode: subjectOwnerCode,
-        amount: amount,
-        total: total,
-        paidAmount: paidAmount,
-        status: status,
-        invoiceStatus: invoiceStatus,
-        items: items.map((e) => e.toEntity()).toList(growable: false),
-        issueDate: issueDate,
-        dueDate: dueDate,
-        periodStart: periodStart,
-        periodEnd: periodEnd,
-        createdDate: createdDate,
-        createdBy: createdBy,
-        subscriptionCode: subscriptionCode,
-      );
+    code: code,
+    organization: organization,
+    school: school,
+    studentCode: studentCode,
+    subjectOwnerType: subjectOwnerType,
+    subjectOwnerCode: subjectOwnerCode,
+    amount: amount,
+    total: total,
+    paidAmount: paidAmount,
+    status: status,
+    invoiceStatus: invoiceStatus,
+    items: items.map((e) => e.toEntity()).toList(growable: false),
+    issueDate: issueDate,
+    dueDate: dueDate,
+    periodStart: periodStart,
+    periodEnd: periodEnd,
+    createdDate: createdDate,
+    createdBy: createdBy,
+    subscriptionCode: subscriptionCode,
+  );
 }
 
 /// The Spring `Page` envelope under the standard `{ data: {...} }` wrapper.
@@ -188,8 +188,7 @@ class PaginatedInvoicesModel {
 
     // Prefer the explicit `last` flag when present; fall back to page math.
     final last = data['last'];
-    final hasMore =
-        last is bool ? !last : (pageNumber + 1 < totalPages);
+    final hasMore = last is bool ? !last : (pageNumber + 1 < totalPages);
 
     return PaginatedInvoicesModel(
       items: items,
@@ -202,11 +201,11 @@ class PaginatedInvoicesModel {
   }
 
   PaginatedInvoicesEntity toEntity() => PaginatedInvoicesEntity(
-        items: items.map((e) => e.toEntity()).toList(growable: false),
-        page: page,
-        size: size,
-        totalPages: totalPages,
-        totalElements: totalElements,
-        hasMore: hasMore,
-      );
+    items: items.map((e) => e.toEntity()).toList(growable: false),
+    page: page,
+    size: size,
+    totalPages: totalPages,
+    totalElements: totalElements,
+    hasMore: hasMore,
+  );
 }

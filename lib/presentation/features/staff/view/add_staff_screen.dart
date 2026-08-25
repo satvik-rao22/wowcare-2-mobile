@@ -160,10 +160,10 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
 
     try {
       final storage = serviceLocator<StorageService>();
-      final org =
-          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final school =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final org = (await storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+      final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       if (org.isEmpty || school.isEmpty) return true;
 
       String norm(String s) =>

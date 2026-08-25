@@ -27,17 +27,17 @@ class StaffAttendanceAbsentItem extends Equatable {
 
   @override
   List<Object?> get props => [
-        staffCode,
-        staffName,
-        classroomCode,
-        classroomName,
-        absenceDate,
-        markedAbsentTime,
-        markedAbsentByName,
-        absenceNote,
-        markAbsentMethod,
-        absentDays,
-      ];
+    staffCode,
+    staffName,
+    classroomCode,
+    classroomName,
+    absenceDate,
+    markedAbsentTime,
+    markedAbsentByName,
+    absenceNote,
+    markAbsentMethod,
+    absentDays,
+  ];
 }
 
 class StaffAttendanceTime extends Equatable {
@@ -91,7 +91,12 @@ class StaffAttendanceAbsentPage extends Equatable {
   final bool hasMore;
 
   @override
-  List<Object?> get props =>
-      [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 }
-

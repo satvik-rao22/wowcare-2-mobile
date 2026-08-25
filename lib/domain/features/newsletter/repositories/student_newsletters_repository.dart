@@ -10,4 +10,3 @@ abstract class StudentNewslettersRepository {
     String status = 'SENT',
   });
 }
-

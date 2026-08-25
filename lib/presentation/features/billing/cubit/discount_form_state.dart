@@ -24,12 +24,11 @@ class DiscountFormState extends Equatable {
     bool? isSubmitting,
     bool? nameError,
     bool? percentageError,
-  }) =>
-      DiscountFormState(
-        isSubmitting: isSubmitting ?? this.isSubmitting,
-        nameError: nameError ?? this.nameError,
-        percentageError: percentageError ?? this.percentageError,
-      );
+  }) => DiscountFormState(
+    isSubmitting: isSubmitting ?? this.isSubmitting,
+    nameError: nameError ?? this.nameError,
+    percentageError: percentageError ?? this.percentageError,
+  );
 
   @override
   List<Object?> get props => [isSubmitting, nameError, percentageError];

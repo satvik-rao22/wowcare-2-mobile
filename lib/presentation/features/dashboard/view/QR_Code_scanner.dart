@@ -14,6 +14,7 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 import 'package:wowcare/presentation/features/dashboard/cubit/qr_validation_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class QrScanScreen extends StatelessWidget {
   const QrScanScreen({super.key});
@@ -326,18 +327,16 @@ class _QrScanViewState extends State<_QrScanView>
                 if (state is QrValidationLoading)
                   Container(
                     color: Colors.black.withValues(alpha: 0.65),
-                    child: const Center(
+                    child: Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          CircularProgressIndicator(color: Colors.white),
-                          SizedBox(height: 16),
+                          const CircularProgressIndicator(color: Colors.white),
+                          const SizedBox(height: 16),
                           Text(
                             'Validating QR code...',
-                            style: TextStyle(
+                            style: AppTextStyles.bodyLarge.copyWith(
                               color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
@@ -582,10 +581,8 @@ class _ControlButton extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             label,
-            style: TextStyle(
+            style: AppTextStyles.bodySmall.copyWith(
               color: Colors.white.withValues(alpha: 0.85),
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
             ),
           ),
         ],

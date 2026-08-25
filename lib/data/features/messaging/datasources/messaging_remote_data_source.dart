@@ -92,7 +92,7 @@ class MessagingRemoteDataSourceImpl implements MessagingRemoteDataSource {
     required String staffStatus,
   }) async {
     final path = ApiPaths.messagingConversationsByType('STAFF_DIRECT');
-    
+
     final endpoint = ApiPaths.urlWithBase(
       '$path?status=ACTIVE&page=$page&size=$size&staffStatus=${staffStatus.trim().toUpperCase()}',
       ApiConstants.communicationBaseUrl,
@@ -104,6 +104,8 @@ class MessagingRemoteDataSourceImpl implements MessagingRemoteDataSource {
       throw Exception('Unexpected conversations API response format');
     }
 
-    return GetConversationsResponse.fromJson(response.data! as Map<String, dynamic>);
+    return GetConversationsResponse.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
   }
 }

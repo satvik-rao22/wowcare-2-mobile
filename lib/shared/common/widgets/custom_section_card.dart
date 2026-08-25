@@ -22,9 +22,7 @@ class CustomSectionCard extends StatelessWidget {
     return Container(
       margin: margin,
       padding: padding,
-      constraints: BoxConstraints(
-        minHeight: minHeight ?? 0,
-      ),
+      constraints: BoxConstraints(minHeight: minHeight ?? 0),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.cardBorderColor, width: 1.2),
         borderRadius: BorderRadius.circular(12),
@@ -34,4 +32,3 @@ class CustomSectionCard extends StatelessWidget {
     );
   }
 }
-

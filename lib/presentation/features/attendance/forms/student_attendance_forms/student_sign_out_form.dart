@@ -557,18 +557,14 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
       context,
     )) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
           child: Padding(
             padding: EdgeInsets.all(24.0),
             child: Text(
               'Access Denied: You must be inside geofence and signed in to manage student attendance.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.red,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTextStyles.title.copyWith(color: Colors.red),
             ),
           ),
         ),
@@ -725,10 +721,8 @@ class RemoveStudentTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     softWrap: false,
-                    style: const TextStyle(
+                    style: AppTextStyles.body.copyWith(
                       color: AppColors.primaryColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),

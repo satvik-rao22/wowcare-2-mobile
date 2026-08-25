@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 typedef StaffAttendanceActionTap = void Function(String actionLabel);
 
@@ -96,12 +97,7 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
           Text(
             label,
             maxLines: 1,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              fontFamily: 'Manrope',
-              color: AppColors.primaryColor,
-            ),
+            style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
           ),
         ],
       ),
@@ -207,12 +203,7 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
             child: Text(
               label,
               maxLines: 1,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                fontFamily: 'Manrope',
-                color: AppColors.primaryColor,
-              ),
+              style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
             ),
           ),
         ],

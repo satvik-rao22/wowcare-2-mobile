@@ -36,22 +36,23 @@ class FamilySummaryEntity extends Equatable {
   /// Web's family-summary list only shows families that have been billed at
   /// least once; mobile was showing every family regardless, so this is used
   /// to filter the list client-side to match.
-  bool get hasTransactions => lastInvoiceDate != null || lastPaymentDate != null;
+  bool get hasTransactions =>
+      lastInvoiceDate != null || lastPaymentDate != null;
 
   @override
   List<Object?> get props => [
-        ownerType,
-        ownerCode,
-        studentCodes,
-        familyName,
-        guardianName,
-        lastInvoiceAmount,
-        lastInvoiceDate,
-        lastInvoiceDueDate,
-        lastInvoiceStatus,
-        lastPaymentAmount,
-        lastPaymentDate,
-        lastPaymentMethod,
-        openBalance,
-      ];
+    ownerType,
+    ownerCode,
+    studentCodes,
+    familyName,
+    guardianName,
+    lastInvoiceAmount,
+    lastInvoiceDate,
+    lastInvoiceDueDate,
+    lastInvoiceStatus,
+    lastPaymentAmount,
+    lastPaymentDate,
+    lastPaymentMethod,
+    openBalance,
+  ];
 }

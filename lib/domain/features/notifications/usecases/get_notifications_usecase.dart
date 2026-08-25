@@ -11,11 +11,10 @@ class GetNotificationsUseCase {
     int size = 10,
     String? module,
     bool onlyUnread = false,
-  }) =>
-      _repository.getNotifications(
-        page: page,
-        size: size,
-        module: module,
-        onlyUnread: onlyUnread,
-      );
+  }) => _repository.getNotifications(
+    page: page,
+    size: size,
+    module: module,
+    onlyUnread: onlyUnread,
+  );
 }

@@ -6,9 +6,7 @@ class GetRatioMonitoringClassroomsUseCase {
 
   final ClassroomRepository _repository;
 
-  Future<List<RatioMonitoringClassroom>> call({
-    required String schoolCode,
-  }) {
+  Future<List<RatioMonitoringClassroom>> call({required String schoolCode}) {
     return _repository.getRatioMonitoringClassrooms(schoolCode: schoolCode);
   }
 }

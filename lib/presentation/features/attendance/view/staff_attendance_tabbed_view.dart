@@ -36,6 +36,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'dart:convert';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class StaffAttendanceTabbedView extends StatefulWidget {
   const StaffAttendanceTabbedView({
@@ -499,12 +500,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
           Text(
             label,
             maxLines: 1,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              fontFamily: 'Manrope',
-              color: AppColors.primaryColor,
-            ),
+            style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
           ),
         ],
       ),

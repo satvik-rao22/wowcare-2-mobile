@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Shared visual language for every billing card, inherited from
 /// [staff_card.dart] (`lib/presentation/features/staff/widgets/staff_card.dart`).
@@ -16,27 +17,21 @@ class BillingCardText {
 
   /// Header name/title — Manrope 14 (16 on tablet), w500.
   static TextStyle name(bool isTablet) => TextStyle(
-        fontFamily: 'Manrope',
-        fontSize: isTablet ? 16 : 14,
-        fontWeight: FontWeight.w500,
-        color: kBillingCardTextColor,
-        height: 19 / 14,
-      );
+    fontFamily: 'Manrope',
+    fontSize: isTablet ? 16 : 14,
+    fontWeight: FontWeight.w500,
+    color: kBillingCardTextColor,
+    height: 19 / 14,
+  );
 
   /// Detail-row label — Manrope 13, w400.
-  static const TextStyle label = TextStyle(
-    fontFamily: 'Manrope',
-    fontSize: 13,
-    fontWeight: FontWeight.w400,
+  static TextStyle label = AppTextStyles.label.copyWith(
     color: kBillingCardTextColor,
     height: 16 / 13,
   );
 
   /// Detail-row value — Manrope 14, w500.
-  static const TextStyle value = TextStyle(
-    fontFamily: 'Manrope',
-    fontSize: 14,
-    fontWeight: FontWeight.w500,
+  static TextStyle value = AppTextStyles.body.copyWith(
     color: kBillingCardTextColor,
     height: 19 / 14,
   );
@@ -221,7 +216,11 @@ class StaffCardDetailRow extends StatelessWidget {
                 ),
               if (note != null && note!.isNotEmpty) ...[
                 const SizedBox(height: 2),
-                Text(note!, textAlign: TextAlign.right, style: BillingCardText.note),
+                Text(
+                  note!,
+                  textAlign: TextAlign.right,
+                  style: BillingCardText.note,
+                ),
               ],
             ],
           ),
@@ -268,10 +267,7 @@ class StaffCardActions extends StatelessWidget {
                 ),
                 child: Text(
                   secondaryLabel!,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+                  style: AppTextStyles.title.copyWith(
                     color: _accent,
                     height: 16 / 16,
                   ),
@@ -293,10 +289,7 @@ class StaffCardActions extends StatelessWidget {
               style: TextButton.styleFrom(padding: EdgeInsets.zero),
               child: Text(
                 primaryLabel,
-                style: const TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                style: AppTextStyles.title.copyWith(
                   color: Colors.white,
                   height: 16 / 16,
                 ),

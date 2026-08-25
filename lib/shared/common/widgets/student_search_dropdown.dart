@@ -254,7 +254,7 @@
 //                           filled: true,
 //                           fillColor: Colors.grey[50],
 //                         ),
-//                         style: const TextStyle(fontSize: 14),
+//                         style: AppTextStyles.body,
 //                         onTap: () {
 //                           // Keep dropdown open when tapping search field
 //                         },

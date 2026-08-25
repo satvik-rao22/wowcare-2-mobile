@@ -29,64 +29,64 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Scaffold(
         backgroundColor: Colors.white,
         body: Stack(
-        children: [
-          PageView(
-            controller: pageController,
-            children: [
-              OnboardingBody(
-                pageContent: const PageContent.first(),
-                onNextPressed: () {
-                  pageController.nextPage(
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeInOut,
-                  );
-                },
-              ),
-              OnboardingBody(
-                pageContent: const PageContent.second(),
-                onNextPressed: () {
-                  pageController.nextPage(
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeInOut,
-                  );
-                },
-              ),
-              OnboardingBody(
-                pageContent: const PageContent.third(),
-                onNextPressed: () {
-                  pageController.nextPage(
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeInOut,
-                  );
-                },
-              ),
-              const OnboardingBody(
-                pageContent: PageContent.forth(),
-                isLastPage: true,
-              ),
-            ],
-          ),
-          Align(
-            alignment: const Alignment(0, 0.06),
-            child: SmoothPageIndicator(
+          children: [
+            PageView(
               controller: pageController,
-              count: 4,
-              onDotClicked: (index) {
-                pageController.animateToPage(
-                  index,
-                  duration: const Duration(milliseconds: 500),
-                  curve: Curves.easeInOut,
-                );
-              },
-              effect: WormEffect(
-                dotHeight: 10,
-                dotWidth: 10,
-                spacing: 40,
-                activeDotColor: AppColors.themeColor,
-                dotColor: Colors.grey.shade300,
+              children: [
+                OnboardingBody(
+                  pageContent: const PageContent.first(),
+                  onNextPressed: () {
+                    pageController.nextPage(
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                ),
+                OnboardingBody(
+                  pageContent: const PageContent.second(),
+                  onNextPressed: () {
+                    pageController.nextPage(
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                ),
+                OnboardingBody(
+                  pageContent: const PageContent.third(),
+                  onNextPressed: () {
+                    pageController.nextPage(
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                ),
+                const OnboardingBody(
+                  pageContent: PageContent.forth(),
+                  isLastPage: true,
+                ),
+              ],
+            ),
+            Align(
+              alignment: const Alignment(0, 0.06),
+              child: SmoothPageIndicator(
+                controller: pageController,
+                count: 4,
+                onDotClicked: (index) {
+                  pageController.animateToPage(
+                    index,
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.easeInOut,
+                  );
+                },
+                effect: WormEffect(
+                  dotHeight: 10,
+                  dotWidth: 10,
+                  spacing: 40,
+                  activeDotColor: AppColors.themeColor,
+                  dotColor: Colors.grey.shade300,
+                ),
               ),
             ),
-          ),
           ],
         ),
       ),

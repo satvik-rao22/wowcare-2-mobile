@@ -11,6 +11,7 @@ import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/user_persona.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import '../../../../../../app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class MessagingScreen extends StatefulWidget {
   const MessagingScreen({
@@ -152,16 +153,11 @@ class _MessagingScreenState extends State<MessagingScreen>
                   borderSide: BorderSide(color: AppColors.themeColor),
                 ),
                 indicatorPadding: const EdgeInsets.only(bottom: 8),
-                labelStyle: const TextStyle(
+                labelStyle: AppTextStyles.bodyLarge.copyWith(
                   color: Color(0xFF241631),
-                  fontFamily: 'Manrope',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
                 ),
-                unselectedLabelStyle: TextStyle(
+                unselectedLabelStyle: AppTextStyles.bodyLarge.copyWith(
                   color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  fontFamily: 'Manrope',
-                  fontSize: 16,
                 ),
                 labelColor: const Color(0xFF241631),
                 unselectedLabelColor: AppColors.primaryColor.withValues(

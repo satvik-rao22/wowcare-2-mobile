@@ -17,7 +17,9 @@ class GetRecentReportsUseCase
   final ReportsRepository _repository;
 
   @override
-  Future<Either<Failure, List<ReportMetadataEntity>>> call(NoParams params) async {
+  Future<Either<Failure, List<ReportMetadataEntity>>> call(
+    NoParams params,
+  ) async {
     try {
       final reports = await _repository.getRecentReports();
       return Right(reports);

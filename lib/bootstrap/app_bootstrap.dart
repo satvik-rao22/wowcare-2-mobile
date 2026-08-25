@@ -47,7 +47,9 @@ class AppBootstrap {
     // "Missing Default Notification Channel metadata".
     if (Platform.isAndroid) {
       try {
-        await createDefaultNotificationChannel(FlutterLocalNotificationsPlugin());
+        await createDefaultNotificationChannel(
+          FlutterLocalNotificationsPlugin(),
+        );
       } catch (_) {
         // Non-fatal: notifications still arrive on the system default channel.
       }

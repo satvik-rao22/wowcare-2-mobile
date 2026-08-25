@@ -10,34 +10,40 @@ class SubsidiesCubit extends Cubit<SubsidiesState> {
   SubsidiesCubit() : super(SubsidiesState.initial());
 
   static List<SubsidyItem> _seedSubsidies() => [
-        SubsidyItem(
-            subsidyName: 'Food Assistance',
-            invoiced: 12,
-            received: 30,
-            balance: 19),
-        SubsidyItem(
-            subsidyName: 'Housing vouchers',
-            invoiced: 0,
-            received: 0,
-            balance: 19),
-        SubsidyItem(
-            subsidyName: 'Federal assistance',
-            invoiced: 0,
-            received: 0,
-            balance: 19),
-        SubsidyItem(
-            subsidyName: 'Local Community Fund',
-            invoiced: 0,
-            received: 0,
-            balance: 19),
-      ];
+    SubsidyItem(
+      subsidyName: 'Food Assistance',
+      invoiced: 12,
+      received: 30,
+      balance: 19,
+    ),
+    SubsidyItem(
+      subsidyName: 'Housing vouchers',
+      invoiced: 0,
+      received: 0,
+      balance: 19,
+    ),
+    SubsidyItem(
+      subsidyName: 'Federal assistance',
+      invoiced: 0,
+      received: 0,
+      balance: 19,
+    ),
+    SubsidyItem(
+      subsidyName: 'Local Community Fund',
+      invoiced: 0,
+      received: 0,
+      balance: 19,
+    ),
+  ];
 
   /// Any typing turns the "show all" toggle off, matching the original screen.
   void setSearchQuery(String query) {
-    emit(state.copyWith(
-      searchQuery: query,
-      isToggled: state.isToggled ? false : null,
-    ));
+    emit(
+      state.copyWith(
+        searchQuery: query,
+        isToggled: state.isToggled ? false : null,
+      ),
+    );
   }
 
   void setToggle(bool value) {

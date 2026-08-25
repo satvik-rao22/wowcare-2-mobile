@@ -17,6 +17,7 @@ import '../../../../../app/theme/media_res.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../shared/common/widgets/selected_student_tile.dart';
 import '../../../../../app/di/di.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class MessageCompositionBulkMessaging extends StatefulWidget {
   const MessageCompositionBulkMessaging({
@@ -154,7 +155,11 @@ class _MessageCompositionBulkMessagingState
   void _showWarningMessage(String message) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(context: context, message: message, isWarning: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isWarning: true,
+      );
     });
   }
 
@@ -283,13 +288,14 @@ class _MessageCompositionBulkMessagingState
                                         itemBuilder: (context, index) {
                                           final String name = compositionState
                                               .selectedRecipientNames[index];
-                                          final avatar = index <
+                                          final avatar =
+                                              index <
                                                   compositionState
                                                       .selectedRecipients
                                                       .length
                                               ? compositionState
-                                                      .selectedRecipients[index]['avatar']
-                                                  as String?
+                                                        .selectedRecipients[index]['avatar']
+                                                    as String?
                                               : null;
 
                                           return SelectedStudentTile(
@@ -349,9 +355,11 @@ class _MessageCompositionBulkMessagingState
                                               // (tags stripped), matching the
                                               // 1:1 chat composer.
                                               contextMenuBuilder:
-                                                  (context, editableTextState) =>
-                                                      HtmlAwareTextSelectionControls
-                                                          .buildContextMenu(
+                                                  (
+                                                    context,
+                                                    editableTextState,
+                                                  ) =>
+                                                      HtmlAwareTextSelectionControls.buildContextMenu(
                                                         context,
                                                         editableTextState,
                                                         _controller,
@@ -375,14 +383,14 @@ class _MessageCompositionBulkMessagingState
                                         alignment: Alignment.centerRight,
                                         child: Text(
                                           '${compositionState.charCount} / $maxChars',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color:
-                                                compositionState.charCount >
-                                                    maxChars
-                                                ? Colors.red
-                                                : Colors.grey[700],
-                                          ),
+                                          style: AppTextStyles.bodySmall
+                                              .copyWith(
+                                                color:
+                                                    compositionState.charCount >
+                                                        maxChars
+                                                    ? Colors.red
+                                                    : Colors.grey[700],
+                                              ),
                                         ),
                                       ),
                                       Row(

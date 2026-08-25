@@ -18,6 +18,7 @@ class StaffClassroomItem extends Equatable {
 
   final String classroomCode;
   final String staffCode;
+
   /// User account code (USR_*) — the participant identifier for messaging.
   final String userCode;
   final String firstName;
@@ -34,18 +35,17 @@ class StaffClassroomItem extends Equatable {
 
   @override
   List<Object?> get props => [
-        classroomCode,
-        staffCode,
-        userCode,
-        firstName,
-        lastName,
-        profilePictureUrl,
-        status,
-        designation,
-        expectedToday,
-        signedIn,
-        absent,
-        notMarked,
-      ];
+    classroomCode,
+    staffCode,
+    userCode,
+    firstName,
+    lastName,
+    profilePictureUrl,
+    status,
+    designation,
+    expectedToday,
+    signedIn,
+    absent,
+    notMarked,
+  ];
 }
-

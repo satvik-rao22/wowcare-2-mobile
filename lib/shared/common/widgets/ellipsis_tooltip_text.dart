@@ -9,6 +9,7 @@ class EllipsisTooltipText extends StatelessWidget {
     required this.style,
     this.maxLines = 1,
     this.textAlign = TextAlign.start,
+
     /// Use when an ancestor handles tap (e.g. remove student) so tap still passes through.
     this.preferLongPress = false,
   });

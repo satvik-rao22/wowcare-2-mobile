@@ -8,7 +8,13 @@ class GetCachedMessagesUseCase {
 
   GetCachedMessagesUseCase(this._repository);
 
-  Future<Either<Failure, List<Message>>> call(String threadId, {String? currentUserId}) {
-    return _repository.loadCachedMessages(threadId, currentUserId: currentUserId);
+  Future<Either<Failure, List<Message>>> call(
+    String threadId, {
+    String? currentUserId,
+  }) {
+    return _repository.loadCachedMessages(
+      threadId,
+      currentUserId: currentUserId,
+    );
   }
 }

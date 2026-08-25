@@ -12,11 +12,11 @@ class CreateConversationState extends Equatable {
   });
 
   const CreateConversationState.initial()
-      : status = CreateConversationStatus.idle,
-        conversationType = null,
-        createdConversation = null,
-        validationError = null,
-        errorMessage = null;
+    : status = CreateConversationStatus.idle,
+      conversationType = null,
+      createdConversation = null,
+      validationError = null,
+      errorMessage = null;
 
   final CreateConversationStatus status;
 
@@ -51,20 +51,21 @@ class CreateConversationState extends Equatable {
       status: status ?? this.status,
       conversationType: conversationType ?? this.conversationType,
       createdConversation: createdConversation ?? this.createdConversation,
-      validationError:
-          clearValidationError ? null : (validationError ?? this.validationError),
+      validationError: clearValidationError
+          ? null
+          : (validationError ?? this.validationError),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
 
   @override
   List<Object?> get props => [
-        status,
-        conversationType,
-        createdConversation,
-        validationError,
-        errorMessage,
-      ];
+    status,
+    conversationType,
+    createdConversation,
+    validationError,
+    errorMessage,
+  ];
 }
 
 enum CreateConversationStatus { idle, loading, success, failure }

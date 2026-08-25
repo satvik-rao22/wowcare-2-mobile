@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class ActivityTile extends StatelessWidget {
   const ActivityTile({
@@ -45,10 +46,8 @@ class ActivityTile extends StatelessWidget {
                 child: Text(
                   label,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: AppTextStyles.body.copyWith(
                     color: AppColors.primaryColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),

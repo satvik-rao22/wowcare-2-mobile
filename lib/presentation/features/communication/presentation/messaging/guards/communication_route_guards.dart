@@ -17,8 +17,8 @@ class CommunicationRouteGuards {
   const CommunicationRouteGuards({
     required CommunicationPermissionService permissionService,
     String fallbackRoute = '/dashboard',
-  })  : _permissions = permissionService,
-        _fallbackRoute = fallbackRoute;
+  }) : _permissions = permissionService,
+       _fallbackRoute = fallbackRoute;
 
   final CommunicationPermissionService _permissions;
 

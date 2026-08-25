@@ -9,12 +9,12 @@ class AnalyticsState extends Equatable {
   });
 
   const AnalyticsState.initial()
-      : this(
-          isLoading: false,
-          selectedYear: null,
-          analytics: null,
-          errorMessage: null,
-        );
+    : this(
+        isLoading: false,
+        selectedYear: null,
+        analytics: null,
+        errorMessage: null,
+      );
 
   /// Returns the effective year to use for data fetches — defaults to the
   /// current year in the SCHOOL calendar when [selectedYear] is null (the
@@ -35,15 +35,12 @@ class AnalyticsState extends Equatable {
   }) {
     return AnalyticsState(
       isLoading: isLoading ?? this.isLoading,
-      selectedYear:
-          selectedYear != null ? selectedYear() : this.selectedYear,
+      selectedYear: selectedYear != null ? selectedYear() : this.selectedYear,
       analytics: analytics != null ? analytics() : this.analytics,
-      errorMessage:
-          errorMessage != null ? errorMessage() : this.errorMessage,
+      errorMessage: errorMessage != null ? errorMessage() : this.errorMessage,
     );
   }
 
   @override
-  List<Object?> get props =>
-      [isLoading, selectedYear, analytics, errorMessage];
+  List<Object?> get props => [isLoading, selectedYear, analytics, errorMessage];
 }

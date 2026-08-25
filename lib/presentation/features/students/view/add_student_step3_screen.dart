@@ -10,6 +10,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class AddStudentStep3Screen extends StatefulWidget {
   const AddStudentStep3Screen({
@@ -506,10 +507,8 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                               const SizedBox(height: 8),
                               Text(
                                 'Select days and times for this student. Default times are school open and close hours.',
-                                style: TextStyle(
-                                  fontSize: 12,
+                                style: AppTextStyles.bodySmall.copyWith(
                                   color: Colors.grey.shade600,
-                                  fontFamily: 'Manrope',
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -681,7 +680,8 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                   child: GradientTimePickerField(
                     label: 'Start Time',
                     minuteInterval: 15,
-                    time: schedule!['start'] ??
+                    time:
+                        schedule!['start'] ??
                         (_schoolBoundsForDay(day) != null
                             ? _minutesToTimeOfDay(_schoolBoundsForDay(day)!.$1)
                             : _schoolStartTime),
@@ -694,7 +694,8 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                   child: GradientTimePickerField(
                     label: 'End Time',
                     minuteInterval: 15,
-                    time: schedule['end'] ??
+                    time:
+                        schedule['end'] ??
                         (_schoolBoundsForDay(day) != null
                             ? _minutesToTimeOfDay(_schoolBoundsForDay(day)!.$2)
                             : _schoolEndTime),
@@ -738,5 +739,4 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
       ),
     );
   }
-
 }

@@ -9,10 +9,7 @@ class QrValidationRequestModel {
   final String qrToken;
   final String useCase;
 
-  Map<String, dynamic> toJson() => {
-        'qrToken': qrToken,
-        'useCase': useCase,
-      };
+  Map<String, dynamic> toJson() => {'qrToken': qrToken, 'useCase': useCase};
 }
 
 class QrValidationResponseModel {
@@ -41,9 +38,9 @@ class QrValidationResponseModel {
   }
 
   QrValidationResult toEntity() => QrValidationResult(
-        valid: valid,
-        schoolCode: schoolCode,
-        reason: reason,
-        validTo: validTo,
-      );
+    valid: valid,
+    schoolCode: schoolCode,
+    reason: reason,
+    validTo: validTo,
+  );
 }

@@ -17,9 +17,9 @@ class PayNowCubit extends Cubit<PayNowState> {
   PayNowCubit({
     required GetGuardianFamilyLedgerUseCase getGuardianFamilyLedger,
     required StorageService storage,
-  })  : _getGuardianFamilyLedger = getGuardianFamilyLedger,
-        _storage = storage,
-        super(const PayNowState());
+  }) : _getGuardianFamilyLedger = getGuardianFamilyLedger,
+       _storage = storage,
+       super(const PayNowState());
 
   final GetGuardianFamilyLedgerUseCase _getGuardianFamilyLedger;
   final StorageService _storage;
@@ -27,10 +27,10 @@ class PayNowCubit extends Cubit<PayNowState> {
   Future<void> load() async {
     emit(state.copyWith(isLoading: true, errorMessage: () => null));
     try {
-      final org =
-          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final school =
-          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final org = (await _storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+      final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       final guardianCode =
           (await _storage.getString(StorageKeys.guardianCode) ?? '').trim();
       final ledger = await _getGuardianFamilyLedger(
@@ -39,19 +39,23 @@ class PayNowCubit extends Cubit<PayNowState> {
         guardianCode: guardianCode,
       );
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoading: false,
-        ledger: () => ledger,
-        guardianCode: guardianCode,
-        // Current Outstanding defaults to the family's unpaid total.
-        currentAmount: ledger.unpaid,
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          ledger: () => ledger,
+          guardianCode: guardianCode,
+          // Current Outstanding defaults to the family's unpaid total.
+          currentAmount: ledger.unpaid,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoading: false,
-        errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 

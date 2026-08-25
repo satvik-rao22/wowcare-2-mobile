@@ -9,6 +9,5 @@ class GetFeeStructuresUseCase {
   Future<List<FeeStructureEntity>> call({
     required String school,
     String? status,
-  }) =>
-      _repository.getFeeStructures(school: school, status: status);
+  }) => _repository.getFeeStructures(school: school, status: status);
 }

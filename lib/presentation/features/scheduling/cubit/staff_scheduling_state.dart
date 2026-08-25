@@ -60,9 +60,7 @@ class StaffSchedulingState extends Equatable {
       ClassroomNameResolver.fromMap(classroomNamesByCode);
 
   factory StaffSchedulingState.initial() {
-    return StaffSchedulingState(
-      selectedDay: schedulingSchoolToday(),
-    );
+    return StaffSchedulingState(selectedDay: schedulingSchoolToday());
   }
 
   StaffSchedulingState copyWith({
@@ -91,41 +89,39 @@ class StaffSchedulingState extends Equatable {
           ? null
           : (selectedStaffCode ?? this.selectedStaffCode),
       shiftSummary: shiftSummary ?? this.shiftSummary,
-      schoolStartTime:
-          clearSchoolHours ? null : (schoolStartTime ?? this.schoolStartTime),
-      schoolEndTime:
-          clearSchoolHours ? null : (schoolEndTime ?? this.schoolEndTime),
-      hasSchoolHoursForDay:
-          hasSchoolHoursForDay ?? this.hasSchoolHoursForDay,
-      classroomNamesByCode:
-          classroomNamesByCode ?? this.classroomNamesByCode,
+      schoolStartTime: clearSchoolHours
+          ? null
+          : (schoolStartTime ?? this.schoolStartTime),
+      schoolEndTime: clearSchoolHours
+          ? null
+          : (schoolEndTime ?? this.schoolEndTime),
+      hasSchoolHoursForDay: hasSchoolHoursForDay ?? this.hasSchoolHoursForDay,
+      classroomNamesByCode: classroomNamesByCode ?? this.classroomNamesByCode,
       isLoadingStaff: isLoadingStaff ?? this.isLoadingStaff,
       isLoadingShifts: isLoadingShifts ?? this.isLoadingShifts,
-      isLoadingSchoolHours:
-          isLoadingSchoolHours ?? this.isLoadingSchoolHours,
+      isLoadingSchoolHours: isLoadingSchoolHours ?? this.isLoadingSchoolHours,
       hasAttemptedInitialLoad:
           hasAttemptedInitialLoad ?? this.hasAttemptedInitialLoad,
-      isStaffPersonaScope:
-          isStaffPersonaScope ?? this.isStaffPersonaScope,
+      isStaffPersonaScope: isStaffPersonaScope ?? this.isStaffPersonaScope,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
 
   @override
   List<Object?> get props => [
-        selectedDay,
-        staffList,
-        selectedStaffCode,
-        shiftSummary,
-        schoolStartTime,
-        schoolEndTime,
-        hasSchoolHoursForDay,
-        classroomNamesByCode,
-        isLoadingStaff,
-        isLoadingShifts,
-        isLoadingSchoolHours,
-        hasAttemptedInitialLoad,
-        isStaffPersonaScope,
-        errorMessage,
-      ];
+    selectedDay,
+    staffList,
+    selectedStaffCode,
+    shiftSummary,
+    schoolStartTime,
+    schoolEndTime,
+    hasSchoolHoursForDay,
+    classroomNamesByCode,
+    isLoadingStaff,
+    isLoadingShifts,
+    isLoadingSchoolHours,
+    hasAttemptedInitialLoad,
+    isStaffPersonaScope,
+    errorMessage,
+  ];
 }

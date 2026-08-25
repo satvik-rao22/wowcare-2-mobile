@@ -5,14 +5,14 @@ import '../models/student_physician_models.dart';
 /// [StudentPhysician] entity.
 extension StudentPhysicianModelMapper on StudentPhysicianModel {
   StudentPhysician toEntity() => StudentPhysician(
-        code: code,
-        firstName: firstName,
-        lastName: lastName,
-        email: email,
-        phoneNumber: phoneNumber,
-        address: address,
-        specialty: specialty,
-        notes: notes,
-        status: status,
-      );
+    code: code,
+    firstName: firstName,
+    lastName: lastName,
+    email: email,
+    phoneNumber: phoneNumber,
+    address: address,
+    specialty: specialty,
+    notes: notes,
+    status: status,
+  );
 }

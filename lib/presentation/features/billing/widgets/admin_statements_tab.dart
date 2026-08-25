@@ -92,10 +92,7 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Column(
-          children: List.generate(
-            5,
-            (_) => const BillingTransactionShimmer(),
-          ),
+          children: List.generate(5, (_) => const BillingTransactionShimmer()),
         ),
       );
     }
@@ -105,13 +102,18 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
         child: Center(
           child: Column(
             children: [
-              Icon(Icons.error_outline,
-                  size: 40, color: AppColors.billingErrorIconColor),
+              Icon(
+                Icons.error_outline,
+                size: 40,
+                color: AppColors.billingErrorIconColor,
+              ),
               const SizedBox(height: 12),
               Text(
                 state.errorMessage,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.billingErrorTextColor),
+                style: AppTextStyles.body.copyWith(
+                  color: AppColors.billingErrorTextColor,
+                ),
               ),
               const SizedBox(height: 12),
               TextButton(
@@ -130,9 +132,11 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
         child: Center(
           child: Column(
             children: [
-              Icon(Icons.description_outlined,
-                  size: 48,
-                  color: AppColors.primaryColor.withValues(alpha: 0.4)),
+              Icon(
+                Icons.description_outlined,
+                size: 48,
+                color: AppColors.primaryColor.withValues(alpha: 0.4),
+              ),
               const SizedBox(height: 16),
               const AppText.value('No statements found'),
             ],
@@ -148,16 +152,18 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Column(
         children: items
-            .map((s) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: _AdminStatementCard(
-                    statement: s,
-                    studentNames: studentNames,
-                    isDownloading: state.isDownloading(s.code),
-                    onDownload: () => _handleDownload(s),
-                    onView: () => _handleView(s),
-                  ),
-                ))
+            .map(
+              (s) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: _AdminStatementCard(
+                  statement: s,
+                  studentNames: studentNames,
+                  isDownloading: state.isDownloading(s.code),
+                  onDownload: () => _handleDownload(s),
+                  onView: () => _handleView(s),
+                ),
+              ),
+            )
             .toList(),
       ),
     );
@@ -175,10 +181,7 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
     if (!mounted) return;
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error),
-          backgroundColor: Colors.red.shade700,
-        ),
+        SnackBar(content: Text(error), backgroundColor: Colors.red.shade700),
       );
     }
   }
@@ -242,17 +245,11 @@ class _FamilySiblingsCard extends StatelessWidget {
           ),
           itemBuilder: (context, index) {
             final child = children[index];
-            final name =
-                (child['fullName'] ?? child['name'] ?? '').toString();
-            final room =
-                (child['room'] ?? child['roomName'] ?? '').toString();
+            final name = (child['fullName'] ?? child['name'] ?? '').toString();
+            final room = (child['room'] ?? child['roomName'] ?? '').toString();
             return Row(
               children: [
-                DocumentImageWidget(
-                  fileUuid: '',
-                  name: name,
-                  size: 50,
-                ),
+                DocumentImageWidget(fileUuid: '', name: name, size: 50),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -276,7 +273,9 @@ class _FamilySiblingsCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: AppTextStyles.value.copyWith(
                             fontSize: 11,
-                            color: AppColors.primaryColor.withValues(alpha: 0.7),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.7,
+                            ),
                           ),
                         ),
                     ],
@@ -330,8 +329,7 @@ class _DateFilterCard extends StatelessWidget {
               initialDate: state.customStartDate,
               label: 'Date Range',
               fetchInitialTime: false,
-              onRangeSelected: (start, end) =>
-                  cubit.applyDateRange(start, end),
+              onRangeSelected: (start, end) => cubit.applyDateRange(start, end),
             ),
           ),
         ],
@@ -359,11 +357,10 @@ class _AdminStatementCard extends StatelessWidget {
   final VoidCallback onDownload;
   final VoidCallback onView;
 
-  String get _formattedType =>
-      statement.statementType.isEmpty
-          ? '—'
-          : statement.statementType[0].toUpperCase() +
-              statement.statementType.substring(1).toLowerCase();
+  String get _formattedType => statement.statementType.isEmpty
+      ? '—'
+      : statement.statementType[0].toUpperCase() +
+            statement.statementType.substring(1).toLowerCase();
 
   @override
   Widget build(BuildContext context) {
@@ -393,10 +390,7 @@ class _AdminStatementCard extends StatelessWidget {
         ],
       ),
       expandedChildren: [
-        StaffCardDetailRow(
-          label: 'Statement Type',
-          value: _formattedType,
-        ),
+        StaffCardDetailRow(label: 'Statement Type', value: _formattedType),
         const SizedBox(height: 10),
         StaffCardDetailRow(
           label: 'Generated On',

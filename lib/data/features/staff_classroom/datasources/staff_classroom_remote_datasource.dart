@@ -32,7 +32,8 @@ abstract class StaffClassroomRemoteDataSource {
   });
 }
 
-class StaffClassroomRemoteDataSourceImpl implements StaffClassroomRemoteDataSource {
+class StaffClassroomRemoteDataSourceImpl
+    implements StaffClassroomRemoteDataSource {
   StaffClassroomRemoteDataSourceImpl(this._client);
   final Dio _client;
 
@@ -60,7 +61,8 @@ class StaffClassroomRemoteDataSourceImpl implements StaffClassroomRemoteDataSour
       'sort': 'name,asc',
     };
 
-    if (code != null && code.trim().isNotEmpty) queryParameters['code'] = code.trim();
+    if (code != null && code.trim().isNotEmpty)
+      queryParameters['code'] = code.trim();
     if (organizationCode != null && organizationCode.trim().isNotEmpty) {
       queryParameters['organizationCode'] = organizationCode.trim();
     }
@@ -70,7 +72,8 @@ class StaffClassroomRemoteDataSourceImpl implements StaffClassroomRemoteDataSour
     if (phoneNumber != null && phoneNumber.trim().isNotEmpty) {
       queryParameters['phoneNumber'] = phoneNumber.trim();
     }
-    if (excludeClassroomCode != null && excludeClassroomCode.trim().isNotEmpty) {
+    if (excludeClassroomCode != null &&
+        excludeClassroomCode.trim().isNotEmpty) {
       queryParameters['excludeClassroomCode'] = excludeClassroomCode.trim();
     }
     if (search != null && search.trim().isNotEmpty) {
@@ -84,13 +87,16 @@ class StaffClassroomRemoteDataSourceImpl implements StaffClassroomRemoteDataSour
     if (normStatus.isNotEmpty) queryParameters['status'] = normStatus;
 
     final normDesignation = norm(designation);
-    if (normDesignation.isNotEmpty) queryParameters['designation'] = normDesignation;
+    if (normDesignation.isNotEmpty)
+      queryParameters['designation'] = normDesignation;
 
     final normPrimary = norm(primaryClassroomCodes);
-    if (normPrimary.isNotEmpty) queryParameters['primaryClassroomCodes'] = normPrimary;
+    if (normPrimary.isNotEmpty)
+      queryParameters['primaryClassroomCodes'] = normPrimary;
 
     final normClassCodes = norm(classCodes);
-    if (normClassCodes.isNotEmpty) queryParameters['classCodes'] = normClassCodes;
+    if (normClassCodes.isNotEmpty)
+      queryParameters['classCodes'] = normClassCodes;
 
     final response = await _client.get<dynamic>(
       endpoint,
@@ -151,8 +157,10 @@ class StaffClassroomRemoteDataSourceImpl implements StaffClassroomRemoteDataSour
       ApiConstants.staffBaseUrl,
     );
 
-    final normStaffCodes =
-        staffCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    final normStaffCodes = staffCodes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
 
     final queryParameters = <String, dynamic>{
       'classroomCode': classroomCode.trim(),
@@ -172,4 +180,3 @@ class StaffClassroomRemoteDataSourceImpl implements StaffClassroomRemoteDataSour
     return StaffClassroomAssignResponseModel.fromJson(body);
   }
 }
-

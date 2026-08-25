@@ -28,6 +28,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class StudentDocumentsTab extends StatefulWidget {
   const StudentDocumentsTab({
@@ -422,10 +423,12 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
     final canStudentWrite = widget.canEdit;
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'Student code is required to load documents',
-          style: TextStyle(color: AppColors.primaryColor, fontSize: 16),
+          style: AppTextStyles.bodyLarge.copyWith(
+            color: AppColors.primaryColor,
+          ),
         ),
       );
     }
@@ -554,10 +557,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                   : (query.isEmpty
                                         ? 'No documents found'
                                         : 'No documents match your search'),
-                              style: const TextStyle(
+                              style: AppTextStyles.bodyLarge.copyWith(
                                 color: AppColors.primaryColor,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
                                 height: 16,
                               ),
                             )
@@ -664,13 +665,14 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                               const SizedBox(width: 8),
                                               Text(
                                                 docTypeDisplay,
-                                                style: TextStyle(
-                                                  fontFamily: 'Manrope',
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: AppColors.primaryColor
-                                                      .withValues(alpha: 0.7),
-                                                ),
+                                                style: AppTextStyles.caption
+                                                    .copyWith(
+                                                      color: AppColors
+                                                          .primaryColor
+                                                          .withValues(
+                                                            alpha: 0.7,
+                                                          ),
+                                                    ),
                                               ),
                                             ],
                                           ),
@@ -699,7 +701,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                               label: 'Expiry Date',
                                               value: expiryDisplay,
                                             ),
-                                            const SizedBox(height: 16),
+                                            SizedBox(height: 16),
                                             if (canStudentWrite) ...[
                                               Row(
                                                 children: [
@@ -726,16 +728,14 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                                   EdgeInsets
                                                                       .zero,
                                                             ),
-                                                        child: const Text(
+                                                        child: Text(
                                                           'Edit',
-                                                          style: TextStyle(
-                                                            fontFamily:
-                                                                'Manrope',
-                                                            fontSize: 16,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                            color: Colors.white,
-                                                          ),
+                                                          style: AppTextStyles
+                                                              .title
+                                                              .copyWith(
+                                                                color: Colors
+                                                                    .white,
+                                                              ),
                                                         ),
                                                       ),
                                                     ),
@@ -751,12 +751,11 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                               doc,
                                                             ),
                                                         style: OutlinedButton.styleFrom(
-                                                          side:
-                                                              const BorderSide(
-                                                                color: Color(
-                                                                  0xFF6C7FD8,
-                                                                ),
-                                                              ),
+                                                          side: BorderSide(
+                                                            color: Color(
+                                                              0xFF6C7FD8,
+                                                            ),
+                                                          ),
                                                           shape: RoundedRectangleBorder(
                                                             borderRadius:
                                                                 BorderRadius.circular(
@@ -766,18 +765,15 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                           padding:
                                                               EdgeInsets.zero,
                                                         ),
-                                                        child: const Text(
+                                                        child: Text(
                                                           'Delete',
-                                                          style: TextStyle(
-                                                            fontFamily:
-                                                                'Manrope',
-                                                            fontSize: 16,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                            color: Color(
-                                                              0xFF6C7FD8,
-                                                            ),
-                                                          ),
+                                                          style: AppTextStyles
+                                                              .title
+                                                              .copyWith(
+                                                                color: Color(
+                                                                  0xFF6C7FD8,
+                                                                ),
+                                                              ),
                                                         ),
                                                       ),
                                                     ),
@@ -818,10 +814,12 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                           ? const SizedBox(
                                                               width: 18,
                                                               height: 18,
-                                                              child: PrimaryCircularLoader(
-                                                                size: 18,
-                                                                strokeWidth: 2,
-                                                              ),
+                                                              child:
+                                                                  PrimaryCircularLoader(
+                                                                    size: 18,
+                                                                    strokeWidth:
+                                                                        2,
+                                                                  ),
                                                             )
                                                           : const Text(
                                                               'View',
@@ -840,7 +838,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                     ),
                                                   ),
                                                 ),
-                                                const SizedBox(width: 12),
+                                                SizedBox(width: 12),
                                                 Expanded(
                                                   child: Container(
                                                     height: 40,
@@ -863,15 +861,14 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                             padding:
                                                                 EdgeInsets.zero,
                                                           ),
-                                                      child: const Text(
+                                                      child: Text(
                                                         'Download',
-                                                        style: TextStyle(
-                                                          fontFamily: 'Manrope',
-                                                          fontSize: 16,
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                          color: Colors.white,
-                                                        ),
+                                                        style: AppTextStyles
+                                                            .title
+                                                            .copyWith(
+                                                              color:
+                                                                  Colors.white,
+                                                            ),
                                                       ),
                                                     ),
                                                   ),
@@ -947,12 +944,7 @@ class _DocumentDetailRow extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            color: Color(0xff573353),
-          ),
+          style: AppTextStyles.label.copyWith(color: Color(0xff573353)),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -961,12 +953,7 @@ class _DocumentDetailRow extends StatelessWidget {
             textAlign: TextAlign.right,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: Color(0xff573353),
-            ),
+            style: AppTextStyles.label.copyWith(color: Color(0xff573353)),
           ),
         ),
       ],

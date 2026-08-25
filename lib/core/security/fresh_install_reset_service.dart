@@ -16,7 +16,9 @@ Future<void> resetSecureStoreOnFreshInstall() async {
     if (!alreadyInstalled) {
       await SecureCredentialStore().clear();
       await storage.saveBool(StorageKeys.appInstalledMarker, true);
-      AppLogger.d('[FreshInstall] Wiped Keychain secure store on fresh install');
+      AppLogger.d(
+        '[FreshInstall] Wiped Keychain secure store on fresh install',
+      );
     }
   } catch (e) {
     AppLogger.d('[FreshInstall] reset failed (non-fatal): $e');

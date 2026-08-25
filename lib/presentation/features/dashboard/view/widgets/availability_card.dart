@@ -15,6 +15,7 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import '../../../classroom/views/screens/classroom_screen.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 // ---------------------------------------------------------------------------
 // UI-layer model — one row in the classroom availability table.
@@ -282,12 +283,12 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
 
   Widget _buildTable(List<_AvailableCount> data) {
     if (data.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 16),
           child: Text(
             'No classroom data available',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
+            style: AppTextStyles.bodyLarge.copyWith(color: Colors.grey),
           ),
         ),
       );
@@ -490,9 +491,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
               children: [
                 Text(
                   item.firstShiftCount.toString(),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                  style: AppTextStyles.title.copyWith(
                     color: _getCountColor(item.firstShiftCount),
                   ),
                 ),
@@ -516,9 +515,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
               children: [
                 Text(
                   item.secondShiftCount.toString(),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                  style: AppTextStyles.title.copyWith(
                     color: _getCountColor(item.secondShiftCount),
                   ),
                 ),

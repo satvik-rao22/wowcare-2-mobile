@@ -32,8 +32,11 @@ class _OrganizationSelectionScreenState
     final cleaned = role.toLowerCase().replaceAll('_', ' ');
     return cleaned
         .split(' ')
-        .map((word) =>
-            word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
+        .map(
+          (word) => word.isEmpty
+              ? word
+              : '${word[0].toUpperCase()}${word.substring(1)}',
+        )
         .join(' ');
   }
 
@@ -44,9 +47,7 @@ class _OrganizationSelectionScreenState
     if (_hasTriggeredOrgNamesLoad) return;
     final authCubit = context.read<AuthCubit>();
     if (authCubit.state is! AuthLoaded) return;
-    final orgCodes = (authCubit.state as AuthLoaded)
-        .loginResponse
-        .roles
+    final orgCodes = (authCubit.state as AuthLoaded).loginResponse.roles
         .map((r) => r.organizationCode)
         .where((c) => c.isNotEmpty)
         .toSet()
@@ -98,8 +99,7 @@ class _OrganizationSelectionScreenState
           final userName = login.displayName.isNotEmpty
               ? login.displayName
               : login.email;
-          final rawRole =
-              login.roles.isNotEmpty ? login.roles.first.role : '';
+          final rawRole = login.roles.isNotEmpty ? login.roles.first.role : '';
           final userRole = _formatRole(rawRole);
 
           // Always use roles for org codes; org names from API (no cache)
@@ -109,25 +109,32 @@ class _OrganizationSelectionScreenState
               .toSet()
               .toList();
           final orgNames = state.orgNames;
-          final orgDisplayItems = (orgNames.length == orgCodes.length &&
-                  orgNames.isNotEmpty)
+          final orgDisplayItems =
+              (orgNames.length == orgCodes.length && orgNames.isNotEmpty)
               ? orgNames
               : orgCodes;
           // Hide unresolved items (fallback raw org codes) from dropdown.
           final resolvedOrgCodes = <String>[];
           final resolvedOrgDisplayItems = <String>[];
-          for (var i = 0; i < orgCodes.length && i < orgDisplayItems.length; i++) {
+          for (
+            var i = 0;
+            i < orgCodes.length && i < orgDisplayItems.length;
+            i++
+          ) {
             final code = orgCodes[i].trim();
             final display = orgDisplayItems[i].trim();
             final isFallbackCode =
-                display.isEmpty || display == code || display.toUpperCase().startsWith('ORG_');
+                display.isEmpty ||
+                display == code ||
+                display.toUpperCase().startsWith('ORG_');
             if (isFallbackCode) continue;
             resolvedOrgCodes.add(code);
             resolvedOrgDisplayItems.add(display);
           }
 
           final isNextEnabled =
-              _selectedOrgCode != null && resolvedOrgCodes.contains(_selectedOrgCode);
+              _selectedOrgCode != null &&
+              resolvedOrgCodes.contains(_selectedOrgCode);
 
           return Scaffold(
             body: Container(
@@ -193,7 +200,8 @@ class _OrganizationSelectionScreenState
                                   ),
                                   SizedBox(width: screenWidth * 0.03),
                                   Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
@@ -262,8 +270,9 @@ class _OrganizationSelectionScreenState
                                 items: resolvedOrgDisplayItems,
                                 selectedItem: () {
                                   if (_selectedOrgCode == null) return null;
-                                  final index =
-                                      resolvedOrgCodes.indexOf(_selectedOrgCode!);
+                                  final index = resolvedOrgCodes.indexOf(
+                                    _selectedOrgCode!,
+                                  );
                                   if (index != -1 &&
                                       index < resolvedOrgDisplayItems.length) {
                                     return resolvedOrgDisplayItems[index];
@@ -301,11 +310,12 @@ class _OrganizationSelectionScreenState
                                     if (value == null) {
                                       _selectedOrgCode = null;
                                     } else {
-                                      final index =
-                                          resolvedOrgDisplayItems.indexOf(value);
+                                      final index = resolvedOrgDisplayItems
+                                          .indexOf(value);
                                       if (index != -1 &&
                                           index < resolvedOrgCodes.length) {
-                                        _selectedOrgCode = resolvedOrgCodes[index];
+                                        _selectedOrgCode =
+                                            resolvedOrgCodes[index];
                                       }
                                     }
                                   });

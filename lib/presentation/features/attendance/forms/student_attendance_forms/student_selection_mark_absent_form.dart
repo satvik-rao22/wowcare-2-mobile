@@ -210,18 +210,14 @@ class _StudentSelectionMarkAbsentFormState
     if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
       context,
     )) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
           child: Padding(
             padding: EdgeInsets.all(24.0),
             child: Text(
               'Access Denied: You must be inside geofence and signed in to manage student attendance.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.red,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTextStyles.title.copyWith(color: Colors.red),
             ),
           ),
         ),
@@ -330,7 +326,9 @@ class _StudentSelectionMarkAbsentFormState
                           children: [
                             AppText.body(
                               state.studentsError ?? 'Failed to load students',
-                              style: const TextStyle(color: Colors.red),
+                              style: AppTextStyles.body.copyWith(
+                                color: Colors.red,
+                              ),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 8),
@@ -439,10 +437,8 @@ class StudentListItem extends StatelessWidget {
                   text: student.fullName,
                   maxLines: 2,
                   preferLongPress: true,
-                  style: const TextStyle(
+                  style: AppTextStyles.sectionHeader.copyWith(
                     color: AppColors.primaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),

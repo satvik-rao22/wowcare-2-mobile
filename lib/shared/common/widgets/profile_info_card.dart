@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Profile card shell aligned with [StaffProfileTab]: white card, theme border,
 /// vertical radii 12/12, scroll padding 8×16, inner padding 16, title + gradient edit row.
@@ -33,11 +34,7 @@ class ProfileInfoCard extends StatelessWidget {
     bottom: Radius.circular(16),
   );
 
-  static const TextStyle _titleStyle = TextStyle(
-    color: AppColors.primaryColor,
-    fontSize: 16,
-    fontWeight: FontWeight.w600,
-  );
+  static TextStyle _titleStyle = AppTextStyles.title.copyWith(color: AppColors.primaryColor);
 
   @override
   Widget build(BuildContext context) {
@@ -105,10 +102,12 @@ class ProfileInfoCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ...children.map((child) => Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: child,
-                        )),
+                    ...children.map(
+                      (child) => Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: child,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -134,19 +133,9 @@ class ProfileField extends StatelessWidget {
   final String? value;
   final Widget? valueWidget;
 
-  static const TextStyle _labelStaff = TextStyle(
-    fontFamily: 'Manrope',
-    fontSize: 16,
-    fontWeight: FontWeight.w600,
-    color: Color(0xff573353),
-  );
+  static TextStyle _labelStaff = AppTextStyles.title.copyWith(color: Color(0xff573353));
 
-  static const TextStyle _valueStaff = TextStyle(
-    fontFamily: 'Manrope',
-    fontSize: 15,
-    color: Color(0xff573353),
-    fontWeight: FontWeight.w400,
-  );
+  static TextStyle _valueStaff = AppTextStyles.body.copyWith(color: Color(0xff573353));
 
   @override
   Widget build(BuildContext context) {
@@ -162,11 +151,7 @@ class ProfileField extends StatelessWidget {
       children: [
         Text(label, style: _labelStaff),
         const SizedBox(height: 6),
-        valueWidget ??
-            Text(
-              resolved,
-              style: _valueStaff,
-            ),
+        valueWidget ?? Text(resolved, style: _valueStaff),
       ],
     );
   }

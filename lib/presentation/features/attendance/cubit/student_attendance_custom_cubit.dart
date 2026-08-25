@@ -9,15 +9,14 @@ import '../../../../domain/features/attendance/usecases/get_student_attendance_c
 
 part 'student_attendance_custom_state.dart';
 
-class StudentAttendanceCustomCubit
-    extends Cubit<StudentAttendanceCustomState> {
+class StudentAttendanceCustomCubit extends Cubit<StudentAttendanceCustomState> {
   StudentAttendanceCustomCubit({
     required GetStudentAttendanceCustomUseCase
-        getStudentAttendanceCustomUseCase,
+    getStudentAttendanceCustomUseCase,
     required AttendanceRepository repository,
-  })  : _getStudentAttendanceCustomUseCase = getStudentAttendanceCustomUseCase,
-        _repository = repository,
-        super(const StudentAttendanceCustomState.initial());
+  }) : _getStudentAttendanceCustomUseCase = getStudentAttendanceCustomUseCase,
+       _repository = repository,
+       super(const StudentAttendanceCustomState.initial());
 
   final GetStudentAttendanceCustomUseCase _getStudentAttendanceCustomUseCase;
   final AttendanceRepository _repository;
@@ -35,33 +34,35 @@ class StudentAttendanceCustomCubit
     final toDateString = _formatDate(toDate);
 
     final cached = await (_repository is AttendanceRepositoryWithCache
-        ? ( _repository as AttendanceRepositoryWithCache)
-            .loadCachedStudentAttendanceCustom(
-            fromDateString,
-            toDateString,
-            classroomCodes: classroomCodes,
-            tagCodes: tagCodes,
-            search: search,
-          )
+        ? (_repository as AttendanceRepositoryWithCache)
+              .loadCachedStudentAttendanceCustom(
+                fromDateString,
+                toDateString,
+                classroomCodes: classroomCodes,
+                tagCodes: tagCodes,
+                search: search,
+              )
         : Future.value(null));
 
     final hasActiveFilters =
         (classroomCodes != null && classroomCodes.isNotEmpty) ||
-            (tagCodes != null && tagCodes.isNotEmpty) ||
-            (search != null && search.trim().isNotEmpty);
+        (tagCodes != null && tagCodes.isNotEmpty) ||
+        (search != null && search.trim().isNotEmpty);
 
     if (cached != null && !isClosed && !hasActiveFilters) {
-      emit(StudentAttendanceCustomState.loaded(
-        items: cached.items,
-        currentPage: 0,
-        hasMore: cached.hasMore,
-        isFromCache: true,
-        fromDate: fromDate,
-        toDate: toDate,
-        classroomCodes: classroomCodes,
-        tagCodes: tagCodes,
-        search: search,
-      ));
+      emit(
+        StudentAttendanceCustomState.loaded(
+          items: cached.items,
+          currentPage: 0,
+          hasMore: cached.hasMore,
+          isFromCache: true,
+          fromDate: fromDate,
+          toDate: toDate,
+          classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
+          search: search,
+        ),
+      );
       return;
     }
 
@@ -81,7 +82,8 @@ class StudentAttendanceCustomCubit
     List<String>? tagCodes,
     String? search,
   }) async {
-    final filtersChanged = !listEquals(classroomCodes, state.classroomCodes) ||
+    final filtersChanged =
+        !listEquals(classroomCodes, state.classroomCodes) ||
         !listEquals(tagCodes, state.tagCodes) ||
         search != state.search ||
         state.fromDate != fromDate ||
@@ -91,16 +93,18 @@ class StudentAttendanceCustomCubit
     final fromDateString = _formatDate(fromDate);
     final toDateString = _formatDate(toDate);
 
-    emit(state.copyWith(
-      isLoading: state.items.isEmpty,
-      isRefreshing: true,
-      errorMessage: null,
-      fromDate: fromDate,
-      toDate: toDate,
-      classroomCodes: classroomCodes,
-      tagCodes: tagCodes,
-      search: search,
-    ));
+    emit(
+      state.copyWith(
+        isLoading: state.items.isEmpty,
+        isRefreshing: true,
+        errorMessage: null,
+        fromDate: fromDate,
+        toDate: toDate,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        search: search,
+      ),
+    );
 
     try {
       final firstPage = await _getStudentAttendanceCustomUseCase(
@@ -115,24 +119,28 @@ class StudentAttendanceCustomCubit
 
       if (isClosed) return;
 
-      emit(StudentAttendanceCustomState.loaded(
-        items: firstPage.items,
-        currentPage: firstPage.page,
-        hasMore: firstPage.hasMore,
-        isFromCache: false,
-        fromDate: fromDate,
-        toDate: toDate,
-        classroomCodes: classroomCodes,
-        tagCodes: tagCodes,
-        search: search,
-      ));
+      emit(
+        StudentAttendanceCustomState.loaded(
+          items: firstPage.items,
+          currentPage: firstPage.page,
+          hasMore: firstPage.hasMore,
+          isFromCache: false,
+          fromDate: fromDate,
+          toDate: toDate,
+          classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
+          search: search,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoading: false,
-        isRefreshing: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -160,18 +168,22 @@ class StudentAttendanceCustomCubit
 
       if (isClosed) return;
 
-      emit(state.copyWith(
-        items: [...state.items, ...page.items],
-        currentPage: page.page,
-        hasMore: page.hasMore,
-        isLoadingMore: false,
-      ));
+      emit(
+        state.copyWith(
+          items: [...state.items, ...page.items],
+          currentPage: page.page,
+          hasMore: page.hasMore,
+          isLoadingMore: false,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoadingMore: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -179,4 +191,3 @@ class StudentAttendanceCustomCubit
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 }
-

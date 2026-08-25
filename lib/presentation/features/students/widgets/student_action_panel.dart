@@ -18,6 +18,7 @@ import 'package:wowcare/presentation/features/attendance/util/attendance_permiss
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 enum StudentPanelType { attendance, activities, none }
 
@@ -356,10 +357,11 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
     if (studentCodes.isEmpty) return maps;
 
     try {
-      final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-        apiClient: serviceLocator<ApiClient>(),
-      );
+      final schoolTimeZone =
+          await SchoolTimezoneResolver.resolveForCurrentSchool(
+            storage: serviceLocator<StorageService>(),
+            apiClient: serviceLocator<ApiClient>(),
+          );
       final today = SchoolZoneDateTime.schoolCalendarTodayOnly(schoolTimeZone);
       final attendanceDate =
           '${today.year.toString().padLeft(4, '0')}-'
@@ -924,10 +926,7 @@ class _StudentAttendanceActionItem extends StatelessWidget {
               Text(
                 label,
                 maxLines: 1,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: 'Manrope',
+                style: AppTextStyles.caption.copyWith(
                   color: AppColors.primaryColor,
                 ),
               ),
@@ -1072,7 +1071,7 @@ class _ActionButton extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 label,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: AppTextStyles.bodySmall.copyWith(color: Colors.white),
               ),
             ],
           ),

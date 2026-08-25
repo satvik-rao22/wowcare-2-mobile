@@ -17,18 +17,18 @@ class SelectStudentsState extends Equatable {
   });
 
   const SelectStudentsState.initial()
-      : students = const <Student>[],
-        classroomNames = const <String>[],
-        classroomNameToCode = const <String, String>{},
-        tagNames = const <String>[],
-        tagNameToCode = const <String, String>{},
-        selectedClassroomNames = const <String>[],
-        selectedTagNames = const <String>[],
-        selectedStatus = 'Active',
-        searchQuery = '',
-        selectedStudentCodes = const <String>{},
-        isLoading = true,
-        errorMessage = null;
+    : students = const <Student>[],
+      classroomNames = const <String>[],
+      classroomNameToCode = const <String, String>{},
+      tagNames = const <String>[],
+      tagNameToCode = const <String, String>{},
+      selectedClassroomNames = const <String>[],
+      selectedTagNames = const <String>[],
+      selectedStatus = 'Active',
+      searchQuery = '',
+      selectedStudentCodes = const <String>{},
+      isLoading = true,
+      errorMessage = null;
 
   /// Server-filtered (ACTIVE + classroom + tag) student list for the page.
   final List<Student> students;
@@ -56,9 +56,7 @@ class SelectStudentsState extends Equatable {
   List<Student> get filteredStudents {
     final q = searchQuery.trim().toLowerCase();
     if (q.isEmpty) return students;
-    return students
-        .where((s) => s.fullName.toLowerCase().contains(q))
-        .toList();
+    return students.where((s) => s.fullName.toLowerCase().contains(q)).toList();
   }
 
   SelectStudentsState copyWith({
@@ -94,17 +92,17 @@ class SelectStudentsState extends Equatable {
 
   @override
   List<Object?> get props => [
-        students,
-        classroomNames,
-        classroomNameToCode,
-        tagNames,
-        tagNameToCode,
-        selectedClassroomNames,
-        selectedTagNames,
-        selectedStatus,
-        searchQuery,
-        selectedStudentCodes,
-        isLoading,
-        errorMessage,
-      ];
+    students,
+    classroomNames,
+    classroomNameToCode,
+    tagNames,
+    tagNameToCode,
+    selectedClassroomNames,
+    selectedTagNames,
+    selectedStatus,
+    searchQuery,
+    selectedStudentCodes,
+    isLoading,
+    errorMessage,
+  ];
 }

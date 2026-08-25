@@ -13,11 +13,10 @@ class GetFamilyLedgerUseCase {
     required String school,
     required String ownerCode,
     String ownerType = 'FAMILY',
-  }) =>
-      _repository.getFamilyLedger(
-        organizationCode: organizationCode,
-        school: school,
-        ownerType: ownerType,
-        ownerCode: ownerCode,
-      );
+  }) => _repository.getFamilyLedger(
+    organizationCode: organizationCode,
+    school: school,
+    ownerType: ownerType,
+    ownerCode: ownerCode,
+  );
 }

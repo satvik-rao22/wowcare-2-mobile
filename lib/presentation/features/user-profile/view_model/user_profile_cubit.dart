@@ -51,14 +51,14 @@ class UserProfileCubit extends Cubit<UserProfileState> {
     required StudentRemoteDataSource studentRemoteDataSource,
     required ImageUploadService imageUploadService,
     required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
-  })  : _storage = storageService,
-        _staffRepository = staffRepository,
-        _authRemoteDataSource = authRemoteDataSource,
-        _authLocalDataSource = authLocalDataSource,
-        _studentRemoteDataSource = studentRemoteDataSource,
-        _imageUploadService = imageUploadService,
-        _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
-        super(const UserProfileState.initial());
+  }) : _storage = storageService,
+       _staffRepository = staffRepository,
+       _authRemoteDataSource = authRemoteDataSource,
+       _authLocalDataSource = authLocalDataSource,
+       _studentRemoteDataSource = studentRemoteDataSource,
+       _imageUploadService = imageUploadService,
+       _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
+       super(const UserProfileState.initial());
 
   final StorageService _storage;
   final StaffRepository _staffRepository;
@@ -100,15 +100,16 @@ class UserProfileCubit extends Cubit<UserProfileState> {
     try {
       final loginDisplayName =
           (await _storage.getString(StorageKeys.displayName) ?? '').trim();
-      final loginEmail =
-          (await _storage.getString(StorageKeys.email) ?? '').trim();
+      final loginEmail = (await _storage.getString(StorageKeys.email) ?? '')
+          .trim();
       final cachedDesignation =
           (await _storage.getString(StorageKeys.staffDesignation) ?? '').trim();
 
       final activeSchoolRole =
           (await _storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
-      final rolesJson =
-          await _storage.getString(StorageKeys.roles); // JSON array from login
+      final rolesJson = await _storage.getString(
+        StorageKeys.roles,
+      ); // JSON array from login
       String persona = '';
       // Prefer the staff designation (e.g. Director / Lead Teacher) over the
       // role/staffType; fall back to the role only when no designation exists.
@@ -118,15 +119,18 @@ class UserProfileCubit extends Cubit<UserProfileState> {
       if (persona.isEmpty && activeSchoolRole.isNotEmpty) {
         persona = StringUtils.staffTypeToDisplayRole(activeSchoolRole);
       }
-      final school =
-          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      final org =
-          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+      final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
+      final org = (await _storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
       if (persona.isEmpty && rolesJson != null && rolesJson.isNotEmpty) {
         try {
           final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
-          final matches =
-              matchingRolesForOrgSchool(roles, org, school).toList();
+          final matches = matchingRolesForOrgSchool(
+            roles,
+            org,
+            school,
+          ).toList();
           if (matches.isNotEmpty) {
             persona = StringUtils.staffTypeToDisplayRole(
               matches.first['role'] ?? '',
@@ -146,8 +150,9 @@ class UserProfileCubit extends Cubit<UserProfileState> {
           loginPersona: persona,
           schoolCode: school.isEmpty ? null : school,
           organizationCode: org.isEmpty ? null : org,
-          cachedActiveSchoolRole:
-              activeSchoolRole.isEmpty ? null : activeSchoolRole,
+          cachedActiveSchoolRole: activeSchoolRole.isEmpty
+              ? null
+              : activeSchoolRole,
         ),
       );
       await refreshSwitchProfileAvailability();
@@ -236,8 +241,8 @@ class UserProfileCubit extends Cubit<UserProfileState> {
     try {
       var users = await readCachedUserAccessDetailsUsers(_storage);
       if (users.isEmpty) {
-        final token =
-            (await _storage.getString(StorageKeys.accessToken) ?? '').trim();
+        final token = (await _storage.getString(StorageKeys.accessToken) ?? '')
+            .trim();
         if (token.isNotEmpty) {
           users = await _authRemoteDataSource.getUserDetails(
             accessToken: token,
@@ -303,10 +308,8 @@ class UserProfileCubit extends Cubit<UserProfileState> {
       final repo = _staffRepository;
       // 1) Try cached profile first (fast, no loader).
       if (repo is StaffRepositoryWithCache) {
-        final cached =
-            await (repo as StaffRepositoryWithCache).loadCachedStaffProfile(
-          staffCode,
-        );
+        final cached = await (repo as StaffRepositoryWithCache)
+            .loadCachedStaffProfile(staffCode);
         if (isClosed) return;
         if (cached != null) {
           // Persist staffType for ProfileMenuHeader.
@@ -320,14 +323,18 @@ class UserProfileCubit extends Cubit<UserProfileState> {
             );
           }
           if (isClosed) return;
-          emit(state.copyWith(
-            profile: cached,
-            // Keep the designation in the persona so a later fresh profile with
-            // an empty designation can't drop the header back to the role.
-            loginPersona: cached.designation.trim().isNotEmpty
-                ? StringUtils.staffTypeToDisplayRole(cached.designation.trim())
-                : state.loginPersona,
-          ));
+          emit(
+            state.copyWith(
+              profile: cached,
+              // Keep the designation in the persona so a later fresh profile with
+              // an empty designation can't drop the header back to the role.
+              loginPersona: cached.designation.trim().isNotEmpty
+                  ? StringUtils.staffTypeToDisplayRole(
+                      cached.designation.trim(),
+                    )
+                  : state.loginPersona,
+            ),
+          );
         }
       }
 
@@ -351,14 +358,16 @@ class UserProfileCubit extends Cubit<UserProfileState> {
           );
         }
         if (isClosed) return;
-        emit(state.copyWith(
-          profile: fresh,
-          // Only refresh the persona when the fresh profile actually carries a
-          // designation; otherwise keep the existing one (don't revert to role).
-          loginPersona: fresh.designation.trim().isNotEmpty
-              ? StringUtils.staffTypeToDisplayRole(fresh.designation.trim())
-              : state.loginPersona,
-        ));
+        emit(
+          state.copyWith(
+            profile: fresh,
+            // Only refresh the persona when the fresh profile actually carries a
+            // designation; otherwise keep the existing one (don't revert to role).
+            loginPersona: fresh.designation.trim().isNotEmpty
+                ? StringUtils.staffTypeToDisplayRole(fresh.designation.trim())
+                : state.loginPersona,
+          ),
+        );
       } catch (e) {
         CoreUtils.logApiError(e.toString());
         if (state.profile == null && !_hasShownProfileLoadError) {
@@ -379,8 +388,8 @@ class UserProfileCubit extends Cubit<UserProfileState> {
     try {
       final schoolCode =
           (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      final userCode =
-          (await _storage.getString(StorageKeys.userCode) ?? '').trim();
+      final userCode = (await _storage.getString(StorageKeys.userCode) ?? '')
+          .trim();
       if (schoolCode.isEmpty || userCode.isEmpty) return;
 
       // Seed from the persisted guardian photo first so the avatar is visible
@@ -395,8 +404,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
       if (!isClosed && (cachedAsset.isNotEmpty || cachedUrl.isNotEmpty)) {
         emit(
           state.copyWith(
-            guardianPhotoAssetCode:
-                cachedAsset.isNotEmpty ? cachedAsset : null,
+            guardianPhotoAssetCode: cachedAsset.isNotEmpty ? cachedAsset : null,
             guardianPhotoUrl: cachedUrl.isNotEmpty ? cachedUrl : null,
           ),
         );
@@ -408,20 +416,22 @@ class UserProfileCubit extends Cubit<UserProfileState> {
       );
 
       final guardianCode = (profile['code'] ?? '').toString().trim();
-      final photoAssetCode =
-          (profile['profilePhotoAssetCode'] ?? '').toString().trim();
-      final photoUrl =
-          (profile['profilePhotoUrl'] ?? profile['photoUrl'] ?? '')
-              .toString()
-              .trim();
+      final photoAssetCode = (profile['profilePhotoAssetCode'] ?? '')
+          .toString()
+          .trim();
+      final photoUrl = (profile['profilePhotoUrl'] ?? profile['photoUrl'] ?? '')
+          .toString()
+          .trim();
       final firstName = (profile['firstName'] ?? '').toString().trim();
       final lastName = (profile['lastName'] ?? '').toString().trim();
       final fullName = (profile['fullName'] ?? '').toString().trim();
-      final resolvedName =
-          fullName.isNotEmpty ? fullName : ('$firstName $lastName').trim();
+      final resolvedName = fullName.isNotEmpty
+          ? fullName
+          : ('$firstName $lastName').trim();
       final resolvedEmail = (profile['email'] ?? '').toString().trim();
-      final resolvedPhone =
-          ((profile['mobile'] ?? profile['phone'] ?? '').toString().trim());
+      final resolvedPhone = ((profile['mobile'] ?? profile['phone'] ?? '')
+          .toString()
+          .trim());
 
       String resolvedAddress = '';
       final rawAddress = profile['address'];
@@ -444,14 +454,14 @@ class UserProfileCubit extends Cubit<UserProfileState> {
       // Never clobber a known-good name/photo with an empty API value.
       emit(
         state.copyWith(
-          loginDisplayName:
-              resolvedName.isNotEmpty ? resolvedName : null,
+          loginDisplayName: resolvedName.isNotEmpty ? resolvedName : null,
           loginEmail: resolvedEmail.isNotEmpty ? resolvedEmail : null,
           guardianPhone: resolvedPhone,
           guardianAddress: resolvedAddress,
           guardianCode: guardianCode.isNotEmpty ? guardianCode : null,
-          guardianPhotoAssetCode:
-              photoAssetCode.isNotEmpty ? photoAssetCode : null,
+          guardianPhotoAssetCode: photoAssetCode.isNotEmpty
+              ? photoAssetCode
+              : null,
           guardianPhotoUrl: photoUrl.isNotEmpty ? photoUrl : null,
         ),
       );
@@ -484,8 +494,8 @@ class UserProfileCubit extends Cubit<UserProfileState> {
     final code = profile.primaryClassroomCode.trim().isNotEmpty
         ? profile.primaryClassroomCode.trim()
         : (profile.allowedClassroomCodes.isNotEmpty
-            ? profile.allowedClassroomCodes.first.trim()
-            : '');
+              ? profile.allowedClassroomCodes.first.trim()
+              : '');
     if (code.isEmpty) return '-';
     return _resolveClassroomName(code);
   }
@@ -552,8 +562,8 @@ class UserProfileCubit extends Cubit<UserProfileState> {
 
       if ((state.schoolCode ?? '').trim().isEmpty ||
           (state.organizationCode ?? '').trim().isEmpty) {
-        final school =
-            (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+        final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+            .trim();
         final org =
             (await _storage.getString(StorageKeys.organizationCode) ?? '')
                 .trim();
@@ -586,17 +596,18 @@ class UserProfileCubit extends Cubit<UserProfileState> {
         ),
       );
       final file = File(imagePath);
-      final sessionCode =
-          await _imageUploadService.createStaffProfilePhotoUploadSession(
-        staffCode: staffCode,
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-      );
+      final sessionCode = await _imageUploadService
+          .createStaffProfilePhotoUploadSession(
+            staffCode: staffCode,
+            schoolCode: schoolCode,
+            organizationCode: organizationCode,
+          );
       if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 15));
       final lowerPath = imagePath.toLowerCase();
       final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final contentType =
-          lowerPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      final contentType = lowerPath.endsWith('.png')
+          ? 'image/png'
+          : 'image/jpeg';
       final presign = await _imageUploadService.createAssetPresign(
         sessionCode: sessionCode,
         documentApiBasePath: '/api/v1',
@@ -692,8 +703,8 @@ class UserProfileCubit extends Cubit<UserProfileState> {
 
       if ((state.schoolCode ?? '').trim().isEmpty ||
           (state.organizationCode ?? '').trim().isEmpty) {
-        final school =
-            (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+        final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+            .trim();
         final org =
             (await _storage.getString(StorageKeys.organizationCode) ?? '')
                 .trim();
@@ -718,8 +729,8 @@ class UserProfileCubit extends Cubit<UserProfileState> {
           'Missing school or organization context.',
         );
       }
-      final userCode =
-          (await _storage.getString(StorageKeys.userCode) ?? '').trim();
+      final userCode = (await _storage.getString(StorageKeys.userCode) ?? '')
+          .trim();
 
       emit(
         state.copyWith(
@@ -728,17 +739,18 @@ class UserProfileCubit extends Cubit<UserProfileState> {
         ),
       );
       final file = File(imagePath);
-      final sessionCode =
-          await _imageUploadService.createGuardianProfilePhotoUploadSession(
-        guardianCode: guardianCode,
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-      );
+      final sessionCode = await _imageUploadService
+          .createGuardianProfilePhotoUploadSession(
+            guardianCode: guardianCode,
+            schoolCode: schoolCode,
+            organizationCode: organizationCode,
+          );
       if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 15));
       final lowerPath = imagePath.toLowerCase();
       final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final contentType =
-          lowerPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      final contentType = lowerPath.endsWith('.png')
+          ? 'image/png'
+          : 'image/jpeg';
       final presign = await _imageUploadService.createAssetPresign(
         sessionCode: sessionCode,
         documentApiBasePath: '/api/v1',
@@ -779,12 +791,13 @@ class UserProfileCubit extends Cubit<UserProfileState> {
         expectedAssetCodes: <String>[presign.assetCode],
       );
       if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 100));
-      final resolvedUrl = await _imageUploadService.finalizeGuardianProfilePhoto(
-        guardianCode: guardianCode,
-        assetCode: presign.assetCode,
-        schoolCode: schoolCode,
-        userCode: userCode,
-      );
+      final resolvedUrl = await _imageUploadService
+          .finalizeGuardianProfilePhoto(
+            guardianCode: guardianCode,
+            assetCode: presign.assetCode,
+            schoolCode: schoolCode,
+            userCode: userCode,
+          );
 
       DocumentImageWidget.clearProfilePhotoCache();
       // Persist the freshly-uploaded photo so the three-dot (kebab) menu header

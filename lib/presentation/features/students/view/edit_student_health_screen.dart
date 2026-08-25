@@ -6,6 +6,7 @@ import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class EditStudentHealthScreen extends StatefulWidget {
   const EditStudentHealthScreen({
@@ -183,12 +184,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 15,
-            fontWeight: FontWeight.w400,
-            color: Color(0xff573353),
-          ),
+          style: AppTextStyles.body.copyWith(color: const Color(0xff573353)),
         ),
         const SizedBox(height: 6),
         Container(

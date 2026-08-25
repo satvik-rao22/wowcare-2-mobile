@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// App-wide dark ("blackish") tooltip used for disabled-action hints and
 /// other short explanations.
@@ -33,12 +34,7 @@ class AppTooltip extends StatelessWidget {
         color: const Color(0xE6232323), // blackish, ~90% opaque
         borderRadius: BorderRadius.circular(8),
       ),
-      textStyle: const TextStyle(
-        color: Colors.white,
-        fontSize: 12,
-        fontFamily: 'Manrope',
-        fontWeight: FontWeight.w500,
-      ),
+      textStyle: AppTextStyles.caption.copyWith(color: Colors.white),
       child: child,
     );
   }

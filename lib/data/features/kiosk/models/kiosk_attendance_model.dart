@@ -54,7 +54,9 @@ class KioskAttendanceStatusModel {
       statusMap[key] = value.toString();
     });
 
-    final primaryStatus = statusMap.isEmpty ? 'SIGNED_OUT' : statusMap.values.first;
+    final primaryStatus = statusMap.isEmpty
+        ? 'SIGNED_OUT'
+        : statusMap.values.first;
 
     return KioskAttendanceStatusModel(
       staffCode: statusMap.keys.isNotEmpty ? statusMap.keys.first : '',

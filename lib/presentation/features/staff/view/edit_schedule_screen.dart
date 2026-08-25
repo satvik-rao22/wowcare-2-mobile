@@ -571,7 +571,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha:0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               offset: const Offset(0, -4),
               blurRadius: 16,
             ),
@@ -618,12 +618,12 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isEnabled
-            ? AppColors.primaryColor.withValues(alpha:0.05)
+            ? AppColors.primaryColor.withValues(alpha: 0.05)
             : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isEnabled
-              ? AppColors.primaryColor.withValues(alpha:0.3)
+              ? AppColors.primaryColor.withValues(alpha: 0.3)
               : Colors.grey.shade300,
         ),
       ),

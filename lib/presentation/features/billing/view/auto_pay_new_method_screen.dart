@@ -8,6 +8,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class AutoPayNewMethodScreen extends StatefulWidget {
   const AutoPayNewMethodScreen({super.key});
@@ -26,8 +27,10 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
 
   final TextEditingController _cardNumberController = TextEditingController();
   final TextEditingController _cvvController = TextEditingController();
-  final TextEditingController _accountNumberController = TextEditingController();
-  final TextEditingController _routingNumberController = TextEditingController();
+  final TextEditingController _accountNumberController =
+      TextEditingController();
+  final TextEditingController _routingNumberController =
+      TextEditingController();
 
   // Read-only proxies onto the cubit's form state.
   String get _paymentMethod => _cubit.state.paymentMethod;
@@ -70,289 +73,296 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
       value: _cubit,
       child: BlocBuilder<AutoPayNewMethodCubit, AutoPayNewMethodState>(
         builder: (context, state) {
-    final responsive = ResponsiveHelper(context);
-    final months = List<String>.generate(12, (i) => '${i + 1}'.padLeft(2, '0'));
-    final currentYear = billingSchoolCurrentYear();
-    final years = List<String>.generate(20, (i) => '${currentYear + i}');
+          final responsive = ResponsiveHelper(context);
+          final months = List<String>.generate(
+            12,
+            (i) => '${i + 1}'.padLeft(2, '0'),
+          );
+          final currentYear = billingSchoolCurrentYear();
+          final years = List<String>.generate(20, (i) => '${currentYear + i}');
 
-    return StaffFormLayout(
-      title: 'Set Auto Payment',
-      bottomBar: Container(
-        padding: EdgeInsets.only(
-          bottom: (MediaQuery.of(context).padding.bottom > 0)
-              ? MediaQuery.of(context).padding.bottom
-              : 16,
-          left: 16,
-          right: 16,
-          top: 8,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(24),
-            topRight: Radius.circular(24),
-          ),
-        ),
-        child: ListenableBuilder(
-          // Re-evaluate the Save button as the user types (the enabled state is
-          // derived from the controllers); the cubit drives error/loading state.
-          listenable: Listenable.merge(<Listenable>[
-            _cardNumberController,
-            _cvvController,
-            _accountNumberController,
-            _routingNumberController,
-          ]),
-          builder: (context, _) => AbsorbPointer(
-            absorbing: !_isSubmitEnabled,
-            child: Opacity(
-              opacity: _isSubmitEnabled ? 1 : 0.6,
-              child: CustomButtonLayout(
-                confirmButtonLabel: 'Save details',
-                onPressedConfirm: _onSaveDetails,
-                showCancelButton: false,
-                isForm: false,
-                isLoading: _isSaving,
+          return StaffFormLayout(
+            title: 'Set Auto Payment',
+            bottomBar: Container(
+              padding: EdgeInsets.only(
+                bottom: (MediaQuery.of(context).padding.bottom > 0)
+                    ? MediaQuery.of(context).padding.bottom
+                    : 16,
+                left: 16,
+                right: 16,
+                top: 8,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    offset: const Offset(0, -4),
+                    blurRadius: 16,
+                  ),
+                ],
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+              child: ListenableBuilder(
+                // Re-evaluate the Save button as the user types (the enabled state is
+                // derived from the controllers); the cubit drives error/loading state.
+                listenable: Listenable.merge(<Listenable>[
+                  _cardNumberController,
+                  _cvvController,
+                  _accountNumberController,
+                  _routingNumberController,
+                ]),
+                builder: (context, _) => AbsorbPointer(
+                  absorbing: !_isSubmitEnabled,
+                  child: Opacity(
+                    opacity: _isSubmitEnabled ? 1 : 0.6,
+                    child: CustomButtonLayout(
+                      confirmButtonLabel: 'Save details',
+                      onPressedConfirm: _onSaveDetails,
+                      showCancelButton: false,
+                      isForm: false,
+                      isLoading: _isSaving,
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-      ),
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            0,
-            4,
-            0,
-            responsive.isTablet ? 24 : 16,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-                        CustomDropdown(
-                          label: 'Payment Method',
-                          hintText: 'Select Payment Method',
-                          items: const ['Visa', 'MasterCard', 'Discover', 'ACH'],
-                          selectedItem: _selectedPaymentMethodLabel(),
-                          labelStyle: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: responsive.labelFontSize,
-                            fontWeight: FontWeight.w400,
-                            color: _primary,
-                          ),
-                          labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                          fieldHeight: responsive.isTablet ? 64.0 : 56.0,
-                          selectedTextStyle: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: responsive.inputFontSize,
-                            fontWeight: FontWeight.w600,
-                            color: _primary,
-                            height: 19 / 14,
-                          ),
-                          popupItemTextStyle: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: responsive.inputFontSize,
-                            fontWeight: FontWeight.w400,
-                            color: _primary,
-                          ),
-                          onSelect: (value) => _cubit.setPaymentMethod(value),
-                        ),
-                        _buildFieldError('paymentMethod'),
-                        const SizedBox(height: 8),
-                        if (_paymentMethod.isNotEmpty) _buildFeeMessage(),
-                        if (_showCardFields) ...[
-                          const SizedBox(height: 16),
-                          _buildLabel('Card Number', required: true),
-                          _buildInput(
-                            controller: _cardNumberController,
-                            hint: 'Enter card number',
-                            keyboardType: TextInputType.number,
-                            maxLength: 19,
-                          ),
-                          _buildFieldError('cardNumber'),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    CustomDropdown(
-                                      label: 'Expiration Month',
-                                      hintText: 'Month',
-                                      items: months,
-                                      selectedItem:
-                                          _expMonth.isEmpty ? null : _expMonth,
-                                      labelStyle: TextStyle(
-                                        fontFamily: 'Manrope',
-                                        fontSize: responsive.labelFontSize,
-                                        fontWeight: FontWeight.w400,
-                                        color: _primary,
-                                      ),
-                                      labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                                      fieldHeight: responsive.isTablet ? 64.0 : 56.0,
-                                      selectedTextStyle: TextStyle(
-                                        fontFamily: 'Manrope',
-                                        fontSize: responsive.inputFontSize,
-                                        fontWeight: FontWeight.w600,
-                                        color: _primary,
-                                        height: 19 / 14,
-                                      ),
-                                      onSelect: (value) =>
-                                          _cubit.setExpMonth(value),
-                                    ),
-                                    _buildFieldError('expMonth'),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    CustomDropdown(
-                                      label: 'Expiration Year',
-                                      hintText: 'Year',
-                                      items: years,
-                                      selectedItem:
-                                          _expYear.isEmpty ? null : _expYear,
-                                      labelStyle: TextStyle(
-                                        fontFamily: 'Manrope',
-                                        fontSize: responsive.labelFontSize,
-                                        fontWeight: FontWeight.w400,
-                                        color: _primary,
-                                      ),
-                                      labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                                      fieldHeight: responsive.isTablet ? 64.0 : 56.0,
-                                      selectedTextStyle: TextStyle(
-                                        fontFamily: 'Manrope',
-                                        fontSize: responsive.inputFontSize,
-                                        fontWeight: FontWeight.w600,
-                                        color: _primary,
-                                        height: 19 / 14,
-                                      ),
-                                      onSelect: (value) =>
-                                          _cubit.setExpYear(value),
-                                    ),
-                                    _buildFieldError('expYear'),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          _buildLabel('CVV', required: true),
-                          _buildInput(
-                            controller: _cvvController,
-                            hint: 'Enter CVV',
-                            keyboardType: TextInputType.number,
-                            maxLength: 4,
-                          ),
-                          _buildFieldError('cvv'),
-                        ],
-                        if (_showEcheckFields) ...[
-                          const SizedBox(height: 16),
-                          _buildLabel('Account Number', required: true),
-                          _buildInput(
-                            controller: _accountNumberController,
-                            hint: 'Enter account number',
-                            keyboardType: TextInputType.number,
-                            maxLength: 17,
-                          ),
-                          _buildFieldError('accountNumber'),
-                          const SizedBox(height: 12),
-                          _buildLabel('Routing Number', required: true),
-                          _buildInput(
-                            controller: _routingNumberController,
-                            hint: 'Enter routing number',
-                            keyboardType: TextInputType.number,
-                            maxLength: 9,
-                          ),
-                          _buildFieldError('routingNumber'),
-                          const SizedBox(height: 12),
-                          CustomDropdown(
-                            label: 'Account Type',
-                            hintText: 'Select Account Type',
-                            items: const ['Checking', 'Savings'],
-                            selectedItem: _selectedAccountTypeLabel(),
-                            labelStyle: TextStyle(
-                              fontFamily: 'Manrope',
-                              fontSize: responsive.labelFontSize,
-                              fontWeight: FontWeight.w400,
-                              color: _primary,
-                            ),
-                            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                            fieldHeight: responsive.isTablet ? 64.0 : 56.0,
-                            selectedTextStyle: TextStyle(
-                              fontFamily: 'Manrope',
-                              fontSize: responsive.inputFontSize,
-                              fontWeight: FontWeight.w600,
-                              color: _primary,
-                              height: 19 / 14,
-                            ),
-                            onSelect: (value) => _cubit.setAccountType(value),
-                          ),
-                          _buildFieldError('accountType'),
-                        ],
-                        if (_showInfoBlock) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _infoBg,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: const Color(0x4DFDB813),
-                              ),
-                            ),
-                            child: const Row(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  0,
+                  4,
+                  0,
+                  responsive.isTablet ? 24 : 16,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CustomDropdown(
+                      label: 'Payment Method',
+                      hintText: 'Select Payment Method',
+                      items: const ['Visa', 'MasterCard', 'Discover', 'ACH'],
+                      selectedItem: _selectedPaymentMethodLabel(),
+                      labelStyle: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: responsive.labelFontSize,
+                        fontWeight: FontWeight.w400,
+                        color: _primary,
+                      ),
+                      labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                      fieldHeight: responsive.isTablet ? 64.0 : 56.0,
+                      selectedTextStyle: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: responsive.inputFontSize,
+                        fontWeight: FontWeight.w600,
+                        color: _primary,
+                        height: 19 / 14,
+                      ),
+                      popupItemTextStyle: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: responsive.inputFontSize,
+                        fontWeight: FontWeight.w400,
+                        color: _primary,
+                      ),
+                      onSelect: (value) => _cubit.setPaymentMethod(value),
+                    ),
+                    _buildFieldError('paymentMethod'),
+                    const SizedBox(height: 8),
+                    if (_paymentMethod.isNotEmpty) _buildFeeMessage(),
+                    if (_showCardFields) ...[
+                      const SizedBox(height: 16),
+                      _buildLabel('Card Number', required: true),
+                      _buildInput(
+                        controller: _cardNumberController,
+                        hint: 'Enter card number',
+                        keyboardType: TextInputType.number,
+                        maxLength: 19,
+                      ),
+                      _buildFieldError('cardNumber'),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  Icons.info_outline,
-                                  size: 16,
-                                  color: Color(0xFFDD6B20),
-                                ),
-                                SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Your current outstanding balance will be deducted automatically.',
-                                    style: TextStyle(
-                                      fontFamily: 'Manrope',
-                                      color: Color(0xFFD97706),
-                                      fontSize: 12,
-                                    ),
+                                CustomDropdown(
+                                  label: 'Expiration Month',
+                                  hintText: 'Month',
+                                  items: months,
+                                  selectedItem: _expMonth.isEmpty
+                                      ? null
+                                      : _expMonth,
+                                  labelStyle: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: responsive.labelFontSize,
+                                    fontWeight: FontWeight.w400,
+                                    color: _primary,
                                   ),
+                                  labelBottomSpacing: responsive.isTablet
+                                      ? 8.0
+                                      : 6.0,
+                                  fieldHeight: responsive.isTablet
+                                      ? 64.0
+                                      : 56.0,
+                                  selectedTextStyle: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: responsive.inputFontSize,
+                                    fontWeight: FontWeight.w600,
+                                    color: _primary,
+                                    height: 19 / 14,
+                                  ),
+                                  onSelect: (value) =>
+                                      _cubit.setExpMonth(value),
                                 ),
+                                _buildFieldError('expMonth'),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CustomDropdown(
+                                  label: 'Expiration Year',
+                                  hintText: 'Year',
+                                  items: years,
+                                  selectedItem: _expYear.isEmpty
+                                      ? null
+                                      : _expYear,
+                                  labelStyle: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: responsive.labelFontSize,
+                                    fontWeight: FontWeight.w400,
+                                    color: _primary,
+                                  ),
+                                  labelBottomSpacing: responsive.isTablet
+                                      ? 8.0
+                                      : 6.0,
+                                  fieldHeight: responsive.isTablet
+                                      ? 64.0
+                                      : 56.0,
+                                  selectedTextStyle: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: responsive.inputFontSize,
+                                    fontWeight: FontWeight.w600,
+                                    color: _primary,
+                                    height: 19 / 14,
+                                  ),
+                                  onSelect: (value) => _cubit.setExpYear(value),
+                                ),
+                                _buildFieldError('expYear'),
                               ],
                             ),
                           ),
                         ],
-                        if (_isSaving)
-                          const Center(
-                            child: Text(
-                              'Please wait... Processing your payment information.',
-                              style: TextStyle(
-                                color: Color(0xFF718096),
-                                fontSize: 12,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildLabel('CVV', required: true),
+                      _buildInput(
+                        controller: _cvvController,
+                        hint: 'Enter CVV',
+                        keyboardType: TextInputType.number,
+                        maxLength: 4,
+                      ),
+                      _buildFieldError('cvv'),
+                    ],
+                    if (_showEcheckFields) ...[
+                      const SizedBox(height: 16),
+                      _buildLabel('Account Number', required: true),
+                      _buildInput(
+                        controller: _accountNumberController,
+                        hint: 'Enter account number',
+                        keyboardType: TextInputType.number,
+                        maxLength: 17,
+                      ),
+                      _buildFieldError('accountNumber'),
+                      const SizedBox(height: 12),
+                      _buildLabel('Routing Number', required: true),
+                      _buildInput(
+                        controller: _routingNumberController,
+                        hint: 'Enter routing number',
+                        keyboardType: TextInputType.number,
+                        maxLength: 9,
+                      ),
+                      _buildFieldError('routingNumber'),
+                      const SizedBox(height: 12),
+                      CustomDropdown(
+                        label: 'Account Type',
+                        hintText: 'Select Account Type',
+                        items: const ['Checking', 'Savings'],
+                        selectedItem: _selectedAccountTypeLabel(),
+                        labelStyle: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: responsive.labelFontSize,
+                          fontWeight: FontWeight.w400,
+                          color: _primary,
+                        ),
+                        labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                        fieldHeight: responsive.isTablet ? 64.0 : 56.0,
+                        selectedTextStyle: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: responsive.inputFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: _primary,
+                          height: 19 / 14,
+                        ),
+                        onSelect: (value) => _cubit.setAccountType(value),
+                      ),
+                      _buildFieldError('accountType'),
+                    ],
+                    if (_showInfoBlock) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _infoBg,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0x4DFDB813)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              size: 16,
+                              color: Color(0xFFDD6B20),
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Your current outstanding balance will be deducted automatically.',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: Color(0xFFD97706),
+                                ),
                               ),
                             ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (_isSaving)
+                      Center(
+                        child: Text(
+                          'Please wait... Processing your payment information.',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: Color(0xFF718096),
                           ),
-            ],
-          ),
-        ),
-      ),
-    );
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          );
         },
       ),
     );
@@ -372,10 +382,10 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
             color: _primary,
           ),
           children: required
-              ? const [
+              ? [
                   TextSpan(
                     text: '*',
-                    style: TextStyle(color: Colors.red),
+                    style: AppTextStyles.body.copyWith(color: Colors.red),
                   ),
                 ]
               : const [],
@@ -402,20 +412,20 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
         controller: controller,
         keyboardType: keyboardType,
         maxLength: maxLength,
-      inputFormatters: _inputFormattersFor(keyboardType),
-      onChanged: (_) {
-        // The Save button rebuilds reactively via ListenableBuilder on the
-        // controllers; here we just clear the relevant cubit field error.
-        if (controller == _cardNumberController) {
-          _cubit.clearFieldError('cardNumber');
-        } else if (controller == _cvvController) {
-          _cubit.clearFieldError('cvv');
-        } else if (controller == _accountNumberController) {
-          _cubit.clearFieldError('accountNumber');
-        } else if (controller == _routingNumberController) {
-          _cubit.clearFieldError('routingNumber');
-        }
-      },
+        inputFormatters: _inputFormattersFor(keyboardType),
+        onChanged: (_) {
+          // The Save button rebuilds reactively via ListenableBuilder on the
+          // controllers; here we just clear the relevant cubit field error.
+          if (controller == _cardNumberController) {
+            _cubit.clearFieldError('cardNumber');
+          } else if (controller == _cvvController) {
+            _cubit.clearFieldError('cvv');
+          } else if (controller == _accountNumberController) {
+            _cubit.clearFieldError('accountNumber');
+          } else if (controller == _routingNumberController) {
+            _cubit.clearFieldError('routingNumber');
+          }
+        },
         style: TextStyle(
           fontFamily: 'Manrope',
           fontSize: responsive.inputFontSize,
@@ -444,9 +454,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
 
   List<TextInputFormatter>? _inputFormattersFor(TextInputType keyboardType) {
     if (keyboardType == TextInputType.number) {
-      return <TextInputFormatter>[
-        FilteringTextInputFormatter.digitsOnly,
-      ];
+      return <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly];
     }
     return null;
   }
@@ -504,11 +512,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
           Expanded(
             child: Text(
               feeText,
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 12,
-                color: Color(0xFFC05621),
-              ),
+              style: AppTextStyles.bodySmall.copyWith(color: Color(0xFFC05621)),
             ),
           ),
         ],

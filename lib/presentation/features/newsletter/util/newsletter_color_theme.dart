@@ -22,10 +22,10 @@ class NewsletterThemeColors {
   final Color titleTextColor;
 
   LinearGradient get titleBarGradient => LinearGradient(
-        colors: <Color>[titleGradientStart, titleGradientEnd],
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-      );
+    colors: <Color>[titleGradientStart, titleGradientEnd],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+  );
 
   static NewsletterThemeColors fromKey(String themeKey) {
     switch (themeKey.trim().toLowerCase()) {

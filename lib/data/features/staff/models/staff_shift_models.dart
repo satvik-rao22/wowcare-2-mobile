@@ -65,20 +65,20 @@ class StaffShiftItemModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        shiftCode,
-        staffCode,
-        staffFirstName,
-        staffLastName,
-        classroomCode,
-        shiftDate,
-        startTime,
-        endTime,
-        breakStartTime,
-        breakEndTime,
-        availableHours,
-        scheduledHours,
-        unscheduledHours,
-      ];
+    shiftCode,
+    staffCode,
+    staffFirstName,
+    staffLastName,
+    classroomCode,
+    shiftDate,
+    startTime,
+    endTime,
+    breakStartTime,
+    breakEndTime,
+    availableHours,
+    scheduledHours,
+    unscheduledHours,
+  ];
 }
 
 class StaffShiftsPageModel extends Equatable {

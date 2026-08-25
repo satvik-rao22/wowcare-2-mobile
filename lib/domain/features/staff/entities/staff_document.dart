@@ -23,28 +23,29 @@ class StaffDocument extends Equatable {
   final int documentSizeKb;
   final String mimeType;
   final String? assetCode;
+
   /// ISO date string (yyyy-MM-dd), or null when document has no expiry.
   final String? expiryDate;
   final String? documentNotes;
   final bool expired;
   final String? createdAt;
+
   /// Backend field: `updatedBy` (name of staff/admin/system who last uploaded/updated).
   final String? uploadedBy;
 
   @override
   List<Object?> get props => [
-        documentUuid,
-        documentType,
-        documentName,
-        documentUrl,
-        documentSizeKb,
-        mimeType,
-        assetCode,
-        expiryDate,
-        documentNotes,
-        expired,
-        createdAt,
-        uploadedBy,
-      ];
+    documentUuid,
+    documentType,
+    documentName,
+    documentUrl,
+    documentSizeKb,
+    mimeType,
+    assetCode,
+    expiryDate,
+    documentNotes,
+    expired,
+    createdAt,
+    uploadedBy,
+  ];
 }
-

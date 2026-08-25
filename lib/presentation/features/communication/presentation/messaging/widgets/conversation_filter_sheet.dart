@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_list_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_list_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Filter bottom sheet for STAFF_DIRECT conversations.
 ///
@@ -361,7 +362,7 @@ class _ClassroomFilterFieldState extends State<_ClassroomFilterField> {
           onChanged: widget.onChanged,
           decoration: InputDecoration(
             hintText: 'Enter classroom code (e.g., CLS_123)',
-            hintStyle: TextStyle(color: Colors.grey[400]),
+            hintStyle: AppTextStyles.body.copyWith(color: Colors.grey[400]),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: Colors.grey[300]!),

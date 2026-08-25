@@ -32,6 +32,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/duplicate_student_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/widgets/same_last_name_siblings_dialog.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class AddStudentStep1Screen extends StatefulWidget {
   const AddStudentStep1Screen({
@@ -1219,7 +1220,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: Color(0xff573353),
     );
 
     return Column(
@@ -1230,9 +1231,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(
+              TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: AppTextStyles.body.copyWith(color: Colors.red),
               ),
             ],
           ),
@@ -1312,8 +1313,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                       const SizedBox(height: 8),
                       Text(
                         'Upload Photo',
-                        style: TextStyle(
-                          fontSize: 12,
+                        style: AppTextStyles.bodySmall.copyWith(
                           color: Colors.grey.shade600,
                         ),
                       ),
@@ -1324,11 +1324,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         const SizedBox(height: 4),
         Text(
           'JPG, PNG, max 10MB (Optional)',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-            fontFamily: 'Manrope',
-          ),
+          style: AppTextStyles.bodySmall.copyWith(color: Colors.grey.shade600),
         ),
       ],
     );
@@ -1346,7 +1342,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: Color(0xff573353),
     );
 
     return Column(
@@ -1358,9 +1354,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             children: [
               TextSpan(text: label),
               if (isRequired)
-                const TextSpan(
+                TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: AppTextStyles.body.copyWith(color: Colors.red),
                 ),
             ],
           ),
@@ -1410,10 +1406,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                             padding: const EdgeInsets.only(top: 4.0),
                             child: Text(
                               'Age: $ageLabel',
-                              style: TextStyle(
-                                fontSize: 12,
+                              style: AppTextStyles.bodySmall.copyWith(
                                 color: Colors.grey.shade600,
-                                fontFamily: 'Manrope',
                               ),
                             ),
                           ),

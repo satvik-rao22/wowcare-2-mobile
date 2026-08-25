@@ -40,8 +40,14 @@ class FeeStructureEntity extends Equatable {
   final String? status;
 
   @override
-  List<Object?> get props =>
-      [code, ageGroupName, daysPerWeek, availabilityType, feesDetails, status];
+  List<Object?> get props => [
+    code,
+    ageGroupName,
+    daysPerWeek,
+    availabilityType,
+    feesDetails,
+    status,
+  ];
 }
 
 class OtherFeeEntity extends Equatable {
@@ -81,6 +87,13 @@ class SubsidyEntity extends Equatable {
   final String? status;
 
   @override
-  List<Object?> get props =>
-      [code, name, description, deductionAmount, price, discountType, status];
+  List<Object?> get props => [
+    code,
+    name,
+    description,
+    deductionAmount,
+    price,
+    discountType,
+    status,
+  ];
 }

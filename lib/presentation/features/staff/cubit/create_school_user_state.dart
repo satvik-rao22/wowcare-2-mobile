@@ -12,10 +12,10 @@ class CreateSchoolUserState extends Equatable {
   const CreateSchoolUserState.loading() : this._(isLoading: true);
 
   const CreateSchoolUserState.success(CreateSchoolUserResult result)
-      : this._(isLoading: false, result: result);
+    : this._(isLoading: false, result: result);
 
   const CreateSchoolUserState.error(String message)
-      : this._(isLoading: false, errorMessage: message);
+    : this._(isLoading: false, errorMessage: message);
 
   final bool isLoading;
   final CreateSchoolUserResult? result;
@@ -24,5 +24,3 @@ class CreateSchoolUserState extends Equatable {
   @override
   List<Object?> get props => [isLoading, result, errorMessage];
 }
-
-

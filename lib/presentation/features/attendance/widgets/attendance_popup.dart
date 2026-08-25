@@ -184,20 +184,22 @@ class AttendancePopupManager {
       // slide-from-right made it visibly stand out as "a different page was
       // pushed" instead of feeling like just another tab. A quick fade reads
       // much closer to a tab swap than a slide does.
-      navigatorState.push(_fadeRoute(
-        settings: const RouteSettings(
-          name: StudentAttendanceProfile.routeName,
+      navigatorState.push(
+        _fadeRoute(
+          settings: const RouteSettings(
+            name: StudentAttendanceProfile.routeName,
+          ),
+          builder: (_) => StudentAttendanceProfile(
+            studentCode: selectedChild.code.trim(),
+            studentId: 0,
+            studentName: selectedChild.name,
+            studentPhotoUuid: null,
+            roomName: roomName,
+            isSignedIn: isSignedIn,
+            syncWithParentChildSelection: true,
+          ),
         ),
-        builder: (_) => StudentAttendanceProfile(
-          studentCode: selectedChild.code.trim(),
-          studentId: 0,
-          studentName: selectedChild.name,
-          studentPhotoUuid: null,
-          roomName: roomName,
-          isSignedIn: isSignedIn,
-          syncWithParentChildSelection: true,
-        ),
-      ));
+      );
     } catch (_) {
       if (!context.mounted) return;
       CoreUtils.showTopSnackBarFromSnackBar(
@@ -224,8 +226,7 @@ PageRouteBuilder<T> _fadeRoute<T>({
     settings: settings,
     transitionDuration: const Duration(milliseconds: 150),
     reverseTransitionDuration: const Duration(milliseconds: 150),
-    pageBuilder: (context, animation, secondaryAnimation) =>
-        builder(context),
+    pageBuilder: (context, animation, secondaryAnimation) => builder(context),
     transitionsBuilder: (context, animation, secondaryAnimation, child) =>
         FadeTransition(opacity: animation, child: child),
   );

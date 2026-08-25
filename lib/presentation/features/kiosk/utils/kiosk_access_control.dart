@@ -36,7 +36,9 @@ class KioskAccessControl {
     _kioskModeCached = true;
     _kioskPersonaCached = persona;
 
-    AppLogger.d('[KioskAccess] Kiosk mode activated: persona=$persona (cache updated)');
+    AppLogger.d(
+      '[KioskAccess] Kiosk mode activated: persona=$persona (cache updated)',
+    );
   }
 
   /// Records the real role/code the backend returned for the person who just
@@ -49,10 +51,12 @@ class KioskAccessControl {
     String? guardianCode,
   }) {
     _verifiedRoleCached = (role ?? '').trim().isEmpty ? null : role!.trim();
-    _verifiedStaffCodeCached =
-        (staffCode ?? '').trim().isEmpty ? null : staffCode!.trim();
-    _verifiedGuardianCodeCached =
-        (guardianCode ?? '').trim().isEmpty ? null : guardianCode!.trim();
+    _verifiedStaffCodeCached = (staffCode ?? '').trim().isEmpty
+        ? null
+        : staffCode!.trim();
+    _verifiedGuardianCodeCached = (guardianCode ?? '').trim().isEmpty
+        ? null
+        : guardianCode!.trim();
     AppLogger.d(
       '[KioskAccess] Verified identity set: role=$_verifiedRoleCached '
       'staffCode=$_verifiedStaffCodeCached guardianCode=$_verifiedGuardianCodeCached',
@@ -77,7 +81,9 @@ class KioskAccessControl {
     try {
       final mode = await _storage.getString(_kioskModeKey);
       _kioskModeCached = mode == 'true';
-      AppLogger.d('[KioskAccess] isKioskModeActive() → storage read: $_kioskModeCached');
+      AppLogger.d(
+        '[KioskAccess] isKioskModeActive() → storage read: $_kioskModeCached',
+      );
       return _kioskModeCached;
     } catch (e) {
       AppLogger.e('[KioskAccess] Error reading kiosk mode from storage: $e');
@@ -89,7 +95,9 @@ class KioskAccessControl {
   /// Uses cache when available; only reads storage on cache miss.
   Future<String?> getKioskPersona() async {
     if (_kioskPersonaCached != null) {
-      AppLogger.d('[KioskAccess] getKioskPersona() → cache hit: $_kioskPersonaCached');
+      AppLogger.d(
+        '[KioskAccess] getKioskPersona() → cache hit: $_kioskPersonaCached',
+      );
       return _kioskPersonaCached;
     }
 

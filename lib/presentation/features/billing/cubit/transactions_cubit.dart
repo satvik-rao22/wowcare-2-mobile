@@ -72,12 +72,12 @@ class TransactionsCubit extends Cubit<TransactionsState> {
     required CancelInvoiceUseCase cancelInvoice,
     required DeleteInvoiceUseCase deleteInvoice,
     required StorageService storage,
-  })  : _getOverview = getOverview,
-        _getTransactions = getTransactions,
-        _cancelInvoice = cancelInvoice,
-        _deleteInvoice = deleteInvoice,
-        _storage = storage,
-        super(const TransactionsState.initial());
+  }) : _getOverview = getOverview,
+       _getTransactions = getTransactions,
+       _cancelInvoice = cancelInvoice,
+       _deleteInvoice = deleteInvoice,
+       _storage = storage,
+       super(const TransactionsState.initial());
 
   final GetInvoiceOverviewUseCase _getOverview;
   final GetInvoiceTransactionsUseCase _getTransactions;
@@ -91,10 +91,10 @@ class TransactionsCubit extends Cubit<TransactionsState> {
   /// on failure — the stat bar just falls back to zero totals.
   Future<void> loadOverview({DateTime? dateFrom, DateTime? dateTo}) async {
     try {
-      final org =
-          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final school =
-          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final org = (await _storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+      final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       if (org.isEmpty || school.isEmpty) return;
       final overview = await _getOverview(
         organizationCode: org,
@@ -107,7 +107,9 @@ class TransactionsCubit extends Cubit<TransactionsState> {
     } catch (e) {
       if (isClosed) return;
       // Totals fall back to zero; surface the error to the view.
-      emit(state.copyWith(errorMessage: ApiErrorHandler.extractErrorMessage(e)));
+      emit(
+        state.copyWith(errorMessage: ApiErrorHandler.extractErrorMessage(e)),
+      );
     }
   }
 
@@ -131,7 +133,9 @@ class TransactionsCubit extends Cubit<TransactionsState> {
       await loadOverview();
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(errorMessage: ApiErrorHandler.extractErrorMessage(e)));
+      emit(
+        state.copyWith(errorMessage: ApiErrorHandler.extractErrorMessage(e)),
+      );
     }
   }
 
@@ -145,14 +149,18 @@ class TransactionsCubit extends Cubit<TransactionsState> {
       final remaining = state.transactions
           .where((r) => r.item.invoiceCode?.trim() != code.trim())
           .toList();
-      emit(state.copyWith(
-        transactions: remaining,
-        successMessage: 'Invoice deleted',
-      ));
+      emit(
+        state.copyWith(
+          transactions: remaining,
+          successMessage: 'Invoice deleted',
+        ),
+      );
       await loadOverview();
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(errorMessage: ApiErrorHandler.extractErrorMessage(e)));
+      emit(
+        state.copyWith(errorMessage: ApiErrorHandler.extractErrorMessage(e)),
+      );
     }
   }
 
@@ -179,10 +187,10 @@ class TransactionsCubit extends Cubit<TransactionsState> {
   Future<void> loadTransactions({DateTime? dateFrom, DateTime? dateTo}) async {
     emit(state.copyWith(isLoading: true, errorMessage: null));
     try {
-      final org =
-          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final school =
-          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final org = (await _storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+      final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       if (org.isEmpty || school.isEmpty) {
         if (isClosed) return;
         emit(state.copyWith(isLoading: false, transactions: const []));
@@ -200,20 +208,24 @@ class TransactionsCubit extends Cubit<TransactionsState> {
         size: _pageSize,
       );
       if (isClosed) return;
-      emit(state.copyWith(
-        transactions: _mapRecords(result.items),
-        page: 0,
-        hasMore: result.hasMore,
-        isLoading: false,
-        isLoadingMore: false,
-      ));
+      emit(
+        state.copyWith(
+          transactions: _mapRecords(result.items),
+          page: 0,
+          hasMore: result.hasMore,
+          isLoading: false,
+          isLoadingMore: false,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoading: false,
-        isLoadingMore: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isLoadingMore: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -223,10 +235,10 @@ class TransactionsCubit extends Cubit<TransactionsState> {
     emit(state.copyWith(isLoadingMore: true, errorMessage: null));
     final nextPage = state.page + 1;
     try {
-      final org =
-          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final school =
-          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final org = (await _storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+      final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       final filter = state.activeFilter;
       final result = await _getTransactions(
         organizationCode: org,
@@ -239,25 +251,32 @@ class TransactionsCubit extends Cubit<TransactionsState> {
         size: _pageSize,
       );
       if (isClosed) return;
-      final existing =
-          state.transactions.map((r) => r.item.invoiceCode).toSet();
+      final existing = state.transactions
+          .map((r) => r.item.invoiceCode)
+          .toSet();
       final merged = <TransactionRecord>[
         ...state.transactions,
-        ..._mapRecords(result.items, startIndex: state.transactions.length)
-            .where((r) => !existing.contains(r.item.invoiceCode)),
+        ..._mapRecords(
+          result.items,
+          startIndex: state.transactions.length,
+        ).where((r) => !existing.contains(r.item.invoiceCode)),
       ];
-      emit(state.copyWith(
-        transactions: merged,
-        page: nextPage,
-        hasMore: result.hasMore,
-        isLoadingMore: false,
-      ));
+      emit(
+        state.copyWith(
+          transactions: merged,
+          page: nextPage,
+          hasMore: result.hasMore,
+          isLoadingMore: false,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoadingMore: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -314,5 +333,4 @@ class TransactionsCubit extends Cubit<TransactionsState> {
         return TransactionStatus.unpaid; // SENT / DRAFT / …
     }
   }
-
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Standardized "Relation" picker: a dropdown of common relation types plus
 /// an "Other" option that reveals a free-text field for anything not
@@ -231,9 +232,9 @@ class RelationSelectorState extends State<RelationSelector> {
             children: [
               TextSpan(text: widget.customFieldLabel),
               if (widget.isRequired)
-                const TextSpan(
+                TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: AppTextStyles.body.copyWith(color: Colors.red),
                 ),
             ],
           ),

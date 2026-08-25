@@ -21,6 +21,7 @@ class StaffDocumentRequestModel extends Equatable {
   final String? assetCode;
   final String expiryDate; // ISO date string or empty when optional
   final String? documentNotes;
+
   /// Name or code of staff/admin who uploaded/last updated the document.
   final String? updatedBy;
 
@@ -42,8 +43,17 @@ class StaffDocumentRequestModel extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      [documentType, documentName, documentUrl, documentSizeKb, mimeType, assetCode, expiryDate, documentNotes, updatedBy];
+  List<Object?> get props => [
+    documentType,
+    documentName,
+    documentUrl,
+    documentSizeKb,
+    mimeType,
+    assetCode,
+    expiryDate,
+    documentNotes,
+    updatedBy,
+  ];
 }
 
 class StaffDocumentResponseModel extends Equatable {
@@ -146,20 +156,20 @@ class StaffDocumentItemModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        documentUuid,
-        documentType,
-        documentName,
-        documentUrl,
-        documentSizeKb,
-        mimeType,
-        assetCode,
-        expiryDate,
-        documentNotes,
-        expired,
-        createdAt,
-        updatedBy,
-        updatedAt,
-      ];
+    documentUuid,
+    documentType,
+    documentName,
+    documentUrl,
+    documentSizeKb,
+    mimeType,
+    assetCode,
+    expiryDate,
+    documentNotes,
+    expired,
+    createdAt,
+    updatedBy,
+    updatedAt,
+  ];
 }
 
 class StaffDocumentsPageModel extends Equatable {
@@ -182,7 +192,10 @@ class StaffDocumentsPageModel extends Equatable {
   factory StaffDocumentsPageModel.fromJson(Map<String, dynamic> json) {
     final content = json['content'] as List<dynamic>? ?? [];
     final items = content
-        .map((item) => StaffDocumentItemModel.fromJson(item as Map<String, dynamic>))
+        .map(
+          (item) =>
+              StaffDocumentItemModel.fromJson(item as Map<String, dynamic>),
+        )
         .toList();
 
     final pageable = json['pageable'] as Map<String, dynamic>? ?? {};
@@ -225,7 +238,14 @@ class StaffDocumentsPageModel extends Equatable {
   }
 
   @override
-  List<Object?> get props => [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 }
 
 class StaffDocumentExpirySummaryModel {
@@ -247,4 +267,3 @@ class StaffDocumentExpirySummaryModel {
     );
   }
 }
-

@@ -23,10 +23,10 @@ class ParentStatementsCubit extends Cubit<ParentStatementsState> {
     required GetBillingStatementsUseCase getStatements,
     required BillingStatementsRepository statementsRepository,
     required FileDownloadService fileDownloadService,
-  })  : _getStatements = getStatements,
-        _repository = statementsRepository,
-        _fileDownloadService = fileDownloadService,
-        super(const ParentStatementsState.initial());
+  }) : _getStatements = getStatements,
+       _repository = statementsRepository,
+       _fileDownloadService = fileDownloadService,
+       super(const ParentStatementsState.initial());
 
   final GetBillingStatementsUseCase _getStatements;
   final BillingStatementsRepository _repository;
@@ -40,17 +40,21 @@ class ParentStatementsCubit extends Cubit<ParentStatementsState> {
     if (start == null || end == null) {
       // Current month in the SCHOOL calendar — a device in another zone would
       // otherwise roll the month over early/late near month boundaries.
-      emit(state.copyWith(
-        customStartDate: () => billingSchoolMonthStart(),
-        customEndDate: () => billingSchoolMonthEnd(),
-        displayCount: _pageSize,
-      ));
+      emit(
+        state.copyWith(
+          customStartDate: () => billingSchoolMonthStart(),
+          customEndDate: () => billingSchoolMonthEnd(),
+          displayCount: _pageSize,
+        ),
+      );
     } else {
-      emit(state.copyWith(
-        customStartDate: () => start,
-        customEndDate: () => end,
-        displayCount: _pageSize,
-      ));
+      emit(
+        state.copyWith(
+          customStartDate: () => start,
+          customEndDate: () => end,
+          displayCount: _pageSize,
+        ),
+      );
     }
   }
 
@@ -62,37 +66,53 @@ class ParentStatementsCubit extends Cubit<ParentStatementsState> {
     try {
       final statements = await _getStatements(subscriberCode: _subscriberCode);
       if (isClosed) return;
-      emit(state.copyWith(
-        isStatementsLoading: false,
-        statements: statements,
-        displayCount: _pageSize,
-      ));
+      emit(
+        state.copyWith(
+          isStatementsLoading: false,
+          statements: statements,
+          displayCount: _pageSize,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isStatementsLoading: false,
-        errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isStatementsLoading: false,
+          errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
   void syncDates(DateTime? start, DateTime? end) {
-    emit(state.copyWith(
-      customStartDate: () => start,
-      customEndDate: () => end,
-      displayCount: _pageSize, // reset page on date change
-    ));
+    emit(
+      state.copyWith(
+        customStartDate: () => start,
+        customEndDate: () => end,
+        displayCount: _pageSize, // reset page on date change
+      ),
+    );
   }
 
   Future<void> refresh() => load(_subscriberCode);
 
   Future<void> applyDateRange(DateTime startDate, DateTime? endDate) async {
-    emit(state.copyWith(
-      customStartDate: () => startDate,
-      customEndDate: () => endDate ??
-          DateTime(startDate.year, startDate.month, startDate.day, 23, 59, 59),
-      displayCount: _pageSize, // reset page on filter change
-    ));
+    emit(
+      state.copyWith(
+        customStartDate: () => startDate,
+        customEndDate: () =>
+            endDate ??
+            DateTime(
+              startDate.year,
+              startDate.month,
+              startDate.day,
+              23,
+              59,
+              59,
+            ),
+        displayCount: _pageSize, // reset page on filter change
+      ),
+    );
   }
 
   /// Shows the next page of statements (client-side pagination).

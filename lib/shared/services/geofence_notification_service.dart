@@ -19,7 +19,6 @@ class GeofenceNotificationService {
   static const String pushChannelId = 'wowcare_alerts_v2';
   static const String pushChannelName = 'WowCare Notifications';
 
-
   // Push notifications must each get a UNIQUE id — a fixed id makes every new
   // push replace the previous one in the tray, so firing 5 in a row leaves only
   // 1 visible. Start above the reserved geofence ids and increment per push.
@@ -82,7 +81,6 @@ class GeofenceNotificationService {
       _initialized = false;
     }
   }
-
 
   Future<void> showCustomNotification({
     required String title,

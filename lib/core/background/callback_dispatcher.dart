@@ -18,7 +18,11 @@ void callbackDispatcher() {
     } catch (e, stackTrace) {
       try {
         await ensureFirebaseInitialized();
-        await FirebaseCrashlytics.instance.recordError(e, stackTrace, fatal: true);
+        await FirebaseCrashlytics.instance.recordError(
+          e,
+          stackTrace,
+          fatal: true,
+        );
       } catch (_) {}
       return false;
     }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Greeting block at the top of the dashboard feed: "Welcome {name}" plus an
 /// optional "Need your attention" section label.
@@ -23,20 +24,14 @@ class DashboardWelcomeHeader extends StatelessWidget {
       children: [
         Text(
           'Welcome $userName',
-          style: const TextStyle(
-            color: AppColors.primaryColor,
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-          ),
+          style: AppTextStyles.display.copyWith(color: AppColors.primaryColor),
         ),
         if (showSectionLabel) ...[
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Need your attention',
-            style: TextStyle(
+            style: AppTextStyles.heading.copyWith(
               color: AppColors.primaryColor,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ],

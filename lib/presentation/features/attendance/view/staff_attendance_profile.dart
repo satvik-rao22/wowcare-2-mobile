@@ -74,10 +74,7 @@ class _AttendanceField extends StatelessWidget {
           width: 120,
           child: Text(
             label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
+            style: AppTextStyles.label.copyWith(
               color: Color(0xff573353),
               height: 16 / 13,
             ),
@@ -113,10 +110,7 @@ class _AttendanceField extends StatelessWidget {
                 child: Text(
                   text,
                   textAlign: TextAlign.end,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                  style: AppTextStyles.body.copyWith(
                     color: Color(0xff573353),
                     height: 19 / 14,
                   ),
@@ -746,10 +740,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           final signOutByText = rawSignedOutBy.isNotEmpty
               ? rawSignedOutBy
               : (isTransferSignOut && transferredBy.isNotEmpty
-                  ? transferredBy
-                  : (signOutMethodEnum == StaffProfileAbsentMarkMethod.system
-                      ? 'System'
-                      : ''));
+                    ? transferredBy
+                    : (signOutMethodEnum == StaffProfileAbsentMarkMethod.system
+                          ? 'System'
+                          : ''));
 
           return _AttendanceModel(
             date: parsedDate,
@@ -1053,10 +1047,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                                   showAbsentDays
                                       ? 'Absent Days'
                                       : 'Present Days',
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                  style: AppTextStyles.heading,
                                 ),
                                 CustomToggle(
                                   label: 'Show Absent',
@@ -1221,12 +1212,12 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                       if (context.read<RoleCubit>().isStaff)
                         AppText.body(
                           currentStaff.roomName,
-                          style: const TextStyle(fontWeight: FontWeight.w500),
+                          style: AppTextStyles.body,
                         )
                       else
                         AppText.body(
                           _formatDesignation(currentStaff.designationName),
-                          style: const TextStyle(fontWeight: FontWeight.w500),
+                          style: AppTextStyles.body,
                         ),
                     ],
                   ),
@@ -1365,10 +1356,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             ),
           ),
           const SizedBox(width: 8),
-          const AppText.body(
-            'Attended Hours',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-          ),
+          const AppText.body('Attended Hours', style: AppTextStyles.bodyLarge),
           const Spacer(),
           Row(
             children: [
@@ -1430,10 +1418,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
           ),
           const SizedBox(width: 8),
-          AppText.body(
-            label,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-          ),
+          AppText.body(label, style: AppTextStyles.bodyLarge),
           const Spacer(),
           Container(
             width: 36,
@@ -1445,11 +1430,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             child: Center(
               child: AppText.body(
                 value,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: valueColor,
-                ),
+                style: AppTextStyles.title.copyWith(color: valueColor),
               ),
             ),
           ),
@@ -1490,7 +1471,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         child: Center(
           child: AppText.body(
             'No attendance records found for selected date range',
-            style: const TextStyle(fontSize: 16),
+            style: AppTextStyles.bodyLarge,
             textAlign: TextAlign.center,
           ),
         ),
@@ -1528,7 +1509,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         child: Center(
           child: AppText.body(
             'No absent days found for selected date range',
-            style: const TextStyle(fontSize: 16),
+            style: AppTextStyles.bodyLarge,
             textAlign: TextAlign.center,
           ),
         ),
@@ -1557,14 +1538,20 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         method == StaffProfileAbsentMarkMethod.pin;
   }
 
-  String _resolveSignInByDisplay(String signInBy, StaffProfileAbsentMarkMethod? method) {
+  String _resolveSignInByDisplay(
+    String signInBy,
+    StaffProfileAbsentMarkMethod? method,
+  ) {
     final name = signInBy.trim();
     if (name.isNotEmpty) return name;
     if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
     return '';
   }
 
-  String _resolveSignOutByDisplay(String signOutBy, StaffProfileAbsentMarkMethod? method) {
+  String _resolveSignOutByDisplay(
+    String signOutBy,
+    StaffProfileAbsentMarkMethod? method,
+  ) {
     final name = signOutBy.trim();
     if (name.isNotEmpty) return name;
     if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
@@ -1579,11 +1566,11 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       child: ExpansionTile(
         title: AppText.body(
           DateFormat('MMM dd, yyyy').format(attendance.date),
-          style: const TextStyle(fontWeight: FontWeight.w500),
+          style: AppTextStyles.body,
         ),
         trailing: AppText.body(
           _formatAttendedTimeForCard(attendance),
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          style: AppTextStyles.bodyLarge,
         ),
         backgroundColor: AppColors.cardColor,
         collapsedBackgroundColor: AppColors.cardColor,
@@ -1619,7 +1606,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Sign In By',
-            text: _resolveSignInByDisplay(attendance.signInBy, attendance.signInMethod),
+            text: _resolveSignInByDisplay(
+              attendance.signInBy,
+              attendance.signInMethod,
+            ),
           ),
           const SizedBox(height: 16),
           _AttendanceField(
@@ -1631,7 +1621,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Sign Out By',
-            text: _resolveSignOutByDisplay(attendance.signOutBy, attendance.signOutMethod),
+            text: _resolveSignOutByDisplay(
+              attendance.signOutBy,
+              attendance.signOutMethod,
+            ),
           ),
           if (_formatAttendedTimeForCard(attendance).trim().isNotEmpty) ...[
             const SizedBox(height: 16),
@@ -1660,7 +1653,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       child: ExpansionTile(
         title: AppText.body(
           DateFormat('MMM dd, yyyy').format(absentDay.startDate),
-          style: const TextStyle(fontWeight: FontWeight.w500),
+          style: AppTextStyles.body,
         ),
         backgroundColor: AppColors.cardColor,
         collapsedBackgroundColor: AppColors.cardColor,

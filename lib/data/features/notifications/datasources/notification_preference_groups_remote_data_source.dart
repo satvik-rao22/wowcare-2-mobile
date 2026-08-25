@@ -24,8 +24,8 @@ class NotificationPreferenceGroupsRemoteDataSourceImpl
   // Org/school/role/auth headers are attached globally by AuthInterceptor —
   // only the user-scoping header needs to be added here.
   Map<String, dynamic> _headers(String userCode) => <String, dynamic>{
-        'X-User-Code': userCode,
-      };
+    'X-User-Code': userCode,
+  };
 
   @override
   Future<List<NotificationPreferenceGroupModel>> getGroups({

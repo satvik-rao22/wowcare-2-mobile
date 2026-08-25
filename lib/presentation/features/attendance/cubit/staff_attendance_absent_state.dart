@@ -17,18 +17,18 @@ class StaffAttendanceAbsentState extends Equatable {
   });
 
   const StaffAttendanceAbsentState.initial()
-      : items = const [],
-        isLoading = false,
-        isRefreshing = false,
-        currentPage = 0,
-        hasMore = false,
-        isLoadingMore = false,
-        errorMessage = null,
-        fromDate = null,
-        toDate = null,
-        classroomCodes = null,
-        tagCodes = null,
-        search = null;
+    : items = const [],
+      isLoading = false,
+      isRefreshing = false,
+      currentPage = 0,
+      hasMore = false,
+      isLoadingMore = false,
+      errorMessage = null,
+      fromDate = null,
+      toDate = null,
+      classroomCodes = null,
+      tagCodes = null,
+      search = null;
 
   const StaffAttendanceAbsentState.loaded({
     required List<StaffAttendanceAbsentItem> items,
@@ -39,16 +39,16 @@ class StaffAttendanceAbsentState extends Equatable {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     String? search,
-  })  : items = items,
-        isLoading = false,
-        isRefreshing = false,
-        isLoadingMore = false,
-        errorMessage = null,
-        fromDate = fromDate,
-        toDate = toDate,
-        classroomCodes = classroomCodes,
-        tagCodes = tagCodes,
-        search = search;
+  }) : items = items,
+       isLoading = false,
+       isRefreshing = false,
+       isLoadingMore = false,
+       errorMessage = null,
+       fromDate = fromDate,
+       toDate = toDate,
+       classroomCodes = classroomCodes,
+       tagCodes = tagCodes,
+       search = search;
 
   final List<StaffAttendanceAbsentItem> items;
   final bool isLoading;
@@ -95,18 +95,17 @@ class StaffAttendanceAbsentState extends Equatable {
 
   @override
   List<Object?> get props => [
-        items,
-        isLoading,
-        isRefreshing,
-        currentPage,
-        hasMore,
-        isLoadingMore,
-        errorMessage,
-        fromDate,
-        toDate,
-        classroomCodes,
-        tagCodes,
-        search,
-      ];
+    items,
+    isLoading,
+    isRefreshing,
+    currentPage,
+    hasMore,
+    isLoadingMore,
+    errorMessage,
+    fromDate,
+    toDate,
+    classroomCodes,
+    tagCodes,
+    search,
+  ];
 }
-

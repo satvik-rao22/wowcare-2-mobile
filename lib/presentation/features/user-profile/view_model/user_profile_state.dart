@@ -26,23 +26,23 @@ class UserProfileState extends Equatable {
   });
 
   const UserProfileState.initial()
-      : profile = null,
-        loginDisplayName = '',
-        loginEmail = '',
-        loginPersona = '',
-        schoolCode = null,
-        organizationCode = null,
-        isUploadingProfilePhoto = false,
-        profilePhotoUploadPercent = 0,
-        distinctRolesForCurrentSchool = const [],
-        switchPersonasLoading = false,
-        cachedActiveSchoolRole = null,
-        guardianPhone = '',
-        guardianAddress = '',
-        guardianCode = '',
-        guardianPhotoAssetCode = '',
-        guardianPhotoUrl = '',
-        profileLoadFailed = false;
+    : profile = null,
+      loginDisplayName = '',
+      loginEmail = '',
+      loginPersona = '',
+      schoolCode = null,
+      organizationCode = null,
+      isUploadingProfilePhoto = false,
+      profilePhotoUploadPercent = 0,
+      distinctRolesForCurrentSchool = const [],
+      switchPersonasLoading = false,
+      cachedActiveSchoolRole = null,
+      guardianPhone = '',
+      guardianAddress = '',
+      guardianCode = '',
+      guardianPhotoAssetCode = '',
+      guardianPhotoUrl = '',
+      profileLoadFailed = false;
 
   final StaffProfile? profile;
   final String loginDisplayName;
@@ -120,22 +120,22 @@ class UserProfileState extends Equatable {
 
   @override
   List<Object?> get props => [
-        profile,
-        loginDisplayName,
-        loginEmail,
-        loginPersona,
-        schoolCode,
-        organizationCode,
-        isUploadingProfilePhoto,
-        profilePhotoUploadPercent,
-        distinctRolesForCurrentSchool,
-        switchPersonasLoading,
-        cachedActiveSchoolRole,
-        guardianPhone,
-        guardianAddress,
-        guardianCode,
-        guardianPhotoAssetCode,
-        guardianPhotoUrl,
-        profileLoadFailed,
-      ];
+    profile,
+    loginDisplayName,
+    loginEmail,
+    loginPersona,
+    schoolCode,
+    organizationCode,
+    isUploadingProfilePhoto,
+    profilePhotoUploadPercent,
+    distinctRolesForCurrentSchool,
+    switchPersonasLoading,
+    cachedActiveSchoolRole,
+    guardianPhone,
+    guardianAddress,
+    guardianCode,
+    guardianPhotoAssetCode,
+    guardianPhotoUrl,
+    profileLoadFailed,
+  ];
 }

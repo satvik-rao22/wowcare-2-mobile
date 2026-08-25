@@ -7,6 +7,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/cubit/add_credit_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Captures an account credit for a family/owner and posts it via
 /// `POST /api/v1/invoices/credits`. Styled to match the Receive Payment screen.
@@ -90,8 +91,11 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
     }
   }
 
-  void _showMessage(String message,
-      {bool isError = false, bool isSuccess = false}) {
+  void _showMessage(
+    String message, {
+    bool isError = false,
+    bool isSuccess = false,
+  }) {
     CoreUtils.showTopSnackBar(
       context: context,
       message: message,
@@ -103,23 +107,26 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
   // ── Shared field styling (matches Receive Payment) ─────────────────────────
 
   TextStyle _labelStyle(ResponsiveHelper responsive) => TextStyle(
-        fontSize: responsive.labelFontSize,
-        fontFamily: 'Manrope',
-        fontWeight: FontWeight.w400,
-        color: AppColors.billingTextColor,
-      );
+    fontSize: responsive.labelFontSize,
+    fontFamily: 'Manrope',
+    fontWeight: FontWeight.w400,
+    color: AppColors.billingTextColor,
+  );
 
-  Widget _fieldLabel(ResponsiveHelper responsive, String text,
-      {bool required = false}) {
+  Widget _fieldLabel(
+    ResponsiveHelper responsive,
+    String text, {
+    bool required = false,
+  }) {
     return RichText(
       text: TextSpan(
         style: _labelStyle(responsive),
         children: <InlineSpan>[
           TextSpan(text: text),
           if (required)
-            const TextSpan(
+            TextSpan(
               text: ' *',
-              style: TextStyle(color: AppColors.errorColor),
+              style: AppTextStyles.body.copyWith(color: AppColors.errorColor),
             ),
         ],
       ),
@@ -127,22 +134,22 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
   }
 
   BoxDecoration _fieldBox(ResponsiveHelper responsive) => BoxDecoration(
-        color: AppColors.billingCardColor,
-        border: Border.all(color: const Color(0x66573353)),
-        borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
-      );
+    color: AppColors.billingCardColor,
+    border: Border.all(color: const Color(0x66573353)),
+    borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+  );
 
   EdgeInsets _fieldPadding(ResponsiveHelper responsive) => EdgeInsets.symmetric(
-        horizontal: responsive.isTablet ? 16.0 : 12.0,
-        vertical: responsive.isTablet ? 16.0 : 12.0,
-      );
+    horizontal: responsive.isTablet ? 16.0 : 12.0,
+    vertical: responsive.isTablet ? 16.0 : 12.0,
+  );
 
   TextStyle _valueStyle(ResponsiveHelper responsive) => TextStyle(
-        fontFamily: 'Manrope',
-        fontSize: responsive.inputFontSize,
-        fontWeight: FontWeight.w600,
-        color: const Color(0xff573353),
-      );
+    fontFamily: 'Manrope',
+    fontSize: responsive.inputFontSize,
+    fontWeight: FontWeight.w600,
+    color: const Color(0xff573353),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -166,11 +173,13 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                 SizedBox(height: labelGap),
                 _buildAmountBox(responsive),
                 if (_amountError)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 4.0, left: 2.0),
                     child: Text(
                       '*Please enter a valid amount.',
-                      style: TextStyle(color: Colors.red, fontSize: 12),
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: Colors.red,
+                      ),
                     ),
                   ),
                 SizedBox(height: verticalSpacing),
@@ -222,23 +231,15 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
               alignment: Alignment.center,
               child: Text(
                 _initials(name),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Manrope',
-                ),
+                style: AppTextStyles.heading.copyWith(color: Colors.white),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 name,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                style: AppTextStyles.heading.copyWith(
                   color: AppColors.billingTextColor,
-                  fontFamily: 'Manrope',
                 ),
               ),
             ),
@@ -291,8 +292,9 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
           Expanded(
             child: TextField(
               controller: _amountController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
               ],
@@ -300,8 +302,9 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
               style: _valueStyle(responsive),
               decoration: InputDecoration(
                 hintText: '0.00',
-                hintStyle:
-                    _labelStyle(responsive).copyWith(color: AppColors.billingGrey),
+                hintStyle: _labelStyle(
+                  responsive,
+                ).copyWith(color: AppColors.billingGrey),
                 border: InputBorder.none,
                 contentPadding: _fieldPadding(responsive),
               ),
@@ -330,8 +333,9 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
               maxWidth: constraints.maxWidth,
             ),
             shape: RoundedRectangleBorder(
-              borderRadius:
-                  BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+              borderRadius: BorderRadius.circular(
+                responsive.isTablet ? 12.0 : 8.0,
+              ),
             ),
             onSelected: (value) => setState(() => _selectedReason = value),
             itemBuilder: (context) => _reasonOptions
@@ -340,8 +344,9 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                     value: r,
                     child: Text(
                       r,
-                      style: _valueStyle(responsive)
-                          .copyWith(fontWeight: FontWeight.w500),
+                      style: _valueStyle(
+                        responsive,
+                      ).copyWith(fontWeight: FontWeight.w500),
                     ),
                   ),
                 )
@@ -355,7 +360,9 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                       _selectedReason ?? 'Select reason',
                       style: _selectedReason != null
                           ? _valueStyle(responsive)
-                          : _labelStyle(responsive).copyWith(color: Colors.grey),
+                          : _labelStyle(
+                              responsive,
+                            ).copyWith(color: Colors.grey),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -421,8 +428,12 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
     final double bottomPadding = MediaQuery.of(context).padding.bottom;
     final double safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     return Container(
-      padding:
-          EdgeInsets.only(bottom: safeAreaBottom, left: 16, right: 16, top: 8),
+      padding: EdgeInsets.only(
+        bottom: safeAreaBottom,
+        left: 16,
+        right: 16,
+        top: 8,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: <BoxShadow>[
@@ -456,7 +467,8 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                            AppColors.billingButtonTextColor),
+                          AppColors.billingButtonTextColor,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),

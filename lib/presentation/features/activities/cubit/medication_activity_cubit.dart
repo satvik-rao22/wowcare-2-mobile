@@ -12,7 +12,10 @@ import '../utils/activity_selected_date_prefill.dart';
 import '../utils/resolve_logged_in_staff_code.dart';
 import '../view/activity_feed_card_permissions.dart';
 import '../view/activity_daily_tab.dart'
-    show ActivityItem, activityItemFromActivityDetail, studentDataMapsForActivityEdit;
+    show
+        ActivityItem,
+        activityItemFromActivityDetail,
+        studentDataMapsForActivityEdit;
 import '../widgets/activity_edit_student_scope_checkboxes.dart';
 import 'activity_editor_cubit.dart';
 import 'activity_form_outcome.dart';
@@ -34,9 +37,9 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
   MedicationActivityCubit({
     required ActivityEditorCubit editor,
     required StorageService storageService,
-  })  : _editor = editor,
-        _storageService = storageService,
-        super(const MedicationActivityState());
+  }) : _editor = editor,
+       _storageService = storageService,
+       super(const MedicationActivityState());
 
   final ActivityEditorCubit _editor;
   final StorageService _storageService;
@@ -99,21 +102,20 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
       final data = List<Map<String, dynamic>>.from(selectedStudents);
       final names = data.map((s) => s['name'] as String).toList();
       _activityDate = resolveSelectedAttendanceDate(data) ?? _activityDate;
-      emit(state.copyWith(
-        selectedStudentsData: data,
-        selectedStudents: names,
-      ));
+      emit(state.copyWith(selectedStudentsData: data, selectedStudents: names));
       // ignore: discarded_futures
       _loadActivityContextForCreate(data);
     } else if (_layoutAsEdit) {
       final activity = activityData!;
-      emit(state.copyWith(
-        liveActivity: activity,
-        requireAdminApproval: _isAdminApprovalRequired(activity),
-        selectedStudents: List<String>.from(activity.studentList),
-        selectedStudentsData: studentDataMapsForActivityEdit(activity),
-        activityTypeCode: activity.activityTypeCode,
-      ));
+      emit(
+        state.copyWith(
+          liveActivity: activity,
+          requireAdminApproval: _isAdminApprovalRequired(activity),
+          selectedStudents: List<String>.from(activity.studentList),
+          selectedStudentsData: studentDataMapsForActivityEdit(activity),
+          activityTypeCode: activity.activityTypeCode,
+        ),
+      );
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
         try {
@@ -161,15 +163,18 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
     );
 
     if (isClosed) return;
-    _staffPresentCode =
-        (staffCode ?? '').trim().isEmpty ? null : staffCode!.trim();
-    emit(state.copyWith(
-      staffName: apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff',
-      staffType: staffType.toUpperCase(),
-      staffCode: staffCode,
-      schoolCode: schoolCode.isNotEmpty ? schoolCode : null,
-      organizationCode: organizationCode.isNotEmpty ? organizationCode : null,
-    ));
+    _staffPresentCode = (staffCode ?? '').trim().isEmpty
+        ? null
+        : staffCode!.trim();
+    emit(
+      state.copyWith(
+        staffName: apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff',
+        staffType: staffType.toUpperCase(),
+        staffCode: staffCode,
+        schoolCode: schoolCode.isNotEmpty ? schoolCode : null,
+        organizationCode: organizationCode.isNotEmpty ? organizationCode : null,
+      ),
+    );
   }
 
   Future<void> _loadActivityContextForCreate(
@@ -179,15 +184,14 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
     final first = selectedStudents.first;
     final dynamic classroomCodeDynamic =
         first['classroomCode'] ?? first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
     if (classroomCode.isEmpty) return;
 
     try {
-      final List<ActivitySetting> settings =
-          await _editor.getClassroomActivitySettings(
-        classroomCode: classroomCode,
-      );
+      final List<ActivitySetting> settings = await _editor
+          .getClassroomActivitySettings(classroomCode: classroomCode);
       ActivitySetting? medicationSetting;
       for (final s in settings) {
         if (s.activityTypeName.toLowerCase().contains('medication')) {
@@ -196,7 +200,9 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
         }
       }
       if (medicationSetting != null && !isClosed) {
-        emit(state.copyWith(activityTypeCode: medicationSetting.activityTypeCode));
+        emit(
+          state.copyWith(activityTypeCode: medicationSetting.activityTypeCode),
+        );
       }
     } catch (_) {
       // Best-effort: activity-type code stays null and submit surfaces it.
@@ -225,16 +231,20 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
         } catch (_) {}
       }
       final singleStudent = (_activityData?.studentList.length ?? 0) <= 1;
-      emit(state.copyWith(
-        liveActivity: item,
-        requireAdminApproval: _isAdminApprovalRequired(item),
-        activityTypeCode: item.activityTypeCode,
-        selectedStudents:
-            singleStudent ? List<String>.from(item.studentList) : null,
-        selectedStudentsData:
-            singleStudent ? studentDataMapsForActivityEdit(item) : null,
-        loadingActivityDetail: false,
-      ));
+      emit(
+        state.copyWith(
+          liveActivity: item,
+          requireAdminApproval: _isAdminApprovalRequired(item),
+          activityTypeCode: item.activityTypeCode,
+          selectedStudents: singleStudent
+              ? List<String>.from(item.studentList)
+              : null,
+          selectedStudentsData: singleStudent
+              ? studentDataMapsForActivityEdit(item)
+              : null,
+          loadingActivityDetail: false,
+        ),
+      );
     } catch (_) {
       if (!isClosed) emit(state.copyWith(loadingActivityDetail: false));
     }
@@ -272,13 +282,12 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
     required bool isAdminDesignation,
     required String? pickedStaffCode,
     required String? ownStaffCode,
-  }) =>
-      _editor.verifyPickedStaffSignedIn(
-        isEdit: isEdit,
-        isAdminDesignation: isAdminDesignation,
-        pickedStaffCode: pickedStaffCode,
-        ownStaffCode: ownStaffCode,
-      );
+  }) => _editor.verifyPickedStaffSignedIn(
+    isEdit: isEdit,
+    isAdminDesignation: isAdminDesignation,
+    pickedStaffCode: pickedStaffCode,
+    ownStaffCode: ownStaffCode,
+  );
 
   // ─── Submit ──────────────────────────────────────────────────────────────
 
@@ -305,9 +314,7 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
       if (descError != null) return ActivityFormOutcome.warning(descError);
 
       if (_activityDate == null || _activityTime == null) {
-        return const ActivityFormOutcome.warning(
-          'Please select date and time',
-        );
+        return const ActivityFormOutcome.warning('Please select date and time');
       }
 
       final classroomCodeDynamic =
@@ -434,9 +441,7 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
       if (descError != null) return ActivityFormOutcome.warning(descError);
 
       if (_activityDate == null || _activityTime == null) {
-        return const ActivityFormOutcome.warning(
-          'Please select date and time',
-        );
+        return const ActivityFormOutcome.warning('Please select date and time');
       }
 
       final staffCode = state.staffCode ?? await resolveLoggedInStaffCode();
@@ -517,10 +522,9 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
   }) async {
     final code = effectiveActivity.activityCode?.trim();
     if (code == null || code.isEmpty) return const ActivityFormOutcome.noop();
-    emit(state.copyWith(
-      isSavingBeforeApprove: true,
-      isApprovingOrRejecting: true,
-    ));
+    emit(
+      state.copyWith(isSavingBeforeApprove: true, isApprovingOrRejecting: true),
+    );
     try {
       final updated = await _runUpdate(
         description: description,
@@ -532,15 +536,15 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
       final msg = await _editor.approveActivity(code: code);
       return ActivityFormOutcome.successPop(msg);
     } catch (e) {
-      return ActivityFormOutcome.error(
-        ApiErrorHandler.extractErrorMessage(e),
-      );
+      return ActivityFormOutcome.error(ApiErrorHandler.extractErrorMessage(e));
     } finally {
       if (!isClosed) {
-        emit(state.copyWith(
-          isSavingBeforeApprove: false,
-          isApprovingOrRejecting: false,
-        ));
+        emit(
+          state.copyWith(
+            isSavingBeforeApprove: false,
+            isApprovingOrRejecting: false,
+          ),
+        );
       }
     }
   }
@@ -553,9 +557,7 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
       final msg = await _editor.rejectActivity(code: code);
       return ActivityFormOutcome.successPop(msg);
     } catch (e) {
-      return ActivityFormOutcome.error(
-        ApiErrorHandler.extractErrorMessage(e),
-      );
+      return ActivityFormOutcome.error(ApiErrorHandler.extractErrorMessage(e));
     } finally {
       if (!isClosed) emit(state.copyWith(isApprovingOrRejecting: false));
     }

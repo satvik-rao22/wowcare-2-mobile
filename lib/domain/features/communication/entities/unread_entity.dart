@@ -28,13 +28,13 @@ class UnreadEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        conversationCode,
-        conversationType,
-        unreadCount,
-        lastUnreadMessageCode,
-        lastUnreadAt,
-        organizationCode,
-        schoolCode,
-        updatedAt,
-      ];
+    conversationCode,
+    conversationType,
+    unreadCount,
+    lastUnreadMessageCode,
+    lastUnreadAt,
+    organizationCode,
+    schoolCode,
+    updatedAt,
+  ];
 }

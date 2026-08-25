@@ -4,21 +4,21 @@ import 'package:wowcare/data/features/communication/models/message_entity_dto.da
 void main() {
   group('MessageEntityDto.fromJson — privateParentUserCode', () {
     Map<String, dynamic> baseJson({Object? privateParentUserCode}) => {
-          'id': '1',
-          'code': 'MSG_1',
-          'conversationCode': 'CONV_1',
-          'senderUserCode': 'USER_1',
-          'senderName': 'Parent One',
-          'senderRole': 'PARENT',
-          'content': 'hello',
-          'messageType': 'TEXT',
-          'status': 'SENT',
-          'createdAt': '2024-01-01T00:00:00.000Z',
-          'organizationCode': 'ORG_1',
-          'schoolCode': 'SCHOOL_1',
-          if (privateParentUserCode != null)
-            'privateParentUserCode': privateParentUserCode,
-        };
+      'id': '1',
+      'code': 'MSG_1',
+      'conversationCode': 'CONV_1',
+      'senderUserCode': 'USER_1',
+      'senderName': 'Parent One',
+      'senderRole': 'PARENT',
+      'content': 'hello',
+      'messageType': 'TEXT',
+      'status': 'SENT',
+      'createdAt': '2024-01-01T00:00:00.000Z',
+      'organizationCode': 'ORG_1',
+      'schoolCode': 'SCHOOL_1',
+      if (privateParentUserCode != null)
+        'privateParentUserCode': privateParentUserCode,
+    };
 
     test('parses privateParentUserCode when present in the response', () {
       final dto = MessageEntityDto.fromJson(

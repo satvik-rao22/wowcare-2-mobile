@@ -3687,12 +3687,12 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
                                                                     overflow:
                                                                         TextOverflow
                                                                             .ellipsis,
-                                                                    style: const TextStyle(
-                                                                      color: AppColors
-                                                                          .primaryColor,
-                                                                      fontSize:
-                                                                          12,
-                                                                    ),
+                                                                    style: AppTextStyles
+                                                                        .bodySmall
+                                                                        .copyWith(
+                                                                          color:
+                                                                              AppColors.primaryColor,
+                                                                        ),
                                                                   ),
                                                                 ),
                                                               ),
@@ -5702,10 +5702,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
                   selectedDate != null
                       ? DateFormat('MMM dd, yyyy').format(selectedDate)
                       : 'Select Date',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 15,
-                    fontWeight: FontWeight.w400,
+                  style: AppTextStyles.body.copyWith(
                     color: selectedDate == null
                         ? Colors.grey[600]
                         : Colors.black87,
@@ -5745,20 +5742,12 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
       selectedItem: selectedItem,
       onSelect: onSelect,
       showAsterisk: isRequired,
-      selectedTextStyle: TextStyle(
-        fontFamily: 'Manrope',
-        fontSize: 15,
-        fontWeight: FontWeight.w400,
+      selectedTextStyle: AppTextStyles.body.copyWith(
         color: selectedItem != null && selectedItem.trim().isNotEmpty
             ? Colors.black87
             : Colors.grey[600],
       ),
-      popupItemTextStyle: const TextStyle(
-        fontFamily: 'Manrope',
-        fontSize: 14,
-        fontWeight: FontWeight.w400,
-        color: Colors.black87,
-      ),
+      popupItemTextStyle: AppTextStyles.body.copyWith(color: Colors.black87),
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
     );
   }
@@ -5796,15 +5785,7 @@ class PopupItem extends StatelessWidget {
       children: [
         icon,
         const SizedBox(width: 5),
-        Text(
-          title,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.black,
-          ),
-        ),
+        Text(title, style: AppTextStyles.body.copyWith(color: Colors.black)),
       ],
     );
   }

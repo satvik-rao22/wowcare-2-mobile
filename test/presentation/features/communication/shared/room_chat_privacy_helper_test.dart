@@ -85,14 +85,18 @@ void main() {
     group('canModifyPrivateMode', () {
       test('guardian may modify', () {
         expect(
-          RoomChatPrivacyHelper.canModifyPrivateMode(RoomChatViewerRole.guardian),
+          RoomChatPrivacyHelper.canModifyPrivateMode(
+            RoomChatViewerRole.guardian,
+          ),
           isTrue,
         );
       });
 
       test('staffOrAdmin may not modify', () {
         expect(
-          RoomChatPrivacyHelper.canModifyPrivateMode(RoomChatViewerRole.staffOrAdmin),
+          RoomChatPrivacyHelper.canModifyPrivateMode(
+            RoomChatViewerRole.staffOrAdmin,
+          ),
           isFalse,
         );
       });

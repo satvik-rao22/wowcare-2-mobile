@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 enum BillingPopupType { student, invoice, payment, refund }
 
@@ -340,7 +341,7 @@ class _PopupActionButton extends StatelessWidget {
                 maxLines: 2,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: AppTextStyles.bodySmall.copyWith(color: Colors.white),
               ),
             ],
           ),

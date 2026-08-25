@@ -36,13 +36,12 @@ class StaffSchedulingStaffDropdown extends StatelessWidget {
     if (isLoading) {
       return const SizedBox(
         height: 44,
-        child: Center(
-          child: PrimaryCircularLoader(size: 22, strokeWidth: 2),
-        ),
+        child: Center(child: PrimaryCircularLoader(size: 22, strokeWidth: 2)),
       );
     }
 
-    final hasSelection = selectedStaffCode != null &&
+    final hasSelection =
+        selectedStaffCode != null &&
         selectedStaffCode!.isNotEmpty &&
         staff.any((s) => s.code == selectedStaffCode);
 

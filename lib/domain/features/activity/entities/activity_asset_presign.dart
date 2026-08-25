@@ -14,4 +14,3 @@ class ActivityAssetPresign extends Equatable {
   @override
   List<Object?> get props => [assetCode, presignedPutUrl, requiredHeaders];
 }
-

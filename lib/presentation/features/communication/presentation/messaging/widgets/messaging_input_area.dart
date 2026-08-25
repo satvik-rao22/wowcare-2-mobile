@@ -5,6 +5,7 @@ import '../../../../../../app/theme/colors.dart';
 import 'attachment_widget.dart';
 import 'package:thumbnailer/thumbnailer.dart';
 import 'dart:io';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class MessagingInputArea extends StatelessWidget {
   final TextEditingController controller;
@@ -148,10 +149,8 @@ class MessagingInputArea extends StatelessWidget {
                     controller: controller,
                     decoration: InputDecoration(
                       hintText: 'Type a message...',
-                      hintStyle: const TextStyle(
+                      hintStyle: AppTextStyles.body.copyWith(
                         color: Color(0xFFA0AEC0),
-                        fontFamily: 'Manrope',
-                        fontSize: 14,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),

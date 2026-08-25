@@ -10,17 +10,19 @@ class ClassroomState extends Equatable {
   });
 
   const ClassroomState.initial()
-      : classrooms = const [],
-        isLoading = false,
-        errorMessage = null,
-        onlyTypeClassroom = true,
-        applyAttendanceStaffScope = false;
+    : classrooms = const [],
+      isLoading = false,
+      errorMessage = null,
+      onlyTypeClassroom = true,
+      applyAttendanceStaffScope = false;
 
   final List<Classroom> classrooms;
   final bool isLoading;
   final String? errorMessage;
+
   /// Tracks whether the last load used type=CLASSROOM filter.
   final bool onlyTypeClassroom;
+
   /// Tracks whether the last load applied staff classroom scoping.
   final bool applyAttendanceStaffScope;
 
@@ -43,11 +45,10 @@ class ClassroomState extends Equatable {
 
   @override
   List<Object?> get props => [
-        classrooms,
-        isLoading,
-        errorMessage,
-        onlyTypeClassroom,
-        applyAttendanceStaffScope,
-      ];
+    classrooms,
+    isLoading,
+    errorMessage,
+    onlyTypeClassroom,
+    applyAttendanceStaffScope,
+  ];
 }
-

@@ -93,7 +93,12 @@ class StaffProfileBreakSchedule extends Equatable {
   }
 
   @override
-  List<Object?> get props => [dayOfWeek, breakType, breakStartTime, breakEndTime];
+  List<Object?> get props => [
+    dayOfWeek,
+    breakType,
+    breakStartTime,
+    breakEndTime,
+  ];
 }
 
 class StaffProfile extends Equatable {
@@ -141,6 +146,7 @@ class StaffProfile extends Equatable {
   final String jobTag;
   final String clockPin;
   final String primaryClassroomCode;
+
   /// Human-readable classroom name from the API (`primaryClassroom.name`), so
   /// the header can render it without a separate code→name lookup.
   final String primaryClassroomName;
@@ -153,30 +159,29 @@ class StaffProfile extends Equatable {
 
   @override
   List<Object?> get props => [
-        staffCode,
-        userCode,
-        organizationCode,
-        schoolCode,
-        firstName,
-        lastName,
-        fullName,
-        email,
-        phoneNumber,
-        profilePhotoUrl,
-        birthDate,
-        staffType,
-        status,
-        designation,
-        jobTag,
-        clockPin,
-        primaryClassroomCode,
-        primaryClassroomName,
-        allowedClassroomCodes,
-        address,
-        workSchedules,
-        breakSchedules,
-        createdAt,
-        updatedAt,
-      ];
+    staffCode,
+    userCode,
+    organizationCode,
+    schoolCode,
+    firstName,
+    lastName,
+    fullName,
+    email,
+    phoneNumber,
+    profilePhotoUrl,
+    birthDate,
+    staffType,
+    status,
+    designation,
+    jobTag,
+    clockPin,
+    primaryClassroomCode,
+    primaryClassroomName,
+    allowedClassroomCodes,
+    address,
+    workSchedules,
+    breakSchedules,
+    createdAt,
+    updatedAt,
+  ];
 }
-

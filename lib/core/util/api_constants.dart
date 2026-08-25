@@ -23,7 +23,6 @@ abstract final class ApiMicroservices {
 class ApiConstants {
   ApiConstants._();
 
-
   static const String _environment = String.fromEnvironment(
     'ENVIRONMENT',
     defaultValue: 'LOCAL',
@@ -51,7 +50,6 @@ class ApiConstants {
       : isUat
       ? ApiConstantsUat.forteEnv
       : 'sandbox';
-
 
   static const _LocalDev _activeDev = _LocalDev.sairam;
 
@@ -89,9 +87,6 @@ class ApiConstants {
 
   static const String _ngrokHost =
       'https://fitten-vallie-forthrightly.ngrok-free.dev';
-
-
-
 
   // ─── Service base URLs ─────────────────────────────────────────────────────
 
@@ -228,11 +223,9 @@ class ApiConstants {
     }
   }
 
-
   static String get baseUrl1 =>
       isUat ? ApiConstantsUat.classroomBaseUrl : _dev.url(8089);
 }
-
 
 enum _LocalDev { sairam, preshita }
 

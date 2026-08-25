@@ -13,7 +13,8 @@ class StaffShiftSlotMapper {
     List<StaffShiftSlotDetail?> details,
     int dayStartMinutes,
     int slotMinutes,
-  }) buildTimeline({
+  })
+  buildTimeline({
     required int windowStartMinutes,
     required int windowEndMinutes,
     required int slotMinutes,
@@ -29,10 +30,13 @@ class StaffShiftSlotMapper {
       );
     }
 
-    final slotCount =
-        ((windowEndMinutes - windowStartMinutes) / slot).ceil().clamp(1, 96);
-    final slots =
-        List<StaffShiftSlotStatus>.filled(slotCount, StaffShiftSlotStatus.empty);
+    final slotCount = ((windowEndMinutes - windowStartMinutes) / slot)
+        .ceil()
+        .clamp(1, 96);
+    final slots = List<StaffShiftSlotStatus>.filled(
+      slotCount,
+      StaffShiftSlotStatus.empty,
+    );
     final details = List<StaffShiftSlotDetail?>.filled(slotCount, null);
 
     final shiftStart = ForecastSlotMapper.minutesOf(shift.startTime);

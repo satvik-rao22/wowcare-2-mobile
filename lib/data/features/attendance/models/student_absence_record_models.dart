@@ -18,6 +18,7 @@ class MarkAbsentRequestModel extends Equatable {
   final String absenceFromDate;
   final String absenceToDate;
   final String absenceReason;
+
   /// Keyed by studentCode.
   final Map<String, String> absenceNotes;
   final String classroomCode;
@@ -41,16 +42,16 @@ class MarkAbsentRequestModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        staffCode,
-        studentCodes,
-        absenceFromDate,
-        absenceToDate,
-        absenceReason,
-        absenceNotes,
-        classroomCode,
-        markAbsentMethod,
-        isExpectedTodayByStudentCode,
-      ];
+    staffCode,
+    studentCodes,
+    absenceFromDate,
+    absenceToDate,
+    absenceReason,
+    absenceNotes,
+    classroomCode,
+    markAbsentMethod,
+    isExpectedTodayByStudentCode,
+  ];
 }
 
 class StudentAbsenceRecordModel extends Equatable {
@@ -95,24 +96,21 @@ class StudentAbsenceRecordModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        studentCode,
-        absenceDate,
-        absenceFromDate,
-        absenceToDate,
-        absenceReason,
-        absenceNote,
-        classroomCode,
-        markAbsentMethod,
-        isExpectedToday,
-      ];
+    code,
+    studentCode,
+    absenceDate,
+    absenceFromDate,
+    absenceToDate,
+    absenceReason,
+    absenceNote,
+    classroomCode,
+    markAbsentMethod,
+    isExpectedToday,
+  ];
 }
 
 class MarkAbsentResponseModel extends Equatable {
-  const MarkAbsentResponseModel({
-    required this.message,
-    required this.records,
-  });
+  const MarkAbsentResponseModel({required this.message, required this.records});
 
   final String message;
   final List<StudentAbsenceRecordModel> records;
@@ -122,19 +120,17 @@ class MarkAbsentResponseModel extends Equatable {
     final data = json['data'];
     final records = (data is List)
         ? data
-            .whereType<Map>()
-            .map((e) => StudentAbsenceRecordModel.fromJson(
+              .whereType<Map>()
+              .map(
+                (e) => StudentAbsenceRecordModel.fromJson(
                   Map<String, dynamic>.from(e),
-                ))
-            .toList()
+                ),
+              )
+              .toList()
         : <StudentAbsenceRecordModel>[];
-    return MarkAbsentResponseModel(
-      message: message,
-      records: records,
-    );
+    return MarkAbsentResponseModel(message: message, records: records);
   }
 
   @override
   List<Object?> get props => [message, records];
 }
-

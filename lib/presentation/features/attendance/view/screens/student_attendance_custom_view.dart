@@ -141,8 +141,8 @@ class _StudentAttendanceCustomViewState
     try {
       final enabled =
           await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-      );
+            storage: serviceLocator<StorageService>(),
+          );
       if (!mounted || !enabled || _allowCrossClass) return;
       setState(() => _allowCrossClass = true);
       _loadClassroomData();
@@ -657,7 +657,9 @@ class _StudentAttendanceCustomViewState
             const SizedBox(height: 8),
             AppText.body(
               message.isNotEmpty ? message : 'Please try again.',
-              style: TextStyle(color: AppColors.secondaryColor),
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.secondaryColor,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
@@ -666,7 +668,7 @@ class _StudentAttendanceCustomViewState
               icon: const Icon(Icons.refresh),
               label: AppText.body(
                 'Retry',
-                style: TextStyle(color: Colors.white),
+                style: AppTextStyles.body.copyWith(color: Colors.white),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.themeColor,
@@ -703,7 +705,9 @@ class _StudentAttendanceCustomViewState
             const SizedBox(height: 8),
             AppText.body(
               'Try adjusting your search criteria or date range',
-              style: TextStyle(color: AppColors.secondaryColor),
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.secondaryColor,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -742,10 +746,7 @@ class _StudentAttendanceCustomViewState
         Flexible(
           child: Text(
             label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
+            style: AppTextStyles.label.copyWith(
               color: Color(0xff573353),
               height: 16 / 13,
             ),
@@ -755,10 +756,7 @@ class _StudentAttendanceCustomViewState
         Flexible(
           child: Text(
             value,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+            style: AppTextStyles.body.copyWith(
               color: Color(0xff573353),
               height: 19 / 14,
             ),

@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_toggle.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Standard header row shared by every dashboard card: a title, an optional
 /// "open full screen" redirect arrow, and the collapse/expand toggle.
@@ -37,11 +38,7 @@ class DashboardCardHeader extends StatelessWidget {
         Text(
           title,
           softWrap: false,
-          style: const TextStyle(
-            color: AppColors.primaryColor,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-          ),
+          style: AppTextStyles.heading.copyWith(color: AppColors.primaryColor),
           maxLines: 1,
         ),
         if (showRedirect) ...[

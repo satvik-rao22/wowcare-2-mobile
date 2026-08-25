@@ -11,7 +11,7 @@ class AppLogger {
   static const String _green = '\x1B[32m';
   static const String _yellow = '\x1B[33m';
   static const String _cyan = '\x1B[36m';
-  
+
   /// Logs a debug message (Cyan)
   static void d(Object? message) {
     if (kDebugMode) {

@@ -13,8 +13,8 @@ class GeofencingRepositoryImpl implements GeofencingRepository {
   GeofencingRepositoryImpl({
     required GeofencingLocalDataSource localDataSource,
     required ApiClient apiClient,
-  })  : _local = localDataSource,
-        _apiClient = apiClient;
+  }) : _local = localDataSource,
+       _apiClient = apiClient;
 
   final GeofencingLocalDataSource _local;
   final ApiClient _apiClient;
@@ -42,17 +42,19 @@ class GeofencingRepositoryImpl implements GeofencingRepository {
     // Run both in parallel; attendance-settings failure is non-fatal.
     final locationFuture = _fetchSchoolLocation(schoolCode);
     final settingsFuture = getAttendanceSettings(schoolCode: schoolCode)
-        .catchError((Object _) => AttendanceSettingsEntity(
-              gpsSignInEnabled: true,
-              parentGpsSignInEnabled: true,
-              proximityRadiusMeters: 500,
-              maxProximityLimitMeters: 500,
-              allowOutsideSchoolHours: true,
-              outsideTimeWindowMinutes: 0,
-              allowTeacherCrossClassAttendance: false,
-              autoSignOutEnabled: false,
-              autoSignOutDelayMinutes: 0,
-            ));
+        .catchError(
+          (Object _) => AttendanceSettingsEntity(
+            gpsSignInEnabled: true,
+            parentGpsSignInEnabled: true,
+            proximityRadiusMeters: 500,
+            maxProximityLimitMeters: 500,
+            allowOutsideSchoolHours: true,
+            outsideTimeWindowMinutes: 0,
+            allowTeacherCrossClassAttendance: false,
+            autoSignOutEnabled: false,
+            autoSignOutDelayMinutes: 0,
+          ),
+        );
 
     final locationModel = await locationFuture;
     final settings = await settingsFuture;

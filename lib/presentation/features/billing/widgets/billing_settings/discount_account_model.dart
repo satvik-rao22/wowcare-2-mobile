@@ -56,18 +56,17 @@ class DiscountAccountModel {
     double? price,
     String? status,
     String? school,
-  }) =>
-      DiscountAccountModel(
-        code: code ?? this.code,
-        name: name ?? this.name,
-        description: description ?? this.description,
-        percentage: percentage ?? this.percentage,
-        deductionAmount: deductionAmount ?? this.deductionAmount,
-        maxInvoiceAmount: maxInvoiceAmount ?? this.maxInvoiceAmount,
-        reference: reference ?? this.reference,
-        discountType: discountType ?? this.discountType,
-        price: price ?? this.price,
-        status: status ?? this.status,
-        school: school ?? this.school,
-      );
+  }) => DiscountAccountModel(
+    code: code ?? this.code,
+    name: name ?? this.name,
+    description: description ?? this.description,
+    percentage: percentage ?? this.percentage,
+    deductionAmount: deductionAmount ?? this.deductionAmount,
+    maxInvoiceAmount: maxInvoiceAmount ?? this.maxInvoiceAmount,
+    reference: reference ?? this.reference,
+    discountType: discountType ?? this.discountType,
+    price: price ?? this.price,
+    status: status ?? this.status,
+    school: school ?? this.school,
+  );
 }

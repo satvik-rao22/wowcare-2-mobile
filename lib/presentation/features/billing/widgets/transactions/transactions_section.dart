@@ -23,6 +23,7 @@ import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class TransactionsSection extends StatefulWidget {
   const TransactionsSection({
@@ -64,8 +65,9 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   void initState() {
     super.initState();
     _cubit.loadOverview();
-    final TransactionFilter? initial =
-        transactionFilterOf(widget.initialFilter);
+    final TransactionFilter? initial = transactionFilterOf(
+      widget.initialFilter,
+    );
     if (initial != null) {
       _cubit.applyFilter(initial);
     } else {
@@ -77,10 +79,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
 
   /// Reloads the overview totals + the transactions list for this tab.
   Future<void> _refresh() async {
-    await Future.wait<void>([
-      _cubit.loadOverview(),
-      _cubit.loadTransactions(),
-    ]);
+    await Future.wait<void>([_cubit.loadOverview(), _cubit.loadTransactions()]);
   }
 
   @override
@@ -151,15 +150,12 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                     ),
                   )
                 else if (visibleTransactions.isEmpty)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
                     child: Center(
                       child: Text(
                         'No transactions match your filters.',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
+                        style: AppTextStyles.body.copyWith(
                           color: AppColors.primaryColor,
                         ),
                       ),
@@ -168,12 +164,14 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                 else ...[
                   // Short content → ask the parent to load the next page.
                   if (state.hasMore)
-                    Builder(builder: (_) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        widget.onLoadMoreNeeded?.call();
-                      });
-                      return const SizedBox.shrink();
-                    }),
+                    Builder(
+                      builder: (_) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          widget.onLoadMoreNeeded?.call();
+                        });
+                        return const SizedBox.shrink();
+                      },
+                    ),
                   ...visibleTransactions.map(
                     (TransactionRecord record) => Padding(
                       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -192,8 +190,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                         onMessage: _showMessageUnavailable,
                         onCancel: () => _confirmCancel(record.item),
                         onDelete: () => _confirmDelete(record.item),
-                        onLongPress: () =>
-                            _openTransactionDetails(record.item),
+                        onLongPress: () => _openTransactionDetails(record.item),
                       ),
                     ),
                   ),
@@ -249,9 +246,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  CustomClearAllChip(
-                    onTap: _clearSearch,
-                  ),
+                  CustomClearAllChip(onTap: _clearSearch),
                 ],
               ),
             ],
@@ -344,8 +339,9 @@ class _TransactionsSectionState extends State<TransactionsSection> {
     required String type,
     required Future<void> Function() action,
   }) {
-    final name =
-        item.description.trim().isNotEmpty ? item.description : item.studentName;
+    final name = item.description.trim().isNotEmpty
+        ? item.description
+        : item.studentName;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -382,10 +378,8 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   void _openIssueRefund(TransactionItem item) {
     Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder: (context) => ReceivePaymentIssueRefundScreen(
-          transaction: item,
-          isRefund: true,
-        ),
+        builder: (context) =>
+            ReceivePaymentIssueRefundScreen(transaction: item, isRefund: true),
       ),
     );
   }
@@ -408,10 +402,8 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   void _openViewReceipt(TransactionItem item, String viewType) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => ViewReceiptScreen(
-          transaction: item,
-          viewType: viewType,
-        ),
+        builder: (context) =>
+            ViewReceiptScreen(transaction: item, viewType: viewType),
       ),
     );
   }
@@ -419,9 +411,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   void _openViewInvoice(TransactionItem item) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => ViewInvoiceScreen(
-          transaction: item,
-        ),
+        builder: (context) => ViewInvoiceScreen(transaction: item),
       ),
     );
   }

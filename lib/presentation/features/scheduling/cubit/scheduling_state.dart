@@ -65,13 +65,13 @@ class SchedulingState extends Equatable {
 
   @override
   List<Object?> get props => [
-        selectedDay,
-        classroomFilter,
-        viewMode,
-        classrooms,
-        isLoading,
-        errorMessage,
-      ];
+    selectedDay,
+    classroomFilter,
+    viewMode,
+    classrooms,
+    isLoading,
+    errorMessage,
+  ];
 }
 
 const Object _noChange = Object();

@@ -13,12 +13,15 @@ import 'package:flutter/foundation.dart';
 /// push; collection itself stays at the Firebase console's default.
 Future<void> initializeFirebaseAnalyticsAndForegroundOptions() async {
   if (Platform.isIOS) {
-    await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-      alert: true,
-      badge: true,
-      sound: true,
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+    debugPrint(
+      '[iOS PUSH] ✅ Foreground notification presentation options set (alert/badge/sound)',
     );
-    debugPrint('[iOS PUSH] ✅ Foreground notification presentation options set (alert/badge/sound)');
   }
 
   try {

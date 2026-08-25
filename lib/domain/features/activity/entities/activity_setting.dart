@@ -39,23 +39,21 @@ class ActivitySetting extends Equatable {
 
   @override
   List<Object?> get props => [
-        activityTypeCode,
-        activityTypeName,
-        description,
-        category,
-        icon,
-        color,
-        isSystem,
-        isMultiStudent,
-        requiresStaff,
-        requiresPhoto,
-        requiresVideo,
-        allowsAttachments,
-        maxAttachments,
-        isEnabled,
-        isFavorite,
-        displayOrder,
-      ];
+    activityTypeCode,
+    activityTypeName,
+    description,
+    category,
+    icon,
+    color,
+    isSystem,
+    isMultiStudent,
+    requiresStaff,
+    requiresPhoto,
+    requiresVideo,
+    allowsAttachments,
+    maxAttachments,
+    isEnabled,
+    isFavorite,
+    displayOrder,
+  ];
 }
-
-

@@ -5,7 +5,10 @@ import '../../../../app/theme/colors.dart';
 /// Section label shown above the first row of each `categoryName` group of
 /// notification-preference rows.
 class NotificationPreferenceCategoryHeader extends StatelessWidget {
-  const NotificationPreferenceCategoryHeader({super.key, required this.categoryName});
+  const NotificationPreferenceCategoryHeader({
+    super.key,
+    required this.categoryName,
+  });
 
   final String categoryName;
 

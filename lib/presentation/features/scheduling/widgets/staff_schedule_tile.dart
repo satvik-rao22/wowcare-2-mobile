@@ -73,55 +73,55 @@ class SchedulingEntityLeftCell extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
-          children: [
-            DocumentImageWidget(
-              fileUuid: imageFileUuid,
-              name: title,
-              mediaAssetCode: mediaAssetCode,
-              staffCode: staffCode,
-              classroomCode: classroomCode,
-              size: 38,
-              placeholderAsset: placeholderAsset ?? MediaRes.classroomIcon,
-              disableProfileLookupFallback: mediaAssetCode != null &&
-                  mediaAssetCode!.trim().isNotEmpty,
-              disableAttendanceStatusLookup: true,
-              statusColor: statusColor,
-              statusTooltip: statusTooltip,
-            ),
-            const SizedBox(height: 8),
+        children: [
+          DocumentImageWidget(
+            fileUuid: imageFileUuid,
+            name: title,
+            mediaAssetCode: mediaAssetCode,
+            staffCode: staffCode,
+            classroomCode: classroomCode,
+            size: 38,
+            placeholderAsset: placeholderAsset ?? MediaRes.classroomIcon,
+            disableProfileLookupFallback:
+                mediaAssetCode != null && mediaAssetCode!.trim().isNotEmpty,
+            disableAttendanceStatusLookup: true,
+            statusColor: statusColor,
+            statusTooltip: statusTooltip,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: _nameStyle,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+            const SizedBox(height: 4),
             Text(
-              title,
-              style: _nameStyle,
+              subtitle!,
+              style: _subtitleStyle,
               textAlign: TextAlign.center,
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                subtitle!,
-                style: _subtitleStyle,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-            if (showHours &&
-                availableHours != null &&
-                scheduledHours != null &&
-                unscheduledHours != null) ...[
-              const SizedBox(height: 6),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.center,
-                child: _HoursBadge(
-                  availableHours: availableHours!,
-                  scheduledHours: scheduledHours!,
-                  unscheduledHours: unscheduledHours!,
-                ),
-              ),
-            ],
           ],
+          if (showHours &&
+              availableHours != null &&
+              scheduledHours != null &&
+              unscheduledHours != null) ...[
+            const SizedBox(height: 6),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.center,
+              child: _HoursBadge(
+                availableHours: availableHours!,
+                scheduledHours: scheduledHours!,
+                unscheduledHours: unscheduledHours!,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -166,18 +166,15 @@ Color? schedulingAttendanceDotColor(String? status) {
 
 String? schedulingAttendanceDotTooltip(String? status) {
   final normalized = (status ?? '').trim().toUpperCase();
-  if (normalized == 'SIGNED_IN' || normalized == 'SIGNED-IN') return 'Signed in';
+  if (normalized == 'SIGNED_IN' || normalized == 'SIGNED-IN')
+    return 'Signed in';
   if (normalized == 'ABSENT') return 'Absent';
   return null;
 }
 
 /// Staff row: photo → name → three hour chips on one line.
 class StaffRowLeft extends StatelessWidget {
-  const StaffRowLeft({
-    super.key,
-    required this.entry,
-    this.attendanceStatus,
-  });
+  const StaffRowLeft({super.key, required this.entry, this.attendanceStatus});
 
   final StaffScheduleEntry entry;
 
@@ -290,9 +287,7 @@ class StaffTimeRangePill extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.fieldBackgroundColor,
         borderRadius: BorderRadius.circular(radius),
-        border: isPublished
-            ? Border.all(color: borderColor, width: 1.2)
-            : null,
+        border: isPublished ? Border.all(color: borderColor, width: 1.2) : null,
       ),
       child: Text(
         '$startTime -\n$endTime',
@@ -433,12 +428,7 @@ class ShiftHoursTile extends StatelessWidget {
               ],
             ),
           ),
-          SvgPicture.asset(
-            icon,
-            width: 32,
-            height: 32,
-            fit: BoxFit.contain,
-          ),
+          SvgPicture.asset(icon, width: 32, height: 32, fit: BoxFit.contain),
         ],
       ),
     );

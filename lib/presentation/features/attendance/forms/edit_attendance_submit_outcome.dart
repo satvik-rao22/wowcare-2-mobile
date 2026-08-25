@@ -11,13 +11,13 @@ class EditAttendanceSubmitOutcome {
   });
 
   const EditAttendanceSubmitOutcome.success(String message)
-      : this._(success: true, message: message);
+    : this._(success: true, message: message);
 
   const EditAttendanceSubmitOutcome.failure(String message)
-      : this._(success: false, message: message);
+    : this._(success: false, message: message);
 
   const EditAttendanceSubmitOutcome.error(Object error)
-      : this._(success: false, error: error);
+    : this._(success: false, error: error);
 
   const EditAttendanceSubmitOutcome.noop() : this._(success: false);
 

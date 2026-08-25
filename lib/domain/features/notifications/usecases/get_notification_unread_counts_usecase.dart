@@ -7,6 +7,5 @@ class GetNotificationUnreadCountsUseCase {
 
   final NotificationCenterRepository _repository;
 
-  Future<({int unread, int unclicked})> call() =>
-      _repository.getUnreadCounts();
+  Future<({int unread, int unclicked})> call() => _repository.getUnreadCounts();
 }

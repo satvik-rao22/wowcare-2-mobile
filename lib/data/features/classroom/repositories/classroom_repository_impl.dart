@@ -47,9 +47,7 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
   }
 
   @override
-  Future<ClassroomDetails> getClassroomByCode({
-    required String code,
-  }) async {
+  Future<ClassroomDetails> getClassroomByCode({required String code}) async {
     final response = await _remoteDataSource.getClassroomByCode(code: code);
     final details = response.data;
 
@@ -103,9 +101,7 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
   }
 
   @override
-  Future<SchoolCapacity> getSchoolCapacity({
-    required String schoolCode,
-  }) async {
+  Future<SchoolCapacity> getSchoolCapacity({required String schoolCode}) async {
     final key = CacheManager.buildCacheKey(
       feature: 'classroom',
       resource: 'school_capacity',
@@ -121,7 +117,9 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
       );
     }
 
-    final model = await _remoteDataSource.getSchoolCapacity(schoolCode: schoolCode);
+    final model = await _remoteDataSource.getSchoolCapacity(
+      schoolCode: schoolCode,
+    );
     await _cacheManager.saveCache(key, {
       'capacity': model.capacity,
       'minAgeMonths': model.minAgeMonths,
@@ -200,10 +198,7 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
       'schoolFte': model.schoolFte,
     });
 
-    return SchoolFte(
-      schoolCode: model.schoolCode,
-      schoolFte: model.schoolFte,
-    );
+    return SchoolFte(schoolCode: model.schoolCode, schoolFte: model.schoolFte);
   }
 
   @override
@@ -254,12 +249,16 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
             .toList();
 
         await _cacheManager.saveCache(key, {
-          'items': result.map((e) => {
-            'code': e.code,
-            'name': e.name,
-            'capacity': e.capacity,
-            'allowedRatio': e.allowedRatio,
-          }).toList(),
+          'items': result
+              .map(
+                (e) => {
+                  'code': e.code,
+                  'name': e.name,
+                  'capacity': e.capacity,
+                  'allowedRatio': e.allowedRatio,
+                },
+              )
+              .toList(),
         });
 
         return result;
@@ -290,12 +289,16 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
 
     if (result.isNotEmpty) {
       await _cacheManager.saveCache(key, {
-        'items': result.map((e) => {
-          'code': e.code,
-          'name': e.name,
-          'capacity': e.capacity,
-          'allowedRatio': e.allowedRatio,
-        }).toList(),
+        'items': result
+            .map(
+              (e) => {
+                'code': e.code,
+                'name': e.name,
+                'capacity': e.capacity,
+                'allowedRatio': e.allowedRatio,
+              },
+            )
+            .toList(),
       });
     }
 
@@ -308,7 +311,8 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
     required List<String> classroomCodes,
     DateTime? date,
   }) async {
-    if (classroomCodes.isEmpty) return <String, ClassroomAttendanceSummaryEntry>{};
+    if (classroomCodes.isEmpty)
+      return <String, ClassroomAttendanceSummaryEntry>{};
 
     final raw = await _remoteDataSource.getStudentAttendanceSummaryByClassrooms(
       classroomCodes: classroomCodes,
@@ -331,7 +335,8 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
     required List<String> classroomCodes,
     DateTime? date,
   }) async {
-    if (classroomCodes.isEmpty) return <String, ClassroomAttendanceSummaryEntry>{};
+    if (classroomCodes.isEmpty)
+      return <String, ClassroomAttendanceSummaryEntry>{};
 
     final raw = await _remoteDataSource.getStaffAttendanceSummaryByClassrooms(
       classroomCodes: classroomCodes,
@@ -396,4 +401,3 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
     );
   }
 }
-

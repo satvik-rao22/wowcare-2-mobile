@@ -46,8 +46,14 @@ class RatioMonitoringClassroom extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      [code, name, capacity, allowedRatio, studentPresent, staffPresent];
+  List<Object?> get props => [
+    code,
+    name,
+    capacity,
+    allowedRatio,
+    studentPresent,
+    staffPresent,
+  ];
 }
 
 /// Classroom-scoped attendance counts returned by the by-classrooms summary APIs.

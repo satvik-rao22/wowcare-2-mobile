@@ -2,6 +2,7 @@ import 'package:any_link_preview/any_link_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Extracts the first HTTP/HTTPS URL from [text] and returns it, or null if
 /// none is found.
@@ -42,10 +43,8 @@ class LinkPreviewCard extends StatelessWidget {
         onTap: () => MessageContentProcessor.launchLink(url),
         child: Text(
           url,
-          style: TextStyle(
+          style: AppTextStyles.label.copyWith(
             color: isMe ? Colors.white : AppColors.primaryColor,
-            fontSize: 13,
-            fontFamily: 'Manrope',
             decoration: TextDecoration.underline,
           ),
         ),
@@ -145,11 +144,7 @@ class PreviewCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       value,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: textColor,
-                        fontFamily: 'Manrope',
-                      ),
+                      style: AppTextStyles.bodySmall.copyWith(color: textColor),
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                     ),
@@ -314,10 +309,8 @@ class ComposerLinkPreview extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: const TextStyle(
-                    fontSize: 12,
+                  style: AppTextStyles.bodySmall.copyWith(
                     color: Color(0xFF1E293B),
-                    fontFamily: 'Manrope',
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,

@@ -65,8 +65,14 @@ class SchoolForteConfigEntity extends Equatable {
   bool get hasApiLoginId => apiLoginId.trim().isNotEmpty;
 
   @override
-  List<Object?> get props =>
-      [apiLoginId, code, schoolCode, organizationCode, status, maxPaymentMethods];
+  List<Object?> get props => [
+    apiLoginId,
+    code,
+    schoolCode,
+    organizationCode,
+    status,
+    maxPaymentMethods,
+  ];
 }
 
 /// Card details on a saved payment method.
@@ -88,8 +94,14 @@ class PaymentMethodCardEntity extends Equatable {
   final String? cardType;
 
   @override
-  List<Object?> get props =>
-      [nameOnCard, last4, maskedAccountNumber, expireMonth, expireYear, cardType];
+  List<Object?> get props => [
+    nameOnCard,
+    last4,
+    maskedAccountNumber,
+    expireMonth,
+    expireYear,
+    cardType,
+  ];
 }
 
 /// eCheck (ACH) details on a saved payment method.
@@ -112,13 +124,13 @@ class PaymentMethodEcheckEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        accountHolder,
-        maskedAccountNumber,
-        last4,
-        routingNumber,
-        accountType,
-        itemDescription,
-      ];
+    accountHolder,
+    maskedAccountNumber,
+    last4,
+    routingNumber,
+    accountType,
+    itemDescription,
+  ];
 }
 
 /// A saved payment method (`GET/POST /payment-gateway/payment-methods`).
@@ -151,17 +163,17 @@ class PaymentMethodEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        methodType,
-        label,
-        last4,
-        primary,
-        autopay,
-        defaultAtGateway,
-        status,
-        card,
-        echeck,
-      ];
+    code,
+    methodType,
+    label,
+    last4,
+    primary,
+    autopay,
+    defaultAtGateway,
+    status,
+    card,
+    echeck,
+  ];
 }
 
 /// Auto-pay on/off status for a guardian (`GET /payment-gateway/autopay/status`).
@@ -212,17 +224,17 @@ class AddPaymentMethodParams extends Equatable {
 
   @override
   List<Object?> get props => [
-        organizationCode,
-        schoolCode,
-        guardianCode,
-        oneTimeToken,
-        methodType,
-        payMethodHolderName,
-        label,
-        familyCode,
-        makePrimary,
-        makeAutopay,
-      ];
+    organizationCode,
+    schoolCode,
+    guardianCode,
+    oneTimeToken,
+    methodType,
+    payMethodHolderName,
+    label,
+    familyCode,
+    makePrimary,
+    makeAutopay,
+  ];
 }
 
 /// Params for `PUT /payment-gateway/payment-methods/{code}` (edit metadata:
@@ -251,8 +263,15 @@ class UpdatePaymentMethodParams extends Equatable {
   final PaymentMethodEcheckEntity? echeck;
 
   @override
-  List<Object?> get props =>
-      [organizationCode, schoolCode, guardianCode, label, notes, card, echeck];
+  List<Object?> get props => [
+    organizationCode,
+    schoolCode,
+    guardianCode,
+    label,
+    notes,
+    card,
+    echeck,
+  ];
 }
 
 /// Common org/school/guardian scope passed to the read + primary endpoints.
@@ -325,18 +344,18 @@ class GuardianPayParams extends Equatable {
 
   @override
   List<Object?> get props => [
-        organizationCode,
-        schoolCode,
-        guardianCode,
-        ownerType,
-        ownerCode,
-        paymentMethodCode,
-        amount,
-        idempotencyKey,
-        payMethodHolderName,
-        preference,
-        allocations,
-      ];
+    organizationCode,
+    schoolCode,
+    guardianCode,
+    ownerType,
+    ownerCode,
+    paymentMethodCode,
+    amount,
+    idempotencyKey,
+    payMethodHolderName,
+    preference,
+    allocations,
+  ];
 }
 
 /// Result of a guardian pay charge (`data` of the pay response).
@@ -369,16 +388,16 @@ class GuardianPayResultEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        paymentGatewayTransactionCode,
-        gatewayTransactionId,
-        status,
-        methodType,
-        baseAmount,
-        convenienceFee,
-        totalCharged,
-        feePayer,
-        ownerCode,
-        amountApplied,
-        creditBalance,
-      ];
+    paymentGatewayTransactionCode,
+    gatewayTransactionId,
+    status,
+    methodType,
+    baseAmount,
+    convenienceFee,
+    totalCharged,
+    feePayer,
+    ownerCode,
+    amountApplied,
+    creditBalance,
+  ];
 }

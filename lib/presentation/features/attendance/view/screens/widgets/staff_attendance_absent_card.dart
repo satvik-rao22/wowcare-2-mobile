@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 enum StaffAbsentMarkMethod { gps, qr, kiosk, app, web }
 
@@ -111,7 +112,8 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
                         : staff.id,
                     size: avatarSize,
                     fontSize: isTablet ? 18 : 16,
-                    disableAttendanceStatusLookup: widget.disableAttendanceStatusLookup,
+                    disableAttendanceStatusLookup:
+                        widget.disableAttendanceStatusLookup,
                   ),
                   SizedBox(width: spacing),
                   Expanded(
@@ -230,13 +232,7 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: _plum,
-              height: 16 / 13,
-            ),
+            style: AppTextStyles.label.copyWith(color: _plum, height: 16 / 13),
           ),
         ),
         const SizedBox(width: 8),
@@ -251,10 +247,7 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
               Flexible(
                 child: Text(
                   value,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                  style: AppTextStyles.body.copyWith(
                     color: _plum,
                     height: 19 / 14,
                   ),
@@ -275,18 +268,13 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         side: const BorderSide(color: Color(0xFF6C7FD8)),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         padding: EdgeInsets.zero,
         backgroundColor: Colors.white,
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
+        style: AppTextStyles.title.copyWith(
           color: Color(0xFF6C7FD8),
           height: 16 / 16,
         ),
@@ -294,15 +282,21 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
     );
   }
 
-  Widget _buildMethodIcon(
-    StaffAbsentMarkMethod method,
-  ) {
+  Widget _buildMethodIcon(StaffAbsentMarkMethod method) {
     const size = 18.0;
     switch (method) {
       case StaffAbsentMarkMethod.gps:
-        return SvgPicture.asset(MediaRes.gpsMethodIcon, width: size, height: size);
+        return SvgPicture.asset(
+          MediaRes.gpsMethodIcon,
+          width: size,
+          height: size,
+        );
       case StaffAbsentMarkMethod.qr:
-        return SvgPicture.asset(MediaRes.qrAttendanceIcon, width: size, height: size);
+        return SvgPicture.asset(
+          MediaRes.qrAttendanceIcon,
+          width: size,
+          height: size,
+        );
       case StaffAbsentMarkMethod.kiosk:
         return Icon(
           Icons.point_of_sale_outlined,
@@ -314,14 +308,20 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
           MediaRes.appMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
+          ),
         );
       case StaffAbsentMarkMethod.web:
         return SvgPicture.asset(
           MediaRes.webMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
+          ),
         );
     }
   }

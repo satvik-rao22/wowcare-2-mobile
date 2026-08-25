@@ -157,11 +157,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
     );
     final error = await _cubit.downloadStatement(statement);
     if (!mounted || error == null) return;
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: error,
-      isError: true,
-    );
+    CoreUtils.showTopSnackBar(context: context, message: error, isError: true);
   }
 
   /// Opens an in-app PDF preview instead of saving/handing off to an
@@ -195,9 +191,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
       color: AppColors.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.1),
-        ),
+        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,8 +218,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
               initialDate: _customStartDate,
               label: 'Date Range',
               fetchInitialTime: false,
-              onRangeSelected: (start, end) =>
-                  _onDateRangeSelected(start, end),
+              onRangeSelected: (start, end) => _onDateRangeSelected(start, end),
             ),
           ),
         ],
@@ -279,8 +272,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
                       ),
                       const SizedBox(height: 15),
                       Padding(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 8.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
                         child: _buildDateFilterCard(),
                       ),
                     ],
@@ -314,8 +306,9 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
                             Text(
                               state.errorMessage,
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  color: AppColors.billingErrorTextColor),
+                              style: AppTextStyles.body.copyWith(
+                                color: AppColors.billingErrorTextColor,
+                              ),
                             ),
                             const SizedBox(height: 12),
                             TextButton(
@@ -335,20 +328,21 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
                             Icon(
                               Icons.description_outlined,
                               size: 48,
-                              color: AppColors.primaryColor
-                                  .withValues(alpha: 0.5),
+                              color: AppColors.primaryColor.withValues(
+                                alpha: 0.5,
+                              ),
                             ),
                             const SizedBox(height: 16),
                             AppText.value('No statements found'),
                             const SizedBox(height: 8),
                             Text(
-                              _customStartDate != null &&
-                                      _customEndDate != null
+                              _customStartDate != null && _customEndDate != null
                                   ? 'No statements available for the selected date range'
                                   : 'No statements available',
                               style: AppTextStyles.body.copyWith(
-                                color: AppColors.primaryColor
-                                    .withValues(alpha: 0.7),
+                                color: AppColors.primaryColor.withValues(
+                                  alpha: 0.7,
+                                ),
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -357,33 +351,37 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
                       ),
                     )
                   else
-                    Builder(builder: (context) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) _maybeLoadNextPage();
-                      });
-                      return Padding(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 8.0),
-                        child: Column(
-                          children: visibleStatements
-                              .map(
-                                (statement) => Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 8.0),
-                                  child: ParentStatementCard(
-                                    statement: statement,
-                                    studentNames: studentNames,
-                                    isDownloading:
-                                        state.isDownloading(statement.code),
-                                    onDownload: () => _handleDownload(statement),
-                                    onView: () => _handleView(statement),
+                    Builder(
+                      builder: (context) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) _maybeLoadNextPage();
+                        });
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Column(
+                            children: visibleStatements
+                                .map(
+                                  (statement) => Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8.0,
+                                    ),
+                                    child: ParentStatementCard(
+                                      statement: statement,
+                                      studentNames: studentNames,
+                                      isDownloading: state.isDownloading(
+                                        statement.code,
+                                      ),
+                                      onDownload: () =>
+                                          _handleDownload(statement),
+                                      onView: () => _handleView(statement),
+                                    ),
                                   ),
-                                ),
-                              )
-                              .toList(),
-                        ),
-                      );
-                    }),
+                                )
+                                .toList(),
+                          ),
+                        );
+                      },
+                    ),
                   // Load-more indicator at bottom
                   if (state.hasMoreStatements && !_isStatementsLoading)
                     const Padding(

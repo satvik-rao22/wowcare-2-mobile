@@ -36,7 +36,12 @@ class ImportantDateRequestModel extends Equatable {
   }
 
   @override
-  List<Object?> get props => [importantDateType, dueDate, completedDate, status];
+  List<Object?> get props => [
+    importantDateType,
+    dueDate,
+    completedDate,
+    status,
+  ];
 }
 
 class ImportantDatesResponseModel extends Equatable {
@@ -81,7 +86,7 @@ class PhysicalCheckupSummaryModel {
           (data['overduePhysicalCheckupCount'] as num?)?.toInt() ?? 0,
       staffWithoutActivePhysicalCheckupCount:
           (data['staffWithoutActivePhysicalCheckupCount'] as num?)?.toInt() ??
-              0,
+          0,
     );
   }
 }

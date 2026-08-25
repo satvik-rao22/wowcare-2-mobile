@@ -1139,12 +1139,12 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                                     staff: staff,
                                                     showMessageIcon:
                                                         (_ownStaffCode ?? '')
-                                                                .trim()
-                                                                .isNotEmpty &&
-                                                            (_ownStaffCode ?? '')
-                                                                    .trim() !=
-                                                                staff.staffCode
-                                                                    .trim(),
+                                                            .trim()
+                                                            .isNotEmpty &&
+                                                        (_ownStaffCode ?? '')
+                                                                .trim() !=
+                                                            staff.staffCode
+                                                                .trim(),
                                                     isSelected:
                                                         staffSelections[staff
                                                             .staffCode] ??

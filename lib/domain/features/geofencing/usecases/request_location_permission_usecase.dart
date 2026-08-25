@@ -7,5 +7,6 @@ class RequestLocationPermissionUseCase {
 
   /// Requests foreground ("While Using the App") location permission only —
   /// never requests background/"Always" automatically.
-  Future<LocationPermissionLevel> call() => _repository.requestLocationPermission();
+  Future<LocationPermissionLevel> call() =>
+      _repository.requestLocationPermission();
 }

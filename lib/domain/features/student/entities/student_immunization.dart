@@ -28,15 +28,15 @@ class StudentImmunization extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        studentCode,
-        vaccineName,
-        vaccineDoseCode,
-        doseNumber,
-        dueDate,
-        administeredDate,
-        status,
-        exemptionReason,
-        notes,
-      ];
+    code,
+    studentCode,
+    vaccineName,
+    vaccineDoseCode,
+    doseNumber,
+    dueDate,
+    administeredDate,
+    status,
+    exemptionReason,
+    notes,
+  ];
 }

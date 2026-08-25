@@ -55,16 +55,16 @@ class SyncQueueEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        operation,
-        entityCode,
-        status,
-        payload,
-        attempts,
-        lastError,
-        createdAt,
-        lastAttemptAt,
-        organizationCode,
-        schoolCode,
-      ];
+    id,
+    operation,
+    entityCode,
+    status,
+    payload,
+    attempts,
+    lastError,
+    createdAt,
+    lastAttemptAt,
+    organizationCode,
+    schoolCode,
+  ];
 }

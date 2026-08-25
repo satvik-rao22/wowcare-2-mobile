@@ -27,10 +27,10 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
     required StorageService storageService,
     required StaffRepository staffRepository,
     required StudentRemoteDataSource studentRemoteDataSource,
-  })  : _storageService = storageService,
-        _staffRepository = staffRepository,
-        _studentRemoteDataSource = studentRemoteDataSource,
-        super(const EditUserProfileState.initial());
+  }) : _storageService = storageService,
+       _staffRepository = staffRepository,
+       _studentRemoteDataSource = studentRemoteDataSource,
+       super(const EditUserProfileState.initial());
 
   final StorageService _storageService;
   final StaffRepository _staffRepository;
@@ -109,10 +109,8 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
       var hadCached = false;
 
       if (repo is StaffRepositoryWithCache) {
-        final cached =
-            await (repo as StaffRepositoryWithCache).loadCachedStaffProfile(
-          staffCode,
-        );
+        final cached = await (repo as StaffRepositoryWithCache)
+            .loadCachedStaffProfile(staffCode);
         if (isClosed) return;
         if (cached != null) {
           hadCached = true;
@@ -153,7 +151,8 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
   Future<void> _loadGuardianProfile() async {
     try {
       final schoolCode =
-          (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+          (await _storageService.getString(StorageKeys.schoolCode) ?? '')
+              .trim();
       final userCode =
           (await _storageService.getString(StorageKeys.userCode) ?? '').trim();
       if (schoolCode.isEmpty || userCode.isEmpty) {
@@ -188,8 +187,9 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
           schoolCode: schoolCode,
           firstName: firstName,
           lastName: lastName,
-          fullName:
-              fullName.isNotEmpty ? fullName : '$firstName $lastName'.trim(),
+          fullName: fullName.isNotEmpty
+              ? fullName
+              : '$firstName $lastName'.trim(),
           email: email,
           phoneNumber: phone,
           staffType: '',
@@ -231,7 +231,6 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
       country: pick(['country', 'addressCountry']),
     );
   }
-
 
   /// Persists the validated profile [fields]. If [email] differs from the cached
   /// email, the email-change API is attempted first (non-blocking on failure).
@@ -533,8 +532,10 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
         }
       }
 
-      final phoneDigits =
-          (fields['phoneNumber'] ?? '').toString().replaceAll(RegExp(r'\D'), '');
+      final phoneDigits = (fields['phoneNumber'] ?? '').toString().replaceAll(
+        RegExp(r'\D'),
+        '',
+      );
 
       final body = <String, dynamic>{
         'code': guardianCode,
@@ -564,8 +565,8 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
         };
       }
 
-      final profileMessage =
-          await _studentRemoteDataSource.updateGuardianMyProfile(body: body);
+      final profileMessage = await _studentRemoteDataSource
+          .updateGuardianMyProfile(body: body);
 
       _lastSaveMessage = _combineSaveMessages(
         emailChanged: emailChanged,

@@ -140,11 +140,7 @@ class ApiLogger {
     AppLogger.c('═══════════════════════════════════════════════════════');
 
     if (!_isExpectedDioError(error)) {
-      AppLogger.e(
-        'Unexpected API Failure: $method $url',
-        error,
-        stackTrace,
-      );
+      AppLogger.e('Unexpected API Failure: $method $url', error, stackTrace);
     }
   }
 
@@ -163,7 +159,11 @@ class ApiLogger {
   }
 
   /// Prints long strings in multiple chunks so that logcat does not truncate them.
-  static void _printInChunks(String text, {int chunkSize = 800, bool isError = false}) {
+  static void _printInChunks(
+    String text, {
+    int chunkSize = 800,
+    bool isError = false,
+  }) {
     if (text.length <= chunkSize) {
       isError ? AppLogger.c(text) : AppLogger.d(text);
       return;

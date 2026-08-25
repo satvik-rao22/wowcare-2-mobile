@@ -34,12 +34,18 @@ class CommunicationLoaded extends CommunicationState {
   });
 
   List<Message> get messages => threads[activeThreadId] ?? [];
-  bool get isLoadingOlderMessages => threadsLoadingOlder.contains(activeThreadId);
-  bool get hasMoreOlderMessages => !threadsWithNoMoreHistory.contains(activeThreadId);
+  bool get isLoadingOlderMessages =>
+      threadsLoadingOlder.contains(activeThreadId);
+  bool get hasMoreOlderMessages =>
+      !threadsWithNoMoreHistory.contains(activeThreadId);
 
   @override
-  List<Object?> get props =>
-      [threads, activeThreadId, threadsLoadingOlder, threadsWithNoMoreHistory];
+  List<Object?> get props => [
+    threads,
+    activeThreadId,
+    threadsLoadingOlder,
+    threadsWithNoMoreHistory,
+  ];
 
   CommunicationLoaded copyWith({
     Map<String, List<Message>>? threads,

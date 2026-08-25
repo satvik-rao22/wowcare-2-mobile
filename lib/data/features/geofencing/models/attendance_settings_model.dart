@@ -16,6 +16,7 @@ class AttendanceSettingsModel {
   });
 
   final bool gpsSignInEnabled;
+
   /// When false, parents cannot sign in via GPS even if general GPS is enabled.
   final bool parentGpsSignInEnabled;
   final double proximityRadiusMeters;
@@ -50,14 +51,14 @@ class AttendanceSettingsModel {
   }
 
   AttendanceSettingsEntity toEntity() => AttendanceSettingsEntity(
-        gpsSignInEnabled: gpsSignInEnabled,
-        parentGpsSignInEnabled: parentGpsSignInEnabled,
-        proximityRadiusMeters: proximityRadiusMeters,
-        maxProximityLimitMeters: maxProximityLimitMeters,
-        allowOutsideSchoolHours: allowOutsideSchoolHours,
-        outsideTimeWindowMinutes: outsideTimeWindowMinutes,
-        allowTeacherCrossClassAttendance: allowTeacherCrossClassAttendance,
-        autoSignOutEnabled: autoSignOutEnabled,
-        autoSignOutDelayMinutes: autoSignOutDelayMinutes,
-      );
+    gpsSignInEnabled: gpsSignInEnabled,
+    parentGpsSignInEnabled: parentGpsSignInEnabled,
+    proximityRadiusMeters: proximityRadiusMeters,
+    maxProximityLimitMeters: maxProximityLimitMeters,
+    allowOutsideSchoolHours: allowOutsideSchoolHours,
+    outsideTimeWindowMinutes: outsideTimeWindowMinutes,
+    allowTeacherCrossClassAttendance: allowTeacherCrossClassAttendance,
+    autoSignOutEnabled: autoSignOutEnabled,
+    autoSignOutDelayMinutes: autoSignOutDelayMinutes,
+  );
 }

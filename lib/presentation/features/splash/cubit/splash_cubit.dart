@@ -20,7 +20,9 @@ import 'package:wowcare/presentation/features/notifications/routing/notification
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/src/app_router.dart'
-    show consumePendingNotificationDeepLink, consumePendingNotificationOrgSchool;
+    show
+        consumePendingNotificationDeepLink,
+        consumePendingNotificationOrgSchool;
 
 part 'splash_state.dart';
 
@@ -135,7 +137,8 @@ class SplashCubit extends Cubit<SplashState> {
       // login to protect; otherwise persist the flag now and fall through
       // to the normal session-restore flow below instead of forcing a
       // fresh sign-in.
-      final hasExistingLogin = await _authLocal.getCachedLoginResponse() != null;
+      final hasExistingLogin =
+          await _authLocal.getCachedLoginResponse() != null;
       if (isClosed) return;
       if (!hasExistingLogin) {
         await _authLocal.clearCache();
@@ -221,8 +224,7 @@ class SplashCubit extends Cubit<SplashState> {
 
           if (orgCode.isNotEmpty) {
             final existingSchoolCode =
-                (await _storage.getString(StorageKeys.schoolCode) ?? '')
-                    .trim();
+                (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
             final effectiveSchoolCode = schoolCode.isNotEmpty
                 ? schoolCode
                 : existingSchoolCode;
@@ -302,8 +304,7 @@ class SplashCubit extends Cubit<SplashState> {
       if (isClosed) return;
 
       final orgCode =
-          (await _storage.getString(StorageKeys.organizationCode) ?? '')
-              .trim();
+          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
       final schoolCode =
           (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
       if (orgCode.isNotEmpty && schoolCode.isNotEmpty) {
@@ -342,8 +343,9 @@ class SplashCubit extends Cubit<SplashState> {
           // Login context still needs an org/school chosen — don't override the
           // routing with a notification deep-link (it has no school scope yet).
           // Drop the deep-link and continue to school selection.
-          final org = (await _storage.getString(StorageKeys.organizationCode) ?? '')
-              .trim();
+          final org =
+              (await _storage.getString(StorageKeys.organizationCode) ?? '')
+                  .trim();
           if (isClosed) return;
           await _authCubit.loadCachedData();
           if (isClosed) return;

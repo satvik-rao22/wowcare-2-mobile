@@ -21,22 +21,27 @@ class StaffMember extends Equatable {
 
   final String code;
   final String name;
+
   /// User account code (USR_*) — the participant identifier for messaging.
   final String userCode;
   final String? profileImage;
   final String? profilePhotoAssetCode;
   final String primaryClassroomCode;
+
   /// Human-readable primary classroom from staff list API (`primaryClassroom.name`).
   final String primaryClassroomName;
   final List<String> allowedClassroomCodes;
+
   /// Optional names from staff list API for each allowed classroom code.
   final Map<String, String> allowedClassroomNameByCode;
   final String designation;
   final String phoneNumber;
   final String status;
   final String email;
+
   /// Map of dayOfWeek (e.g. MONDAY) -> "start - end" (e.g. "12:05PM - 7:04PM").
   final Map<String, String> workScheduleByDay;
+
   /// Map of dayOfWeek (e.g. MONDAY) -> "start - end" for break, if any.
   final Map<String, String> breakScheduleByDay;
 
@@ -47,29 +52,27 @@ class StaffMember extends Equatable {
   String get primaryClassroom => primaryClassroomOrFirstAllowed;
 
   /// Fallback helper when primary classroom isn't set but allowed classrooms exist.
-  String get primaryClassroomOrFirstAllowed =>
-      primaryClassroomCode.isNotEmpty
-          ? primaryClassroomCode
-          : (allowedClassroomCodes.isNotEmpty ? allowedClassroomCodes.first : '');
+  String get primaryClassroomOrFirstAllowed => primaryClassroomCode.isNotEmpty
+      ? primaryClassroomCode
+      : (allowedClassroomCodes.isNotEmpty ? allowedClassroomCodes.first : '');
 
   @override
-  List<Object?> get props =>
-      [
-        code,
-        name,
-        userCode,
-        primaryClassroomCode,
-        primaryClassroomName,
-        allowedClassroomCodes,
-        allowedClassroomNameByCode,
-        designation,
-        phoneNumber,
-        status,
-        email,
-        profilePhotoAssetCode,
-        workScheduleByDay,
-        breakScheduleByDay,
-      ];
+  List<Object?> get props => [
+    code,
+    name,
+    userCode,
+    primaryClassroomCode,
+    primaryClassroomName,
+    allowedClassroomCodes,
+    allowedClassroomNameByCode,
+    designation,
+    phoneNumber,
+    status,
+    email,
+    profilePhotoAssetCode,
+    workScheduleByDay,
+    breakScheduleByDay,
+  ];
 }
 
 class StaffPage extends Equatable {
@@ -90,8 +93,12 @@ class StaffPage extends Equatable {
   final bool hasMore;
 
   @override
-  List<Object?> get props =>
-      [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 }
-
-

@@ -10,6 +10,7 @@ import 'package:wowcare/domain/features/student/repositories/student_repository.
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class AddPhysicianScreen extends StatefulWidget {
   const AddPhysicianScreen({
@@ -346,7 +347,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
       fontSize: responsive.labelFontSize,
       fontFamily: 'Manrope',
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: Color(0xff573353),
     );
 
     return Column(
@@ -358,9 +359,9 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
             children: [
               TextSpan(text: label),
               if (isRequired)
-                const TextSpan(
+                TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: AppTextStyles.body.copyWith(color: Colors.red),
                 ),
             ],
           ),

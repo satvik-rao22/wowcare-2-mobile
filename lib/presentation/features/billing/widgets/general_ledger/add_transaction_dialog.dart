@@ -6,6 +6,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   const AddTransactionScreen({
@@ -114,13 +115,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           ),
           if (_dateError) ...[
             const SizedBox(height: 4),
-            const Text(
+            Text(
               '*Date is required.',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 12,
-                color: Colors.red,
-              ),
+              style: AppTextStyles.bodySmall.copyWith(color: Colors.red),
             ),
           ],
           SizedBox(height: verticalSpacing),
@@ -191,9 +188,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             children: [
               TextSpan(text: label),
               if (required)
-                const TextSpan(
+                TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: AppTextStyles.body.copyWith(color: Colors.red),
                 ),
             ],
           ),
@@ -204,8 +201,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: const Color(0x66573353)),
-            borderRadius:
-                BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,
@@ -234,11 +232,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           const SizedBox(height: 4),
           Text(
             error,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 12,
-              color: Colors.red,
-            ),
+            style: AppTextStyles.bodySmall.copyWith(color: Colors.red),
           ),
         ],
       ],

@@ -16,9 +16,9 @@ class FamilySummaryCubit extends Cubit<FamilySummaryState> {
   FamilySummaryCubit({
     required GetFamilySummaryUseCase getFamilySummary,
     required StorageService storage,
-  })  : _getFamilySummary = getFamilySummary,
-        _storage = storage,
-        super(const FamilySummaryState.initial());
+  }) : _getFamilySummary = getFamilySummary,
+       _storage = storage,
+       super(const FamilySummaryState.initial());
 
   final GetFamilySummaryUseCase _getFamilySummary;
   final StorageService _storage;
@@ -26,22 +26,26 @@ class FamilySummaryCubit extends Cubit<FamilySummaryState> {
   Future<void> load() async {
     emit(state.copyWith(isLoading: true, errorMessage: null));
     try {
-      final org =
-          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final school =
-          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final org = (await _storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+      final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       final families = await _getFamilySummary(
         organizationCode: org,
         school: school,
       );
       if (isClosed) return;
-      emit(state.copyWith(families: _dedupeByOwner(families), isLoading: false));
+      emit(
+        state.copyWith(families: _dedupeByOwner(families), isLoading: false),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoading: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -62,8 +66,7 @@ class FamilySummaryCubit extends Cubit<FamilySummaryState> {
     return result;
   }
 
-  void setSearchQuery(String query) =>
-      emit(state.copyWith(searchQuery: query));
+  void setSearchQuery(String query) => emit(state.copyWith(searchQuery: query));
 
   void clearSearch() => emit(state.copyWith(searchQuery: ''));
 

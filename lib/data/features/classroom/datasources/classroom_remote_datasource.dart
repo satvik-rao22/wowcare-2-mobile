@@ -237,7 +237,9 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
 
     final response = await _client.getUri<dynamic>(uri);
     if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected ratio monitoring classrooms API response format');
+      throw Exception(
+        'Unexpected ratio monitoring classrooms API response format',
+      );
     }
     return RatioClassroomPageResponseModel.fromJson(
       response.data! as Map<String, dynamic>,
@@ -254,19 +256,14 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     final endpoint = ApiPaths.url(
       ApiPaths.studentAttendanceExpectedSummaryCardByClassrooms,
     );
-    final qp = <String, dynamic>{
-      'classroomCodes': classroomCodes.join(','),
-    };
+    final qp = <String, dynamic>{'classroomCodes': classroomCodes.join(',')};
     if (date != null) {
       qp['date'] =
           '${date.year.toString().padLeft(4, '0')}-'
           '${date.month.toString().padLeft(2, '0')}-'
           '${date.day.toString().padLeft(2, '0')}';
     }
-    final response = await _client.get<dynamic>(
-      endpoint,
-      queryParameters: qp,
-    );
+    final response = await _client.get<dynamic>(endpoint, queryParameters: qp);
     if (response.data is! Map<String, dynamic>) {
       throw Exception(
         'Unexpected student attendance by-classrooms API response format',
@@ -288,9 +285,7 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     final endpoint = ApiPaths.url(
       ApiPaths.staffAttendanceExpectedSummaryCardByClassrooms,
     );
-    final qp = <String, dynamic>{
-      'classroomCodes': classroomCodes.join(','),
-    };
+    final qp = <String, dynamic>{'classroomCodes': classroomCodes.join(',')};
     if (date != null) {
       qp['date'] =
           '${date.year.toString().padLeft(4, '0')}-'
@@ -378,8 +373,9 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     required String organizationCode,
     required String schoolCode,
   }) async {
-    final endpoint =
-        ApiPaths.url(ApiPaths.classroomLogoUploadSessionPath(classroomCode));
+    final endpoint = ApiPaths.url(
+      ApiPaths.classroomLogoUploadSessionPath(classroomCode),
+    );
     final response = await _client.post<dynamic>(
       endpoint,
       queryParameters: <String, dynamic>{
@@ -396,8 +392,9 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     required String classroomCode,
     required String assetCode,
   }) async {
-    final endpoint =
-        ApiPaths.url(ApiPaths.classroomLogoFinalizePath(classroomCode));
+    final endpoint = ApiPaths.url(
+      ApiPaths.classroomLogoFinalizePath(classroomCode),
+    );
     final response = await _client.post<dynamic>(
       endpoint,
       data: <String, dynamic>{'assetCode': assetCode},

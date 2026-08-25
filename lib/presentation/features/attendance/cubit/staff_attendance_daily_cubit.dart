@@ -12,15 +12,15 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
   StaffAttendanceDailyCubit({
     required GetStaffAttendanceDailyUseCase getStaffAttendanceDailyUseCase,
     required GetStaffAttendanceExpectedSummaryUseCase
-        getStaffAttendanceExpectedSummaryUseCase,
-  })  : _getStaffAttendanceDailyUseCase = getStaffAttendanceDailyUseCase,
-        _getStaffAttendanceExpectedSummaryUseCase =
-            getStaffAttendanceExpectedSummaryUseCase,
-        super(const StaffAttendanceDailyState.initial());
+    getStaffAttendanceExpectedSummaryUseCase,
+  }) : _getStaffAttendanceDailyUseCase = getStaffAttendanceDailyUseCase,
+       _getStaffAttendanceExpectedSummaryUseCase =
+           getStaffAttendanceExpectedSummaryUseCase,
+       super(const StaffAttendanceDailyState.initial());
 
   final GetStaffAttendanceDailyUseCase _getStaffAttendanceDailyUseCase;
   final GetStaffAttendanceExpectedSummaryUseCase
-      _getStaffAttendanceExpectedSummaryUseCase;
+  _getStaffAttendanceExpectedSummaryUseCase;
 
   static const int _pageSize = 10;
 
@@ -63,19 +63,21 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
 
     final dateString = _formatDate(attendanceDate);
 
-    emit(state.copyWith(
-      isLoading: state.items.isEmpty,
-      isRefreshing: true,
-      errorMessage: null,
-      attendanceDate: attendanceDate,
-      classroomCodes: classroomCodes,
-      tagCodes: tagCodes,
-      signInAtFilter: signInAtFilter,
-      signOutAtFilter: signOutAtFilter,
-      isExpectedNotMarked: isExpectedNotMarked,
-      search: search,
-      isSummaryLoading: true,
-    ));
+    emit(
+      state.copyWith(
+        isLoading: state.items.isEmpty,
+        isRefreshing: true,
+        errorMessage: null,
+        attendanceDate: attendanceDate,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
+        isExpectedNotMarked: isExpectedNotMarked,
+        search: search,
+        isSummaryLoading: true,
+      ),
+    );
 
     try {
       final firstPage = await _getStaffAttendanceDailyUseCase(
@@ -90,8 +92,7 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
         page: 0,
         size: _pageSize,
       );
-      final summary =
-          await _getStaffAttendanceExpectedSummaryUseCase(
+      final summary = await _getStaffAttendanceExpectedSummaryUseCase(
         classroomCode: _classroomCodeForSummary(classroomCodes),
         // refresh() is the explicit-reload path (pull-to-refresh, after an
         // attendance action, filter change), so bypass the cached summary —
@@ -101,33 +102,37 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
 
       if (isClosed) return;
 
-      emit(StaffAttendanceDailyState.loaded(
-        items: firstPage.items,
-        currentPage: firstPage.page,
-        hasMore: firstPage.hasMore,
-        isFromCache: false,
-        attendanceDate: attendanceDate,
-        classroomCodes: classroomCodes,
-        tagCodes: tagCodes,
-        signInAtFilter: signInAtFilter,
-        signOutAtFilter: signOutAtFilter,
-        isExpectedNotMarked: isExpectedNotMarked,
-        search: search,
-        expectedCount: summary.expected,
-        presentCount: summary.present,
-        absentCount: summary.absent,
-        signedOutCount: summary.signOut,
-        notMarkedCount: summary.notMarked,
-        isSummaryLoading: false,
-      ));
+      emit(
+        StaffAttendanceDailyState.loaded(
+          items: firstPage.items,
+          currentPage: firstPage.page,
+          hasMore: firstPage.hasMore,
+          isFromCache: false,
+          attendanceDate: attendanceDate,
+          classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
+          signInAtFilter: signInAtFilter,
+          signOutAtFilter: signOutAtFilter,
+          isExpectedNotMarked: isExpectedNotMarked,
+          search: search,
+          expectedCount: summary.expected,
+          presentCount: summary.present,
+          absentCount: summary.absent,
+          signedOutCount: summary.signOut,
+          notMarkedCount: summary.notMarked,
+          isSummaryLoading: false,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoading: false,
-        isRefreshing: false,
-        isSummaryLoading: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          isSummaryLoading: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -157,18 +162,22 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
 
       if (isClosed) return;
 
-      emit(state.copyWith(
-        items: [...state.items, ...page.items],
-        currentPage: page.page,
-        hasMore: page.hasMore,
-        isLoadingMore: false,
-      ));
+      emit(
+        state.copyWith(
+          items: [...state.items, ...page.items],
+          currentPage: page.page,
+          hasMore: page.hasMore,
+          isLoadingMore: false,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoadingMore: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -176,4 +185,3 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 }
-

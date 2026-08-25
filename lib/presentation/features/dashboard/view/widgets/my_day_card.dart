@@ -45,6 +45,7 @@ import 'package:wowcare/src/app_router.dart';
 import '../../../../../core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 // ---------------------------------------------------------------------------
 // MyDayCard
@@ -920,9 +921,8 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
         if (_hasShifts)
           Text(
             label,
-            style: TextStyle(
+            style: AppTextStyles.bodySmall.copyWith(
               color: AppColors.primaryColor.withValues(alpha: 0.5),
-              fontSize: 12,
               height: 0.1,
             ),
           ),
@@ -970,9 +970,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
         children: [
           Text(
             _nextDayName,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
+            style: AppTextStyles.heading.copyWith(
               color: AppColors.primaryColor,
             ),
           ),
@@ -1104,10 +1102,8 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                         ? _ShimmerLine(width: 180, height: 18)
                         : Text(
                             _statusText,
-                            style: const TextStyle(
+                            style: AppTextStyles.bodyLarge.copyWith(
                               color: AppColors.primaryColor,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
                             ),
                           ),
                   ),
@@ -1128,7 +1124,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                       // ── Work time chip ───────────────────────────────────────
                       _CustomChip(
                         label: 'Work Time : $_workTime',
-                        labelStyle: const TextStyle(
+                        labelStyle: AppTextStyles.body.copyWith(
                           color: AppColors.secondaryColor,
                         ),
                         color: const Color.fromRGBO(177, 175, 233, 0.3),
@@ -1138,7 +1134,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                       // ── Break time chip ──────────────────────────────────────
                       _CustomChip(
                         label: 'Break Time : $_breakTime',
-                        labelStyle: const TextStyle(
+                        labelStyle: AppTextStyles.body.copyWith(
                           color: AppColors.secondaryColor,
                         ),
                         color: const Color.fromRGBO(177, 175, 233, 0.3),
@@ -1257,10 +1253,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                                   borderRadius:
                                                       BorderRadius.circular(14),
                                                 ),
-                                                textStyle: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
+                                                textStyle: AppTextStyles.title,
                                               ),
                                             ),
                                           ),
@@ -1319,10 +1312,8 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                                           14,
                                                         ),
                                                   ),
-                                                  textStyle: const TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
+                                                  textStyle:
+                                                      AppTextStyles.title,
                                                 ),
                                               ),
                                             ),
@@ -1358,14 +1349,13 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                                       : 'Sign-In',
                                                   overflow:
                                                       TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: signButtonEnabled
-                                                        ? AppColors
-                                                              .billingBackgroundColor
-                                                        : Colors.grey[600],
-                                                  ),
+                                                  style: AppTextStyles.title
+                                                      .copyWith(
+                                                        color: signButtonEnabled
+                                                            ? AppColors
+                                                                  .billingBackgroundColor
+                                                            : Colors.grey[600],
+                                                      ),
                                                 ),
                                               ),
                                             ],
@@ -1437,7 +1427,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
       return const SizedBox.shrink();
     }
 
-    const style = TextStyle(fontSize: 12, height: 1.4);
+    final style = AppTextStyles.bodySmall.copyWith(height: 1.4);
     const pad = EdgeInsets.only(top: 10, left: 24, right: 24);
 
     switch (state.status) {
@@ -1757,18 +1747,18 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
       serviceLocator<GetConversationsEntityUseCase>()
           .call(includeRestUnreadCounts: false)
           .then((result) {
-        if (!mounted) return;
-        result.fold((_) {}, (list) {
-          setState(() {
-            // If REST API found chats, merge them with current items to ensure
-            // we don't miss anything, and take the top 2 most recent.
-            if (list.isNotEmpty) {
-              _items = _buildDisplayItems([..._items, ...list]);
-              _loading = false;
-            }
-          });
-        });
-      }),
+            if (!mounted) return;
+            result.fold((_) {}, (list) {
+              setState(() {
+                // If REST API found chats, merge them with current items to ensure
+                // we don't miss anything, and take the top 2 most recent.
+                if (list.isNotEmpty) {
+                  _items = _buildDisplayItems([..._items, ...list]);
+                  _loading = false;
+                }
+              });
+            });
+          }),
     );
 
     _sub = serviceLocator<WatchConversationsUseCase>().call().listen(
@@ -1969,8 +1959,7 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
             const SizedBox(width: 10),
             Text(
               'No recent chat',
-              style: TextStyle(
-                fontSize: 13,
+              style: AppTextStyles.label.copyWith(
                 color: AppColors.primaryColor.withValues(alpha: 0.5),
               ),
             ),
@@ -2044,10 +2033,8 @@ class _RecentChatRow extends StatelessWidget {
                         child: Text(
                           displayTitle,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: AppTextStyles.bodyLarge.copyWith(
                             color: AppColors.primaryColor,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
@@ -2073,8 +2060,7 @@ class _RecentChatRow extends StatelessWidget {
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
+                          style: AppTextStyles.bodySmall.copyWith(
                             color: AppColors.primaryColor.withValues(
                               alpha: 0.5,
                             ),
@@ -2201,9 +2187,8 @@ class _ReminderToggleButtonState extends State<_ReminderToggleButton> {
                       ),
                   child: Text(
                     _reminderEnabled ? 'Turn off Reminder' : 'Send reminder',
-                    style: const TextStyle(
+                    style: AppTextStyles.body.copyWith(
                       color: AppColors.cardColor,
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),

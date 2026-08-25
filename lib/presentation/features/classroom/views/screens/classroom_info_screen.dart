@@ -59,6 +59,7 @@ class ClassroomInfoScreen extends StatefulWidget {
 class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   Classroom? _selectedRoom;
   ClassroomDetails? _details;
+
   /// True while classroom details, enrolled counts, and attendance summaries
   /// for the current selection are still loading (after [classroomCode] is known).
   bool _isAllClassroomApisLoading = false;
@@ -66,10 +67,10 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   final GetClassroomByCodeUseCase _getClassroomByCodeUseCase =
       serviceLocator<GetClassroomByCodeUseCase>();
   final GetStudentAttendanceExpectedSummaryUseCase
-      _getStudentAttendanceExpectedSummaryUseCase =
+  _getStudentAttendanceExpectedSummaryUseCase =
       serviceLocator<GetStudentAttendanceExpectedSummaryUseCase>();
   final GetStaffAttendanceExpectedSummaryUseCase
-      _getStaffAttendanceExpectedSummaryUseCase =
+  _getStaffAttendanceExpectedSummaryUseCase =
       serviceLocator<GetStaffAttendanceExpectedSummaryUseCase>();
   StudentAttendanceExpectedSummary? _studentSummary;
   StudentAttendanceExpectedSummary? _staffSummary;
@@ -99,8 +100,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     super.initState();
     _storage = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storage);
-    _movementsCubit = serviceLocator<IndividualMovementsCubit>()
-      ..loadInitial();
+    _movementsCubit = serviceLocator<IndividualMovementsCubit>()..loadInitial();
     _loadLastSelectedClassroomFromCache();
     // Selected room may be passed as a route argument
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -122,13 +122,15 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   }
 
   String get _lastSelectedClassroomCacheKey => CacheManager.buildCacheKey(
-        feature: 'classroom',
-        resource: 'profile_selected',
-        identifier: 'last',
-      );
+    feature: 'classroom',
+    resource: 'profile_selected',
+    identifier: 'last',
+  );
 
   Future<void> _loadLastSelectedClassroomFromCache() async {
-    final cached = await _cacheManager.loadCache(_lastSelectedClassroomCacheKey);
+    final cached = await _cacheManager.loadCache(
+      _lastSelectedClassroomCacheKey,
+    );
     if (cached == null || !mounted) return;
     final code = (cached['classroomCode'] ?? '').toString().trim();
     final name = (cached['classroomName'] ?? '').toString().trim();
@@ -152,9 +154,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     });
   }
 
-  String _displayClassroomName({
-    required List<Classroom> classrooms,
-  }) {
+  String _displayClassroomName({required List<Classroom> classrooms}) {
     final fromSelected = _selectedRoom?.name.trim() ?? '';
     if (fromSelected.isNotEmpty) return fromSelected;
     final cachedName = (_cachedSelectedClassroomName ?? '').trim();
@@ -234,7 +234,9 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   }
 
   Future<void> _hydrateEnrolledCountFromCache(String classroomCode) async {
-    final cached = await _cacheManager.loadCache(_enrolledCountCacheKey(classroomCode));
+    final cached = await _cacheManager.loadCache(
+      _enrolledCountCacheKey(classroomCode),
+    );
     if (cached == null || !mounted) return;
     final data = cached['data'];
     if (data is! Map) return;
@@ -250,15 +252,17 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     final code = classroomCode.trim();
     if (code.isEmpty) return;
 
-    final orgCode = (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final orgCode =
+        (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
 
     final body = await serviceLocator<ClassroomRepository>()
         .getStudentClassroomEnrolledCount(
-      classroomCode: code,
-      organizationCode: orgCode,
-      schoolCode: schoolCode,
-    );
+          classroomCode: code,
+          organizationCode: orgCode,
+          schoolCode: schoolCode,
+        );
     if (body is! Map<String, dynamic>) return;
     final data = body['data'];
     if (data is! Map) return;
@@ -298,8 +302,9 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     await _hydrateEnrolledCountFromCache(code);
 
     if (!forceRefresh) {
-      final valid =
-          await _cacheManager.isCacheValid(_enrolledCountCacheKey(code));
+      final valid = await _cacheManager.isCacheValid(
+        _enrolledCountCacheKey(code),
+      );
       if (valid) return;
     }
 
@@ -374,10 +379,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
       AppLogger.d('[ClassroomInfo] _loadDetails details ready for $code');
       // Load secondary data in the background (own cards); don't block the UI.
       Future.wait<void>([
-        _ensureEnrolledCountLoaded(
-          code,
-          forceRefresh: refreshEnrolledCounts,
-        ),
+        _ensureEnrolledCountLoaded(code, forceRefresh: refreshEnrolledCounts),
         _loadSummaries(code),
       ]).catchError((Object _) => <void>[]);
     } catch (e) {
@@ -463,8 +465,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
 
     final organizationCode =
         (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final schoolCode =
-        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     if (organizationCode.isEmpty || schoolCode.isEmpty) return;
 
     try {
@@ -490,10 +492,10 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
 
       final sessionBody = await serviceLocator<ClassroomRepository>()
           .createClassroomLogoUploadSession(
-        classroomCode: classroomCode,
-        organizationCode: organizationCode,
-        schoolCode: schoolCode,
-      );
+            classroomCode: classroomCode,
+            organizationCode: organizationCode,
+            schoolCode: schoolCode,
+          );
       if (sessionBody is! Map<String, dynamic> ||
           sessionBody['success'] == false) {
         final msg = (sessionBody?['message'] ?? '').toString().trim();
@@ -514,11 +516,15 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
 
       final lowerPath = file.path.toLowerCase();
       final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final contentType = lowerPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      final contentType = lowerPath.endsWith('.png')
+          ? 'image/png'
+          : 'image/jpeg';
 
       final presign = await uploadService.createAssetPresign(
         sessionCode: sessionCode,
-        documentApiBasePath: documentApiBasePath.isEmpty ? '/api/v1' : documentApiBasePath,
+        documentApiBasePath: documentApiBasePath.isEmpty
+            ? '/api/v1'
+            : documentApiBasePath,
         fileName: fileName.isNotEmpty
             ? fileName
             : 'classroom-logo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
@@ -550,8 +556,9 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
           .completeAssetUpload(
             sessionCode: sessionCode,
             assetCode: presign.assetCode,
-            documentApiBasePath:
-                documentApiBasePath.isEmpty ? '/api/v1' : documentApiBasePath,
+            documentApiBasePath: documentApiBasePath.isEmpty
+                ? '/api/v1'
+                : documentApiBasePath,
           )
           .timeout(const Duration(seconds: 30));
       if (mounted) setState(() => _logoUploadPercent = 90);
@@ -623,7 +630,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         });
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Failed to update classroom logo: ${ApiErrorHandler.extractErrorMessage(e)}',
+          message:
+              'Failed to update classroom logo: ${ApiErrorHandler.extractErrorMessage(e)}',
           isError: true,
         );
       }
@@ -730,48 +738,50 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                      child: Text.rich(
-                    TextSpan(
-                      text: 'Capacity: ',
-                      style: const TextStyle(
-                        fontFamily: 'Manrope',
-                        color: Color(0xff573353),
-                      ),
-                      children: [
-                        TextSpan(
-                          text: '${details.capacity}',
-                          style: const TextStyle(
-                            fontFamily: 'Manrope',
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xff573353),
-                          ),
+                    child: Text.rich(
+                      TextSpan(
+                        text: 'Capacity: ',
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          color: Color(0xff573353),
                         ),
-                      ],
+                        children: [
+                          TextSpan(
+                            text: '${details.capacity}',
+                            style: const TextStyle(
+                              fontFamily: 'Manrope',
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xff573353),
+                            ),
+                          ),
+                        ],
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  )),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
-                      child: Text.rich(
-                    TextSpan(
-                      text: 'Ratio: ',
-                      style: const TextStyle(
-                        fontFamily: 'Manrope',
-                        color: Color(0xff573353),
-                      ),
-                      children: [
-                        TextSpan(
-                          text: details.studentTeacherRatioDisplay,
-                          style: const TextStyle(
-                            fontFamily: 'Manrope',
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xff573353),
-                          ),
+                    child: Text.rich(
+                      TextSpan(
+                        text: 'Ratio: ',
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          color: Color(0xff573353),
                         ),
-                      ],
+                        children: [
+                          TextSpan(
+                            text: details.studentTeacherRatioDisplay,
+                            style: const TextStyle(
+                              fontFamily: 'Manrope',
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xff573353),
+                            ),
+                          ),
+                        ],
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  )),
+                  ),
                 ],
               ),
             ],
@@ -784,8 +794,9 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ClassroomCubit>(
-      create: (_) => serviceLocator<ClassroomCubit>()
-        ..loadActiveClassrooms(applyAttendanceStaffScope: true),
+      create: (_) =>
+          serviceLocator<ClassroomCubit>()
+            ..loadActiveClassrooms(applyAttendanceStaffScope: true),
       child: BlocBuilder<ClassroomCubit, ClassroomState>(
         builder: (context, state) {
           final classrooms = state.classrooms;
@@ -793,13 +804,14 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
             // A deep-link classroom code wins over the cached/first selection.
             final deepLinkCode = (widget.initialClassroomCode ?? '').trim();
             final cachedCode = (_cachedSelectedClassroomCode ?? '').trim();
-            final preferredCode =
-                deepLinkCode.isNotEmpty ? deepLinkCode : cachedCode;
+            final preferredCode = deepLinkCode.isNotEmpty
+                ? deepLinkCode
+                : cachedCode;
             final match = preferredCode.isEmpty
                 ? null
                 : classrooms
-                    .where((c) => c.code.trim() == preferredCode)
-                    .toList();
+                      .where((c) => c.code.trim() == preferredCode)
+                      .toList();
             _selectedRoom = match != null && match.isNotEmpty
                 ? match.first
                 : classrooms.first;
@@ -810,7 +822,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
 
           final dropdownItems = classrooms.map((e) => e.name).toList();
           final isInitialLoading = state.isLoading && classrooms.isEmpty;
-          final showAllCardsShimmer = isInitialLoading ||
+          final showAllCardsShimmer =
+              isInitialLoading ||
               (_detailsError == null &&
                   _selectedRoom != null &&
                   (_isAllClassroomApisLoading || _details == null));
@@ -827,9 +840,9 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
               onRefresh: () async {
                 await Future.wait<void>([
                   context.read<ClassroomCubit>().loadActiveClassrooms(
-                        force: true,
-                        applyAttendanceStaffScope: true,
-                      ),
+                    force: true,
+                    applyAttendanceStaffScope: true,
+                  ),
                   _movementsCubit.refresh(),
                 ]);
                 if (_selectedRoom != null) {
@@ -843,201 +856,198 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(8),
                   child: Column(
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.max,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(left: 6),
-                              child: isInitialLoading
-                                  ? const Padding(
-                                      padding:
-                                          EdgeInsets.symmetric(vertical: 4),
-                                      child: ShimmerLoader(
-                                        height: 24,
-                                        width: 160,
-                                        borderRadius: BorderRadius.all(
-                                          Radius.circular(6),
-                                        ),
-                                      ),
-                                    )
-                                  : ClassroomDropdown(
-                                      // Not loading here (isInitialLoading
-                                      // handles that above), so an empty list
-                                      // means the load finished with no rooms.
-                                      items: dropdownItems.isEmpty
-                                          ? const ['No classrooms available']
-                                          : dropdownItems,
-                                      value: dropdownItems.isEmpty
-                                          ? 'No classrooms available'
-                                          : (_selectedRoom?.name ??
-                                              dropdownItems.first),
-                                      onChanged: (value) {
-                                        if (dropdownItems.isEmpty) return;
-                                        final selected = classrooms
-                                            .firstWhere((c) => c.name == value);
-                                        setState(() {
-                                          _selectedRoom = selected;
-                                        });
-                                        _saveLastSelectedClassroomToCache(
-                                          selected.code,
-                                          selected.name,
-                                        );
-                                        _loadDetails(selected.code);
-                                      },
-                                    ),
-                            ),
-                            IconButton(
-                              tooltip: 'Back',
-                              onPressed: () => Navigator.pop(context),
-                              icon: SvgPicture.asset(
-                                MediaRes.classroomInfoIcon,
-                                height: 32,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        if (showAllCardsShimmer)
-                          Column(
-                            children: [
-                              _buildRoomDetailsLoadingCard(
-                                _displayClassroomName(classrooms: classrooms),
-                              ),
-                              const SizedBox(height: 16),
-                              const SummaryCardShimmer(),
-                              const SizedBox(height: 16),
-                              const SummaryCardShimmer(),
-                              const SizedBox(height: 16),
-                              const SummaryCardShimmer(),
-                              const SizedBox(height: 16),
-                              const MovementsCardShimmer(),
-                            ],
-                          )
-                        else if (_detailsError != null)
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.max,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
                           Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Text(
-                              'Failed to load classroom details',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(color: Colors.red),
-                            ),
-                          )
-                        else if (_details != null) ...[
-                          if (_summaryError != null)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Text(
-                                'Failed to load summary cards',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.copyWith(color: Colors.red),
-                              ),
-                            ),
-                          _buildRoomDetailsCard(_details!),
-                          const SizedBox(height: 16),
-                          CustomStatBarCard(
-                            title: 'Enrolled\nStudents',
-                            number: '$_enrolledCount',
-                            items: [
-                              ProgressItemHelper(
-                                label: 'Active ($_enrolledActiveCount)',
-                                value: _enrolledActiveCount.toDouble(),
-                                color: AppColors.lightBlueProgressBar,
-                                filterValue: 'ACTIVE',
-                              ),
-                              ProgressItemHelper(
-                                label: 'Upcoming ($_enrolledUpcomingCount)',
-                                value: _enrolledUpcomingCount.toDouble(),
-                                color: AppColors.mustardProgressBar,
-                                filterValue: 'UPCOMING',
-                              ),
-                            ],
-                            onLegendTap: (_, filterValue) {
-                              final v = (filterValue ?? '').trim().toUpperCase();
-                              if (v != 'ACTIVE' && v != 'UPCOMING') return;
-                              _openStudentListForClassroomStatus(v);
-                            },
+                            padding: const EdgeInsets.only(left: 6),
+                            child: isInitialLoading
+                                ? const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 4),
+                                    child: ShimmerLoader(
+                                      height: 24,
+                                      width: 160,
+                                      borderRadius: BorderRadius.all(
+                                        Radius.circular(6),
+                                      ),
+                                    ),
+                                  )
+                                : ClassroomDropdown(
+                                    // Not loading here (isInitialLoading
+                                    // handles that above), so an empty list
+                                    // means the load finished with no rooms.
+                                    items: dropdownItems.isEmpty
+                                        ? const ['No classrooms available']
+                                        : dropdownItems,
+                                    value: dropdownItems.isEmpty
+                                        ? 'No classrooms available'
+                                        : (_selectedRoom?.name ??
+                                              dropdownItems.first),
+                                    onChanged: (value) {
+                                      if (dropdownItems.isEmpty) return;
+                                      final selected = classrooms.firstWhere(
+                                        (c) => c.name == value,
+                                      );
+                                      setState(() {
+                                        _selectedRoom = selected;
+                                      });
+                                      _saveLastSelectedClassroomToCache(
+                                        selected.code,
+                                        selected.name,
+                                      );
+                                      _loadDetails(selected.code);
+                                    },
+                                  ),
                           ),
-                          const SizedBox(height: 16),
-                          _buildExpectedAttendanceSummaryCard(
-                            title: 'Expected\nStudents',
-                            summary: _studentSummary,
-                            forStaff: false,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildExpectedAttendanceSummaryCard(
-                            title: 'Expected\nStaff',
-                            summary: _staffSummary,
-                            forStaff: true,
-                          ),
-                          const SizedBox(height: 16),
-                          BlocProvider<IndividualMovementsCubit>.value(
-                            value: _movementsCubit,
-                            child: MovementsCard(
-                              classroomCode: _selectedRoom?.code,
+                          IconButton(
+                            tooltip: 'Back',
+                            onPressed: () => Navigator.pop(context),
+                            icon: SvgPicture.asset(
+                              MediaRes.classroomInfoIcon,
+                              height: 32,
                             ),
                           ),
                         ],
-                        // Events section (temporarily disabled)
-                        // Card(
-                        //   elevation: 0,
-                        //   color: Colors.white,
-                        //   surfaceTintColor: Colors.white,
-                        //   shape: RoundedRectangleBorder(
-                        //     side: const BorderSide(
-                        //       width: 1.5,
-                        //       color: Color.fromARGB(255, 232, 234, 234),
-                        //     ),
-                        //     borderRadius: BorderRadius.circular(12),
-                        //   ),
-                        //   child: Padding(
-                        //     padding: const EdgeInsets.all(16),
-                        //     child: Column(
-                        //       crossAxisAlignment: CrossAxisAlignment.start,
-                        //       children: [
-                        //         Text(
-                        //           'Events',
-                        //           style: TextStyle(
-                        //             fontFamily: 'Manrope',
-                        //             fontSize: 20,
-                        //             fontWeight: FontWeight.bold,
-                        //             color: const Color(0xff573353),
-                        //           ),
-                        //         ),
-                        //         const SizedBox(height: 16),
-                        //         Row(
-                        //           mainAxisAlignment:
-                        //               MainAxisAlignment.spaceBetween,
-                        //           children: const [
-                        //             Icon(Icons.chevron_left,
-                        //                 color: Colors.grey),
-                        //             Text(
-                        //               'Nov 2025',
-                        //               style: TextStyle(
-                        //                 fontFamily: 'Manrope',
-                        //                 color: Color(0xff573353),
-                        //               ),
-                        //             ),
-                        //             Icon(Icons.chevron_right,
-                        //                 color: Colors.grey),
-                        //           ],
-                        //         ),
-                        //         const SizedBox(height: 16),
-                        //         const EventsCard(),
-                        //         const SizedBox(height: 16),
-                        //       ],
-                        //     ),
-                        //   ),
-                        // ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (showAllCardsShimmer)
+                        Column(
+                          children: [
+                            _buildRoomDetailsLoadingCard(
+                              _displayClassroomName(classrooms: classrooms),
+                            ),
+                            const SizedBox(height: 16),
+                            const SummaryCardShimmer(),
+                            const SizedBox(height: 16),
+                            const SummaryCardShimmer(),
+                            const SizedBox(height: 16),
+                            const SummaryCardShimmer(),
+                            const SizedBox(height: 16),
+                            const MovementsCardShimmer(),
+                          ],
+                        )
+                      else if (_detailsError != null)
+                        Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Text(
+                            'Failed to load classroom details',
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodyMedium?.copyWith(color: Colors.red),
+                          ),
+                        )
+                      else if (_details != null) ...[
+                        if (_summaryError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Text(
+                              'Failed to load summary cards',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: Colors.red),
+                            ),
+                          ),
+                        _buildRoomDetailsCard(_details!),
+                        const SizedBox(height: 16),
+                        CustomStatBarCard(
+                          title: 'Enrolled\nStudents',
+                          number: '$_enrolledCount',
+                          items: [
+                            ProgressItemHelper(
+                              label: 'Active ($_enrolledActiveCount)',
+                              value: _enrolledActiveCount.toDouble(),
+                              color: AppColors.lightBlueProgressBar,
+                              filterValue: 'ACTIVE',
+                            ),
+                            ProgressItemHelper(
+                              label: 'Upcoming ($_enrolledUpcomingCount)',
+                              value: _enrolledUpcomingCount.toDouble(),
+                              color: AppColors.mustardProgressBar,
+                              filterValue: 'UPCOMING',
+                            ),
+                          ],
+                          onLegendTap: (_, filterValue) {
+                            final v = (filterValue ?? '').trim().toUpperCase();
+                            if (v != 'ACTIVE' && v != 'UPCOMING') return;
+                            _openStudentListForClassroomStatus(v);
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _buildExpectedAttendanceSummaryCard(
+                          title: 'Expected\nStudents',
+                          summary: _studentSummary,
+                          forStaff: false,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildExpectedAttendanceSummaryCard(
+                          title: 'Expected\nStaff',
+                          summary: _staffSummary,
+                          forStaff: true,
+                        ),
+                        const SizedBox(height: 16),
+                        BlocProvider<IndividualMovementsCubit>.value(
+                          value: _movementsCubit,
+                          child: MovementsCard(
+                            classroomCode: _selectedRoom?.code,
+                          ),
+                        ),
                       ],
-                    ),
+                      // Events section (temporarily disabled)
+                      // Card(
+                      //   elevation: 0,
+                      //   color: Colors.white,
+                      //   surfaceTintColor: Colors.white,
+                      //   shape: RoundedRectangleBorder(
+                      //     side: const BorderSide(
+                      //       width: 1.5,
+                      //       color: Color.fromARGB(255, 232, 234, 234),
+                      //     ),
+                      //     borderRadius: BorderRadius.circular(12),
+                      //   ),
+                      //   child: Padding(
+                      //     padding: const EdgeInsets.all(16),
+                      //     child: Column(
+                      //       crossAxisAlignment: CrossAxisAlignment.start,
+                      //       children: [
+                      //         Text(
+                      //           'Events',
+                      //           style: TextStyle(
+                      //             fontFamily: 'Manrope',
+                      //             fontSize: 20,
+                      //             fontWeight: FontWeight.bold,
+                      //             color: const Color(0xff573353),
+                      //           ),
+                      //         ),
+                      //         const SizedBox(height: 16),
+                      //         Row(
+                      //           mainAxisAlignment:
+                      //               MainAxisAlignment.spaceBetween,
+                      //           children: const [
+                      //             Icon(Icons.chevron_left,
+                      //                 color: Colors.grey),
+                      //             Text(
+                      //               'Nov 2025',
+                      //               style: TextStyle(
+                      //                 fontFamily: 'Manrope',
+                      //                 color: Color(0xff573353),
+                      //               ),
+                      //             ),
+                      //             Icon(Icons.chevron_right,
+                      //                 color: Colors.grey),
+                      //           ],
+                      //         ),
+                      //         const SizedBox(height: 16),
+                      //         const EventsCard(),
+                      //         const SizedBox(height: 16),
+                      //       ],
+                      //     ),
+                      //   ),
+                      // ),
+                    ],
                   ),
                 ),
+              ),
             ),
             hasBackButton: true,
           );
@@ -1080,10 +1090,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
           ],
           child: StudentScreen(
             incomingStatusFilter: statusUpper,
-            incomingClassroomSelections: [
-              room.name.trim(),
-              room.code.trim(),
-            ],
+            incomingClassroomSelections: [room.name.trim(), room.code.trim()],
           ),
         ),
       ),
@@ -1238,60 +1245,57 @@ class ClassroomInfoShimmer extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Events Title
-                      Container(
-                        width: 80,
-                        height: 24,
-                        color: Colors.white,
-                      ),
+                      Container(width: 80, height: 24, color: Colors.white),
                       const SizedBox(height: 16),
 
                       // Calendar Week Row
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: List.generate(
-                            7,
-                            (index) => Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                  ),
-                                )),
+                          7,
+                          (index) => Container(
+                            width: 40,
+                            height: 40,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 24),
 
                       // Event Items
                       ...List.generate(
-                          3,
-                          (index) => Padding(
-                                padding: const EdgeInsets.only(bottom: 16.0),
-                                child: Row(
-                                  children: [
-                                    // Date Container
-                                    Container(
-                                      width: 50,
-                                      height: 50,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    // Event Details
-                                    Expanded(
-                                      child: Container(
-                                        height: 50,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                        3,
+                        (index) => Padding(
+                          padding: const EdgeInsets.only(bottom: 16.0),
+                          child: Row(
+                            children: [
+                              // Date Container
+                              Container(
+                                width: 50,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                              )),
+                              ),
+                              const SizedBox(width: 16),
+                              // Event Details
+                              Expanded(
+                                child: Container(
+                                  height: 50,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1318,17 +1322,9 @@ class ClassroomInfoShimmer extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 80,
-                  height: 32,
-                  color: Colors.white,
-                ),
+                Container(width: 80, height: 32, color: Colors.white),
                 const SizedBox(height: 8),
-                Container(
-                  width: 60,
-                  height: 40,
-                  color: Colors.white,
-                ),
+                Container(width: 60, height: 40, color: Colors.white),
               ],
             ),
             const SizedBox(width: 24),
@@ -1348,16 +1344,8 @@ class ClassroomInfoShimmer extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        width: 80,
-                        height: 12,
-                        color: Colors.white,
-                      ),
-                      Container(
-                        width: 80,
-                        height: 12,
-                        color: Colors.white,
-                      ),
+                      Container(width: 80, height: 12, color: Colors.white),
+                      Container(width: 80, height: 12, color: Colors.white),
                     ],
                   ),
                 ],

@@ -13,14 +13,14 @@ class ParentBillingState extends Equatable {
   });
 
   const ParentBillingState.initial()
-      : isLoading = false,
-        isPaymentLoading = false,
-        isAutoPayLoading = false,
-        displayCount = 10,
-        ledger = null,
-        errorMessage = null,
-        startDate = null,
-        endDate = null;
+    : isLoading = false,
+      isPaymentLoading = false,
+      isAutoPayLoading = false,
+      displayCount = 10,
+      ledger = null,
+      errorMessage = null,
+      startDate = null,
+      endDate = null;
 
   final bool isLoading;
   final bool isPaymentLoading;
@@ -41,15 +41,13 @@ class ParentBillingState extends Equatable {
   double get netPaid => ledger?.netPaid ?? 0;
   double get inProcess => ledger?.inProcess ?? 0;
   double get unpaid => ledger?.unpaid ?? 0;
-  List<FamilyLedgerPersonEntity> get students =>
-      ledger?.students ?? const [];
+  List<FamilyLedgerPersonEntity> get students => ledger?.students ?? const [];
 
   List<FamilyLedgerTransactionEntity> get filteredTransactions {
     final txns = ledger?.transactions ?? const [];
     Iterable<FamilyLedgerTransactionEntity> result = txns;
     if (hasDateRange) {
-      final start =
-          DateTime(startDate!.year, startDate!.month, startDate!.day);
+      final start = DateTime(startDate!.year, startDate!.month, startDate!.day);
       final end = DateTime(endDate!.year, endDate!.month, endDate!.day);
       result = txns.where((t) {
         if (t.date == null) return false;
@@ -88,8 +86,7 @@ class ParentBillingState extends Equatable {
       isAutoPayLoading: isAutoPayLoading ?? this.isAutoPayLoading,
       displayCount: displayCount ?? this.displayCount,
       ledger: ledger != null ? ledger() : this.ledger,
-      errorMessage:
-          errorMessage != null ? errorMessage() : this.errorMessage,
+      errorMessage: errorMessage != null ? errorMessage() : this.errorMessage,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
     );
@@ -97,13 +94,13 @@ class ParentBillingState extends Equatable {
 
   @override
   List<Object?> get props => [
-        isLoading,
-        isPaymentLoading,
-        isAutoPayLoading,
-        displayCount,
-        ledger,
-        errorMessage,
-        startDate,
-        endDate,
-      ];
+    isLoading,
+    isPaymentLoading,
+    isAutoPayLoading,
+    displayCount,
+    ledger,
+    errorMessage,
+    startDate,
+    endDate,
+  ];
 }

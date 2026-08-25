@@ -24,8 +24,17 @@ class LedgerTransactionEntity extends Equatable {
   final String? date;
 
   @override
-  List<Object?> get props =>
-      [code, type, description, contraAccount, debit, credit, balance, balanceType, date];
+  List<Object?> get props => [
+    code,
+    type,
+    description,
+    contraAccount,
+    debit,
+    credit,
+    balance,
+    balanceType,
+    date,
+  ];
 }
 
 class LedgerTransactionPageEntity extends Equatable {
@@ -53,8 +62,15 @@ class LedgerTransactionPageEntity extends Equatable {
   int get toEntry => number * size + numberOfElements;
 
   @override
-  List<Object?> get props =>
-      [content, totalPages, totalElements, size, number, numberOfElements, last];
+  List<Object?> get props => [
+    content,
+    totalPages,
+    totalElements,
+    size,
+    number,
+    numberOfElements,
+    last,
+  ];
 }
 
 class AddTransactionParams {

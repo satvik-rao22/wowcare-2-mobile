@@ -9,6 +9,5 @@ class UpdateDiscountUseCase {
   Future<DiscountEntity> call({
     required String code,
     required CreateDiscountParams params,
-  }) =>
-      _repository.updateDiscount(code: code, params: params);
+  }) => _repository.updateDiscount(code: code, params: params);
 }

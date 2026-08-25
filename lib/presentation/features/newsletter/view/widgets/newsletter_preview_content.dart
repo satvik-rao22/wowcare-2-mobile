@@ -27,8 +27,9 @@ class NewsletterPreviewContent extends StatelessWidget {
   }
 
   List<NewsletterAttachment> _sortedAttachments() {
-    final List<NewsletterAttachment> items =
-        List<NewsletterAttachment>.from(newsletter.attachments);
+    final List<NewsletterAttachment> items = List<NewsletterAttachment>.from(
+      newsletter.attachments,
+    );
     items.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     return items
         .where(
@@ -40,11 +41,13 @@ class NewsletterPreviewContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final NewsletterThemeColors theme =
-        NewsletterThemeColors.fromKey(newsletter.colorTheme);
+    final NewsletterThemeColors theme = NewsletterThemeColors.fromKey(
+      newsletter.colorTheme,
+    );
     final String rawSubtitle = newsletter.subtitle.trim();
-    final String subtitle =
-        _looksLikeStructuredPayload(rawSubtitle) ? '' : rawSubtitle;
+    final String subtitle = _looksLikeStructuredPayload(rawSubtitle)
+        ? ''
+        : rawSubtitle;
     final List<NewsletterAttachment> attachments = _sortedAttachments();
     final bool hasComponents = newsletter.components.isNotEmpty;
 
@@ -53,10 +56,7 @@ class NewsletterPreviewContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          NewsletterThemedTitleBar(
-            title: newsletter.title,
-            theme: theme,
-          ),
+          NewsletterThemedTitleBar(title: newsletter.title, theme: theme),
           const SizedBox(height: 10),
           Container(
             width: double.infinity,
@@ -64,18 +64,13 @@ class NewsletterPreviewContent extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: theme.divider.withValues(alpha: 0.55),
-              ),
+              border: Border.all(color: theme.divider.withValues(alpha: 0.55)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (subtitle.isNotEmpty) ...[
-                  NewsletterRichHtmlText(
-                    htmlData: subtitle,
-                    theme: theme,
-                  ),
+                  NewsletterRichHtmlText(htmlData: subtitle, theme: theme),
                   const SizedBox(height: 14),
                 ],
                 if (hasComponents)

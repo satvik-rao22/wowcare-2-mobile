@@ -12,8 +12,9 @@ List<Map<String, dynamic>> attachmentsForActivityPatchRequest(
         ? bindingRaw
         : (owner.isNotEmpty ? 'PER_STUDENT' : 'ACTIVITY');
     final ownerTypeRaw = (a['ownerType'] ?? '').toString().trim();
-    final ownerType =
-        ownerTypeRaw.isNotEmpty ? ownerTypeRaw : (owner.isNotEmpty ? 'STUDENT' : '');
+    final ownerType = ownerTypeRaw.isNotEmpty
+        ? ownerTypeRaw
+        : (owner.isNotEmpty ? 'STUDENT' : '');
 
     final entry = <String, dynamic>{
       'assetCode': ac,
@@ -155,9 +156,7 @@ List<Map<String, dynamic>> mergeAttachmentRowsForEditPatch({
   required List<Map<String, dynamic>> newUploadRows,
   required Set<String> remainingNormalizedDeliveryUrls,
 }) {
-  final queue = newUploadRows
-      .map((e) => Map<String, dynamic>.from(e))
-      .toList();
+  final queue = newUploadRows.map((e) => Map<String, dynamic>.from(e)).toList();
   final result = <Map<String, dynamic>>[];
 
   for (final row in existingRows) {
@@ -170,7 +169,10 @@ List<Map<String, dynamic>> mergeAttachmentRowsForEditPatch({
       continue;
     }
 
-    if (_attachmentRowUrlsIntersectRemaining(copy, remainingNormalizedDeliveryUrls)) {
+    if (_attachmentRowUrlsIntersectRemaining(
+      copy,
+      remainingNormalizedDeliveryUrls,
+    )) {
       result.add(copy);
       continue;
     }

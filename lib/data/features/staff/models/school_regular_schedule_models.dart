@@ -5,7 +5,9 @@ class SchoolRegularScheduleListModel {
 
   final List<SchoolRegularScheduleDay> days;
 
-  factory SchoolRegularScheduleListModel.fromResponse(Map<String, dynamic> json) {
+  factory SchoolRegularScheduleListModel.fromResponse(
+    Map<String, dynamic> json,
+  ) {
     final data = json['data'];
     if (data is! Map<String, dynamic>) {
       return SchoolRegularScheduleListModel([]);
@@ -59,10 +61,10 @@ class SchoolRegularScheduleListModel {
       halfDay: (item['halfDay'] as String?)?.trim(),
       type: (item['type'] as String?)?.trim().toUpperCase(),
       label: (item['label'] as String?)?.trim(),
-      scheduleMonitorStartTime:
-          (item['scheduleMonitorStartTime'] as String?)?.trim(),
-      scheduleMonitorEndTime:
-          (item['scheduleMonitorEndTime'] as String?)?.trim(),
+      scheduleMonitorStartTime: (item['scheduleMonitorStartTime'] as String?)
+          ?.trim(),
+      scheduleMonitorEndTime: (item['scheduleMonitorEndTime'] as String?)
+          ?.trim(),
       ratioMonitorStartTime: (item['ratioMonitorStartTime'] as String?)?.trim(),
       ratioMonitorEndTime: (item['ratioMonitorEndTime'] as String?)?.trim(),
       durationMinutes: durationMinutes,

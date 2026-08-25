@@ -9,9 +9,7 @@ abstract class BillingStatementsRemoteDataSource {
     required String subscriberCode,
   });
 
-  Future<Uint8List> downloadStatement({
-    required String statementCode,
-  });
+  Future<Uint8List> downloadStatement({required String statementCode});
 
   Future<BillingStatementModel> generateStatement({
     required String organizationCode,
@@ -42,17 +40,14 @@ class BillingStatementsRemoteDataSourceImpl
     final data = response.data?['data'];
     if (data is List) {
       return data
-          .map((e) =>
-              BillingStatementModel.fromJson(e as Map<String, dynamic>))
+          .map((e) => BillingStatementModel.fromJson(e as Map<String, dynamic>))
           .toList();
     }
     return [];
   }
 
   @override
-  Future<Uint8List> downloadStatement({
-    required String statementCode,
-  }) async {
+  Future<Uint8List> downloadStatement({required String statementCode}) async {
     final response = await _client.get<List<int>>(
       ApiPaths.url(ApiPaths.billingStatementDownload(statementCode)),
       options: Options(responseType: ResponseType.bytes),

@@ -12,6 +12,7 @@ import '../../../../../../domain/features/communication/entities/message.dart';
 import '../../../shared/utils/attachment_open_helper.dart';
 import '../../../shared/utils/attachment_url_resolver.dart';
 import 'show_full_screen_media_view.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class FullAttachmentViewer extends StatelessWidget {
   final List<ChatAttachment> attachments;
@@ -54,7 +55,9 @@ class FullAttachmentViewer extends StatelessWidget {
   }
 
   Widget _buildTwoImageLayout(
-      BuildContext context, List<ChatAttachment> images) {
+    BuildContext context,
+    List<ChatAttachment> images,
+  ) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Row(
@@ -81,7 +84,9 @@ class FullAttachmentViewer extends StatelessWidget {
   }
 
   Widget _buildThreeImageLayout(
-      BuildContext context, List<ChatAttachment> images) {
+    BuildContext context,
+    List<ChatAttachment> images,
+  ) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -166,14 +171,13 @@ class FullAttachmentViewer extends StatelessWidget {
                   ? Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const PrimaryCircularLoader(
-                          size: 28,
-                          strokeWidth: 2.5,
-                        ),
+                        const PrimaryCircularLoader(size: 28, strokeWidth: 2.5),
                         const SizedBox(height: 8),
                         Text(
                           'Processing…',
-                          style: TextStyle(color: Colors.grey[700]),
+                          style: AppTextStyles.body.copyWith(
+                            color: Colors.grey[700],
+                          ),
                         ),
                       ],
                     )
@@ -219,23 +223,23 @@ class FullAttachmentViewer extends StatelessWidget {
     );
   }
 
-  Widget _buildDocumentCard(
-      BuildContext context, ChatAttachment document) {
-    final iconData = Thumbnailer.getIconDataForMimeType(document.mimeType) ??
+  Widget _buildDocumentCard(BuildContext context, ChatAttachment document) {
+    final iconData =
+        Thumbnailer.getIconDataForMimeType(document.mimeType) ??
         FontAwesomeIcons.file;
-    final isPdf = document.mimeType.contains('pdf') ||
+    final isPdf =
+        document.mimeType.contains('pdf') ||
         document.name.toLowerCase().endsWith('.pdf');
     final iconColor = isPdf
         ? Colors.red
         : iconData == FontAwesomeIcons.fileExcel
-            ? Colors.green.shade700
-            : iconData == FontAwesomeIcons.filePowerpoint
-                ? Colors.orange.shade800
-                : iconData == FontAwesomeIcons.fileWord
-                    ? Colors.blue.shade700
-                    : AppColors.primaryColor;
-    final fileSize =
-        (document.sizeBytes / 1024 / 1024).toStringAsFixed(1);
+        ? Colors.green.shade700
+        : iconData == FontAwesomeIcons.filePowerpoint
+        ? Colors.orange.shade800
+        : iconData == FontAwesomeIcons.fileWord
+        ? Colors.blue.shade700
+        : AppColors.primaryColor;
+    final fileSize = (document.sizeBytes / 1024 / 1024).toStringAsFixed(1);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -246,10 +250,7 @@ class FullAttachmentViewer extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.grey.shade200,
-              width: 1,
-            ),
+            border: Border.all(color: Colors.grey.shade200, width: 1),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
@@ -270,11 +271,7 @@ class FullAttachmentViewer extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Center(
-                    child: FaIcon(
-                      iconData,
-                      color: iconColor,
-                      size: 24,
-                    ),
+                    child: FaIcon(iconData, color: iconColor, size: 24),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -300,10 +297,7 @@ class FullAttachmentViewer extends StatelessWidget {
                 const SizedBox(width: 8),
                 IconButton(
                   onPressed: () => AttachmentOpenHelper.open(context, document),
-                  icon: const Icon(
-                    Icons.download_outlined,
-                    size: 20,
-                  ),
+                  icon: const Icon(Icons.download_outlined, size: 20),
                   color: AppColors.primaryColor,
                 ),
               ],
@@ -434,15 +428,11 @@ class _ResilientImageState extends State<_ResilientImage> {
   }
 
   Widget _broken() => Container(
-        color: Colors.grey[200],
-        child: const Center(
-          child: Icon(
-            Icons.broken_image_outlined,
-            size: 48,
-            color: Colors.grey,
-          ),
-        ),
-      );
+    color: Colors.grey[200],
+    child: const Center(
+      child: Icon(Icons.broken_image_outlined, size: 48, color: Colors.grey),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {

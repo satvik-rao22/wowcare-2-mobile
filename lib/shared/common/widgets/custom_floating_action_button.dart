@@ -35,14 +35,8 @@ class CustomFloatingActionButton extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         child: svgIcon == null
-            ? Icon(
-                icon,
-                size: 28,
-              )
-            : SvgPicture.asset(
-                svgIcon!,
-                height: 28,
-              ),
+            ? Icon(icon, size: 28)
+            : SvgPicture.asset(svgIcon!, height: 28),
       ),
     );
   }

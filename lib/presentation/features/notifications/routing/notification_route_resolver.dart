@@ -26,10 +26,9 @@ class NotificationDestination {
 
   /// The go_router location string, e.g. `/classroom-screen?classroomCode=CLS_1`.
   String get location => Uri(
-        path: path,
-        queryParameters:
-            queryParameters.isEmpty ? null : queryParameters,
-      ).toString();
+    path: path,
+    queryParameters: queryParameters.isEmpty ? null : queryParameters,
+  ).toString();
 }
 
 /// Pure, widget-free mapping from a backend notification action to its in-app
@@ -112,15 +111,18 @@ class NotificationRouteResolver {
     PushNotification n, {
     required bool isGuardian,
   }) {
-    final module =
-        (n.data['module'] ?? n.data['categoryCode'] ?? n.type ?? '')
-            .trim()
-            .toUpperCase();
+    final module = (n.data['module'] ?? n.data['categoryCode'] ?? n.type ?? '')
+        .trim()
+        .toUpperCase();
     switch (module) {
       case 'CLASSROOM':
       case 'CLASSROOM_SCHEDULE':
-        return _dest(AppRoutes.classroom, n,
-            highlight: _kClassroom, params: _classroomParam(n));
+        return _dest(
+          AppRoutes.classroom,
+          n,
+          highlight: _kClassroom,
+          params: _classroomParam(n),
+        );
       case 'STUDENT':
         return _dest(_students, n, highlight: _kStudent);
       case 'STAFF':
@@ -128,7 +130,8 @@ class NotificationRouteResolver {
       case 'ATTENDANCE':
       case 'STUDENT_ATTENDANCE':
       case 'STAFF_ATTENDANCE':
-        if (_firstCode(n, _kStudent) != null) return _studentAttendanceProfile(n);
+        if (_firstCode(n, _kStudent) != null)
+          return _studentAttendanceProfile(n);
         if (_firstCode(n, _kStaff) != null) return _staffAttendanceProfile(n);
         return const NotificationDestination(path: AppRoutes.dashboard);
       case 'SCHEDULING':
@@ -145,13 +148,20 @@ class NotificationRouteResolver {
       case 'ACCOUNTS':
       case 'INVOICES':
       case 'TRANSACTION':
-        return _dest(isGuardian ? AppRoutes.parentBilling : _billing, n,
-            highlight: _kInvoice);
+        return _dest(
+          isGuardian ? AppRoutes.parentBilling : _billing,
+          n,
+          highlight: _kInvoice,
+        );
       case 'ACTIVITY':
       case 'ACTIVITIES':
       case 'DAILY_ACTIVITY':
-        return _dest(AppRoutes.activityFeed, n,
-            highlight: _kActivity, params: _activityParams(n));
+        return _dest(
+          AppRoutes.activityFeed,
+          n,
+          highlight: _kActivity,
+          params: _activityParams(n),
+        );
       case 'PARENT_MESSAGING':
         // Room-chat / parent messaging → Parent Messaging (Room Chats) sub-tab.
         return const NotificationDestination(
@@ -175,13 +185,16 @@ class NotificationRouteResolver {
         // without an extra lookup. Without a code we can't target anything, so
         // fall through to the messaging home rather than returning null (which
         // would make the tap a no-op).
-        final convCode =
-            _firstCode(n, const ['conversationCode', 'conversation_code']);
+        final convCode = _firstCode(n, const [
+          'conversationCode',
+          'conversation_code',
+        ]);
         if (convCode == null) {
           return const NotificationDestination(path: AppRoutes.messaging);
         }
         final convType =
-            _firstCode(n, const ['conversationType', 'conversation_type']) ?? '';
+            _firstCode(n, const ['conversationType', 'conversation_type']) ??
+            '';
         return NotificationDestination(
           path: AppRoutes.openConversation,
           queryParameters: {
@@ -248,6 +261,7 @@ class NotificationRouteResolver {
   static const _kShift = ['shift_code', 'shiftCode'];
   // Movement cards match by integer id, so prefer `movement_id` for highlight.
   static const _kMovement = ['movement_id', 'movement_code', 'movementCode'];
+
   /// Activity feed CARDS are keyed by `cardGroupCode` — see
   /// `ActivityFeedModels`, which resolves a row's code as
   /// `cardGroupCode ?? code ?? batchGroupCode ?? activityCode`. A card groups
@@ -347,9 +361,9 @@ class NotificationRouteResolver {
   /// classroom an activity in any other room simply isn't in the list and the
   /// highlight silently no-ops.
   static Map<String, String> _activityParams(PushNotification n) => {
-        ..._activityDateParam(n),
-        ..._classroomParam(n),
-      };
+    ..._activityDateParam(n),
+    ..._classroomParam(n),
+  };
 
   static Map<String, String> _activityDateParam(PushNotification n) {
     final raw = _firstCode(n, _kActivityDate) ?? '';
@@ -395,7 +409,10 @@ class NotificationRouteResolver {
     if (staff != null) query['staffCode'] = staff;
     final shift = _firstCode(n, _kShift);
     if (shift != null) query[NotificationDestination.highlightParam] = shift;
-    return NotificationDestination(path: _staffScheduling, queryParameters: query);
+    return NotificationDestination(
+      path: _staffScheduling,
+      queryParameters: query,
+    );
   }
 
   /// SHIFT_UNDER_RATIO opens the main Scheduling screen forced into DAY view on
@@ -422,7 +439,8 @@ class NotificationRouteResolver {
     String? healthSubTab, // 0 Health, 1 Physician, 2 Physical Dates, 3 Immun.
   }) {
     final params = <String, String>{
-      'code': _firstCode(n, _kStudent) ??
+      'code':
+          _firstCode(n, _kStudent) ??
           _codeFromEmbeddedLink(n, 'targetCode') ??
           '',
       'tab': tab,
@@ -432,7 +450,9 @@ class NotificationRouteResolver {
     final hl = _firstCode(n, highlight);
     if (hl != null) params['highlightCode'] = hl;
     return NotificationDestination(
-        path: _studentProfileByCode, queryParameters: params);
+      path: _studentProfileByCode,
+      queryParameters: params,
+    );
   }
 
   static const _kDocument = [
@@ -463,15 +483,18 @@ class NotificationRouteResolver {
     final hl = _firstCode(n, highlight);
     if (hl != null) params['highlightCode'] = hl;
     return NotificationDestination(
-        path: _staffProfileByCode, queryParameters: params);
+      path: _staffProfileByCode,
+      queryParameters: params,
+    );
   }
 
   /// Open a student's ATTENDANCE profile by code (self-loads identity + data).
-  static NotificationDestination _studentAttendanceProfile(PushNotification n) =>
-      NotificationDestination(
-        path: _studentAttendanceProfileByCode,
-        queryParameters: {'code': _firstCode(n, _kStudent) ?? ''},
-      );
+  static NotificationDestination _studentAttendanceProfile(
+    PushNotification n,
+  ) => NotificationDestination(
+    path: _studentAttendanceProfileByCode,
+    queryParameters: {'code': _firstCode(n, _kStudent) ?? ''},
+  );
 
   /// Open a staff member's ATTENDANCE profile by code.
   static NotificationDestination _staffAttendanceProfile(PushNotification n) =>
@@ -481,27 +504,46 @@ class NotificationRouteResolver {
       );
 
   static final Map<String, NotificationDestination Function(PushNotification)>
-      _table = <String, NotificationDestination Function(PushNotification)>{
+  _table = <String, NotificationDestination Function(PushNotification)>{
     // ── Classrooms ──────────────────────────────────────────────────────────
-    NotificationAction.addClassroom: (n) => _dest(AppRoutes.classroom, n,
-        highlight: _kClassroom, params: _classroomParam(n)),
-    NotificationAction.editClassroom: (n) => _dest(AppRoutes.classroom, n,
-        highlight: _kClassroom, params: _classroomParam(n)),
-    NotificationAction.deleteClassroom: (n) => _dest(AppRoutes.classroom, n,
-        highlight: _kClassroom, params: _classroomParam(n)),
+    NotificationAction.addClassroom: (n) => _dest(
+      AppRoutes.classroom,
+      n,
+      highlight: _kClassroom,
+      params: _classroomParam(n),
+    ),
+    NotificationAction.editClassroom: (n) => _dest(
+      AppRoutes.classroom,
+      n,
+      highlight: _kClassroom,
+      params: _classroomParam(n),
+    ),
+    NotificationAction.deleteClassroom: (n) => _dest(
+      AppRoutes.classroom,
+      n,
+      highlight: _kClassroom,
+      params: _classroomParam(n),
+    ),
     // Assign actions open the relevant tab (0 students / 1 staff / 2 notes)
     // and highlight the assigned row inside it.
     NotificationAction.assignStudentToClassroom: (n) => _dest(
-        AppRoutes.classroom, n,
-        highlight: _kStudent,
-        params: {..._classroomParam(n), 'tab': '0'}),
+      AppRoutes.classroom,
+      n,
+      highlight: _kStudent,
+      params: {..._classroomParam(n), 'tab': '0'},
+    ),
     NotificationAction.assignStaffToClassroom: (n) => _dest(
-        AppRoutes.classroom, n,
-        highlight: _kStaff,
-        params: {..._classroomParam(n), 'tab': '1'}),
-    NotificationAction.addClassroomNote: (n) => _dest(AppRoutes.classroom, n,
-        highlight: _kClassroom,
-        params: {..._classroomParam(n), 'tab': '2'}),
+      AppRoutes.classroom,
+      n,
+      highlight: _kStaff,
+      params: {..._classroomParam(n), 'tab': '1'},
+    ),
+    NotificationAction.addClassroomNote: (n) => _dest(
+      AppRoutes.classroom,
+      n,
+      highlight: _kClassroom,
+      params: {..._classroomParam(n), 'tab': '2'},
+    ),
 
     // ── Students (land on the student list, highlighting the student) ────────
     NotificationAction.addStudent: (n) =>
@@ -525,14 +567,12 @@ class NotificationRouteResolver {
         _studentProfile(n, '1', healthSubTab: '3'),
     // "Birthdate not added" lands on the Profile tab's About sub-tab (0), where
     // the Birth Date field lives.
-    NotificationAction.studentBirthdateNotAdded: (n) =>
-        _studentProfile(n, '0'),
+    NotificationAction.studentBirthdateNotAdded: (n) => _studentProfile(n, '0'),
     NotificationAction.studentDocumentChanged: (n) =>
         _studentProfile(n, '3', highlight: _kDocument),
 
     // ── Staff ────────────────────────────────────────────────────────────────
-    NotificationAction.deleteStaff: (n) =>
-        _dest(_staff, n, highlight: _kStaff),
+    NotificationAction.deleteStaff: (n) => _dest(_staff, n, highlight: _kStaff),
     NotificationAction.staffScheduleNotAdded: (n) => _staffProfile(n, '0'),
     NotificationAction.staffPhysicalNotAdded: (n) => _staffProfile(n, '1'),
     NotificationAction.staffDocumentExpiry: (n) =>
@@ -578,35 +618,67 @@ class NotificationRouteResolver {
     // (student or staff), which self-loads its data by code.
     NotificationAction.attendanceNotMarked: (n) =>
         _firstCode(n, _kStudent) != null
-            ? _studentAttendanceProfile(n)
-            : _staffAttendanceProfile(n),
+        ? _studentAttendanceProfile(n)
+        : _staffAttendanceProfile(n),
     // Capacity exceeded opens the Classroom Info screen for that classroom.
     NotificationAction.capacityExceeded: (n) =>
         _dest(_classroomInfo, n, params: _classroomParam(n)),
 
     // ── Activities (open the Activity Feed on the activity's date + flash it) ──
-    NotificationAction.activityRecorded: (n) => _dest(AppRoutes.activityFeed, n,
-        highlight: _kActivity, params: _activityParams(n)),
-    NotificationAction.activityEdited: (n) => _dest(AppRoutes.activityFeed, n,
-        highlight: _kActivity, params: _activityParams(n)),
-    NotificationAction.activityDeleted: (n) => _dest(AppRoutes.activityFeed, n,
-        highlight: _kActivity, params: _activityParams(n)),
-    NotificationAction.incidentRecorded: (n) => _dest(AppRoutes.activityFeed, n,
-        highlight: _kActivity, params: _activityParams(n)),
+    NotificationAction.activityRecorded: (n) => _dest(
+      AppRoutes.activityFeed,
+      n,
+      highlight: _kActivity,
+      params: _activityParams(n),
+    ),
+    NotificationAction.activityEdited: (n) => _dest(
+      AppRoutes.activityFeed,
+      n,
+      highlight: _kActivity,
+      params: _activityParams(n),
+    ),
+    NotificationAction.activityDeleted: (n) => _dest(
+      AppRoutes.activityFeed,
+      n,
+      highlight: _kActivity,
+      params: _activityParams(n),
+    ),
+    NotificationAction.incidentRecorded: (n) => _dest(
+      AppRoutes.activityFeed,
+      n,
+      highlight: _kActivity,
+      params: _activityParams(n),
+    ),
     NotificationAction.incidentApprovalPending: (n) => _dest(
-        AppRoutes.activityFeed, n,
-        highlight: _kActivity, params: _activityParams(n)),
+      AppRoutes.activityFeed,
+      n,
+      highlight: _kActivity,
+      params: _activityParams(n),
+    ),
     NotificationAction.incidentApproved: (n) => _dest(
-        AppRoutes.activityFeed, n,
-        highlight: _kActivity, params: _activityParams(n)),
+      AppRoutes.activityFeed,
+      n,
+      highlight: _kActivity,
+      params: _activityParams(n),
+    ),
     NotificationAction.incidentAcknowledgementPending: (n) => _dest(
-        AppRoutes.activityFeed, n,
-        highlight: _kActivity, params: _activityParams(n)),
+      AppRoutes.activityFeed,
+      n,
+      highlight: _kActivity,
+      params: _activityParams(n),
+    ),
     NotificationAction.incidentAcknowledged: (n) => _dest(
-        AppRoutes.activityFeed, n,
-        highlight: _kActivity, params: _activityParams(n)),
-    NotificationAction.napAlert: (n) => _dest(AppRoutes.activityFeed, n,
-        highlight: _kActivity, params: _activityParams(n)),
+      AppRoutes.activityFeed,
+      n,
+      highlight: _kActivity,
+      params: _activityParams(n),
+    ),
+    NotificationAction.napAlert: (n) => _dest(
+      AppRoutes.activityFeed,
+      n,
+      highlight: _kActivity,
+      params: _activityParams(n),
+    ),
 
     // ── Availability (room movements) ────────────────────────────────────────
     NotificationAction.createRule: (n) =>
@@ -639,9 +711,9 @@ class NotificationRouteResolver {
           queryParameters: {'msgTab': 'parent'},
         ),
     NotificationAction.newsletterSent: (n) => const NotificationDestination(
-          path: AppRoutes.messaging,
-          queryParameters: {'tab': 'newsletter'},
-        ),
+      path: AppRoutes.messaging,
+      queryParameters: {'tab': 'newsletter'},
+    ),
 
     // ── Billing ──────────────────────────────────────────────────────────────
     // Persona-routed in [resolve] (guardian → parent billing, staff/admin →

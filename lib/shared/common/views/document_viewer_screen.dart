@@ -15,6 +15,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 enum _DocKind { image, video, pdf, office }
 
@@ -57,7 +58,15 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
   _DocKind _resolveKind() {
     final mime = widget.mimeType.trim().toLowerCase();
     final ext = p.extension(Uri.parse(widget.url).path).trim().toLowerCase();
-    const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic'];
+    const imageExts = [
+      '.jpg',
+      '.jpeg',
+      '.png',
+      '.gif',
+      '.webp',
+      '.bmp',
+      '.heic',
+    ];
     const videoExts = ['.mp4', '.mov', '.m4v', '.avi', '.mkv', '.webm'];
 
     if (mime.startsWith('image/') || imageExts.contains(ext)) {
@@ -96,7 +105,8 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
           break;
         case _DocKind.pdf:
           final tempDir = await getTemporaryDirectory();
-          final fileName = 'doc_preview_${AppTime.nowUtc().millisecondsSinceEpoch}.pdf';
+          final fileName =
+              'doc_preview_${AppTime.nowUtc().millisecondsSinceEpoch}.pdf';
           final path = p.join(tempDir.path, fileName);
           await Dio().download(widget.url, path);
           if (!mounted) return;
@@ -299,7 +309,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70, fontSize: 15),
+              style: AppTextStyles.body.copyWith(color: Colors.white70),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(

@@ -25,6 +25,7 @@ class KioskScaffold extends StatelessWidget {
   final String title;
   final Widget body;
   final bool showBackButton;
+
   /// Whether to show the logout menu. Should only be true for kiosk users.
   /// Caller is responsible for verifying the user is a kiosk user before setting to true.
   final bool showLogoutMenu;

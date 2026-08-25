@@ -97,7 +97,9 @@ class GeofencingLocalDataSourceImpl implements GeofencingLocalDataSource {
     // be a deliberate, separate request triggered by explicit user action.
     final status = await Permission.location.request();
     final level = await _mapAndroidPermission(status);
-    debugPrint('[GeofenceDS] Android requestLocationPermission: $status → $level');
+    debugPrint(
+      '[GeofenceDS] Android requestLocationPermission: $status → $level',
+    );
     return level;
   }
 
@@ -121,8 +123,7 @@ class GeofencingLocalDataSourceImpl implements GeofencingLocalDataSource {
     // bypasses the native gating in GeofencePlugin.swift entirely by asking
     // Geolocator's own internal CLLocationManager to keep delivering updates
     // in the background regardless of the granted permission level.
-    final permissionLevel =
-        Platform.isIOS ? await getPermissionLevel() : null;
+    final permissionLevel = Platform.isIOS ? await getPermissionLevel() : null;
     final isAlways = permissionLevel == LocationPermissionLevel.always;
 
     final LocationSettings settings = Platform.isIOS
@@ -139,32 +140,38 @@ class GeofencingLocalDataSourceImpl implements GeofencingLocalDataSource {
             distanceFilter: 3,
           );
 
-    yield* Geolocator.getPositionStream(locationSettings: settings).where(
-      (position) {
-        // Security: reject mocked / fake GPS (Android only — iOS never sets isMocked).
-        if (position.isMocked) {
-          debugPrint('[GeofenceStream] ❌ Rejected mocked position');
-          return false;
-        }
+    yield* Geolocator.getPositionStream(locationSettings: settings).where((
+      position,
+    ) {
+      // Security: reject mocked / fake GPS (Android only — iOS never sets isMocked).
+      if (position.isMocked) {
+        debugPrint('[GeofenceStream] ❌ Rejected mocked position');
+        return false;
+      }
 
-        // Reject implausible accuracy: 0 = faked; >500 m = too coarse for geofencing.
-        // iOS WiFi/cell fixes commonly report 200–400 m accuracy, so 500 m ceiling
-        // keeps those positions in. The cubit's hysteresis logic handles coarse fixes.
-        if (position.accuracy <= 0 || position.accuracy > 500) {
-          debugPrint('[GeofenceStream] ❌ Rejected position — accuracy=±${position.accuracy.toStringAsFixed(1)}m (out of 0–500 m range)');
-          return false;
-        }
+      // Reject implausible accuracy: 0 = faked; >500 m = too coarse for geofencing.
+      // iOS WiFi/cell fixes commonly report 200–400 m accuracy, so 500 m ceiling
+      // keeps those positions in. The cubit's hysteresis logic handles coarse fixes.
+      if (position.accuracy <= 0 || position.accuracy > 500) {
+        debugPrint(
+          '[GeofenceStream] ❌ Rejected position — accuracy=±${position.accuracy.toStringAsFixed(1)}m (out of 0–500 m range)',
+        );
+        return false;
+      }
 
-        // Reject stale cached positions older than 60 seconds.
-        final age = DateTime.now().toUtc().difference(position.timestamp);
-        if (age.inSeconds > 60) {
-          debugPrint('[GeofenceStream] ❌ Rejected stale position — age=${age.inSeconds}s');
-          return false;
-        }
+      // Reject stale cached positions older than 60 seconds.
+      final age = DateTime.now().toUtc().difference(position.timestamp);
+      if (age.inSeconds > 60) {
+        debugPrint(
+          '[GeofenceStream] ❌ Rejected stale position — age=${age.inSeconds}s',
+        );
+        return false;
+      }
 
-        debugPrint('[GeofenceStream] ✅ Accepted — lat=${position.latitude} lon=${position.longitude} accuracy=±${position.accuracy.toStringAsFixed(1)}m age=${age.inSeconds}s');
-        return true;
-      },
-    );
+      debugPrint(
+        '[GeofenceStream] ✅ Accepted — lat=${position.latitude} lon=${position.longitude} accuracy=±${position.accuracy.toStringAsFixed(1)}m age=${age.inSeconds}s',
+      );
+      return true;
+    });
   }
 }

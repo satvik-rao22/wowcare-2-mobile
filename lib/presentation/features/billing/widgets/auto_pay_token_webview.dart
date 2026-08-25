@@ -79,9 +79,7 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
         foregroundColor: Colors.white,
         elevation: 0,
         flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: AppColors.buildPrimaryGradient(),
-          ),
+          decoration: BoxDecoration(gradient: AppColors.buildPrimaryGradient()),
         ),
         leading: IconButton(
           icon: const Icon(Icons.close),
@@ -93,8 +91,11 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
           : InAppWebView(
               initialData: InAppWebViewInitialData(
                 data: _html!,
-                baseUrl: WebUri.uri(Uri.parse(
-                    'https://forte-autopay.${widget.payload['env'] ?? 'sandbox'}')),
+                baseUrl: WebUri.uri(
+                  Uri.parse(
+                    'https://forte-autopay.${widget.payload['env'] ?? 'sandbox'}',
+                  ),
+                ),
               ),
               onWebViewCreated: (controller) {
                 _controller = controller;

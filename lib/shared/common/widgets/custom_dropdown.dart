@@ -125,6 +125,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class CustomDropdown extends StatefulWidget {
   const CustomDropdown({
@@ -220,9 +221,9 @@ class _CustomDropdownState extends State<CustomDropdown> {
               children: [
                 TextSpan(text: widget.label!),
                 if (widget.showAsterisk)
-                  const TextSpan(
+                  TextSpan(
                     text: ' *',
-                    style: TextStyle(color: Colors.red),
+                    style: AppTextStyles.body.copyWith(color: Colors.red),
                   ),
               ],
             ),
@@ -416,19 +417,11 @@ class _DropdownMenuPanelState extends State<_DropdownMenuPanel> {
                 controller: _searchController,
                 autofocus: false,
                 onChanged: _onQueryChanged,
-                style: const TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 14,
-                  color: Color(0xff573353),
-                ),
+                style: AppTextStyles.body.copyWith(color: Color(0xff573353)),
                 decoration: InputDecoration(
                   isDense: true,
                   hintText: 'Search',
-                  hintStyle: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
+                  hintStyle: AppTextStyles.body.copyWith(color: Colors.grey[600]),
                   prefixIcon: Icon(
                     Icons.search,
                     size: 20,
@@ -463,11 +456,7 @@ class _DropdownMenuPanelState extends State<_DropdownMenuPanel> {
                     padding: const EdgeInsets.symmetric(vertical: 20),
                     child: Text(
                       'No matches found',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 14,
-                        color: AppColors.primaryColor.withValues(alpha: 0.7),
-                      ),
+                      style: AppTextStyles.body.copyWith(color: AppColors.primaryColor.withValues(alpha: 0.7)),
                     ),
                   )
                 : Scrollbar(

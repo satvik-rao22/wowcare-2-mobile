@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class ClassroomSelectionWidgetExact extends StatefulWidget {
   final String? primaryClassroom;
@@ -142,12 +143,7 @@ class _ClassroomSelectionWidgetExactState
                         Expanded(
                           child: Text(
                             classroom,
-                            style: const TextStyle(
-                              fontFamily: "Manrope",
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xff573353),
-                            ),
+                            style: AppTextStyles.body.copyWith(color: Color(0xff573353)),
                           ),
                         ),
                         if (isSelected)
@@ -349,15 +345,9 @@ class _ClassroomSelectionWidgetExactState
                                                   Expanded(
                                                     child: Text(
                                                       classroom,
-                                                      style: const TextStyle(
-                                                        fontFamily: "Manrope",
-                                                        fontSize: 14,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        color: Color(
+                                                      style: AppTextStyles.body.copyWith(color: Color(
                                                           0xff573353,
-                                                        ),
-                                                      ),
+                                                        )),
                                                     ),
                                                   ),
                                                 ],
@@ -413,9 +403,9 @@ class _ClassroomSelectionWidgetExactState
               children: [
                 const TextSpan(text: 'Primary Classroom'),
                 if (widget.isRequired)
-                  const TextSpan(
+                  TextSpan(
                     text: ' *',
-                    style: TextStyle(color: Colors.red),
+                    style: AppTextStyles.body.copyWith(color: Colors.red),
                   ),
               ],
             ),
@@ -472,11 +462,7 @@ class _ClassroomSelectionWidgetExactState
             const SizedBox(height: 4),
             Text(
               widget.primaryClassroomError!,
-              style: const TextStyle(
-                color: Colors.red,
-                fontSize: 12,
-                fontFamily: 'Manrope',
-              ),
+              style: AppTextStyles.bodySmall.copyWith(color: Colors.red),
             ),
           ],
           const SizedBox(height: 16),
@@ -491,11 +477,11 @@ class _ClassroomSelectionWidgetExactState
               fontWeight: FontWeight.w400,
               color: const Color(0xff573353),
             ),
-            children: const [
+            children: [
               TextSpan(text: "Allowed Classrooms"),
               TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: AppTextStyles.body.copyWith(color: Colors.red),
               ),
             ],
           ),
@@ -653,11 +639,7 @@ class _ClassroomSelectionWidgetExactState
           const SizedBox(height: 4),
           Text(
             widget.allowedClassroomsError!,
-            style: const TextStyle(
-              color: Colors.red,
-              fontSize: 12,
-              fontFamily: 'Manrope',
-            ),
+            style: AppTextStyles.bodySmall.copyWith(color: Colors.red),
           ),
         ],
       ],

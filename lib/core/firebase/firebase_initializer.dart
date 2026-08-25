@@ -13,7 +13,9 @@ import 'package:wowcare/core/firebase/firebase_config_factory.dart';
 Future<void> ensureFirebaseInitialized() async {
   if (Firebase.apps.isNotEmpty) return;
   try {
-    await Firebase.initializeApp(options: FirebaseConfigFactory.currentPlatform);
+    await Firebase.initializeApp(
+      options: FirebaseConfigFactory.currentPlatform,
+    );
   } on FirebaseException catch (e) {
     if (e.code == 'duplicate-app') {
       // Native already created [DEFAULT] from google-services.json — reuse it.

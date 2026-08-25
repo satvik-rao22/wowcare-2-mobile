@@ -33,12 +33,15 @@ abstract final class SchoolTimezoneResolver {
       // Non-fatal: keep the previous offset.
     }
 
-    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     if (schoolCode.isEmpty) return fallbackTimeZone;
 
     final cachedFor =
-        (await storage.getString(StorageKeys.schoolTimeZoneSchoolCode) ?? '').trim();
-    final cachedTz = (await storage.getString(StorageKeys.schoolTimeZone) ?? '').trim();
+        (await storage.getString(StorageKeys.schoolTimeZoneSchoolCode) ?? '')
+            .trim();
+    final cachedTz = (await storage.getString(StorageKeys.schoolTimeZone) ?? '')
+        .trim();
     final hasUsableCachedTz =
         cachedFor == schoolCode &&
         cachedTz.isNotEmpty &&
@@ -54,7 +57,10 @@ abstract final class SchoolTimezoneResolver {
       apiClient: apiClient,
     );
     if (tz.toUpperCase() != fallbackTimeZone) {
-      await storage.saveString(StorageKeys.schoolTimeZoneSchoolCode, schoolCode);
+      await storage.saveString(
+        StorageKeys.schoolTimeZoneSchoolCode,
+        schoolCode,
+      );
       await storage.saveString(StorageKeys.schoolTimeZone, tz);
       _lastKnownTimeZone = tz;
       ServerTimeService.instance.setSchoolTimeZone(tz);
@@ -86,8 +92,9 @@ abstract final class SchoolTimezoneResolver {
       if (root is Map<String, dynamic>) {
         final data = root['data'];
         if (data is Map<String, dynamic>) {
-          final raw =
-              (data['timeZone'] ?? data['timezone'] ?? '').toString().trim();
+          final raw = (data['timeZone'] ?? data['timezone'] ?? '')
+              .toString()
+              .trim();
           if (raw.isNotEmpty) {
             _lastKnownTimeZone = raw;
             return raw;

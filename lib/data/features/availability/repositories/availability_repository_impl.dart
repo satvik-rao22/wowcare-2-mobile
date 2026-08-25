@@ -10,9 +10,11 @@ import 'package:wowcare/domain/features/availability/repositories/availability_r
 
 class AvailabilityRepositoryImpl
     implements AvailabilityRepository, AvailabilityRepositoryWithCache {
-  AvailabilityRepositoryImpl(this._remoteDataSource, StorageService storageService)
-      : _storageService = storageService,
-        _cacheManager = CacheManager(storageService);
+  AvailabilityRepositoryImpl(
+    this._remoteDataSource,
+    StorageService storageService,
+  ) : _storageService = storageService,
+      _cacheManager = CacheManager(storageService);
 
   final AvailabilityRemoteDataSource _remoteDataSource;
   final StorageService _storageService;
@@ -96,9 +98,7 @@ class AvailabilityRepositoryImpl
   }
 
   @override
-  Future<void> invalidateAvailabilityCache({
-    required String schoolCode,
-  }) async {
+  Future<void> invalidateAvailabilityCache({required String schoolCode}) async {
     // Cache keys include this generation; bumping it effectively invalidates all
     // cached entries for this school without needing key enumeration.
     await _bumpCacheGeneration(schoolCode);
@@ -170,9 +170,7 @@ class AvailabilityRepositoryImpl
   }
 
   @override
-  Future<String> deleteIndividualMovement({
-    required int id,
-  }) {
+  Future<String> deleteIndividualMovement({required int id}) {
     return _remoteDataSource.deleteIndividualMovement(id: id);
   }
 
@@ -327,7 +325,8 @@ String _movementTypeToApi(IndividualMovementType value) {
 
 String _normalizeList(List<String>? values) {
   if (values == null || values.isEmpty) return '-';
-  final sorted = values.map((e) => e.trim()).where((e) => e.isNotEmpty).toList()..sort();
+  final sorted = values.map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+    ..sort();
   if (sorted.isEmpty) return '-';
   return sorted.join(',');
 }

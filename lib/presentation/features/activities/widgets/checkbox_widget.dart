@@ -1,11 +1,17 @@
-
 import 'package:flutter/cupertino.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class CheckboxWidget extends StatefulWidget {
-  const CheckboxWidget({super.key, this.isEditable = true, required this.label, this.isChecked = true, this.onChecked});
+  const CheckboxWidget({
+    super.key,
+    this.isEditable = true,
+    required this.label,
+    this.isChecked = true,
+    this.onChecked,
+  });
   final bool isEditable;
   final String label;
   final bool isChecked;
@@ -19,12 +25,12 @@ class _CheckboxWidgetState extends State<CheckboxWidget> {
   late bool _isChecked;
 
   @override
-  void initState(){
+  void initState() {
     super.initState();
     _isChecked = widget.isChecked;
   }
 
-  void _handleChanged(bool? value){
+  void _handleChanged(bool? value) {
     final newValue = value ?? false;
     setState(() {
       _isChecked = newValue;
@@ -39,8 +45,8 @@ class _CheckboxWidgetState extends State<CheckboxWidget> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Opacity(
-            opacity: opacity,
-            child: CustomCheckbox(
+          opacity: opacity,
+          child: CustomCheckbox(
             value: _isChecked,
             borderColor: AppColors.themeColor,
             onChanged: widget.isEditable ? _handleChanged : null,
@@ -52,16 +58,12 @@ class _CheckboxWidgetState extends State<CheckboxWidget> {
             // } : null,
           ),
         ),
-        const SizedBox(width: 2,),
+        const SizedBox(width: 2),
         GestureDetector(
-          onTap: widget.isEditable ? ()=> _handleChanged(!_isChecked) : null,
+          onTap: widget.isEditable ? () => _handleChanged(!_isChecked) : null,
           child: Text(
             widget.label,
-            style: const TextStyle(
-              color: AppColors.primaryColor,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
+            style: AppTextStyles.label.copyWith(color: AppColors.primaryColor),
             overflow: TextOverflow.ellipsis,
           ),
         ),

@@ -9,6 +9,5 @@ class UpdateLedgerUseCase {
   Future<LedgerEntity> call({
     required String ledgerCode,
     required CreateLedgerParams params,
-  }) =>
-      _repository.updateLedger(ledgerCode: ledgerCode, params: params);
+  }) => _repository.updateLedger(ledgerCode: ledgerCode, params: params);
 }

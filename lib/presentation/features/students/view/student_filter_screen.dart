@@ -15,6 +15,7 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'dart:convert';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 enum StudentFilterSection { classroom, status, tags, parents, attendance }
 
@@ -442,10 +443,8 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
               children: [
                 Text(
                   _labelList[index],
-                  style: TextStyle(
+                  style: AppTextStyles.label.copyWith(
                     color: AppColors.primaryColor.withValues(alpha: 0.5),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
                   ),
                 ),
                 const SizedBox(height: 8),

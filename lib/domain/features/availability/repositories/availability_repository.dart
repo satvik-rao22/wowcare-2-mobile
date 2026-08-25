@@ -41,13 +41,9 @@ abstract class AvailabilityRepository {
   });
 
   /// Soft-delete a movement (API allows only REJECTED items).
-  Future<String> deleteIndividualMovement({
-    required int id,
-  });
+  Future<String> deleteIndividualMovement({required int id});
 
-  Future<IndividualMovement> getIndividualMovementById({
-    required int id,
-  });
+  Future<IndividualMovement> getIndividualMovementById({required int id});
 
   Future<FutureAvailabilityGrid> getFutureAvailability({
     required String schoolCode,
@@ -94,7 +90,5 @@ abstract class AvailabilityRepositoryWithCache {
   ///
   /// Call this after any mutation (edit/delete/reject/confirm/recompute) so the
   /// next load/refresh never reuses stale cached snapshots.
-  Future<void> invalidateAvailabilityCache({
-    required String schoolCode,
-  });
+  Future<void> invalidateAvailabilityCache({required String schoolCode});
 }

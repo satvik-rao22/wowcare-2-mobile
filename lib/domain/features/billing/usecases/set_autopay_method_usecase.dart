@@ -11,9 +11,8 @@ class SetAutopayMethodUseCase {
   Future<PaymentMethodEntity> call({
     required String paymentMethodCode,
     required GuardianScopeParams scope,
-  }) =>
-      _repository.setAutopayMethod(
-        paymentMethodCode: paymentMethodCode,
-        scope: scope,
-      );
+  }) => _repository.setAutopayMethod(
+    paymentMethodCode: paymentMethodCode,
+    scope: scope,
+  );
 }

@@ -91,10 +91,7 @@ class _HighlightableCardState extends State<HighlightableCard>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: widget.duration,
-    );
+    _controller = AnimationController(vsync: this, duration: widget.duration);
     if (widget._matches) _trigger();
   }
 

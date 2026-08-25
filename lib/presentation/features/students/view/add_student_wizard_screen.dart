@@ -17,11 +17,8 @@ class AddStudentWizardScreen extends StatelessWidget {
     return BlocProvider<ClassroomCubit>(
       create: (_) =>
           serviceLocator<ClassroomCubit>()
-            ..loadActiveClassrooms(
-              applyAttendanceStaffScope: true,
-            ),
+            ..loadActiveClassrooms(applyAttendanceStaffScope: true),
       child: const AddStudentStep1Screen(),
     );
   }
 }
-

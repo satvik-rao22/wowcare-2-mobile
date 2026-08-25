@@ -25,6 +25,12 @@ class MessagingStaffResult extends Equatable {
   bool get isUpcoming => status.toUpperCase() == 'UPCOMING';
 
   @override
-  List<Object?> get props =>
-      [userCode, staffCode, name, designation, status, avatarAssetCode];
+  List<Object?> get props => [
+    userCode,
+    staffCode,
+    name,
+    designation,
+    status,
+    avatarAssetCode,
+  ];
 }

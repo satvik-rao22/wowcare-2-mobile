@@ -11,9 +11,8 @@ class SetAutoPayStatusUseCase {
   Future<AutoPayStatusEntity> call({
     required GuardianScopeParams scope,
     required bool autopayEnabled,
-  }) =>
-      _repository.setAutoPayStatus(
-        scope: scope,
-        autopayEnabled: autopayEnabled,
-      );
+  }) => _repository.setAutoPayStatus(
+    scope: scope,
+    autopayEnabled: autopayEnabled,
+  );
 }

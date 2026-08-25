@@ -12,13 +12,13 @@ class ReceivePaymentRefundState extends Equatable {
   });
 
   const ReceivePaymentRefundState.initial()
-      : isSubmitting = false,
-        amountError = false,
-        sendEmailNotification = true,
-        selectedPaymentType = null,
-        payableStudents = const <PayableStudent>[],
-        isLoadingStudents = false,
-        errorMessage = null;
+    : isSubmitting = false,
+      amountError = false,
+      sendEmailNotification = true,
+      selectedPaymentType = null,
+      payableStudents = const <PayableStudent>[],
+      isLoadingStudents = false,
+      errorMessage = null;
 
   final bool isSubmitting;
   final bool amountError;
@@ -53,12 +53,12 @@ class ReceivePaymentRefundState extends Equatable {
 
   @override
   List<Object?> get props => [
-        isSubmitting,
-        amountError,
-        sendEmailNotification,
-        selectedPaymentType,
-        payableStudents,
-        isLoadingStudents,
-        errorMessage,
-      ];
+    isSubmitting,
+    amountError,
+    sendEmailNotification,
+    selectedPaymentType,
+    payableStudents,
+    isLoadingStudents,
+    errorMessage,
+  ];
 }

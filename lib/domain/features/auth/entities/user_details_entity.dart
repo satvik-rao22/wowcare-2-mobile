@@ -2,9 +2,7 @@ import 'package:equatable/equatable.dart';
 
 /// Domain entity representing user details from /api/v1/users/details.
 class UserDetailsEntity extends Equatable {
-  const UserDetailsEntity({
-    required this.data,
-  });
+  const UserDetailsEntity({required this.data});
 
   final List<UserDetailEntity> data;
 
@@ -26,8 +24,12 @@ class UserDetailEntity extends Equatable {
   final List<SchoolDetailEntity> schools;
 
   @override
-  List<Object?> get props =>
-      [userCode, organizationCode, organizationName, schools];
+  List<Object?> get props => [
+    userCode,
+    organizationCode,
+    organizationName,
+    schools,
+  ];
 }
 
 class SchoolDetailEntity extends Equatable {
@@ -46,7 +48,13 @@ class SchoolDetailEntity extends Equatable {
   final List<PermissionEntity> permissions;
 
   @override
-  List<Object?> get props => [schoolCode, schoolName, status, role, permissions];
+  List<Object?> get props => [
+    schoolCode,
+    schoolName,
+    status,
+    role,
+    permissions,
+  ];
 }
 
 class PermissionEntity extends Equatable {

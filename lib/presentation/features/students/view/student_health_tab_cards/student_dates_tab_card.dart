@@ -733,7 +733,7 @@ class _Chip extends StatelessWidget {
 }
 
 class _DialogField extends StatelessWidget {
-  const _DialogField({
+  _DialogField({
     required this.label,
     required this.value,
     required this.suffix,
@@ -755,18 +755,15 @@ class _DialogField extends StatelessWidget {
         Text.rich(
           TextSpan(
             text: label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
+            style: AppTextStyles.label.copyWith(
               color: Color(0xff573353),
               height: 16 / 13,
             ),
             children: [
               if (isRequired)
-                const TextSpan(
+                TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: AppTextStyles.body.copyWith(color: Colors.red),
                 ),
             ],
           ),
@@ -806,7 +803,7 @@ class _DialogField extends StatelessWidget {
 }
 
 class _DialogDropdown extends StatelessWidget {
-  const _DialogDropdown({
+  _DialogDropdown({
     required this.label,
     required this.value,
     required this.options,
@@ -828,18 +825,15 @@ class _DialogDropdown extends StatelessWidget {
         Text.rich(
           TextSpan(
             text: label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
+            style: AppTextStyles.label.copyWith(
               color: Color(0xff573353),
               height: 16 / 13,
             ),
             children: [
               if (isRequired)
-                const TextSpan(
+                TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: AppTextStyles.body.copyWith(color: Colors.red),
                 ),
             ],
           ),

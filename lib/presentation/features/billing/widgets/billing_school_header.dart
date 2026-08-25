@@ -6,10 +6,15 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Resolved school header values (name + optional tagline + address).
 class _SchoolHeaderData {
-  const _SchoolHeaderData({required this.name, this.tagline = '', this.address = ''});
+  const _SchoolHeaderData({
+    required this.name,
+    this.tagline = '',
+    this.address = '',
+  });
   final String name;
   final String tagline;
   final String address;
@@ -43,10 +48,10 @@ class _BillingSchoolHeaderState extends State<BillingSchoolHeader> {
 
   Future<void> _load() async {
     final storage = serviceLocator<StorageService>();
-    final name =
-        (await storage.getString(StorageKeys.selectedSchoolName) ?? '').trim();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final name = (await storage.getString(StorageKeys.selectedSchoolName) ?? '')
+        .trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
 
     if (mounted && name.isNotEmpty) {
       setState(() => _data = _SchoolHeaderData(name: name));
@@ -110,7 +115,9 @@ class _BillingSchoolHeaderState extends State<BillingSchoolHeader> {
       ].where((p) => p.isNotEmpty).toList();
 
       return _SchoolHeaderData(
-        name: name.isNotEmpty ? name : (fallbackName.isNotEmpty ? fallbackName : 'School'),
+        name: name.isNotEmpty
+            ? name
+            : (fallbackName.isNotEmpty ? fallbackName : 'School'),
         tagline: tagline,
         address: addressParts.join(', '),
       );
@@ -138,9 +145,7 @@ class _BillingSchoolHeaderState extends State<BillingSchoolHeader> {
             children: [
               Text(
                 _data.name,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
+                style: AppTextStyles.heading.copyWith(
                   color: AppColors.primaryColor,
                 ),
               ),
@@ -148,9 +153,7 @@ class _BillingSchoolHeaderState extends State<BillingSchoolHeader> {
                 const SizedBox(height: 2),
                 Text(
                   _data.tagline,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                  style: AppTextStyles.body.copyWith(
                     color: AppColors.primaryColor,
                   ),
                 ),

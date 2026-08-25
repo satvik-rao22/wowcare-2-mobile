@@ -115,16 +115,14 @@ void main() {
         staffRoleJson(org: 'ORG-1', school: 'SCH-1'),
       );
 
-      registerStaffRepo(
-        ({
-          required userCode,
-          required organizationCode,
-          required schoolCode,
-        }) async {
-          expect(schoolCode, 'SCH-1');
-          return 'STF-1';
-        },
-      );
+      registerStaffRepo(({
+        required userCode,
+        required organizationCode,
+        required schoolCode,
+      }) async {
+        expect(schoolCode, 'SCH-1');
+        return 'STF-1';
+      });
 
       final result = await resolveStaffCodeForLoggedInUser();
 
@@ -136,43 +134,38 @@ void main() {
   });
 
   group('organization admin', () {
-    test(
-      'looks up with "-" and caches "-" as staffCodeSchool (regression for '
-      'the schoolCode vs candidateSchoolCode bug)',
-      () async {
-        await storage.saveString(StorageKeys.userCode, 'USR-2');
-        await storage.saveString(StorageKeys.organizationCode, 'ORG-2');
-        await storage.saveString(StorageKeys.schoolCode, 'SCH-REAL');
-        await storage.saveString(
-          StorageKeys.roles,
-          orgAdminRoleJson(org: 'ORG-2'),
-        );
+    test('looks up with "-" and caches "-" as staffCodeSchool (regression for '
+        'the schoolCode vs candidateSchoolCode bug)', () async {
+      await storage.saveString(StorageKeys.userCode, 'USR-2');
+      await storage.saveString(StorageKeys.organizationCode, 'ORG-2');
+      await storage.saveString(StorageKeys.schoolCode, 'SCH-REAL');
+      await storage.saveString(
+        StorageKeys.roles,
+        orgAdminRoleJson(org: 'ORG-2'),
+      );
 
-        registerStaffRepo(
-          ({
-            required userCode,
-            required organizationCode,
-            required schoolCode,
-          }) async {
-            // Org admins are mapped org-level: the backend expects '-'.
-            expect(schoolCode, '-');
-            return 'STF-ADMIN';
-          },
-        );
+      registerStaffRepo(({
+        required userCode,
+        required organizationCode,
+        required schoolCode,
+      }) async {
+        // Org admins are mapped org-level: the backend expects '-'.
+        expect(schoolCode, '-');
+        return 'STF-ADMIN';
+      });
 
-        final result = await resolveStaffCodeForLoggedInUser();
+      final result = await resolveStaffCodeForLoggedInUser();
 
-        expect(result, 'STF-ADMIN');
-        // Regression guard: must store the school code ACTUALLY USED to
-        // resolve ('-'), not the raw selected schoolCode ('SCH-REAL') — the
-        // latter silently defeated the ownership check on subsequent reads.
-        expect(await storage.getString(StorageKeys.staffCodeSchool), '-');
-        expect(
-          await storage.getString(StorageKeys.staffCodeSchool),
-          isNot('SCH-REAL'),
-        );
-      },
-    );
+      expect(result, 'STF-ADMIN');
+      // Regression guard: must store the school code ACTUALLY USED to
+      // resolve ('-'), not the raw selected schoolCode ('SCH-REAL') — the
+      // latter silently defeated the ownership check on subsequent reads.
+      expect(await storage.getString(StorageKeys.staffCodeSchool), '-');
+      expect(
+        await storage.getString(StorageKeys.staffCodeSchool),
+        isNot('SCH-REAL'),
+      );
+    });
   });
 
   group('multi-school switching', () {
@@ -195,16 +188,14 @@ void main() {
         // App has since switched to a new school.
         await storage.saveString(StorageKeys.schoolCode, 'SCH-NEW');
 
-        registerStaffRepo(
-          ({
-            required userCode,
-            required organizationCode,
-            required schoolCode,
-          }) async {
-            expect(schoolCode, 'SCH-NEW');
-            return 'STF-NEW';
-          },
-        );
+        registerStaffRepo(({
+          required userCode,
+          required organizationCode,
+          required schoolCode,
+        }) async {
+          expect(schoolCode, 'SCH-NEW');
+          return 'STF-NEW';
+        });
 
         final result = await resolveStaffCodeForLoggedInUser();
 
@@ -216,37 +207,34 @@ void main() {
   });
 
   group('invalid cache scenarios', () {
-    test(
-      'matching cache is re-verified against the backend and corrected when '
-      'the backend now returns a different staffCode',
-      () async {
-        await storage.saveString(StorageKeys.userCode, 'USR-4');
-        await storage.saveString(StorageKeys.organizationCode, 'ORG-4');
-        await storage.saveString(StorageKeys.schoolCode, 'SCH-4');
-        await storage.saveString(
-          StorageKeys.roles,
-          staffRoleJson(org: 'ORG-4', school: 'SCH-4'),
-        );
+    test('matching cache is re-verified against the backend and corrected when '
+        'the backend now returns a different staffCode', () async {
+      await storage.saveString(StorageKeys.userCode, 'USR-4');
+      await storage.saveString(StorageKeys.organizationCode, 'ORG-4');
+      await storage.saveString(StorageKeys.schoolCode, 'SCH-4');
+      await storage.saveString(
+        StorageKeys.roles,
+        staffRoleJson(org: 'ORG-4', school: 'SCH-4'),
+      );
 
-        await storage.saveString(StorageKeys.staffCode, 'STF-STALE');
-        await storage.saveString(StorageKeys.staffCodeUser, 'USR-4');
-        await storage.saveString(StorageKeys.staffCodeOrganization, 'ORG-4');
-        await storage.saveString(StorageKeys.staffCodeSchool, 'SCH-4');
+      await storage.saveString(StorageKeys.staffCode, 'STF-STALE');
+      await storage.saveString(StorageKeys.staffCodeUser, 'USR-4');
+      await storage.saveString(StorageKeys.staffCodeOrganization, 'ORG-4');
+      await storage.saveString(StorageKeys.staffCodeSchool, 'SCH-4');
 
-        registerStaffRepo(
-          ({
-            required userCode,
-            required organizationCode,
-            required schoolCode,
-          }) async => 'STF-CORRECTED',
-        );
+      registerStaffRepo(
+        ({
+          required userCode,
+          required organizationCode,
+          required schoolCode,
+        }) async => 'STF-CORRECTED',
+      );
 
-        final result = await resolveStaffCodeForLoggedInUser();
+      final result = await resolveStaffCodeForLoggedInUser();
 
-        expect(result, 'STF-CORRECTED');
-        expect(await storage.getString(StorageKeys.staffCode), 'STF-CORRECTED');
-      },
-    );
+      expect(result, 'STF-CORRECTED');
+      expect(await storage.getString(StorageKeys.staffCode), 'STF-CORRECTED');
+    });
 
     test(
       'clears cached staffCode when the backend rejects the cached mapping',
@@ -264,15 +252,13 @@ void main() {
         await storage.saveString(StorageKeys.staffCodeOrganization, 'ORG-5');
         await storage.saveString(StorageKeys.staffCodeSchool, 'SCH-5');
 
-        registerStaffRepo(
-          ({
-            required userCode,
-            required organizationCode,
-            required schoolCode,
-          }) async {
-            throw Exception('403 staff code mismatch');
-          },
-        );
+        registerStaffRepo(({
+          required userCode,
+          required organizationCode,
+          required schoolCode,
+        }) async {
+          throw Exception('403 staff code mismatch');
+        });
 
         final result = await resolveStaffCodeForLoggedInUser();
 
@@ -283,40 +269,41 @@ void main() {
       },
     );
 
-    test('kiosk/guardian-only context skips resolution and clears cache', () async {
-      await storage.saveString(StorageKeys.userCode, 'USR-6');
-      await storage.saveString(StorageKeys.organizationCode, 'ORG-6');
-      await storage.saveString(StorageKeys.schoolCode, 'SCH-6');
-      await storage.saveString(
-        StorageKeys.roles,
-        jsonEncode([
-          {
-            'role': 'KIOSK',
-            'organizationCode': 'ORG-6',
-            'schoolCode': 'SCH-6',
-          },
-        ]),
-      );
+    test(
+      'kiosk/guardian-only context skips resolution and clears cache',
+      () async {
+        await storage.saveString(StorageKeys.userCode, 'USR-6');
+        await storage.saveString(StorageKeys.organizationCode, 'ORG-6');
+        await storage.saveString(StorageKeys.schoolCode, 'SCH-6');
+        await storage.saveString(
+          StorageKeys.roles,
+          jsonEncode([
+            {
+              'role': 'KIOSK',
+              'organizationCode': 'ORG-6',
+              'schoolCode': 'SCH-6',
+            },
+          ]),
+        );
 
-      await storage.saveString(StorageKeys.staffCode, 'STF-SHOULD-CLEAR');
-      await storage.saveString(StorageKeys.staffCodeUser, 'USR-6');
-      await storage.saveString(StorageKeys.staffCodeOrganization, 'ORG-6');
-      await storage.saveString(StorageKeys.staffCodeSchool, 'SCH-6');
+        await storage.saveString(StorageKeys.staffCode, 'STF-SHOULD-CLEAR');
+        await storage.saveString(StorageKeys.staffCodeUser, 'USR-6');
+        await storage.saveString(StorageKeys.staffCodeOrganization, 'ORG-6');
+        await storage.saveString(StorageKeys.staffCodeSchool, 'SCH-6');
 
-      registerStaffRepo(
-        ({
+        registerStaffRepo(({
           required userCode,
           required organizationCode,
           required schoolCode,
         }) async {
           fail('Backend should not be called for a kiosk-only context');
-        },
-      );
+        });
 
-      final result = await resolveStaffCodeForLoggedInUser();
+        final result = await resolveStaffCodeForLoggedInUser();
 
-      expect(result, '');
-      expect(await storage.getString(StorageKeys.staffCode), isNull);
-    });
+        expect(result, '');
+        expect(await storage.getString(StorageKeys.staffCode), isNull);
+      },
+    );
   });
 }

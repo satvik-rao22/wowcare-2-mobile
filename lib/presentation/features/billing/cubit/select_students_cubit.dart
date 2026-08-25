@@ -6,7 +6,8 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
-import 'package:wowcare/domain/features/student/entities/student.dart' as domain;
+import 'package:wowcare/domain/features/student/entities/student.dart'
+    as domain;
 import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 
@@ -25,11 +26,11 @@ class SelectStudentsCubit extends Cubit<SelectStudentsState> {
     required GetActiveClassroomsUseCase getActiveClassrooms,
     required GetTagNameCodeMapForSchoolUseCase getTagNameCodeMap,
     required StorageService storage,
-  })  : _getStudentPage = getStudentPage,
-        _getActiveClassrooms = getActiveClassrooms,
-        _getTagNameCodeMap = getTagNameCodeMap,
-        _storage = storage,
-        super(const SelectStudentsState.initial());
+  }) : _getStudentPage = getStudentPage,
+       _getActiveClassrooms = getActiveClassrooms,
+       _getTagNameCodeMap = getTagNameCodeMap,
+       _storage = storage,
+       super(const SelectStudentsState.initial());
 
   final GetStudentPageUseCase _getStudentPage;
   final GetActiveClassroomsUseCase _getActiveClassrooms;
@@ -44,32 +45,38 @@ class SelectStudentsCubit extends Cubit<SelectStudentsState> {
   Future<void> initialize() async {
     emit(state.copyWith(isLoading: true, errorMessage: null));
     try {
-      _schoolCode =
-          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      _schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
 
-      final List<Classroom> classrooms =
-          await _getActiveClassrooms(schoolCode: _schoolCode);
-      final Map<String, String> tagNameToCode =
-          await _getTagNameCodeMap(schoolCode: _schoolCode);
+      final List<Classroom> classrooms = await _getActiveClassrooms(
+        schoolCode: _schoolCode,
+      );
+      final Map<String, String> tagNameToCode = await _getTagNameCodeMap(
+        schoolCode: _schoolCode,
+      );
 
       final classroomNameToCode = <String, String>{
         for (final c in classrooms)
           if (c.name.trim().isNotEmpty) c.name.trim(): c.code.trim(),
       };
 
-      emit(state.copyWith(
-        classroomNames: classroomNameToCode.keys.toList(),
-        classroomNameToCode: classroomNameToCode,
-        tagNames: tagNameToCode.keys.toList()..sort(),
-        tagNameToCode: tagNameToCode,
-      ));
+      emit(
+        state.copyWith(
+          classroomNames: classroomNameToCode.keys.toList(),
+          classroomNameToCode: classroomNameToCode,
+          tagNames: tagNameToCode.keys.toList()..sort(),
+          tagNameToCode: tagNameToCode,
+        ),
+      );
 
       await _fetchStudents();
     } catch (e) {
-      emit(state.copyWith(
-        isLoading: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -100,19 +107,24 @@ class SelectStudentsCubit extends Cubit<SelectStudentsState> {
 
       // Drop any selections that are no longer in the filtered result.
       final presentCodes = all.map((s) => s.code).toSet();
-      final keptSelection =
-          state.selectedStudentCodes.where(presentCodes.contains).toSet();
+      final keptSelection = state.selectedStudentCodes
+          .where(presentCodes.contains)
+          .toSet();
 
-      emit(state.copyWith(
-        students: all,
-        selectedStudentCodes: keptSelection,
-        isLoading: false,
-      ));
+      emit(
+        state.copyWith(
+          students: all,
+          selectedStudentCodes: keptSelection,
+          isLoading: false,
+        ),
+      );
     } catch (e) {
-      emit(state.copyWith(
-        isLoading: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -136,8 +148,7 @@ class SelectStudentsCubit extends Cubit<SelectStudentsState> {
 
   // ── Intents ────────────────────────────────────────────────────────────────
 
-  void setSearchQuery(String query) =>
-      emit(state.copyWith(searchQuery: query));
+  void setSearchQuery(String query) => emit(state.copyWith(searchQuery: query));
 
   Future<void> setClassrooms(List<String> names) async {
     emit(state.copyWith(selectedClassroomNames: names));
@@ -159,13 +170,15 @@ class SelectStudentsCubit extends Cubit<SelectStudentsState> {
   }
 
   Future<void> clearAll() async {
-    emit(state.copyWith(
-      searchQuery: '',
-      selectedClassroomNames: const <String>[],
-      selectedTagNames: const <String>[],
-      selectedStatus: 'Active',
-      selectedStudentCodes: const <String>{},
-    ));
+    emit(
+      state.copyWith(
+        searchQuery: '',
+        selectedClassroomNames: const <String>[],
+        selectedTagNames: const <String>[],
+        selectedStatus: 'Active',
+        selectedStudentCodes: const <String>{},
+      ),
+    );
     await _fetchStudents();
   }
 

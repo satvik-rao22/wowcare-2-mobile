@@ -16,8 +16,36 @@ class AppTextStyles {
     height: 16 / 13,
   );
 
+  /// Display text style
+  /// fontSize: 24, fontWeight: w700, color: primaryColor
+  static const TextStyle display = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 24,
+    fontWeight: FontWeight.w700,
+    color: AppColors.primaryColor,
+  );
+
+  /// Screen Title text style
+  /// fontSize: 20, fontWeight: w600, color: primaryColor
+  static const TextStyle screenTitle = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// Heading text style
+  /// fontSize: 18, fontWeight: w600, color: primaryColor
+  static const TextStyle heading = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
   /// Value text style - used for displaying values/content
   /// fontSize: 14, fontWeight: w500, color: primaryColor, height: 19/14
+  @Deprecated('Use AppTextStyles.body instead')
   static const TextStyle value = TextStyle(
     fontFamily: Fonts.manrope,
     fontSize: 14,
@@ -45,6 +73,15 @@ class AppTextStyles {
     color: AppColors.primaryColor,
   );
 
+  /// Body large text style
+  /// fontSize: 16, fontWeight: w500, color: primaryColor
+  static const TextStyle bodyLarge = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primaryColor,
+  );
+
   /// Body text style - used for regular body text
   /// fontSize: 14, fontWeight: w500, color: primaryColor, height: 19/14
   static const TextStyle body = TextStyle(
@@ -55,7 +92,17 @@ class AppTextStyles {
     height: 19 / 14,
   );
 
-  /// Small text style - used for smaller text
+  /// Body small text style
+  /// fontSize: 12, fontWeight: w400, color: primaryColor
+  static const TextStyle bodySmall = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.primaryColor,
+    height: 15 / 12,
+  );
+
+  /// Small text style - used for smaller text (deprecated in favor of bodySmall)
   /// fontSize: 12, fontWeight: w400, color: primaryColor
   static const TextStyle small = TextStyle(
     fontFamily: Fonts.manrope,
@@ -63,6 +110,15 @@ class AppTextStyles {
     fontWeight: FontWeight.w400,
     color: AppColors.primaryColor,
     height: 15 / 12,
+  );
+
+  /// Caption text style
+  /// fontSize: 12, fontWeight: w500, color: primaryColor
+  static const TextStyle caption = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primaryColor,
   );
 
   /// Button text style - used for button labels
@@ -81,6 +137,14 @@ class AppTextStyles {
     fontFamily: Fonts.manrope,
     fontSize: 13,
     fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+  /// Empty state text style
+  /// fontSize: 16, fontWeight: w500, color: primaryColor
+  static const TextStyle emptyState = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
     color: AppColors.primaryColor,
   );
 }
@@ -132,6 +196,69 @@ class AppText extends StatelessWidget {
     this.maxLines,
   }) : _variant = _TextVariant.body;
 
+  const AppText.bodyLarge(
+    this.text, {
+    super.key,
+    this.style,
+    this.textAlign,
+    this.overflow,
+    this.maxLines,
+  }) : _variant = _TextVariant.bodyLarge;
+
+  const AppText.bodySmall(
+    this.text, {
+    super.key,
+    this.style,
+    this.textAlign,
+    this.overflow,
+    this.maxLines,
+  }) : _variant = _TextVariant.bodySmall;
+
+  const AppText.caption(
+    this.text, {
+    super.key,
+    this.style,
+    this.textAlign,
+    this.overflow,
+    this.maxLines,
+  }) : _variant = _TextVariant.caption;
+
+  const AppText.display(
+    this.text, {
+    super.key,
+    this.style,
+    this.textAlign,
+    this.overflow,
+    this.maxLines,
+  }) : _variant = _TextVariant.display;
+
+  const AppText.screenTitle(
+    this.text, {
+    super.key,
+    this.style,
+    this.textAlign,
+    this.overflow,
+    this.maxLines,
+  }) : _variant = _TextVariant.screenTitle;
+
+  const AppText.heading(
+    this.text, {
+    super.key,
+    this.style,
+    this.textAlign,
+    this.overflow,
+    this.maxLines,
+  }) : _variant = _TextVariant.heading;
+
+  const AppText.emptyState(
+    this.text, {
+    super.key,
+    this.style,
+    this.textAlign,
+    this.overflow,
+    this.maxLines,
+  }) : _variant = _TextVariant.emptyState;
+
   const AppText.small(
     this.text, {
     super.key,
@@ -169,6 +296,20 @@ class AppText extends StatelessWidget {
         return AppTextStyles.subtitle;
       case _TextVariant.body:
         return AppTextStyles.body;
+      case _TextVariant.bodyLarge:
+        return AppTextStyles.bodyLarge;
+      case _TextVariant.bodySmall:
+        return AppTextStyles.bodySmall;
+      case _TextVariant.caption:
+        return AppTextStyles.caption;
+      case _TextVariant.display:
+        return AppTextStyles.display;
+      case _TextVariant.screenTitle:
+        return AppTextStyles.screenTitle;
+      case _TextVariant.heading:
+        return AppTextStyles.heading;
+      case _TextVariant.emptyState:
+        return AppTextStyles.emptyState;
       case _TextVariant.small:
         return AppTextStyles.small;
       case _TextVariant.sectionHeader:
@@ -188,4 +329,4 @@ class AppText extends StatelessWidget {
   }
 }
 
-enum _TextVariant { label, value, title, subtitle, body, small, sectionHeader }
+enum _TextVariant { label, value, title, subtitle, body, bodyLarge, bodySmall, caption, display, screenTitle, heading, emptyState, small, sectionHeader }

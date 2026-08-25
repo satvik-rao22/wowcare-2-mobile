@@ -14,6 +14,7 @@ import 'package:video_player/video_player.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/shared/common/widgets/hls_web_player.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class ShowFullScreenMediaView extends StatefulWidget {
   final String? imageUrl;
@@ -398,11 +399,7 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
         title: widget.title != null
             ? Text(
                 widget.title!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: AppTextStyles.bodyLarge.copyWith(color: Colors.white),
               )
             : null,
         actions: [

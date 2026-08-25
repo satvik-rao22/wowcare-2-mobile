@@ -23,6 +23,7 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../../../../../../../core/storage/storage_service.dart';
 import '../../../../../../../core/util/storage_keys.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Reusable conversation list for STAFF_DIRECT, ROOM_CHAT, and ADMIN_CHAT.
 ///
@@ -206,10 +207,9 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                                         setState(() => _showUnreadOnly = v),
                                   ),
                                   const SizedBox(width: 4),
-                                  const Text(
+                                  Text(
                                     'Unread only',
-                                    style: TextStyle(
-                                      fontSize: 13,
+                                    style: AppTextStyles.label.copyWith(
                                       color: Color(0xFF636E72),
                                     ),
                                   ),
@@ -389,7 +389,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
             _showUnreadOnly
                 ? 'No unread conversations'
                 : 'No results for "${_searchController.text}"',
-            style: const TextStyle(color: Color(0xFF636E72)),
+            style: AppTextStyles.body.copyWith(color: Color(0xFF636E72)),
           ),
         ),
       );
@@ -436,8 +436,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
               children: [
                 Text(
                   state.staffSearchErrorMessage ?? 'Failed to search staff',
-                  style: const TextStyle(
-                    fontSize: 13,
+                  style: AppTextStyles.label.copyWith(
                     color: Color(0xFFC62828),
                     height: 1.4,
                   ),
@@ -482,8 +481,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
           child: Text(
             'No staff found for "${_searchController.text}"',
-            style: const TextStyle(
-              fontSize: 12,
+            style: AppTextStyles.bodySmall.copyWith(
               color: Color(0xFF636E72),
               fontStyle: FontStyle.italic,
             ),
@@ -583,7 +581,7 @@ class _StaffDirectoryTile extends StatelessWidget {
           ),
           subtitle: Text(
             staff.designation.isNotEmpty ? staff.designation : staff.status,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF636E72)),
+            style: AppTextStyles.bodySmall.copyWith(color: Color(0xFF636E72)),
           ),
           trailing: isCreating
               ? const PrimaryCircularLoader(size: 20, strokeWidth: 2)
@@ -696,9 +694,7 @@ class _ConversationTileContent extends StatelessWidget {
                 ),
                 Text(
                   _formatTime(conversation.lastMessageAt),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                  style: AppTextStyles.caption.copyWith(
                     color: Color(0xFFA0A0A0),
                   ),
                 ),
@@ -720,9 +716,8 @@ class _ConversationTileContent extends StatelessWidget {
                             ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: AppTextStyles.body.copyWith(
                         color: Color(0xFF636E72),
-                        fontSize: 14,
                         height: 1.4,
                       ),
                     ),
@@ -853,16 +848,14 @@ class _EmptyState extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+            style: AppTextStyles.title.copyWith(
               color: AppColors.primaryColor.withValues(alpha: 0.5),
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Tap the compose button to start one.',
-            style: TextStyle(fontSize: 13, color: Color(0xFFB2BEC3)),
+            style: AppTextStyles.label.copyWith(color: Color(0xFFB2BEC3)),
           ),
         ],
       ),
@@ -897,7 +890,7 @@ class _ErrorBanner extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF856404)),
+              style: AppTextStyles.bodySmall.copyWith(color: Color(0xFF856404)),
             ),
           ),
         ],
@@ -928,7 +921,7 @@ class _FullScreenError extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF636E72)),
+              style: AppTextStyles.body.copyWith(color: Color(0xFF636E72)),
             ),
             const SizedBox(height: 20),
             OutlinedButton.icon(
@@ -973,9 +966,7 @@ class _FilterChip extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+            style: AppTextStyles.caption.copyWith(
               color: AppColors.primaryColor,
             ),
           ),

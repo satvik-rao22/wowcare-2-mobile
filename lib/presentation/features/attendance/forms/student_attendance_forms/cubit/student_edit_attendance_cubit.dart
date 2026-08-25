@@ -19,16 +19,15 @@ part 'student_edit_attendance_state.dart';
 /// Owns the editable sign-in/sign-out times, the resolved school timezone, and
 /// the submission flag. The view passes in the record's raw prefill values
 /// (times as strings + the record code) so the cubit stays free of view types.
-class StudentEditAttendanceFormCubit
-    extends Cubit<StudentEditAttendanceState> {
+class StudentEditAttendanceFormCubit extends Cubit<StudentEditAttendanceState> {
   StudentEditAttendanceFormCubit({
     required UpdateStudentAttendanceRecordUseCase updateUseCase,
     required StorageService storageService,
     required ApiClient apiClient,
-  })  : _updateUseCase = updateUseCase,
-        _storageService = storageService,
-        _apiClient = apiClient,
-        super(const StudentEditAttendanceState());
+  }) : _updateUseCase = updateUseCase,
+       _storageService = storageService,
+       _apiClient = apiClient,
+       super(const StudentEditAttendanceState());
 
   final UpdateStudentAttendanceRecordUseCase _updateUseCase;
   final StorageService _storageService;
@@ -59,15 +58,16 @@ class StudentEditAttendanceFormCubit
     final signOut = parseSchoolTimeOrNull(signOutRaw, schoolIana);
     _initialSignInTime = signIn;
     _initialSignOutTime = signOut;
-    emit(state.copyWith(
-      schoolIana: schoolIana,
-      signInTime: signIn,
-      signOutTime: signOut,
-    ));
+    emit(
+      state.copyWith(
+        schoolIana: schoolIana,
+        signInTime: signIn,
+        signOutTime: signOut,
+      ),
+    );
   }
 
-  void setSignInTime(TimeOfDay time) =>
-      emit(state.copyWith(signInTime: time));
+  void setSignInTime(TimeOfDay time) => emit(state.copyWith(signInTime: time));
 
   void setSignOutTime(TimeOfDay time) =>
       emit(state.copyWith(signOutTime: time));
@@ -108,9 +108,14 @@ class StudentEditAttendanceFormCubit
     );
 
     final date = _attendanceDate;
-    final signedInChanged = !sameTimeOfDay(state.signInTime, _initialSignInTime);
-    final signedOutChanged =
-        !sameTimeOfDay(state.signOutTime, _initialSignOutTime);
+    final signedInChanged = !sameTimeOfDay(
+      state.signInTime,
+      _initialSignInTime,
+    );
+    final signedOutChanged = !sameTimeOfDay(
+      state.signOutTime,
+      _initialSignOutTime,
+    );
 
     final signedInAt = signedInChanged
         ? SchoolZoneDateTime.utcFromSchoolWallClock(

@@ -1,3 +1,4 @@
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'dart:io';
 import 'package:wowcare/core/util/app_time.dart';
 
@@ -164,11 +165,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
   Widget _createLabel(DynamicFormField field) {
     return Text(
       '${field.label}${field.isRequired ? ' *' : ''}',
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w500,
-        color: Colors.black87,
-      ),
+      style: AppTextStyles.bodyLarge.copyWith(color: Colors.black87),
     );
   }
 
@@ -212,7 +209,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
               value: '',
               child: Text(
                 'Select ${field.label}',
-                style: const TextStyle(color: Colors.grey),
+                style: AppTextStyles.body.copyWith(color: Colors.grey),
               ),
             ),
             ...?field.dropdownOptions?.map((option) {
@@ -277,7 +274,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
                       color: Colors.grey.shade300,
                       child: const Text(
                         'Choose File',
-                        style: TextStyle(fontWeight: FontWeight.w500),
+                        style: AppTextStyles.body,
                       ),
                     ),
                     Expanded(
@@ -295,7 +292,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   '${field.label} is required',
-                  style: const TextStyle(color: Colors.red, fontSize: 12),
+                  style: AppTextStyles.bodySmall.copyWith(color: Colors.red),
                 ),
               ),
           ],
@@ -321,10 +318,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
             children: [
               Text(
                 widget.title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: AppTextStyles.heading,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -340,13 +334,9 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text(
+                    child: Text(
                       'Cancel',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.themeColor,
-                      ),
+                      style: AppTextStyles.title.copyWith(color: AppColors.themeColor),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -367,10 +357,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
                     ),
                     child: const Text(
                       'Save',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: AppTextStyles.title,
                     ),
                   ),
                 ],
@@ -383,7 +370,6 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
     );
   }
 }
-
 
 ///////////////////////////////////////////////////////////////// Original code (Working) //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -577,7 +563,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //         value: '',
 //         child: Text(
 //           'Select ${field.label}', // Placeholder text for empty state
-//           style:const TextStyle(color: Colors.grey),
+//           style:AppTextStyles.body.copyWith(color: Colors.grey),
 //         ),
 //       ),
 //       ...?field.dropdownOptions?.map((option) {
@@ -649,7 +635,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //                       color: Colors.grey.shade300,
 //                       child: const Text(
 //                         'Choose File',
-//                         style: TextStyle(fontWeight: FontWeight.w500),
+//                         style: AppTextStyles.body,
 //                       ),
 //                     ),
 //                     Expanded(
@@ -753,8 +739,6 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //     );
 //   }
 // }
-
-
 
 /////////////////////////////////////////////////////////////////Permission change New(don't know if it works)//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1015,7 +999,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //                       color: Colors.grey.shade300,
 //                       child: const Text(
 //                         'Choose File',
-//                         style: TextStyle(fontWeight: FontWeight.w500),
+//                         style: AppTextStyles.body,
 //                       ),
 //                     ),
 //                     Expanded(

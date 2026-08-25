@@ -31,9 +31,7 @@ class NotificationPreferenceGroupRow extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
       ),
       child: Row(
         children: [

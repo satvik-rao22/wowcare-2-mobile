@@ -40,6 +40,7 @@ import 'package:wowcare/domain/features/communication/usecases/get_cached_conver
 import 'package:wowcare/domain/features/communication/usecases/get_conversations_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -984,9 +985,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
               child: Text(
                 buttonLabel,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                style: AppTextStyles.title.copyWith(
                   color: AppColors.billingBackgroundColor,
                 ),
               ),
@@ -1035,7 +1034,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
             ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
             child: Text(
               _isReminder ? 'Turn off reminder' : 'Send reminder',
-              style: const TextStyle(color: Colors.white),
+              style: AppTextStyles.body.copyWith(color: Colors.white),
             ),
           ),
         ],
@@ -1055,13 +1054,9 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
-          child: const Text(
+          child: Text(
             'Your Sign-In Pin : ',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+            style: AppTextStyles.title.copyWith(color: Colors.white),
           ),
         ),
         BlocBuilder<MyChildsDayCubit, MyChildsDayState>(
@@ -1077,11 +1072,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
               ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
               child: Text(
                 pin.isEmpty ? '—' : pin,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: AppTextStyles.title.copyWith(color: Colors.white),
                 textAlign: TextAlign.center,
               ),
             );
@@ -1259,11 +1250,10 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                                 Center(
                                   child: Text(
                                     'No children linked',
-                                    style: TextStyle(
+                                    style: AppTextStyles.body.copyWith(
                                       color: AppColors.primaryColor.withValues(
                                         alpha: 0.7,
                                       ),
-                                      fontSize: 14,
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
@@ -1272,11 +1262,10 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                                 Center(
                                   child: Text(
                                     'Failed to load student details',
-                                    style: TextStyle(
+                                    style: AppTextStyles.body.copyWith(
                                       color: AppColors.primaryColor.withValues(
                                         alpha: 0.7,
                                       ),
-                                      fontSize: 14,
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
@@ -1358,13 +1347,16 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                                                   .retryPermission(),
                                               child: Text(
                                                 'Location permission required. Tap to enable.',
-                                                style: TextStyle(
-                                                  color: AppColors.primaryColor
-                                                      .withValues(alpha: 0.65),
-                                                  fontSize: 12,
-                                                  decoration:
-                                                      TextDecoration.underline,
-                                                ),
+                                                style: AppTextStyles.bodySmall
+                                                    .copyWith(
+                                                      color: AppColors
+                                                          .primaryColor
+                                                          .withValues(
+                                                            alpha: 0.65,
+                                                          ),
+                                                      decoration: TextDecoration
+                                                          .underline,
+                                                    ),
                                                 textAlign: TextAlign.center,
                                               ),
                                             ),
@@ -1380,11 +1372,14 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                                             ),
                                             child: Text(
                                               'Location services are disabled.',
-                                              style: TextStyle(
-                                                color: AppColors.primaryColor
-                                                    .withValues(alpha: 0.65),
-                                                fontSize: 12,
-                                              ),
+                                              style: AppTextStyles.bodySmall
+                                                  .copyWith(
+                                                    color: AppColors
+                                                        .primaryColor
+                                                        .withValues(
+                                                          alpha: 0.65,
+                                                        ),
+                                                  ),
                                               textAlign: TextAlign.center,
                                             ),
                                           )
@@ -1398,11 +1393,14 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                                             ),
                                             child: Text(
                                               'You are not within the school sign-in zone.',
-                                              style: TextStyle(
-                                                color: AppColors.primaryColor
-                                                    .withValues(alpha: 0.65),
-                                                fontSize: 12,
-                                              ),
+                                              style: AppTextStyles.bodySmall
+                                                  .copyWith(
+                                                    color: AppColors
+                                                        .primaryColor
+                                                        .withValues(
+                                                          alpha: 0.65,
+                                                        ),
+                                                  ),
                                               textAlign: TextAlign.center,
                                             ),
                                           )
@@ -1420,11 +1418,14 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                                             ),
                                             child: Text(
                                               'Checking location...',
-                                              style: TextStyle(
-                                                color: AppColors.primaryColor
-                                                    .withValues(alpha: 0.65),
-                                                fontSize: 12,
-                                              ),
+                                              style: AppTextStyles.bodySmall
+                                                  .copyWith(
+                                                    color: AppColors
+                                                        .primaryColor
+                                                        .withValues(
+                                                          alpha: 0.65,
+                                                        ),
+                                                  ),
                                               textAlign: TextAlign.center,
                                             ),
                                           ),
@@ -1609,20 +1610,20 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
 
     // Fallback to REST concurrently in case Firestore/cache is empty.
     unawaited(
-      serviceLocator<GetConversationsEntityUseCase>()
-          .call(type: type)
-          .then((result) {
-            if (!mounted) return;
-            result.fold((_) {}, (list) {
-              final mine = _latest(list);
-              if (mine != null) {
-                setState(() {
-                  _byType[type] = mine;
-                  _loading = false;
-                });
-              }
+      serviceLocator<GetConversationsEntityUseCase>().call(type: type).then((
+        result,
+      ) {
+        if (!mounted) return;
+        result.fold((_) {}, (list) {
+          final mine = _latest(list);
+          if (mine != null) {
+            setState(() {
+              _byType[type] = mine;
+              _loading = false;
             });
-          }),
+          }
+        });
+      }),
     );
 
     _subs[type] = serviceLocator<WatchConversationsUseCase>()
@@ -1753,18 +1754,15 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
                 Text(
                   displayTitle.isNotEmpty ? displayTitle : '—',
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: AppTextStyles.bodyLarge.copyWith(
                     color: AppColors.primaryColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 Text(
                   displayText,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: AppTextStyles.bodySmall.copyWith(
                     color: AppColors.primaryColor.withValues(alpha: 0.5),
                   ),
                 ),

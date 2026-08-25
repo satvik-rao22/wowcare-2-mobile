@@ -1226,8 +1226,12 @@ final GoRouter appRouter = GoRouter(
                   // the room that actually contains the card to highlight.
                   highlightClassroomCode: q['classroomCode'],
                   initialTab: q['tab'] == 'custom' ? 1 : 0,
-                  initialActivityTypes: q['activityType'] != null ? [q['activityType']!] : null,
-                  initialClassrooms: q['classroom'] != null ? [q['classroom']!] : null,
+                  initialActivityTypes: q['activityType'] != null
+                      ? [q['activityType']!]
+                      : null,
+                  initialClassrooms: q['classroom'] != null
+                      ? [q['classroom']!]
+                      : null,
                   resetKey: extra?['timestamp']?.toString(),
                 );
               },

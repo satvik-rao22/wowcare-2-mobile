@@ -12,6 +12,7 @@ import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Maximum number of images that can be uploaded to the school cloud gallery
 /// in a single "Image Uploader" run.
@@ -48,7 +49,8 @@ class _SchoolCloudImageUploaderDialogState
     if (_atCapacity) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'You can upload up to $kSchoolCloudUploadMaxImages images at a time.',
+        message:
+            'You can upload up to $kSchoolCloudUploadMaxImages images at a time.',
         isWarning: true,
       );
       return;
@@ -71,7 +73,8 @@ class _SchoolCloudImageUploaderDialogState
     if (newFiles.length > accepted.length) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Only the first $kSchoolCloudUploadMaxImages images were kept — that\'s the max per upload.',
+        message:
+            'Only the first $kSchoolCloudUploadMaxImages images were kept — that\'s the max per upload.',
         isWarning: true,
       );
     }
@@ -93,8 +96,8 @@ class _SchoolCloudImageUploaderDialogState
     });
     try {
       final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       if (schoolCode.isEmpty) {
         throw Exception(
           'Missing school context. Please re-login and try again.',
@@ -106,10 +109,8 @@ class _SchoolCloudImageUploaderDialogState
       for (var i = 0; i < total; i++) {
         final image = files[i];
         try {
-          final uploadSession =
-              await uploadService.createSchoolCloudUploadSession(
-            schoolCode: schoolCode,
-          );
+          final uploadSession = await uploadService
+              .createSchoolCloudUploadSession(schoolCode: schoolCode);
 
           final fileName = image.uri.pathSegments.isNotEmpty
               ? image.uri.pathSegments.last
@@ -137,8 +138,9 @@ class _SchoolCloudImageUploaderDialogState
               if (!mounted) return;
               final overallFraction = (i + (percent / 100)) / total;
               setState(() {
-                _overallUploadPercent =
-                    (overallFraction * 100).clamp(0, 100).round();
+                _overallUploadPercent = (overallFraction * 100)
+                    .clamp(0, 100)
+                    .round();
               });
             },
           );
@@ -223,19 +225,18 @@ class _SchoolCloudImageUploaderDialogState
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Image Uploader',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
+                      style: AppTextStyles.heading.copyWith(
                         color: AppColors.primaryColor,
                       ),
                     ),
                   ),
                   GestureDetector(
-                    onTap: _isUploading ? null : () => Navigator.of(context).pop(),
+                    onTap: _isUploading
+                        ? null
+                        : () => Navigator.of(context).pop(),
                     child: Icon(
                       Icons.close,
                       size: 22,
@@ -285,10 +286,10 @@ class _SchoolCloudImageUploaderDialogState
                             Text(
                               'Only image files are supported (max $kSchoolCloudUploadMaxImages)',
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: 12,
-                                color: AppColors.primaryColor.withValues(alpha: 0.5),
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color: AppColors.primaryColor.withValues(
+                                  alpha: 0.5,
+                                ),
                               ),
                             ),
                           ],
@@ -310,12 +311,14 @@ class _SchoolCloudImageUploaderDialogState
                           spacing: 14,
                           runSpacing: 14,
                           children: _selectedImages
-                              .map((file) => _SelectedImageThumbnail(
-                                    file: file,
-                                    onRemove: _isUploading
-                                        ? null
-                                        : () => _removeSelectedImage(file),
-                                  ))
+                              .map(
+                                (file) => _SelectedImageThumbnail(
+                                  file: file,
+                                  onRemove: _isUploading
+                                      ? null
+                                      : () => _removeSelectedImage(file),
+                                ),
+                              )
                               .toList(),
                         ),
                       if (_isUploading) ...[
@@ -323,10 +326,14 @@ class _SchoolCloudImageUploaderDialogState
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: LinearProgressIndicator(
-                            value: (_overallUploadPercent / 100).clamp(0.0, 1.0),
+                            value: (_overallUploadPercent / 100).clamp(
+                              0.0,
+                              1.0,
+                            ),
                             minHeight: 6,
-                            backgroundColor:
-                                AppColors.primaryColor.withValues(alpha: 0.1),
+                            backgroundColor: AppColors.primaryColor.withValues(
+                              alpha: 0.1,
+                            ),
                             valueColor: const AlwaysStoppedAnimation<Color>(
                               AppColors.themeColor,
                             ),
@@ -335,10 +342,10 @@ class _SchoolCloudImageUploaderDialogState
                         const SizedBox(height: 6),
                         Text(
                           'Uploading… $_overallUploadPercent%',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 12,
-                            color: AppColors.primaryColor.withValues(alpha: 0.6),
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.6,
+                            ),
                           ),
                         ),
                       ],
@@ -349,9 +356,7 @@ class _SchoolCloudImageUploaderDialogState
               const SizedBox(height: 18),
               Text(
                 '${_selectedImages.length} file${_selectedImages.length == 1 ? '' : 's'} selected',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 13,
+                style: AppTextStyles.label.copyWith(
                   color: AppColors.primaryColor.withValues(alpha: 0.6),
                 ),
               ),
@@ -361,11 +366,13 @@ class _SchoolCloudImageUploaderDialogState
                 isLoading: _isUploading,
                 cancelButtonLabel: 'Cancel',
                 confirmButtonLabel: 'Upload',
-                onPressedCancel:
-                    _isUploading ? null : () => Navigator.of(context).pop(),
+                onPressedCancel: _isUploading
+                    ? null
+                    : () => Navigator.of(context).pop(),
                 onPressedConfirm: (hasImages && !_isUploading) ? _upload : null,
-                disabledConfirmTooltip:
-                    hasImages ? null : 'Choose at least one image to upload',
+                disabledConfirmTooltip: hasImages
+                    ? null
+                    : 'Choose at least one image to upload',
               ),
             ],
           ),
@@ -430,12 +437,7 @@ class _SelectedImageThumbnail extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(10),
-          child: Image.file(
-            file,
-            width: 72,
-            height: 72,
-            fit: BoxFit.cover,
-          ),
+          child: Image.file(file, width: 72, height: 72, fit: BoxFit.cover),
         ),
         Positioned(
           top: -6,
@@ -448,11 +450,7 @@ class _SelectedImageThumbnail extends StatelessWidget {
                 color: AppColors.errorColor,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.close,
-                color: Colors.white,
-                size: 14,
-              ),
+              child: const Icon(Icons.close, color: Colors.white, size: 14),
             ),
           ),
         ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class EventsCard extends StatefulWidget {
   const EventsCard({super.key});
@@ -49,7 +50,9 @@ class _EventsCardState extends State<EventsCard> {
                           child: Center(
                             child: Text(
                               ['S', 'M', 'T', 'W', 'T', 'F', 'S'][index],
-                              style: TextStyle(color: Colors.grey[600]),
+                              style: AppTextStyles.body.copyWith(
+                                color: Colors.grey[600],
+                              ),
                             ),
                           ),
                         );
@@ -74,7 +77,7 @@ class _EventsCardState extends State<EventsCard> {
                           child: Center(
                             child: Text(
                               (13 + index).toString(),
-                              style: TextStyle(
+                              style: AppTextStyles.body.copyWith(
                                 color: isSelected
                                     ? Colors.white
                                     : Colors.grey[600],
@@ -141,7 +144,10 @@ class EventItem extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(month, style: TextStyle(color: Colors.grey[500])),
+                Text(
+                  month,
+                  style: AppTextStyles.body.copyWith(color: Colors.grey[500]),
+                ),
                 Text(
                   date,
                   style: const TextStyle(
@@ -161,9 +167,7 @@ class EventItem extends StatelessWidget {
               maxLines: 2,
               softWrap: true,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+              style: AppTextStyles.title.copyWith(
                 color: AppColors.primaryColor,
               ),
             ),

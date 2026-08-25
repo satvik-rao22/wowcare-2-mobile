@@ -341,7 +341,9 @@ class _StaffSelectionSignInFormState extends State<StaffSelectionSignInForm> {
                         children: [
                           AppText.body(
                             _errorMessage ?? 'Failed to load staff',
-                            style: const TextStyle(color: Colors.red),
+                            style: AppTextStyles.body.copyWith(
+                              color: Colors.red,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 8),
@@ -442,10 +444,8 @@ class StaffListItem extends StatelessWidget {
                   text: staff.name,
                   maxLines: 2,
                   preferLongPress: true,
-                  style: const TextStyle(
+                  style: AppTextStyles.sectionHeader.copyWith(
                     color: AppColors.primaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),

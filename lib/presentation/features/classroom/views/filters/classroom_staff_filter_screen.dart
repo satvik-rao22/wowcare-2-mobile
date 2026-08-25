@@ -36,7 +36,8 @@ class ClassroomStaffFilterScreen extends StatefulWidget {
       _ClassroomStaffFilterScreenState();
 }
 
-class _ClassroomStaffFilterScreenState extends State<ClassroomStaffFilterScreen> {
+class _ClassroomStaffFilterScreenState
+    extends State<ClassroomStaffFilterScreen> {
   /// Backend designation codes (same set as legacy staff filter).
   static const List<String> _designationCodes = [
     'OWNER',
@@ -66,8 +67,7 @@ class _ClassroomStaffFilterScreenState extends State<ClassroomStaffFilterScreen>
     super.initState();
 
     _labelToDesignationCode = {
-      for (final c in _designationCodes)
-        formatDesignationForDisplay(c): c,
+      for (final c in _designationCodes) formatDesignationForDisplay(c): c,
     };
     _designationLabels = _labelToDesignationCode.keys.toList()..sort();
 

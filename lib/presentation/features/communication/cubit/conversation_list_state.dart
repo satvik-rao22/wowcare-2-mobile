@@ -25,25 +25,26 @@ class ConversationListState extends Equatable {
     this.activeSearch,
   });
 
-  const ConversationListState.initial({required ConversationType conversationType})
-      : conversationType = conversationType,
-        conversations = const [],
-        isLoading = false,
-        isRefreshing = false,
-        isFromCache = false,
-        hasMore = true,
-        page = 0,
-        errorMessage = null,
-        staffSearchResults = const [],
-        isSearchingStaff = false,
-        lastStaffSearchQuery = null,
-        staffSearchErrorMessage = null,
-        activeClassroomCodes = const [],
-        activeTagCodes = const [],
-        activeDesignations = const [],
-        activeStudentStatuses = const [],
-        activeStaffStatuses = const [],
-        activeSearch = null;
+  const ConversationListState.initial({
+    required ConversationType conversationType,
+  }) : conversationType = conversationType,
+       conversations = const [],
+       isLoading = false,
+       isRefreshing = false,
+       isFromCache = false,
+       hasMore = true,
+       page = 0,
+       errorMessage = null,
+       staffSearchResults = const [],
+       isSearchingStaff = false,
+       lastStaffSearchQuery = null,
+       staffSearchErrorMessage = null,
+       activeClassroomCodes = const [],
+       activeTagCodes = const [],
+       activeDesignations = const [],
+       activeStudentStatuses = const [],
+       activeStaffStatuses = const [],
+       activeSearch = null;
 
   const ConversationListState.loaded({
     required ConversationType conversationType,
@@ -57,18 +58,18 @@ class ConversationListState extends Equatable {
     this.activeStudentStatuses = const [],
     this.activeStaffStatuses = const [],
     this.activeSearch,
-  })  : conversationType = conversationType,
-        conversations = conversations,
-        isLoading = false,
-        isRefreshing = false,
-        isFromCache = isFromCache,
-        hasMore = hasMore,
-        page = page,
-        errorMessage = null,
-        staffSearchResults = const [],
-        isSearchingStaff = false,
-        lastStaffSearchQuery = null,
-        staffSearchErrorMessage = null;
+  }) : conversationType = conversationType,
+       conversations = conversations,
+       isLoading = false,
+       isRefreshing = false,
+       isFromCache = isFromCache,
+       hasMore = hasMore,
+       page = page,
+       errorMessage = null,
+       staffSearchResults = const [],
+       isSearchingStaff = false,
+       lastStaffSearchQuery = null,
+       staffSearchErrorMessage = null;
 
   final ConversationType conversationType;
   final List<ConversationEntity> conversations;
@@ -147,35 +148,40 @@ class ConversationListState extends Equatable {
       staffSearchResults: staffSearchResults ?? this.staffSearchResults,
       isSearchingStaff: isSearchingStaff ?? this.isSearchingStaff,
       lastStaffSearchQuery: lastStaffSearchQuery ?? this.lastStaffSearchQuery,
-      staffSearchErrorMessage: clearStaffSearchError ? null : (staffSearchErrorMessage ?? this.staffSearchErrorMessage),
+      staffSearchErrorMessage: clearStaffSearchError
+          ? null
+          : (staffSearchErrorMessage ?? this.staffSearchErrorMessage),
       activeClassroomCodes: activeClassroomCodes ?? this.activeClassroomCodes,
       activeTagCodes: activeTagCodes ?? this.activeTagCodes,
       activeDesignations: activeDesignations ?? this.activeDesignations,
-      activeStudentStatuses: activeStudentStatuses ?? this.activeStudentStatuses,
+      activeStudentStatuses:
+          activeStudentStatuses ?? this.activeStudentStatuses,
       activeStaffStatuses: activeStaffStatuses ?? this.activeStaffStatuses,
-      activeSearch: clearActiveSearch ? null : (activeSearch ?? this.activeSearch),
+      activeSearch: clearActiveSearch
+          ? null
+          : (activeSearch ?? this.activeSearch),
     );
   }
 
   @override
   List<Object?> get props => [
-        conversationType,
-        conversations,
-        isLoading,
-        isRefreshing,
-        isFromCache,
-        hasMore,
-        page,
-        errorMessage,
-        staffSearchResults,
-        isSearchingStaff,
-        lastStaffSearchQuery,
-        staffSearchErrorMessage,
-        activeClassroomCodes,
-        activeTagCodes,
-        activeDesignations,
-        activeStudentStatuses,
-        activeStaffStatuses,
-        activeSearch,
-      ];
+    conversationType,
+    conversations,
+    isLoading,
+    isRefreshing,
+    isFromCache,
+    hasMore,
+    page,
+    errorMessage,
+    staffSearchResults,
+    isSearchingStaff,
+    lastStaffSearchQuery,
+    staffSearchErrorMessage,
+    activeClassroomCodes,
+    activeTagCodes,
+    activeDesignations,
+    activeStudentStatuses,
+    activeStaffStatuses,
+    activeSearch,
+  ];
 }

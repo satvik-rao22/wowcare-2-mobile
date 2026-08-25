@@ -128,10 +128,7 @@ String _actionLabel(IndividualMovementAction a) {
 }
 
 class _ActionTile extends StatelessWidget {
-  const _ActionTile({
-    required this.action,
-    required this.onTap,
-  });
+  const _ActionTile({required this.action, required this.onTap});
 
   final IndividualMovementAction action;
   final VoidCallback onTap;
@@ -155,7 +152,9 @@ class _ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _isDestructive ? AppColors.errorColor : AppColors.primaryColor;
+    final color = _isDestructive
+        ? AppColors.errorColor
+        : AppColors.primaryColor;
     return Material(
       color: Colors.transparent,
       child: InkWell(

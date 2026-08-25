@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'package:wowcare/data/features/auth/models/login_response_model.dart' show RoleModel;
+import 'package:wowcare/data/features/auth/models/login_response_model.dart'
+    show RoleModel;
 
 /// True for parent/guardian API personas (not staff/teachers).
 bool roleStringIsGuardianPersona(String role) {
@@ -103,7 +104,10 @@ String derivePersonaFamilyFromRolesJson(String rolesJson) {
   }
 
   if (roles != null) {
-    bool hasKiosk = false, hasStaff = false, hasAdmin = false, hasGuardian = false;
+    bool hasKiosk = false,
+        hasStaff = false,
+        hasAdmin = false,
+        hasGuardian = false;
     for (final r in roles) {
       if (r is! Map) continue;
       final roleStr = (r['role'] ?? r['Role'] ?? '').toString();
@@ -203,9 +207,11 @@ bool shouldSkipStaffCodeResolutionForContext({
   try {
     final decoded = jsonDecode(rolesJson);
     if (decoded is! List<dynamic>) return false;
-    final matching =
-        matchingRolesForOrgSchool(decoded, organizationCode, schoolCode)
-            .toList();
+    final matching = matchingRolesForOrgSchool(
+      decoded,
+      organizationCode,
+      schoolCode,
+    ).toList();
     if (matching.isEmpty) return false;
 
     // Check if any role is kiosk — if so, skip staff code resolution entirely

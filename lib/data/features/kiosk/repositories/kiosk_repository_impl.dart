@@ -17,10 +17,9 @@ class KioskRepositoryImpl implements KioskRepository {
     required String pin,
     required String schoolCode,
     bool isLogout = false,
-  }) =>
-      _remoteDataSource.verifyPin(
-        pin: pin,
-        schoolCode: schoolCode,
-        isLogout: isLogout,
-      );
+  }) => _remoteDataSource.verifyPin(
+    pin: pin,
+    schoolCode: schoolCode,
+    isLogout: isLogout,
+  );
 }

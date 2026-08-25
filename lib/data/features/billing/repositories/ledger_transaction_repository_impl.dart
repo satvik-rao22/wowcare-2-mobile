@@ -28,13 +28,15 @@ class LedgerTransactionRepositoryImpl implements LedgerTransactionRepository {
 
   @override
   Future<void> addTransaction(AddTransactionParams params) =>
-      _dataSource.addTransaction(AddTransactionRequestModel(
-        ledgerCode: params.ledgerCode,
-        amount: params.amount,
-        date: params.date,
-        narration: params.narration,
-        direction: params.direction,
-      ));
+      _dataSource.addTransaction(
+        AddTransactionRequestModel(
+          ledgerCode: params.ledgerCode,
+          amount: params.amount,
+          date: params.date,
+          narration: params.narration,
+          direction: params.direction,
+        ),
+      );
 
   LedgerTransactionEntity _mapModel(LedgerTransactionModel m) =>
       LedgerTransactionEntity(

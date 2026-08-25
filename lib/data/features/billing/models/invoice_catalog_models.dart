@@ -21,11 +21,11 @@ class FeeDetailModel extends Equatable {
   final String? status;
 
   factory FeeDetailModel.fromJson(Map<String, dynamic> json) => FeeDetailModel(
-        code: (json['code'] as String?) ?? '',
-        billingCycle: (json['billingCycle'] as String?) ?? '',
-        cost: (json['cost'] as num?)?.toDouble() ?? 0,
-        status: json['status'] as String?,
-      );
+    code: (json['code'] as String?) ?? '',
+    billingCycle: (json['billingCycle'] as String?) ?? '',
+    cost: (json['cost'] as num?)?.toDouble() ?? 0,
+    status: json['status'] as String?,
+  );
 
   @override
   List<Object?> get props => [code, billingCycle, cost, status];
@@ -64,8 +64,14 @@ class FeeStructureModel extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      [code, ageGroupName, daysPerWeek, availabilityType, feesDetails, status];
+  List<Object?> get props => [
+    code,
+    ageGroupName,
+    daysPerWeek,
+    availabilityType,
+    feesDetails,
+    status,
+  ];
 }
 
 // ─── Other fees ──────────────────────────────────────────────────────────────
@@ -84,11 +90,11 @@ class OtherFeeModel extends Equatable {
   final String? status;
 
   factory OtherFeeModel.fromJson(Map<String, dynamic> json) => OtherFeeModel(
-        code: (json['code'] as String?) ?? '',
-        description: (json['description'] as String?) ?? '',
-        cost: (json['cost'] as num?)?.toDouble() ?? 0,
-        status: json['status'] as String?,
-      );
+    code: (json['code'] as String?) ?? '',
+    description: (json['description'] as String?) ?? '',
+    cost: (json['cost'] as num?)?.toDouble() ?? 0,
+    status: json['status'] as String?,
+  );
 
   @override
   List<Object?> get props => [code, description, cost, status];
@@ -116,18 +122,25 @@ class SubsidyModel extends Equatable {
   final String? status;
 
   factory SubsidyModel.fromJson(Map<String, dynamic> json) => SubsidyModel(
-        code: (json['code'] as String?) ?? '',
-        name: (json['name'] as String?) ?? '',
-        description: json['description'] as String?,
-        deductionAmount: (json['deductionAmount'] as num?)?.toDouble(),
-        price: (json['price'] as num?)?.toDouble(),
-        discountType: json['discountType'] as String?,
-        status: json['status'] as String?,
-      );
+    code: (json['code'] as String?) ?? '',
+    name: (json['name'] as String?) ?? '',
+    description: json['description'] as String?,
+    deductionAmount: (json['deductionAmount'] as num?)?.toDouble(),
+    price: (json['price'] as num?)?.toDouble(),
+    discountType: json['discountType'] as String?,
+    status: json['status'] as String?,
+  );
 
   @override
-  List<Object?> get props =>
-      [code, name, description, deductionAmount, price, discountType, status];
+  List<Object?> get props => [
+    code,
+    name,
+    description,
+    deductionAmount,
+    price,
+    discountType,
+    status,
+  ];
 }
 
 // ─── Generic paged envelope parser ───────────────────────────────────────────

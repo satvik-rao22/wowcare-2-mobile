@@ -7,10 +7,7 @@ class DeleteStaffShiftSeriesUseCase {
 
   final StaffShiftRepository _repository;
 
-  Future<void> call({
-    required String seriesCode,
-    String? staffCode,
-  }) {
+  Future<void> call({required String seriesCode, String? staffCode}) {
     return _repository.deleteStaffShiftSeries(
       seriesCode: seriesCode,
       staffCode: staffCode,

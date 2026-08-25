@@ -20,7 +20,9 @@ class PaginatedNewslettersResponseModel extends Equatable {
   final int totalElements;
   final bool hasMore;
 
-  factory PaginatedNewslettersResponseModel.fromJson(Map<String, dynamic> json) {
+  factory PaginatedNewslettersResponseModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
     final data = json['data'] as Map<String, dynamic>? ?? {};
     final content = data['content'] as List<dynamic>? ?? const [];
     final pageNumber = data['number'] as int? ?? 0;
@@ -57,6 +59,12 @@ class PaginatedNewslettersResponseModel extends Equatable {
   }
 
   @override
-  List<Object?> get props => [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 }
-

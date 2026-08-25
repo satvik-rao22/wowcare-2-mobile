@@ -531,7 +531,9 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                                 const SizedBox(height: 16),
                                 AppText.body(
                                   'No staff attendance found',
-                                  style: TextStyle(color: Colors.grey[600]),
+                                  style: AppTextStyles.body.copyWith(
+                                    color: Colors.grey[600],
+                                  ),
                                   textAlign: TextAlign.center,
                                 ),
                               ],
@@ -724,10 +726,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
           flex: responsive.isTablet ? 2 : 1,
           child: Text(
             label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
+            style: AppTextStyles.label.copyWith(
               color: Color(0xff573353),
               height: 16 / 13,
             ),
@@ -738,10 +737,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
           flex: responsive.isTablet ? 3 : 2,
           child: Text(
             value,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+            style: AppTextStyles.body.copyWith(
               color: Color(0xff573353),
               height: 19 / 14,
             ),

@@ -17,8 +17,8 @@ import 'package:wowcare/core/util/storage_keys.dart';
 /// Call [signIn] after WowCare login completes. Call [signOut] on logout.
 class FirebaseAuthService {
   FirebaseAuthService({required Dio dio, required StorageService storage})
-      : _dio = dio,
-        _storage = storage;
+    : _dio = dio,
+      _storage = storage;
 
   final Dio _dio;
   final StorageService _storage;
@@ -48,8 +48,8 @@ class FirebaseAuthService {
     // signed in as the previous user and the new user's Firestore listeners all got
     // permission-denied — no unread counts, no live list, no live thread. This is the
     // recurring "live sync stopped again" failure.
-    final targetUser =
-        (await _storage.getString(StorageKeys.userCode) ?? '').trim();
+    final targetUser = (await _storage.getString(StorageKeys.userCode) ?? '')
+        .trim();
     final currentUid = FirebaseAuth.instance.currentUser?.uid;
     if (targetUser.isNotEmpty && currentUid == targetUser) {
       return; // already signed into Firebase as the current user — nothing to do
@@ -64,7 +64,9 @@ class FirebaseAuthService {
     try {
       final customToken = await _fetchCustomToken();
       if (customToken == null || customToken.isEmpty) {
-        AppLogger.w('[FirebaseAuth] Custom token missing in response — skipping sign-in');
+        AppLogger.w(
+          '[FirebaseAuth] Custom token missing in response — skipping sign-in',
+        );
         return;
       }
       // signInWithCustomToken replaces any existing session, so this correctly

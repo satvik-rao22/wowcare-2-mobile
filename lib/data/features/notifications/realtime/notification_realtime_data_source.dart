@@ -109,8 +109,9 @@ class FirebaseNotificationRealtimeDataSource
               // Retries exhausted: wait for a signed-in Firebase user (the
               // custom-token sign-in may still be racing), then re-subscribe.
               authWaitSub?.cancel();
-              authWaitSub =
-                  FirebaseAuth.instance.authStateChanges().listen((user) {
+              authWaitSub = FirebaseAuth.instance.authStateChanges().listen((
+                user,
+              ) {
                 if (controller.isClosed) {
                   authWaitSub?.cancel();
                   return;

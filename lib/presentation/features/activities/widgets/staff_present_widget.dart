@@ -13,6 +13,7 @@ import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../../../shared/common/app/cubit/role_cubit.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/presentation/features/activities/widgets/checkbox_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class StaffPresentWidget extends StatefulWidget {
   const StaffPresentWidget({
@@ -108,8 +109,8 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
     // attributing the activity to. Picking themselves must never show the
     // "not signed in" warning (or fire the status check at all).
     final storage = serviceLocator<StorageService>();
-    final ownStaffCode =
-        (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+    final ownStaffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
+        .trim();
     if (ownStaffCode.isNotEmpty &&
         code.toUpperCase() == ownStaffCode.toUpperCase()) {
       if (!mounted) return;
@@ -158,6 +159,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
       });
     }
   }
+
   @override
   void initState() {
     super.initState();
@@ -334,17 +336,14 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
           children: [
             RichText(
               text: TextSpan(
-                style: TextStyle(
+                style: AppTextStyles.label.copyWith(
                   color: AppColors.primaryColor,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  fontFamily: 'Manrope',
                 ),
                 children: [
                   TextSpan(text: widget.fieldLabel),
-                  const TextSpan(
+                  TextSpan(
                     text: ' *',
-                    style: TextStyle(color: Colors.red),
+                    style: AppTextStyles.body.copyWith(color: Colors.red),
                   ),
                 ],
               ),
@@ -420,7 +419,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
           ),
         // Admin-only: why the picked staff was rejected / is being checked.
         if (_checkingStaffSignIn)
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 6),
             child: Row(
               children: [
@@ -432,9 +431,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
                 SizedBox(width: 8),
                 Text(
                   'Checking sign-in status…',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 12,
+                  style: AppTextStyles.bodySmall.copyWith(
                     color: Color(0xff573353),
                   ),
                 ),
@@ -446,12 +443,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
             padding: const EdgeInsets.only(top: 6),
             child: Text(
               _staffSignInError!,
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.red,
-              ),
+              style: AppTextStyles.caption.copyWith(color: Colors.red),
             ),
           ),
         SizedBox(height: responsive.verticalSpacing),

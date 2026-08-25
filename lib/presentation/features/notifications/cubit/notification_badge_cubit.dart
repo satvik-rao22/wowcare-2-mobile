@@ -68,16 +68,13 @@ class NotificationBadgeCubit extends Cubit<NotificationBadgeState> {
     AppLogger.d('[NotifBadge] startWatching user=$userCode');
     _watchedUserCode = userCode;
     await _firestoreSub?.cancel();
-    _firestoreSub = _realtime
-        .watchUnreadCount(userCode: userCode)
-        .listen(
-          (count) {
-            if (isClosed) return;
-            AppLogger.d('[NotifBadge] Firestore unread=$count');
-            emit(state.copyWith(unreadCount: count));
-          },
-          onError: (_) {},
-        );
+    _firestoreSub = _realtime.watchUnreadCount(userCode: userCode).listen((
+      count,
+    ) {
+      if (isClosed) return;
+      AppLogger.d('[NotifBadge] Firestore unread=$count');
+      emit(state.copyWith(unreadCount: count));
+    }, onError: (_) {});
   }
 
   /// Applies a read-state change the caller already knows is correct (the

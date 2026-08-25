@@ -4,7 +4,11 @@ class StringUtils {
     if (code.trim().isEmpty) return '';
     return code
         .split('_')
-        .map((e) => e.isNotEmpty ? '${e[0].toUpperCase()}${e.substring(1).toLowerCase()}' : '')
+        .map(
+          (e) => e.isNotEmpty
+              ? '${e[0].toUpperCase()}${e.substring(1).toLowerCase()}'
+              : '',
+        )
         .join(' ');
   }
 

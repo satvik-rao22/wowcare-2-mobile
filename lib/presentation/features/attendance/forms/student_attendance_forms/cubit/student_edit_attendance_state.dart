@@ -36,5 +36,10 @@ class StudentEditAttendanceState extends Equatable {
   }
 
   @override
-  List<Object?> get props => [signInTime, signOutTime, schoolIana, isSubmitting];
+  List<Object?> get props => [
+    signInTime,
+    signOutTime,
+    schoolIana,
+    isSubmitting,
+  ];
 }

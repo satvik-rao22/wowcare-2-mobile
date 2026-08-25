@@ -31,7 +31,9 @@ Future<String?> resolveAttachmentUrl(ChatAttachment attachment) async {
   if (cached != null && cached.isNotEmpty) return cached;
 
   try {
-    final url = await uploadService.getMediaAssetUrlByCode(assetCode: assetCode);
+    final url = await uploadService.getMediaAssetUrlByCode(
+      assetCode: assetCode,
+    );
     return url.isEmpty ? null : url;
   } catch (_) {
     return null;

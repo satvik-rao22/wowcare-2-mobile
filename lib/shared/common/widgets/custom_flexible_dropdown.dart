@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class CustomFlexibleDropdown extends StatefulWidget {
   const CustomFlexibleDropdown({
@@ -85,11 +86,16 @@ class _CustomFlexibleDropdownState extends State<CustomFlexibleDropdown> {
         if (widget.label != null)
           RichText(
             text: TextSpan(
-              style: widget.labelStyle ?? TextStyle(color: AppColors.primaryColor, fontSize: 13, fontFamily: 'Manrope'),
+              style:
+                  widget.labelStyle ??
+                  AppTextStyles.label.copyWith(color: AppColors.primaryColor),
               children: [
                 TextSpan(text: widget.label!),
                 if (widget.showAsterisk)
-                  const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                  TextSpan(
+                    text: ' *',
+                    style: AppTextStyles.body.copyWith(color: Colors.red),
+                  ),
               ],
             ),
           ),
@@ -97,7 +103,9 @@ class _CustomFlexibleDropdownState extends State<CustomFlexibleDropdown> {
         Container(
           height: widget.fieldHeight,
           width: double.infinity,
-          padding: widget.contentPadding ?? const EdgeInsets.symmetric(horizontal: 12),
+          padding:
+              widget.contentPadding ??
+              const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             color: const Color(0xFFF8F7FA),
             borderRadius: BorderRadius.circular(10),
@@ -135,22 +143,30 @@ class _CustomFlexibleDropdownState extends State<CustomFlexibleDropdown> {
                   children: [
                     if (widget.isMultiSelect)
                       Icon(
-                        isSelected ? Icons.check_box : Icons.check_box_outline_blank_outlined,
+                        isSelected
+                            ? Icons.check_box
+                            : Icons.check_box_outline_blank_outlined,
                         size: 20,
                         //color: isSelected ? AppColors.themeColor : Colors.grey,
-                        color:  Color(0xFF8A85FF)
+                        color: Color(0xFF8A85FF),
                       )
                     else if (isSelected)
-                      const Icon(Icons.check, size: 20, color: Color(0xFF8A85FF)),
+                      const Icon(
+                        Icons.check,
+                        size: 20,
+                        color: Color(0xFF8A85FF),
+                      ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         item,
                         style: TextStyle(
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                          color:  AppColors.primaryColor,
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                          color: AppColors.primaryColor,
                           fontFamily: "Manrope",
-                          fontSize: 14
+                          fontSize: 14,
                         ),
                       ),
                     ),
@@ -164,16 +180,14 @@ class _CustomFlexibleDropdownState extends State<CustomFlexibleDropdown> {
                 Expanded(
                   child: Text(
                     _displayText,
-                    style: TextStyle(
-                      color: AppColors.primaryColor,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14,
-                      fontFamily: 'Manrope'
-                    ),
+                    style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Icon(Icons.keyboard_arrow_down, color: AppColors.primaryColor),
+                const Icon(
+                  Icons.keyboard_arrow_down,
+                  color: AppColors.primaryColor,
+                ),
               ],
             ),
           ),
@@ -182,4 +196,3 @@ class _CustomFlexibleDropdownState extends State<CustomFlexibleDropdown> {
     );
   }
 }
-

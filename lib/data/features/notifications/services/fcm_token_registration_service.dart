@@ -17,9 +17,9 @@ class FcmTokenRegistrationService {
     required FcmRegistrationRemoteDataSource remote,
     required StorageService storage,
     DeviceInfoPlugin? deviceInfo,
-  })  : _remote = remote,
-        _storage = storage,
-        _deviceInfo = deviceInfo ?? DeviceInfoPlugin();
+  }) : _remote = remote,
+       _storage = storage,
+       _deviceInfo = deviceInfo ?? DeviceInfoPlugin();
 
   final FcmRegistrationRemoteDataSource _remote;
   final StorageService _storage;
@@ -41,7 +41,9 @@ class FcmTokenRegistrationService {
     try {
       final deviceId = await _resolveDeviceId();
       final deviceInfo = await getDeviceInfo();
-      AppLogger.d('[FCM] Starting token registration: user=${context.userCode}, org=${context.organizationCode}, school=${context.schoolCode}');
+      AppLogger.d(
+        '[FCM] Starting token registration: user=${context.userCode}, org=${context.organizationCode}, school=${context.schoolCode}',
+      );
       await _remote.register(
         FcmRegisterRequestModel(
           userCode: context.userCode,
@@ -54,9 +56,13 @@ class FcmTokenRegistrationService {
           deviceInfo: deviceInfo,
         ),
       );
-      AppLogger.d('[FCM] Token registered successfully with backend for ${context.userCode}');
+      AppLogger.d(
+        '[FCM] Token registered successfully with backend for ${context.userCode}',
+      );
     } catch (e) {
-      AppLogger.w('[FCM] Token registration failed (non-fatal, will not break login): $e');
+      AppLogger.w(
+        '[FCM] Token registration failed (non-fatal, will not break login): $e',
+      );
     }
   }
 
@@ -72,12 +78,12 @@ class FcmTokenRegistrationService {
   }
 
   Future<_SessionContext?> _readSessionContext() async {
-    final userCode =
-        (await _storage.getString(StorageKeys.userCode) ?? '').trim();
+    final userCode = (await _storage.getString(StorageKeys.userCode) ?? '')
+        .trim();
     final organizationCode =
         (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final schoolCode =
-        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
 
     if (userCode.isEmpty || organizationCode.isEmpty || schoolCode.isEmpty) {
       return null;
@@ -91,8 +97,8 @@ class FcmTokenRegistrationService {
       );
     }
 
-    var role =
-        (await _storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
+    var role = (await _storage.getString(StorageKeys.activeSchoolRole) ?? '')
+        .trim();
     if (role.isEmpty) {
       role = await _roleFromRolesJson(organizationCode, schoolCode);
     }
@@ -116,9 +122,7 @@ class FcmTokenRegistrationService {
     final r = raw.trim().toUpperCase();
     if (r.isEmpty) return 'STAFF';
     if (r.contains('GUARDIAN') || r.contains('PARENT')) return 'GUARDIAN';
-    if (r.contains('ADMIN') ||
-        r.contains('DIRECTOR') ||
-        r == 'OWNER') {
+    if (r.contains('ADMIN') || r.contains('DIRECTOR') || r == 'OWNER') {
       return 'SCHOOL_ADMIN';
     }
     return 'STAFF';

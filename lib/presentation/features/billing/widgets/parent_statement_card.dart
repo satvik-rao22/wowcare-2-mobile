@@ -29,10 +29,7 @@ class DemoStatement {
 class ParentStatementCard extends StatelessWidget {
   final DemoStatement statement;
 
-  const ParentStatementCard({
-    super.key,
-    required this.statement,
-  });
+  const ParentStatementCard({super.key, required this.statement});
 
   @override
   Widget build(BuildContext context) {
@@ -54,10 +51,7 @@ class ParentStatementCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          _Badge(
-            label: 'Statement',
-            color: AppColors.billingPaymentBadgeColor,
-          ),
+          _Badge(label: 'Statement', color: AppColors.billingPaymentBadgeColor),
         ],
       ),
       expandedChildren: [

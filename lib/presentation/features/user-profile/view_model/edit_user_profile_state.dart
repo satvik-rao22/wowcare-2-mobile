@@ -9,10 +9,10 @@ class EditUserProfileState extends Equatable {
   });
 
   const EditUserProfileState.initial()
-      : profile = null,
-        profileRevision = 0,
-        isSubmitting = false,
-        loadFailed = false;
+    : profile = null,
+      profileRevision = 0,
+      isSubmitting = false,
+      loadFailed = false;
 
   /// The most recently fetched profile, or null before the first load.
   final StaffProfile? profile;
@@ -43,9 +43,9 @@ class EditUserProfileState extends Equatable {
 
   @override
   List<Object?> get props => [
-        profile,
-        profileRevision,
-        isSubmitting,
-        loadFailed,
-      ];
+    profile,
+    profileRevision,
+    isSubmitting,
+    loadFailed,
+  ];
 }

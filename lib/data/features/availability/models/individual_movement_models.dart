@@ -25,7 +25,9 @@ class IndividualMovementBoardModel {
     );
   }
 
-  factory IndividualMovementBoardModel.fromCacheJson(Map<String, dynamic> json) {
+  factory IndividualMovementBoardModel.fromCacheJson(
+    Map<String, dynamic> json,
+  ) {
     return IndividualMovementBoardModel(
       overdue: _readList(json['overdue']),
       upcoming: _readList(json['upcoming']),

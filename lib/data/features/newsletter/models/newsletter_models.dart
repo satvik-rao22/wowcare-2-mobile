@@ -69,14 +69,15 @@ class NewsletterAttachmentModel extends Equatable {
     final mediaCode = (json['mediaCode'] ?? json['assetCode'] ?? '')
         .toString()
         .trim();
-    final assetUrl = (json['assetUrl'] ??
-            json['url'] ??
-            json['downloadUrl'] ??
-            json['fileUrl'] ??
-            json['publicUrl'] ??
-            '')
-        .toString()
-        .trim();
+    final assetUrl =
+        (json['assetUrl'] ??
+                json['url'] ??
+                json['downloadUrl'] ??
+                json['fileUrl'] ??
+                json['publicUrl'] ??
+                '')
+            .toString()
+            .trim();
     return NewsletterAttachmentModel(
       id: json['id'] as int? ?? 0,
       mediaCode: mediaCode,
@@ -89,8 +90,15 @@ class NewsletterAttachmentModel extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      [id, mediaCode, fileName, mimeType, fileSize, sortOrder, assetUrl];
+  List<Object?> get props => [
+    id,
+    mediaCode,
+    fileName,
+    mimeType,
+    fileSize,
+    sortOrder,
+    assetUrl,
+  ];
 }
 
 class NewsletterRecipientModel extends Equatable {
@@ -109,32 +117,34 @@ class NewsletterRecipientModel extends Equatable {
   factory NewsletterRecipientModel.fromJson(Map<String, dynamic> json) {
     final firstName = (json['firstName'] ?? '').toString().trim();
     final lastName = (json['lastName'] ?? '').toString().trim();
-    final composedName = <String>[firstName, lastName]
-        .where((String part) => part.isNotEmpty)
-        .join(' ');
+    final composedName = <String>[
+      firstName,
+      lastName,
+    ].where((String part) => part.isNotEmpty).join(' ');
     return NewsletterRecipientModel(
       id: json['id'] as int? ?? 0,
       classroomCode: (json['classroomCode'] as String? ?? '').trim(),
       studentCode: (json['studentCode'] ?? json['userCode'] ?? '')
           .toString()
           .trim(),
-      userName: (json['userName'] ??
-              json['studentName'] ??
-              json['recipientName'] ??
-              json['guardianName'] ??
-              json['name'] ??
-              composedName)
-          .toString()
-          .trim(),
+      userName:
+          (json['userName'] ??
+                  json['studentName'] ??
+                  json['recipientName'] ??
+                  json['guardianName'] ??
+                  json['name'] ??
+                  composedName)
+              .toString()
+              .trim(),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'classroomCode': classroomCode,
-        'studentCode': studentCode,
-        'userName': userName,
-      };
+    'id': id,
+    'classroomCode': classroomCode,
+    'studentCode': studentCode,
+    'userName': userName,
+  };
 
   @override
   List<Object?> get props => [id, classroomCode, studentCode, userName];
@@ -188,14 +198,14 @@ class NewsletterModel extends Equatable {
     final componentsJson = json['components'] as List<dynamic>? ?? const [];
     final attachmentsJson = json['attachments'] as List<dynamic>? ?? const [];
 
-    final components = componentsJson
-        .map(
-          (dynamic e) => NewsletterComponentModel.fromJson(
-            e as Map<String, dynamic>,
-          ),
-        )
-        .toList()
-      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final components =
+        componentsJson
+            .map(
+              (dynamic e) =>
+                  NewsletterComponentModel.fromJson(e as Map<String, dynamic>),
+            )
+            .toList()
+          ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
     final subtitle = (json['subtitle'] as String? ?? '').trim();
 
@@ -210,8 +220,8 @@ class NewsletterModel extends Equatable {
           : _summaryFromComponents(components),
       layoutJson: (json['layoutJson'] as String? ?? '').trim(),
       colorTheme: (json['colorTheme'] as String? ?? '').trim(),
-      backgroundPattern:
-          (json['backgroundPattern'] as String? ?? 'plain').trim(),
+      backgroundPattern: (json['backgroundPattern'] as String? ?? 'plain')
+          .trim(),
       status: (json['status'] as String? ?? '').trim(),
       scheduledAt: _parseDateTime(json['scheduledAt']),
       sentAt: _parseDateTime(json['sentAt']),
@@ -221,65 +231,65 @@ class NewsletterModel extends Equatable {
       createdByName: (json['createdByName'] as String? ?? '').trim(),
       recipients: recipientsJson
           .map(
-            (dynamic e) => NewsletterRecipientModel.fromJson(
-              e as Map<String, dynamic>,
-            ),
+            (dynamic e) =>
+                NewsletterRecipientModel.fromJson(e as Map<String, dynamic>),
           )
           .toList(),
       components: components,
-      attachments: attachmentsJson
-          .map(
-            (dynamic e) => NewsletterAttachmentModel.fromJson(
-              e as Map<String, dynamic>,
-            ),
-          )
-          .toList()
-        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder)),
+      attachments:
+          attachmentsJson
+              .map(
+                (dynamic e) => NewsletterAttachmentModel.fromJson(
+                  e as Map<String, dynamic>,
+                ),
+              )
+              .toList()
+            ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder)),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'code': code,
-        'organizationCode': organizationCode,
-        'schoolCode': schoolCode,
-        'title': title,
-        'subtitle': subtitle,
-        'layoutJson': layoutJson,
-        'colorTheme': colorTheme,
-        'backgroundPattern': backgroundPattern,
-        'status': status,
-        'scheduledAt': scheduledAt?.toIso8601String(),
-        'sentAt': sentAt?.toIso8601String(),
-        'createdAt': createdAt?.toIso8601String(),
-        'recipientCount': recipientCount,
-        'createdBy': createdBy,
-        'createdByName': createdByName,
-        'recipients': recipients.map((e) => e.toJson()).toList(),
-        'components': components
-            .map(
-              (NewsletterComponentModel c) => {
-                'id': c.id,
-                'componentType': c.componentType,
-                'sortOrder': c.sortOrder,
-                'contentJson': c.contentJson,
-              },
-            )
-            .toList(),
-        'attachments': attachments
-            .map(
-              (NewsletterAttachmentModel a) => {
-                'id': a.id,
-                'mediaCode': a.mediaCode,
-                'fileName': a.fileName,
-                'mimeType': a.mimeType,
-                'fileSize': a.fileSize,
-                'sortOrder': a.sortOrder,
-                'assetUrl': a.assetUrl,
-              },
-            )
-            .toList(),
-      };
+    'id': id,
+    'code': code,
+    'organizationCode': organizationCode,
+    'schoolCode': schoolCode,
+    'title': title,
+    'subtitle': subtitle,
+    'layoutJson': layoutJson,
+    'colorTheme': colorTheme,
+    'backgroundPattern': backgroundPattern,
+    'status': status,
+    'scheduledAt': scheduledAt?.toIso8601String(),
+    'sentAt': sentAt?.toIso8601String(),
+    'createdAt': createdAt?.toIso8601String(),
+    'recipientCount': recipientCount,
+    'createdBy': createdBy,
+    'createdByName': createdByName,
+    'recipients': recipients.map((e) => e.toJson()).toList(),
+    'components': components
+        .map(
+          (NewsletterComponentModel c) => {
+            'id': c.id,
+            'componentType': c.componentType,
+            'sortOrder': c.sortOrder,
+            'contentJson': c.contentJson,
+          },
+        )
+        .toList(),
+    'attachments': attachments
+        .map(
+          (NewsletterAttachmentModel a) => {
+            'id': a.id,
+            'mediaCode': a.mediaCode,
+            'fileName': a.fileName,
+            'mimeType': a.mimeType,
+            'fileSize': a.fileSize,
+            'sortOrder': a.sortOrder,
+            'assetUrl': a.assetUrl,
+          },
+        )
+        .toList(),
+  };
 
   List<String> get classroomCodes {
     return recipients
@@ -301,25 +311,26 @@ class NewsletterModel extends Equatable {
   }
 
   List<NewsletterRecipientSummary> get recipientSummaries {
-    final summaries = recipients
-        .map((NewsletterRecipientModel r) {
-          final name = r.userName.trim();
-          final code = r.studentCode.trim();
-          final displayName = name.isNotEmpty ? name : code;
-          if (displayName.isEmpty) return null;
-          return NewsletterRecipientSummary(
-            displayName: displayName,
-            userCode: code,
+    final summaries =
+        recipients
+            .map((NewsletterRecipientModel r) {
+              final name = r.userName.trim();
+              final code = r.studentCode.trim();
+              final displayName = name.isNotEmpty ? name : code;
+              if (displayName.isEmpty) return null;
+              return NewsletterRecipientSummary(
+                displayName: displayName,
+                userCode: code,
+              );
+            })
+            .whereType<NewsletterRecipientSummary>()
+            .toList()
+          ..sort(
+            (NewsletterRecipientSummary a, NewsletterRecipientSummary b) => a
+                .displayName
+                .toLowerCase()
+                .compareTo(b.displayName.toLowerCase()),
           );
-        })
-        .whereType<NewsletterRecipientSummary>()
-        .toList()
-      ..sort(
-        (NewsletterRecipientSummary a, NewsletterRecipientSummary b) =>
-            a.displayName.toLowerCase().compareTo(
-                  b.displayName.toLowerCase(),
-                ),
-      );
     final seen = <String>{};
     return summaries.where((summary) {
       final key = summary.userCode.isNotEmpty
@@ -331,26 +342,26 @@ class NewsletterModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        code,
-        organizationCode,
-        schoolCode,
-        title,
-        subtitle,
-        layoutJson,
-        colorTheme,
-        backgroundPattern,
-        status,
-        scheduledAt,
-        sentAt,
-        createdAt,
-        recipientCount,
-        createdBy,
-        createdByName,
-        recipients,
-        components,
-        attachments,
-      ];
+    id,
+    code,
+    organizationCode,
+    schoolCode,
+    title,
+    subtitle,
+    layoutJson,
+    colorTheme,
+    backgroundPattern,
+    status,
+    scheduledAt,
+    sentAt,
+    createdAt,
+    recipientCount,
+    createdBy,
+    createdByName,
+    recipients,
+    components,
+    attachments,
+  ];
 }
 
 String _summaryFromComponents(List<NewsletterComponentModel> components) {
@@ -423,8 +434,8 @@ class NewsletterPageModel extends Equatable {
     final Map<String, dynamic> data = rawData is Map<String, dynamic>
         ? rawData
         : rawData is Map
-            ? Map<String, dynamic>.from(rawData)
-            : <String, dynamic>{};
+        ? Map<String, dynamic>.from(rawData)
+        : <String, dynamic>{};
 
     final content = data['content'] as List<dynamic>? ?? const [];
     final pageableRaw = data['pageable'];
@@ -445,8 +456,8 @@ class NewsletterPageModel extends Equatable {
     final hasMore = totalPages > 0
         ? (pageNumber + 1 < totalPages)
         : (totalElements > 0 &&
-            pageSize > 0 &&
-            (pageNumber + 1) * pageSize < totalElements);
+              pageSize > 0 &&
+              (pageNumber + 1) * pageSize < totalElements);
 
     return NewsletterPageModel(
       items: items,
@@ -459,13 +470,13 @@ class NewsletterPageModel extends Equatable {
   }
 
   Map<String, dynamic> toJson() => {
-        'items': items.map((NewsletterModel e) => e.toJson()).toList(),
-        'page': page,
-        'size': size,
-        'totalPages': totalPages,
-        'totalElements': totalElements,
-        'hasMore': hasMore,
-      };
+    'items': items.map((NewsletterModel e) => e.toJson()).toList(),
+    'page': page,
+    'size': size,
+    'totalPages': totalPages,
+    'totalElements': totalElements,
+    'hasMore': hasMore,
+  };
 
   factory NewsletterPageModel.fromCacheJson(Map<String, dynamic> json) {
     final itemsJson = json['items'] as List<dynamic>? ?? const [];
@@ -484,8 +495,14 @@ class NewsletterPageModel extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 }
 
 DateTime? _parseDateTime(dynamic value) {

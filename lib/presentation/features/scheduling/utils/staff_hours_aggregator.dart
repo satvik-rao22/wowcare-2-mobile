@@ -18,7 +18,10 @@ class StaffHoursAggregator {
       final newAvailable = prev.availableHours + entry.availableHours;
       final newScheduled = prev.scheduledHours + entry.scheduledHours;
       // Calculate unscheduled as the difference to ensure consistency
-      final newUnscheduled = (newAvailable - newScheduled).clamp(0.0, double.infinity);
+      final newUnscheduled = (newAvailable - newScheduled).clamp(
+        0.0,
+        double.infinity,
+      );
 
       map[code] = StaffHoursTotals(
         availableHours: newAvailable,

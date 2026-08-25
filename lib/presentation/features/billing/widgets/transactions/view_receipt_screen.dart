@@ -5,6 +5,7 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/trans
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/date_utils.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class ViewReceiptScreen extends StatefulWidget {
   const ViewReceiptScreen({
@@ -100,8 +101,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   flex: 4,
                   child: Text(
                     'Description',
-                    style: TextStyle(
-                      fontSize: 15,
+                    style: AppTextStyles.body.copyWith(
                       color: AppColors.billingGreyMedium,
                     ),
                     textAlign: TextAlign.start,
@@ -111,8 +111,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   flex: 2,
                   child: Text(
                     'Mode',
-                    style: TextStyle(
-                      fontSize: 15,
+                    style: AppTextStyles.body.copyWith(
                       color: AppColors.billingGreyMedium,
                     ),
                     textAlign: TextAlign.end,
@@ -132,8 +131,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   flex: 2,
                   child: Text(
                     'Amount',
-                    style: TextStyle(
-                      fontSize: 15,
+                    style: AppTextStyles.body.copyWith(
                       color: AppColors.billingGreyMedium,
                     ),
                     textAlign: TextAlign.center,
@@ -150,10 +148,8 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   flex: 4,
                   child: Text(
                     widget.transaction.displayDescription,
-                    style: const TextStyle(
+                    style: AppTextStyles.bodyLarge.copyWith(
                       color: AppColors.primaryColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
                     ),
                     textAlign: TextAlign.start,
                   ),
@@ -162,10 +158,8 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   flex: 2,
                   child: Text(
                     widget.transaction.paymentMode ?? '-',
-                    style: const TextStyle(
+                    style: AppTextStyles.bodyLarge.copyWith(
                       color: AppColors.primaryColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
                     ),
                     textAlign: TextAlign.end,
                   ),
@@ -184,10 +178,8 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   flex: 2,
                   child: Text(
                     '\$${widget.transaction.amount.toStringAsFixed(2)}',
-                    style: const TextStyle(
+                    style: AppTextStyles.bodyLarge.copyWith(
                       color: AppColors.primaryColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -208,8 +200,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   flex: 4,
                   child: Text(
                     'Description',
-                    style: TextStyle(
-                      fontSize: 15,
+                    style: AppTextStyles.body.copyWith(
                       color: AppColors.billingGreyMedium,
                     ),
                     textAlign: TextAlign.start,
@@ -219,8 +210,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   flex: 2,
                   child: Text(
                     'Mode',
-                    style: TextStyle(
-                      fontSize: 15,
+                    style: AppTextStyles.body.copyWith(
                       color: AppColors.billingGreyMedium,
                     ),
                     textAlign: TextAlign.end,
@@ -240,8 +230,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   flex: 2,
                   child: Text(
                     'Amount',
-                    style: TextStyle(
-                      fontSize: 15,
+                    style: AppTextStyles.body.copyWith(
                       color: AppColors.billingGreyMedium,
                     ),
                     textAlign: TextAlign.center,
@@ -258,10 +247,8 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   flex: 4,
                   child: Text(
                     widget.transaction.displayDescription,
-                    style: const TextStyle(
+                    style: AppTextStyles.bodyLarge.copyWith(
                       color: AppColors.primaryColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
                     ),
                     textAlign: TextAlign.start,
                   ),
@@ -270,10 +257,8 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   flex: 2,
                   child: Text(
                     widget.transaction.paymentMode ?? '-',
-                    style: const TextStyle(
+                    style: AppTextStyles.bodyLarge.copyWith(
                       color: AppColors.primaryColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
                     ),
                     textAlign: TextAlign.end,
                   ),
@@ -292,10 +277,8 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   flex: 2,
                   child: Text(
                     '\$${widget.transaction.amount.toStringAsFixed(2)}',
-                    style: const TextStyle(
+                    style: AppTextStyles.bodyLarge.copyWith(
                       color: AppColors.primaryColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -337,20 +320,16 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                       flex: 4,
                       child: Text(
                         description,
-                        style: const TextStyle(
+                        style: AppTextStyles.bodyLarge.copyWith(
                           color: AppColors.primaryColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
                         ),
                         textAlign: TextAlign.start,
                       ),
                     ),
                     Text(
                       displayText,
-                      style: const TextStyle(
+                      style: AppTextStyles.bodyLarge.copyWith(
                         color: AppColors.primaryColor,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
                       ),
                       textAlign: TextAlign.end,
                     ),
@@ -378,7 +357,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
               flex: 4,
               child: Text(
                 'Description',
-                style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
+                style: AppTextStyles.body.copyWith(color: Colors.grey.shade500),
                 textAlign: TextAlign.start,
               ),
             ),
@@ -386,7 +365,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
               flex: 2,
               child: Text(
                 'Amount',
-                style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
+                style: AppTextStyles.body.copyWith(color: Colors.grey.shade500),
                 textAlign: TextAlign.end,
               ),
             ),
@@ -428,20 +407,16 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   flex: 4,
                   child: Text(
                     description,
-                    style: const TextStyle(
+                    style: AppTextStyles.bodyLarge.copyWith(
                       color: AppColors.primaryColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
                     ),
                     textAlign: TextAlign.start,
                   ),
                 ),
                 Text(
                   displayText,
-                  style: const TextStyle(
+                  style: AppTextStyles.bodyLarge.copyWith(
                     color: AppColors.primaryColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
                   ),
                   textAlign: TextAlign.end,
                 ),
@@ -458,10 +433,8 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
       children: [
         Text(
           widget.viewType == 'invoice' ? 'Billed For : ' : 'Payment For : ',
-          style: const TextStyle(
+          style: AppTextStyles.bodyLarge.copyWith(
             color: AppColors.primaryColor,
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
           ),
         ),
         DocumentImageWidget(
@@ -503,10 +476,8 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                 children: [
                   Text(
                     'Invoice Number : ',
-                    style: TextStyle(
-                      fontSize: 15,
+                    style: AppTextStyles.body.copyWith(
                       color: AppColors.billingGreyMedium,
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   Text(
@@ -528,10 +499,8 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                 children: [
                   Text(
                     'Due Date : ',
-                    style: TextStyle(
-                      fontSize: 15,
+                    style: AppTextStyles.body.copyWith(
                       color: AppColors.billingGreyMedium,
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   Text(
@@ -554,10 +523,8 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
               children: [
                 Text(
                   'Payment Date : ',
-                  style: TextStyle(
-                    fontSize: 15,
+                  style: AppTextStyles.body.copyWith(
                     color: Colors.grey.shade500,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 Text(

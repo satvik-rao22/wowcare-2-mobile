@@ -12,11 +12,11 @@ class ClassroomStaffState extends Equatable {
   });
 
   const ClassroomStaffState.initial()
-      : staff = const [],
-        isLoading = false,
-        isRefreshing = false,
-        errorMessage = null,
-        lastClassroomCode = null;
+    : staff = const [],
+      isLoading = false,
+      isRefreshing = false,
+      errorMessage = null,
+      lastClassroomCode = null;
 
   final List<StaffClassroomItem> staff;
   final bool isLoading;
@@ -42,11 +42,10 @@ class ClassroomStaffState extends Equatable {
 
   @override
   List<Object?> get props => [
-        staff,
-        isLoading,
-        isRefreshing,
-        errorMessage,
-        lastClassroomCode,
-      ];
+    staff,
+    isLoading,
+    isRefreshing,
+    errorMessage,
+    lastClassroomCode,
+  ];
 }
-

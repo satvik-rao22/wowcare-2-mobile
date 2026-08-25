@@ -37,6 +37,7 @@ import '../../../../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../../classroom/cubit/classroom_cubit.dart';
 import '../../../../../staff/cubit/staff_cubit.dart';
 import '../../../../bulk_messaging/view/staff_or_student_selection_bulk_messaging.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Standalone full-page Admin Chat screen with GlobalScaffold.
 ///
@@ -811,17 +812,14 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
                         children: [
                           Text(
                             name,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
+                            style: AppTextStyles.title.copyWith(
                               color: Color(0xff573353),
                             ),
                           ),
                           if (isDisabled)
-                            const Text(
+                            Text(
                               'No parent linked',
-                              style: TextStyle(
-                                fontSize: 12,
+                              style: AppTextStyles.bodySmall.copyWith(
                                 color: Color(0xFF636E72),
                               ),
                             )
@@ -829,8 +827,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
                               .isNotEmpty)
                             Text(
                               student.primaryClassroomName!,
-                              style: const TextStyle(
-                                fontSize: 13,
+                              style: AppTextStyles.label.copyWith(
                                 color: Color(0xFF636E72),
                               ),
                             ),
@@ -864,7 +861,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
             _showUnreadOnly
                 ? 'No unread conversations'
                 : 'No results for "${_searchController.text}"',
-            style: const TextStyle(color: Color(0xFF636E72)),
+            style: AppTextStyles.body.copyWith(color: Color(0xFF636E72)),
           ),
         ),
       );
@@ -1042,9 +1039,7 @@ class _ConversationTileContent extends StatelessWidget {
                 ),
                 Text(
                   _formatTime(conversation.lastMessageAt),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                  style: AppTextStyles.caption.copyWith(
                     color: Color(0xFFA0A0A0),
                   ),
                 ),
@@ -1062,9 +1057,8 @@ class _ConversationTileContent extends StatelessWidget {
                       _lastMessagePreviewText(conversation),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: AppTextStyles.body.copyWith(
                         color: Color(0xFF636E72),
-                        fontSize: 14,
                         height: 1.4,
                       ),
                     ),
@@ -1177,9 +1171,7 @@ class _EmptyState extends StatelessWidget {
             hasFilters
                 ? 'No conversations match your filters'
                 : 'No admin chats yet',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+            style: AppTextStyles.title.copyWith(
               color: AppColors.primaryColor.withValues(alpha: 0.5),
             ),
           ),
@@ -1188,7 +1180,7 @@ class _EmptyState extends StatelessWidget {
             hasFilters
                 ? 'Try clearing your filters'
                 : 'Tap the compose button to start one.',
-            style: const TextStyle(fontSize: 13, color: Color(0xFFB2BEC3)),
+            style: AppTextStyles.label.copyWith(color: Color(0xFFB2BEC3)),
           ),
         ],
       ),
@@ -1223,7 +1215,7 @@ class _ErrorBanner extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF856404)),
+              style: AppTextStyles.bodySmall.copyWith(color: Color(0xFF856404)),
             ),
           ),
         ],
@@ -1254,7 +1246,7 @@ class _FullScreenError extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF636E72)),
+              style: AppTextStyles.body.copyWith(color: Color(0xFF636E72)),
             ),
             const SizedBox(height: 20),
             OutlinedButton.icon(

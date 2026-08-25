@@ -27,7 +27,8 @@ class NewsletterRichHtmlText extends StatelessWidget {
     final String data = htmlData.trim();
     if (data.isEmpty) return const SizedBox.shrink();
 
-    final TextStyle defaults = baseStyle ??
+    final TextStyle defaults =
+        baseStyle ??
         TextStyle(
           color: isHeading ? theme.heading : theme.body,
           fontSize: isHeading ? 22 : 15,
@@ -85,9 +86,7 @@ class NewsletterRichHtmlText extends StatelessWidget {
         margin: html.Margins.zero,
         padding: html.HtmlPaddings.zero,
       ),
-      'br': html.Style(
-        height: html.Height(6),
-      ),
+      'br': html.Style(height: html.Height(6)),
       'ol': html.Style(
         display: html.Display.block,
         margin: html.Margins.only(bottom: 8, top: 4),
@@ -105,33 +104,15 @@ class NewsletterRichHtmlText extends StatelessWidget {
         margin: html.Margins.only(bottom: 4),
         lineHeight: html.LineHeight(1.45),
       ),
-      'u': html.Style(
-        textDecoration: TextDecoration.underline,
-      ),
-      'ins': html.Style(
-        textDecoration: TextDecoration.underline,
-      ),
-      's': html.Style(
-        textDecoration: TextDecoration.lineThrough,
-      ),
-      'strike': html.Style(
-        textDecoration: TextDecoration.lineThrough,
-      ),
-      'del': html.Style(
-        textDecoration: TextDecoration.lineThrough,
-      ),
-      'strong': html.Style(
-        fontWeight: FontWeight.w700,
-      ),
-      'b': html.Style(
-        fontWeight: FontWeight.w700,
-      ),
-      'em': html.Style(
-        fontStyle: FontStyle.italic,
-      ),
-      'i': html.Style(
-        fontStyle: FontStyle.italic,
-      ),
+      'u': html.Style(textDecoration: TextDecoration.underline),
+      'ins': html.Style(textDecoration: TextDecoration.underline),
+      's': html.Style(textDecoration: TextDecoration.lineThrough),
+      'strike': html.Style(textDecoration: TextDecoration.lineThrough),
+      'del': html.Style(textDecoration: TextDecoration.lineThrough),
+      'strong': html.Style(fontWeight: FontWeight.w700),
+      'b': html.Style(fontWeight: FontWeight.w700),
+      'em': html.Style(fontStyle: FontStyle.italic),
+      'i': html.Style(fontStyle: FontStyle.italic),
       'h1': html.Style(
         fontSize: html.FontSize(24),
         fontWeight: FontWeight.w700,
@@ -175,9 +156,7 @@ class NewsletterRichHtmlText extends StatelessWidget {
       'blockquote': html.Style(
         margin: html.Margins.symmetric(vertical: 8),
         padding: html.HtmlPaddings.only(left: 12),
-        border: Border(
-          left: BorderSide(color: theme.divider, width: 3),
-        ),
+        border: Border(left: BorderSide(color: theme.divider, width: 3)),
       ),
       'code': html.Style(
         fontFamily: 'monospace',
@@ -201,9 +180,7 @@ class NewsletterRichHtmlText extends StatelessWidget {
       ),
       'hr': html.Style(
         margin: html.Margins.symmetric(vertical: 10),
-        border: Border(
-          top: BorderSide(color: theme.divider, width: 1),
-        ),
+        border: Border(top: BorderSide(color: theme.divider, width: 1)),
       ),
     };
   }

@@ -18,6 +18,7 @@ import 'package:wowcare/presentation/features/scheduling/widgets/staff_day_sched
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_schedule_tile.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// "My Shifts" card for dashboard. Shows staff profile, hour summary tiles, and full calendar.
 /// Matches the visual style of StaffSchedulingScreen exactly.
@@ -260,16 +261,15 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
                               // ── Shift Calendar (from scheduling screen) ────────
                               if (state.schoolStartTime.isEmpty ||
                                   state.schoolEndTime.isEmpty)
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 24),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 24,
+                                  ),
                                   child: Center(
                                     child: Text(
                                       'No school hours configured for this day.',
-                                      style: TextStyle(
-                                        fontFamily: 'Manrope',
+                                      style: AppTextStyles.body.copyWith(
                                         color: AppColors.primaryColor,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
                                       ),
                                       textAlign: TextAlign.center,
                                     ),
@@ -445,11 +445,8 @@ class _StaffProfileHeader extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   designation,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
+                  style: AppTextStyles.body.copyWith(
                     color: AppColors.primaryColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
                   ),
                   softWrap: true,
                 ),
@@ -460,11 +457,8 @@ class _StaffProfileHeader extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   classroom,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
+                  style: AppTextStyles.body.copyWith(
                     color: AppColors.primaryColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
                   ),
                   softWrap: true,
                 ),

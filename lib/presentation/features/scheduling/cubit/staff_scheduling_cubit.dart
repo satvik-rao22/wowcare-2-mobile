@@ -30,13 +30,13 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
     required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
     required StaffRepository staffRepository,
     required StorageService storageService,
-  })  : _schedulingStaffListCubit = schedulingStaffListCubit,
-        _getSchoolStaffShiftsUseCase = getSchoolStaffShiftsUseCase,
-        _getStaffShiftHoursRangeUseCase = getStaffShiftHoursRangeUseCase,
-        _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
-        _staffRepository = staffRepository,
-        _storageService = storageService,
-        super(StaffSchedulingState.initial());
+  }) : _schedulingStaffListCubit = schedulingStaffListCubit,
+       _getSchoolStaffShiftsUseCase = getSchoolStaffShiftsUseCase,
+       _getStaffShiftHoursRangeUseCase = getStaffShiftHoursRangeUseCase,
+       _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
+       _staffRepository = staffRepository,
+       _storageService = storageService,
+       super(StaffSchedulingState.initial());
 
   final SchedulingStaffListCubit _schedulingStaffListCubit;
   // Uses the school-wide non-paginated `/api/v1/staff-shifts` endpoint and
@@ -83,7 +83,8 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
   }) async {
     final code = (loggedInStaffCode ?? '').trim();
     final nextLoggedInStaffCode = code.isNotEmpty ? code : null;
-    final scopeChanged = _isStaffPersonaScope != isStaffPersona ||
+    final scopeChanged =
+        _isStaffPersonaScope != isStaffPersona ||
         _loggedInStaffCode != nextLoggedInStaffCode;
 
     _isStaffPersonaScope = isStaffPersona;
@@ -107,8 +108,8 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
       visibleStaff = (_loggedInStaffCode == null)
           ? const <StaffMember>[]
           : allStaff
-              .where((s) => s.code == _loggedInStaffCode)
-              .toList(growable: false);
+                .where((s) => s.code == _loggedInStaffCode)
+                .toList(growable: false);
     }
 
     final previousCode = state.selectedStaffCode;
@@ -120,12 +121,14 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
       nextCode = visibleStaff.isNotEmpty ? visibleStaff.first.code : null;
     }
 
-    emit(state.copyWith(
-      isStaffPersonaScope: _isStaffPersonaScope,
-      staffList: visibleStaff,
-      selectedStaffCode: nextCode,
-      clearSelectedStaffCode: nextCode == null,
-    ));
+    emit(
+      state.copyWith(
+        isStaffPersonaScope: _isStaffPersonaScope,
+        staffList: visibleStaff,
+        selectedStaffCode: nextCode,
+        clearSelectedStaffCode: nextCode == null,
+      ),
+    );
 
     if (nextCode != null && nextCode != previousCode) {
       await _loadShiftsForSelection();
@@ -164,10 +167,7 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
 
   Future<void> loadInitial() async {
     try {
-      await Future.wait([
-        _loadSchoolHours(),
-        _loadClassroomNames(),
-      ]);
+      await Future.wait([_loadSchoolHours(), _loadClassroomNames()]);
       await _loadAllStaff(selectFirst: true);
     } finally {
       if (!isClosed) {
@@ -177,14 +177,10 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
   }
 
   Future<void> refresh() async {
-    await Future.wait([
-      _loadSchoolHours(),
-      _loadClassroomNames(),
-    ]);
+    await Future.wait([_loadSchoolHours(), _loadClassroomNames()]);
     await _loadAllStaff(selectFirst: false, force: true);
     await _loadShiftsForSelection();
   }
-
 
   Future<void> _loadClassroomNames() async {
     try {
@@ -234,8 +230,7 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
     StaffMember? staff,
   ) {
     final resolver = state.classroomResolver;
-    final fallbackRoom =
-        staff != null ? resolver.resolveForStaff(staff) : '';
+    final fallbackRoom = staff != null ? resolver.resolveForStaff(staff) : '';
 
     return StaffShiftDaySummary(
       availableHours: summary.availableHours,
@@ -247,8 +242,8 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
               room: b.isBreak
                   ? b.room
                   : (b.room.isNotEmpty
-                      ? resolver.resolveShiftRoom(b.room)
-                      : fallbackRoom),
+                        ? resolver.resolveShiftRoom(b.room)
+                        : fallbackRoom),
               start: b.start,
               end: b.end,
               isBreak: b.isBreak,
@@ -261,10 +256,7 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
 
   void _reapplyShiftSummaryLabels() {
     if (state.shiftSummary.blocks.isEmpty) return;
-    final labeled = _labelShiftSummary(
-      state.shiftSummary,
-      state.selectedStaff,
-    );
+    final labeled = _labelShiftSummary(state.shiftSummary, state.selectedStaff);
     emit(state.copyWith(shiftSummary: labeled));
   }
 
@@ -287,8 +279,7 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
         return;
       }
 
-      final days =
-          await _staffRepository.getSchoolRegularSchedules(
+      final days = await _staffRepository.getSchoolRegularSchedules(
         schoolCode: schoolCode,
       );
       _schoolHoursResolver = SchoolHoursResolver.fromDays(days);
@@ -315,12 +306,7 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
     final hours = resolver?.hoursFor(state.selectedDay);
 
     if (hours == null) {
-      emit(
-        state.copyWith(
-          clearSchoolHours: true,
-          hasSchoolHoursForDay: false,
-        ),
-      );
+      emit(state.copyWith(clearSchoolHours: true, hasSchoolHoursForDay: false));
       return;
     }
 
@@ -339,31 +325,20 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
     bool silent = false,
   }) async {
     if (!silent) {
-      emit(
-        state.copyWith(
-          isLoadingStaff: true,
-          clearError: true,
-        ),
-      );
+      emit(state.copyWith(isLoadingStaff: true, clearError: true));
     }
 
     try {
       // Delegated to SchedulingStaffListCubit which calls the staff API once
       // with `status=ACTIVE&status=UPCOMING` and no pagination. Singleton —
       // returns cached data on repeat calls unless [force] is set.
-      final allStaff =
-          await _schedulingStaffListCubit.load(force: force);
+      final allStaff = await _schedulingStaffListCubit.load(force: force);
 
       if (isClosed) return;
 
       final listError = _schedulingStaffListCubit.state.errorMessage;
       if (listError != null) {
-        emit(
-          state.copyWith(
-            isLoadingStaff: false,
-            errorMessage: listError,
-          ),
-        );
+        emit(state.copyWith(isLoadingStaff: false, errorMessage: listError));
         return;
       }
 
@@ -467,8 +442,9 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
       if (isClosed) return;
 
       final filtered = shifts
-          .where((s) =>
-              s.staffCode == staffCode && _isSameDay(s.shiftDate, day))
+          .where(
+            (s) => s.staffCode == staffCode && _isSameDay(s.shiftDate, day),
+          )
           .toList(growable: false);
 
       var totals = StaffHoursTotals.zero;
@@ -493,12 +469,7 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
       final raw = _buildSummaryFromShifts(filtered, totals: totals);
       final enriched = _labelShiftSummary(raw, staff);
 
-      emit(
-        state.copyWith(
-          shiftSummary: enriched,
-          isLoadingShifts: false,
-        ),
-      );
+      emit(state.copyWith(shiftSummary: enriched, isLoadingShifts: false));
     } catch (e) {
       if (isClosed) return;
       if (silent) return;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class CustomAddNoteButton extends StatelessWidget {
   final VoidCallback onTap;
@@ -20,13 +21,9 @@ class CustomAddNoteButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               "Add Note",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF4B2E4C),
-              ),
+              style: AppTextStyles.bodyLarge.copyWith(color: Color(0xFF4B2E4C)),
             ),
             Container(
               padding: const EdgeInsets.all(4),

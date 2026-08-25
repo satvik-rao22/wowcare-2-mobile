@@ -131,7 +131,8 @@ class _AttachmentTileState extends State<_AttachmentTile> {
     final String code = widget.attachment.mediaCode.trim();
     if (code.isEmpty) return '';
     try {
-      final ImageUploadService uploadService = serviceLocator<ImageUploadService>();
+      final ImageUploadService uploadService =
+          serviceLocator<ImageUploadService>();
       return await uploadService.getMediaAssetUrlByCode(assetCode: code);
     } catch (_) {
       return '';
@@ -165,7 +166,9 @@ class _AttachmentTileState extends State<_AttachmentTile> {
     if (mime.contains('word') || mime.contains('document')) {
       return Icons.description_outlined;
     }
-    if (mime.contains('sheet') || mime.contains('excel') || mime.contains('csv')) {
+    if (mime.contains('sheet') ||
+        mime.contains('excel') ||
+        mime.contains('csv')) {
       return Icons.table_chart_outlined;
     }
     return Icons.insert_drive_file_outlined;
@@ -183,15 +186,13 @@ class _AttachmentTileState extends State<_AttachmentTile> {
       builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
         final bool hasUrl = (snapshot.data ?? '').trim().isNotEmpty;
         final String url = (snapshot.data ?? '').trim();
-        final bool isLoading = snapshot.connectionState == ConnectionState.waiting;
+        final bool isLoading =
+            snapshot.connectionState == ConnectionState.waiting;
 
         return InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: hasUrl
-              ? () => _openAttachment(
-                    url: url,
-                    isImage: attachment.isImage,
-                  )
+              ? () => _openAttachment(url: url, isImage: attachment.isImage)
               : null,
           child: Container(
             padding: const EdgeInsets.all(10),
@@ -245,7 +246,13 @@ class _AttachmentTileState extends State<_AttachmentTile> {
     required String url,
   }) {
     if (isLoading) {
-      return const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)));
+      return const Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
     }
 
     if (attachment.isImage && hasUrl) {
@@ -280,4 +287,3 @@ class _AttachmentTileState extends State<_AttachmentTile> {
     );
   }
 }
-

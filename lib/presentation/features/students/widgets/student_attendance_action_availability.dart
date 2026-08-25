@@ -105,7 +105,9 @@ Map<String, String> studentAttendanceDisabledReasons(
     if (!gate.canTransfer)
       'Transfer':
           'Transfer can only be done for Students/Staff already signed in.',
-    if (!gate.canMarkAbsent) 'Absent': 'Absent can only be marked for Students/Staff not yet signed in',
+    if (!gate.canMarkAbsent)
+      'Absent':
+          'Absent can only be marked for Students/Staff not yet signed in',
   };
 }
 

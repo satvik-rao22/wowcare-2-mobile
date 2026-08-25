@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class ProgressItemHelper {
   const ProgressItemHelper({
@@ -83,10 +84,7 @@ class CustomStatBarCard extends StatelessWidget {
             titleText,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: AppColors.primaryColor.withValues(alpha: 0.8),
-              fontSize: 14,
-            ),
+            style: AppTextStyles.body.copyWith(color: AppColors.primaryColor.withValues(alpha: 0.8)),
           ),
           if (valueText.isNotEmpty)
             Text(
@@ -325,11 +323,7 @@ class CustomStatBarCard extends StatelessWidget {
                         Text(
                           title,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            color: const Color(0xff573353),
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: AppTextStyles.body.copyWith(color: const Color(0xff573353)),
                         ),
                       ],
                     ),
@@ -347,11 +341,7 @@ class CustomStatBarCard extends StatelessWidget {
                       Text(
                         title,
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          color: const Color(0xff573353),
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: AppTextStyles.body.copyWith(color: const Color(0xff573353)),
                       ),
                     ],
                   ),

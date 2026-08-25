@@ -20,6 +20,7 @@ import 'edit_create_activity_screens/nap_activity.dart';
 import 'edit_create_activity_screens/notes_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class ChooseActivity extends StatefulWidget {
   const ChooseActivity({super.key, required this.selectedStudents});
@@ -171,7 +172,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
               child: Text(
                 _getDisabledActivityTooltip(activityName),
                 softWrap: true,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: AppTextStyles.bodySmall.copyWith(color: Colors.white),
               ),
             ),
           ),
@@ -276,7 +277,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
                 ? const Center(
                     child: Text(
                       'No activities available from API.',
-                      style: TextStyle(fontSize: 14),
+                      style: AppTextStyles.body,
                     ),
                   )
                 : GridView.builder(
@@ -360,9 +361,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
                                       maxLines: activityName.contains(' ')
                                           ? 2
                                           : 1,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
+                                      style: AppTextStyles.body.copyWith(
                                         color: isDisabled
                                             ? Colors.grey
                                             : AppColors.primaryColor,

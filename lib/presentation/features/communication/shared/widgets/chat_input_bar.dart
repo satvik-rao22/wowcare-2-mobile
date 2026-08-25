@@ -13,6 +13,7 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// WhatsApp-style composable chat input bar.
 ///
@@ -629,11 +630,9 @@ class _DisabledInputRow extends StatelessWidget {
               ),
               child: Text(
                 message,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontStyle: FontStyle.italic,
-                  fontFamily: 'Manrope',
+                style: AppTextStyles.label.copyWith(
                   color: AppColors.primaryColor.withValues(alpha: 0.6),
+                  fontStyle: FontStyle.italic,
                 ),
               ),
             ),
@@ -728,19 +727,13 @@ class _InputRow extends StatelessWidget {
                 maxLength != null
                     ? '$visibleLength/$maxLength'
                     : '$visibleLength',
-                style: const TextStyle(
-                  fontSize: 12,
+                style: AppTextStyles.bodySmall.copyWith(
                   color: Color(0xFFB2BEC3),
-                  fontFamily: 'Manrope',
                 ),
               );
             },
         textCapitalization: TextCapitalization.sentences,
-        style: const TextStyle(
-          fontSize: 15,
-          color: Color(0xFF1E293B),
-          fontFamily: 'Manrope',
-        ),
+        style: AppTextStyles.body.copyWith(color: Color(0xFF1E293B)),
         onChanged: (value) {
           if (controller is HtmlAwareTextController) {
             final textController = controller as HtmlAwareTextController;
@@ -754,11 +747,7 @@ class _InputRow extends StatelessWidget {
         },
         decoration: InputDecoration(
           hintText: hintText,
-          hintStyle: const TextStyle(
-            color: Color(0xFFB2BEC3),
-            fontSize: 15,
-            fontFamily: 'Manrope',
-          ),
+          hintStyle: AppTextStyles.body.copyWith(color: Color(0xFFB2BEC3)),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,

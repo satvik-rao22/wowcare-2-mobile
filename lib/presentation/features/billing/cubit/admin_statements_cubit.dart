@@ -16,10 +16,10 @@ class AdminStatementsCubit extends Cubit<AdminStatementsState> {
     required GetBillingStatementsUseCase getStatements,
     required BillingStatementsRepository statementsRepository,
     required FileDownloadService fileDownloadService,
-  })  : _getStatements = getStatements,
-        _repository = statementsRepository,
-        _fileDownloadService = fileDownloadService,
-        super(const AdminStatementsState.initial());
+  }) : _getStatements = getStatements,
+       _repository = statementsRepository,
+       _fileDownloadService = fileDownloadService,
+       super(const AdminStatementsState.initial());
 
   final GetBillingStatementsUseCase _getStatements;
   final BillingStatementsRepository _repository;
@@ -31,26 +31,26 @@ class AdminStatementsCubit extends Cubit<AdminStatementsState> {
     _subscriberCode = subscriberCode.trim();
     emit(state.copyWith(isLoading: true, errorMessage: ''));
     try {
-      final statements =
-          await _getStatements(subscriberCode: _subscriberCode);
+      final statements = await _getStatements(subscriberCode: _subscriberCode);
       if (isClosed) return;
       emit(state.copyWith(isLoading: false, statements: statements));
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoading: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
   Future<void> refresh() => load(_subscriberCode);
 
   void applyDateRange(DateTime? start, DateTime? end) {
-    emit(state.copyWith(
-      customStartDate: () => start,
-      customEndDate: () => end,
-    ));
+    emit(
+      state.copyWith(customStartDate: () => start, customEndDate: () => end),
+    );
   }
 
   /// Generates a new statement via POST and refreshes the list on success.

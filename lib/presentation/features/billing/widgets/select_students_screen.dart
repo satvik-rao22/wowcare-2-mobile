@@ -13,10 +13,11 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class SelectStudentsScreen extends StatefulWidget {
   const SelectStudentsScreen({Key? key, this.invoiceData, this.onNext})
-      : super(key: key);
+    : super(key: key);
   final Map<String, dynamic>? invoiceData;
 
   /// Optional override for the "Next" action. When provided, it's called with
@@ -55,9 +56,9 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
       child: BlocBuilder<SelectStudentsCubit, SelectStudentsState>(
         builder: (context, state) {
           final filtered = state.filteredStudents;
-          final visibleCodes =
-              filtered.map((student) => student.code).toList();
-          final bool areAllSelected = filtered.isNotEmpty &&
+          final visibleCodes = filtered.map((student) => student.code).toList();
+          final bool areAllSelected =
+              filtered.isNotEmpty &&
               filtered.every(
                 (student) => state.selectedStudentCodes.contains(student.code),
               );
@@ -136,10 +137,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                 CustomCheckbox(
                   value: areAllSelected,
                   label: 'Select All',
-                  labelStyle: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                  labelStyle: AppTextStyles.body.copyWith(
                     color: AppColors.billingTextColor,
                   ),
                   onChanged: (val) =>
@@ -150,48 +148,44 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                   child: state.isLoading
                       ? const Center(child: PrimaryCircularLoader())
                       : (state.errorMessage != null && filtered.isEmpty)
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(24),
-                                child: Text(
-                                  state.errorMessage!,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 14,
-                                    color: AppColors.billingTextColor,
-                                  ),
-                                ),
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              state.errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: AppTextStyles.body.copyWith(
+                                color: AppColors.billingTextColor,
                               ),
-                            )
-                          : filtered.isEmpty
-                              ? const Center(
-                                  child: Text(
-                                    'No students found.',
-                                    style: TextStyle(
-                                      fontFamily: 'Manrope',
-                                      fontSize: 14,
-                                      color: AppColors.billingTextColor,
-                                    ),
-                                  ),
-                                )
-                              : ListView.builder(
-                                  itemCount: filtered.length,
-                                  itemBuilder: (context, index) {
-                                    final student = filtered[index];
-                                    final isChecked = state.selectedStudentCodes
-                                        .contains(student.code);
-                                    return _StudentRow(
-                                      student: student,
-                                      isChecked: isChecked,
-                                      onTap: () =>
-                                          _cubit.toggleStudent(student.code),
-                                      onChanged: (val) =>
-                                          _cubit.setStudentSelected(
-                                              student.code, val ?? false),
-                                    );
-                                  },
-                                ),
+                            ),
+                          ),
+                        )
+                      : filtered.isEmpty
+                      ? Center(
+                          child: Text(
+                            'No students found.',
+                            style: AppTextStyles.body.copyWith(
+                              color: AppColors.billingTextColor,
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: filtered.length,
+                          itemBuilder: (context, index) {
+                            final student = filtered[index];
+                            final isChecked = state.selectedStudentCodes
+                                .contains(student.code);
+                            return _StudentRow(
+                              student: student,
+                              isChecked: isChecked,
+                              onTap: () => _cubit.toggleStudent(student.code),
+                              onChanged: (val) => _cubit.setStudentSelected(
+                                student.code,
+                                val ?? false,
+                              ),
+                            );
+                          },
+                        ),
                 ),
               ],
             ),
@@ -261,12 +255,9 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
               Navigator.of(context).pop(true);
             }
           },
-          child: const Text(
+          child: Text(
             'Next',
-            style: TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 16.0,
-              fontWeight: FontWeight.w600,
+            style: AppTextStyles.title.copyWith(
               color: AppColors.billingCardColor,
             ),
           ),
@@ -326,10 +317,7 @@ class _StudentRow extends StatelessWidget {
                 children: [
                   Text(
                     student.fullName,
-                    style: const TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                    style: AppTextStyles.body.copyWith(
                       color: AppColors.billingTextColor,
                       height: 19 / 14,
                     ),
@@ -338,9 +326,7 @@ class _StudentRow extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: const TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 12,
+                      style: AppTextStyles.bodySmall.copyWith(
                         color: Color(0x99573353),
                       ),
                     ),
@@ -348,10 +334,7 @@ class _StudentRow extends StatelessWidget {
                 ],
               ),
             ),
-            CustomCheckbox(
-              value: isChecked,
-              onChanged: onChanged,
-            ),
+            CustomCheckbox(value: isChecked, onChanged: onChanged),
           ],
         ),
       ),

@@ -123,7 +123,10 @@ class ChatScrollBehavior {
     // Always scroll to bottom when keyboard opens, to show latest message
     // above the keyboard input field, matching WhatsApp behavior
     _keyboardSettleTimer?.cancel();
-    _keyboardSettleTimer = Timer(const Duration(milliseconds: 120), scrollToBottom);
+    _keyboardSettleTimer = Timer(
+      const Duration(milliseconds: 120),
+      scrollToBottom,
+    );
   }
 
   /// Call whenever the message list grows with a message that wasn't sent

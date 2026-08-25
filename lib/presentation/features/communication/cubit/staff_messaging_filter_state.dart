@@ -31,18 +31,18 @@ class StaffMessagingFilterState extends Equatable {
   });
 
   const StaffMessagingFilterState.initial()
-      : items = const [],
-        currentPage = 0,
-        hasMore = true,
-        isLoading = true,
-        isRefreshing = false,
-        isLoadingMore = false,
-        selectedClassroomCode = null,
-        selectedClassroomName = null,
-        selectedDesignation = null,
-        selectedStaffStatus = null,
-        searchQuery = '',
-        errorMessage = null;
+    : items = const [],
+      currentPage = 0,
+      hasMore = true,
+      isLoading = true,
+      isRefreshing = false,
+      isLoadingMore = false,
+      selectedClassroomCode = null,
+      selectedClassroomName = null,
+      selectedDesignation = null,
+      selectedStaffStatus = null,
+      searchQuery = '',
+      errorMessage = null;
 
   StaffMessagingFilterState copyWith({
     List<StaffMember>? items,
@@ -68,10 +68,18 @@ class StaffMessagingFilterState extends Equatable {
       isLoading: isLoading ?? this.isLoading,
       isRefreshing: isRefreshing ?? this.isRefreshing,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
-      selectedClassroomCode: clearClassroom ? null : (selectedClassroomCode ?? this.selectedClassroomCode),
-      selectedClassroomName: clearClassroom ? null : (selectedClassroomName ?? this.selectedClassroomName),
-      selectedDesignation: clearDesignation ? null : (selectedDesignation ?? this.selectedDesignation),
-      selectedStaffStatus: clearStaffStatus ? null : (selectedStaffStatus ?? this.selectedStaffStatus),
+      selectedClassroomCode: clearClassroom
+          ? null
+          : (selectedClassroomCode ?? this.selectedClassroomCode),
+      selectedClassroomName: clearClassroom
+          ? null
+          : (selectedClassroomName ?? this.selectedClassroomName),
+      selectedDesignation: clearDesignation
+          ? null
+          : (selectedDesignation ?? this.selectedDesignation),
+      selectedStaffStatus: clearStaffStatus
+          ? null
+          : (selectedStaffStatus ?? this.selectedStaffStatus),
       searchQuery: searchQuery ?? this.searchQuery,
       errorMessage: errorMessage,
     );
@@ -79,17 +87,17 @@ class StaffMessagingFilterState extends Equatable {
 
   @override
   List<Object?> get props => [
-        items,
-        currentPage,
-        hasMore,
-        isLoading,
-        isRefreshing,
-        isLoadingMore,
-        selectedClassroomCode,
-        selectedClassroomName,
-        selectedDesignation,
-        selectedStaffStatus,
-        searchQuery,
-        errorMessage,
-      ];
+    items,
+    currentPage,
+    hasMore,
+    isLoading,
+    isRefreshing,
+    isLoadingMore,
+    selectedClassroomCode,
+    selectedClassroomName,
+    selectedDesignation,
+    selectedStaffStatus,
+    searchQuery,
+    errorMessage,
+  ];
 }

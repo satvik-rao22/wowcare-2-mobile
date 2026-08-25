@@ -9,6 +9,5 @@ class UpdateInvoiceUseCase {
   Future<InvoiceResultEntity> call({
     required String code,
     required UpdateInvoiceParams params,
-  }) =>
-      _repository.updateInvoice(code: code, params: params);
+  }) => _repository.updateInvoice(code: code, params: params);
 }

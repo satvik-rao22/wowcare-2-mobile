@@ -11,9 +11,9 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
   ClassroomStudentsCubit({
     required GetStudentClassroomListUseCase getStudentClassroomListUseCase,
     required StorageService storageService,
-  })  : _getStudentClassroomListUseCase = getStudentClassroomListUseCase,
-        _storageService = storageService,
-        super(const ClassroomStudentsState.initial());
+  }) : _getStudentClassroomListUseCase = getStudentClassroomListUseCase,
+       _storageService = storageService,
+       super(const ClassroomStudentsState.initial());
 
   final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
   final StorageService _storageService;
@@ -39,12 +39,9 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
             .where((e) => e.isNotEmpty)
             .toList()
           ..sort();
-    final tg =
-        List<String>.from(tagCodes ?? const <String>[])
-            .map((e) => e.trim())
-            .where((e) => e.isNotEmpty)
-            .toList()
-          ..sort();
+    final tg = List<String>.from(
+      tagCodes ?? const <String>[],
+    ).map((e) => e.trim()).where((e) => e.isNotEmpty).toList()..sort();
     return [
       classroomCode.trim(),
       's=${(search ?? '').trim().toLowerCase()}',
@@ -204,4 +201,3 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
     }).toList();
   }
 }
-

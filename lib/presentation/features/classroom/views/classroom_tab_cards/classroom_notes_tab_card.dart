@@ -121,8 +121,10 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
   Future<ConversationEntity?> _resolveConversation() async {
     final code = widget.selectedRoom?.code;
     if (code == null || code.isEmpty) return null;
-    final result = await serviceLocator<GetOrCreateClassroomChatUseCase>()
-        .call(code, classroomName: widget.selectedRoom?.name);
+    final result = await serviceLocator<GetOrCreateClassroomChatUseCase>().call(
+      code,
+      classroomName: widget.selectedRoom?.name,
+    );
     final conversation = result.fold((_) => null, (c) => c);
     if (conversation != null && mounted) {
       // Keep our own reference in sync so a later rebuild embeds the real thread.
@@ -170,7 +172,9 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
     return ConversationThreadScreen(
       // Rebuild the thread when a draft becomes a real conversation so the
       // cubit binds to the real conversationCode from the start.
-      key: ValueKey(_isDraft ? 'draft:${widget.selectedRoom?.code}' : _conversation!.code),
+      key: ValueKey(
+        _isDraft ? 'draft:${widget.selectedRoom?.code}' : _conversation!.code,
+      ),
       conversation: _conversation!,
       showOwnScaffold: false,
       isDraft: _isDraft,

@@ -5,6 +5,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../core/util/core_utils.dart';
 import '../view/activity_daily_tab.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class ActivityMediaViewer extends StatefulWidget {
   final ActivityItem activity;
@@ -121,12 +122,7 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
         if (widget.label != null)
           Text(
             widget.label!,
-            style: TextStyle(
-              color: AppColors.primaryColor,
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              fontFamily: 'Manrope',
-            ),
+            style: AppTextStyles.label.copyWith(color: AppColors.primaryColor),
           ),
         if (widget.label != null)
           SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
@@ -236,7 +232,7 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
   Widget _buildVideoUnsupportedPlaceholder() {
     return Container(
       color: Colors.black12.withValues(alpha: 0.25),
-      child: const Center(
+      child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -244,7 +240,7 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
             SizedBox(height: 8),
             Text(
               'Video preview unavailable',
-              style: TextStyle(color: Colors.white70),
+              style: AppTextStyles.body.copyWith(color: Colors.white70),
             ),
           ],
         ),
@@ -268,7 +264,7 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
   Widget _buildProcessingPlaceholder() {
     return Container(
       color: const Color(0xFFF2F8FF),
-      child: const Center(
+      child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -283,10 +279,8 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
             SizedBox(height: 10),
             Text(
               'Video processing...',
-              style: TextStyle(
+              style: AppTextStyles.sectionHeader.copyWith(
                 color: Color(0xFF1F3B64),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ],

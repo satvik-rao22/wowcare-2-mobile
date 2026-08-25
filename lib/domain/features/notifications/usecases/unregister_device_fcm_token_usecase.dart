@@ -3,10 +3,7 @@ import '../repositories/push_notification_repository.dart';
 
 /// Removes the device FCM token from the backend on logout.
 class UnregisterDeviceFcmTokenUseCase {
-  UnregisterDeviceFcmTokenUseCase(
-    this._fcmRegistration,
-    this._pushRepository,
-  );
+  UnregisterDeviceFcmTokenUseCase(this._fcmRegistration, this._pushRepository);
 
   final FcmRegistrationRepository _fcmRegistration;
   final PushNotificationRepository _pushRepository;

@@ -8,10 +8,10 @@ class SchedulingStaffListState extends Equatable {
   });
 
   factory SchedulingStaffListState.initial() => const SchedulingStaffListState(
-        staff: <StaffMember>[],
-        isLoading: false,
-        errorMessage: null,
-      );
+    staff: <StaffMember>[],
+    isLoading: false,
+    errorMessage: null,
+  );
 
   final List<StaffMember> staff;
   final bool isLoading;

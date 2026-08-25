@@ -247,7 +247,8 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
         schoolName: schoolName.isNotEmpty ? schoolName : null,
         roomCodes: classroomCodes.isNotEmpty ? classroomCodes : null,
         studentCodes: studentCodes.isNotEmpty ? studentCodes : null,
-        folderClassGrouping: widget.reportType == ReportType.billingPaymentSummary
+        folderClassGrouping:
+            widget.reportType == ReportType.billingPaymentSummary
             ? _folderClassGrouping
             : null,
       ),

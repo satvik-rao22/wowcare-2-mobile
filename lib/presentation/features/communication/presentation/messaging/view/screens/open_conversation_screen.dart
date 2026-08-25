@@ -78,16 +78,12 @@ class _OpenConversationScreenState extends State<OpenConversationScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Scaffold(
-              body: Center(child: PrimaryCircularLoader()),
-            );
+            return const Scaffold(body: Center(child: PrimaryCircularLoader()));
           }
           final conversation = snapshot.data;
           if (conversation == null) {
             return Scaffold(
-              appBar: AppBar(
-                leading: BackButton(onPressed: _goBackOrHome),
-              ),
+              appBar: AppBar(leading: BackButton(onPressed: _goBackOrHome)),
               body: const Center(
                 child: Padding(
                   padding: EdgeInsets.all(24),
@@ -111,8 +107,9 @@ class _OpenConversationScreenState extends State<OpenConversationScreen> {
             final recipientCount =
                 conversation.participants.where((p) => p.isActive).length - 1;
             return BlocProvider<CommunicationCubit>(
-              create: (_) => serviceLocator<CommunicationCubit>()
-                ..seedRecipientCount(conversation.code, recipientCount),
+              create: (_) =>
+                  serviceLocator<CommunicationCubit>()
+                    ..seedRecipientCount(conversation.code, recipientCount),
               child: StaffMessagingThread(
                 staffInfo: {
                   'name': conversation.title,

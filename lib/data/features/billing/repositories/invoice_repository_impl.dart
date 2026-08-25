@@ -58,12 +58,14 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
           .map((e) => AnalyticsMonthValueEntity(name: e.name, value: e.value))
           .toList(),
       subsidies: m.subsidies
-          .map((e) => AnalyticsSubsidyEntity(
-                name: e.name,
-                invoiced: e.invoiced,
-                received: e.received,
-                balance: e.balance,
-              ))
+          .map(
+            (e) => AnalyticsSubsidyEntity(
+              name: e.name,
+              invoiced: e.invoiced,
+              received: e.received,
+              balance: e.balance,
+            ),
+          )
           .toList(),
     );
   }
@@ -153,21 +155,23 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       school: school,
     );
     return models
-        .map((m) => FamilySummaryEntity(
-              ownerType: m.ownerType,
-              ownerCode: m.ownerCode,
-              studentCodes: m.studentCodes,
-              familyName: m.familyName,
-              guardianName: m.guardianName,
-              lastInvoiceAmount: m.lastInvoiceAmount,
-              lastInvoiceDate: m.lastInvoiceDate,
-              lastInvoiceDueDate: m.lastInvoiceDueDate,
-              lastInvoiceStatus: m.lastInvoiceStatus,
-              lastPaymentAmount: m.lastPaymentAmount,
-              lastPaymentDate: m.lastPaymentDate,
-              lastPaymentMethod: m.lastPaymentMethod,
-              openBalance: m.openBalance,
-            ))
+        .map(
+          (m) => FamilySummaryEntity(
+            ownerType: m.ownerType,
+            ownerCode: m.ownerCode,
+            studentCodes: m.studentCodes,
+            familyName: m.familyName,
+            guardianName: m.guardianName,
+            lastInvoiceAmount: m.lastInvoiceAmount,
+            lastInvoiceDate: m.lastInvoiceDate,
+            lastInvoiceDueDate: m.lastInvoiceDueDate,
+            lastInvoiceStatus: m.lastInvoiceStatus,
+            lastPaymentAmount: m.lastPaymentAmount,
+            lastPaymentDate: m.lastPaymentDate,
+            lastPaymentMethod: m.lastPaymentMethod,
+            openBalance: m.openBalance,
+          ),
+        )
         .toList();
   }
 
@@ -206,14 +210,18 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     required String code,
     required UpdateInvoiceParams params,
   }) async {
-    final model = await _dataSource.updateInvoice(code, _toUpdateRequest(params));
+    final model = await _dataSource.updateInvoice(
+      code,
+      _toUpdateRequest(params),
+    );
     await _onBillingMutation();
     return _mapResult(model);
   }
 
   @override
   Future<InvoicePaymentResultEntity> createPayment(
-      InvoicePaymentParams params) async {
+    InvoicePaymentParams params,
+  ) async {
     final m = await _dataSource.createPayment(_toPaymentRequest(params));
     await _onBillingMutation();
     return _mapPaymentResult(m);
@@ -221,7 +229,8 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
 
   @override
   Future<InvoicePaymentResultEntity> createRefund(
-      InvoicePaymentParams params) async {
+    InvoicePaymentParams params,
+  ) async {
     final m = await _dataSource.createRefund(_toPaymentRequest(params));
     await _onBillingMutation();
     return _mapPaymentResult(m);
@@ -229,16 +238,19 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
 
   @override
   Future<InvoicePaymentResultEntity> createCredit(
-      CreateCreditParams params) async {
-    final m = await _dataSource.createCredit(CreateCreditRequestModel(
-      schoolCode: params.schoolCode,
-      amount: params.amount,
-      ownerType: params.ownerType,
-      ownerCode: params.ownerCode,
-      studentCode: params.studentCode,
-      reason: params.reason,
-      description: params.description,
-    ));
+    CreateCreditParams params,
+  ) async {
+    final m = await _dataSource.createCredit(
+      CreateCreditRequestModel(
+        schoolCode: params.schoolCode,
+        amount: params.amount,
+        ownerType: params.ownerType,
+        ownerCode: params.ownerCode,
+        studentCode: params.studentCode,
+        reason: params.reason,
+        description: params.description,
+      ),
+    );
     await _onBillingMutation();
     return _mapPaymentResult(m);
   }
@@ -272,8 +284,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
 
   // ─── Mappers ────────────────────────────────────────────────────────────────
 
-  InvoicePaymentResultEntity _mapPaymentResult(
-          InvoicePaymentResultModel m) =>
+  InvoicePaymentResultEntity _mapPaymentResult(InvoicePaymentResultModel m) =>
       InvoicePaymentResultEntity(
         ledgerCode: m.ledgerCode,
         amount: m.amount,
@@ -314,15 +325,17 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         notes: p.notes,
         currency: p.currency,
         items: p.items
-            .map((i) => CreateInvoiceItemRequestModel(
-                  itemType: i.itemType,
-                  description: i.description,
-                  amount: i.amount,
-                  quantity: i.quantity,
-                  sourceCode: i.sourceCode,
-                  valueType: i.valueType,
-                  valueInput: i.valueInput,
-                ))
+            .map(
+              (i) => CreateInvoiceItemRequestModel(
+                itemType: i.itemType,
+                description: i.description,
+                amount: i.amount,
+                quantity: i.quantity,
+                sourceCode: i.sourceCode,
+                valueType: i.valueType,
+                valueInput: i.valueInput,
+              ),
+            )
             .toList(),
       );
 
@@ -340,15 +353,17 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         currency: p.currency,
         notes: p.notes,
         items: p.items
-            ?.map((i) => CreateInvoiceItemRequestModel(
-                  itemType: i.itemType,
-                  description: i.description,
-                  amount: i.amount,
-                  quantity: i.quantity,
-                  sourceCode: i.sourceCode,
-                  valueType: i.valueType,
-                  valueInput: i.valueInput,
-                ))
+            ?.map(
+              (i) => CreateInvoiceItemRequestModel(
+                itemType: i.itemType,
+                description: i.description,
+                amount: i.amount,
+                quantity: i.quantity,
+                sourceCode: i.sourceCode,
+                valueType: i.valueType,
+                valueInput: i.valueInput,
+              ),
+            )
             .toList(),
       );
 }

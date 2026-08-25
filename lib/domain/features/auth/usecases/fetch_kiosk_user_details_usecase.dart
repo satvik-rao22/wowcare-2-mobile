@@ -9,7 +9,7 @@ import 'package:wowcare/domain/features/auth/entities/user_details_entity.dart';
 /// organization name, and permissions.
 class FetchKioskUserDetailsUseCase {
   FetchKioskUserDetailsUseCase({required AuthRemoteDataSource remoteDataSource})
-      : _remoteDataSource = remoteDataSource;
+    : _remoteDataSource = remoteDataSource;
 
   final AuthRemoteDataSource _remoteDataSource;
 
@@ -22,7 +22,9 @@ class FetchKioskUserDetailsUseCase {
   /// - role for each school
   Future<UserDetailsEntity?> call({required String accessToken}) async {
     try {
-      AppLogger.d('[KioskAuth] Fetching user details from /api/v1/users/details');
+      AppLogger.d(
+        '[KioskAuth] Fetching user details from /api/v1/users/details',
+      );
 
       // Call the API via auth remote datasource
       final rawDataList = await _remoteDataSource.getUserDetails(
@@ -40,8 +42,10 @@ class FetchKioskUserDetailsUseCase {
       final model = UserDetailsResponseModel.fromJson(response);
       final entity = _mapToEntity(model);
 
-      AppLogger.d('[KioskAuth] User details fetched successfully: '
-          'users=${entity.data.length}');
+      AppLogger.d(
+        '[KioskAuth] User details fetched successfully: '
+        'users=${entity.data.length}',
+      );
 
       return entity;
     } catch (e) {
@@ -54,26 +58,32 @@ class FetchKioskUserDetailsUseCase {
   UserDetailsEntity _mapToEntity(UserDetailsResponseModel model) {
     return UserDetailsEntity(
       data: model.data
-          .map((user) => UserDetailEntity(
-                userCode: user.userCode,
-                organizationCode: user.organizationCode,
-                organizationName: user.organizationName,
-                schools: user.schools
-                    .map((school) => SchoolDetailEntity(
-                          schoolCode: school.schoolCode,
-                          schoolName: school.schoolName,
-                          status: school.status,
-                          role: school.role,
-                          permissions: school.permissions
-                              .map((perm) => PermissionEntity(
-                                    module: perm.module,
-                                    read: perm.read,
-                                    write: perm.write,
-                                  ))
-                              .toList(),
-                        ))
-                    .toList(),
-              ))
+          .map(
+            (user) => UserDetailEntity(
+              userCode: user.userCode,
+              organizationCode: user.organizationCode,
+              organizationName: user.organizationName,
+              schools: user.schools
+                  .map(
+                    (school) => SchoolDetailEntity(
+                      schoolCode: school.schoolCode,
+                      schoolName: school.schoolName,
+                      status: school.status,
+                      role: school.role,
+                      permissions: school.permissions
+                          .map(
+                            (perm) => PermissionEntity(
+                              module: perm.module,
+                              read: perm.read,
+                              write: perm.write,
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  )
+                  .toList(),
+            ),
+          )
           .toList(),
     );
   }

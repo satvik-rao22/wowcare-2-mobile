@@ -80,7 +80,8 @@ class NewsletterSentListCard extends StatelessWidget {
                     assetCode: newsLetter.primaryAttachmentAssetCode,
                     directUrl: newsLetter.primaryAttachmentDirectUrl,
                     mimeType: newsLetter.primaryAttachmentMimeType,
-                    additionalAttachmentCount: newsLetter.additionalAttachmentCount,
+                    additionalAttachmentCount:
+                        newsLetter.additionalAttachmentCount,
                   ),
                 ),
               ),
@@ -191,19 +192,19 @@ class _RecipientCountBadge extends StatelessWidget {
   List<NewsletterRecipientSummary> _recipientItems() {
     if (recipients.isNotEmpty) {
       final seen = <String>{};
-      final items = recipients.where((NewsletterRecipientSummary recipient) {
-        final displayName = recipient.displayName.trim();
-        if (displayName.isEmpty) return false;
-        final code = recipient.userCode.trim();
-        final key = code.isNotEmpty ? code : displayName.toLowerCase();
-        return seen.add(key);
-      }).toList()
-        ..sort(
-          (NewsletterRecipientSummary a, NewsletterRecipientSummary b) =>
-              a.displayName.toLowerCase().compareTo(
-                    b.displayName.toLowerCase(),
-                  ),
-        );
+      final items =
+          recipients.where((NewsletterRecipientSummary recipient) {
+            final displayName = recipient.displayName.trim();
+            if (displayName.isEmpty) return false;
+            final code = recipient.userCode.trim();
+            final key = code.isNotEmpty ? code : displayName.toLowerCase();
+            return seen.add(key);
+          }).toList()..sort(
+            (NewsletterRecipientSummary a, NewsletterRecipientSummary b) => a
+                .displayName
+                .toLowerCase()
+                .compareTo(b.displayName.toLowerCase()),
+          );
       return items;
     }
 
@@ -212,17 +213,13 @@ class _RecipientCountBadge extends StatelessWidget {
         .where((String name) => name.isNotEmpty)
         .toSet()
         .map(
-          (String name) => NewsletterRecipientSummary(
-            displayName: name,
-            userCode: '',
-          ),
+          (String name) =>
+              NewsletterRecipientSummary(displayName: name, userCode: ''),
         )
         .toList()
       ..sort(
         (NewsletterRecipientSummary a, NewsletterRecipientSummary b) =>
-            a.displayName.toLowerCase().compareTo(
-                  b.displayName.toLowerCase(),
-                ),
+            a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()),
       );
   }
 
@@ -469,10 +466,7 @@ class _RecipientListTile extends StatelessWidget {
 }
 
 class _AlignedMetaRow extends StatelessWidget {
-  const _AlignedMetaRow({
-    required this.label,
-    required this.value,
-  });
+  const _AlignedMetaRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -573,7 +567,8 @@ class _CardThumbnailState extends State<_CardThumbnail> {
     if (_isHttpUrl(code)) return code;
 
     try {
-      final ImageUploadService uploadService = serviceLocator<ImageUploadService>();
+      final ImageUploadService uploadService =
+          serviceLocator<ImageUploadService>();
       return await uploadService.getMediaAssetUrlByCode(assetCode: code);
     } catch (_) {
       return '';
@@ -630,8 +625,7 @@ class _CardThumbnailState extends State<_CardThumbnail> {
         final String url = (snapshot.data ?? '').trim();
         final bool hasUrl = url.isNotEmpty;
         final bool isLoading =
-            snapshot.connectionState == ConnectionState.waiting &&
-                !hasUrl;
+            snapshot.connectionState == ConnectionState.waiting && !hasUrl;
 
         return Stack(
           children: [
@@ -642,17 +636,17 @@ class _CardThumbnailState extends State<_CardThumbnail> {
                       hasUrl: hasUrl,
                       isLoading: isLoading,
                     )
-                  : _buildDocumentPreview(
-                      hasUrl: hasUrl,
-                      isLoading: isLoading,
-                    ),
+                  : _buildDocumentPreview(hasUrl: hasUrl, isLoading: isLoading),
             ),
             if (widget.additionalAttachmentCount > 0)
               Positioned(
                 top: 4,
                 right: 4,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.65),
                     borderRadius: BorderRadius.circular(10),
@@ -735,10 +729,11 @@ class _CardThumbnailState extends State<_CardThumbnail> {
     if (mime.contains('word') || mime.contains('document')) {
       return Icons.description_outlined;
     }
-    if (mime.contains('sheet') || mime.contains('excel') || mime.contains('csv')) {
+    if (mime.contains('sheet') ||
+        mime.contains('excel') ||
+        mime.contains('csv')) {
       return Icons.table_chart_outlined;
     }
     return Icons.insert_drive_file_outlined;
   }
 }
-

@@ -70,7 +70,8 @@ Future<Map<String, bool>> _fetchStaffSignedInStatusAtTime({
   if (data is! Map) return const <String, bool>{};
   return data.map<String, bool>((key, value) {
     final code = key.toString().trim();
-    final isPresent = value == true || value.toString().toUpperCase() == 'SIGNED_IN';
+    final isPresent =
+        value == true || value.toString().toUpperCase() == 'SIGNED_IN';
     return MapEntry(code, isPresent);
   });
 }
@@ -81,8 +82,9 @@ String _resolveClassroomCodeFromSelectedStudents(
   for (final student in students) {
     final dynamic classroomCodeDynamic =
         student['classroomCode'] ?? student['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
     if (classroomCode.isNotEmpty) return classroomCode;
   }
   return '';
@@ -96,8 +98,9 @@ Future<bool> _shouldRunStaffAtTimeValidation(StorageService storage) async {
     'ASSOCIATE_TEACHER',
     'ASSISTANT_TEACHER',
   };
-  final staffType =
-      (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+  final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+      .trim()
+      .toUpperCase();
   if (staffType.isNotEmpty) return allowedStaffPersonas.contains(staffType);
 
   // ACTIVE persona (single value), not a scan of the account's full cached
@@ -233,17 +236,17 @@ Future<bool> validateStudentsWithinAttendanceWindow({
           .where((code) => !ambiguousClassroomStudentCodes.contains(code))
           .toList(growable: false);
       if (fallbackEligibleCodes.isNotEmpty &&
-          instantUtc
-                  .difference(ServerTimeService.instance.nowUtc())
-                  .abs() <=
+          instantUtc.difference(ServerTimeService.instance.nowUtc()).abs() <=
               _fallbackSignInCheckTolerance) {
         try {
           final fallbackStatus = await serviceLocator<AttendanceRepository>()
               .getStudentTodaySignInStatusMap(fallbackEligibleCodes);
           notSignedInCodes = notSignedInCodes
-              .where((code) =>
-                  !fallbackEligibleCodes.contains(code) ||
-                  fallbackStatus[code]?.toUpperCase() != 'SIGNED_IN')
+              .where(
+                (code) =>
+                    !fallbackEligibleCodes.contains(code) ||
+                    fallbackStatus[code]?.toUpperCase() != 'SIGNED_IN',
+              )
               .toList(growable: false);
         } catch (_) {
           // Fallback is best-effort; keep the scoped result on failure.

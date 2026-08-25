@@ -20,7 +20,8 @@ class PreviewNewsletterScreen extends StatefulWidget {
   final Newsletter? initialNewsletter;
 
   @override
-  State<PreviewNewsletterScreen> createState() => _PreviewNewsletterScreenState();
+  State<PreviewNewsletterScreen> createState() =>
+      _PreviewNewsletterScreenState();
 }
 
 class _PreviewNewsletterScreenState extends State<PreviewNewsletterScreen> {
@@ -74,7 +75,8 @@ class _PreviewNewsletterScreenState extends State<PreviewNewsletterScreen> {
 
             return Column(
               children: [
-                if (state.errorMessage != null && state.errorMessage!.isNotEmpty)
+                if (state.errorMessage != null &&
+                    state.errorMessage!.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Material(
@@ -85,7 +87,9 @@ class _PreviewNewsletterScreenState extends State<PreviewNewsletterScreen> {
                         child: Text(
                           state.errorMessage!,
                           style: TextStyle(
-                            color: AppColors.primaryColor.withValues(alpha: 0.9),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.9,
+                            ),
                             fontSize: 13,
                           ),
                         ),

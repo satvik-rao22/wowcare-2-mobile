@@ -234,7 +234,7 @@ class _HealthCard extends StatelessWidget {
     return IntrinsicHeight(
       child: Container(
         width: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.only(
             topRight: Radius.circular(8),
@@ -250,7 +250,7 @@ class _HealthCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 16),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -258,12 +258,9 @@ class _HealthCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Allergies',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
+                        style: AppTextStyles.label.copyWith(
                           color: Color(0xff573353),
                           height: 16 / 13,
                         ),
@@ -271,10 +268,7 @@ class _HealthCard extends StatelessWidget {
                       Flexible(
                         child: Text(
                           _displayOrDash(allergies),
-                          style: const TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                          style: AppTextStyles.body.copyWith(
                             color: Color(0xff573353),
                             height: 19 / 14,
                           ),
@@ -284,17 +278,14 @@ class _HealthCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Medications',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
+                        style: AppTextStyles.label.copyWith(
                           color: Color(0xff573353),
                           height: 16 / 13,
                         ),
@@ -302,10 +293,7 @@ class _HealthCard extends StatelessWidget {
                       Flexible(
                         child: Text(
                           _displayOrDash(medication),
-                          style: const TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                          style: AppTextStyles.body.copyWith(
                             color: Color(0xff573353),
                             height: 19 / 14,
                           ),
@@ -315,17 +303,14 @@ class _HealthCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Diet Restriction',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
+                        style: AppTextStyles.label.copyWith(
                           color: Color(0xff573353),
                           height: 16 / 13,
                         ),
@@ -333,10 +318,7 @@ class _HealthCard extends StatelessWidget {
                       Flexible(
                         child: Text(
                           _displayOrDash(dietRestrictions),
-                          style: const TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                          style: AppTextStyles.body.copyWith(
                             color: Color(0xff573353),
                             height: 19 / 14,
                           ),
@@ -351,12 +333,9 @@ class _HealthCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Photo Permission',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
+                        style: AppTextStyles.label.copyWith(
                           color: Color(0xff573353),
                           height: 16 / 13,
                         ),
@@ -370,10 +349,7 @@ class _HealthCard extends StatelessWidget {
                       else
                         Text(
                           photoPermission ? 'Yes' : 'No',
-                          style: const TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                          style: AppTextStyles.body.copyWith(
                             color: Color(0xff573353),
                             height: 19 / 14,
                           ),

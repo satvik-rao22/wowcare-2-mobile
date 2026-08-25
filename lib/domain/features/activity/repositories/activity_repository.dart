@@ -15,9 +15,7 @@ abstract class ActivityRepository {
   });
 
   /// Returns activity type details via `GET /api/v1/activity-types/{code}`.
-  Future<ActivityTypeDetails> getActivityTypeDetails({
-    required String code,
-  });
+  Future<ActivityTypeDetails> getActivityTypeDetails({required String code});
 
   /// Returns all active activity types for a school via
   /// `GET /api/v1/activity-types?schoolCode={schoolCode}`.
@@ -27,9 +25,7 @@ abstract class ActivityRepository {
 
   /// Returns currently napping student codes for a classroom via
   /// `GET /api/v1/activities/{classroomCode}/nap-start-students`.
-  Future<List<String>> getNapStartStudents({
-    required String classroomCode,
-  });
+  Future<List<String>> getNapStartStudents({required String classroomCode});
 
   /// `GET /api/v1/activities/feed/daily`
   Future<ActivityFeedPage> getDailyActivityFeed({
@@ -61,9 +57,7 @@ abstract class ActivityRepository {
   });
 
   /// `GET /api/v2/activities/{cardGroupCode}`
-  Future<ActivityDetail> getActivity({
-    required String code,
-  });
+  Future<ActivityDetail> getActivity({required String code});
 
   /// `PATCH /api/v2/activities/{cardGroupCode}`
   Future<String> updateActivity({
@@ -161,4 +155,3 @@ abstract class ActivityRepository {
   /// `GET /api/v2/activities/admin/activities/pending-incident-count`.
   Future<int> getPendingIncidentCount();
 }
-

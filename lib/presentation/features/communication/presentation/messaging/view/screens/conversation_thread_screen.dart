@@ -46,6 +46,7 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import '../../../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Full-screen conversation thread for v2 conversations (STAFF_DIRECT, ROOM_CHAT, ADMIN_CHAT).
 class ConversationThreadScreen extends StatefulWidget {
@@ -803,7 +804,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         onViewParticipants: _showParticipantsDialog,
         onAttachmentError: (message) {
           if (!mounted) return;
-          CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: message,
+            isError: true,
+          );
         },
       ),
     );
@@ -932,8 +937,18 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       return 'Yesterday';
     }
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
@@ -1451,9 +1466,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
             Flexible(
               child: Text(
                 'Private by $parentName',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                style: AppTextStyles.sectionHeader.copyWith(
                   color: Color(0xFFC9A000),
                 ),
                 maxLines: 1,
@@ -1527,7 +1540,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                     ? 'This chat hasn\'t been created yet. Go back and start a new conversation.'
                     : errorMessage,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFF636E72)),
+                style: AppTextStyles.body.copyWith(color: Color(0xFF636E72)),
               ),
               const SizedBox(height: 16),
               OutlinedButton(
@@ -1555,10 +1568,12 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               physics: const AlwaysScrollableScrollPhysics(),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: const Center(
+                child: Center(
                   child: Text(
                     'No messages yet. Say hello!',
-                    style: TextStyle(color: Color(0xFFB2BEC3), fontSize: 14),
+                    style: AppTextStyles.body.copyWith(
+                      color: Color(0xFFB2BEC3),
+                    ),
                   ),
                 ),
               ),
@@ -2003,5 +2018,4 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
             (current.senderCode == _senderCode) &&
         current.sentAt.difference(prev.sentAt).inMinutes <= 5;
   }
-
 }

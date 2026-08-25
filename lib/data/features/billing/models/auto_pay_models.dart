@@ -47,14 +47,14 @@ class PaymentSettingsModel {
   }
 
   PaymentSettingsEntity toEntity() => PaymentSettingsEntity(
-        acceptCreditCard: acceptCreditCard,
-        creditCardFeePaidBy: _payer(creditCardFeePaidBy),
-        acceptDebitCard: acceptDebitCard,
-        debitCardFeePaidBy: _payer(debitCardFeePaidBy),
-        acceptAch: acceptAch,
-        achFeePaidBy: _payer(achFeePaidBy),
-        schoolCode: schoolCode ?? '',
-      );
+    acceptCreditCard: acceptCreditCard,
+    creditCardFeePaidBy: _payer(creditCardFeePaidBy),
+    acceptDebitCard: acceptDebitCard,
+    debitCardFeePaidBy: _payer(debitCardFeePaidBy),
+    acceptAch: acceptAch,
+    achFeePaidBy: _payer(achFeePaidBy),
+    schoolCode: schoolCode ?? '',
+  );
 }
 
 /// One item from `GET /school-forte-configs` (`data.content[]`).
@@ -77,7 +77,8 @@ class SchoolForteConfigModel {
 
   factory SchoolForteConfigModel.fromJson(Map<String, dynamic> json) {
     // The max-methods limit may arrive under a few possible keys.
-    final maxRaw = json['maxPaymentMethods'] ??
+    final maxRaw =
+        json['maxPaymentMethods'] ??
         json['maxMethods'] ??
         json['paymentMethodLimit'] ??
         json['maxPaymentMethodCount'];
@@ -87,19 +88,20 @@ class SchoolForteConfigModel {
       schoolCode: json['schoolCode']?.toString(),
       organizationCode: json['organizationCode']?.toString(),
       status: json['status']?.toString(),
-      maxPaymentMethods:
-          maxRaw is num ? maxRaw.toInt() : int.tryParse('${maxRaw ?? ''}'),
+      maxPaymentMethods: maxRaw is num
+          ? maxRaw.toInt()
+          : int.tryParse('${maxRaw ?? ''}'),
     );
   }
 
   SchoolForteConfigEntity toEntity() => SchoolForteConfigEntity(
-        apiLoginId: apiLoginId,
-        code: code,
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-        status: status,
-        maxPaymentMethods: maxPaymentMethods,
-      );
+    apiLoginId: apiLoginId,
+    code: code,
+    schoolCode: schoolCode,
+    organizationCode: organizationCode,
+    status: status,
+    maxPaymentMethods: maxPaymentMethods,
+  );
 }
 
 /// `data` from `GET /payment-gateway/autopay/status`.
@@ -120,9 +122,9 @@ class AutoPayStatusModel {
   }
 
   AutoPayStatusEntity toEntity() => AutoPayStatusEntity(
-        guardianCode: guardianCode,
-        autopayEnabled: autopayEnabled,
-      );
+    guardianCode: guardianCode,
+    autopayEnabled: autopayEnabled,
+  );
 }
 
 class PaymentMethodCardModel {
@@ -154,13 +156,13 @@ class PaymentMethodCardModel {
   }
 
   PaymentMethodCardEntity toEntity() => PaymentMethodCardEntity(
-        nameOnCard: nameOnCard,
-        last4: last4,
-        maskedAccountNumber: maskedAccountNumber,
-        expireMonth: expireMonth,
-        expireYear: expireYear,
-        cardType: cardType,
-      );
+    nameOnCard: nameOnCard,
+    last4: last4,
+    maskedAccountNumber: maskedAccountNumber,
+    expireMonth: expireMonth,
+    expireYear: expireYear,
+    cardType: cardType,
+  );
 }
 
 class PaymentMethodEcheckModel {
@@ -192,13 +194,13 @@ class PaymentMethodEcheckModel {
   }
 
   PaymentMethodEcheckEntity toEntity() => PaymentMethodEcheckEntity(
-        accountHolder: accountHolder,
-        maskedAccountNumber: maskedAccountNumber,
-        last4: last4,
-        routingNumber: routingNumber,
-        accountType: accountType,
-        itemDescription: itemDescription,
-      );
+    accountHolder: accountHolder,
+    maskedAccountNumber: maskedAccountNumber,
+    last4: last4,
+    routingNumber: routingNumber,
+    accountType: accountType,
+    itemDescription: itemDescription,
+  );
 }
 
 /// A saved payment method from list/create/primary responses.
@@ -249,17 +251,17 @@ class PaymentMethodModel {
   }
 
   PaymentMethodEntity toEntity() => PaymentMethodEntity(
-        code: code,
-        methodType: PaymentMethodTypeX.fromApi(methodType),
-        label: label,
-        last4: last4,
-        primary: primary,
-        autopay: autopay,
-        defaultAtGateway: defaultAtGateway,
-        status: status,
-        card: card?.toEntity(),
-        echeck: echeck?.toEntity(),
-      );
+    code: code,
+    methodType: PaymentMethodTypeX.fromApi(methodType),
+    label: label,
+    last4: last4,
+    primary: primary,
+    autopay: autopay,
+    defaultAtGateway: defaultAtGateway,
+    status: status,
+    card: card?.toEntity(),
+    echeck: echeck?.toEntity(),
+  );
 }
 
 /// Request body for `POST /payment-gateway/payment-methods`.
@@ -289,18 +291,18 @@ class AddPaymentMethodRequestModel {
   final bool makeAutopay;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'organizationCode': organizationCode,
-        'schoolCode': schoolCode,
-        'guardianCode': guardianCode,
-        'oneTimeToken': oneTimeToken,
-        'methodType': methodType,
-        if (label != null && label!.trim().isNotEmpty) 'label': label,
-        'payMethodHolderName': payMethodHolderName,
-        if (familyCode != null && familyCode!.trim().isNotEmpty)
-          'familyCode': familyCode,
-        'makePrimary': makePrimary,
-        'makeAutopay': makeAutopay,
-      };
+    'organizationCode': organizationCode,
+    'schoolCode': schoolCode,
+    'guardianCode': guardianCode,
+    'oneTimeToken': oneTimeToken,
+    'methodType': methodType,
+    if (label != null && label!.trim().isNotEmpty) 'label': label,
+    'payMethodHolderName': payMethodHolderName,
+    if (familyCode != null && familyCode!.trim().isNotEmpty)
+      'familyCode': familyCode,
+    'makePrimary': makePrimary,
+    'makeAutopay': makeAutopay,
+  };
 }
 
 /// Request body for `PUT /payment-gateway/payment-methods/{code}`.
@@ -324,14 +326,14 @@ class UpdatePaymentMethodRequestModel {
   final Map<String, dynamic>? echeck;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'organizationCode': organizationCode,
-        'schoolCode': schoolCode,
-        'guardianCode': guardianCode,
-        if (label != null && label!.trim().isNotEmpty) 'label': label,
-        if (notes != null && notes!.trim().isNotEmpty) 'notes': notes,
-        if (card != null) 'card': card,
-        if (echeck != null) 'echeck': echeck,
-      };
+    'organizationCode': organizationCode,
+    'schoolCode': schoolCode,
+    'guardianCode': guardianCode,
+    if (label != null && label!.trim().isNotEmpty) 'label': label,
+    if (notes != null && notes!.trim().isNotEmpty) 'notes': notes,
+    if (card != null) 'card': card,
+    if (echeck != null) 'echeck': echeck,
+  };
 }
 
 /// Request body for `POST /payment-gateway/guardian/pay`.
@@ -341,26 +343,28 @@ class GuardianPayRequestModel {
   final GuardianPayParams params;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'organizationCode': params.organizationCode,
-        'schoolCode': params.schoolCode,
-        'guardianCode': params.guardianCode,
-        'ownerType': params.ownerType,
-        'ownerCode': params.ownerCode,
-        'paymentMethodCode': params.paymentMethodCode,
-        'preference': params.preference,
-        'amount': params.amount,
-        'idempotencyKey': params.idempotencyKey,
-        'payMethodHolderName': params.payMethodHolderName,
-        // Only send per-child allocations when the parent split the amount;
-        // omitted means the backend applies it family-wide (oldest first).
-        if (params.allocations.isNotEmpty)
-          'allocations': params.allocations
-              .map((a) => <String, dynamic>{
-                    'studentCode': a.studentCode,
-                    'amount': a.amount,
-                  })
-              .toList(),
-      };
+    'organizationCode': params.organizationCode,
+    'schoolCode': params.schoolCode,
+    'guardianCode': params.guardianCode,
+    'ownerType': params.ownerType,
+    'ownerCode': params.ownerCode,
+    'paymentMethodCode': params.paymentMethodCode,
+    'preference': params.preference,
+    'amount': params.amount,
+    'idempotencyKey': params.idempotencyKey,
+    'payMethodHolderName': params.payMethodHolderName,
+    // Only send per-child allocations when the parent split the amount;
+    // omitted means the backend applies it family-wide (oldest first).
+    if (params.allocations.isNotEmpty)
+      'allocations': params.allocations
+          .map(
+            (a) => <String, dynamic>{
+              'studentCode': a.studentCode,
+              'amount': a.amount,
+            },
+          )
+          .toList(),
+  };
 }
 
 /// `data` of the guardian pay response.
@@ -396,7 +400,9 @@ class GuardianPayResultModel {
 
   factory GuardianPayResultModel.fromJson(Map<String, dynamic> json) =>
       GuardianPayResultModel(
-        paymentGatewayTransactionCode: _s(json['paymentGatewayTransactionCode']),
+        paymentGatewayTransactionCode: _s(
+          json['paymentGatewayTransactionCode'],
+        ),
         gatewayTransactionId: _s(json['gatewayTransactionId']),
         status: _s(json['status']),
         methodType: _s(json['methodType']),
@@ -410,16 +416,16 @@ class GuardianPayResultModel {
       );
 
   GuardianPayResultEntity toEntity() => GuardianPayResultEntity(
-        paymentGatewayTransactionCode: paymentGatewayTransactionCode,
-        gatewayTransactionId: gatewayTransactionId,
-        status: status,
-        methodType: methodType,
-        baseAmount: baseAmount,
-        convenienceFee: convenienceFee,
-        totalCharged: totalCharged,
-        feePayer: feePayer,
-        ownerCode: ownerCode,
-        amountApplied: amountApplied,
-        creditBalance: creditBalance,
-      );
+    paymentGatewayTransactionCode: paymentGatewayTransactionCode,
+    gatewayTransactionId: gatewayTransactionId,
+    status: status,
+    methodType: methodType,
+    baseAmount: baseAmount,
+    convenienceFee: convenienceFee,
+    totalCharged: totalCharged,
+    feePayer: feePayer,
+    ownerCode: ownerCode,
+    amountApplied: amountApplied,
+    creditBalance: creditBalance,
+  );
 }

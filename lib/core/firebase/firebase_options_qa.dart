@@ -3,7 +3,8 @@
 // TODO: Replace with a dedicated QA Firebase project when available.
 //       Run: flutterfire configure --project=<qa-project-id> --out=lib/core/firebase/firebase_options_qa.dart
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 
 class FirebaseOptionsQa {
   static FirebaseOptions get currentPlatform {

@@ -17,7 +17,8 @@ class FutureAvailabilityGridModel {
   final List<FutureAvailabilityEntryModel> availability;
 
   factory FutureAvailabilityGridModel.fromJson(Map<String, dynamic> json) {
-    final data = (json['data'] as Map<String, dynamic>?) ?? const <String, dynamic>{};
+    final data =
+        (json['data'] as Map<String, dynamic>?) ?? const <String, dynamic>{};
     return FutureAvailabilityGridModel(
       schoolCode: (data['schoolCode'] ?? '').toString(),
       startDate: _parseDate(data['startDate']),
@@ -26,10 +27,11 @@ class FutureAvailabilityGridModel {
           .whereType<Map<String, dynamic>>()
           .map(FutureAvailabilityClassroomModel.fromJson)
           .toList(),
-      availability: ((data['availability'] as List<dynamic>?) ?? const <dynamic>[])
-          .whereType<Map<String, dynamic>>()
-          .map(FutureAvailabilityEntryModel.fromJson)
-          .toList(),
+      availability:
+          ((data['availability'] as List<dynamic>?) ?? const <dynamic>[])
+              .whereType<Map<String, dynamic>>()
+              .map(FutureAvailabilityEntryModel.fromJson)
+              .toList(),
     );
   }
 
@@ -42,10 +44,11 @@ class FutureAvailabilityGridModel {
           .whereType<Map<String, dynamic>>()
           .map(FutureAvailabilityClassroomModel.fromJson)
           .toList(),
-      availability: ((json['availability'] as List<dynamic>?) ?? const <dynamic>[])
-          .whereType<Map<String, dynamic>>()
-          .map(FutureAvailabilityEntryModel.fromJson)
-          .toList(),
+      availability:
+          ((json['availability'] as List<dynamic>?) ?? const <dynamic>[])
+              .whereType<Map<String, dynamic>>()
+              .map(FutureAvailabilityEntryModel.fromJson)
+              .toList(),
     );
   }
 
@@ -93,11 +96,11 @@ class FutureAvailabilityClassroomModel {
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'code': code,
-        'name': name,
-        'capacity': capacity,
-        'logoAssetCode': logoAssetCode,
-      };
+    'code': code,
+    'name': name,
+    'capacity': capacity,
+    'logoAssetCode': logoAssetCode,
+  };
 
   FutureAvailabilityClassroom toEntity() {
     return FutureAvailabilityClassroom(
@@ -147,16 +150,16 @@ class FutureAvailabilityEntryModel {
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'classroomCode': classroomCode,
-        'date': _formatDateOnly(date),
-        'shift': _shiftToApi(shift),
-        'availableSpots': availableSpots,
-        'expectedStudentCount': expectedStudentCount,
-        'classroomCapacity': classroomCapacity,
-        'confirmedMovementCount': confirmedMovementCount,
-        'pendingMovementCount': pendingMovementCount,
-        'enrollmentCount': enrollmentCount,
-      };
+    'classroomCode': classroomCode,
+    'date': _formatDateOnly(date),
+    'shift': _shiftToApi(shift),
+    'availableSpots': availableSpots,
+    'expectedStudentCount': expectedStudentCount,
+    'classroomCapacity': classroomCapacity,
+    'confirmedMovementCount': confirmedMovementCount,
+    'pendingMovementCount': pendingMovementCount,
+    'enrollmentCount': enrollmentCount,
+  };
 
   FutureAvailabilityEntry toEntity() {
     return FutureAvailabilityEntry(

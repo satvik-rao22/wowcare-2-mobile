@@ -20,15 +20,15 @@ Future<String> resolveStaffCodeForLoggedInUser({
 
   // Only reuse cached staffCode if it belongs to the currently logged-in user
   // and selected org/school context.
-  final currentUserCode =
-      (await storage.getString(StorageKeys.userCode) ?? '').trim();
+  final currentUserCode = (await storage.getString(StorageKeys.userCode) ?? '')
+      .trim();
   final currentOrganizationCode =
       (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
   final currentSchoolCode =
       (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
 
-  final rolesJsonEarly =
-      (await storage.getString(StorageKeys.roles) ?? '').trim();
+  final rolesJsonEarly = (await storage.getString(StorageKeys.roles) ?? '')
+      .trim();
   if (shouldSkipStaffCodeResolutionForContext(
     rolesJson: rolesJsonEarly,
     organizationCode: currentOrganizationCode,
@@ -85,7 +85,8 @@ Future<String> resolveStaffCodeForLoggedInUser({
   final userCode = (await storage.getString(StorageKeys.userCode) ?? '').trim();
   final organizationCode =
       (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-  final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+  final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+      .trim();
 
   if (userCode.isEmpty || organizationCode.isEmpty) return '';
 
@@ -149,10 +150,7 @@ Future<String> resolveStaffCodeForLoggedInUser({
         StorageKeys.staffCodeOrganization,
         organizationCode,
       );
-      await storage.saveString(
-        StorageKeys.staffCodeSchool,
-        schoolCode,
-      );
+      await storage.saveString(StorageKeys.staffCodeSchool, schoolCode);
       return trimmed;
     }
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// "↓ New Messages" chip shown above the input bar when a new message
 /// arrives while the user is reading older history, instead of forcing a
@@ -47,7 +48,7 @@ class NewMessagesIndicator extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
@@ -58,10 +59,8 @@ class NewMessagesIndicator extends StatelessWidget {
                       SizedBox(width: 6),
                       Text(
                         'New Messages',
-                        style: TextStyle(
+                        style: AppTextStyles.sectionHeader.copyWith(
                           color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],

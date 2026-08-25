@@ -41,48 +41,48 @@ class ActivityFeedScopeCubit extends Cubit<ActivityFeedScopeState> {
     required GetRangeActivityFeedUseCase getRangeActivityFeedUseCase,
     required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
     required GetActiveActivityTypesForSchoolUseCase
-        getActiveActivityTypesForSchoolUseCase,
+    getActiveActivityTypesForSchoolUseCase,
     required GetStudentClassroomListUseCase getStudentClassroomListUseCase,
     required GetTagNameCodeMapForSchoolUseCase
-        getTagNameCodeMapForSchoolUseCase,
+    getTagNameCodeMapForSchoolUseCase,
     required GetStudentCodesForActivityTagFilterUseCase
-        getStudentCodesForActivityTagFilterUseCase,
+    getStudentCodesForActivityTagFilterUseCase,
     required GetStudentPageUseCase getStudentPageUseCase,
     required GetStudentAttendanceDailyUseCase getStudentAttendanceDailyUseCase,
     required GetStudentAbsentRecordsActivityUseCase
-        getStudentAbsentRecordsActivityUseCase,
+    getStudentAbsentRecordsActivityUseCase,
     required StaffRepository staffRepository,
     required StorageService storageService,
-  })  : _getDailyActivityFeedUseCase = getDailyActivityFeedUseCase,
-        _getRangeActivityFeedUseCase = getRangeActivityFeedUseCase,
-        _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
-        _getActiveActivityTypesForSchoolUseCase =
-            getActiveActivityTypesForSchoolUseCase,
-        _getStudentClassroomListUseCase = getStudentClassroomListUseCase,
-        _getTagNameCodeMapForSchoolUseCase = getTagNameCodeMapForSchoolUseCase,
-        _getStudentCodesForActivityTagFilterUseCase =
-            getStudentCodesForActivityTagFilterUseCase,
-        _getStudentPageUseCase = getStudentPageUseCase,
-        _getStudentAttendanceDailyUseCase = getStudentAttendanceDailyUseCase,
-        _getStudentAbsentRecordsActivityUseCase =
-            getStudentAbsentRecordsActivityUseCase,
-        _staffRepository = staffRepository,
-        _cacheManager = CacheManager(storageService),
-        super(const ActivityFeedScopeState());
+  }) : _getDailyActivityFeedUseCase = getDailyActivityFeedUseCase,
+       _getRangeActivityFeedUseCase = getRangeActivityFeedUseCase,
+       _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
+       _getActiveActivityTypesForSchoolUseCase =
+           getActiveActivityTypesForSchoolUseCase,
+       _getStudentClassroomListUseCase = getStudentClassroomListUseCase,
+       _getTagNameCodeMapForSchoolUseCase = getTagNameCodeMapForSchoolUseCase,
+       _getStudentCodesForActivityTagFilterUseCase =
+           getStudentCodesForActivityTagFilterUseCase,
+       _getStudentPageUseCase = getStudentPageUseCase,
+       _getStudentAttendanceDailyUseCase = getStudentAttendanceDailyUseCase,
+       _getStudentAbsentRecordsActivityUseCase =
+           getStudentAbsentRecordsActivityUseCase,
+       _staffRepository = staffRepository,
+       _cacheManager = CacheManager(storageService),
+       super(const ActivityFeedScopeState());
 
   final GetDailyActivityFeedUseCase _getDailyActivityFeedUseCase;
   final GetRangeActivityFeedUseCase _getRangeActivityFeedUseCase;
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   final GetActiveActivityTypesForSchoolUseCase
-      _getActiveActivityTypesForSchoolUseCase;
+  _getActiveActivityTypesForSchoolUseCase;
   final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
   final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
   final GetStudentCodesForActivityTagFilterUseCase
-      _getStudentCodesForActivityTagFilterUseCase;
+  _getStudentCodesForActivityTagFilterUseCase;
   final GetStudentPageUseCase _getStudentPageUseCase;
   final GetStudentAttendanceDailyUseCase _getStudentAttendanceDailyUseCase;
   final GetStudentAbsentRecordsActivityUseCase
-      _getStudentAbsentRecordsActivityUseCase;
+  _getStudentAbsentRecordsActivityUseCase;
   final StaffRepository _staffRepository;
   final CacheManager _cacheManager;
 
@@ -97,19 +97,18 @@ class ActivityFeedScopeCubit extends Cubit<ActivityFeedScopeState> {
     bool guardianPersona = false,
     int page = 0,
     int size = 200,
-  }) =>
-      _getDailyActivityFeedUseCase(
-        classroomCode: classroomCode,
-        date: date,
-        studentCode: studentCode,
-        classroomCodes: classroomCodes,
-        studentCodes: studentCodes,
-        activityTypeCodes: activityTypeCodes,
-        approvalStatuses: approvalStatuses,
-        guardianPersona: guardianPersona,
-        page: page,
-        size: size,
-      );
+  }) => _getDailyActivityFeedUseCase(
+    classroomCode: classroomCode,
+    date: date,
+    studentCode: studentCode,
+    classroomCodes: classroomCodes,
+    studentCodes: studentCodes,
+    activityTypeCodes: activityTypeCodes,
+    approvalStatuses: approvalStatuses,
+    guardianPersona: guardianPersona,
+    page: page,
+    size: size,
+  );
 
   Future<ActivityFeedPage> getRangeActivityFeed({
     required String classroomCode,
@@ -123,42 +122,39 @@ class ActivityFeedScopeCubit extends Cubit<ActivityFeedScopeState> {
     bool guardianPersona = false,
     int page = 0,
     int size = 200,
-  }) =>
-      _getRangeActivityFeedUseCase(
-        classroomCode: classroomCode,
-        startDate: startDate,
-        endDate: endDate,
-        studentCode: studentCode,
-        classroomCodes: classroomCodes,
-        studentCodes: studentCodes,
-        activityTypeCodes: activityTypeCodes,
-        approvalStatuses: approvalStatuses,
-        guardianPersona: guardianPersona,
-        page: page,
-        size: size,
-      );
+  }) => _getRangeActivityFeedUseCase(
+    classroomCode: classroomCode,
+    startDate: startDate,
+    endDate: endDate,
+    studentCode: studentCode,
+    classroomCodes: classroomCodes,
+    studentCodes: studentCodes,
+    activityTypeCodes: activityTypeCodes,
+    approvalStatuses: approvalStatuses,
+    guardianPersona: guardianPersona,
+    page: page,
+    size: size,
+  );
 
   Future<List<Classroom>> getActiveClassrooms({
     required String schoolCode,
     bool onlyTypeClassroom = true,
     String? typeOverride,
-  }) =>
-      _getActiveClassroomsUseCase(
-        schoolCode: schoolCode,
-        onlyTypeClassroom: onlyTypeClassroom,
-        typeOverride: typeOverride,
-      );
+  }) => _getActiveClassroomsUseCase(
+    schoolCode: schoolCode,
+    onlyTypeClassroom: onlyTypeClassroom,
+    typeOverride: typeOverride,
+  );
 
   Future<List<ActivitySetting>> loadActivityTypeSettingsForFilters({
     required String schoolCode,
     bool forceRefresh = false,
-  }) =>
-      ActivityFilterMetadataCache.loadSchoolActivityTypeSettingsForFilters(
-        cacheManager: _cacheManager,
-        useCase: _getActiveActivityTypesForSchoolUseCase,
-        schoolCode: schoolCode,
-        forceRefresh: forceRefresh,
-      );
+  }) => ActivityFilterMetadataCache.loadSchoolActivityTypeSettingsForFilters(
+    cacheManager: _cacheManager,
+    useCase: _getActiveActivityTypesForSchoolUseCase,
+    schoolCode: schoolCode,
+    forceRefresh: forceRefresh,
+  );
 
   Future<List<StudentClassroomItem>> getStudentClassroomList({
     required String schoolCode,
@@ -172,42 +168,39 @@ class ActivityFeedScopeCubit extends Cubit<ActivityFeedScopeState> {
     List<String>? status,
     String? attendanceStatus,
     bool refresh = false,
-  }) =>
-      _getStudentClassroomListUseCase(
-        schoolCode: schoolCode,
-        classroomCode: classroomCode,
-        firstName: firstName,
-        lastName: lastName,
-        search: search,
-        studentCodes: studentCodes,
-        tagCodes: tagCodes,
-        guardianCodes: guardianCodes,
-        status: status,
-        attendanceStatus: attendanceStatus,
-        refresh: refresh,
-      );
+  }) => _getStudentClassroomListUseCase(
+    schoolCode: schoolCode,
+    classroomCode: classroomCode,
+    firstName: firstName,
+    lastName: lastName,
+    search: search,
+    studentCodes: studentCodes,
+    tagCodes: tagCodes,
+    guardianCodes: guardianCodes,
+    status: status,
+    attendanceStatus: attendanceStatus,
+    refresh: refresh,
+  );
 
   Future<Map<String, String>> loadTagNameCodeMap({
     required String schoolCode,
     bool forceRefresh = false,
-  }) =>
-      ActivityFilterMetadataCache.loadTagNameCodeMap(
-        cacheManager: _cacheManager,
-        useCase: _getTagNameCodeMapForSchoolUseCase,
-        schoolCode: schoolCode,
-        forceRefresh: forceRefresh,
-      );
+  }) => ActivityFilterMetadataCache.loadTagNameCodeMap(
+    cacheManager: _cacheManager,
+    useCase: _getTagNameCodeMapForSchoolUseCase,
+    schoolCode: schoolCode,
+    forceRefresh: forceRefresh,
+  );
 
   Future<List<String>> getStudentCodesForActivityTagFilter({
     required String schoolCode,
     required String classroomCode,
     required List<String> tagCodes,
-  }) =>
-      _getStudentCodesForActivityTagFilterUseCase(
-        schoolCode: schoolCode,
-        classroomCode: classroomCode,
-        tagCodes: tagCodes,
-      );
+  }) => _getStudentCodesForActivityTagFilterUseCase(
+    schoolCode: schoolCode,
+    classroomCode: classroomCode,
+    tagCodes: tagCodes,
+  );
 
   Future<StudentPage> getStudentPage({
     required String schoolCode,
@@ -223,22 +216,21 @@ class ActivityFeedScopeCubit extends Cubit<ActivityFeedScopeState> {
     int page = 0,
     int size = 10,
     List<String>? allowedClassroomCodes,
-  }) =>
-      _getStudentPageUseCase(
-        schoolCode: schoolCode,
-        code: code,
-        firstName: firstName,
-        lastName: lastName,
-        status: status,
-        classroomCodes: classroomCodes,
-        tagCodes: tagCodes,
-        guardianCodes: guardianCodes,
-        attendanceStatuses: attendanceStatuses,
-        search: search,
-        page: page,
-        size: size,
-        allowedClassroomCodes: allowedClassroomCodes,
-      );
+  }) => _getStudentPageUseCase(
+    schoolCode: schoolCode,
+    code: code,
+    firstName: firstName,
+    lastName: lastName,
+    status: status,
+    classroomCodes: classroomCodes,
+    tagCodes: tagCodes,
+    guardianCodes: guardianCodes,
+    attendanceStatuses: attendanceStatuses,
+    search: search,
+    page: page,
+    size: size,
+    allowedClassroomCodes: allowedClassroomCodes,
+  );
 
   Future<StudentAttendanceDailyPage> getStudentAttendanceDaily({
     required String attendanceDate,
@@ -253,21 +245,20 @@ class ActivityFeedScopeCubit extends Cubit<ActivityFeedScopeState> {
     String? search,
     int page = 0,
     int size = 10,
-  }) =>
-      _getStudentAttendanceDailyUseCase(
-        attendanceDate: attendanceDate,
-        fromAttendanceDate: fromAttendanceDate,
-        toAttendanceDate: toAttendanceDate,
-        classroomCodes: classroomCodes,
-        studentCodes: studentCodes,
-        tagCodes: tagCodes,
-        signInAtFilter: signInAtFilter,
-        signOutAtFilter: signOutAtFilter,
-        isExpectedNotMarked: isExpectedNotMarked,
-        search: search,
-        page: page,
-        size: size,
-      );
+  }) => _getStudentAttendanceDailyUseCase(
+    attendanceDate: attendanceDate,
+    fromAttendanceDate: fromAttendanceDate,
+    toAttendanceDate: toAttendanceDate,
+    classroomCodes: classroomCodes,
+    studentCodes: studentCodes,
+    tagCodes: tagCodes,
+    signInAtFilter: signInAtFilter,
+    signOutAtFilter: signOutAtFilter,
+    isExpectedNotMarked: isExpectedNotMarked,
+    search: search,
+    page: page,
+    size: size,
+  );
 
   Future<StudentAttendanceAbsentFormPage> getStudentAbsentRecordsActivity({
     required String fromAbsenceDate,
@@ -278,24 +269,25 @@ class ActivityFeedScopeCubit extends Cubit<ActivityFeedScopeState> {
     String? search,
     int page = 0,
     int size = 10,
-  }) =>
-      _getStudentAbsentRecordsActivityUseCase(
-        fromAbsenceDate: fromAbsenceDate,
-        toAbsenceDate: toAbsenceDate,
-        classroomCodes: classroomCodes,
-        tagCodes: tagCodes,
-        studentCodes: studentCodes,
-        search: search,
-        page: page,
-        size: size,
-      );
+  }) => _getStudentAbsentRecordsActivityUseCase(
+    fromAbsenceDate: fromAbsenceDate,
+    toAbsenceDate: toAbsenceDate,
+    classroomCodes: classroomCodes,
+    tagCodes: tagCodes,
+    studentCodes: studentCodes,
+    search: search,
+    page: page,
+    size: size,
+  );
 
   /// The logged-in staff member's own profile (primary/allowed classroom
   /// codes) — used to scope which classrooms this staff member may see.
   Future<StaffProfile> getOwnStaffProfileForClassroomScope({
     required String staffCode,
-  }) =>
-      _staffRepository.getStaffProfile(staffCode: staffCode, forEditStaff: true);
+  }) => _staffRepository.getStaffProfile(
+    staffCode: staffCode,
+    forEditStaff: true,
+  );
 
   /// Resolves display names for staff codes not already known to the
   /// caller. A code that fails to resolve is simply omitted from the

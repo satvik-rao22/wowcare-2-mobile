@@ -5,13 +5,16 @@ import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/calendar_responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class CustomHorizontalDatePicker extends StatefulWidget {
   @override
-  _CustomHorizontalDatePickerState createState() => _CustomHorizontalDatePickerState();
+  _CustomHorizontalDatePickerState createState() =>
+      _CustomHorizontalDatePickerState();
 }
 
-class _CustomHorizontalDatePickerState extends State<CustomHorizontalDatePicker> {
+class _CustomHorizontalDatePickerState
+    extends State<CustomHorizontalDatePicker> {
   CalendarFormat _calendarFormat = CalendarFormat.week;
   DateTime _focusedDay = AppTime.now();
   DateTime? _selectedDay;
@@ -24,15 +27,21 @@ class _CustomHorizontalDatePickerState extends State<CustomHorizontalDatePicker>
 
   void _previousWeek() {
     setState(() {
-      _focusedDay =
-          DateTime(_focusedDay.year, _focusedDay.month, _focusedDay.day - 7);
+      _focusedDay = DateTime(
+        _focusedDay.year,
+        _focusedDay.month,
+        _focusedDay.day - 7,
+      );
     });
   }
 
   void _nextWeek() {
     setState(() {
-      _focusedDay =
-          DateTime(_focusedDay.year, _focusedDay.month, _focusedDay.day + 7);
+      _focusedDay = DateTime(
+        _focusedDay.year,
+        _focusedDay.month,
+        _focusedDay.day + 7,
+      );
     });
   }
 
@@ -49,9 +58,7 @@ class _CustomHorizontalDatePickerState extends State<CustomHorizontalDatePicker>
                 color: AppColors.primaryColor,
                 size: 28,
               ),
-              borderRadius: const BorderRadius.all(
-                Radius.circular(100),
-              ),
+              borderRadius: const BorderRadius.all(Radius.circular(100)),
               onTap: _previousWeek,
             ),
             const SizedBox(height: 12),
@@ -68,9 +75,7 @@ class _CustomHorizontalDatePickerState extends State<CustomHorizontalDatePicker>
               focusedDay: _focusedDay,
               calendarFormat: _calendarFormat,
               headerVisible: false,
-              availableCalendarFormats: const {
-                CalendarFormat.week: 'Week',
-              },
+              availableCalendarFormats: const {CalendarFormat.week: 'Week'},
               selectedDayPredicate: (day) {
                 return isSameDay(_selectedDay, day);
               },
@@ -79,7 +84,9 @@ class _CustomHorizontalDatePickerState extends State<CustomHorizontalDatePicker>
                   _selectedDay = selectedDay;
                   _focusedDay = focusedDay;
                 });
-                AppLogger.d('Selected:  ${selectedDay.toString().split(' ')[0]}');
+                AppLogger.d(
+                  'Selected:  ${selectedDay.toString().split(' ')[0]}',
+                );
               },
               calendarStyle: CalendarStyle(
                 selectedDecoration: BoxDecoration(
@@ -96,7 +103,7 @@ class _CustomHorizontalDatePickerState extends State<CustomHorizontalDatePicker>
                   fontWeight: FontWeight.w600,
                   fontSize: calHelper.dayFontSize,
                 ),
-                selectedTextStyle: const TextStyle(color: Colors.white),
+                selectedTextStyle: AppTextStyles.body.copyWith(color: Colors.white),
                 todayDecoration: BoxDecoration(
                   gradient: AppColors.buildPrimaryGradient().withOpacity(0.3),
                   shape: BoxShape.circle,
@@ -133,9 +140,7 @@ class _CustomHorizontalDatePickerState extends State<CustomHorizontalDatePicker>
                 color: AppColors.primaryColor,
                 size: 28,
               ),
-              borderRadius: const BorderRadius.all(
-                Radius.circular(100),
-              ),
+              borderRadius: const BorderRadius.all(Radius.circular(100)),
               onTap: _nextWeek,
             ),
             const SizedBox(height: 12),

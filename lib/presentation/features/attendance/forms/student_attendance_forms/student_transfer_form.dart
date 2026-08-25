@@ -494,7 +494,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
           Navigator.of(context).pop();
         } else {
           redirectToAttendanceDaily(
-              context, StudentAttendanceTabbedView.routeName);
+            context,
+            StudentAttendanceTabbedView.routeName,
+          );
         }
       }
     } catch (e) {
@@ -521,18 +523,14 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
       context,
     )) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
           child: Padding(
             padding: EdgeInsets.all(24.0),
             child: Text(
               'Access Denied: You must be inside geofence and signed in to manage student attendance.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.red,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTextStyles.title.copyWith(color: Colors.red),
             ),
           ),
         ),
@@ -652,7 +650,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                               ),
                               child: AppText.value(
                                 currentClassroom,
-                                style: TextStyle(
+                                style: AppTextStyles.body.copyWith(
                                   color: AppColors.primaryColor.withValues(
                                     alpha: 0.5,
                                   ),
@@ -689,11 +687,10 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                                 ? 'Select classroom'
                                 : 'No classroom available',
                           ),
-                          style: TextStyle(
+                          style: AppTextStyles.body.copyWith(
                             color: AppColors.primaryColor.withValues(
                               alpha: 0.5,
                             ),
-                            fontSize: 15,
                           ),
                           isExpanded: true,
                           icon: SvgPicture.asset(MediaRes.arrow_drop_down),
@@ -769,10 +766,8 @@ class RemoveStudentTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     softWrap: false,
-                    style: const TextStyle(
+                    style: AppTextStyles.body.copyWith(
                       color: AppColors.primaryColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),

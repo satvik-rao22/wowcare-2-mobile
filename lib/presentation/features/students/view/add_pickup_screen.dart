@@ -15,6 +15,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class AddPickupScreen extends StatefulWidget {
   const AddPickupScreen({
@@ -642,7 +643,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: Color(0xff573353),
     );
 
     return Column(
@@ -654,9 +655,9 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
             children: [
               TextSpan(text: label),
               if (isRequired)
-                const TextSpan(
+                TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: AppTextStyles.body.copyWith(color: Colors.red),
                 ),
             ],
           ),

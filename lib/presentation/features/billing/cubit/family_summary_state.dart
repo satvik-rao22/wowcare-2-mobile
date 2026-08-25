@@ -10,11 +10,11 @@ class FamilySummaryState extends Equatable {
   });
 
   const FamilySummaryState.initial()
-      : families = const <FamilySummaryEntity>[],
-        searchQuery = '',
-        showOutstandingOnly = false,
-        isLoading = true,
-        errorMessage = null;
+    : families = const <FamilySummaryEntity>[],
+      searchQuery = '',
+      showOutstandingOnly = false,
+      isLoading = true,
+      errorMessage = null;
 
   final List<FamilySummaryEntity> families;
   final String searchQuery;
@@ -38,11 +38,13 @@ class FamilySummaryState extends Equatable {
   double get totalOutstanding {
     final q = searchQuery.trim().toLowerCase();
     return families
-        .where((f) =>
-            f.hasTransactions &&
-            (q.isEmpty ||
-                f.familyName.toLowerCase().contains(q) ||
-                f.guardianName.toLowerCase().contains(q)))
+        .where(
+          (f) =>
+              f.hasTransactions &&
+              (q.isEmpty ||
+                  f.familyName.toLowerCase().contains(q) ||
+                  f.guardianName.toLowerCase().contains(q)),
+        )
         .fold<double>(0, (sum, f) => sum + f.openBalance);
   }
 
@@ -63,6 +65,11 @@ class FamilySummaryState extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      [families, searchQuery, showOutstandingOnly, isLoading, errorMessage];
+  List<Object?> get props => [
+    families,
+    searchQuery,
+    showOutstandingOnly,
+    isLoading,
+    errorMessage,
+  ];
 }

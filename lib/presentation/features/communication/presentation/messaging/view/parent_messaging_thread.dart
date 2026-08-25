@@ -46,6 +46,7 @@ import '../../../../../../domain/features/communication/usecases/toggle_private_
 import '../../../../../../domain/features/communication/usecases/get_conversation_entity_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/participant_mapper.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class ParentMessagingThread extends StatefulWidget {
   const ParentMessagingThread({
@@ -3665,7 +3666,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       onViewParticipants: _showParticipantsDialog,
       onAttachmentError: (message) {
         if (!mounted) return;
-        CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: message,
+          isError: true,
+        );
       },
     );
   }
@@ -3891,9 +3896,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                               activatorName == null
                                   ? 'Private'
                                   : 'Private by $activatorName',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
+                              style: AppTextStyles.sectionHeader.copyWith(
                                 color: Color(0xFFC9A000),
                               ),
                               maxLines: 1,
@@ -3981,8 +3984,18 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
 
     const monthNames = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
 
     // Matches web's groupMessagesByDate (ChatMessageArea.tsx): "Today" /

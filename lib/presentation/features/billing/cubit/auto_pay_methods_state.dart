@@ -137,17 +137,17 @@ class AutoPayMethodsState extends Equatable {
 
   @override
   List<Object?> get props => [
-        isLoading,
-        isSaving,
-        isSettingPrimary,
-        autopayEnabled,
-        initialAutopayEnabled,
-        apiLoginId,
-        maxMethods,
-        methods,
-        allowedMethods,
-        selectedMethodCode,
-        deletingMethodCode,
-        errorMessage,
-      ];
+    isLoading,
+    isSaving,
+    isSettingPrimary,
+    autopayEnabled,
+    initialAutopayEnabled,
+    apiLoginId,
+    maxMethods,
+    methods,
+    allowedMethods,
+    selectedMethodCode,
+    deletingMethodCode,
+    errorMessage,
+  ];
 }

@@ -13,7 +13,8 @@ class NewsletterThumbnailInfo {
   final String directUrl;
   final String mimeType;
 
-  bool get hasSource => assetCode.trim().isNotEmpty || directUrl.trim().isNotEmpty;
+  bool get hasSource =>
+      assetCode.trim().isNotEmpty || directUrl.trim().isNotEmpty;
 }
 
 NewsletterThumbnailInfo resolveNewsletterThumbnail(NewsletterEntity entity) {
@@ -43,14 +44,13 @@ NewsletterThumbnailInfo resolveNewsletterThumbnail(NewsletterEntity entity) {
 
   final String entityAsset = (entity.assetCode ?? '').trim();
   if (entityAsset.isNotEmpty) {
-    return NewsletterThumbnailInfo(
-      assetCode: entityAsset,
-      mimeType: 'image/*',
-    );
+    return NewsletterThumbnailInfo(assetCode: entityAsset, mimeType: 'image/*');
   }
 
   for (final component in entity.components) {
-    final NewsletterThumbnailInfo? fromComponent = _imageFromComponent(component);
+    final NewsletterThumbnailInfo? fromComponent = _imageFromComponent(
+      component,
+    );
     if (fromComponent != null) return fromComponent;
   }
 
@@ -73,7 +73,9 @@ NewsletterThumbnailInfo resolveNewsletterThumbnail(NewsletterEntity entity) {
 /// (see `parseComponentParts` in `newsletter_content_parser.dart`) rather than
 /// as flat fields directly on the component, so `parts` must be inspected
 /// first. A flat legacy shape is checked as a fallback for older payloads.
-NewsletterThumbnailInfo? _imageFromComponent(NewsletterComponentEntity component) {
+NewsletterThumbnailInfo? _imageFromComponent(
+  NewsletterComponentEntity component,
+) {
   final data = component.data;
 
   final dynamic rawParts = data['parts'];
@@ -81,7 +83,10 @@ NewsletterThumbnailInfo? _imageFromComponent(NewsletterComponentEntity component
     for (final dynamic rawPart in rawParts) {
       if (rawPart is! Map) continue;
       final part = Map<String, dynamic>.from(rawPart);
-      final String partType = (part['type'] ?? '').toString().trim().toUpperCase();
+      final String partType = (part['type'] ?? '')
+          .toString()
+          .trim()
+          .toUpperCase();
       if (partType != 'IMAGE') continue;
       final String url = _firstNonEmpty([
         part['imageUrl'],
@@ -100,7 +105,8 @@ NewsletterThumbnailInfo? _imageFromComponent(NewsletterComponentEntity component
         assetCode: code,
         directUrl: url,
         mimeType: resolveThumbnailMimeType(
-          mimeType: part['mimeType']?.toString() ?? part['contentType']?.toString(),
+          mimeType:
+              part['mimeType']?.toString() ?? part['contentType']?.toString(),
           url: url,
           fileName: part['fileName']?.toString() ?? part['name']?.toString(),
           assetCode: code,
@@ -126,7 +132,8 @@ NewsletterThumbnailInfo? _imageFromComponent(NewsletterComponentEntity component
         assetCode: code,
         directUrl: url,
         mimeType: resolveThumbnailMimeType(
-          mimeType: data['mimeType']?.toString() ?? data['contentType']?.toString(),
+          mimeType:
+              data['mimeType']?.toString() ?? data['contentType']?.toString(),
           url: url,
           fileName: data['fileName']?.toString() ?? data['name']?.toString(),
           assetCode: code,

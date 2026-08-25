@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class CommonSingleSelectDropdown extends StatelessWidget {
   const CommonSingleSelectDropdown({
@@ -24,16 +25,14 @@ class CommonSingleSelectDropdown extends StatelessWidget {
       children: [
         RichText(
           text: TextSpan(
-            style: const TextStyle(
-              fontSize: 14,
-              fontFamily: 'Manrope',
-              fontWeight: FontWeight.w400,
-              color: AppColors.primaryColor,
-            ),
+            style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
             children: [
               TextSpan(text: label),
               if (isRequired)
-                const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                TextSpan(
+                  text: ' *',
+                  style: AppTextStyles.body.copyWith(color: Colors.red),
+                ),
             ],
           ),
         ),
@@ -50,14 +49,21 @@ class CommonSingleSelectDropdown extends StatelessWidget {
             child: DropdownButton<String>(
               value: value,
               isExpanded: true,
-              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primaryColor),
+              icon: const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: AppColors.primaryColor,
+              ),
               items: items
-                  .map((e) => DropdownMenuItem<String>(
-                        value: e,
-                        child: Text(e,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontFamily: 'Manrope')),
-                      ))
+                  .map(
+                    (e) => DropdownMenuItem<String>(
+                      value: e,
+                      child: Text(
+                        e,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.body,
+                      ),
+                    ),
+                  )
                   .toList(),
               onChanged: (v) {
                 if (v != null) onSelected(v);
@@ -69,5 +75,3 @@ class CommonSingleSelectDropdown extends StatelessWidget {
     );
   }
 }
-
-

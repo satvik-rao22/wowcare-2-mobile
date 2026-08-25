@@ -43,8 +43,8 @@ abstract final class AttendanceCrossClassResolver {
   static Future<bool> isEnabledForCurrentSchool({
     required StorageService storage,
   }) async {
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     if (schoolCode.isEmpty) return false;
 
     final cached = _cacheBySchool[schoolCode];

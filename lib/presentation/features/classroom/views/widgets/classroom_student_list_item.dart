@@ -76,11 +76,13 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
 
   @override
   Widget build(BuildContext context) {
-    final normalizedAttendance =
-        (widget.todayAttendanceStatusRaw ?? '').trim().toUpperCase();
+    final normalizedAttendance = (widget.todayAttendanceStatusRaw ?? '')
+        .trim()
+        .toUpperCase();
     final hasAttendanceStatus =
         normalizedAttendance == 'SIGNED_IN' || normalizedAttendance == 'ABSENT';
-    final shouldGreyOut = !widget.isExpectedToday &&
+    final shouldGreyOut =
+        !widget.isExpectedToday &&
         !widget.isSignedIn &&
         !widget.isAbsent &&
         !hasAttendanceStatus;
@@ -97,8 +99,9 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
     final bool looksLikeUrl =
         rawPhoto.startsWith('http://') || rawPhoto.startsWith('https://');
     final String? directUrl = looksLikeUrl ? rawPhoto : null;
-    final String? assetCode =
-        (!looksLikeUrl && rawPhoto.isNotEmpty) ? rawPhoto : null;
+    final String? assetCode = (!looksLikeUrl && rawPhoto.isNotEmpty)
+        ? rawPhoto
+        : null;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -301,8 +304,9 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
   Future<void> _fetchHealth() async {
     final code = widget.studentCode.trim();
     try {
-      final result = await serviceLocator<StudentRepository>()
-          .getStudentHealth(studentCode: code);
+      final result = await serviceLocator<StudentRepository>().getStudentHealth(
+        studentCode: code,
+      );
       _healthCache[code] = _HealthCacheEntry(
         fetchedAt: AppTime.nowUtc(),
         health: result,
@@ -491,8 +495,9 @@ Future<void> prefetchStudentDetailsHealth(String studentCode) async {
 
   final future = () async {
     try {
-      final result = await serviceLocator<StudentRepository>()
-          .getStudentHealth(studentCode: code);
+      final result = await serviceLocator<StudentRepository>().getStudentHealth(
+        studentCode: code,
+      );
       _healthCache[code] = _HealthCacheEntry(
         fetchedAt: AppTime.nowUtc(),
         health: result,

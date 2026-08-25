@@ -10,10 +10,9 @@ class GetInvoiceAnalyticsUseCase {
     required String organizationCode,
     required String school,
     int? year,
-  }) =>
-      _repository.getAnalytics(
-        organizationCode: organizationCode,
-        school: school,
-        year: year,
-      );
+  }) => _repository.getAnalytics(
+    organizationCode: organizationCode,
+    school: school,
+    year: year,
+  );
 }

@@ -12,6 +12,7 @@ import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 typedef StudentAttendanceActionTap = void Function(String actionLabel);
 
@@ -148,37 +149,37 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                  _buildMenuItem(
-                    context,
-                    MediaRes.Sign_in,
-                    'Sign-in',
-                    activeDisabledActions,
-                    activeReasons,
-                  ),
-                  const SizedBox(height: 5),
-                  _buildMenuItem(
-                    context,
-                    MediaRes.Sign_out,
-                    'Sign-Out',
-                    activeDisabledActions,
-                    activeReasons,
-                  ),
-                  const SizedBox(height: 5),
-                  _buildMenuItem(
-                    context,
-                    MediaRes.transfer,
-                    'Transfer',
-                    activeDisabledActions,
-                    activeReasons,
-                  ),
-                  const SizedBox(height: 5),
-                  _buildMenuItem(
-                    context,
-                    MediaRes.Mark_absent,
-                    'Absent',
-                    activeDisabledActions,
-                    activeReasons,
-                  ),
+                    _buildMenuItem(
+                      context,
+                      MediaRes.Sign_in,
+                      'Sign-in',
+                      activeDisabledActions,
+                      activeReasons,
+                    ),
+                    const SizedBox(height: 5),
+                    _buildMenuItem(
+                      context,
+                      MediaRes.Sign_out,
+                      'Sign-Out',
+                      activeDisabledActions,
+                      activeReasons,
+                    ),
+                    const SizedBox(height: 5),
+                    _buildMenuItem(
+                      context,
+                      MediaRes.transfer,
+                      'Transfer',
+                      activeDisabledActions,
+                      activeReasons,
+                    ),
+                    const SizedBox(height: 5),
+                    _buildMenuItem(
+                      context,
+                      MediaRes.Mark_absent,
+                      'Absent',
+                      activeDisabledActions,
+                      activeReasons,
+                    ),
                   ],
                 ),
               ),
@@ -229,12 +230,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
             child: Text(
               label,
               maxLines: 1,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                fontFamily: 'Manrope',
-                color: AppColors.primaryColor,
-              ),
+              style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
             ),
           ),
         ],

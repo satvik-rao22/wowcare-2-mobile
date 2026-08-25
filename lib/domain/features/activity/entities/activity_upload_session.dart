@@ -12,4 +12,3 @@ class ActivityUploadSession extends Equatable {
   @override
   List<Object?> get props => [sessionCode, documentApiBasePath];
 }
-

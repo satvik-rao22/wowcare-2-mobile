@@ -141,7 +141,8 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
 
     final check = await _checkPerm();
     final previousLevel = state.permissionLevel;
-    final wasServiceDisabled = state.status == GeofenceCubitStatus.locationDisabled;
+    final wasServiceDisabled =
+        state.status == GeofenceCubitStatus.locationDisabled;
     final permissionChanged = check.permissionLevel != previousLevel;
 
     AppLogger.d(
@@ -184,7 +185,10 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
         '[GeofenceCubit] Reconcile — re-initializing (servicesResumed=$wasServiceDisabled, permissionChanged=$permissionChanged)',
       );
       stopMonitoring();
-      await _checkAndStartMonitoring(schoolCode: state.schoolCode, isRefresh: true);
+      await _checkAndStartMonitoring(
+        schoolCode: state.schoolCode,
+        isRefresh: true,
+      );
       return;
     }
 
@@ -209,7 +213,9 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     AppLogger.d('[GeofenceCubit] initForSchool: $schoolCode');
 
     if (schoolCode.isEmpty) {
-      debugPrint('[GeofenceCubit] ⚠️ EARLY EXIT — schoolCode is empty! Check StorageKeys.schoolCode in storage.');
+      debugPrint(
+        '[GeofenceCubit] ⚠️ EARLY EXIT — schoolCode is empty! Check StorageKeys.schoolCode in storage.',
+      );
       return;
     }
 
@@ -226,7 +232,9 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
             state.status == GeofenceCubitStatus.gpsDisabledByAdmin ||
             state.status == GeofenceCubitStatus.checking ||
             state.status == GeofenceCubitStatus.fetchingSchoolLocation)) {
-      debugPrint('[GeofenceCubit] ⚠️ EARLY EXIT — already monitoring "$schoolCode" in state ${state.status} — skipping re-init');
+      debugPrint(
+        '[GeofenceCubit] ⚠️ EARLY EXIT — already monitoring "$schoolCode" in state ${state.status} — skipping re-init',
+      );
       AppLogger.d('[GeofenceCubit] Already monitoring, skipping re-init');
       return;
     }
@@ -235,9 +243,13 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       if (Platform.isIOS || Platform.isAndroid) {
         try {
           await _nativeGeofenceChannel.invokeMethod('clearGeofenceState');
-          AppLogger.d('[GeofenceCubit] Cleared native geofence state on school switch (${state.schoolCode} -> $schoolCode)');
+          AppLogger.d(
+            '[GeofenceCubit] Cleared native geofence state on school switch (${state.schoolCode} -> $schoolCode)',
+          );
         } catch (e) {
-          AppLogger.d('[GeofenceCubit] Failed to clear native geofence state on school switch: $e');
+          AppLogger.d(
+            '[GeofenceCubit] Failed to clear native geofence state on school switch: $e',
+          );
         }
       }
     }
@@ -299,10 +311,12 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     if (schoolCode.isEmpty) return;
     AppLogger.d('[GeofenceCubit] refreshSettings called');
     stopMonitoring();
-    emit(state.copyWith(
-      status: GeofenceCubitStatus.fetchingSchoolLocation,
-      refreshNonce: state.refreshNonce + 1,
-    ));
+    emit(
+      state.copyWith(
+        status: GeofenceCubitStatus.fetchingSchoolLocation,
+        refreshNonce: state.refreshNonce + 1,
+      ),
+    );
     await _checkAndStartMonitoring(schoolCode: schoolCode, isRefresh: true);
   }
 
@@ -383,13 +397,19 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     bool isRefresh = false,
   }) async {
     try {
-      debugPrint('[GeofenceCubit] ▶ _checkAndStartMonitoring start — schoolCode="$schoolCode"');
+      debugPrint(
+        '[GeofenceCubit] ▶ _checkAndStartMonitoring start — schoolCode="$schoolCode"',
+      );
 
       final permCheck = await _checkPerm();
-      debugPrint('[GeofenceCubit] permCheck → serviceEnabled=${permCheck.serviceEnabled} permissionLevel=${permCheck.permissionLevel}');
+      debugPrint(
+        '[GeofenceCubit] permCheck → serviceEnabled=${permCheck.serviceEnabled} permissionLevel=${permCheck.permissionLevel}',
+      );
 
       if (!permCheck.serviceEnabled) {
-        debugPrint('[GeofenceCubit] ⚠️ EARLY EXIT — location service is DISABLED on device. User must enable in Settings > Privacy > Location Services.');
+        debugPrint(
+          '[GeofenceCubit] ⚠️ EARLY EXIT — location service is DISABLED on device. User must enable in Settings > Privacy > Location Services.',
+        );
         emit(
           state.copyWith(
             status: GeofenceCubitStatus.locationDisabled,
@@ -400,13 +420,19 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       }
       var permissionLevel = permCheck.permissionLevel;
       if (!_hasUsablePermission(permissionLevel)) {
-        debugPrint('[GeofenceCubit] No location permission — requesting now...');
+        debugPrint(
+          '[GeofenceCubit] No location permission — requesting now...',
+        );
         await _requestAllPermissions();
         final recheck = await _checkPerm();
         permissionLevel = recheck.permissionLevel;
-        debugPrint('[GeofenceCubit] recheck after request → serviceEnabled=${recheck.serviceEnabled} permissionLevel=${recheck.permissionLevel}');
+        debugPrint(
+          '[GeofenceCubit] recheck after request → serviceEnabled=${recheck.serviceEnabled} permissionLevel=${recheck.permissionLevel}',
+        );
         if (!_hasUsablePermission(permissionLevel)) {
-          debugPrint('[GeofenceCubit] ⚠️ EARLY EXIT — location permission DENIED after request. User tapped "Don\'t Allow".');
+          debugPrint(
+            '[GeofenceCubit] ⚠️ EARLY EXIT — location permission DENIED after request. User tapped "Don\'t Allow".',
+          );
           emit(
             state.copyWith(
               status: GeofenceCubitStatus.permissionDenied,
@@ -417,7 +443,9 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
         }
         debugPrint('[GeofenceCubit] ✅ Permission granted after request');
       } else {
-        debugPrint('[GeofenceCubit] ✅ Permission already granted — skipping request');
+        debugPrint(
+          '[GeofenceCubit] ✅ Permission already granted — skipping request',
+        );
         // Permission already granted — _requestAllPermissions was skipped, so
         // the notification plugin may not have been initialised yet.
         unawaited(_ensureNotificationsInitialised());
@@ -434,11 +462,15 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       // This way both complete at the same time instead of one after the other.
       final positionFuture = _fetchPositionQuickly();
 
-      debugPrint('[GeofenceCubit] ▶ calling getSchoolLocation API for "$schoolCode"...');
+      debugPrint(
+        '[GeofenceCubit] ▶ calling getSchoolLocation API for "$schoolCode"...',
+      );
       // Fetches school lat/lon AND attendance-settings (radius + gpsSignInEnabled)
       // in a single call — the repository fans out both API calls in parallel.
       _config = await _getSchoolLocation(schoolCode: schoolCode);
-      debugPrint('[GeofenceCubit] ✅ getSchoolLocation API returned successfully');
+      debugPrint(
+        '[GeofenceCubit] ✅ getSchoolLocation API returned successfully',
+      );
 
       // ── DEBUG: print geofence values to terminal ──────────────────────────
       debugPrint('╔══════════════════════════════════════════════════╗');
@@ -500,29 +532,43 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
         final accuracy = position.accuracy.clamp(0.0, double.infinity);
         final isInside = distance <= _config!.radiusMeters;
         final confidentlyOutside =
-            distance - accuracy > _config!.radiusMeters + _hysteresisExitExtraMeters;
+            distance - accuracy >
+            _config!.radiusMeters + _hysteresisExitExtraMeters;
 
         if (isInside) {
           immediateStatus = GeofenceCubitStatus.withinRange;
           immediateGeofenceStatus = GeofenceStatus.within;
-          
+
           if (isRefresh) {
-            final nothingToDo = state.isStaffSignedIn || state.allChildrenSignedIn;
-            final currentContext = '${_config!.schoolCode}_isInside_nothingToDo_$nothingToDo';
+            final nothingToDo =
+                state.isStaffSignedIn || state.allChildrenSignedIn;
+            final currentContext =
+                '${_config!.schoolCode}_isInside_nothingToDo_$nothingToDo';
             if (_lastReconciliationContext != currentContext) {
               _lastReconciliationContext = currentContext;
               if (!nothingToDo) {
-                AppLogger.d('[GeofenceCubit] Dashboard refresh reconciliation: User is inside and not signed in. Triggering notification.');
+                AppLogger.d(
+                  '[GeofenceCubit] Dashboard refresh reconciliation: User is inside and not signed in. Triggering notification.',
+                );
                 try {
-                  await _nativeGeofenceChannel.invokeMethod('triggerNotification', {'isInside': true});
+                  await _nativeGeofenceChannel.invokeMethod(
+                    'triggerNotification',
+                    {'isInside': true},
+                  );
                 } catch (e) {
-                  AppLogger.d('[GeofenceCubit] Failed to trigger manual refresh notification: $e');
+                  AppLogger.d(
+                    '[GeofenceCubit] Failed to trigger manual refresh notification: $e',
+                  );
                 }
               } else {
-                AppLogger.d('[GeofenceCubit] Dashboard refresh reconciliation: User is inside but already signed in. Skipping notification.');
+                AppLogger.d(
+                  '[GeofenceCubit] Dashboard refresh reconciliation: User is inside but already signed in. Skipping notification.',
+                );
               }
             } else {
-              AppLogger.d('[GeofenceCubit] Dashboard refresh reconciliation: Already notified for current context. Skipping.');
+              AppLogger.d(
+                '[GeofenceCubit] Dashboard refresh reconciliation: Already notified for current context. Skipping.',
+              );
             }
           }
         } else if (confidentlyOutside) {
@@ -572,9 +618,13 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
         // GPS unavailable — fall back to last-known persisted status.
         final restored = await _restoreLastKnownStatus();
         immediateStatus = restored ?? GeofenceCubitStatus.checking;
-        debugPrint('[GeofenceCubit] ⚠️ GPS position unavailable — using '
-            'persisted status: $immediateStatus');
-        AppLogger.d('[GeofenceCubit] GPS unavailable — restored=$restored → $immediateStatus');
+        debugPrint(
+          '[GeofenceCubit] ⚠️ GPS position unavailable — using '
+          'persisted status: $immediateStatus',
+        );
+        AppLogger.d(
+          '[GeofenceCubit] GPS unavailable — restored=$restored → $immediateStatus',
+        );
       }
 
       emit(
@@ -722,7 +772,6 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     );
   }
 
-
   /// Synchronizes the current "nothing to do" flag (sign in status) to the
   /// native layer whenever sign-in status changes (dashboard refresh,
   /// sign-in/sign-out, resume).
@@ -741,7 +790,9 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
         'nothingToDo': state.isStaffSignedIn || state.allChildrenSignedIn,
       });
     } catch (e) {
-      AppLogger.d('[GeofenceCubit] Failed to sync sign-in status to native: $e');
+      AppLogger.d(
+        '[GeofenceCubit] Failed to sync sign-in status to native: $e',
+      );
     }
   }
 
@@ -784,7 +835,9 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       // user is physically inside the zone. Leave the state as 'checking' so
       // the Dart position stream and the native CLRegion callback can still
       // resolve it when the next GPS fix arrives.
-      AppLogger.d('[GeofenceCubit] High-accuracy refinement failed: $e — keeping checking state');
+      AppLogger.d(
+        '[GeofenceCubit] High-accuracy refinement failed: $e — keeping checking state',
+      );
     }
   }
 
@@ -801,7 +854,9 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
         ? const Duration(seconds: 15)
         : const Duration(seconds: 8);
 
-    AppLogger.d('[GeofenceCubit] Fetching GPS position (timeout=${timeout.inSeconds}s, platform=${Platform.operatingSystem})');
+    AppLogger.d(
+      '[GeofenceCubit] Fetching GPS position (timeout=${timeout.inSeconds}s, platform=${Platform.operatingSystem})',
+    );
 
     try {
       final pos = await Geolocator.getCurrentPosition(
@@ -816,11 +871,17 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
         'accuracy=±${pos.accuracy.toStringAsFixed(1)}m '
         'isMocked=${pos.isMocked}',
       );
-      debugPrint('[GeofenceCubit] 📍 GPS fix: lat=${pos.latitude} lon=${pos.longitude} accuracy=±${pos.accuracy.toStringAsFixed(1)}m');
+      debugPrint(
+        '[GeofenceCubit] 📍 GPS fix: lat=${pos.latitude} lon=${pos.longitude} accuracy=±${pos.accuracy.toStringAsFixed(1)}m',
+      );
       return pos;
     } catch (e) {
-      AppLogger.d('[GeofenceCubit] getCurrentPosition failed ($e) — trying getLastKnownPosition');
-      debugPrint('[GeofenceCubit] ⚠️ getCurrentPosition timed out or failed: $e');
+      AppLogger.d(
+        '[GeofenceCubit] getCurrentPosition failed ($e) — trying getLastKnownPosition',
+      );
+      debugPrint(
+        '[GeofenceCubit] ⚠️ getCurrentPosition timed out or failed: $e',
+      );
       try {
         final last = await Geolocator.getLastKnownPosition();
         if (last != null) {
@@ -830,7 +891,9 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
             'accuracy=±${last.accuracy.toStringAsFixed(1)}m '
             'age=${DateTime.now().toUtc().difference(last.timestamp).inSeconds}s',
           );
-          debugPrint('[GeofenceCubit] 📍 Last known position: lat=${last.latitude} lon=${last.longitude} accuracy=±${last.accuracy.toStringAsFixed(1)}m age=${DateTime.now().toUtc().difference(last.timestamp).inSeconds}s');
+          debugPrint(
+            '[GeofenceCubit] 📍 Last known position: lat=${last.latitude} lon=${last.longitude} accuracy=±${last.accuracy.toStringAsFixed(1)}m age=${DateTime.now().toUtc().difference(last.timestamp).inSeconds}s',
+          );
         } else {
           debugPrint('[GeofenceCubit] ⚠️ No last known position available');
         }
@@ -935,9 +998,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       final syncedStatus = isInside
           ? GeofenceCubitStatus.withinRange
           : GeofenceCubitStatus.outsideRange;
-      AppLogger.d(
-        '[GeofenceCubit] iOS native sync applying — $syncedStatus',
-      );
+      AppLogger.d('[GeofenceCubit] iOS native sync applying — $syncedStatus');
       if (state.status != syncedStatus) {
         emit(state.copyWith(status: syncedStatus));
       }
@@ -982,7 +1043,9 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
         );
         AppLogger.d('[GeofenceCubit] WorkManager health check registered');
       } else {
-        await Workmanager().cancelByUniqueName(geofenceHealthCheckTaskUniqueName);
+        await Workmanager().cancelByUniqueName(
+          geofenceHealthCheckTaskUniqueName,
+        );
         AppLogger.d('[GeofenceCubit] WorkManager health check cancelled');
       }
     } catch (e) {
@@ -1044,21 +1107,27 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
   Future<void> handleProfileSwitch() async {
     _signInCheckGeneration++;
     _lastReconciliationContext = null;
-    
+
     if (Platform.isIOS || Platform.isAndroid) {
       try {
         await _nativeGeofenceChannel.invokeMethod('clearGeofenceState');
-        AppLogger.d('[GeofenceCubit] Cleared native geofence state on profile switch');
+        AppLogger.d(
+          '[GeofenceCubit] Cleared native geofence state on profile switch',
+        );
       } catch (e) {
-        AppLogger.d('[GeofenceCubit] Failed to clear native geofence state on profile switch: $e');
+        AppLogger.d(
+          '[GeofenceCubit] Failed to clear native geofence state on profile switch: $e',
+        );
       }
     }
-    
-    emit(state.copyWith(
-      isStaffSignedIn: false,
-      allChildrenSignedIn: false,
-      isSignInStatusLoading: true,
-    ));
+
+    emit(
+      state.copyWith(
+        isStaffSignedIn: false,
+        allChildrenSignedIn: false,
+        isSignInStatusLoading: true,
+      ),
+    );
   }
 
   void setSignInStatusLoading(bool isLoading) {
@@ -1077,9 +1146,9 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       }
       if (staffCode.isEmpty) {
         final activeRole =
-            (await storage.getString(StorageKeys.activeSchoolRole))
-                ?.trim()
-                .toUpperCase() ??
+            (await storage.getString(
+              StorageKeys.activeSchoolRole,
+            ))?.trim().toUpperCase() ??
             '';
         if (activeRole == 'ADMIN' || activeRole == 'ORG_ADMIN') {
           staffCode =
@@ -1112,10 +1181,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     } catch (_) {
       if (currentGen == _signInCheckGeneration) {
         emit(
-          state.copyWith(
-            isStaffSignedIn: false,
-            isSignInStatusLoading: false,
-          ),
+          state.copyWith(isStaffSignedIn: false, isSignInStatusLoading: false),
         );
         _reevaluateNotificationForCurrentStatus();
       }
@@ -1123,7 +1189,9 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
   }
 
   Future<void> updateStaffSignInStatus(bool isSignedIn) async {
-    emit(state.copyWith(isStaffSignedIn: isSignedIn, isSignInStatusLoading: false));
+    emit(
+      state.copyWith(isStaffSignedIn: isSignedIn, isSignInStatusLoading: false),
+    );
     _reevaluateNotificationForCurrentStatus();
   }
 
@@ -1132,7 +1200,12 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
   /// "you can now Sign In or Sign Out" notification can be suppressed once
   /// nothing is left to act on for this guardian.
   Future<void> updateChildrenSignInStatus(bool allSignedIn) async {
-    emit(state.copyWith(allChildrenSignedIn: allSignedIn, isSignInStatusLoading: false));
+    emit(
+      state.copyWith(
+        allChildrenSignedIn: allSignedIn,
+        isSignInStatusLoading: false,
+      ),
+    );
     _reevaluateNotificationForCurrentStatus();
   }
 

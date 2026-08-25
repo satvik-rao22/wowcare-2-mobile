@@ -25,11 +25,11 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
     required CancelInvoiceUseCase cancelInvoice,
     required DeleteInvoiceUseCase deleteInvoice,
     required StorageService storage,
-  })  : _getFamilyLedger = getFamilyLedger,
-        _cancelInvoice = cancelInvoice,
-        _deleteInvoice = deleteInvoice,
-        _storage = storage,
-        super(const TransactionDetailsState.initial());
+  }) : _getFamilyLedger = getFamilyLedger,
+       _cancelInvoice = cancelInvoice,
+       _deleteInvoice = deleteInvoice,
+       _storage = storage,
+       super(const TransactionDetailsState.initial());
 
   final GetFamilyLedgerUseCase _getFamilyLedger;
   final CancelInvoiceUseCase _cancelInvoice;
@@ -50,8 +50,12 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
       return true;
     } catch (e) {
       if (isClosed) return false;
-      emit(state.copyWith(
-          hasError: true, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
+      emit(
+        state.copyWith(
+          hasError: true,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
       return false;
     }
   }
@@ -67,8 +71,12 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
       return true;
     } catch (e) {
       if (isClosed) return false;
-      emit(state.copyWith(
-          hasError: true, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
+      emit(
+        state.copyWith(
+          hasError: true,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
       return false;
     }
   }
@@ -82,26 +90,30 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
     _ownerCode = ownerCode.trim();
     if (_ownerCode.isEmpty) return;
 
-    emit(state.copyWith(
-      isLoadingSiblings: true,
-      isLoadingFamily: true,
-      hasError: false,
-      errorMessage: '',
-      familyError: '',
-    ));
+    emit(
+      state.copyWith(
+        isLoadingSiblings: true,
+        isLoadingFamily: true,
+        hasError: false,
+        errorMessage: '',
+        familyError: '',
+      ),
+    );
     try {
-      final org =
-          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final school =
-          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final org = (await _storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+      final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       if (org.isEmpty || school.isEmpty) {
         if (isClosed) return;
-        emit(state.copyWith(
-          isLoadingSiblings: false,
-          isLoadingFamily: false,
-          hasError: true,
-          errorMessage: 'Missing organization/school context.',
-        ));
+        emit(
+          state.copyWith(
+            isLoadingSiblings: false,
+            isLoadingFamily: false,
+            hasError: true,
+            errorMessage: 'Missing organization/school context.',
+          ),
+        );
         return;
       }
 
@@ -112,58 +124,66 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
         ownerType: _ownerType,
       );
       if (isClosed) return;
-      emit(state.copyWith(
-        siblingSummary: <String, dynamic>{
-          'netAmountPaid': ledger.netPaid,
-          'amountUnpaid': ledger.unpaid,
-          'amountInProcess': ledger.inProcess,
-          'amountRefund': ledger.refunded,
-          'amountPaid': ledger.paid,
-          'openBalance': ledger.openBalance,
-        },
-        siblingTransactions: _mapTransactions(
-          ledger.transactions,
+      emit(
+        state.copyWith(
+          siblingSummary: <String, dynamic>{
+            'netAmountPaid': ledger.netPaid,
+            'amountUnpaid': ledger.unpaid,
+            'amountInProcess': ledger.inProcess,
+            'amountRefund': ledger.refunded,
+            'amountPaid': ledger.paid,
+            'openBalance': ledger.openBalance,
+          },
+          siblingTransactions: _mapTransactions(
+            ledger.transactions,
+            familyName: ledger.familyName,
+            familyStudentNames: ledger.students
+                .map((s) => s.fullName.trim())
+                .where((n) => n.isNotEmpty)
+                .join(', '),
+          ),
+          familyChildren: _mapPeople(ledger.students),
+          familyParents: _mapPeople(ledger.guardians),
           familyName: ledger.familyName,
-          familyStudentNames: ledger.students
-              .map((s) => s.fullName.trim())
-              .where((n) => n.isNotEmpty)
-              .join(', '),
+          isLoadingSiblings: false,
+          isLoadingFamily: false,
+          hasError: false,
+          hasMoreData: false,
         ),
-        familyChildren: _mapPeople(ledger.students),
-        familyParents: _mapPeople(ledger.guardians),
-        familyName: ledger.familyName,
-        isLoadingSiblings: false,
-        isLoadingFamily: false,
-        hasError: false,
-        hasMoreData: false,
-      ));
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoadingSiblings: false,
-        isLoadingFamily: false,
-        hasError: true,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-        familyError: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoadingSiblings: false,
+          isLoadingFamily: false,
+          hasError: true,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+          familyError: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
   List<Map<String, dynamic>> _mapPeople(List<FamilyLedgerPersonEntity> people) {
     return people
-        .map((p) => <String, dynamic>{
-              'code': p.code,
-              'fullName': p.fullName,
-              'role': p.role,
-              'outstanding': p.outstanding,
-              'photoUuid': null,
-            })
+        .map(
+          (p) => <String, dynamic>{
+            'code': p.code,
+            'fullName': p.fullName,
+            'role': p.role,
+            'outstanding': p.outstanding,
+            'photoUuid': null,
+          },
+        )
         .toList();
   }
 
   List<TransactionItem> _mapTransactions(
-      List<FamilyLedgerTransactionEntity> txns,
-      {String familyName = '', String familyStudentNames = ''}) {
+    List<FamilyLedgerTransactionEntity> txns, {
+    String familyName = '',
+    String familyStudentNames = '',
+  }) {
     return List<TransactionItem>.generate(txns.length, (i) {
       final t = txns[i];
       // Family-level transactions (Payment / Credit / Refund) carry no student.
@@ -188,8 +208,9 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
       return TransactionItem(
         id: i + 1,
         invoiceCode: t.invoiceCode.isNotEmpty ? t.invoiceCode : null,
-        transactionType:
-            t.transactionType.isNotEmpty ? t.transactionType : 'Invoice',
+        transactionType: t.transactionType.isNotEmpty
+            ? t.transactionType
+            : 'Invoice',
         date: t.date ?? billingSchoolNow(),
         amount: t.amount,
         paidAmount: t.paidAmount,
@@ -225,11 +246,13 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
   /// Opened without a family code (e.g. from a single transaction): there is no
   /// ledger to fetch, so leave the screen empty rather than showing demo data.
   Future<void> initialize() async {
-    emit(state.copyWith(
-      isLoadingSiblings: false,
-      isLoadingFamily: false,
-      hasMoreData: false,
-    ));
+    emit(
+      state.copyWith(
+        isLoadingSiblings: false,
+        isLoadingFamily: false,
+        hasMoreData: false,
+      ),
+    );
   }
 
   /// Re-fetches the family ledger (used by pull-to-refresh / error retry). No-op
@@ -250,5 +273,4 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
     emit(state.copyWith(startDate: () => start, endDate: () => end));
     await refresh();
   }
-
 }

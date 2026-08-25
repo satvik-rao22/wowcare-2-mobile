@@ -17,7 +17,8 @@ class ConversationDisplay {
 
   /// STAFF_DIRECT is the only one-to-one conversation type; every other type is
   /// a group/room whose stored title is the correct label.
-  static bool isDirect(String type) => type.trim().toUpperCase() == 'STAFF_DIRECT';
+  static bool isDirect(String type) =>
+      type.trim().toUpperCase() == 'STAFF_DIRECT';
 
   /// The other participant in a 1:1 conversation (userCode != [currentUserCode]),
   /// preferring an active one with a name. Null when it can't be resolved (not a
@@ -29,8 +30,9 @@ class ConversationDisplay {
     if (!isDirect(c.type)) return null;
     final me = currentUserCode?.trim() ?? '';
     if (me.isEmpty || c.participants.isEmpty) return null;
-    final others =
-        c.participants.where((p) => p.userCode.trim() != me).toList();
+    final others = c.participants
+        .where((p) => p.userCode.trim() != me)
+        .toList();
     if (others.isEmpty) return null;
     // Prefer an active participant with a non-empty name.
     others.sort((a, b) {

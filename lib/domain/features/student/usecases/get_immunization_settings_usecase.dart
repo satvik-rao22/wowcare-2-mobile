@@ -7,11 +7,7 @@ class GetImmunizationSettingsUseCase {
 
   final StudentRepository _repository;
 
-  Future<List<VaccineItem>> call({
-    required String schoolCode,
-  }) {
-    return _repository.getImmunizationSettings(
-      schoolCode: schoolCode,
-    );
+  Future<List<VaccineItem>> call({required String schoolCode}) {
+    return _repository.getImmunizationSettings(schoolCode: schoolCode);
   }
 }

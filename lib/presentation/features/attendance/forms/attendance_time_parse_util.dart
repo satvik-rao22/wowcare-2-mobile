@@ -37,8 +37,9 @@ TimeOfDay? parseSchoolTimeOrNull(String? timeString, String schoolIana) {
   // rejects a plain single-space separator before the AM/PM marker (throws
   // FormatException), which silently discarded the period and left times
   // parsed via the 24h fallback below (always AM for 1-11 o'clock).
-  final ampmMatch = RegExp(r'(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp][Mm])')
-      .firstMatch(normalized);
+  final ampmMatch = RegExp(
+    r'(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp][Mm])',
+  ).firstMatch(normalized);
   if (ampmMatch != null) {
     final hour12 = int.tryParse(ampmMatch.group(1)!);
     final minute = int.tryParse(ampmMatch.group(2)!);
@@ -56,8 +57,9 @@ TimeOfDay? parseSchoolTimeOrNull(String? timeString, String schoolIana) {
     }
   }
 
-  final hmsMatch =
-      RegExp(r'(\d{1,2}):(\d{2})(?::\d{2})?').firstMatch(normalized);
+  final hmsMatch = RegExp(
+    r'(\d{1,2}):(\d{2})(?::\d{2})?',
+  ).firstMatch(normalized);
   if (hmsMatch != null) {
     final hour = int.tryParse(hmsMatch.group(1)!);
     final minute = int.tryParse(hmsMatch.group(2)!);

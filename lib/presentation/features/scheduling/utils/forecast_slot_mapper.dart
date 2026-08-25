@@ -38,8 +38,7 @@ class ForecastSlotMapper {
     required int expectedStudents,
     required int requiredStaff,
     required int scheduledStaff,
-  }) =>
-      expectedStudents == 0 && requiredStaff == 0 && scheduledStaff == 0;
+  }) => expectedStudents == 0 && requiredStaff == 0 && scheduledStaff == 0;
 
   static ForecastSlotDetail detailFromBlock(
     ClassroomForecastBlock block, {
@@ -67,7 +66,8 @@ class ForecastSlotMapper {
   }) {
     var hasUnder = false;
     for (final block in blocks) {
-      if (filterDate != null && !_sameCalendarDay(block.blockDate, filterDate)) {
+      if (filterDate != null &&
+          !_sameCalendarDay(block.blockDate, filterDate)) {
         continue;
       }
       if (!block.withinMonitoringWindow) continue;
@@ -107,7 +107,8 @@ class ForecastSlotMapper {
     List<ForecastSlotDetail?> details,
     int dayStartMinutes,
     int slotMinutes,
-  }) buildTimeline({
+  })
+  buildTimeline({
     required int windowStartMinutes,
     required int windowEndMinutes,
     required int slotMinutes,
@@ -126,8 +127,9 @@ class ForecastSlotMapper {
       );
     }
 
-    final slotCount =
-        ((windowEndMinutes - windowStartMinutes) / slot).ceil().clamp(1, 96);
+    final slotCount = ((windowEndMinutes - windowStartMinutes) / slot)
+        .ceil()
+        .clamp(1, 96);
     final slots = List<TimeSlotStatus>.filled(slotCount, TimeSlotStatus.empty);
     final details = List<ForecastSlotDetail?>.filled(slotCount, null);
 
@@ -151,7 +153,8 @@ class ForecastSlotMapper {
         final end = minutesOf(block.blockEnd);
         if (start >= slotEnd || end <= slotStart) continue;
 
-        final overlap = (end < slotEnd ? end : slotEnd) -
+        final overlap =
+            (end < slotEnd ? end : slotEnd) -
             (start > slotStart ? start : slotStart);
 
         if (overlap > bestOverlap) {
@@ -224,8 +227,9 @@ class ForecastSlotMapper {
     if (staffShiftCodesFilter != null &&
         staffShiftCodesFilter.isNotEmpty &&
         block.staffShiftCodes.isNotEmpty) {
-      final matches = block.staffShiftCodes
-          .any((code) => staffShiftCodesFilter.contains(code));
+      final matches = block.staffShiftCodes.any(
+        (code) => staffShiftCodesFilter.contains(code),
+      );
       if (!matches) return false;
     }
     if (filterDate != null) {

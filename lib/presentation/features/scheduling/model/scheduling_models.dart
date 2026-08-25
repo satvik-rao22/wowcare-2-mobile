@@ -5,12 +5,7 @@ import 'package:flutter/material.dart';
 enum ClassroomRatioStatus { inRatio, underRatio, overRatio }
 
 /// Canonical ratio kinds aligned with forecast API `blockStatus`.
-enum SchedulingBlockStatusKind {
-  inRatio,
-  underRatio,
-  extraStaff,
-  empty,
-}
+enum SchedulingBlockStatusKind { inRatio, underRatio, extraStaff, empty }
 
 /// Top-level view mode for the schedule screen.
 enum SchedulingViewMode { week, day }

@@ -141,10 +141,7 @@ class _ClassroomStudentFilterScreenState
     }
 
     Navigator.of(context).pop<ClassroomStudentFilterResult>(
-      ClassroomStudentFilterResult(
-        status: statusApi,
-        tagCodes: tagCodes,
-      ),
+      ClassroomStudentFilterResult(status: statusApi, tagCodes: tagCodes),
     );
   }
 

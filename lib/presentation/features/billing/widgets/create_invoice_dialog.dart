@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class CreateInvoiceDialog extends StatelessWidget {
   final VoidCallback? onSelectOneTime;
@@ -29,13 +30,10 @@ class CreateInvoiceDialog extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Create Invoice',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                      style: AppTextStyles.title.copyWith(
                         color: AppColors.billingTextColor,
                       ),
                     ),
@@ -175,9 +173,7 @@ class BillingActionCardState extends State<BillingActionCard> {
                   const SizedBox(height: 10),
                   Text(
                     widget.subtitle,
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 12,
+                    style: AppTextStyles.bodySmall.copyWith(
                       color: secondaryText,
                       height: 1.3,
                     ),

@@ -49,8 +49,9 @@ class PayNowState extends Equatable {
     if (mode != PayNowAmountMode.custom) return const [];
     final entries = customAmounts.entries
         .where((e) => e.value > 0)
-        .map((e) =>
-            PaymentAllocationEntity(studentCode: e.key, amount: e.value))
+        .map(
+          (e) => PaymentAllocationEntity(studentCode: e.key, amount: e.value),
+        )
         .toList();
     return entries;
   }
@@ -76,7 +77,8 @@ class PayNowState extends Equatable {
       currentAmount > unpaid + 0.001;
 
   /// Any amount that exceeds what's actually owed — blocks Confirm.
-  bool get exceedsOutstanding => customExceedsOutstanding || currentExceedsUnpaid;
+  bool get exceedsOutstanding =>
+      customExceedsOutstanding || currentExceedsUnpaid;
 
   bool get canConfirm {
     if (isLoading) return false;
@@ -106,12 +108,12 @@ class PayNowState extends Equatable {
 
   @override
   List<Object?> get props => [
-        isLoading,
-        ledger,
-        guardianCode,
-        mode,
-        currentAmount,
-        customAmounts,
-        errorMessage,
-      ];
+    isLoading,
+    ledger,
+    guardianCode,
+    mode,
+    currentAmount,
+    customAmounts,
+    errorMessage,
+  ];
 }

@@ -90,13 +90,13 @@ class SchedulingShiftNavigator {
   }) async {
     final navigator = Navigator.of(context);
     try {
-      final shift =
-          await serviceLocator<GetStaffShiftByCodeUseCase>()(shiftCode);
+      final shift = await serviceLocator<GetStaffShiftByCodeUseCase>()(
+        shiftCode,
+      );
       if (!context.mounted) return;
       final classroomName = shift.classroomName.trim().isNotEmpty
           ? shift.classroomName
-          : (classroomNamesByCode[shift.classroomCode] ??
-              shift.classroomCode);
+          : (classroomNamesByCode[shift.classroomCode] ?? shift.classroomCode);
       final staffName = shift.staffName.trim().isNotEmpty
           ? shift.staffName
           : fallbackStaffName;
@@ -170,13 +170,13 @@ class SchedulingShiftNavigator {
     final schedulingStaffListCubit = context.read<SchedulingStaffListCubit>();
     final navigator = Navigator.of(context);
     try {
-      final shift =
-          await serviceLocator<GetStaffShiftByCodeUseCase>()(shiftCode);
+      final shift = await serviceLocator<GetStaffShiftByCodeUseCase>()(
+        shiftCode,
+      );
       if (!context.mounted) return false;
       final classroomName = shift.classroomName.trim().isNotEmpty
           ? shift.classroomName
-          : (classroomNamesByCode[shift.classroomCode] ??
-              shift.classroomCode);
+          : (classroomNamesByCode[shift.classroomCode] ?? shift.classroomCode);
       final staffName = shift.staffName.trim().isNotEmpty
           ? shift.staffName
           : fallbackStaffName;
@@ -206,8 +206,8 @@ class SchedulingShiftNavigator {
       };
       final selectedDays =
           (actualDay != null && decodedDays.contains(actualDay))
-              ? decodedDays
-              : <String>{if (actualDay != null) actualDay};
+          ? decodedDays
+          : <String>{if (actualDay != null) actualDay};
       final saved = await navigator.push<bool>(
         MaterialPageRoute<bool>(
           settings: const RouteSettings(name: EditShiftScreen.routeName),

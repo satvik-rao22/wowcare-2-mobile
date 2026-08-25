@@ -16,14 +16,13 @@ class GetInvoicesUseCase {
     String? search,
     String? status,
     String? invoiceStatus,
-  }) =>
-      _repository.listInvoices(
-        organizationCode: organizationCode,
-        school: school,
-        page: page,
-        size: size,
-        search: search,
-        status: status,
-        invoiceStatus: invoiceStatus,
-      );
+  }) => _repository.listInvoices(
+    organizationCode: organizationCode,
+    school: school,
+    page: page,
+    size: size,
+    search: search,
+    status: status,
+    invoiceStatus: invoiceStatus,
+  );
 }

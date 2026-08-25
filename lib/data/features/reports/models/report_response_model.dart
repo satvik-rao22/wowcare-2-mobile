@@ -101,5 +101,12 @@ class ReportResponseModel extends Equatable {
   }
 
   @override
-  List<Object?> get props => [reportId, reportType, generatedAt, assetCode, fileName, message];
+  List<Object?> get props => [
+    reportId,
+    reportType,
+    generatedAt,
+    assetCode,
+    fileName,
+    message,
+  ];
 }

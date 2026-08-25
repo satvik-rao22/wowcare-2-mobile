@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class CustomCancelButton extends StatelessWidget {
   const CustomCancelButton({
@@ -18,11 +19,7 @@ class CustomCancelButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const labelStyle = TextStyle(
-      color: AppColors.primaryColor,
-      fontSize: 16,
-      fontWeight: FontWeight.w600,
-    );
+    final labelStyle = AppTextStyles.title.copyWith(color: AppColors.primaryColor);
     final label = Text(cancelButtonLabel ?? 'Cancel', style: labelStyle);
 
     return Container(

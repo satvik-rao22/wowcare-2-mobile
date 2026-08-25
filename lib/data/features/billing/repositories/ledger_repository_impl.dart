@@ -69,40 +69,40 @@ class LedgerRepositoryImpl implements LedgerRepository {
   // — Mappers ———————————————————————————————————————————————————————————
 
   LedgerEntity _mapModel(LedgerModel m) => LedgerEntity(
-        code: m.code,
-        name: m.name,
-        description: m.description,
-        ledgerType: m.ledgerType,
-        category: m.category,
-        nature: m.nature,
-        currency: m.currency,
-        status: m.status,
-        system: m.system,
-        openingBalance: m.openingBalance,
-        openingBalanceType: m.openingBalanceType,
-        currentBalance: m.currentBalance,
-        balanceType: m.balanceType,
-      );
+    code: m.code,
+    name: m.name,
+    description: m.description,
+    ledgerType: m.ledgerType,
+    category: m.category,
+    nature: m.nature,
+    currency: m.currency,
+    status: m.status,
+    system: m.system,
+    openingBalance: m.openingBalance,
+    openingBalanceType: m.openingBalanceType,
+    currentBalance: m.currentBalance,
+    balanceType: m.balanceType,
+  );
 
   LedgerPageEntity _mapPage(LedgerPageModel p) => LedgerPageEntity(
-        content: p.content.map(_mapModel).toList(),
-        totalPages: p.totalPages,
-        totalElements: p.totalElements,
-        number: p.number,
-        last: p.last,
-      );
+    content: p.content.map(_mapModel).toList(),
+    totalPages: p.totalPages,
+    totalElements: p.totalElements,
+    number: p.number,
+    last: p.last,
+  );
 
   LedgerRequestModel _toRequest(CreateLedgerParams p) => LedgerRequestModel(
-        name: p.name,
-        code: p.code,
-        organization: p.organization,
-        school: p.school,
-        ledgerType: p.ledgerType,
-        description: p.description,
-        category: p.category,
-        currency: p.currency,
-        openingBalanceType: p.openingBalanceType,
-        openingBalance: p.openingBalance,
-        allowManualBalance: p.allowManualBalance,
-      );
+    name: p.name,
+    code: p.code,
+    organization: p.organization,
+    school: p.school,
+    ledgerType: p.ledgerType,
+    description: p.description,
+    category: p.category,
+    currency: p.currency,
+    openingBalanceType: p.openingBalanceType,
+    openingBalance: p.openingBalance,
+    allowManualBalance: p.allowManualBalance,
+  );
 }

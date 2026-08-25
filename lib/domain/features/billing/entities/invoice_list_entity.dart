@@ -27,15 +27,15 @@ class InvoiceListLineItemEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        description,
-        quantity,
-        unitPrice,
-        totalPrice,
-        itemType,
-        sourceCode,
-        valueType,
-        valueInput,
-      ];
+    description,
+    quantity,
+    unitPrice,
+    totalPrice,
+    itemType,
+    sourceCode,
+    valueType,
+    valueInput,
+  ];
 }
 
 /// One invoice row from `GET /api/v1/invoices/{organizationCode}`
@@ -86,30 +86,31 @@ class InvoiceListItemEntity extends Equatable {
   final String? subscriptionCode;
 
   /// Outstanding balance for this invoice.
-  double get balance => (total - paidAmount).clamp(0, double.infinity).toDouble();
+  double get balance =>
+      (total - paidAmount).clamp(0, double.infinity).toDouble();
 
   @override
   List<Object?> get props => [
-        code,
-        organization,
-        school,
-        studentCode,
-        subjectOwnerType,
-        subjectOwnerCode,
-        amount,
-        total,
-        paidAmount,
-        status,
-        invoiceStatus,
-        items,
-        issueDate,
-        dueDate,
-        periodStart,
-        periodEnd,
-        createdDate,
-        createdBy,
-        subscriptionCode,
-      ];
+    code,
+    organization,
+    school,
+    studentCode,
+    subjectOwnerType,
+    subjectOwnerCode,
+    amount,
+    total,
+    paidAmount,
+    status,
+    invoiceStatus,
+    items,
+    issueDate,
+    dueDate,
+    periodStart,
+    periodEnd,
+    createdDate,
+    createdBy,
+    subscriptionCode,
+  ];
 }
 
 /// A page of invoices plus the Spring pageable metadata needed to drive
@@ -132,6 +133,12 @@ class PaginatedInvoicesEntity extends Equatable {
   final bool hasMore;
 
   @override
-  List<Object?> get props =>
-      [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 }

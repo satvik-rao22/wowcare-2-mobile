@@ -15,9 +15,9 @@ class AddCreditCubit extends Cubit<AddCreditState> {
   AddCreditCubit({
     required CreateCreditUseCase createCredit,
     required StorageService storage,
-  })  : _createCredit = createCredit,
-        _storage = storage,
-        super(const AddCreditState());
+  }) : _createCredit = createCredit,
+       _storage = storage,
+       super(const AddCreditState());
 
   final CreateCreditUseCase _createCredit;
   final StorageService _storage;
@@ -41,29 +41,38 @@ class AddCreditCubit extends Cubit<AddCreditState> {
       return AddCreditResult.missingAmount;
     }
 
-    emit(state.copyWith(
-        amountError: false, isSubmitting: true, errorMessage: null));
+    emit(
+      state.copyWith(
+        amountError: false,
+        isSubmitting: true,
+        errorMessage: null,
+      ),
+    );
     try {
       final schoolCode =
           (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      await _createCredit(CreateCreditParams(
-        schoolCode: schoolCode,
-        amount: parsed,
-        ownerType: ownerType,
-        ownerCode: ownerCode,
-        studentCode: studentCode,
-        reason: reason,
-        description: description,
-      ));
+      await _createCredit(
+        CreateCreditParams(
+          schoolCode: schoolCode,
+          amount: parsed,
+          ownerType: ownerType,
+          ownerCode: ownerCode,
+          studentCode: studentCode,
+          reason: reason,
+          description: description,
+        ),
+      );
       if (isClosed) return AddCreditResult.success;
       emit(state.copyWith(isSubmitting: false));
       return AddCreditResult.success;
     } catch (e) {
       if (isClosed) return AddCreditResult.failure;
-      emit(state.copyWith(
-        isSubmitting: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isSubmitting: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
       return AddCreditResult.failure;
     }
   }

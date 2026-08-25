@@ -36,6 +36,7 @@ import '../../utils/activity_patch_attachments.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class PhotoVideoActivityScreen extends StatelessWidget {
   const PhotoVideoActivityScreen({
@@ -1550,9 +1551,8 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
                   const SizedBox(height: 8),
                   Text(
                     '${widget.isPhoto ? 'Uploading photo' : 'Uploading video'}... $_uploadProgressPercent% ($_uploadCompletedCount/$_uploadTotalCount)',
-                    style: const TextStyle(
+                    style: AppTextStyles.label.copyWith(
                       color: AppColors.primaryColor,
-                      fontSize: 13,
                     ),
                   ),
                 ] else if (_isMediaProcessing) ...[
@@ -1610,9 +1610,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
                       const SizedBox(width: 8),
                       Text(
                         'Uploaded $_uploadCompletedCount/$_uploadTotalCount',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                        style: AppTextStyles.sectionHeader.copyWith(
                           color: Colors.green,
                         ),
                       ),

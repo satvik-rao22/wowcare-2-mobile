@@ -114,6 +114,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class GradientTimePickerField extends StatelessWidget {
   const GradientTimePickerField({
@@ -253,12 +254,9 @@ class GradientTimePickerField extends StatelessWidget {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.of(ctx).pop(),
-                        child: const Text(
+                        child: Text(
                           'Cancel',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            color: AppColors.primaryColor,
-                          ),
+                          style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
                         ),
                       ),
                       const Text(
@@ -271,7 +269,10 @@ class GradientTimePickerField extends StatelessWidget {
                       ),
                       TextButton(
                         onPressed: () => Navigator.of(ctx).pop(
-                          TimeOfDay(hour: selected.hour, minute: selected.minute),
+                          TimeOfDay(
+                            hour: selected.hour,
+                            minute: selected.minute,
+                          ),
                         ),
                         child: const Text(
                           'OK',
@@ -318,12 +319,7 @@ class GradientTimePickerField extends StatelessWidget {
           RichText(
             text: TextSpan(
               text: label,
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: AppColors.primaryColor,
-              ),
+              style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
               children: [
                 if (isRequired)
                   const TextSpan(
@@ -344,81 +340,78 @@ class GradientTimePickerField extends StatelessWidget {
           child: Opacity(
             opacity: enabled ? 1.0 : 0.4,
             child: Container(
-            constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
+              constraints: BoxConstraints(
+                minHeight: responsive.inputFieldHeight,
+              ),
 
-            padding: EdgeInsets.symmetric(
-              horizontal: responsive.isTablet ? 16.0 : 12.0,
-              vertical: responsive.isTablet ? 16.0 : 12.0,
-            ),
+              padding: EdgeInsets.symmetric(
+                horizontal: responsive.isTablet ? 16.0 : 12.0,
+                vertical: responsive.isTablet ? 16.0 : 12.0,
+              ),
 
-            decoration: BoxDecoration(
-              color: AppColors.fieldBackgroundColor,
-              borderRadius: BorderRadius.circular(
-                responsive.isTablet ? 12.0 : 8.0,
+              decoration: BoxDecoration(
+                color: AppColors.fieldBackgroundColor,
+                borderRadius: BorderRadius.circular(
+                  responsive.isTablet ? 12.0 : 8.0,
+                ),
+              ),
+
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _formatHourMinute(time),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.primaryColor,
+                        fontSize: 15,
+                        fontFamily: 'Manrope',
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 8),
+
+                  if (onClear != null && time != null && enabled) ...[
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: onClear,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
+                        child: Icon(
+                          Icons.close,
+                          size: responsive.isTablet ? 20.0 : 18.0,
+                          color: AppColors.primaryColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  SvgPicture.asset(
+                    MediaRes.clock_icon,
+
+                    height: responsive.isTablet ? 20.0 : 18.0,
+
+                    colorFilter: const ColorFilter.mode(
+                      AppColors.primaryColor,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                ],
               ),
             ),
-
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _formatHourMinute(time),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 15,
-                      fontFamily: 'Manrope',
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(width: 8),
-
-                if (onClear != null && time != null && enabled) ...[
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: onClear,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 2,
-                      ),
-                      child: Icon(
-                        Icons.close,
-                        size: responsive.isTablet ? 20.0 : 18.0,
-                        color: AppColors.primaryColor,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                ],
-                SvgPicture.asset(
-                  MediaRes.clock_icon,
-
-                  height: responsive.isTablet ? 20.0 : 18.0,
-
-                  colorFilter: const ColorFilter.mode(
-                    AppColors.primaryColor,
-                    BlendMode.srcIn,
-                  ),
-                ),
-              ],
-            ),
-          ),
           ),
         ),
         if (errorText != null) ...[
           const SizedBox(height: 4),
           Text(
             errorText!,
-            style: const TextStyle(
-              color: Colors.red,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              fontFamily: 'Manrope',
-            ),
+            style: AppTextStyles.caption.copyWith(color: Colors.red),
           ),
         ],
       ],

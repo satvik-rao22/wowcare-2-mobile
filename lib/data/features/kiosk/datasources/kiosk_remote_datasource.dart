@@ -72,10 +72,7 @@ class KioskRemoteDataSourceImpl implements KioskRemoteDataSource {
     final url = ApiConstants.kioskVerifyPinEndpoint;
 
     try {
-      final requestBody = {
-        'pin': pin,
-        if (isLogout) 'isLogout': true,
-      };
+      final requestBody = {'pin': pin, if (isLogout) 'isLogout': true};
 
       final response = await _client.post<Map<String, dynamic>>(
         url,

@@ -65,7 +65,8 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
   /// Holder name sent to the gateway (card or ACH account holder).
   String get _holderName {
     final m = widget.method;
-    final raw = (_isEcheck ? m.echeck?.accountHolder : m.card?.nameOnCard) ??
+    final raw =
+        (_isEcheck ? m.echeck?.accountHolder : m.card?.nameOnCard) ??
         m.label ??
         '';
     return raw.trim();
@@ -77,15 +78,18 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
       _feeApplies(s) ? (_isEcheck ? 1.00 : widget.amount * 0.03) : 0.0;
   double _totalFor(PaymentSettingsEntity s) => widget.amount + _feeFor(s);
 
-  TextStyle _t(double size, FontWeight weight, Color color,
-          {double? spacing}) =>
-      TextStyle(
-        fontFamily: 'Manrope',
-        fontSize: size,
-        fontWeight: weight,
-        color: color,
-        letterSpacing: spacing,
-      );
+  TextStyle _t(
+    double size,
+    FontWeight weight,
+    Color color, {
+    double? spacing,
+  }) => TextStyle(
+    fontFamily: 'Manrope',
+    fontSize: size,
+    fontWeight: weight,
+    color: color,
+    letterSpacing: spacing,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -140,8 +144,11 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.verified_user_outlined,
-              size: 14, color: AppColors.successColor),
+          Icon(
+            Icons.verified_user_outlined,
+            size: 14,
+            color: AppColors.successColor,
+          ),
           const SizedBox(width: 6),
           Text(
             'Secure & Encrypted',
@@ -161,13 +168,16 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
         ? (m.echeck?.last4 ?? m.last4 ?? '••••')
         : (m.card?.last4 ?? m.last4 ?? '••••');
     final holder =
-        (_isEcheck ? m.echeck?.accountHolder : m.card?.nameOnCard)?.trim() ?? '';
+        (_isEcheck ? m.echeck?.accountHolder : m.card?.nameOnCard)?.trim() ??
+        '';
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primaryColor.withValues(alpha: 0.12)),
+        border: Border.all(
+          color: AppColors.primaryColor.withValues(alpha: 0.12),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -207,16 +217,22 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
                     const SizedBox(height: 6),
                     Text(
                       '••••  ••••  ••••  $last4',
-                      style: _t(14, FontWeight.w500,
-                          AppColors.primaryColor.withValues(alpha: 0.7),
-                          spacing: 1),
+                      style: _t(
+                        14,
+                        FontWeight.w500,
+                        AppColors.primaryColor.withValues(alpha: 0.7),
+                        spacing: 1,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       _isEcheck ? 'ACCOUNT HOLDER' : 'CARD HOLDER',
-                      style: _t(11, FontWeight.w700,
-                          AppColors.primaryColor.withValues(alpha: 0.45),
-                          spacing: 0.4),
+                      style: _t(
+                        11,
+                        FontWeight.w700,
+                        AppColors.primaryColor.withValues(alpha: 0.45),
+                        spacing: 0.4,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -230,7 +246,9 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
           ),
           const SizedBox(height: 14),
           Divider(
-              color: AppColors.primaryColor.withValues(alpha: 0.1), height: 1),
+            color: AppColors.primaryColor.withValues(alpha: 0.1),
+            height: 1,
+          ),
           const SizedBox(height: 14),
           _amountRow('Payment Amount', widget.amount),
           if (showFee) ...[
@@ -246,10 +264,14 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Total Amount',
-                  style: _t(16, FontWeight.w800, AppColors.primaryColor)),
-              Text('\$${_money(total)}',
-                  style: _t(20, FontWeight.w800, _accent)),
+              Text(
+                'Total Amount',
+                style: _t(16, FontWeight.w800, AppColors.primaryColor),
+              ),
+              Text(
+                '\$${_money(total)}',
+                style: _t(20, FontWeight.w800, _accent),
+              ),
             ],
           ),
         ],
@@ -261,11 +283,18 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label,
-            style: _t(14, FontWeight.w500,
-                AppColors.primaryColor.withValues(alpha: 0.7))),
-        Text('\$${_money(value)}',
-            style: _t(15, FontWeight.w700, AppColors.primaryColor)),
+        Text(
+          label,
+          style: _t(
+            14,
+            FontWeight.w500,
+            AppColors.primaryColor.withValues(alpha: 0.7),
+          ),
+        ),
+        Text(
+          '\$${_money(value)}',
+          style: _t(15, FontWeight.w700, AppColors.primaryColor),
+        ),
       ],
     );
   }
@@ -317,8 +346,10 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
-            : Text('Confirm Payment',
-                style: _t(16, FontWeight.w700, Colors.white)),
+            : Text(
+                'Confirm Payment',
+                style: _t(16, FontWeight.w700, Colors.white),
+              ),
       ),
     );
   }
@@ -327,13 +358,19 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.lock_outline,
-            size: 14, color: AppColors.primaryColor.withValues(alpha: 0.45)),
+        Icon(
+          Icons.lock_outline,
+          size: 14,
+          color: AppColors.primaryColor.withValues(alpha: 0.45),
+        ),
         const SizedBox(width: 6),
         Text(
           'Your payment information is secure and encrypted.',
-          style: _t(12, FontWeight.w500,
-              AppColors.primaryColor.withValues(alpha: 0.6)),
+          style: _t(
+            12,
+            FontWeight.w500,
+            AppColors.primaryColor.withValues(alpha: 0.6),
+          ),
         ),
       ],
     );
@@ -366,7 +403,8 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
     if (!mounted) return;
     if (ok) {
       final result = _cubit.state.result;
-      final bool initiated = result != null &&
+      final bool initiated =
+          result != null &&
           (result.status.toUpperCase() == 'INITIATED' ||
               result.status.toUpperCase() == 'PENDING');
       final double total = _totalFor(_settings);

@@ -10,7 +10,9 @@ abstract class AutoPayRepository {
   });
 
   /// School payment settings — accepted method types + who pays the fee.
-  Future<PaymentSettingsEntity?> getPaymentSettings({required String schoolCode});
+  Future<PaymentSettingsEntity?> getPaymentSettings({
+    required String schoolCode,
+  });
 
   /// Whether auto-pay is currently enabled for the guardian.
   Future<AutoPayStatusEntity> getAutoPayStatus(GuardianScopeParams params);
@@ -23,7 +25,8 @@ abstract class AutoPayRepository {
 
   /// All saved payment methods for the guardian (max 4).
   Future<List<PaymentMethodEntity>> getPaymentMethods(
-      GuardianScopeParams params);
+    GuardianScopeParams params,
+  );
 
   /// Adds a new saved payment method from a Forte one-time token.
   Future<PaymentMethodEntity> addPaymentMethod(AddPaymentMethodParams params);

@@ -6,12 +6,10 @@ import 'package:wowcare/domain/features/student/usecases/get_student_profile_use
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class ViewInvoiceScreen extends StatefulWidget {
-  const ViewInvoiceScreen({
-    super.key,
-    required this.transaction,
-  });
+  const ViewInvoiceScreen({super.key, required this.transaction});
 
   final TransactionItem transaction;
 
@@ -84,13 +82,9 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const Text(
+        Text(
           'Billed for : ',
-          style: TextStyle(
-            color: AppColors.primaryColor,
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-          ),
+          style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
         ),
         Expanded(
           child: Column(
@@ -141,10 +135,8 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
         children: [
           TextSpan(
             text: '$label : ',
-            style: TextStyle(
+            style: AppTextStyles.body.copyWith(
               color: AppColors.primaryColor.withValues(alpha: 0.6),
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
             ),
           ),
           TextSpan(
@@ -176,16 +168,14 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
                 flex: 4,
                 child: Text(
                   'Description',
-                  style: TextStyle(
-                    fontSize: 14,
+                  style: AppTextStyles.body.copyWith(
                     color: AppColors.primaryColor.withValues(alpha: 0.6),
                   ),
                 ),
               ),
               Text(
                 'Amount',
-                style: TextStyle(
-                  fontSize: 14,
+                style: AppTextStyles.body.copyWith(
                   color: AppColors.primaryColor.withValues(alpha: 0.6),
                 ),
               ),
@@ -198,19 +188,15 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
                 flex: 4,
                 child: Text(
                   widget.transaction.displayDescription,
-                  style: const TextStyle(
+                  style: AppTextStyles.body.copyWith(
                     color: AppColors.primaryColor,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
               Text(
                 '\$${widget.transaction.amount.toStringAsFixed(2)}',
-                style: const TextStyle(
+                style: AppTextStyles.body.copyWith(
                   color: AppColors.primaryColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
@@ -268,10 +254,8 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
             ),
             child: Text(
               'Send Invoice',
-              style: TextStyle(
+              style: AppTextStyles.title.copyWith(
                 color: AppColors.billingButtonTextColor,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
               ),
             ),
           ),

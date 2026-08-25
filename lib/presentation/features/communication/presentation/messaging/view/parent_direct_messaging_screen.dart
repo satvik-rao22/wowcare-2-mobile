@@ -31,6 +31,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../../../../../../domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Parent/Guardian messaging entry point.
 ///
@@ -555,7 +556,11 @@ class _ParentDirectMessagingScreenState
       onViewParticipants: null,
       onAttachmentError: (message) {
         if (!mounted) return;
-        CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: message,
+          isError: true,
+        );
       },
     );
   }
@@ -725,10 +730,7 @@ class _ParentDirectMessagingScreenState
                   ),
                   child: Text(
                     'Group',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                    style: AppTextStyles.body.copyWith(
                       color: AppColors.primaryColor,
                     ),
                   ),

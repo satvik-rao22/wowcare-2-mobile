@@ -33,6 +33,7 @@ import '../../utils/resolve_logged_in_staff_code.dart';
 import '../../widgets/upload_photo_video.dart';
 import '../activity_daily_tab.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class NotesActivityScreen extends StatelessWidget {
   const NotesActivityScreen({
@@ -898,10 +899,8 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
           _uploadTotalCount = _newPhotos.length;
         }
       },
-      onOverallProgressPercent: (percent) =>
-          _uploadProgressPercent = percent,
-      onFileCompleted: (completed, total) =>
-          _uploadCompletedCount = completed,
+      onOverallProgressPercent: (percent) => _uploadProgressPercent = percent,
+      onFileCompleted: (completed, total) => _uploadCompletedCount = completed,
     );
   }
 
@@ -1300,11 +1299,7 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
           const SizedBox(width: 8),
           Text(
             'Uploading photo... $_uploadProgressPercent% ($_uploadCompletedCount/$_uploadTotalCount)',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primaryColor,
-            ),
+            style: AppTextStyles.label.copyWith(color: AppColors.primaryColor),
           ),
         ],
       );
@@ -1319,11 +1314,7 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
           const SizedBox(width: 8),
           Text(
             'Uploaded $_uploadCompletedCount/$_uploadTotalCount',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.green,
-            ),
+            style: AppTextStyles.sectionHeader.copyWith(color: Colors.green),
           ),
         ],
       );
@@ -1336,11 +1327,7 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
           const SizedBox(width: 8),
           Text(
             'Uploaded $_uploadedPhotoCount/${_newPhotos.length} photo(s)',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.green,
-            ),
+            style: AppTextStyles.sectionHeader.copyWith(color: Colors.green),
           ),
         ],
       );
@@ -1352,11 +1339,7 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
         const SizedBox(width: 8),
         Text(
           'Uploaded $_uploadedPhotoCount/${_newPhotos.length} photo(s)',
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: Colors.orange,
-          ),
+          style: AppTextStyles.label.copyWith(color: Colors.orange),
         ),
       ],
     );

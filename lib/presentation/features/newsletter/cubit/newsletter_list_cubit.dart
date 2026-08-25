@@ -12,10 +12,10 @@ class NewsletterListCubit extends Cubit<NewsletterListState> {
     required GetSentNewslettersUseCase getSentNewslettersUseCase,
     required NewsletterRepository repository,
     required StorageService storageService,
-  })  : _getSentNewslettersUseCase = getSentNewslettersUseCase,
-        _repository = repository,
-        _storageService = storageService,
-        super(const NewsletterListState.initial());
+  }) : _getSentNewslettersUseCase = getSentNewslettersUseCase,
+       _repository = repository,
+       _storageService = storageService,
+       super(const NewsletterListState.initial());
 
   final GetSentNewslettersUseCase _getSentNewslettersUseCase;
   final NewsletterRepository _repository;
@@ -45,7 +45,7 @@ class NewsletterListCubit extends Cubit<NewsletterListState> {
 
     final cached = await (_repository is NewsletterRepositoryWithCache
         ? (_repository as NewsletterRepositoryWithCache)
-            .loadCachedSentNewsletters(schoolCode)
+              .loadCachedSentNewsletters(schoolCode)
         : Future.value(null));
 
     if (cached != null && !isClosed) {
@@ -70,12 +70,12 @@ class NewsletterListCubit extends Cubit<NewsletterListState> {
     List<String>? classroomCodes,
   }) async {
     final String normalizedSearch = (search ?? state.search).trim();
-    final List<String> normalizedClassroomCodes = (classroomCodes ??
-            state.classroomCodes)
-        .map((String code) => code.trim())
-        .where((String code) => code.isNotEmpty)
-        .toSet()
-        .toList();
+    final List<String> normalizedClassroomCodes =
+        (classroomCodes ?? state.classroomCodes)
+            .map((String code) => code.trim())
+            .where((String code) => code.isNotEmpty)
+            .toSet()
+            .toList();
     emit(
       state.copyWith(
         search: normalizedSearch,
@@ -203,17 +203,17 @@ class NewsletterListState extends Equatable {
   });
 
   const NewsletterListState.initial()
-      : newsletters = const <Newsletter>[],
-        isLoading = false,
-        isRefreshing = false,
-        isLoadingMore = false,
-        isFromCache = false,
-        schoolCode = '',
-        search = '',
-        classroomCodes = const <String>[],
-        page = 0,
-        hasMore = true,
-        errorMessage = null;
+    : newsletters = const <Newsletter>[],
+      isLoading = false,
+      isRefreshing = false,
+      isLoadingMore = false,
+      isFromCache = false,
+      schoolCode = '',
+      search = '',
+      classroomCodes = const <String>[],
+      page = 0,
+      hasMore = true,
+      errorMessage = null;
 
   const NewsletterListState.loaded({
     required List<Newsletter> newsletters,
@@ -223,17 +223,17 @@ class NewsletterListState extends Equatable {
     List<String> classroomCodes = const <String>[],
     int page = 0,
     bool hasMore = false,
-  })  : newsletters = newsletters,
-        isLoading = false,
-        isRefreshing = false,
-        isLoadingMore = false,
-        isFromCache = isFromCache,
-        schoolCode = schoolCode,
-        search = search,
-        classroomCodes = classroomCodes,
-        page = page,
-        hasMore = hasMore,
-        errorMessage = null;
+  }) : newsletters = newsletters,
+       isLoading = false,
+       isRefreshing = false,
+       isLoadingMore = false,
+       isFromCache = isFromCache,
+       schoolCode = schoolCode,
+       search = search,
+       classroomCodes = classroomCodes,
+       page = page,
+       hasMore = hasMore,
+       errorMessage = null;
 
   final List<Newsletter> newsletters;
   final bool isLoading;
@@ -277,16 +277,16 @@ class NewsletterListState extends Equatable {
 
   @override
   List<Object?> get props => <Object?>[
-        newsletters,
-        isLoading,
-        isRefreshing,
-        isLoadingMore,
-        isFromCache,
-        schoolCode,
-        search,
-        classroomCodes,
-        page,
-        hasMore,
-        errorMessage,
-      ];
+    newsletters,
+    isLoading,
+    isRefreshing,
+    isLoadingMore,
+    isFromCache,
+    schoolCode,
+    search,
+    classroomCodes,
+    page,
+    hasMore,
+    errorMessage,
+  ];
 }

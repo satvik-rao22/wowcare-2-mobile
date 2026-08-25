@@ -23,11 +23,11 @@ class FamilyLedgerPersonModel {
   }
 
   FamilyLedgerPersonEntity toEntity() => FamilyLedgerPersonEntity(
-        code: code,
-        fullName: fullName,
-        role: role,
-        outstanding: outstanding,
-      );
+    code: code,
+    fullName: fullName,
+    role: role,
+    outstanding: outstanding,
+  );
 }
 
 class FamilyLedgerTransactionModel {
@@ -88,8 +88,8 @@ class FamilyLedgerTransactionModel {
       method: s('method').isNotEmpty
           ? s('method')
           : s('paymentMode').isNotEmpty
-              ? s('paymentMode')
-              : s('paymentMethod'),
+          ? s('paymentMode')
+          : s('paymentMethod'),
       description: s('description'),
       items: rawItems.map((e) => e.toString()).toList(growable: false),
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
@@ -102,24 +102,24 @@ class FamilyLedgerTransactionModel {
   }
 
   FamilyLedgerTransactionEntity toEntity() => FamilyLedgerTransactionEntity(
-        id: id,
-        invoiceCode: invoiceCode,
-        recurring: recurring,
-        subscriptionCode: subscriptionCode,
-        studentCode: studentCode,
-        studentName: studentName,
-        transactionType: transactionType,
-        status: status,
-        method: method,
-        description: description,
-        items: items,
-        amount: amount,
-        balance: balance,
-        paidAmount: paidAmount,
-        refundedAmount: refundedAmount,
-        ledgerDelta: ledgerDelta,
-        date: date,
-      );
+    id: id,
+    invoiceCode: invoiceCode,
+    recurring: recurring,
+    subscriptionCode: subscriptionCode,
+    studentCode: studentCode,
+    studentName: studentName,
+    transactionType: transactionType,
+    status: status,
+    method: method,
+    description: description,
+    items: items,
+    amount: amount,
+    balance: balance,
+    paidAmount: paidAmount,
+    refundedAmount: refundedAmount,
+    ledgerDelta: ledgerDelta,
+    date: date,
+  );
 }
 
 class FamilyLedgerModel {
@@ -184,18 +184,17 @@ class FamilyLedgerModel {
   }
 
   FamilyLedgerEntity toEntity() => FamilyLedgerEntity(
-        ownerType: ownerType,
-        ownerCode: ownerCode,
-        familyName: familyName,
-        openBalance: openBalance,
-        paid: paid,
-        refunded: refunded,
-        netPaid: netPaid,
-        inProcess: inProcess,
-        unpaid: unpaid,
-        students: students.map((e) => e.toEntity()).toList(growable: false),
-        guardians: guardians.map((e) => e.toEntity()).toList(growable: false),
-        transactions:
-            transactions.map((e) => e.toEntity()).toList(growable: false),
-      );
+    ownerType: ownerType,
+    ownerCode: ownerCode,
+    familyName: familyName,
+    openBalance: openBalance,
+    paid: paid,
+    refunded: refunded,
+    netPaid: netPaid,
+    inProcess: inProcess,
+    unpaid: unpaid,
+    students: students.map((e) => e.toEntity()).toList(growable: false),
+    guardians: guardians.map((e) => e.toEntity()).toList(growable: false),
+    transactions: transactions.map((e) => e.toEntity()).toList(growable: false),
+  );
 }

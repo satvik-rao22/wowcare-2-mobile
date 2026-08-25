@@ -8,9 +8,9 @@ class SubsidiesState extends Equatable {
   });
 
   SubsidiesState.initial()
-      : items = SubsidiesCubit._seedSubsidies(),
-        searchQuery = '',
-        isToggled = false;
+    : items = SubsidiesCubit._seedSubsidies(),
+      searchQuery = '',
+      isToggled = false;
 
   final List<SubsidyItem> items;
   final String searchQuery;

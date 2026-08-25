@@ -12,9 +12,6 @@ class EditMessageEntityUseCase {
     required String messageCode,
     required String newText,
   }) {
-    return _repository.editMessage(
-      messageCode: messageCode,
-      newText: newText,
-    );
+    return _repository.editMessage(messageCode: messageCode, newText: newText);
   }
 }

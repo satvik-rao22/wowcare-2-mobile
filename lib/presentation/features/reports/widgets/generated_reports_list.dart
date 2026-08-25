@@ -67,8 +67,9 @@ class GeneratedReportsList extends StatelessWidget {
             GeneratedReportCard(
               item: items[i],
               onView: onView == null ? null : () => onView!(items[i]),
-              onDownload:
-                  onDownload == null ? null : (assetCode) => onDownload!(assetCode),
+              onDownload: onDownload == null
+                  ? null
+                  : (assetCode) => onDownload!(assetCode),
             ),
             if (i != items.length - 1) const SizedBox(height: 10),
           ],

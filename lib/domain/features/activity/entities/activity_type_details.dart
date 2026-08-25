@@ -43,25 +43,25 @@ class ActivityTypeDetails extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        name,
-        description,
-        schoolCode,
-        organizationCode,
-        category,
-        icon,
-        color,
-        displayOrder,
-        isSystem,
-        isMultiStudent,
-        requiresStaff,
-        requiresPhoto,
-        requiresVideo,
-        allowsAttachments,
-        maxAttachments,
-        status,
-        parameters,
-      ];
+    code,
+    name,
+    description,
+    schoolCode,
+    organizationCode,
+    category,
+    icon,
+    color,
+    displayOrder,
+    isSystem,
+    isMultiStudent,
+    requiresStaff,
+    requiresPhoto,
+    requiresVideo,
+    allowsAttachments,
+    maxAttachments,
+    status,
+    parameters,
+  ];
 }
 
 class ActivityTypeParameter extends Equatable {
@@ -105,24 +105,24 @@ class ActivityTypeParameter extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        parameterName,
-        dataType,
-        parameterType,
-        isRequired,
-        minValue,
-        maxValue,
-        minLength,
-        maxLength,
-        pattern,
-        displayOrder,
-        placeholder,
-        helpText,
-        parentParameterCode,
-        defaultValue,
-        status,
-        options,
-      ];
+    code,
+    parameterName,
+    dataType,
+    parameterType,
+    isRequired,
+    minValue,
+    maxValue,
+    minLength,
+    maxLength,
+    pattern,
+    displayOrder,
+    placeholder,
+    helpText,
+    parentParameterCode,
+    defaultValue,
+    status,
+    options,
+  ];
 }
 
 class ActivityTypeParameterOption extends Equatable {
@@ -150,16 +150,14 @@ class ActivityTypeParameterOption extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        optionCode,
-        optionLabel,
-        displayOrder,
-        icon,
-        color,
-        isDefault,
-        status,
-        parentOptionCode,
-      ];
+    code,
+    optionCode,
+    optionLabel,
+    displayOrder,
+    icon,
+    color,
+    isDefault,
+    status,
+    parentOptionCode,
+  ];
 }
-
-

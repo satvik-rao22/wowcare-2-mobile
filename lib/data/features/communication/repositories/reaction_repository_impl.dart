@@ -27,9 +27,9 @@ class ReactionRepositoryImpl implements ReactionRepository {
     required MessageEntityRemoteDataSource remoteDataSource,
     required MessageEntityLocalDataSource localDataSource,
     required StorageService storageService,
-  })  : _remote = remoteDataSource,
-        _local = localDataSource,
-        _storage = storageService;
+  }) : _remote = remoteDataSource,
+       _local = localDataSource,
+       _storage = storageService;
 
   Future<String> get _orgCode async =>
       (await _storage.getString(StorageKeys.organizationCode)) ?? '';

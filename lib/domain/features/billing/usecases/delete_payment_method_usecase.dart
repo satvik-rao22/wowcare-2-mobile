@@ -11,9 +11,8 @@ class DeletePaymentMethodUseCase {
   Future<void> call({
     required String paymentMethodCode,
     required GuardianScopeParams scope,
-  }) =>
-      _repository.deletePaymentMethod(
-        paymentMethodCode: paymentMethodCode,
-        scope: scope,
-      );
+  }) => _repository.deletePaymentMethod(
+    paymentMethodCode: paymentMethodCode,
+    scope: scope,
+  );
 }

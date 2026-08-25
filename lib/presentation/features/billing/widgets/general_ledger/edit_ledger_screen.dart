@@ -16,13 +16,7 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
-const _kCategories = [
-  'Income',
-  'Expense',
-  'Asset',
-  'Liability',
-  'Equity',
-];
+const _kCategories = ['Income', 'Expense', 'Asset', 'Liability', 'Equity'];
 
 class EditLedgerScreen extends StatefulWidget {
   const EditLedgerScreen({required this.ledger, super.key});
@@ -48,7 +42,8 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
   void initState() {
     super.initState();
     // Pre-select category if it matches one of the known options
-    final initialCategory = widget.ledger.category?.isNotEmpty == true &&
+    final initialCategory =
+        widget.ledger.category?.isNotEmpty == true &&
             _kCategories.contains(widget.ledger.category)
         ? widget.ledger.category
         : null;
@@ -105,7 +100,9 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
           final ResponsiveHelper responsive = ResponsiveHelper(context);
           final double verticalSpacing = responsive.isTablet ? 24.0 : 16.0;
           final double bottomPadding = MediaQuery.of(context).padding.bottom;
-          final double safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
+          final double safeAreaBottom = bottomPadding > 0
+              ? bottomPadding
+              : 16.0;
           final TextStyle labelStyle = AppTextStyles.label.copyWith(
             fontSize: responsive.labelFontSize,
             color: AppColors.billingTextColor,
@@ -146,8 +143,9 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
                           padding: const EdgeInsets.only(left: 2),
                           child: Text(
                             '*This field is required.',
-                            style: AppTextStyles.small
-                                .copyWith(color: AppColors.errorColor),
+                            style: AppTextStyles.small.copyWith(
+                              color: AppColors.errorColor,
+                            ),
                           ),
                         ),
                       ],
@@ -184,10 +182,12 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
                         ),
                       ],
                       borderRadius: BorderRadius.only(
-                        topLeft:
-                            Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                        topRight:
-                            Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                        topLeft: Radius.circular(
+                          responsive.isTablet ? 40.0 : 24.0,
+                        ),
+                        topRight: Radius.circular(
+                          responsive.isTablet ? 40.0 : 24.0,
+                        ),
                       ),
                     ),
                     child: CustomButtonLayout(
@@ -225,8 +225,9 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
               if (required)
                 TextSpan(
                   text: ' *',
-                  style:
-                      AppTextStyles.small.copyWith(color: AppColors.errorColor),
+                  style: AppTextStyles.small.copyWith(
+                    color: AppColors.errorColor,
+                  ),
                 ),
             ],
           ),
@@ -237,8 +238,9 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
           decoration: BoxDecoration(
             color: AppColors.billingCardColor,
             border: Border.all(color: AppColors.billingBorderHeavy),
-            borderRadius:
-                BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,

@@ -107,8 +107,8 @@ Future<String> resolveActiveBackendRole(StorageService storage) async {
 
   final organizationCode =
       (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-  final schoolCode =
-      (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+  final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+      .trim();
 
   if (organizationCode.isNotEmpty && schoolCode.isNotEmpty) {
     final users = await readCachedUserAccessDetailsUsers(storage);

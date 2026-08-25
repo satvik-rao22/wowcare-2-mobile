@@ -14,9 +14,9 @@ class IndividualMovementBoard {
   final List<IndividualMovement> rejected;
 
   List<IndividualMovement> get all => <IndividualMovement>[
-        ...overdue,
-        ...upcoming,
-        ...confirmed,
-        ...rejected,
-      ];
+    ...overdue,
+    ...upcoming,
+    ...confirmed,
+    ...rejected,
+  ];
 }

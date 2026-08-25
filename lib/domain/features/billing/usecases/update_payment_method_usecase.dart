@@ -11,9 +11,8 @@ class UpdatePaymentMethodUseCase {
   Future<PaymentMethodEntity> call({
     required String paymentMethodCode,
     required UpdatePaymentMethodParams params,
-  }) =>
-      _repository.updatePaymentMethod(
-        paymentMethodCode: paymentMethodCode,
-        params: params,
-      );
+  }) => _repository.updatePaymentMethod(
+    paymentMethodCode: paymentMethodCode,
+    params: params,
+  );
 }

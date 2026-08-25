@@ -14,9 +14,9 @@ class AnalyticsCubit extends Cubit<AnalyticsState> {
   AnalyticsCubit({
     required GetInvoiceAnalyticsUseCase getAnalytics,
     required StorageService storage,
-  })  : _getAnalytics = getAnalytics,
-        _storage = storage,
-        super(const AnalyticsState.initial());
+  }) : _getAnalytics = getAnalytics,
+       _storage = storage,
+       super(const AnalyticsState.initial());
 
   final GetInvoiceAnalyticsUseCase _getAnalytics;
   final StorageService _storage;
@@ -27,10 +27,10 @@ class AnalyticsCubit extends Cubit<AnalyticsState> {
     final keepVisible = background && state.analytics != null;
     emit(state.copyWith(isLoading: !keepVisible, errorMessage: () => null));
     try {
-      final org =
-          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final school =
-          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final org = (await _storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+      final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       if (org.isEmpty || school.isEmpty) {
         emit(state.copyWith(isLoading: false));
         return;
@@ -44,10 +44,7 @@ class AnalyticsCubit extends Cubit<AnalyticsState> {
         year: effectiveYear,
       );
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoading: false,
-        analytics: () => analytics,
-      ));
+      emit(state.copyWith(isLoading: false, analytics: () => analytics));
     } catch (e) {
       if (isClosed) return;
       // Keep the existing chart on a failed background refresh.
@@ -55,10 +52,12 @@ class AnalyticsCubit extends Cubit<AnalyticsState> {
         emit(state.copyWith(isLoading: false));
         return;
       }
-      emit(state.copyWith(
-        isLoading: false,
-        errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 

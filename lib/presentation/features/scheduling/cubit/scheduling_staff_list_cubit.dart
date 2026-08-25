@@ -17,9 +17,9 @@ class SchedulingStaffListCubit extends Cubit<SchedulingStaffListState> {
   SchedulingStaffListCubit({
     required GetAllStaffUseCase getAllStaffUseCase,
     required StorageService storageService,
-  })  : _getAllStaffUseCase = getAllStaffUseCase,
-        _storageService = storageService,
-        super(SchedulingStaffListState.initial());
+  }) : _getAllStaffUseCase = getAllStaffUseCase,
+       _storageService = storageService,
+       super(SchedulingStaffListState.initial());
 
   static const List<String> _defaultStatuses = ['ACTIVE', 'UPCOMING'];
 

@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class MultiSelectWidget extends StatefulWidget {
   final List<String> availableOptions;
@@ -294,9 +295,9 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
               children: [
                 TextSpan(text: widget.label),
                 if (widget.isRequired)
-                  const TextSpan(
+                  TextSpan(
                     text: ' *',
-                    style: TextStyle(color: Colors.red),
+                    style: AppTextStyles.body.copyWith(color: Colors.red),
                   ),
               ],
             ),
@@ -335,12 +336,9 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                       padding: const EdgeInsets.only(top: 10),
                       child: Text(
                         displayText,
-                        style: TextStyle(
-                          color: widget.selectedOptions.isEmpty
+                        style: AppTextStyles.body.copyWith(color: widget.selectedOptions.isEmpty
                               ? Colors.grey[600]
-                              : Colors.black87,
-                          fontSize: 15,
-                        ),
+                              : Colors.black87),
                         overflow: TextOverflow.ellipsis,
                       ),
                     )
@@ -430,7 +428,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                 widget.errorText!,
-                style: const TextStyle(color: Colors.red, fontSize: 12),
+                style: AppTextStyles.bodySmall.copyWith(color: Colors.red),
               ),
             ),
         ],

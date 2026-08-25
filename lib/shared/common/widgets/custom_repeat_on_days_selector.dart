@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class CustomRepeatOnDaysSelector extends StatefulWidget {
   final List<String> selectedDays;
@@ -68,13 +69,9 @@ class _CustomRepeatOnDaysSelectorState
           padding: const EdgeInsets.only(left: 4, bottom: 16),
           child: Row(
             children: [
-              const Text(
+              Text(
                 'Repeat On',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF4B2E4C),
-                ),
+                style: AppTextStyles.bodyLarge.copyWith(color: Color(0xFF4B2E4C)),
               ),
               const Spacer(),
               GestureDetector(
@@ -83,13 +80,9 @@ class _CustomRepeatOnDaysSelectorState
                   shaderCallback: (bounds) => LinearGradient(
                     colors: AppColors.primaryGradientColors,
                   ).createShader(bounds),
-                  child: const Text(
+                  child: Text(
                     'Select All',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
+                    style: AppTextStyles.title.copyWith(color: Colors.white),
                   ),
                 ),
               ),

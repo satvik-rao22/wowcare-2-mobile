@@ -29,22 +29,22 @@ class ReportsState extends Equatable {
   });
 
   const ReportsState.initial()
-      : classroomNames = const <String>[],
-        studentNames = const <String>[],
-        staffNames = const <String>[],
-        tagNames = const <String>[],
-        classroomNameToCode = const <String, String>{},
-        staffNameToCode = const <String, String>{},
-        studentNameToCode = const <String, String>{},
-        tagNameToCode = const <String, String>{},
-        generatedReport = null,
-        recentReports = const <ReportMetadataEntity>[],
-        dynamicTagNames = const <String>[],
-        isGenerating = false,
-        generationError = null,
-        generationSuccess = null,
-        generatedReportsState = GeneratedReportsLoadingState.initial,
-        generatedReportsError = null;
+    : classroomNames = const <String>[],
+      studentNames = const <String>[],
+      staffNames = const <String>[],
+      tagNames = const <String>[],
+      classroomNameToCode = const <String, String>{},
+      staffNameToCode = const <String, String>{},
+      studentNameToCode = const <String, String>{},
+      tagNameToCode = const <String, String>{},
+      generatedReport = null,
+      recentReports = const <ReportMetadataEntity>[],
+      dynamicTagNames = const <String>[],
+      isGenerating = false,
+      generationError = null,
+      generationSuccess = null,
+      generatedReportsState = GeneratedReportsLoadingState.initial,
+      generatedReportsError = null;
 
   final List<String> classroomNames;
   final List<String> studentNames;
@@ -104,28 +104,30 @@ class ReportsState extends Equatable {
       isGenerating: isGenerating ?? this.isGenerating,
       generationError: generationError ?? this.generationError,
       generationSuccess: generationSuccess ?? this.generationSuccess,
-      generatedReportsState: generatedReportsState ?? this.generatedReportsState,
-      generatedReportsError: generatedReportsError ?? this.generatedReportsError,
+      generatedReportsState:
+          generatedReportsState ?? this.generatedReportsState,
+      generatedReportsError:
+          generatedReportsError ?? this.generatedReportsError,
     );
   }
 
   @override
   List<Object?> get props => [
-        classroomNames,
-        studentNames,
-        staffNames,
-        tagNames,
-        classroomNameToCode,
-        staffNameToCode,
-        studentNameToCode,
-        tagNameToCode,
-        generatedReport,
-        recentReports,
-        dynamicTagNames,
-        isGenerating,
-        generationError,
-        generationSuccess,
-        generatedReportsState,
-        generatedReportsError,
-      ];
+    classroomNames,
+    studentNames,
+    staffNames,
+    tagNames,
+    classroomNameToCode,
+    staffNameToCode,
+    studentNameToCode,
+    tagNameToCode,
+    generatedReport,
+    recentReports,
+    dynamicTagNames,
+    isGenerating,
+    generationError,
+    generationSuccess,
+    generatedReportsState,
+    generatedReportsError,
+  ];
 }

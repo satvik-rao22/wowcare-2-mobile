@@ -11,6 +11,7 @@ import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_f
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Bottom sheet that lets a STAFF persona edit only a student's tags.
 ///
@@ -74,10 +75,12 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
     try {
       var school = (widget.schoolCode ?? '').trim();
       if (school.isEmpty) {
-        school = (await serviceLocator<StorageService>()
-                    .getString(StorageKeys.schoolCode) ??
-                '')
-            .trim();
+        school =
+            (await serviceLocator<StorageService>().getString(
+                      StorageKeys.schoolCode,
+                    ) ??
+                    '')
+                .trim();
       }
       _schoolCode = school;
 
@@ -92,8 +95,7 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
         _availableTagNames = names;
         _tagNameToCode = map;
         // Drop any preselected tags that no longer exist for the school.
-        _selectedTags =
-            _selectedTags.where((t) => names.contains(t)).toList();
+        _selectedTags = _selectedTags.where((t) => names.contains(t)).toList();
         _loading = false;
       });
     } catch (e) {
@@ -161,7 +163,7 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
@@ -174,12 +176,9 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Edit Tags',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                    style: AppTextStyles.title.copyWith(
                       color: Color(0xff573353),
                     ),
                   ),

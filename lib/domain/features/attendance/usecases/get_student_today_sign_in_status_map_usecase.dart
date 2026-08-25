@@ -10,4 +10,3 @@ class GetStudentTodaySignInStatusMapUseCase {
     return _repository.getStudentTodaySignInStatusMap(studentCodes);
   }
 }
-

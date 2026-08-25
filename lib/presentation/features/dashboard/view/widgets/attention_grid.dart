@@ -10,6 +10,7 @@ import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_c
 import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_models.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 // ── Tone ─────────────────────────────────────────────────────────────────────
 
@@ -149,13 +150,9 @@ class _AttentionGridState extends State<AttentionGrid> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Need your attention',
-          style: TextStyle(
-            color: AppColors.primaryColor,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
+          style: AppTextStyles.heading.copyWith(color: AppColors.primaryColor),
         ),
         const SizedBox(height: 12),
         _buildGrid(initialCards, _handleCardTap),
@@ -261,13 +258,9 @@ class _AttentionGridState extends State<AttentionGrid> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Need your attention',
-          style: TextStyle(
-            color: AppColors.primaryColor,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
+          style: AppTextStyles.heading.copyWith(color: AppColors.primaryColor),
         ),
         const SizedBox(height: 12),
         IntrinsicHeight(
@@ -626,10 +619,8 @@ class _AttentionCard extends StatelessWidget {
             else if (model.valueText != null)
               Text(
                 model.valueText!,
-                style: const TextStyle(
+                style: AppTextStyles.heading.copyWith(
                   color: AppColors.themeColor,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
                 ),
               )
             else
@@ -658,13 +649,9 @@ class _CurrencyBadge extends StatelessWidget {
         color: AppColors.errorColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: const Text(
+      child: Text(
         '\$',
-        style: TextStyle(
-          color: AppColors.errorColor,
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-        ),
+        style: AppTextStyles.heading.copyWith(color: AppColors.errorColor),
       ),
     );
   }
@@ -748,10 +735,8 @@ class _SubItemRow extends StatelessWidget {
               '${item.label} (${item.count})',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: AppTextStyles.caption.copyWith(
                 color: AppColors.primaryColor.withValues(alpha: 0.8),
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
               ),
             ),
           ),

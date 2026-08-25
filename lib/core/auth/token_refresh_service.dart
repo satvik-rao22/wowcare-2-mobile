@@ -129,14 +129,16 @@ class TokenRefreshService {
     final completer = Completer<String?>();
     _inFlight = completer;
 
-    _doRefresh().then((token) {
-      _inFlight = null; // cleared on success…
-      completer.complete(token);
-    }).catchError((Object e) {
-      _inFlight = null; // …and on failure (invariant 3).
-      AppLogger.d('[TokenRefresh] refresh threw: $e');
-      completer.complete(null);
-    });
+    _doRefresh()
+        .then((token) {
+          _inFlight = null; // cleared on success…
+          completer.complete(token);
+        })
+        .catchError((Object e) {
+          _inFlight = null; // …and on failure (invariant 3).
+          AppLogger.d('[TokenRefresh] refresh threw: $e');
+          completer.complete(null);
+        });
 
     return completer.future;
   }
@@ -204,12 +206,15 @@ class TokenRefreshService {
     // nothing here builds a Cookie header by hand anymore. Some backends
     // ALSO echo the rotated value in the JSON body; mirror that into the
     // legacy Keychain store too, purely for backward-compatible diagnostics.
-    final rotated =
-        (body['refreshToken'] ?? body['refresh_token'] ?? '').toString().trim();
+    final rotated = (body['refreshToken'] ?? body['refresh_token'] ?? '')
+        .toString()
+        .trim();
     final rotatedCookie = _refreshTokenFromSetCookie(response.headers);
     final newRefresh = rotated.isNotEmpty ? rotated : rotatedCookie;
     if (newRefresh.isNotEmpty) {
-      AppLogger.d('[TokenRefresh] refresh token rotated — mirroring to Keychain');
+      AppLogger.d(
+        '[TokenRefresh] refresh token rotated — mirroring to Keychain',
+      );
       await saveRefreshToken(newRefresh);
     }
 
@@ -219,7 +224,9 @@ class TokenRefreshService {
       await saveAccessTokenExpiry(expiresIn);
     }
 
-    AppLogger.d('[TokenRefresh] access token renewed (expiresIn=${expiresIn}s)');
+    AppLogger.d(
+      '[TokenRefresh] access token renewed (expiresIn=${expiresIn}s)',
+    );
     return newAccess;
   }
 

@@ -52,9 +52,15 @@ class ConfirmIndividualMovementScreen extends StatelessWidget {
           _infoRow('Student', item.name),
           const Divider(height: 18),
           _infoRow('Movement Type', item.movementTypeLabel),
-          _infoRow('From', item.fromClassroom.isEmpty ? '-' : item.fromClassroom),
+          _infoRow(
+            'From',
+            item.fromClassroom.isEmpty ? '-' : item.fromClassroom,
+          ),
           _infoRow('To', item.toClassroom.isEmpty ? '-' : item.toClassroom),
-          _infoRow('Movement Date', DateFormat('MMM dd, yyyy').format(item.movementDate)),
+          _infoRow(
+            'Movement Date',
+            DateFormat('MMM dd, yyyy').format(item.movementDate),
+          ),
           _infoRow('Comment', item.comment.isEmpty ? '-' : item.comment),
         ],
       ),

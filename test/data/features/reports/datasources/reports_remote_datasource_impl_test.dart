@@ -598,10 +598,7 @@ void main() {
         fakeDio.responseBuilder = (_) => {
           'data': {
             'assets': [
-              {
-                'assetCode': 'AST_123',
-                'status': 'FAILED',
-              },
+              {'assetCode': 'AST_123', 'status': 'FAILED'},
             ],
           },
         };

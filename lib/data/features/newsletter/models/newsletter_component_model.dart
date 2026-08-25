@@ -21,8 +21,8 @@ class NewsletterComponentModel extends Equatable {
     Map<String, dynamic> data = rawData is Map<String, dynamic>
         ? rawData
         : rawData is Map
-            ? Map<String, dynamic>.from(rawData)
-            : <String, dynamic>{};
+        ? Map<String, dynamic>.from(rawData)
+        : <String, dynamic>{};
 
     if (data.isEmpty) {
       final contentJson = json['contentJson'];
@@ -49,10 +49,14 @@ class NewsletterComponentModel extends Equatable {
   }
 
   NewsletterComponentEntity toEntity() {
-    return NewsletterComponentEntity(id: id, type: type, data: data, order: order);
+    return NewsletterComponentEntity(
+      id: id,
+      type: type,
+      data: data,
+      order: order,
+    );
   }
 
   @override
   List<Object?> get props => [id, type, data, order];
 }
-

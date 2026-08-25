@@ -383,7 +383,9 @@ class _StudentSelectionSignInFormState
                           children: [
                             AppText.body(
                               state.studentsError ?? 'Failed to load students',
-                              style: const TextStyle(color: Colors.red),
+                              style: AppTextStyles.body.copyWith(
+                                color: Colors.red,
+                              ),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 8),
@@ -496,10 +498,8 @@ class StudentListItem extends StatelessWidget {
                   text: student.fullName,
                   maxLines: 2,
                   preferLongPress: true,
-                  style: const TextStyle(
+                  style: AppTextStyles.sectionHeader.copyWith(
                     color: AppColors.primaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),

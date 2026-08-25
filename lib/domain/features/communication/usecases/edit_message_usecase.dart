@@ -8,7 +8,10 @@ class EditMessageUseCase {
 
   EditMessageUseCase(this.repository);
 
-  Future<Either<Failure, Message>> call(String messageCode, String content) async {
+  Future<Either<Failure, Message>> call(
+    String messageCode,
+    String content,
+  ) async {
     return await repository.editMessage(messageCode, content);
   }
 }

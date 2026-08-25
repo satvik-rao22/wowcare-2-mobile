@@ -31,7 +31,8 @@ class AutoPayRepositoryImpl implements AutoPayRepository {
 
   @override
   Future<AutoPayStatusEntity> getAutoPayStatus(
-      GuardianScopeParams params) async {
+    GuardianScopeParams params,
+  ) async {
     final model = await _dataSource.getAutoPayStatus(
       organizationCode: params.organizationCode,
       schoolCode: params.schoolCode,
@@ -56,7 +57,8 @@ class AutoPayRepositoryImpl implements AutoPayRepository {
 
   @override
   Future<List<PaymentMethodEntity>> getPaymentMethods(
-      GuardianScopeParams params) async {
+    GuardianScopeParams params,
+  ) async {
     final models = await _dataSource.getPaymentMethods(
       organizationCode: params.organizationCode,
       schoolCode: params.schoolCode,
@@ -67,7 +69,8 @@ class AutoPayRepositoryImpl implements AutoPayRepository {
 
   @override
   Future<PaymentMethodEntity> addPaymentMethod(
-      AddPaymentMethodParams params) async {
+    AddPaymentMethodParams params,
+  ) async {
     final model = await _dataSource.addPaymentMethod(
       AddPaymentMethodRequestModel(
         organizationCode: params.organizationCode,

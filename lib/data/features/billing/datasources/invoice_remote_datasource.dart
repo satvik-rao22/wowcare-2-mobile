@@ -70,13 +70,18 @@ abstract class InvoiceRemoteDataSource {
     required String guardianCode,
   });
   Future<InvoicePaymentResultModel> createPayment(
-      InvoicePaymentRequestModel request);
+    InvoicePaymentRequestModel request,
+  );
   Future<InvoicePaymentResultModel> createRefund(
-      InvoicePaymentRequestModel request);
+    InvoicePaymentRequestModel request,
+  );
   Future<InvoicePaymentResultModel> createCredit(
-      CreateCreditRequestModel request);
+    CreateCreditRequestModel request,
+  );
   Future<InvoiceResultModel> updateInvoice(
-      String code, UpdateInvoiceRequestModel request);
+    String code,
+    UpdateInvoiceRequestModel request,
+  );
   Future<void> deleteInvoice(String code);
   Future<InvoiceResultModel> cancelInvoice(String code);
   Future<InvoiceResultModel> issueInvoice(String code);
@@ -90,7 +95,8 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
 
   @override
   Future<InvoiceResultModel> createInvoice(
-      CreateInvoiceRequestModel request) async {
+    CreateInvoiceRequestModel request,
+  ) async {
     final response = await _client.post<Map<String, dynamic>>(
       ApiPaths.url(ApiPaths.invoices),
       data: request.toJson(),
@@ -248,7 +254,8 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
 
   @override
   Future<InvoicePaymentResultModel> createPayment(
-      InvoicePaymentRequestModel request) async {
+    InvoicePaymentRequestModel request,
+  ) async {
     final response = await _client.post<Map<String, dynamic>>(
       ApiPaths.url(ApiPaths.invoicePayments),
       data: request.toJson(),
@@ -258,7 +265,8 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
 
   @override
   Future<InvoicePaymentResultModel> createRefund(
-      InvoicePaymentRequestModel request) async {
+    InvoicePaymentRequestModel request,
+  ) async {
     final response = await _client.post<Map<String, dynamic>>(
       ApiPaths.url(ApiPaths.invoiceRefunds),
       data: request.toJson(),
@@ -268,7 +276,8 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
 
   @override
   Future<InvoicePaymentResultModel> createCredit(
-      CreateCreditRequestModel request) async {
+    CreateCreditRequestModel request,
+  ) async {
     final response = await _client.post<Map<String, dynamic>>(
       ApiPaths.url(ApiPaths.invoiceCredits),
       data: request.toJson(),
@@ -278,7 +287,9 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
 
   @override
   Future<InvoiceResultModel> updateInvoice(
-      String code, UpdateInvoiceRequestModel request) async {
+    String code,
+    UpdateInvoiceRequestModel request,
+  ) async {
     final response = await _client.patch<Map<String, dynamic>>(
       ApiPaths.url(ApiPaths.invoiceDraft(code)),
       data: request.toJson(),

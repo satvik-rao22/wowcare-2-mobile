@@ -30,6 +30,7 @@ import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
 import '../activity_daily_tab.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class NapActivityScreen extends StatelessWidget {
   const NapActivityScreen({
@@ -1222,10 +1223,8 @@ class _NapActivityViewState extends State<_NapActivityView> {
                               });
                             },
                       label: 'Remind to check nap every 15 minutes',
-                      labelStyle: TextStyle(
+                      labelStyle: AppTextStyles.body.copyWith(
                         color: Colors.grey.shade600,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
                       ),
                     ),
                   ),

@@ -19,20 +19,20 @@ class TransactionDetailsState extends Equatable {
   });
 
   const TransactionDetailsState.initial()
-      : siblingTransactions = const [],
-        siblingSummary = const {},
-        isLoadingSiblings = false,
-        hasError = false,
-        errorMessage = '',
-        startDate = null,
-        endDate = null,
-        isLoadingFamily = false,
-        familyChildren = const [],
-        familyParents = const [],
-        familyName = '',
-        familyError = '',
-        hasMoreData = false,
-        isLoadingMore = false;
+    : siblingTransactions = const [],
+      siblingSummary = const {},
+      isLoadingSiblings = false,
+      hasError = false,
+      errorMessage = '',
+      startDate = null,
+      endDate = null,
+      isLoadingFamily = false,
+      familyChildren = const [],
+      familyParents = const [],
+      familyName = '',
+      familyError = '',
+      hasMoreData = false,
+      isLoadingMore = false;
 
   final List<TransactionItem> siblingTransactions;
   final Map<String, dynamic> siblingSummary;
@@ -102,19 +102,19 @@ class TransactionDetailsState extends Equatable {
 
   @override
   List<Object?> get props => [
-        siblingTransactions,
-        siblingSummary,
-        isLoadingSiblings,
-        hasError,
-        errorMessage,
-        startDate,
-        endDate,
-        isLoadingFamily,
-        familyChildren,
-        familyParents,
-        familyName,
-        familyError,
-        hasMoreData,
-        isLoadingMore,
-      ];
+    siblingTransactions,
+    siblingSummary,
+    isLoadingSiblings,
+    hasError,
+    errorMessage,
+    startDate,
+    endDate,
+    isLoadingFamily,
+    familyChildren,
+    familyParents,
+    familyName,
+    familyError,
+    hasMoreData,
+    isLoadingMore,
+  ];
 }

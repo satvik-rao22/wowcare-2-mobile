@@ -54,13 +54,13 @@ class NotificationPreferenceGroup extends Equatable {
 
   @override
   List<Object?> get props => <Object?>[
-        groupCode,
-        title,
-        description,
-        categoryCode,
-        categoryName,
-        displayOrder,
-        channels,
-        overridden,
-      ];
+    groupCode,
+    title,
+    description,
+    categoryCode,
+    categoryName,
+    displayOrder,
+    channels,
+    overridden,
+  ];
 }

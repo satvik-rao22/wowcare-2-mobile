@@ -15,6 +15,7 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class StudentAttendanceCard extends StatefulWidget {
   const StudentAttendanceCard({super.key});
@@ -97,12 +98,10 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
       builder: (context, state) {
         final selectedChild = state.selectedChild;
         if (selectedChild == null) {
-          return const Text(
+          return Text(
             'No Child Selected',
-            style: TextStyle(
+            style: AppTextStyles.bodyLarge.copyWith(
               color: AppColors.primaryColor,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
             ),
           );
         }
@@ -131,10 +130,8 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
                   child: Text(
                     selectedChild.name,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: AppTextStyles.bodyLarge.copyWith(
                       color: AppColors.primaryColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -190,10 +187,8 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
                                   : child.name,
                               overflow: TextOverflow.ellipsis,
                               maxLines: 1,
-                              style: const TextStyle(
+                              style: AppTextStyles.bodyLarge.copyWith(
                                 color: AppColors.primaryColor,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
@@ -221,10 +216,8 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
                             child: Text(
                               child.name,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: AppTextStyles.body.copyWith(
                                 color: AppColors.primaryColor,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
@@ -260,7 +253,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
             child: Text(
               label,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              style: AppTextStyles.bodyLarge,
             ),
           ),
           Container(
@@ -389,7 +382,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
             child: Text(
               label,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              style: AppTextStyles.bodyLarge,
             ),
           ),
           FittedBox(

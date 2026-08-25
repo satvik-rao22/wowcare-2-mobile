@@ -25,8 +25,7 @@ class ScreenshotProtection {
   /// Checks if screenshots are currently prevented
   static Future<bool> isScreenshotPrevented() async {
     try {
-      final result =
-          await _channel.invokeMethod<bool>('isScreenshotPrevented');
+      final result = await _channel.invokeMethod<bool>('isScreenshotPrevented');
       return result ?? false;
     } catch (e) {
       AppLogger.e('Error checking screenshot status: $e');

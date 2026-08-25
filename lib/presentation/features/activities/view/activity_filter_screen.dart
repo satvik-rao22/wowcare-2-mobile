@@ -8,6 +8,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Activity feed filters (tags + activity types), school-wide.
 ///
@@ -49,8 +50,9 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
     super.initState();
     final initial = widget.initialFilters ?? const {};
     _selectedTags = List<String>.from(initial['Tags'] ?? const []);
-    _selectedActivityTypes =
-        List<String>.from(initial['Activity Type'] ?? const []);
+    _selectedActivityTypes = List<String>.from(
+      initial['Activity Type'] ?? const [],
+    );
     _selectedStatuses = List<String>.from(initial['Status'] ?? const []);
   }
 
@@ -59,8 +61,9 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
   void _pruneSelectionsToOptions(ActivityFilterState state) {
     setState(() {
       _selectedTags.removeWhere((t) => !state.tagOptions.contains(t));
-      _selectedActivityTypes
-          .removeWhere((t) => !state.activityTypeOptions.contains(t));
+      _selectedActivityTypes.removeWhere(
+        (t) => !state.activityTypeOptions.contains(t),
+      );
       _selectedStatuses.removeWhere((s) => !_approvalStatusOptions.contains(s));
     });
   }
@@ -76,8 +79,9 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ActivityFilterCubit>(
-      create: (_) => serviceLocator<ActivityFilterCubit>()
-        ..loadMetadata(schoolCode: widget.schoolCode),
+      create: (_) =>
+          serviceLocator<ActivityFilterCubit>()
+            ..loadMetadata(schoolCode: widget.schoolCode),
       child: BlocConsumer<ActivityFilterCubit, ActivityFilterState>(
         listenWhen: (prev, curr) =>
             curr.status == ActivityFilterStatus.loaded &&
@@ -139,10 +143,8 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
             children: [
               Text(
                 label,
-                style: TextStyle(
+                style: AppTextStyles.label.copyWith(
                   color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
                 ),
               ),
               const SizedBox(height: 8),
@@ -163,9 +165,8 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
               Text(
                 'Could not load filter options.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: AppTextStyles.body.copyWith(
                   color: AppColors.primaryColor.withValues(alpha: 0.7),
-                  fontSize: 14,
                 ),
               ),
               const SizedBox(height: 16),
@@ -214,7 +215,9 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
             selectedItems: _selectedActivityTypes,
             labelBottomSpacing: 4,
             onChanged: (values) {
-              setState(() => _selectedActivityTypes = List<String>.from(values));
+              setState(
+                () => _selectedActivityTypes = List<String>.from(values),
+              );
             },
           );
         }

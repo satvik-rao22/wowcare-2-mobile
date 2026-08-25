@@ -134,7 +134,9 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: state.startDate,
-                        isDisabled: state.isStaffAdminPersona != true || state.isSelfTarget,
+                        isDisabled:
+                            state.isStaffAdminPersona != true ||
+                            state.isSelfTarget,
                         onDateSelected: _cubit.selectStartDate,
                       ),
                     ],
@@ -153,7 +155,9 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: state.endDate,
-                        isDisabled: state.isStaffAdminPersona != true || state.isSelfTarget,
+                        isDisabled:
+                            state.isStaffAdminPersona != true ||
+                            state.isSelfTarget,
                         onDateSelected: _cubit.selectEndDate,
                       ),
                     ],
@@ -276,10 +280,8 @@ class RemoveStaffTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     softWrap: false,
-                    style: const TextStyle(
+                    style: AppTextStyles.body.copyWith(
                       color: AppColors.primaryColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),

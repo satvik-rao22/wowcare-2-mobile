@@ -282,9 +282,7 @@ class AuthCubit extends Cubit<AuthState> {
         accessToken: response.accessToken,
       );
     } catch (e) {
-      AppLogger.w(
-        '[AUTH] School status verification failed (non-fatal): $e',
-      );
+      AppLogger.w('[AUTH] School status verification failed (non-fatal): $e');
       return null;
     }
 
@@ -331,9 +329,10 @@ class AuthCubit extends Cubit<AuthState> {
 
     final accessToken =
         (await serviceLocator<StorageService>().getString(
-          StorageKeys.accessToken,
-        ) ??
-        '').trim();
+                  StorageKeys.accessToken,
+                ) ??
+                '')
+            .trim();
     if (accessToken.isEmpty) return null;
 
     List<Map<String, dynamic>> userDetails;
@@ -342,9 +341,7 @@ class AuthCubit extends Cubit<AuthState> {
         accessToken: accessToken,
       );
     } catch (e) {
-      AppLogger.w(
-        '[AUTH] School status verification failed (non-fatal): $e',
-      );
+      AppLogger.w('[AUTH] School status verification failed (non-fatal): $e');
       return null;
     }
 
@@ -374,9 +371,10 @@ class AuthCubit extends Cubit<AuthState> {
 
     final accessToken =
         (await serviceLocator<StorageService>().getString(
-          StorageKeys.accessToken,
-        ) ??
-        '').trim();
+                  StorageKeys.accessToken,
+                ) ??
+                '')
+            .trim();
     if (accessToken.isEmpty) return const <String, String>{};
 
     List<Map<String, dynamic>> userDetails;

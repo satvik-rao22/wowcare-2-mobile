@@ -56,8 +56,9 @@ Future<void> uploadGuardianPhotoInBackground({
     var code = guardianCode.trim();
     if (code.isEmpty && studentCode.trim().isNotEmpty) {
       final repo = serviceLocator<StudentRepository>();
-      final guardians =
-          await repo.getStudentGuardians(studentCode: studentCode.trim());
+      final guardians = await repo.getStudentGuardians(
+        studentCode: studentCode.trim(),
+      );
       final wantEmail = email.trim().toLowerCase();
       final wantMobile = mobile.replaceAll(RegExp(r'\D'), '');
       for (final g in guardians) {

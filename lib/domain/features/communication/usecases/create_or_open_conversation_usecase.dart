@@ -64,9 +64,11 @@ class CreateOrOpenConversationUseCase {
       case ConversationType.classroomChat:
         // Classroom chats are provisioned server-side (reconcileClassroomChat),
         // not via this manual create flow.
-        return const Left(ValidationFailure(
-          'Classroom chats are created automatically for the classroom.',
-        ));
+        return const Left(
+          ValidationFailure(
+            'Classroom chats are created automatically for the classroom.',
+          ),
+        );
     }
 
     final found = existing.fold((_) => null, (c) => c);

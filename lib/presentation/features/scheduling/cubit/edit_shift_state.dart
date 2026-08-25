@@ -116,8 +116,9 @@ class EditShiftState extends Equatable {
       shiftStart: identical(shiftStart, _unset)
           ? this.shiftStart
           : shiftStart as TimeOfDay?,
-      shiftEnd:
-          identical(shiftEnd, _unset) ? this.shiftEnd : shiftEnd as TimeOfDay?,
+      shiftEnd: identical(shiftEnd, _unset)
+          ? this.shiftEnd
+          : shiftEnd as TimeOfDay?,
       breakStart: identical(breakStart, _unset)
           ? this.breakStart
           : breakStart as TimeOfDay?,
@@ -144,8 +145,9 @@ class EditShiftState extends Equatable {
       untilDateError: identical(untilDateError, _unset)
           ? this.untilDateError
           : untilDateError as String?,
-      daysError:
-          identical(daysError, _unset) ? this.daysError : daysError as String?,
+      daysError: identical(daysError, _unset)
+          ? this.daysError
+          : daysError as String?,
       schoolHoursError: identical(schoolHoursError, _unset)
           ? this.schoolHoursError
           : schoolHoursError as String?,
@@ -154,26 +156,26 @@ class EditShiftState extends Equatable {
 
   @override
   List<Object?> get props => [
-        date,
-        untilDate,
-        selectedClassroomCode,
-        shiftStart,
-        shiftEnd,
-        breakStart,
-        breakEnd,
-        selectedDays,
-        publish,
-        saving,
-        schoolHoursResolver,
-        adminClassrooms,
-        shiftStartError,
-        shiftEndError,
-        breakStartError,
-        breakEndError,
-        untilDateError,
-        daysError,
-        schoolHoursError,
-      ];
+    date,
+    untilDate,
+    selectedClassroomCode,
+    shiftStart,
+    shiftEnd,
+    breakStart,
+    breakEnd,
+    selectedDays,
+    publish,
+    saving,
+    schoolHoursResolver,
+    adminClassrooms,
+    shiftStartError,
+    shiftEndError,
+    breakStartError,
+    breakEndError,
+    untilDateError,
+    daysError,
+    schoolHoursError,
+  ];
 }
 
 /// Sentinel for [EditShiftState.copyWith] so callers can distinguish "leave

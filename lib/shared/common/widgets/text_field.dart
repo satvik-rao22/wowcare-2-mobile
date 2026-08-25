@@ -79,8 +79,7 @@ class CustomTextField extends StatelessWidget {
             : (fillColor ?? Colors.grey.shade100),
         border: _border(useGradientBorder ? null : Colors.grey.shade300),
         enabledBorder: _border(useGradientBorder ? null : Colors.grey.shade300),
-        focusedBorder:
-            _border(useGradientBorder ? null : AppColors.themeColor),
+        focusedBorder: _border(useGradientBorder ? null : AppColors.themeColor),
         errorBorder: _border(useGradientBorder ? null : Colors.red),
         focusedErrorBorder: _border(useGradientBorder ? null : Colors.red),
         contentPadding: const EdgeInsets.symmetric(
@@ -100,19 +99,14 @@ class CustomTextField extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       padding: const EdgeInsets.all(1.5),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(7),
-        child: field,
-      ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(7), child: field),
     );
   }
 
   OutlineInputBorder _border(Color? color) => OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: color == null
-            ? BorderSide.none
-            : BorderSide(color: color),
-      );
+    borderRadius: BorderRadius.circular(8),
+    borderSide: color == null ? BorderSide.none : BorderSide(color: color),
+  );
 
   TextStyle _buildGradientTextStyle() {
     final baseSize = textFontSize ?? 14.0;

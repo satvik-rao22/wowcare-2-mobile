@@ -12,12 +12,11 @@ class GetDiscountsUseCase {
     String? status,
     int page = 0,
     int size = 10,
-  }) =>
-      _repository.getDiscounts(
-        school: school,
-        name: name,
-        status: status,
-        page: page,
-        size: size,
-      );
+  }) => _repository.getDiscounts(
+    school: school,
+    name: name,
+    status: status,
+    page: page,
+    size: size,
+  );
 }

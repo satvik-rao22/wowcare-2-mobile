@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// A [TextEditingController] that renders supported inline HTML formatting
 /// tags visually while hiding the raw markup from the user.
@@ -184,7 +185,7 @@ class HtmlAwareTextController extends TextEditingController {
     TextStyle? style,
     required bool withComposing,
   }) {
-    final base = style ?? const TextStyle();
+    final base = style ?? AppTextStyles.body;
     final composing = withComposing && value.isComposingRangeValid
         ? value.composing
         : null;
@@ -299,7 +300,7 @@ class HtmlAwareTextController extends TextEditingController {
     // Intersect [start, end) with the IME composing range and apply the
     // standard composing underline to that portion.
     final composingStyle = formatted.merge(
-      const TextStyle(decoration: TextDecoration.underline),
+      AppTextStyles.body.copyWith(decoration: TextDecoration.underline),
     );
     final cStart = composing.start.clamp(start, end);
     final cEnd = composing.end.clamp(start, end);

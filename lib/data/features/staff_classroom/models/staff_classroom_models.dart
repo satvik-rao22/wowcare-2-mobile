@@ -16,6 +16,7 @@ class StaffClassroomItemModel {
 
   final String classroomCode;
   final String staffCode;
+
   /// User account code (USR_*) — the participant identifier for messaging.
   final String userCode;
   final String firstName;
@@ -81,7 +82,9 @@ class StaffClassroomListModel {
     );
   }
 
-  Map<String, dynamic> toJson() => {'items': items.map((e) => e.toJson()).toList()};
+  Map<String, dynamic> toJson() => {
+    'items': items.map((e) => e.toJson()).toList(),
+  };
 }
 
 class StaffClassroomAssignResponseModel {
@@ -95,7 +98,9 @@ class StaffClassroomAssignResponseModel {
   final String message;
   final String timestamp;
 
-  factory StaffClassroomAssignResponseModel.fromJson(Map<String, dynamic> json) {
+  factory StaffClassroomAssignResponseModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
     return StaffClassroomAssignResponseModel(
       success: json['success'] as bool? ?? false,
       message: json['message'] as String? ?? '',
@@ -103,4 +108,3 @@ class StaffClassroomAssignResponseModel {
     );
   }
 }
-

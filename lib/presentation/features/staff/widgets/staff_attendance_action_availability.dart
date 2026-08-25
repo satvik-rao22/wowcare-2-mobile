@@ -136,7 +136,9 @@ Map<String, String> staffAttendanceDisabledReasons(StaffAttendanceGate gate) {
     if (!gate.canTransfer)
       'Transfer':
           'Transfer can only be done for Students/Staff already signed in.',
-    if (!gate.canMarkAbsent) 'Absent': 'Absent can only be marked for Students/Staff not yet signed in',
+    if (!gate.canMarkAbsent)
+      'Absent':
+          'Absent can only be marked for Students/Staff not yet signed in',
   };
 }
 
@@ -151,7 +153,9 @@ Map<String, String> staffAttendanceDisabledReasonsWithGeofence(
   required bool isWithinGeofence,
 }) {
   const geofenceReason = 'You are not within geofencing Range';
-  final reasons = Map<String, String>.from(staffAttendanceDisabledReasons(gate));
+  final reasons = Map<String, String>.from(
+    staffAttendanceDisabledReasons(gate),
+  );
   if (!isWithinGeofence) {
     reasons['Sign-in'] = geofenceReason;
     reasons['Absent'] = geofenceReason;

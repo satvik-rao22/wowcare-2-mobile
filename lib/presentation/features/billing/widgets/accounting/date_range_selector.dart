@@ -6,6 +6,7 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class AccountingDateRangeSelector extends StatefulWidget {
   const AccountingDateRangeSelector({
@@ -125,13 +126,7 @@ class _AccountingDateRangeSelectorState
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Select Date Range',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
+                      Text('Select Date Range', style: AppTextStyles.body),
                     ],
                   ),
                 ),
@@ -152,10 +147,7 @@ class _AccountingDateRangeSelectorState
                           Expanded(
                             child: Text(
                               _currentLabel(),
-                              style: const TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
+                              style: AppTextStyles.body.copyWith(
                                 color: AppColors.billingTextColor,
                               ),
                               overflow: TextOverflow.ellipsis,

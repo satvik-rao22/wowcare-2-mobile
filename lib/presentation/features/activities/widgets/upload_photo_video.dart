@@ -13,6 +13,7 @@ import '../../../../core/util/core_utils.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 import '../view/activity_item.dart';
 import '../view/view_activity_screens/show_full_screen_media.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 enum MediaType { photos, video }
 
@@ -426,9 +427,9 @@ class _MediaUploaderState extends State<MediaUploader> {
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text(
+                child: Text(
                   'Replace',
-                  style: TextStyle(color: Colors.red),
+                  style: AppTextStyles.body.copyWith(color: Colors.red),
                 ),
               ),
             ],
@@ -505,9 +506,7 @@ class _MediaUploaderState extends State<MediaUploader> {
               Text(
                 'Select Media Source',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
+                style: AppTextStyles.screenTitle.copyWith(
                   color: AppColors.primaryColor,
                 ),
               ),
@@ -593,9 +592,7 @@ class _MediaUploaderState extends State<MediaUploader> {
                 Expanded(
                   child: Text(
                     label,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                    style: AppTextStyles.title.copyWith(
                       color: AppColors.primaryColor,
                     ),
                   ),
@@ -853,9 +850,8 @@ class _MediaUploaderState extends State<MediaUploader> {
                     widget.allowVideo
                         ? 'Take/Upload Photo or Video'
                         : 'Take/Upload Photo',
-                    style: const TextStyle(
+                    style: AppTextStyles.body.copyWith(
                       color: AppColors.primaryColor,
-                      fontSize: 14,
                     ),
                   ),
                 ],
@@ -871,13 +867,15 @@ class _MediaUploaderState extends State<MediaUploader> {
                   text: widget.label,
                   style: TextStyle(
                     fontSize: responsive.labelFontSize,
-                    color: const Color(0xff573353),
+                    color: Color(0xff573353),
                   ),
                   children: widget.isRequired
                       ? [
-                          const TextSpan(
+                          TextSpan(
                             text: ' *',
-                            style: TextStyle(color: Colors.red),
+                            style: AppTextStyles.body.copyWith(
+                              color: Colors.red,
+                            ),
                           ),
                         ]
                       : null,
@@ -900,7 +898,7 @@ class _MediaUploaderState extends State<MediaUploader> {
                         'Select Media',
                         style: TextStyle(fontSize: responsive.labelFontSize),
                       ),
-                      const Icon(
+                      Icon(
                         Icons.file_upload_outlined,
                         color: AppColors.primaryColor,
                       ),
@@ -912,11 +910,11 @@ class _MediaUploaderState extends State<MediaUploader> {
           ),
 
         if (widget.isRequired && !_hasMedia && !widget.readOnly)
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 8),
             child: Text(
               'Please upload at least one media *',
-              style: TextStyle(color: Colors.red, fontSize: 13),
+              style: AppTextStyles.label.copyWith(color: Colors.red),
             ),
           ),
 

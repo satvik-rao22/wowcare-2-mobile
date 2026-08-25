@@ -6,9 +6,7 @@ class NotificationBadgeState extends Equatable {
     required this.unclickedCount,
   });
 
-  const NotificationBadgeState.initial()
-      : unreadCount = 0,
-        unclickedCount = 0;
+  const NotificationBadgeState.initial() : unreadCount = 0, unclickedCount = 0;
 
   final int unreadCount;
   final int unclickedCount;

@@ -12,12 +12,11 @@ class GetLedgerTransactionsUseCase {
     String? to,
     int page = 0,
     int size = 10,
-  }) =>
-      _repository.getTransactions(
-        ledgerCode: ledgerCode,
-        from: from,
-        to: to,
-        page: page,
-        size: size,
-      );
+  }) => _repository.getTransactions(
+    ledgerCode: ledgerCode,
+    from: from,
+    to: to,
+    page: page,
+    size: size,
+  );
 }

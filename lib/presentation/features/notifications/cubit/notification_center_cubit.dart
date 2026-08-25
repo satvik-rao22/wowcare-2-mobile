@@ -24,11 +24,11 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     required MarkNotificationReadUseCase markNotificationReadUseCase,
     required MarkAllNotificationsReadUseCase markAllNotificationsReadUseCase,
     required GetNotificationUnreadCountsUseCase getUnreadCountsUseCase,
-  })  : _getNotifications = getNotificationsUseCase,
-        _markRead = markNotificationReadUseCase,
-        _markAllRead = markAllNotificationsReadUseCase,
-        _getUnreadCounts = getUnreadCountsUseCase,
-        super(const NotificationCenterState.initial());
+  }) : _getNotifications = getNotificationsUseCase,
+       _markRead = markNotificationReadUseCase,
+       _markAllRead = markAllNotificationsReadUseCase,
+       _getUnreadCounts = getUnreadCountsUseCase,
+       super(const NotificationCenterState.initial());
 
   final GetNotificationsUseCase _getNotifications;
   final MarkNotificationReadUseCase _markRead;
@@ -58,24 +58,28 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
         onlyUnread: state.onlyUnread,
       );
       if (isClosed) return;
-      emit(state.copyWith(
-        items: result.items,
-        page: 0,
-        hasMore: result.hasMore,
-        isLoading: false,
-        isRefreshing: false,
-        isLoadingMore: false,
-      ));
+      emit(
+        state.copyWith(
+          items: result.items,
+          page: 0,
+          hasMore: result.hasMore,
+          isLoading: false,
+          isRefreshing: false,
+          isLoadingMore: false,
+        ),
+      );
       await _refreshUnreadCount();
     } catch (e) {
       if (isClosed) return;
       CoreUtils.logApiError(e.toString());
-      emit(state.copyWith(
-        isLoading: false,
-        isRefreshing: false,
-        isLoadingMore: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          isLoadingMore: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -117,39 +121,50 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
         ...state.items,
         ...result.items.where((n) => !existingIds.contains(n.id)),
       ];
-      emit(state.copyWith(
-        items: merged,
-        page: nextPage,
-        hasMore: result.hasMore,
-        isLoadingMore: false,
-      ));
+      emit(
+        state.copyWith(
+          items: merged,
+          page: nextPage,
+          hasMore: result.hasMore,
+          isLoadingMore: false,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
       CoreUtils.logApiError(e.toString());
-      emit(state.copyWith(
+      emit(
+        state.copyWith(
           isLoadingMore: false,
-          errorMessage: ApiErrorHandler.extractErrorMessage(e)));
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
   /// Sets the module (category) filter and refetches from the server.
   /// `null`/empty selects "All". No-op when unchanged.
   Future<void> setModuleFilter(String? module) async {
-    final next = (module == null || module.trim().isEmpty) ? null : module.trim();
+    final next = (module == null || module.trim().isEmpty)
+        ? null
+        : module.trim();
     if (next == state.moduleFilter) return;
-    emit(state.copyWith(
-      moduleFilter: next,
-      clearModuleFilter: next == null,
-      isLoading: true,
-      errorMessage: null,
-    ));
+    emit(
+      state.copyWith(
+        moduleFilter: next,
+        clearModuleFilter: next == null,
+        isLoading: true,
+        errorMessage: null,
+      ),
+    );
     await _fetchFirstPage();
   }
 
   /// Toggles the unread-only filter and refetches from the server.
   Future<void> setOnlyUnread(bool value) async {
     if (value == state.onlyUnread) return;
-    emit(state.copyWith(onlyUnread: value, isLoading: true, errorMessage: null));
+    emit(
+      state.copyWith(onlyUnread: value, isLoading: true, errorMessage: null),
+    );
     await _fetchFirstPage();
   }
 
@@ -170,10 +185,12 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       if (isClosed) return;
       // Keep the authoritative unread total in step with the item we just read.
       final c = state.serverUnreadCount;
-      emit(state.copyWith(
-        isMutating: false,
-        serverUnreadCount: c == null ? null : (c > 0 ? c - 1 : 0),
-      ));
+      emit(
+        state.copyWith(
+          isMutating: false,
+          serverUnreadCount: c == null ? null : (c > 0 ? c - 1 : 0),
+        ),
+      );
       // Keep the app-bar bell badge in step with the read action.
       try {
         serviceLocator<NotificationBadgeCubit>().markOneReadLocally();
@@ -182,11 +199,13 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       if (isClosed) return;
       CoreUtils.logApiError(e.toString());
       // Roll back the optimistic update on failure.
-      emit(state.copyWith(
-        items: previous,
-        isMutating: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          items: previous,
+          isMutating: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -206,11 +225,13 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     } catch (e) {
       if (isClosed) return;
       CoreUtils.logApiError(e.toString());
-      emit(state.copyWith(
-        items: previous,
-        isMutating: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          items: previous,
+          isMutating: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 }

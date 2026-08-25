@@ -25,6 +25,7 @@ import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dar
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import 'dashboard_error_chip.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 // ---------------------------------------------------------------------------
 // RatioMonitoringCard
@@ -279,9 +280,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14.0,
-                fontWeight: FontWeight.w500,
+              style: AppTextStyles.body.copyWith(
                 color: Color.fromRGBO(87, 51, 83, 1),
               ),
             ),
@@ -291,11 +290,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14.0,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey.shade800,
-              ),
+              style: AppTextStyles.body.copyWith(color: Colors.grey.shade800),
             ),
           ] else
             Text(
@@ -303,11 +298,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14.0,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey.shade800,
-              ),
+              style: AppTextStyles.body.copyWith(color: Colors.grey.shade800),
             ),
           const SizedBox(height: 12),
         ],
@@ -485,10 +476,8 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
               child: Text(
                 room.studentPresent.toString(),
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 14.0,
+                style: AppTextStyles.body.copyWith(
                   color: Color.fromRGBO(87, 51, 83, 1),
-                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
@@ -507,10 +496,8 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
               child: Text(
                 room.staffPresent.toString(),
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 14.0,
+                style: AppTextStyles.body.copyWith(
                   color: Color.fromRGBO(87, 51, 83, 1),
-                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),

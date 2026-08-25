@@ -10,10 +10,9 @@ class VerifyKioskPinUseCase {
     required String pin,
     required String schoolCode,
     bool isLogout = false,
-  }) =>
-      _repository.verifyPin(
-        pin: pin,
-        schoolCode: schoolCode,
-        isLogout: isLogout,
-      );
+  }) => _repository.verifyPin(
+    pin: pin,
+    schoolCode: schoolCode,
+    isLogout: isLogout,
+  );
 }

@@ -13,8 +13,10 @@ class InvoiceCatalogRepositoryImpl implements InvoiceCatalogRepository {
     required String school,
     String? status,
   }) async {
-    final models =
-        await _dataSource.getFeeStructures(school: school, status: status);
+    final models = await _dataSource.getFeeStructures(
+      school: school,
+      status: status,
+    );
     return models.map(_mapFeeStructure).toList();
   }
 
@@ -23,8 +25,10 @@ class InvoiceCatalogRepositoryImpl implements InvoiceCatalogRepository {
     required String school,
     String? status,
   }) async {
-    final models =
-        await _dataSource.getOtherFees(school: school, status: status);
+    final models = await _dataSource.getOtherFees(
+      school: school,
+      status: status,
+    );
     return models.map(_mapOtherFee).toList();
   }
 
@@ -33,14 +37,17 @@ class InvoiceCatalogRepositoryImpl implements InvoiceCatalogRepository {
     required String school,
     String? status,
   }) async {
-    final models =
-        await _dataSource.getSubsidies(school: school, status: status);
+    final models = await _dataSource.getSubsidies(
+      school: school,
+      status: status,
+    );
     return models.map(_mapSubsidy).toList();
   }
 
   // ─── Mappers ────────────────────────────────────────────────────────────────
 
-  FeeStructureEntity _mapFeeStructure(FeeStructureModel m) => FeeStructureEntity(
+  FeeStructureEntity _mapFeeStructure(FeeStructureModel m) =>
+      FeeStructureEntity(
         code: m.code,
         ageGroupName: m.ageGroupName,
         daysPerWeek: m.daysPerWeek,
@@ -50,26 +57,26 @@ class InvoiceCatalogRepositoryImpl implements InvoiceCatalogRepository {
       );
 
   FeeDetailEntity _mapFeeDetail(FeeDetailModel m) => FeeDetailEntity(
-        code: m.code,
-        billingCycle: m.billingCycle,
-        cost: m.cost,
-        status: m.status,
-      );
+    code: m.code,
+    billingCycle: m.billingCycle,
+    cost: m.cost,
+    status: m.status,
+  );
 
   OtherFeeEntity _mapOtherFee(OtherFeeModel m) => OtherFeeEntity(
-        code: m.code,
-        description: m.description,
-        cost: m.cost,
-        status: m.status,
-      );
+    code: m.code,
+    description: m.description,
+    cost: m.cost,
+    status: m.status,
+  );
 
   SubsidyEntity _mapSubsidy(SubsidyModel m) => SubsidyEntity(
-        code: m.code,
-        name: m.name,
-        description: m.description,
-        deductionAmount: m.deductionAmount,
-        price: m.price,
-        discountType: m.discountType,
-        status: m.status,
-      );
+    code: m.code,
+    name: m.name,
+    description: m.description,
+    deductionAmount: m.deductionAmount,
+    price: m.price,
+    discountType: m.discountType,
+    status: m.status,
+  );
 }

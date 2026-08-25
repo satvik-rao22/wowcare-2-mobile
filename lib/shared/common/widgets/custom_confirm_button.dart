@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class CustomConfirmButton extends StatefulWidget {
   const CustomConfirmButton({
@@ -58,9 +59,7 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
           foregroundColor: isEnabled ? Colors.white : Colors.grey[600],
           disabledForegroundColor: Colors.grey[600],
           padding: const EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: _isLoading
             ? const SizedBox(
@@ -72,14 +71,10 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
                 ),
               )
             : widget.widget ??
-                Text(
-                  widget.label,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: isEnabled ? Colors.white : Colors.grey[600],
+                  Text(
+                    widget.label,
+                    style: AppTextStyles.title.copyWith(color: isEnabled ? Colors.white : Colors.grey[600]),
                   ),
-                ),
       ),
     );
   }

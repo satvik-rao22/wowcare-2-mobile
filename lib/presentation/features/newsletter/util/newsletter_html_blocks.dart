@@ -22,9 +22,7 @@ List<String> splitNewsletterHtmlIntoBlocks(String rawHtml) {
   }
 
   if (blocks.isEmpty) {
-    return <String>[
-      trimmed.startsWith('<') ? trimmed : '<p>$trimmed</p>',
-    ];
+    return <String>[trimmed.startsWith('<') ? trimmed : '<p>$trimmed</p>'];
   }
 
   return blocks;

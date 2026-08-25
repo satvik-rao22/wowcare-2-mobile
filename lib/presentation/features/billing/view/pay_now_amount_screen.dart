@@ -17,6 +17,7 @@ import 'package:wowcare/presentation/features/billing/view/pay_now_authorize_scr
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Pay Now — step 1: choose how much to pay (full family balance or a custom
 /// per-owner allocation). Continues to the saved-method picker.
@@ -85,8 +86,9 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
           // Seed the family-balance field once after load.
           if (!state.isLoading && !_seededCurrent) {
             _seededCurrent = true;
-            _currentController.text =
-                state.currentAmount > 0 ? _money(state.currentAmount) : '';
+            _currentController.text = state.currentAmount > 0
+                ? _money(state.currentAmount)
+                : '';
           }
           return StaffFormLayout(
             title: 'Pay Now',
@@ -97,12 +99,9 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Payment Amount',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
+                          style: AppTextStyles.screenTitle.copyWith(
                             color: _primary,
                           ),
                         ),
@@ -120,15 +119,27 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
   }
 
   Widget _buildLoading() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ShimmerLoader(height: 22, width: 160, borderRadius: BorderRadius.circular(6)),
-          const SizedBox(height: 16),
-          ShimmerLoader(height: 56, width: double.infinity, borderRadius: BorderRadius.circular(10)),
-          const SizedBox(height: 16),
-          ShimmerLoader(height: 56, width: double.infinity, borderRadius: BorderRadius.circular(10)),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      ShimmerLoader(
+        height: 22,
+        width: 160,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      const SizedBox(height: 16),
+      ShimmerLoader(
+        height: 56,
+        width: double.infinity,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      const SizedBox(height: 16),
+      ShimmerLoader(
+        height: 56,
+        width: double.infinity,
+        borderRadius: BorderRadius.circular(10),
+      ),
+    ],
+  );
 
   Widget _buildCurrentOption(PayNowState state) {
     final selected = state.mode == PayNowAmountMode.currentOutstanding;
@@ -180,7 +191,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
             padding: const EdgeInsets.only(top: 6, left: 2),
             child: Text(
               '*Amount exceeds unpaid balance (\$${_money(state.unpaid)}).',
-              style: const TextStyle(color: Colors.red, fontSize: 12),
+              style: AppTextStyles.bodySmall.copyWith(color: Colors.red),
             ),
           ),
       ],
@@ -293,11 +304,9 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                 ),
                 TextSpan(
                   text: '  (Outstanding: \$${_money(student.outstanding)})',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 13,
-                    fontStyle: FontStyle.italic,
+                  style: AppTextStyles.label.copyWith(
                     color: Colors.grey.shade600,
+                    fontStyle: FontStyle.italic,
                   ),
                 ),
               ],
@@ -310,11 +319,11 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
             hasError: over,
           ),
           if (over)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 6, left: 2),
               child: Text(
                 '*Amount exceeds outstanding.',
-                style: TextStyle(color: Colors.red, fontSize: 12),
+                style: AppTextStyles.bodySmall.copyWith(color: Colors.red),
               ),
             ),
         ],
@@ -350,9 +359,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
       child: TextField(
         controller: controller,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters: [
-          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-        ],
+        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
         onChanged: onChanged,
         style: textStyle,
         decoration: InputDecoration(
@@ -400,14 +407,10 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
               gradient: AppColors.buildPrimaryGradient(),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Center(
+            child: Center(
               child: Text(
                 'Confirm',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: AppTextStyles.title.copyWith(color: Colors.white),
               ),
             ),
           ),
@@ -429,7 +432,8 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
     // Idempotency key: MOBILE-<uuid>-<guardianCode>. The uuid makes it unique
     // per attempt; the guardian code is appended at the end.
     final String guardian = state.guardianCode.trim();
-    final String idempotencyKey = 'MOBILE-${const Uuid().v4()}'
+    final String idempotencyKey =
+        'MOBILE-${const Uuid().v4()}'
         '${guardian.isNotEmpty ? '-$guardian' : ''}';
     final charge = PayNowCharge(
       ownerType: state.ownerType,

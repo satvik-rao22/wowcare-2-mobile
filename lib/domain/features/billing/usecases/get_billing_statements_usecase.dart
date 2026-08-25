@@ -6,8 +6,6 @@ class GetBillingStatementsUseCase {
 
   final BillingStatementsRepository _repository;
 
-  Future<List<BillingStatementEntity>> call({
-    required String subscriberCode,
-  }) =>
+  Future<List<BillingStatementEntity>> call({required String subscriberCode}) =>
       _repository.getStatements(subscriberCode: subscriberCode);
 }

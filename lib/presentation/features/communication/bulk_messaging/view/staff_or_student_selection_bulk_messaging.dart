@@ -26,6 +26,7 @@ import '../../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
 import '../../../../../shared/common/widgets/custom_search_bar.dart';
 import '../../../students/cubit/student_cubit.dart';
 import '../widgets/selection_shimmer.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class StaffOrStudentSelectionBulkMessaging extends StatefulWidget {
   const StaffOrStudentSelectionBulkMessaging({
@@ -832,10 +833,10 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                   widget.isStaffSelection
                                                       ? 'No staff match the selected filters'
                                                       : 'No student match the selected filters',
-                                                  style: TextStyle(
-                                                    color: Colors.grey[600],
-                                                    fontSize: 14,
-                                                  ),
+                                                  style: AppTextStyles.body
+                                                      .copyWith(
+                                                        color: Colors.grey[600],
+                                                      ),
                                                 ),
                                               )
                                             : GridView.builder(

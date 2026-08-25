@@ -54,7 +54,8 @@ class RoomChatPrivacyHelper {
     return messages
         .where(
           (m) =>
-              !m.isPrivate || m.privateParentUserCode == currentGuardianUserCode,
+              !m.isPrivate ||
+              m.privateParentUserCode == currentGuardianUserCode,
         )
         .toList();
   }

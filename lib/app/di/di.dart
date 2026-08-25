@@ -1238,8 +1238,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<ActivityFeedScopeCubit>(
     () => ActivityFeedScopeCubit(
-      getDailyActivityFeedUseCase: serviceLocator<GetDailyActivityFeedUseCase>(),
-      getRangeActivityFeedUseCase: serviceLocator<GetRangeActivityFeedUseCase>(),
+      getDailyActivityFeedUseCase:
+          serviceLocator<GetDailyActivityFeedUseCase>(),
+      getRangeActivityFeedUseCase:
+          serviceLocator<GetRangeActivityFeedUseCase>(),
       getActiveClassroomsUseCase: serviceLocator<GetActiveClassroomsUseCase>(),
       getActiveActivityTypesForSchoolUseCase:
           serviceLocator<GetActiveActivityTypesForSchoolUseCase>(),

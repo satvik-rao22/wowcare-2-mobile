@@ -14,14 +14,13 @@ class GetLedgersUseCase {
     String? status,
     int page = 0,
     int size = 10,
-  }) =>
-      _repository.getLedgers(
-        organizationCode: organizationCode,
-        school: school,
-        search: search,
-        category: category,
-        status: status,
-        page: page,
-        size: size,
-      );
+  }) => _repository.getLedgers(
+    organizationCode: organizationCode,
+    school: school,
+    search: search,
+    category: category,
+    status: status,
+    page: page,
+    size: size,
+  );
 }

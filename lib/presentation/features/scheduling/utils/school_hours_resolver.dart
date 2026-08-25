@@ -76,8 +76,7 @@ class SchoolHoursResolver {
     return keys[date.weekday - 1];
   }
 
-  SchoolRegularScheduleDay? dayFor(DateTime date) =>
-      _byDay[dayOfWeekKey(date)];
+  SchoolRegularScheduleDay? dayFor(DateTime date) => _byDay[dayOfWeekKey(date)];
 
   /// Returns resolved bounds for [date], or null when the school is closed.
   SchoolDayHours? hoursFor(DateTime date) {
@@ -90,9 +89,11 @@ class SchoolHoursResolver {
     final endTod = _parse24hTime(day.endTime);
     if (startTod == null || endTod == null) return null;
 
-    final scheduleStart = _parse24hTime(day.scheduleMonitorStartTime) ?? startTod;
+    final scheduleStart =
+        _parse24hTime(day.scheduleMonitorStartTime) ?? startTod;
     final scheduleEnd = _parse24hTime(day.scheduleMonitorEndTime) ?? endTod;
-    final ratioStart = _parse24hTime(day.ratioMonitorStartTime) ?? scheduleStart;
+    final ratioStart =
+        _parse24hTime(day.ratioMonitorStartTime) ?? scheduleStart;
     final ratioEnd = _parse24hTime(day.ratioMonitorEndTime) ?? scheduleEnd;
 
     final startLabel = _toShiftClockString(day.startTime);
@@ -100,10 +101,9 @@ class SchoolHoursResolver {
     if (startLabel.isEmpty || endLabel.isEmpty) return null;
 
     final halfDayRaw = day.halfDay?.trim();
-    final halfDayLabel =
-        halfDayRaw != null && halfDayRaw.isNotEmpty
-            ? _toShiftClockString(halfDayRaw)
-            : null;
+    final halfDayLabel = halfDayRaw != null && halfDayRaw.isNotEmpty
+        ? _toShiftClockString(halfDayRaw)
+        : null;
 
     final blockDuration = (day.durationMinutes ?? 30).clamp(1, 24 * 60);
 

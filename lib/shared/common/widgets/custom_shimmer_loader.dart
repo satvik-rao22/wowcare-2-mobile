@@ -583,13 +583,13 @@ class BillingTransactionShimmer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget bar(double width, double height) => Container(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(4),
-          ),
-        );
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(4),
+      ),
+    );
 
     return Shimmer.fromColors(
       baseColor: Colors.grey.shade300,
@@ -632,11 +632,7 @@ class BillingTransactionShimmer extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
-              children: [
-                bar(70, 14),
-                const SizedBox(height: 8),
-                bar(96, 12),
-              ],
+              children: [bar(70, 14), const SizedBox(height: 8), bar(96, 12)],
             ),
           ],
         ),
@@ -2737,11 +2733,7 @@ class GeneratedReportsListShimmer extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: const SizedBox(
               height: 64,
-              child: Row(
-                children: [
-                  _SkelBox(width: 180, height: 14),
-                ],
-              ),
+              child: Row(children: [_SkelBox(width: 180, height: 14)]),
             ),
           ),
           if (i != rowCount - 1) const SizedBox(height: 10),

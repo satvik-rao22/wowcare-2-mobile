@@ -134,7 +134,9 @@ void main() {
     fakeDataSource = FakeRemoteDataSource();
     fakeStorageService = FakeStorageService();
     serviceLocator.registerSingleton<StorageService>(fakeStorageService);
-    serviceLocator.registerSingleton<AuthLocalDataSource>(_FakeAuthLocalDataSource());
+    serviceLocator.registerSingleton<AuthLocalDataSource>(
+      _FakeAuthLocalDataSource(),
+    );
     repository = ReportsRepositoryImpl(fakeDataSource, fakeStorageService);
   });
 

@@ -113,8 +113,23 @@ class LedgerAccountModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        id, name, type, openBalance, invoiced, received, description,
-        agencyId, schoolId, status, isSubsidy, nature, currency, category,
-        openingBalanceType, currentBalance, balanceType, system,
-      ];
+    id,
+    name,
+    type,
+    openBalance,
+    invoiced,
+    received,
+    description,
+    agencyId,
+    schoolId,
+    status,
+    isSubsidy,
+    nature,
+    currency,
+    category,
+    openingBalanceType,
+    currentBalance,
+    balanceType,
+    system,
+  ];
 }

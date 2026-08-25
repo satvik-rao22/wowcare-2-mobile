@@ -18,19 +18,19 @@ class StudentAttendanceCustomState extends Equatable {
   });
 
   const StudentAttendanceCustomState.initial()
-      : items = const [],
-        isLoading = false,
-        isRefreshing = false,
-        isFromCache = false,
-        currentPage = 0,
-        hasMore = false,
-        isLoadingMore = false,
-        errorMessage = null,
-        fromDate = null,
-        toDate = null,
-        classroomCodes = null,
-        tagCodes = null,
-        search = null;
+    : items = const [],
+      isLoading = false,
+      isRefreshing = false,
+      isFromCache = false,
+      currentPage = 0,
+      hasMore = false,
+      isLoadingMore = false,
+      errorMessage = null,
+      fromDate = null,
+      toDate = null,
+      classroomCodes = null,
+      tagCodes = null,
+      search = null;
 
   const StudentAttendanceCustomState.loaded({
     required List<StudentAttendanceCustomItem> items,
@@ -42,17 +42,17 @@ class StudentAttendanceCustomState extends Equatable {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     String? search,
-  })  : items = items,
-        isLoading = false,
-        isRefreshing = false,
-        isFromCache = isFromCache,
-        isLoadingMore = false,
-        errorMessage = null,
-        fromDate = fromDate,
-        toDate = toDate,
-        classroomCodes = classroomCodes,
-        tagCodes = tagCodes,
-        search = search;
+  }) : items = items,
+       isLoading = false,
+       isRefreshing = false,
+       isFromCache = isFromCache,
+       isLoadingMore = false,
+       errorMessage = null,
+       fromDate = fromDate,
+       toDate = toDate,
+       classroomCodes = classroomCodes,
+       tagCodes = tagCodes,
+       search = search;
 
   final List<StudentAttendanceCustomItem> items;
   final bool isLoading;
@@ -102,19 +102,18 @@ class StudentAttendanceCustomState extends Equatable {
 
   @override
   List<Object?> get props => [
-        items,
-        isLoading,
-        isRefreshing,
-        isFromCache,
-        currentPage,
-        hasMore,
-        isLoadingMore,
-        errorMessage,
-        fromDate,
-        toDate,
-        classroomCodes,
-        tagCodes,
-        search,
-      ];
+    items,
+    isLoading,
+    isRefreshing,
+    isFromCache,
+    currentPage,
+    hasMore,
+    isLoadingMore,
+    errorMessage,
+    fromDate,
+    toDate,
+    classroomCodes,
+    tagCodes,
+    search,
+  ];
 }
-

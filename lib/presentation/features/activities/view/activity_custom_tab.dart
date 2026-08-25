@@ -148,8 +148,7 @@ class _ActivityCustomTabView extends StatefulWidget {
   final String? resetKey;
 
   @override
-  State<_ActivityCustomTabView> createState() =>
-      _ActivityCustomTabViewState();
+  State<_ActivityCustomTabView> createState() => _ActivityCustomTabViewState();
 }
 
 class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
@@ -2740,8 +2739,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
             if ((refresh || _classroomActivitySettings.isEmpty) &&
                 school != null &&
                 school.isNotEmpty) {
-              _classroomActivitySettings =
-                  await _feedScope.loadActivityTypeSettingsForFilters(
+              _classroomActivitySettings = await _feedScope
+                  .loadActivityTypeSettingsForFilters(
                     schoolCode: school,
                     forceRefresh: refresh,
                   );
@@ -3170,13 +3169,10 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                           child: Center(
                             child: Text(
                               _feedError ?? 'No Activities found',
-                              style: TextStyle(
+                              style: AppTextStyles.emptyState.copyWith(
                                 color: AppColors.primaryColor.withValues(
                                   alpha: 0.55,
                                 ),
-                                fontFamily: 'Manrope',
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
@@ -3259,10 +3255,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                           height: 20,
                                           child: Text(
                                             activity.time,
-                                            style: TextStyle(
-                                              fontSize: 14,
+                                            style: AppTextStyles.body.copyWith(
                                               color: AppColors.primaryColor,
-                                              fontWeight: FontWeight.w500,
                                             ),
                                           ),
                                         ),
@@ -3507,11 +3501,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                                                         child: Text(
                                                                           activity
                                                                               .name,
-                                                                          style: const TextStyle(
+                                                                          style: AppTextStyles.bodySmall.copyWith(
                                                                             color:
                                                                                 AppColors.primaryColor,
-                                                                            fontSize:
-                                                                                12,
                                                                           ),
                                                                         ),
                                                                       ),
@@ -3539,10 +3531,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                                                                   activity.approvalStatus,
                                                                                 ) ??
                                                                                 '',
-                                                                            style: const TextStyle(
+                                                                            style: AppTextStyles.caption.copyWith(
                                                                               color: AppColors.primaryColor,
-                                                                              fontSize: 12,
-                                                                              fontWeight: FontWeight.w500,
                                                                             ),
                                                                           ),
                                                                         ),
@@ -4549,10 +4539,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                   selectedStartDate != null
                       ? '${DateFormat('MMM dd, yyyy').format(selectedStartDate)} - ${DateFormat('MMM dd, yyyy').format(selectedEndDate ?? selectedStartDate)}'
                       : 'Select Date',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 15,
-                    fontWeight: FontWeight.w400,
+                  style: AppTextStyles.body.copyWith(
                     color: selectedStartDate == null
                         ? Colors.grey[600]
                         : Colors.black87,
@@ -4608,20 +4595,12 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       selectedItem: selectedItem,
       onSelect: onSelect,
       showAsterisk: isRequired,
-      selectedTextStyle: TextStyle(
-        fontFamily: 'Manrope',
-        fontSize: 15,
-        fontWeight: FontWeight.w400,
+      selectedTextStyle: AppTextStyles.body.copyWith(
         color: selectedItem != null && selectedItem.trim().isNotEmpty
             ? Colors.black87
             : Colors.grey[600],
       ),
-      popupItemTextStyle: const TextStyle(
-        fontFamily: 'Manrope',
-        fontSize: 14,
-        fontWeight: FontWeight.w400,
-        color: Colors.black87,
-      ),
+      popupItemTextStyle: AppTextStyles.body.copyWith(color: Colors.black87),
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
     );
   }

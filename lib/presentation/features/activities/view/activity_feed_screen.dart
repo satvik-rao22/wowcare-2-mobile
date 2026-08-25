@@ -20,6 +20,7 @@ import '../../../../core/util/core_utils.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import 'choose_activity.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class ActivityFeedScreen extends StatefulWidget {
   const ActivityFeedScreen({
@@ -98,8 +99,11 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
   @override
   void didUpdateWidget(covariant ActivityFeedScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final bool forceReset = widget.resetKey != oldWidget.resetKey && widget.resetKey != null;
-    if (forceReset || (widget.initialTab != oldWidget.initialTab && widget.initialTab != null)) {
+    final bool forceReset =
+        widget.resetKey != oldWidget.resetKey && widget.resetKey != null;
+    if (forceReset ||
+        (widget.initialTab != oldWidget.initialTab &&
+            widget.initialTab != null)) {
       final int initialIndex = widget.initialTab == 1 ? 1 : 0;
       if (_tabController.index != initialIndex) {
         _tabController.animateTo(initialIndex);
@@ -111,7 +115,11 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
   void initState() {
     super.initState();
     final int initialIndex = widget.initialTab == 1 ? 1 : 0;
-    _tabController = TabController(initialIndex: initialIndex, length: 2, vsync: this);
+    _tabController = TabController(
+      initialIndex: initialIndex,
+      length: 2,
+      vsync: this,
+    );
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
@@ -191,14 +199,10 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
             ),
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: maxWidth),
-              child: const Text(
+              child: Text(
                 'Please sign in to create an activity.',
                 softWrap: true,
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
+                style: AppTextStyles.bodySmall.copyWith(color: Colors.white),
               ),
             ),
           ),

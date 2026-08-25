@@ -13,14 +13,14 @@ class AdminStatementsState extends Equatable {
   });
 
   const AdminStatementsState.initial()
-      : isLoading = false,
-        statements = const [],
-        errorMessage = '',
-        downloadingCodes = const {},
-        isGenerating = false,
-        generateError = '',
-        customStartDate = null,
-        customEndDate = null;
+    : isLoading = false,
+      statements = const [],
+      errorMessage = '',
+      downloadingCodes = const {},
+      isGenerating = false,
+      generateError = '',
+      customStartDate = null,
+      customEndDate = null;
 
   final bool isLoading;
   final List<BillingStatementEntity> statements;
@@ -62,22 +62,24 @@ class AdminStatementsState extends Equatable {
       downloadingCodes: downloadingCodes ?? this.downloadingCodes,
       isGenerating: isGenerating ?? this.isGenerating,
       generateError: generateError ?? this.generateError,
-      customStartDate:
-          customStartDate != null ? customStartDate() : this.customStartDate,
-      customEndDate:
-          customEndDate != null ? customEndDate() : this.customEndDate,
+      customStartDate: customStartDate != null
+          ? customStartDate()
+          : this.customStartDate,
+      customEndDate: customEndDate != null
+          ? customEndDate()
+          : this.customEndDate,
     );
   }
 
   @override
   List<Object?> get props => [
-        isLoading,
-        statements,
-        errorMessage,
-        downloadingCodes,
-        isGenerating,
-        generateError,
-        customStartDate,
-        customEndDate,
-      ];
+    isLoading,
+    statements,
+    errorMessage,
+    downloadingCodes,
+    isGenerating,
+    generateError,
+    customStartDate,
+    customEndDate,
+  ];
 }

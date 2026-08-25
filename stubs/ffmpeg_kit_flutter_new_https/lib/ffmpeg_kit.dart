@@ -19,8 +19,7 @@ class FFmpegSession {
 class FFmpegKit {
   static Future<FFmpegSession> executeWithArguments(
     List<String> arguments,
-  ) async =>
-      FFmpegSession();
+  ) async => FFmpegSession();
 
   static Future<FFmpegSession> execute(String command) async => FFmpegSession();
 

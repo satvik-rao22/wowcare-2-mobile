@@ -29,10 +29,7 @@ class _NewsLatterTabState extends State<NewsLatterTab>
     super.dispose();
   }
 
-  Tab _buildSingleMessagingTab({
-    required String label,
-    required int index,
-  }) {
+  Tab _buildSingleMessagingTab({required String label, required int index}) {
     return Tab(
       child: Container(
         height: 40,
@@ -71,10 +68,7 @@ class _NewsLatterTabState extends State<NewsLatterTab>
     final List<Widget> tabs = [
       Padding(
         padding: const EdgeInsets.only(right: 16),
-        child: _buildSingleMessagingTab(
-          label: 'Sent',
-          index: 0,
-        ),
+        child: _buildSingleMessagingTab(label: 'Sent', index: 0),
       ),
     ];
 
@@ -112,9 +106,7 @@ class _NewsLatterTabState extends State<NewsLatterTab>
           child: TabBarView(
             controller: newsLetterTabController,
             physics: const NeverScrollableScrollPhysics(),
-            children: const [
-              SentNewsLetterTab(),
-            ],
+            children: const [SentNewsLetterTab()],
           ),
         ),
       ],

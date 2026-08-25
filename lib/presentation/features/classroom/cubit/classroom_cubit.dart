@@ -14,10 +14,10 @@ class ClassroomCubit extends Cubit<ClassroomState> {
   ClassroomCubit({
     required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
     required StorageService storageService,
-  })  : _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
-        _storageService = storageService,
-        _cacheManager = CacheManager(storageService),
-        super(const ClassroomState.initial());
+  }) : _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
+       _storageService = storageService,
+       _cacheManager = CacheManager(storageService),
+       super(const ClassroomState.initial());
 
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   final StorageService _storageService;
@@ -36,7 +36,8 @@ class ClassroomCubit extends Cubit<ClassroomState> {
     );
   }
 
-  Map<String, dynamic> _encodeClassroomsForCache(List<Classroom> classrooms) => {
+  Map<String, dynamic> _encodeClassroomsForCache(List<Classroom> classrooms) =>
+      {
         'items': classrooms
             .map(
               // Age bounds must be cached too — omitting them meant a
@@ -101,7 +102,8 @@ class ClassroomCubit extends Cubit<ClassroomState> {
     // keyed per-user, so a stale entry left by a different staff member (or
     // an earlier unscoped session on the same device) could otherwise
     // flash/leak another classroom's data before the live re-fetch corrects it.
-    final shouldScope = applyAttendanceStaffScope &&
+    final shouldScope =
+        applyAttendanceStaffScope &&
         await isAttendanceScopedStaffPersona(storage: _storageService);
 
     final cacheKey = _activeClassroomsCacheKey(
@@ -200,4 +202,3 @@ class ClassroomCubit extends Cubit<ClassroomState> {
     emit(state.copyWith(errorMessage: null));
   }
 }
-

@@ -36,13 +36,13 @@ class _TagsLoaderState extends State<TagsLoader> {
     try {
       final repo = serviceLocator<StudentRepository>();
       // Uses repository-level caching via CacheManager.
-      final names = await (repo as dynamic).getStudentTagNames(
-        studentCode: widget.studentCode,
-      ) as List<String>;
+      final names =
+          await (repo as dynamic).getStudentTagNames(
+                studentCode: widget.studentCode,
+              )
+              as List<String>;
       if (!mounted) return;
-      widget.onTagsLoaded(
-        names.isNotEmpty ? names : widget.initialTags,
-      );
+      widget.onTagsLoaded(names.isNotEmpty ? names : widget.initialTags);
     } catch (_) {
       if (!mounted) return;
       // On error, just use initial tags so UI still shows something.
@@ -56,5 +56,3 @@ class _TagsLoaderState extends State<TagsLoader> {
     return const SizedBox.shrink();
   }
 }
-
-

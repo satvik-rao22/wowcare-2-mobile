@@ -97,12 +97,12 @@ class ClassroomForecastRequestModel {
   final List<String> classroomCodes;
 
   Map<String, dynamic> toJson() => {
-        'date': date,
-        'startTime': startTime,
-        'endTime': endTime,
-        'durationMinutes': durationMinutes,
-        'classroomCodes': classroomCodes,
-      };
+    'date': date,
+    'startTime': startTime,
+    'endTime': endTime,
+    'durationMinutes': durationMinutes,
+    'classroomCodes': classroomCodes,
+  };
 }
 
 class ClassroomForecastRangeRequestModel {
@@ -123,11 +123,11 @@ class ClassroomForecastRangeRequestModel {
   final List<String> classroomCodes;
 
   Map<String, dynamic> toJson() => {
-        'startDate': startDate,
-        'endDate': endDate,
-        'startTime': startTime,
-        'endTime': endTime,
-        'durationMinutes': durationMinutes,
-        'classroomCodes': classroomCodes,
-      };
+    'startDate': startDate,
+    'endDate': endDate,
+    'startTime': startTime,
+    'endTime': endTime,
+    'durationMinutes': durationMinutes,
+    'classroomCodes': classroomCodes,
+  };
 }

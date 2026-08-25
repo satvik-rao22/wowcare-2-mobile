@@ -29,18 +29,21 @@ class LedgerTransactionModel extends Equatable {
     return LedgerTransactionModel(
       code: (json['id'] as int?)?.toString() ?? json['code'] as String?,
       ledgerCode: json['ledgerCode'] as String?,
-      type: json['voucherType'] as String? ??
+      type:
+          json['voucherType'] as String? ??
           json['type'] as String? ??
           json['transactionType'] as String?,
-      description: json['narration'] as String? ??
-          json['description'] as String?,
-      contraAccount: json['contraLedger'] as String? ??
+      description:
+          json['narration'] as String? ?? json['description'] as String?,
+      contraAccount:
+          json['contraLedger'] as String? ??
           json['contraAccount'] as String? ??
           json['contra'] as String? ??
           json['contraAccountName'] as String?,
       debit: (json['debit'] as num?)?.toDouble(),
       credit: (json['credit'] as num?)?.toDouble(),
-      balance: (json['runningBalance'] as num?)?.toDouble() ??
+      balance:
+          (json['runningBalance'] as num?)?.toDouble() ??
           (json['balance'] as num?)?.toDouble() ??
           0,
       balanceType: json['balanceType'] as String?,
@@ -49,8 +52,18 @@ class LedgerTransactionModel extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      [code, ledgerCode, type, description, contraAccount, debit, credit, balance, balanceType, date];
+  List<Object?> get props => [
+    code,
+    ledgerCode,
+    type,
+    description,
+    contraAccount,
+    debit,
+    credit,
+    balance,
+    balanceType,
+    date,
+  ];
 }
 
 class LedgerTransactionPageModel extends Equatable {
@@ -78,7 +91,9 @@ class LedgerTransactionPageModel extends Equatable {
     final dataRaw = json['data'];
     if (dataRaw is List) {
       final items = dataRaw
-          .map((e) => LedgerTransactionModel.fromJson(e as Map<String, dynamic>))
+          .map(
+            (e) => LedgerTransactionModel.fromJson(e as Map<String, dynamic>),
+          )
           .toList();
       return LedgerTransactionPageModel(
         content: items,
@@ -95,7 +110,9 @@ class LedgerTransactionPageModel extends Equatable {
     final contentList = raw['content'] as List<dynamic>? ?? [];
     return LedgerTransactionPageModel(
       content: contentList
-          .map((e) => LedgerTransactionModel.fromJson(e as Map<String, dynamic>))
+          .map(
+            (e) => LedgerTransactionModel.fromJson(e as Map<String, dynamic>),
+          )
           .toList(),
       totalPages: raw['totalPages'] as int? ?? 0,
       totalElements: raw['totalElements'] as int? ?? 0,
@@ -108,8 +125,16 @@ class LedgerTransactionPageModel extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      [content, totalPages, totalElements, size, number, numberOfElements, last, first];
+  List<Object?> get props => [
+    content,
+    totalPages,
+    totalElements,
+    size,
+    number,
+    numberOfElements,
+    last,
+    first,
+  ];
 }
 
 class AddTransactionRequestModel {
@@ -128,9 +153,9 @@ class AddTransactionRequestModel {
   final String? direction;
 
   Map<String, dynamic> toJson() => {
-        'amount': amount,
-        'date': date,
-        if (narration != null && narration!.isNotEmpty) 'narration': narration,
-        if (direction != null && direction!.isNotEmpty) 'direction': direction,
-      };
+    'amount': amount,
+    'date': date,
+    if (narration != null && narration!.isNotEmpty) 'narration': narration,
+    if (direction != null && direction!.isNotEmpty) 'direction': direction,
+  };
 }

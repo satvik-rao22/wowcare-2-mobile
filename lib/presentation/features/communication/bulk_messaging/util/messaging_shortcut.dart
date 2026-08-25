@@ -162,8 +162,9 @@ Future<void> _openSingleRecipientConversation(
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => BlocProvider<CommunicationCubit>(
-          create: (context) => serviceLocator<CommunicationCubit>()
-            ..seedRecipientCount(conversation.code, recipientCount),
+          create: (context) =>
+              serviceLocator<CommunicationCubit>()
+                ..seedRecipientCount(conversation.code, recipientCount),
           child: StaffMessagingThread(
             staffInfo: {
               'name': name,

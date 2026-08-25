@@ -96,7 +96,11 @@ class _AddShiftViewState extends State<_AddShiftView> {
     if (!cubit.validate()) {
       final err = cubit.state.schoolHoursError;
       if (err != null) {
-        CoreUtils.showTopSnackBar(context: context, message: err, isError: true);
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: err,
+          isError: true,
+        );
       }
       return;
     }
@@ -157,8 +161,10 @@ class _AddShiftViewState extends State<_AddShiftView> {
               builder: (context, classroomState) {
                 final cubit = context.read<AddShiftCubit>();
                 final staff = staffState.staff;
-                final selectedStaff =
-                    cubit.findStaff(state.selectedStaffCode, staff);
+                final selectedStaff = cubit.findStaff(
+                  state.selectedStaffCode,
+                  staff,
+                );
 
                 // Initial prefill for the case where `initialStaffCode` was
                 // supplied via the constructor but the staff cubit hadn't
@@ -176,8 +182,9 @@ class _AddShiftViewState extends State<_AddShiftView> {
                 final staffCodeToName = <String, String>{
                   for (final s in staff) s.code: s.name,
                 };
-                final staffNames =
-                    staffCodeToName.values.toList(growable: false);
+                final staffNames = staffCodeToName.values.toList(
+                  growable: false,
+                );
                 final selectedStaffName =
                     staffCodeToName[state.selectedStaffCode];
 
@@ -185,13 +192,15 @@ class _AddShiftViewState extends State<_AddShiftView> {
                   classrooms: classroomState.classrooms,
                   selectedStaff: selectedStaff,
                 );
-                final classroomNames =
-                    classroomCodeToName.values.toList(growable: false);
+                final classroomNames = classroomCodeToName.values.toList(
+                  growable: false,
+                );
                 final selectedClassroomName =
                     classroomCodeToName[state.selectedClassroomCode];
 
-                final staffAvailabilityError =
-                    cubit.staffAvailabilityError(staff);
+                final staffAvailabilityError = cubit.staffAvailabilityError(
+                  staff,
+                );
 
                 return StaffFormLayout(
                   title: 'Add Shift',
@@ -212,16 +221,19 @@ class _AddShiftViewState extends State<_AddShiftView> {
                         ),
                       ],
                       borderRadius: BorderRadius.only(
-                        topLeft:
-                            Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                        topRight:
-                            Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                        topLeft: Radius.circular(
+                          responsive.isTablet ? 40.0 : 24.0,
+                        ),
+                        topRight: Radius.circular(
+                          responsive.isTablet ? 40.0 : 24.0,
+                        ),
                       ),
                     ),
                     child: CustomButtonLayout(
                       confirmButtonLabel: state.saving ? 'Saving…' : 'Confirm',
-                      onPressedConfirm:
-                          (state.isFormValid && !state.saving) ? _onConfirm : null,
+                      onPressedConfirm: (state.isFormValid && !state.saving)
+                          ? _onConfirm
+                          : null,
                       showCancelButton: false,
                       isForm: false,
                     ),
@@ -238,8 +250,10 @@ class _AddShiftViewState extends State<_AddShiftView> {
                               responsive,
                               label: 'Date',
                               date: state.date,
-                              onDateSelected: (d) =>
-                                  cubit.setDate(d, selectedStaff: selectedStaff),
+                              onDateSelected: (d) => cubit.setDate(
+                                d,
+                                selectedStaff: selectedStaff,
+                              ),
                             ),
                           ),
                           SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
@@ -256,14 +270,18 @@ class _AddShiftViewState extends State<_AddShiftView> {
                                 color: const Color(0xff573353),
                               ),
                               showAsterisk: true,
-                              labelBottomSpacing:
-                                  responsive.isTablet ? 8.0 : 6.0,
+                              labelBottomSpacing: responsive.isTablet
+                                  ? 8.0
+                                  : 6.0,
                               onSelect: (name) {
                                 final code = staffCodeToName.entries
                                     .firstWhere(
                                       (e) => e.value == name,
                                       orElse: () =>
-                                          const MapEntry<String, String>('', ''),
+                                          const MapEntry<String, String>(
+                                            '',
+                                            '',
+                                          ),
                                     )
                                     .key;
                                 cubit.onStaffSelected(
@@ -426,7 +444,10 @@ class _AddShiftViewState extends State<_AddShiftView> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: Colors.red),
+              ),
             ],
           ),
         ),
@@ -537,7 +558,10 @@ class _AddShiftViewState extends State<_AddShiftView> {
     );
   }
 
-  Widget _buildPublishCheckbox(ResponsiveHelper responsive, AddShiftState state) {
+  Widget _buildPublishCheckbox(
+    ResponsiveHelper responsive,
+    AddShiftState state,
+  ) {
     final cubit = context.read<AddShiftCubit>();
     return CustomCheckbox(
       value: state.publish,
@@ -566,9 +590,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
         Text('Add Note', style: labelStyle),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
-          constraints: BoxConstraints(
-            minHeight: responsive.inputFieldHeight,
-          ),
+          constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: const Color(0x66573353)),

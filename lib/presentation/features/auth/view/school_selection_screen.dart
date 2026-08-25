@@ -22,6 +22,7 @@ class SchoolSelectionScreen extends StatefulWidget {
     required this.selectedOrg,
     this.isSwitchFlow = false,
     this.schoolsForOrg,
+
     /// True when org comes from login-context (redirect select-school).
     /// Only then do we call names-by-org API for that org.
     this.orgFromLoginContext = false,
@@ -29,6 +30,7 @@ class SchoolSelectionScreen extends StatefulWidget {
 
   final String selectedOrg;
   final bool isSwitchFlow;
+
   /// When switching org from Dashboard: list of {schoolCode, schoolName} for selected org.
   final List<Map<String, String>>? schoolsForOrg;
   final bool orgFromLoginContext;
@@ -49,8 +51,11 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
     final cleaned = role.toLowerCase().replaceAll('_', ' ');
     return cleaned
         .split(' ')
-        .map((word) =>
-            word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
+        .map(
+          (word) => word.isEmpty
+              ? word
+              : '${word[0].toUpperCase()}${word.substring(1)}',
+        )
         .join(' ');
   }
 
@@ -137,12 +142,12 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
               .toSet()
               .toList();
           final orgNames = state is AuthLoaded ? state.orgNames : <String>[];
-          
+
           // Find the organization name for the selected org code
           String orgDisplayName = widget.selectedOrg; // fallback to code
           final orgIndex = orgCodes.indexOf(widget.selectedOrg);
-          if (orgIndex != -1 && 
-              orgIndex < orgNames.length && 
+          if (orgIndex != -1 &&
+              orgIndex < orgNames.length &&
               orgNames.isNotEmpty &&
               orgNames.length == orgCodes.length) {
             orgDisplayName = orgNames[orgIndex];
@@ -150,23 +155,25 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
 
           final List<Map<String, String>> allSchoolEntries =
               widget.schoolsForOrg != null
-                  ? widget.schoolsForOrg!
-                  : (state is AuthLoaded
-                      ? (state.schoolsByOrg[widget.selectedOrg] ?? const [])
-                      : const <Map<String, String>>[]);
+              ? widget.schoolsForOrg!
+              : (state is AuthLoaded
+                    ? (state.schoolsByOrg[widget.selectedOrg] ?? const [])
+                    : const <Map<String, String>>[]);
           // Hide schools that are not yet ACTIVE (e.g. still PENDING
           // approval) from the picker.
           final schoolEntries = _schoolStatuses.isEmpty
               ? allSchoolEntries
               : allSchoolEntries.where((e) {
-                  final status = _schoolStatuses[(e['schoolCode'] ?? '').trim()];
+                  final status =
+                      _schoolStatuses[(e['schoolCode'] ?? '').trim()];
                   return status == null || status == 'ACTIVE';
                 }).toList();
           final schools = schoolEntries
               .map((e) => e['schoolName'] ?? e['schoolCode'] ?? '')
               .where((s) => s.isNotEmpty)
               .toList();
-          final isLoading = state is AuthLoaded &&
+          final isLoading =
+              state is AuthLoaded &&
               state.isPrefetchingSchools &&
               schools.isEmpty;
 
@@ -254,7 +261,8 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                   ),
                                   SizedBox(width: screenWidth * 0.03),
                                   Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
@@ -330,15 +338,17 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                               SizedBox(height: screenHeight * 0.02),
                               if (isLoading)
                                 Padding(
-                                  padding: EdgeInsets.only(bottom: screenHeight * 0.02),
+                                  padding: EdgeInsets.only(
+                                    bottom: screenHeight * 0.02,
+                                  ),
                                   child: const LinearProgressIndicator(),
                                 ),
                               CustomDropdown(
                                 hintText: isLoading
                                     ? 'Loading schools...'
                                     : (schools.isNotEmpty
-                                        ? 'Select school'
-                                        : 'No schools found'),
+                                          ? 'Select school'
+                                          : 'No schools found'),
                                 items: schools,
                                 selectedItem: _selectedSchool,
                                 height: screenHeight * 0.06,
@@ -370,15 +380,18 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                 onSelect: (value) {
                                   setState(() {
                                     _selectedSchool = value;
-                                    if (value != null && schoolEntries.isNotEmpty) {
+                                    if (value != null &&
+                                        schoolEntries.isNotEmpty) {
                                       final entry = schoolEntries.firstWhere(
                                         (e) =>
-                                            (e['schoolName'] ?? e['schoolCode']) ==
+                                            (e['schoolName'] ??
+                                                e['schoolCode']) ==
                                             value,
                                         orElse: () => <String, String>{},
                                       );
                                       _selectedSchoolCode =
-                                          entry['schoolCode'] ?? entry['schoolName'];
+                                          entry['schoolCode'] ??
+                                          entry['schoolName'];
                                     }
                                   });
                                 },
@@ -407,14 +420,14 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                   return;
                                 }
                                 final authCubit = context.read<AuthCubit>();
-                                final schoolCode = _selectedSchoolCode ??
-                                    _selectedSchool!;
+                                final schoolCode =
+                                    _selectedSchoolCode ?? _selectedSchool!;
                                 try {
                                   final blockMessage = await authCubit
                                       .verifySchoolActiveOrBlockMessage(
-                                    organizationCode: widget.selectedOrg,
-                                    schoolCode: schoolCode,
-                                  );
+                                        organizationCode: widget.selectedOrg,
+                                        schoolCode: schoolCode,
+                                      );
                                   if (blockMessage != null) {
                                     if (!context.mounted) return;
                                     CoreUtils.showTopSnackBar(
@@ -445,18 +458,17 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                   // Prefetch profile + permissions + parent-child
                                   // BEFORE opening Dashboard so UI doesn't lazily
                                   // trigger guardian/children calls.
-                                  await authCubit.prefetchStaffProfileForOrgAndSchool(
-                                    organizationCode: widget.selectedOrg,
-                                    schoolCode: schoolCode,
-                                  );
+                                  await authCubit
+                                      .prefetchStaffProfileForOrgAndSchool(
+                                        organizationCode: widget.selectedOrg,
+                                        schoolCode: schoolCode,
+                                      );
                                   if (!context.mounted) return;
                                   await context
                                       .read<RoleCubit>()
                                       .refreshAccessFromServer(force: true);
                                   if (!context.mounted) return;
-                                  context
-                                      .read<ParentChildCubit>()
-                                      .invalidate();
+                                  context.read<ParentChildCubit>().invalidate();
                                   await context
                                       .read<ParentChildCubit>()
                                       .ensureLoaded(force: true);

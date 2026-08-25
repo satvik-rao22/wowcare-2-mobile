@@ -34,6 +34,7 @@ class StaffShiftMapper {
       final name = classroomNamesByCode[c]?.trim() ?? '';
       return name.isNotEmpty ? name : c;
     }
+
     if (page.items.isEmpty) {
       return StaffShiftDaySummary.empty;
     }
@@ -46,7 +47,8 @@ class StaffShiftMapper {
           ? labelForCode(item.classroomCode)
           : fallbackRoomLabel;
 
-      if (_hasMeaningfulTime(item.startTime) && _hasMeaningfulTime(item.endTime)) {
+      if (_hasMeaningfulTime(item.startTime) &&
+          _hasMeaningfulTime(item.endTime)) {
         blocks.add(
           StaffShiftTimelineBlock(
             room: room,
@@ -79,8 +81,7 @@ class StaffShiftMapper {
     );
   }
 
-  static String formatApiDate(DateTime date) =>
-      DateFormat('yyyy-MM-dd').format(
-        DateTime(date.year, date.month, date.day),
-      );
+  static String formatApiDate(DateTime date) => DateFormat(
+    'yyyy-MM-dd',
+  ).format(DateTime(date.year, date.month, date.day));
 }

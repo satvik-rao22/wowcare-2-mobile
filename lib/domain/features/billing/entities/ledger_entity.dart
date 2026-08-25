@@ -33,10 +33,20 @@ class LedgerEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        code, name, description, ledgerType, category, nature,
-        currency, status, system, openingBalance, openingBalanceType,
-        currentBalance, balanceType,
-      ];
+    code,
+    name,
+    description,
+    ledgerType,
+    category,
+    nature,
+    currency,
+    status,
+    system,
+    openingBalance,
+    openingBalanceType,
+    currentBalance,
+    balanceType,
+  ];
 }
 
 class LedgerPageEntity extends Equatable {
@@ -57,8 +67,7 @@ class LedgerPageEntity extends Equatable {
   bool get hasMore => !last;
 
   @override
-  List<Object?> get props =>
-      [content, totalPages, totalElements, number, last];
+  List<Object?> get props => [content, totalPages, totalElements, number, last];
 }
 
 class CreateLedgerParams {

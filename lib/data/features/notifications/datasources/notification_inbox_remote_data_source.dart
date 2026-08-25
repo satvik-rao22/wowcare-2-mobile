@@ -44,7 +44,7 @@ abstract class NotificationInboxRemoteDataSource {
 class NotificationInboxRemoteDataSourceImpl
     implements NotificationInboxRemoteDataSource {
   NotificationInboxRemoteDataSourceImpl({required ApiClient apiClient})
-      : _apiClient = apiClient;
+    : _apiClient = apiClient;
 
   final ApiClient _apiClient;
 
@@ -74,8 +74,10 @@ class NotificationInboxRemoteDataSourceImpl
       if (onlyShowUnread) 'onlyShowUnread': true,
     };
 
-    final response =
-        await _apiClient.client.get(endpoint, queryParameters: query);
+    final response = await _apiClient.client.get(
+      endpoint,
+      queryParameters: query,
+    );
     final data = response.data;
     if (data is! Map || data['success'] != true) {
       throw Exception(
@@ -97,8 +99,10 @@ class NotificationInboxRemoteDataSourceImpl
 
     final items = content
         .whereType<Map>()
-        .map((e) =>
-            AppNotificationModel.fromInboxJson(Map<String, dynamic>.from(e)))
+        .map(
+          (e) =>
+              AppNotificationModel.fromInboxJson(Map<String, dynamic>.from(e)),
+        )
         .toList();
 
     // Prefer the Spring page's `last` flag; fall back to whether a full page
@@ -112,15 +116,17 @@ class NotificationInboxRemoteDataSourceImpl
 
   @override
   Future<void> markRead(String code) async {
-    final response = await _apiClient.client
-        .post(ApiPaths.url(ApiPaths.notificationInboxRead(code)));
+    final response = await _apiClient.client.post(
+      ApiPaths.url(ApiPaths.notificationInboxRead(code)),
+    );
     _ensureSuccess(response.data);
   }
 
   @override
   Future<void> trackClick(String code) async {
-    final response = await _apiClient.client
-        .post(ApiPaths.url(ApiPaths.notificationInboxClick(code)));
+    final response = await _apiClient.client.post(
+      ApiPaths.url(ApiPaths.notificationInboxClick(code)),
+    );
     _ensureSuccess(response.data);
   }
 
@@ -179,7 +185,8 @@ class NotificationInboxRemoteDataSourceImpl
   void _ensureSuccess(dynamic data) {
     if (data is Map && data['success'] == false) {
       throw Exception(
-          data['message']?.toString() ?? 'Notification request failed');
+        data['message']?.toString() ?? 'Notification request failed',
+      );
     }
   }
 }

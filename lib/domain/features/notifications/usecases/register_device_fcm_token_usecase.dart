@@ -3,10 +3,7 @@ import '../repositories/push_notification_repository.dart';
 
 /// Sends the current device FCM token to the notification backend when logged in.
 class RegisterDeviceFcmTokenUseCase {
-  RegisterDeviceFcmTokenUseCase(
-    this._fcmRegistration,
-    this._pushRepository,
-  );
+  RegisterDeviceFcmTokenUseCase(this._fcmRegistration, this._pushRepository);
 
   final FcmRegistrationRepository _fcmRegistration;
   final PushNotificationRepository _pushRepository;

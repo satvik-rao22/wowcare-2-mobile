@@ -934,8 +934,9 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       // that only touched the name or phone number. The general profile
       // message is the correct default; address-specific text has no
       // reason to override it just because that endpoint also ran.
-      final profileOrAddressMessage =
-          profileMessage.isNotEmpty ? profileMessage : addressMessage;
+      final profileOrAddressMessage = profileMessage.isNotEmpty
+          ? profileMessage
+          : addressMessage;
       // This form always resubmits every field on save (no per-field dirty
       // tracking), so the /profile PATCH's generic success message can't by
       // itself tell "only email changed" apart from "other fields changed

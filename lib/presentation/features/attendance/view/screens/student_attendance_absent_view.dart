@@ -166,8 +166,8 @@ class _StudentAttendanceAbsentViewState
     try {
       final enabled =
           await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-      );
+            storage: serviceLocator<StorageService>(),
+          );
       if (!mounted || !enabled || _allowCrossClass) return;
       setState(() => _allowCrossClass = true);
       _loadClassroomData();
@@ -908,7 +908,9 @@ class _StudentAttendanceAbsentViewState
                       SizedBox(height: responsive.verticalSpacing / 2),
                       AppText.body(
                         errorMessage ?? 'Unable to load absent students.',
-                        style: TextStyle(color: AppColors.errorColor),
+                        style: AppTextStyles.body.copyWith(
+                          color: AppColors.errorColor,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       SizedBox(height: responsive.verticalSpacing / 2),
@@ -916,7 +918,9 @@ class _StudentAttendanceAbsentViewState
                         onPressed: () => _loadInitialData(reset: true),
                         child: AppText.body(
                           'Retry',
-                          style: TextStyle(color: Colors.white),
+                          style: AppTextStyles.body.copyWith(
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ],
@@ -940,7 +944,9 @@ class _StudentAttendanceAbsentViewState
                           _absentStudents.isEmpty
                               ? 'No absent students found'
                               : 'No students match your filters',
-                          style: TextStyle(color: AppColors.secondaryColor),
+                          style: AppTextStyles.body.copyWith(
+                            color: AppColors.secondaryColor,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                       ],
@@ -1169,10 +1175,7 @@ class _StudentAttendanceAbsentViewState
           flex: responsive.isTablet ? 2 : 1,
           child: Text(
             label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
+            style: AppTextStyles.label.copyWith(
               color: Color(0xff573353),
               height: 16 / 13,
             ),
@@ -1183,10 +1186,7 @@ class _StudentAttendanceAbsentViewState
           flex: responsive.isTablet ? 3 : 2,
           child: Text(
             value,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+            style: AppTextStyles.body.copyWith(
               color: Color(0xff573353),
               height: 19 / 14,
             ),

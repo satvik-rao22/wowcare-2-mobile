@@ -28,24 +28,33 @@ class DiscountModel extends Equatable {
   final String? school;
 
   factory DiscountModel.fromJson(Map<String, dynamic> json) => DiscountModel(
-        code: (json['code'] as String?) ?? '',
-        name: (json['name'] as String?) ?? '',
-        description: json['description'] as String?,
-        percentage: (json['percentage'] as num?)?.toDouble() ?? 0,
-        deductionAmount: (json['deductionAmount'] as num?)?.toDouble(),
-        maxInvoiceAmount: (json['maxInvoiceAmount'] as num?)?.toDouble(),
-        reference: json['reference'] as String?,
-        discountType: json['discountType'] as String?,
-        price: (json['price'] as num?)?.toDouble(),
-        status: json['status'] as String?,
-        school: json['school'] as String?,
-      );
+    code: (json['code'] as String?) ?? '',
+    name: (json['name'] as String?) ?? '',
+    description: json['description'] as String?,
+    percentage: (json['percentage'] as num?)?.toDouble() ?? 0,
+    deductionAmount: (json['deductionAmount'] as num?)?.toDouble(),
+    maxInvoiceAmount: (json['maxInvoiceAmount'] as num?)?.toDouble(),
+    reference: json['reference'] as String?,
+    discountType: json['discountType'] as String?,
+    price: (json['price'] as num?)?.toDouble(),
+    status: json['status'] as String?,
+    school: json['school'] as String?,
+  );
 
   @override
   List<Object?> get props => [
-        code, name, description, percentage, deductionAmount,
-        maxInvoiceAmount, reference, discountType, price, status, school,
-      ];
+    code,
+    name,
+    description,
+    percentage,
+    deductionAmount,
+    maxInvoiceAmount,
+    reference,
+    discountType,
+    price,
+    status,
+    school,
+  ];
 }
 
 class DiscountPageModel extends Equatable {
@@ -108,17 +117,17 @@ class DiscountRequestModel {
   final String? status;
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'school': school,
-        'percentage': percentage,
-        if (description != null && description!.isNotEmpty)
-          'description': description,
-        if (deductionAmount != null) 'deductionAmount': deductionAmount,
-        if (maxInvoiceAmount != null) 'maxInvoiceAmount': maxInvoiceAmount,
-        if (reference != null && reference!.isNotEmpty) 'reference': reference,
-        if (discountType != null && discountType!.isNotEmpty)
-          'discountType': discountType,
-        if (price != null) 'price': price,
-        if (status != null && status!.isNotEmpty) 'status': status,
-      };
+    'name': name,
+    'school': school,
+    'percentage': percentage,
+    if (description != null && description!.isNotEmpty)
+      'description': description,
+    if (deductionAmount != null) 'deductionAmount': deductionAmount,
+    if (maxInvoiceAmount != null) 'maxInvoiceAmount': maxInvoiceAmount,
+    if (reference != null && reference!.isNotEmpty) 'reference': reference,
+    if (discountType != null && discountType!.isNotEmpty)
+      'discountType': discountType,
+    if (price != null) 'price': price,
+    if (status != null && status!.isNotEmpty) 'status': status,
+  };
 }

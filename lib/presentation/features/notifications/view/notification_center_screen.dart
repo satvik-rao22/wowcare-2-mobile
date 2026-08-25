@@ -159,9 +159,9 @@ class _Header extends StatelessWidget {
                       final module = (label == null)
                           ? null
                           : labelToModule[label];
-                      context
-                          .read<NotificationCenterCubit>()
-                          .setModuleFilter(module);
+                      context.read<NotificationCenterCubit>().setModuleFilter(
+                        module,
+                      );
                     },
                   ),
                 ),
@@ -363,10 +363,7 @@ class _NotificationsListState extends State<_NotificationsList> {
               ? ListView(
                   controller: _scrollController,
                   physics: const AlwaysScrollableScrollPhysics(),
-                  children: const [
-                    SizedBox(height: 120),
-                    _EmptyView(),
-                  ],
+                  children: const [SizedBox(height: 120), _EmptyView()],
                 )
               : ListView.separated(
                   controller: _scrollController,
@@ -461,10 +458,7 @@ class _ErrorView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            TextButton(
-              onPressed: onRetry,
-              child: const Text('Retry'),
-            ),
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
           ],
         ),
       ),

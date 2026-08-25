@@ -19,20 +19,20 @@ class LedgerDetailState extends Equatable {
   });
 
   LedgerDetailState.initial()
-      : transactions = const [],
-        isLoading = false,
-        isLoadingMore = false,
-        isAddingTransaction = false,
-        hasMore = true,
-        currentPage = 0,
-        totalElements = 0,
-        pageSize = 10,
-        numberOfElements = 0,
-        fromDate = null,
-        toDate = null,
-        errorMessage = null,
-        ledger = null,
-        isLoadingLedger = false;
+    : transactions = const [],
+      isLoading = false,
+      isLoadingMore = false,
+      isAddingTransaction = false,
+      hasMore = true,
+      currentPage = 0,
+      totalElements = 0,
+      pageSize = 10,
+      numberOfElements = 0,
+      fromDate = null,
+      toDate = null,
+      errorMessage = null,
+      ledger = null,
+      isLoadingLedger = false;
 
   final List<LedgerTransactionEntity> transactions;
   final bool isLoading;
@@ -52,8 +52,7 @@ class LedgerDetailState extends Equatable {
   bool get hasError => errorMessage != null;
 
   // "Showing X to Y of Z entries"
-  int get fromEntry =>
-      totalElements == 0 ? 0 : currentPage * pageSize + 1;
+  int get fromEntry => totalElements == 0 ? 0 : currentPage * pageSize + 1;
   int get toEntry => currentPage * pageSize + numberOfElements;
 
   LedgerDetailState copyWith({
@@ -92,19 +91,19 @@ class LedgerDetailState extends Equatable {
 
   @override
   List<Object?> get props => [
-        transactions,
-        isLoading,
-        isLoadingMore,
-        isAddingTransaction,
-        hasMore,
-        currentPage,
-        totalElements,
-        pageSize,
-        numberOfElements,
-        fromDate,
-        toDate,
-        errorMessage,
-        ledger,
-        isLoadingLedger,
-      ];
+    transactions,
+    isLoading,
+    isLoadingMore,
+    isAddingTransaction,
+    hasMore,
+    currentPage,
+    totalElements,
+    pageSize,
+    numberOfElements,
+    fromDate,
+    toDate,
+    errorMessage,
+    ledger,
+    isLoadingLedger,
+  ];
 }

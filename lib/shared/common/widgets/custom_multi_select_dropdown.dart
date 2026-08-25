@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class CustomMultiSelectDropdown extends StatefulWidget {
   final String? label;
@@ -211,16 +212,12 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                       // "Select All" row alone with an empty list below it
                       // was confusing, so show a plain empty state instead.
                       if (visibleItems.isEmpty) {
-                        return const SizedBox(
+                        return SizedBox(
                           height: _dropdownRowHeight,
                           child: Center(
                             child: Text(
                               'No matches found',
-                              style: TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: 14,
-                                color: Color(0x99573353),
-                              ),
+                              style: AppTextStyles.body.copyWith(color: Color(0x99573353)),
                             ),
                           ),
                         );
@@ -320,7 +317,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                                 Expanded(
                                   child: Text(
                                     item,
-                                    style: const TextStyle(fontSize: 14),
+                                    style: AppTextStyles.body,
                                     // Allow long labels (e.g. a two-word
                                     // student name, "Assistant Teacher") to
                                     // wrap to a second line instead of
@@ -395,16 +392,13 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
               children: [
                 TextSpan(text: widget.label!),
                 if (widget.isRequired)
-                  const TextSpan(
+                  TextSpan(
                     text: ' *',
-                    style: TextStyle(color: Colors.red),
+                    style: AppTextStyles.body.copyWith(color: Colors.red),
                   ),
               ],
             ),
-            style: TextStyle(
-              color: AppColors.primaryColor.withValues(alpha: 0.5),
-              fontSize: 13,
-            ),
+            style: AppTextStyles.label.copyWith(color: AppColors.primaryColor.withValues(alpha: 0.5)),
           ),
         if (widget.label != null)
           SizedBox(height: widget.labelBottomSpacing ?? 8),
@@ -430,12 +424,9 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       softWrap: false,
-                      style: TextStyle(
-                        color: _localSelectedItems.isEmpty
+                      style: AppTextStyles.body.copyWith(color: _localSelectedItems.isEmpty
                             ? Colors.grey[600]
-                            : Colors.black87,
-                        fontSize: 15,
-                      ),
+                            : Colors.black87),
                     ),
                   ),
                   Icon(

@@ -19,7 +19,7 @@ abstract class NewsletterRemoteDataSource {
 
 class NewsletterRemoteDataSourceImpl implements NewsletterRemoteDataSource {
   NewsletterRemoteDataSourceImpl({required ApiClient apiClient})
-      : _apiClient = apiClient;
+    : _apiClient = apiClient;
 
   final ApiClient _apiClient;
 
@@ -61,7 +61,8 @@ class NewsletterRemoteDataSourceImpl implements NewsletterRemoteDataSource {
     int size = 20,
     List<String>? sort,
   }) async {
-    final sortFields = sort?.where((String s) => s.trim().isNotEmpty).toList() ??
+    final sortFields =
+        sort?.where((String s) => s.trim().isNotEmpty).toList() ??
         const <String>['sentAt,desc'];
 
     final normalizedStatus = (status ?? '').trim().toUpperCase();
@@ -94,7 +95,9 @@ class NewsletterRemoteDataSourceImpl implements NewsletterRemoteDataSource {
       throw Exception('Invalid newsletters response');
     }
     if (body['success'] != true) {
-      throw Exception(body['message'] as String? ?? 'Failed to load newsletters');
+      throw Exception(
+        body['message'] as String? ?? 'Failed to load newsletters',
+      );
     }
 
     return NewsletterPageModel.fromJson(body);
@@ -120,7 +123,9 @@ class NewsletterRemoteDataSourceImpl implements NewsletterRemoteDataSource {
       throw Exception('Invalid newsletter response');
     }
     if (body['success'] != true) {
-      throw Exception(body['message'] as String? ?? 'Failed to load newsletter');
+      throw Exception(
+        body['message'] as String? ?? 'Failed to load newsletter',
+      );
     }
 
     final data = body['data'];

@@ -5,18 +5,18 @@ import '../models/student_pickup_models.dart';
 /// domain [StudentPickup] entity. Keeps serialisation out of the domain layer.
 extension StudentPickupModelMapper on StudentPickupModel {
   StudentPickup toEntity() => StudentPickup(
-        code: code,
-        studentCode: studentCode,
-        firstName: firstName,
-        lastName: lastName,
-        email: email,
-        phoneNumber: phoneNumber,
-        relation: relation,
-        clockPin: clockPin,
-        relationshipDescription: relationshipDescription,
-        pickupType: pickupType,
-        carpoolId: carpoolId,
-        profilePhotoUrl: profilePhotoUrl,
-        profilePhotoAssetCode: profilePhotoAssetCode,
-      );
+    code: code,
+    studentCode: studentCode,
+    firstName: firstName,
+    lastName: lastName,
+    email: email,
+    phoneNumber: phoneNumber,
+    relation: relation,
+    clockPin: clockPin,
+    relationshipDescription: relationshipDescription,
+    pickupType: pickupType,
+    carpoolId: carpoolId,
+    profilePhotoUrl: profilePhotoUrl,
+    profilePhotoAssetCode: profilePhotoAssetCode,
+  );
 }

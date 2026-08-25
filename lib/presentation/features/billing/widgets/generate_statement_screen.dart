@@ -18,8 +18,18 @@ import 'package:wowcare/presentation/features/billing/utils/billing_school_time.
 const _kStatementTypes = ['Monthly', 'Yearly', 'Custom Range'];
 
 const _kMonths = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 const _kApiStatementType = <String, String>{
@@ -84,8 +94,9 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
     final monthErr = _statementType == 'Monthly' && _selectedMonth == null;
     final yearErr =
         (_statementType == 'Monthly' || _statementType == 'Yearly') &&
-            _selectedYear == null;
-    final rangeErr = _statementType == 'Custom Range' &&
+        _selectedYear == null;
+    final rangeErr =
+        _statementType == 'Custom Range' &&
         (_customStart == null || _customEnd == null);
 
     setState(() {
@@ -133,8 +144,8 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
     final storage = serviceLocator<StorageService>();
     final orgCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
 
     final error = await widget.cubit.generateStatement(
       organizationCode: orgCode,
@@ -305,8 +316,9 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
                       const TextSpan(text: 'Select Date Range'),
                       TextSpan(
                         text: ' *',
-                        style: AppTextStyles.small
-                            .copyWith(color: AppColors.errorColor),
+                        style: AppTextStyles.small.copyWith(
+                          color: AppColors.errorColor,
+                        ),
                       ),
                     ],
                   ),
@@ -359,13 +371,15 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
           if (_includeDescription) ...[
             const SizedBox(height: 10),
             Container(
-              constraints:
-                  BoxConstraints(minHeight: responsive.inputFieldHeight * 2.4),
+              constraints: BoxConstraints(
+                minHeight: responsive.inputFieldHeight * 2.4,
+              ),
               decoration: BoxDecoration(
                 color: AppColors.billingCardColor,
                 border: Border.all(color: AppColors.billingBorderHeavy),
                 borderRadius: BorderRadius.circular(
-                    responsive.isTablet ? 12.0 : 8.0),
+                  responsive.isTablet ? 12.0 : 8.0,
+                ),
               ),
               child: TextField(
                 controller: _descriptionController,
@@ -373,8 +387,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
                 keyboardType: TextInputType.multiline,
                 decoration: InputDecoration(
                   hintText: 'Enter description…',
-                  hintStyle:
-                      labelStyle.copyWith(color: AppColors.billingGrey),
+                  hintStyle: labelStyle.copyWith(color: AppColors.billingGrey),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(
                     horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -420,12 +433,12 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
   }
 
   Widget _errorWidget() => Padding(
-        padding: const EdgeInsets.only(top: 4, left: 2),
-        child: Text(
-          '*This field is required.',
-          style: AppTextStyles.small.copyWith(color: AppColors.errorColor),
-        ),
-      );
+    padding: const EdgeInsets.only(top: 4, left: 2),
+    child: Text(
+      '*This field is required.',
+      style: AppTextStyles.small.copyWith(color: AppColors.errorColor),
+    ),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -466,8 +479,7 @@ class _SelectedStudentsCard extends StatelessWidget {
           runSpacing: 10,
           children: children.map((child) {
             final code = (child['code'] ?? '').toString();
-            final name =
-                (child['fullName'] ?? child['name'] ?? '').toString();
+            final name = (child['fullName'] ?? child['name'] ?? '').toString();
             final isSelected = selectedCodes.contains(code);
 
             return InkWell(
@@ -481,8 +493,7 @@ class _SelectedStudentsCard extends StatelessWidget {
                       ? const Color.fromARGB(255, 249, 245, 250)
                       : Colors.white,
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

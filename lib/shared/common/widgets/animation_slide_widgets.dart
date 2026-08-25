@@ -1,12 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 
-enum SlideDirection {
-  left,
-  right,
-  top,
-  bottom,
-}
+enum SlideDirection { left, right, top, bottom }
 
 class SlideAnimationWrapper extends StatefulWidget {
   final Widget child;
@@ -55,18 +50,12 @@ class _SlideAnimationWrapperState extends State<SlideAnimationWrapper>
     _slideAnimation = Tween<Offset>(
       begin: beginOffset,
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: widget.curve,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: widget.curve));
 
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeIn,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
   }
 
   Offset _getBeginOffset() {
@@ -103,17 +92,11 @@ class _SlideAnimationWrapperState extends State<SlideAnimationWrapper>
     return SlideTransition(
       position: _slideAnimation,
       child: widget.fadeEffect
-          ? FadeTransition(
-              opacity: _fadeAnimation,
-              child: widget.child,
-            )
+          ? FadeTransition(opacity: _fadeAnimation, child: widget.child)
           : widget.child,
     );
   }
 }
-
-
-
 
 // Copy// With any widget
 // SlideAnimationWrapper(
@@ -136,19 +119,7 @@ class _SlideAnimationWrapperState extends State<SlideAnimationWrapper>
 //   child: YourWidget(),
 // )
 
-
-
-
-enum AnimationType {
-  slide,
-  scale,
-  fade,
-  rotate,
-  flip,
-  bounce,
-  pulse,
-  shake,
-}
+enum AnimationType { slide, scale, fade, rotate, flip, bounce, pulse, shake }
 
 class AnimationWrapper extends StatefulWidget {
   final Widget child;
@@ -182,10 +153,7 @@ class _AnimationWrapperState extends State<AnimationWrapper>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: widget.duration,
-      vsync: this,
-    );
+    _controller = AnimationController(duration: widget.duration, vsync: this);
 
     _initializeAnimation();
 
@@ -201,24 +169,28 @@ class _AnimationWrapperState extends State<AnimationWrapper>
   void _initializeAnimation() {
     switch (widget.type) {
       case AnimationType.fade:
-        _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
-          CurvedAnimation(parent: _controller, curve: widget.curve),
-        );
+        _animation = Tween<double>(
+          begin: 0.0,
+          end: 1.0,
+        ).animate(CurvedAnimation(parent: _controller, curve: widget.curve));
         break;
       case AnimationType.scale:
-        _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
-          CurvedAnimation(parent: _controller, curve: widget.curve),
-        );
+        _animation = Tween<double>(
+          begin: 0.0,
+          end: 1.0,
+        ).animate(CurvedAnimation(parent: _controller, curve: widget.curve));
         break;
       case AnimationType.rotate:
-        _rotateAnimation = Tween<double>(begin: 0, end: 2 * math.pi).animate(
-          CurvedAnimation(parent: _controller, curve: widget.curve),
-        );
+        _rotateAnimation = Tween<double>(
+          begin: 0,
+          end: 2 * math.pi,
+        ).animate(CurvedAnimation(parent: _controller, curve: widget.curve));
         break;
       case AnimationType.flip:
-        _animation = Tween<double>(begin: 0, end: 1).animate(
-          CurvedAnimation(parent: _controller, curve: widget.curve),
-        );
+        _animation = Tween<double>(
+          begin: 0,
+          end: 1,
+        ).animate(CurvedAnimation(parent: _controller, curve: widget.curve));
         break;
       case AnimationType.bounce:
         _animation = Tween<double>(begin: -20.0, end: 0.0).animate(
@@ -226,14 +198,16 @@ class _AnimationWrapperState extends State<AnimationWrapper>
         );
         break;
       case AnimationType.pulse:
-        _animation = Tween<double>(begin: 1.0, end: 1.2).animate(
-          CurvedAnimation(parent: _controller, curve: widget.curve),
-        );
+        _animation = Tween<double>(
+          begin: 1.0,
+          end: 1.2,
+        ).animate(CurvedAnimation(parent: _controller, curve: widget.curve));
         break;
       case AnimationType.shake:
-        _animation = Tween<double>(begin: -10.0, end: 10.0).animate(
-          CurvedAnimation(parent: _controller, curve: widget.curve),
-        );
+        _animation = Tween<double>(
+          begin: -10.0,
+          end: 10.0,
+        ).animate(CurvedAnimation(parent: _controller, curve: widget.curve));
         break;
       case AnimationType.slide:
         _slideAnimation = Tween<Offset>(

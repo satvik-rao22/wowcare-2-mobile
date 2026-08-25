@@ -9,9 +9,8 @@ class GetFamilySummaryUseCase {
   Future<List<FamilySummaryEntity>> call({
     required String organizationCode,
     required String school,
-  }) =>
-      _repository.getFamilySummary(
-        organizationCode: organizationCode,
-        school: school,
-      );
+  }) => _repository.getFamilySummary(
+    organizationCode: organizationCode,
+    school: school,
+  );
 }

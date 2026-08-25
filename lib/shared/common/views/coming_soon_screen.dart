@@ -1,7 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class ComingSoonScreen extends StatelessWidget {
   const ComingSoonScreen({super.key});
@@ -31,12 +32,9 @@ class ComingSoonScreen extends StatelessWidget {
                   gradient: AppColors.buildPrimaryGradient(),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Text(
+                child: Text(
                   'Go Back',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: AppTextStyles.body.copyWith(color: Colors.white),
                 ),
               ),
             ),
@@ -46,4 +44,3 @@ class ComingSoonScreen extends StatelessWidget {
     );
   }
 }
-

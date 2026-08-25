@@ -13,6 +13,7 @@ import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_c
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// "My Attendance" dashboard card.
 ///
@@ -321,11 +322,7 @@ class _AttendanceInfoTile extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
-                color: AppColors.primaryColor,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
+              style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -339,11 +336,7 @@ class _AttendanceInfoTile extends StatelessWidget {
             ),
             child: Text(
               text,
-              style: TextStyle(
-                color: valueColor,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
+              style: AppTextStyles.body.copyWith(color: valueColor),
             ),
           ),
         ],
@@ -375,11 +368,7 @@ class _AttendanceHoursTile extends StatelessWidget {
           Expanded(
             child: Text(
               'Attended Hours',
-              style: const TextStyle(
-                color: AppColors.primaryColor,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
+              style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -413,11 +402,7 @@ class _ValueCircle extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(
-          color: Color(0xFF4285F4),
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
+        style: AppTextStyles.label.copyWith(color: Color(0xFF4285F4)),
       ),
     );
   }

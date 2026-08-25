@@ -43,15 +43,15 @@ class BillingStatementModel {
   }
 
   BillingStatementEntity toEntity() => BillingStatementEntity(
-        code: code,
-        subscriberCode: subscriberCode,
-        school: school,
-        statementType: statementType,
-        periodStart: periodStart,
-        periodEnd: periodEnd,
-        generatedAt: generatedAt,
-        generatedBy: generatedBy,
-        status: status,
-        assetCode: assetCode,
-      );
+    code: code,
+    subscriberCode: subscriberCode,
+    school: school,
+    statementType: statementType,
+    periodStart: periodStart,
+    periodEnd: periodEnd,
+    generatedAt: generatedAt,
+    generatedBy: generatedBy,
+    status: status,
+    assetCode: assetCode,
+  );
 }

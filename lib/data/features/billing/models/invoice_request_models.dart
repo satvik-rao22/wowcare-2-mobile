@@ -39,15 +39,14 @@ class CreateInvoiceItemRequestModel {
   final double? valueInput;
 
   Map<String, dynamic> toJson() => {
-        'itemType': itemType,
-        'description': description,
-        'quantity': quantity,
-        'amount': amount,
-        if (sourceCode != null && sourceCode!.isNotEmpty)
-          'sourceCode': sourceCode,
-        if (valueType != null && valueType!.isNotEmpty) 'valueType': valueType,
-        if (valueInput != null) 'valueInput': valueInput,
-      };
+    'itemType': itemType,
+    'description': description,
+    'quantity': quantity,
+    'amount': amount,
+    if (sourceCode != null && sourceCode!.isNotEmpty) 'sourceCode': sourceCode,
+    if (valueType != null && valueType!.isNotEmpty) 'valueType': valueType,
+    if (valueInput != null) 'valueInput': valueInput,
+  };
 }
 
 class CreateInvoiceRequestModel {
@@ -78,17 +77,17 @@ class CreateInvoiceRequestModel {
   final String? currency;
 
   Map<String, dynamic> toJson() => {
-        'organizationCode': organizationCode,
-        'schoolCode': schoolCode,
-        'studentCode': studentCode,
-        'issueDate': _schoolDateIso(issueDate),
-        'dueDate': _schoolDateIso(dueDate),
-        if (periodStart != null) 'periodStart': _schoolDateIso(periodStart!),
-        if (periodEnd != null) 'periodEnd': _schoolDateIso(periodEnd!),
-        if (notes != null && notes!.isNotEmpty) 'notes': notes,
-        if (currency != null && currency!.isNotEmpty) 'currency': currency,
-        'items': items.map((i) => i.toJson()).toList(),
-      };
+    'organizationCode': organizationCode,
+    'schoolCode': schoolCode,
+    'studentCode': studentCode,
+    'issueDate': _schoolDateIso(issueDate),
+    'dueDate': _schoolDateIso(dueDate),
+    if (periodStart != null) 'periodStart': _schoolDateIso(periodStart!),
+    if (periodEnd != null) 'periodEnd': _schoolDateIso(periodEnd!),
+    if (notes != null && notes!.isNotEmpty) 'notes': notes,
+    if (currency != null && currency!.isNotEmpty) 'currency': currency,
+    'items': items.map((i) => i.toJson()).toList(),
+  };
 }
 
 /// Body for `PATCH /api/v1/invoices/{invoiceCode}/draft` — same shape as create.
@@ -125,22 +124,21 @@ class UpdateInvoiceRequestModel {
   final List<CreateInvoiceItemRequestModel>? items;
 
   Map<String, dynamic> toJson() => {
-        if (organizationCode != null && organizationCode!.isNotEmpty)
-          'organizationCode': organizationCode,
-        if (schoolCode != null && schoolCode!.isNotEmpty)
-          'schoolCode': schoolCode,
-        if (studentCode != null && studentCode!.isNotEmpty)
-          'studentCode': studentCode,
-        if (ownerType != null && ownerType!.isNotEmpty) 'ownerType': ownerType,
-        if (ownerCode != null && ownerCode!.isNotEmpty) 'ownerCode': ownerCode,
-        if (issueDate != null) 'issueDate': _schoolDateIso(issueDate!),
-        if (dueDate != null) 'dueDate': _schoolDateIso(dueDate!),
-        if (periodStart != null) 'periodStart': _schoolDateIso(periodStart!),
-        if (periodEnd != null) 'periodEnd': _schoolDateIso(periodEnd!),
-        if (currency != null && currency!.isNotEmpty) 'currency': currency,
-        if (notes != null && notes!.isNotEmpty) 'notes': notes,
-        if (items != null) 'items': items!.map((i) => i.toJson()).toList(),
-      };
+    if (organizationCode != null && organizationCode!.isNotEmpty)
+      'organizationCode': organizationCode,
+    if (schoolCode != null && schoolCode!.isNotEmpty) 'schoolCode': schoolCode,
+    if (studentCode != null && studentCode!.isNotEmpty)
+      'studentCode': studentCode,
+    if (ownerType != null && ownerType!.isNotEmpty) 'ownerType': ownerType,
+    if (ownerCode != null && ownerCode!.isNotEmpty) 'ownerCode': ownerCode,
+    if (issueDate != null) 'issueDate': _schoolDateIso(issueDate!),
+    if (dueDate != null) 'dueDate': _schoolDateIso(dueDate!),
+    if (periodStart != null) 'periodStart': _schoolDateIso(periodStart!),
+    if (periodEnd != null) 'periodEnd': _schoolDateIso(periodEnd!),
+    if (currency != null && currency!.isNotEmpty) 'currency': currency,
+    if (notes != null && notes!.isNotEmpty) 'notes': notes,
+    if (items != null) 'items': items!.map((i) => i.toJson()).toList(),
+  };
 }
 
 /// Body for `POST /api/v1/invoices/payments` and `/refunds` (same shape).
@@ -168,17 +166,17 @@ class InvoicePaymentRequestModel {
   final String? narration;
 
   Map<String, dynamic> toJson() => {
-        if (ownerType != null && ownerType!.isNotEmpty) 'ownerType': ownerType,
-        if (ownerCode != null && ownerCode!.isNotEmpty) 'ownerCode': ownerCode,
-        if (studentCode != null && studentCode!.isNotEmpty)
-          'studentCode': studentCode,
-        'schoolCode': schoolCode,
-        'amount': amount,
-        'date': date.toUtc().toIso8601String(),
-        if (method != null && method!.isNotEmpty) 'method': method,
-        if (reference != null && reference!.isNotEmpty) 'reference': reference,
-        if (narration != null && narration!.isNotEmpty) 'narration': narration,
-      };
+    if (ownerType != null && ownerType!.isNotEmpty) 'ownerType': ownerType,
+    if (ownerCode != null && ownerCode!.isNotEmpty) 'ownerCode': ownerCode,
+    if (studentCode != null && studentCode!.isNotEmpty)
+      'studentCode': studentCode,
+    'schoolCode': schoolCode,
+    'amount': amount,
+    'date': date.toUtc().toIso8601String(),
+    if (method != null && method!.isNotEmpty) 'method': method,
+    if (reference != null && reference!.isNotEmpty) 'reference': reference,
+    if (narration != null && narration!.isNotEmpty) 'narration': narration,
+  };
 }
 
 class CreateCreditRequestModel {
@@ -201,16 +199,16 @@ class CreateCreditRequestModel {
   final String? description;
 
   Map<String, dynamic> toJson() => {
-        if (ownerType != null && ownerType!.isNotEmpty) 'ownerType': ownerType,
-        if (ownerCode != null && ownerCode!.isNotEmpty) 'ownerCode': ownerCode,
-        if (studentCode != null && studentCode!.isNotEmpty)
-          'studentCode': studentCode,
-        'schoolCode': schoolCode,
-        'amount': amount,
-        if (reason != null && reason!.isNotEmpty) 'reason': reason,
-        if (description != null && description!.isNotEmpty)
-          'description': description,
-      };
+    if (ownerType != null && ownerType!.isNotEmpty) 'ownerType': ownerType,
+    if (ownerCode != null && ownerCode!.isNotEmpty) 'ownerCode': ownerCode,
+    if (studentCode != null && studentCode!.isNotEmpty)
+      'studentCode': studentCode,
+    'schoolCode': schoolCode,
+    'amount': amount,
+    if (reason != null && reason!.isNotEmpty) 'reason': reason,
+    if (description != null && description!.isNotEmpty)
+      'description': description,
+  };
 }
 
 class InvoicePaymentResultModel {

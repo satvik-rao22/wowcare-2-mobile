@@ -27,7 +27,8 @@ part 'reports_state.dart';
 class ReportsCubit extends Cubit<ReportsState> {
   ReportsCubit({
     required StorageService storageService,
-    required GetTagNameCodeMapForSchoolUseCase getTagNameCodeMapForSchoolUseCase,
+    required GetTagNameCodeMapForSchoolUseCase
+    getTagNameCodeMapForSchoolUseCase,
     required GenerateReportUseCase generateReportUseCase,
     required GetRecentReportsUseCase getRecentReportsUseCase,
     required GetStudentTagsUseCase getStudentTagsUseCase,

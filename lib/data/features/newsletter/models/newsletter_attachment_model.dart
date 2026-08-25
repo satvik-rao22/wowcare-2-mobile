@@ -21,22 +21,22 @@ class NewsletterAttachmentModel extends Equatable {
   factory NewsletterAttachmentModel.fromJson(Map<String, dynamic> json) {
     return NewsletterAttachmentModel(
       id: json['id'] as int?,
-      code: (json['code'] ??
-              json['mediaCode'] ??
-              json['assetCode'] ??
-              '')
+      code: (json['code'] ?? json['mediaCode'] ?? json['assetCode'] ?? '')
           .toString()
           .trim(),
       name: (json['name'] ?? json['fileName'] ?? '').toString().trim(),
-      url: (json['url'] ??
-              json['assetUrl'] ??
-              json['downloadUrl'] ??
-              json['fileUrl'] ??
-              json['publicUrl'] ??
-              '')
+      url:
+          (json['url'] ??
+                  json['assetUrl'] ??
+                  json['downloadUrl'] ??
+                  json['fileUrl'] ??
+                  json['publicUrl'] ??
+                  '')
+              .toString()
+              .trim(),
+      mimeType: (json['mimeType'] ?? json['contentType'] ?? '')
           .toString()
           .trim(),
-      mimeType: (json['mimeType'] ?? json['contentType'] ?? '').toString().trim(),
       sizeBytes: json['sizeBytes'] as int? ?? json['size'] as int?,
     );
   }
@@ -66,4 +66,3 @@ class NewsletterAttachmentModel extends Equatable {
   @override
   List<Object?> get props => [id, code, name, url, mimeType, sizeBytes];
 }
-

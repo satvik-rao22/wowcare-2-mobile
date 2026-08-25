@@ -65,7 +65,11 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   } catch (e, stackTrace) {
     try {
       await ensureFirebaseInitialized();
-      await FirebaseCrashlytics.instance.recordError(e, stackTrace, fatal: true);
+      await FirebaseCrashlytics.instance.recordError(
+        e,
+        stackTrace,
+        fatal: true,
+      );
     } catch (_) {}
   }
 }

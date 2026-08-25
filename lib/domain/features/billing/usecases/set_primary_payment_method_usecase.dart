@@ -11,9 +11,8 @@ class SetPrimaryPaymentMethodUseCase {
   Future<PaymentMethodEntity> call({
     required String paymentMethodCode,
     required GuardianScopeParams scope,
-  }) =>
-      _repository.setPrimaryPaymentMethod(
-        paymentMethodCode: paymentMethodCode,
-        scope: scope,
-      );
+  }) => _repository.setPrimaryPaymentMethod(
+    paymentMethodCode: paymentMethodCode,
+    scope: scope,
+  );
 }

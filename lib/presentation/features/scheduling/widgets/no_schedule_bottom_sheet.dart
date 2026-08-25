@@ -9,7 +9,8 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 class NoScheduleBottomSheet extends StatelessWidget {
   const NoScheduleBottomSheet({
     super.key,
-    this.title = 'This staff has no schedule defined for the selected day. '
+    this.title =
+        'This staff has no schedule defined for the selected day. '
         'Do you still want to add this shift?',
   });
 

@@ -560,9 +560,8 @@ class ConversationListCubit extends Cubit<ConversationListState> {
         // count moments later.
         final withFirestoreUnread = conversations
             .map(
-              (c) => c.copyWith(
-                unreadCount: _latestFirestoreUnread[c.code] ?? 0,
-              ),
+              (c) =>
+                  c.copyWith(unreadCount: _latestFirestoreUnread[c.code] ?? 0),
             )
             .toList();
         debugPrint(
@@ -690,9 +689,8 @@ class ConversationListCubit extends Cubit<ConversationListState> {
         // refresh()'s identical merge.
         final withFirestoreUnread = conversations
             .map(
-              (c) => c.copyWith(
-                unreadCount: _latestFirestoreUnread[c.code] ?? 0,
-              ),
+              (c) =>
+                  c.copyWith(unreadCount: _latestFirestoreUnread[c.code] ?? 0),
             )
             .toList();
         emit(

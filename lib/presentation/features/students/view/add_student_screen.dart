@@ -8,6 +8,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'dart:async';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class AddStudentScreen extends StatefulWidget {
   const AddStudentScreen({
@@ -442,7 +443,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: Color(0xff573353),
     );
 
     return Column(
@@ -453,9 +454,9 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(
+              TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: AppTextStyles.body.copyWith(color: Colors.red),
               ),
             ],
           ),

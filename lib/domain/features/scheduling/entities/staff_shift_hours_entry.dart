@@ -18,12 +18,12 @@ class StaffShiftHoursEntry extends Equatable {
 
   @override
   List<Object?> get props => [
-        staffCode,
-        shiftDate,
-        availableHours,
-        scheduledHours,
-        unscheduledHours,
-      ];
+    staffCode,
+    shiftDate,
+    availableHours,
+    scheduledHours,
+    unscheduledHours,
+  ];
 }
 
 /// Aggregated hours for one staff member on one calendar day.
@@ -41,6 +41,5 @@ class StaffHoursTotals extends Equatable {
   static const zero = StaffHoursTotals();
 
   @override
-  List<Object?> get props =>
-      [availableHours, scheduledHours, unscheduledHours];
+  List<Object?> get props => [availableHours, scheduledHours, unscheduledHours];
 }

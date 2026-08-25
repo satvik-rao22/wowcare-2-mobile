@@ -12,10 +12,10 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
     required GetStaffDocumentsUseCase getStaffDocumentsUseCase,
     required DeleteStaffDocumentUseCase deleteStaffDocumentUseCase,
     required StaffRepository repository,
-  })  : _getStaffDocumentsUseCase = getStaffDocumentsUseCase,
-        _deleteStaffDocumentUseCase = deleteStaffDocumentUseCase,
-        _repository = repository,
-        super(const StaffDocumentsListState.initial());
+  }) : _getStaffDocumentsUseCase = getStaffDocumentsUseCase,
+       _deleteStaffDocumentUseCase = deleteStaffDocumentUseCase,
+       _repository = repository,
+       super(const StaffDocumentsListState.initial());
 
   final GetStaffDocumentsUseCase _getStaffDocumentsUseCase;
   final DeleteStaffDocumentUseCase _deleteStaffDocumentUseCase;
@@ -26,8 +26,9 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
   Future<void> loadInitial(String staffCode, {bool? expired}) async {
     // Try cache first
     final cached = await (_repository is StaffRepositoryWithCache
-        ? (_repository as StaffRepositoryWithCache)
-            .loadCachedStaffDocuments(staffCode)
+        ? (_repository as StaffRepositoryWithCache).loadCachedStaffDocuments(
+            staffCode,
+          )
         : Future.value(null));
 
     if (cached != null && !isClosed) {
@@ -96,7 +97,7 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
   Future<void> loadNextPage(String staffCode, {bool? expired}) async {
     // Don't load next page if we're still loading initial data or if there's no more data
     if (state.isLoading || state.isLoadingMore || !state.hasMore) return;
-    
+
     // Don't load if we haven't loaded any pages yet (currentPage should be >= 0 after initial load)
     if (state.currentPage < 0) return;
 
@@ -170,26 +171,26 @@ class StaffDocumentsListState extends Equatable {
   });
 
   const StaffDocumentsListState.initial()
-      : documents = const [],
-        isLoading = false,
-        isRefreshing = false,
-        isFromCache = false,
-        currentPage = 0,
-        hasMore = false,
-        isLoadingMore = false,
-        errorMessage = null;
+    : documents = const [],
+      isLoading = false,
+      isRefreshing = false,
+      isFromCache = false,
+      currentPage = 0,
+      hasMore = false,
+      isLoadingMore = false,
+      errorMessage = null;
 
   const StaffDocumentsListState.loaded({
     required List<StaffDocument> documents,
     required bool isFromCache,
     this.currentPage = 0,
     this.hasMore = false,
-  })  : documents = documents,
-        isLoading = false,
-        isRefreshing = false,
-        isFromCache = isFromCache,
-        isLoadingMore = false,
-        errorMessage = null;
+  }) : documents = documents,
+       isLoading = false,
+       isRefreshing = false,
+       isFromCache = isFromCache,
+       isLoadingMore = false,
+       errorMessage = null;
 
   final List<StaffDocument> documents;
   final bool isLoading;
@@ -224,14 +225,13 @@ class StaffDocumentsListState extends Equatable {
 
   @override
   List<Object?> get props => [
-        documents,
-        isLoading,
-        isRefreshing,
-        isFromCache,
-        currentPage,
-        hasMore,
-        isLoadingMore,
-        errorMessage,
-      ];
+    documents,
+    isLoading,
+    isRefreshing,
+    isFromCache,
+    currentPage,
+    hasMore,
+    isLoadingMore,
+    errorMessage,
+  ];
 }
-

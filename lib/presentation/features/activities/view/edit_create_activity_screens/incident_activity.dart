@@ -38,6 +38,7 @@ import '../../utils/activity_photo_attachment_upload.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Same rules as `rolesJsonIndicatesGuardianLogin` in `login_persona_util.dart`
 /// (defined here so hot restart always sees the symbol).
@@ -2303,10 +2304,8 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
           _uploadTotalCount = _newPhotos.length;
         }
       },
-      onOverallProgressPercent: (percent) =>
-          _uploadProgressPercent = percent,
-      onFileCompleted: (completed, total) =>
-          _uploadCompletedCount = completed,
+      onOverallProgressPercent: (percent) => _uploadProgressPercent = percent,
+      onFileCompleted: (completed, total) => _uploadCompletedCount = completed,
     );
   }
 
@@ -2454,19 +2453,17 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
                   alignment: Alignment.centerLeft,
                   child: RichText(
                     text: TextSpan(
-                      style: TextStyle(
+                      style: AppTextStyles.body.copyWith(
                         color: AppColors.primaryColor.withValues(alpha: 0.6),
-                        fontWeight: FontWeight.w500,
                       ),
                       children: [
                         const TextSpan(text: 'Students involved'),
                         TextSpan(
                           text: ' *',
-                          style: TextStyle(
+                          style: AppTextStyles.body.copyWith(
                             color: AppColors.primaryColor.withValues(
                               alpha: 0.6,
                             ),
-                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
@@ -2557,7 +2554,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
                             onDateChanged: (d) => _activityDate = d,
                           ),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10),
                   Flexible(
                     child: _layoutAsEdit
                         ? TimeWidget(
@@ -2589,9 +2586,8 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
                 children: [
                   Text(
                     'First Aid Administered',
-                    style: TextStyle(
+                    style: AppTextStyles.body.copyWith(
                       color: AppColors.primaryColor.withValues(alpha: 0.6),
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   SizedBox(height: responsive.isTablet ? 10.0 : 8.0),
@@ -2601,28 +2597,22 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        const Text(
+                        Text(
                           'No',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                          style: AppTextStyles.label.copyWith(
                             color: Color(0xff573353),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         CustomToggle(
                           label: '',
                           isToggled: _firstAidGiven,
                           onToggle: (v) => setState(() => _firstAidGiven = v),
                         ),
                         const SizedBox(width: 8),
-                        const Text(
+                        Text(
                           'Yes',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                          style: AppTextStyles.label.copyWith(
                             color: Color(0xff573353),
                           ),
                         ),
@@ -3007,11 +2997,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
           const SizedBox(width: 8),
           Text(
             'Uploading photos... $_uploadProgressPercent% ($_uploadCompletedCount/$_uploadTotalCount)',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primaryColor,
-            ),
+            style: AppTextStyles.label.copyWith(color: AppColors.primaryColor),
           ),
         ],
       );
@@ -3027,11 +3013,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
           Expanded(
             child: Text(
               'Uploaded $_uploadCompletedCount/$_uploadTotalCount',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.green,
-              ),
+              style: AppTextStyles.sectionHeader.copyWith(color: Colors.green),
             ),
           ),
         ],
@@ -3055,11 +3037,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
           Expanded(
             child: Text(
               'Uploaded $label',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.green,
-              ),
+              style: AppTextStyles.sectionHeader.copyWith(color: Colors.green),
             ),
           ),
         ],
@@ -3075,11 +3053,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         Expanded(
           child: Text(
             buf.toString(),
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: Colors.orange,
-            ),
+            style: AppTextStyles.label.copyWith(color: Colors.orange),
           ),
         ),
       ],

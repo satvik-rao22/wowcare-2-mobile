@@ -80,13 +80,15 @@ class TransactionItem {
   factory TransactionItem.fromMap(Map<String, dynamic> map) {
     final List<dynamic> students =
         (map['students'] as List<dynamic>? ?? <dynamic>[]);
-    final Map<String, dynamic>? firstStudent =
-        students.isNotEmpty ? students.first as Map<String, dynamic> : null;
+    final Map<String, dynamic>? firstStudent = students.isNotEmpty
+        ? students.first as Map<String, dynamic>
+        : null;
 
     return TransactionItem(
       id: map['id'] as int,
       transactionType: (map['transactionType'] ?? '').toString(),
-      date: DateTime.tryParse((map['date'] ?? '').toString()) ??
+      date:
+          DateTime.tryParse((map['date'] ?? '').toString()) ??
           billingSchoolNow(),
       amount: (map['amount'] as num?)?.toDouble() ?? 0.0,
       status: (map['processStatus'] ?? map['status'] ?? '').toString(),
@@ -101,8 +103,7 @@ class TransactionItem {
       note: map['note'] as String?,
       endDate: map['endDate'] as String?,
       paymentMode: map['paymentMode'] as String?,
-      studentOpenBalance:
-          (firstStudent?['balance'] as num?)?.toDouble(),
+      studentOpenBalance: (firstStudent?['balance'] as num?)?.toDouble(),
     );
   }
 
@@ -113,13 +114,15 @@ class TransactionItem {
     InvoiceListItemEntity invoice, {
     required int id,
   }) {
-    final firstItemDesc =
-        invoice.items.isNotEmpty ? invoice.items.first.description : '';
+    final firstItemDesc = invoice.items.isNotEmpty
+        ? invoice.items.first.description
+        : '';
     final ownerLabel = invoice.studentCode.isNotEmpty
         ? invoice.studentCode
         : invoice.subjectOwnerCode;
-    final status =
-        invoice.invoiceStatus.isNotEmpty ? invoice.invoiceStatus : invoice.status;
+    final status = invoice.invoiceStatus.isNotEmpty
+        ? invoice.invoiceStatus
+        : invoice.status;
 
     return TransactionItem(
       id: id,
@@ -128,8 +131,9 @@ class TransactionItem {
       date: invoice.issueDate ?? invoice.createdDate ?? billingSchoolNow(),
       amount: invoice.total,
       status: status,
-      description:
-          firstItemDesc.isNotEmpty ? firstItemDesc : 'Invoice ${invoice.code}',
+      description: firstItemDesc.isNotEmpty
+          ? firstItemDesc
+          : 'Invoice ${invoice.code}',
       studentName: ownerLabel.isNotEmpty ? ownerLabel : 'Unknown',
       classroom: '',
       studentCode: invoice.studentCode.isNotEmpty ? invoice.studentCode : null,
@@ -142,4 +146,3 @@ class TransactionItem {
 
   String get displayDescription => description.isEmpty ? '-' : description;
 }
-

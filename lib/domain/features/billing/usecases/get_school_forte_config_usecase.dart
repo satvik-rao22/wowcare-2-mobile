@@ -10,9 +10,8 @@ class GetSchoolForteConfigUseCase {
   Future<SchoolForteConfigEntity?> call({
     required String organizationCode,
     required String schoolCode,
-  }) =>
-      _repository.getSchoolForteConfig(
-        organizationCode: organizationCode,
-        schoolCode: schoolCode,
-      );
+  }) => _repository.getSchoolForteConfig(
+    organizationCode: organizationCode,
+    schoolCode: schoolCode,
+  );
 }

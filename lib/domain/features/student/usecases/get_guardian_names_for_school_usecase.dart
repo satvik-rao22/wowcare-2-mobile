@@ -6,12 +6,7 @@ class GetGuardianNamesForSchoolUseCase {
 
   final StudentRepository _repository;
 
-  Future<List<String>> call({
-    required String schoolCode,
-  }) {
-    return _repository.getGuardianNamesForSchool(
-      schoolCode: schoolCode,
-    );
+  Future<List<String>> call({required String schoolCode}) {
+    return _repository.getGuardianNamesForSchool(schoolCode: schoolCode);
   }
 }
-

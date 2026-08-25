@@ -273,7 +273,9 @@ class GeofenceSignInSheet extends StatelessWidget {
           : '/dashboard/student-selection-sign-in-form';
       // Pass the currently-viewed child so the form pre-selects them.
       final code = (studentCode ?? '').trim();
-      return code.isNotEmpty ? '$base?studentCode=${Uri.encodeComponent(code)}' : base;
+      return code.isNotEmpty
+          ? '$base?studentCode=${Uri.encodeComponent(code)}'
+          : base;
     } else {
       // staff or admin: gps=1 tells the form to always self-fill (incl. admin).
       return isSignedIn

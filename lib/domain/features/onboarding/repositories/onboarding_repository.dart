@@ -3,5 +3,3 @@ import 'package:wowcare/domain/features/onboarding/entities/onboarding_entity.da
 abstract class OnboardingRepository {
   Future<List<OnboardingEntity>> getPages();
 }
-
-

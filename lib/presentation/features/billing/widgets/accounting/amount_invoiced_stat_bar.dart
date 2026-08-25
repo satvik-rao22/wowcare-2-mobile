@@ -6,6 +6,7 @@ import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.da
 import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// The five tappable summary-card filters. Four scope the Transactions list
 /// (see [TransactionFilter]); [outstanding] routes to the Student(s) tab and
@@ -226,9 +227,7 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
                   ),
                   label: Text(
                     _isExpanded ? 'Show less' : 'Show more',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                    style: AppTextStyles.caption.copyWith(
                       color: AppColors.primaryColor,
                     ),
                   ),
@@ -273,9 +272,7 @@ class _TotalOutstandingSummary extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   amountLabel,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
+                  style: AppTextStyles.display.copyWith(
                     color: AppColors.themeColor,
                   ),
                 ),
@@ -298,9 +295,7 @@ class _TotalOutstandingSummary extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   percentageLabel,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                  style: AppTextStyles.sectionHeader.copyWith(
                     color: AppColors.refundLegendColor,
                   ),
                 ),

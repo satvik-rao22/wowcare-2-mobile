@@ -10,7 +10,7 @@ abstract class FcmRegistrationRemoteDataSource {
 class FcmRegistrationRemoteDataSourceImpl
     implements FcmRegistrationRemoteDataSource {
   FcmRegistrationRemoteDataSourceImpl({required ApiClient apiClient})
-      : _apiClient = apiClient;
+    : _apiClient = apiClient;
 
   final ApiClient _apiClient;
 

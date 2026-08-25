@@ -166,10 +166,7 @@ class FileDownloadService {
           '  mimeType: $mimeType',
         );
 
-        await open_filex.OpenFilex.open(
-          filePath,
-          type: mimeType,
-        );
+        await open_filex.OpenFilex.open(filePath, type: mimeType);
 
         AppLogger.i(
           '[FILE-OPEN] Success:\n'
@@ -206,7 +203,8 @@ class FileDownloadService {
 
     return switch (ext) {
       'pdf' => 'application/pdf',
-      'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'xlsx' =>
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'xls' => 'application/vnd.ms-excel',
       'csv' => 'text/csv',
       'docx' =>

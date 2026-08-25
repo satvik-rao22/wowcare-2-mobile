@@ -32,8 +32,14 @@ class PayNowCharge extends Equatable {
   final List<PaymentAllocationEntity> allocations;
 
   @override
-  List<Object?> get props =>
-      [ownerType, ownerCode, amount, idempotencyKey, familyName, allocations];
+  List<Object?> get props => [
+    ownerType,
+    ownerCode,
+    amount,
+    idempotencyKey,
+    familyName,
+    allocations,
+  ];
 }
 
 /// Submits the Pay Now charge (`POST /payment-gateway/guardian/pay`). The
@@ -44,9 +50,9 @@ class PayNowAuthorizeCubit extends Cubit<PayNowAuthorizeState> {
   PayNowAuthorizeCubit({
     required GuardianPayUseCase guardianPay,
     required StorageService storage,
-  })  : _guardianPay = guardianPay,
-        _storage = storage,
-        super(const PayNowAuthorizeState());
+  }) : _guardianPay = guardianPay,
+       _storage = storage,
+       super(const PayNowAuthorizeState());
 
   final GuardianPayUseCase _guardianPay;
   final StorageService _storage;
@@ -68,37 +74,41 @@ class PayNowAuthorizeCubit extends Cubit<PayNowAuthorizeState> {
     }
     emit(state.copyWith(isSubmitting: true, errorMessage: () => null));
     try {
-      final org =
-          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final school =
-          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final org = (await _storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+      final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       final guardian =
           (await _storage.getString(StorageKeys.guardianCode) ?? '').trim();
 
       GuardianPayResultEntity? last;
       for (final c in payable) {
-        last = await _guardianPay(GuardianPayParams(
-          organizationCode: org,
-          schoolCode: school,
-          guardianCode: guardian,
-          ownerType: c.ownerType,
-          ownerCode: c.ownerCode,
-          paymentMethodCode: paymentMethodCode,
-          amount: c.amount,
-          idempotencyKey: c.idempotencyKey,
-          payMethodHolderName: payMethodHolderName,
-          allocations: c.allocations,
-        ));
+        last = await _guardianPay(
+          GuardianPayParams(
+            organizationCode: org,
+            schoolCode: school,
+            guardianCode: guardian,
+            ownerType: c.ownerType,
+            ownerCode: c.ownerCode,
+            paymentMethodCode: paymentMethodCode,
+            amount: c.amount,
+            idempotencyKey: c.idempotencyKey,
+            payMethodHolderName: payMethodHolderName,
+            allocations: c.allocations,
+          ),
+        );
       }
       if (isClosed) return true;
       emit(state.copyWith(isSubmitting: false, result: () => last));
       return true;
     } catch (e) {
       if (isClosed) return false;
-      emit(state.copyWith(
-        isSubmitting: false,
-        errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isSubmitting: false,
+          errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
       return false;
     }
   }

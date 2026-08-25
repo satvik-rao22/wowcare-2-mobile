@@ -50,27 +50,37 @@ class LedgerModel extends Equatable {
   }
 
   Map<String, dynamic> toJson() => {
-        'code': code,
-        'name': name,
-        if (description != null) 'description': description,
-        if (ledgerType != null) 'ledgerType': ledgerType,
-        if (category != null) 'category': category,
-        if (nature != null) 'nature': nature,
-        if (currency != null) 'currency': currency,
-        if (status != null) 'status': status,
-        'system': system,
-        'openingBalance': openingBalance,
-        if (openingBalanceType != null) 'openingBalanceType': openingBalanceType,
-        if (currentBalance != null) 'currentBalance': currentBalance,
-        if (balanceType != null) 'balanceType': balanceType,
-      };
+    'code': code,
+    'name': name,
+    if (description != null) 'description': description,
+    if (ledgerType != null) 'ledgerType': ledgerType,
+    if (category != null) 'category': category,
+    if (nature != null) 'nature': nature,
+    if (currency != null) 'currency': currency,
+    if (status != null) 'status': status,
+    'system': system,
+    'openingBalance': openingBalance,
+    if (openingBalanceType != null) 'openingBalanceType': openingBalanceType,
+    if (currentBalance != null) 'currentBalance': currentBalance,
+    if (balanceType != null) 'balanceType': balanceType,
+  };
 
   @override
   List<Object?> get props => [
-        code, name, description, ledgerType, category, nature,
-        currency, status, system, openingBalance, openingBalanceType,
-        currentBalance, balanceType,
-      ];
+    code,
+    name,
+    description,
+    ledgerType,
+    category,
+    nature,
+    currency,
+    status,
+    system,
+    openingBalance,
+    openingBalanceType,
+    currentBalance,
+    balanceType,
+  ];
 }
 
 class LedgerPageModel extends Equatable {
@@ -112,8 +122,16 @@ class LedgerPageModel extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      [content, totalPages, totalElements, size, number, first, last, empty];
+  List<Object?> get props => [
+    content,
+    totalPages,
+    totalElements,
+    size,
+    number,
+    first,
+    last,
+    empty,
+  ];
 }
 
 class LedgerRequestModel {
@@ -144,16 +162,16 @@ class LedgerRequestModel {
   final String? category;
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        if (code != null) 'code': code,
-        'organization': organization,
-        'school': school,
-        if (ledgerType != null && ledgerType!.isNotEmpty) 'ledgerType': ledgerType,
-        if (currency != null) 'currency': currency,
-        if (openingBalanceType != null) 'openingBalanceType': openingBalanceType,
-        'allowManualBalance': allowManualBalance,
-        if (openingBalance != null) 'openingBalance': openingBalance,
-        if (description != null) 'description': description,
-        if (category != null) 'category': category,
-      };
+    'name': name,
+    if (code != null) 'code': code,
+    'organization': organization,
+    'school': school,
+    if (ledgerType != null && ledgerType!.isNotEmpty) 'ledgerType': ledgerType,
+    if (currency != null) 'currency': currency,
+    if (openingBalanceType != null) 'openingBalanceType': openingBalanceType,
+    'allowManualBalance': allowManualBalance,
+    if (openingBalance != null) 'openingBalance': openingBalance,
+    if (description != null) 'description': description,
+    if (category != null) 'category': category,
+  };
 }

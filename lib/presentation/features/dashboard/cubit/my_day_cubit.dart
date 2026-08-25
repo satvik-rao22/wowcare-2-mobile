@@ -192,7 +192,10 @@ class MyDayCubit extends Cubit<MyDayState> {
     } catch (e) {
       AppLogger.e('[MyDayCubit] fetch failed: $e');
       emit(
-        state.copyWith(status: MyDayStatus.error, errorMessage: ApiErrorHandler.extractErrorMessage(e)),
+        state.copyWith(
+          status: MyDayStatus.error,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
       );
     }
   }

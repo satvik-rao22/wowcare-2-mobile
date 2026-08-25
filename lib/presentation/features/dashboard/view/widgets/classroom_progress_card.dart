@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// "Classroom Progress" card — a radar chart comparing this month vs last
 /// month across developmental categories for a selected classroom.
@@ -102,9 +103,8 @@ class _ClassroomProgressCardState extends State<ClassroomProgressCard> {
         tickCount: 5,
         titlePositionPercentageOffset: 0.2,
         getTitle: (index, angle) => RadarChartTitle(text: _categories[index]),
-        titleTextStyle: const TextStyle(
+        titleTextStyle: AppTextStyles.bodySmall.copyWith(
           color: AppColors.primaryColor,
-          fontSize: 12,
         ),
         tickBorderData: const BorderSide(width: 1, color: Colors.grey),
         // Hide the numeric tick labels.
@@ -157,11 +157,7 @@ class _Legend extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           label,
-          style: const TextStyle(
-            color: AppColors.primaryColor,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
+          style: AppTextStyles.label.copyWith(color: AppColors.primaryColor),
         ),
       ],
     );

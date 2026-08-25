@@ -10,17 +10,17 @@ class NewsletterContentPart {
   });
 
   const NewsletterContentPart.text({required this.text})
-      : type = NewsletterPartType.text,
-        imageUrl = '',
-        alt = '',
-        assetCode = '';
+    : type = NewsletterPartType.text,
+      imageUrl = '',
+      alt = '',
+      assetCode = '';
 
   const NewsletterContentPart.image({
     required this.imageUrl,
     this.alt = '',
     this.assetCode = '',
-  })  : type = NewsletterPartType.image,
-        text = '';
+  }) : type = NewsletterPartType.image,
+       text = '';
 
   final NewsletterPartType type;
   final String text;

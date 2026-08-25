@@ -16,9 +16,9 @@ class StudentHealth extends Equatable {
 
   @override
   List<Object?> get props => [
-        allergy,
-        medications,
-        dietRestrictions,
-        photoPermission,
-      ];
+    allergy,
+    medications,
+    dietRestrictions,
+    photoPermission,
+  ];
 }

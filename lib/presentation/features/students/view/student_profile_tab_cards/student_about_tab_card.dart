@@ -25,6 +25,7 @@ import '../../../../../shared/common/widgets/profile_show_widget.dart';
 import '../edit_student_profile_details_screen.dart';
 import '../add_student_step3_screen.dart';
 import '../student_tags_edit_sheet.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class StudentAboutTabCard extends StatefulWidget {
   const StudentAboutTabCard({
@@ -497,13 +498,10 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
             label: 'Tags',
             valueWidget: _hasTags()
                 ? _tags(tags: _getTagsList())
-                : const Text(
+                : Text(
                     '-',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 15,
+                    style: AppTextStyles.body.copyWith(
                       color: Color(0xff573353),
-                      fontWeight: FontWeight.w400,
                     ),
                   ),
           ),
@@ -778,12 +776,9 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Schedule',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                        style: AppTextStyles.title.copyWith(
                           color: Color(0xff573353),
                         ),
                       ),

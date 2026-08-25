@@ -23,10 +23,13 @@ class ActivityAssetPresignModel extends ActivityAssetPresign {
     }
 
     final assetCode = (firstUpload['assetCode'] ?? '').toString().trim();
-    final presignedPutUrl =
-        (firstUpload['presignedPutUrl'] ?? '').toString().trim();
+    final presignedPutUrl = (firstUpload['presignedPutUrl'] ?? '')
+        .toString()
+        .trim();
     if (assetCode.isEmpty || presignedPutUrl.isEmpty) {
-      throw Exception('Missing assetCode or presignedPutUrl in presign response');
+      throw Exception(
+        'Missing assetCode or presignedPutUrl in presign response',
+      );
     }
 
     final rawHeaders = firstUpload['requiredHeaders'];
@@ -48,4 +51,3 @@ class ActivityAssetPresignModel extends ActivityAssetPresign {
     );
   }
 }
-

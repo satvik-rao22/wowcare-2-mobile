@@ -6,9 +6,6 @@ class GetSubsidiesUseCase {
 
   final InvoiceCatalogRepository _repository;
 
-  Future<List<SubsidyEntity>> call({
-    required String school,
-    String? status,
-  }) =>
+  Future<List<SubsidyEntity>> call({required String school, String? status}) =>
       _repository.getSubsidies(school: school, status: status);
 }

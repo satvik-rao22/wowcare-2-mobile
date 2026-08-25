@@ -29,35 +29,9 @@ class StaffCountModel extends Equatable {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'total': total,
-      'active': active,
-      'upcoming': upcoming,
-    };
+    return {'total': total, 'active': active, 'upcoming': upcoming};
   }
 
   @override
   List<Object?> get props => [total, active, upcoming];
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

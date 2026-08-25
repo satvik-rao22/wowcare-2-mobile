@@ -7,6 +7,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/app/theme/colors.dart';
 import '../widgets/custom_dropdown.dart';
 import '../widgets/multi_selection_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class FilterScreen extends StatefulWidget {
   final String title;
@@ -156,11 +157,7 @@ class _FilterScreenState extends State<FilterScreen> {
           children: [
             Text(
               widget.sections[index].label,
-              style: TextStyle(
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-              ),
+              style: AppTextStyles.label.copyWith(color: AppColors.primaryColor.withValues(alpha: 0.5)),
             ),
             const SizedBox(height: 8),
             const ShimmerLoader(height: 40),

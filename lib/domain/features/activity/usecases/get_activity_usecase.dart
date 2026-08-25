@@ -8,13 +8,9 @@ class GetActivityUseCase {
 
   final ActivityRepository _repository;
 
-  Future<ActivityDetail> call({
-    required String code,
-  }) async {
+  Future<ActivityDetail> call({required String code}) async {
     try {
-      return await _repository.getActivity(
-        code: code,
-      );
+      return await _repository.getActivity(code: code);
     } catch (e) {
       throw ApiErrorHandler.extractErrorMessage(e);
     }

@@ -8,9 +8,7 @@ class GetActivityTypeDetailsUseCase {
 
   final ActivityRepository _repository;
 
-  Future<ActivityTypeDetails> call({
-    required String code,
-  }) async {
+  Future<ActivityTypeDetails> call({required String code}) async {
     try {
       return await _repository.getActivityTypeDetails(code: code);
     } catch (e) {
@@ -18,5 +16,3 @@ class GetActivityTypeDetailsUseCase {
     }
   }
 }
-
-

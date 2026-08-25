@@ -78,10 +78,15 @@ class StaffFormLayout extends StatelessWidget {
                           ),
                           if (showKioskLogoutMenu)
                             PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert, color: Color(0xff573353)),
+                              icon: const Icon(
+                                Icons.more_vert,
+                                color: Color(0xff573353),
+                              ),
                               onSelected: (value) {
                                 if (value == 'logout') {
-                                  AppLogger.d('[Kiosk] Logout selected from menu');
+                                  AppLogger.d(
+                                    '[Kiosk] Logout selected from menu',
+                                  );
                                   context.go('/kiosk/logout');
                                 }
                               },
@@ -91,7 +96,11 @@ class StaffFormLayout extends StatelessWidget {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.logout, size: 20, color: Color(0xff573353)),
+                                      Icon(
+                                        Icons.logout,
+                                        size: 20,
+                                        color: Color(0xff573353),
+                                      ),
                                       SizedBox(width: 12),
                                       Text('Logout'),
                                     ],

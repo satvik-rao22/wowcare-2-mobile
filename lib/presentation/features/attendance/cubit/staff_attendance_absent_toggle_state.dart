@@ -16,17 +16,17 @@ class StaffAttendanceAbsentToggleState extends Equatable {
   });
 
   const StaffAttendanceAbsentToggleState.initial()
-      : items = const [],
-        isLoading = false,
-        isRefreshing = false,
-        currentPage = 0,
-        hasMore = false,
-        isLoadingMore = false,
-        errorMessage = null,
-        absenceDate = null,
-        classroomCodes = null,
-        tagCodes = null,
-        search = null;
+    : items = const [],
+      isLoading = false,
+      isRefreshing = false,
+      currentPage = 0,
+      hasMore = false,
+      isLoadingMore = false,
+      errorMessage = null,
+      absenceDate = null,
+      classroomCodes = null,
+      tagCodes = null,
+      search = null;
 
   const StaffAttendanceAbsentToggleState.loaded({
     required List<StaffAttendanceAbsentItem> items,
@@ -36,15 +36,15 @@ class StaffAttendanceAbsentToggleState extends Equatable {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     String? search,
-  })  : items = items,
-        isLoading = false,
-        isRefreshing = false,
-        isLoadingMore = false,
-        errorMessage = null,
-        absenceDate = absenceDate,
-        classroomCodes = classroomCodes,
-        tagCodes = tagCodes,
-        search = search;
+  }) : items = items,
+       isLoading = false,
+       isRefreshing = false,
+       isLoadingMore = false,
+       errorMessage = null,
+       absenceDate = absenceDate,
+       classroomCodes = classroomCodes,
+       tagCodes = tagCodes,
+       search = search;
 
   final List<StaffAttendanceAbsentItem> items;
   final bool isLoading;
@@ -88,17 +88,16 @@ class StaffAttendanceAbsentToggleState extends Equatable {
 
   @override
   List<Object?> get props => [
-        items,
-        isLoading,
-        isRefreshing,
-        currentPage,
-        hasMore,
-        isLoadingMore,
-        errorMessage,
-        absenceDate,
-        classroomCodes,
-        tagCodes,
-        search,
-      ];
+    items,
+    isLoading,
+    isRefreshing,
+    currentPage,
+    hasMore,
+    isLoadingMore,
+    errorMessage,
+    absenceDate,
+    classroomCodes,
+    tagCodes,
+    search,
+  ];
 }
-

@@ -1,0 +1,291 @@
+Resolving dependencies...
+Downloading packages...
+  _fe_analyzer_shared 61.0.0 (105.0.0 available)
+  _flutterfire_internals 1.3.76 (1.3.77 available)
+  analyzer 5.13.0 (14.1.0 available)
+  animate_do 4.2.0 (5.1.0 available)
+  archive 4.0.9 (4.2.0 available)
+  better_player_plus 1.2.1 (1.3.5 available)
+  bloc 8.1.4 (9.2.1 available)
+  build 2.4.1 (4.0.10 available)
+  build_config 1.1.2 (1.3.2 available)
+  build_daemon 4.1.1 (4.1.5 available)
+  build_resolvers 2.4.2 (3.0.4 available)
+  build_runner 2.4.13 (2.16.0 available)
+  build_runner_core 7.3.2 (9.3.2 available)
+  built_value 8.12.6 (8.12.7 available)
+  chewie 1.13.1 (1.15.0 available)
+  cli_util 0.4.2 (0.6.0 available)
+  cloud_firestore 6.8.0 (6.9.0 available)
+  cloud_firestore_platform_interface 8.0.6 (8.0.7 available)
+  cloud_firestore_web 5.7.2 (5.7.3 available)
+  code_assets 1.2.0 (2.0.0 available)
+  connectivity_plus 7.1.1 (7.3.1 available)
+  cross_file 0.3.5+2 (0.3.5+4 available)
+  dart_style 2.3.2 (3.1.12 available)
+  dbus 0.7.12 (0.7.15 available)
+  device_info_plus 12.4.0 (13.2.0 available)
+  device_info_plus_platform_interface 7.0.3 (8.1.0 available)
+  dio 5.9.2 (5.11.0 available)
+  dio_web_adapter 2.1.2 (2.2.1 available)
+  emoji_picker_flutter 4.4.0 (4.5.3 available)
+  equatable 2.0.8 (2.1.0 available)
+  extension 0.6.0 (1.0.0 available)
+! ffmpeg_kit_flutter_new_https 2.1.0 from path stubs/ffmpeg_kit_flutter_new_https (overridden)
+  file_picker 11.0.2 (12.0.0 available)
+  file_saver 0.2.14 (0.4.0 available)
+  firebase_analytics 12.4.6 (12.5.0 available)
+  firebase_analytics_platform_interface 6.0.6 (6.0.7 available)
+  firebase_analytics_web 0.6.1+12 (0.6.1+13 available)
+  firebase_auth 6.5.7 (6.6.0 available)
+  firebase_auth_platform_interface 9.0.6 (9.0.7 available)
+  firebase_auth_web 6.2.6 (6.2.7 available)
+  firebase_core 4.13.0 (4.14.0 available)
+  firebase_core_platform_interface 8.1.0 (8.1.1 available)
+  firebase_core_web 3.10.0 (3.11.0 available)
+  firebase_crashlytics 5.2.7 (5.3.0 available)
+  firebase_crashlytics_platform_interface 3.8.27 (3.9.0 available)
+  firebase_messaging 16.5.0 (16.6.0 available)
+  firebase_messaging_platform_interface 4.9.3 (4.10.0 available)
+  firebase_messaging_web 4.2.4 (4.2.5 available)
+  firebase_performance 0.11.4+6 (0.11.5 available)
+  firebase_performance_platform_interface 0.2.0+6 (0.2.0+7 available)
+  firebase_performance_web 0.1.8+12 (0.1.8+13 available)
+  firebase_storage 13.4.6 (13.5.0 available)
+  firebase_storage_platform_interface 6.0.6 (6.0.7 available)
+  firebase_storage_web 3.11.12 (3.11.13 available)
+  flutter_bloc 8.1.6 (9.1.1 available)
+  flutter_local_notifications 21.0.0 (22.3.0 available)
+  flutter_local_notifications_linux 8.0.0 (8.0.1 available)
+  flutter_local_notifications_platform_interface 11.0.0 (12.2.0 available)
+  flutter_local_notifications_windows 3.0.0 (3.1.1 available)
+  flutter_pdfview 1.4.4 (1.4.5 available)
+  flutter_plugin_android_lifecycle 2.0.34 (2.0.35 available)
+  flutter_secure_storage 9.2.4 (11.0.0 available)
+  flutter_secure_storage_linux 1.2.3 (3.0.2 available)
+  flutter_secure_storage_macos 3.1.3 (4.0.0 available)
+  flutter_secure_storage_platform_interface 1.1.2 (2.0.3 available)
+  flutter_secure_storage_web 1.2.1 (2.1.1 available)
+  flutter_secure_storage_windows 3.1.2 (4.2.2 available)
+  font_awesome_flutter 10.12.0 (11.0.0 available)
+  gal 2.3.2 (2.3.3 available)
+  geocoding 4.0.0 (5.0.0 available)
+  geocoding_android 4.0.1 (5.1.0 available)
+  geocoding_platform_interface 3.2.0 (5.0.0 available)
+  geolocator 14.0.2 (14.0.3 available)
+  geolocator_android 5.0.2 (5.0.3 available)
+  geolocator_apple 2.3.13 (2.3.14 available)
+  geolocator_linux 0.2.4 (0.2.6 available)
+  geolocator_platform_interface 4.2.6 (4.3.0 available)
+  geolocator_web 4.1.3 (4.1.4 available)
+  go_router 17.2.3 (18.0.0 available)
+  googleapis_auth 2.3.1 (2.3.3 available)
+  hooks 2.0.0 (2.2.0 available)
+  image 4.8.0 (4.9.2 available)
+  image_picker 1.2.2 (1.2.3 available)
+  image_picker_android 0.8.13+17 (0.8.13+19 available)
+  intl 0.20.2 (0.20.3 available)
+  js 0.6.7 (0.7.2 available)
+  local_auth 2.3.0 (3.0.2 available)
+  local_auth_android 1.0.56 (2.0.9 available)
+  local_auth_darwin 1.6.1 (2.0.3 available)
+  local_auth_windows 1.0.11 (2.0.1 available)
+  lottie 3.3.3 (3.5.1 available)
+  matcher 0.12.19 (0.12.20 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.17.0 (1.19.0 available)
+  mobile_scanner 7.2.0 (7.4.0 available)
+  objective_c 9.4.1 (9.6.0 available)
+  package_config 2.2.0 (3.0.0 available)
+  package_info_plus 9.0.1 (10.2.1 available)
+  package_info_plus_platform_interface 3.2.1 (4.1.0 available)
+  path_provider 2.1.5 (2.1.6 available)
+  path_provider_android 2.2.23 (2.3.1 available)
+  path_provider_linux 2.2.1 (2.2.2 available)
+  path_provider_platform_interface 2.1.2 (2.1.3 available)
+  pdfx 2.9.2 (2.11.0 available)
+  permission_handler 12.0.1 (13.0.1 available)
+  permission_handler_android 13.0.1 (14.0.0 available)
+  permission_handler_apple 9.4.7 (9.6.1 available)
+  permission_handler_html 0.1.3+5 (0.1.4+1 available)
+  permission_handler_platform_interface 4.3.0 (4.4.0 available)
+  permission_handler_windows 0.2.1 (0.2.2 available)
+  posix 6.5.0 (6.5.2 available)
+  qr 3.0.2 (4.0.0 available)
+  qr_code_scanner_plus 2.1.1 (2.2.0 available)
+  record_use 0.6.0 (1.1.1 available)
+  shared_preferences_android 2.4.23 (2.4.27 available)
+  shelf_web_socket 2.0.1 (3.0.0 available)
+  shimmer 3.0.0 (4.0.0 available)
+  smooth_page_indicator 2.0.1 (3.0.0 available)
+  source_gen 1.5.0 (4.3.0 available)
+  source_helper 1.3.5 (1.3.13 available)
+  syncfusion_flutter_charts 33.2.8 (34.2.5 available)
+  syncfusion_flutter_core 33.2.8 (34.2.5 available)
+  synchronized 3.4.0+1 (3.4.1+2 available)
+  table_calendar 3.2.0 (3.2.1 available)
+  test_api 0.7.10 (0.7.13 available)
+  thumbnailer 3.2.0 (3.3.0 available)
+  timezone 0.11.0 (0.11.1 available)
+  url_launcher_android 6.3.30 (6.3.32 available)
+  uuid 4.5.3 (4.6.0 available)
+  vector_graphics 1.2.2 (1.2.3 available)
+  vector_graphics_compiler 1.2.3 (1.3.0 available)
+  vector_math 2.2.0 (2.4.2 available)
+  video_player 2.11.1 (2.14.0 available)
+  video_player_android 2.9.5 (2.12.0 available)
+  video_player_avfoundation 2.9.7 (2.11.0 available)
+  video_player_platform_interface 6.7.0 (6.9.0 available)
+  vm_service 15.2.0 (15.3.0 available)
+  wakelock_plus 1.5.2 (1.7.0 available)
+  wakelock_plus_platform_interface 1.5.1 (1.6.0 available)
+  webview_flutter 4.13.1 (4.14.1 available)
+  webview_flutter_android 4.12.0 (4.14.0 available)
+  webview_flutter_wkwebview 3.25.1 (3.26.0 available)
+  win32 5.15.0 (6.4.0 available)
+  win32_registry 2.1.0 (3.0.3 available)
+  workmanager 0.9.0+3 (0.10.9 available)
+  workmanager_android 0.9.0+2 (0.10.8 available)
+  workmanager_apple 0.9.1+2 (0.9.10 available)
+  workmanager_platform_interface 0.9.1+1 (0.10.4 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+148 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing wowcare2-mobile...                                    
+
+warning • Unused import: 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart' • lib/core/network/auth_interceptor.dart:9:8 • unused_import
+warning • The value of the local variable 'formattedDate' isn't used • lib/core/util/date_utils.dart:82:12 • unused_local_variable
+warning • This function has a nullable return type of 'DateTime?', but ends without returning a value • lib/core/util/date_utils.dart:99:20 • body_might_complete_normally_nullable
+warning • 'getByIndex' is experimental and could be removed or changed at any time • lib/data/features/communication/models/conversation_entity_collection.g.dart:512:12 • experimental_member_use
+warning • 'getByIndexSync' is experimental and could be removed or changed at any time • lib/data/features/communication/models/conversation_entity_collection.g.dart:516:12 • experimental_member_use
+warning • 'deleteByIndex' is experimental and could be removed or changed at any time • lib/data/features/communication/models/conversation_entity_collection.g.dart:520:12 • experimental_member_use
+warning • 'deleteByIndexSync' is experimental and could be removed or changed at any time • lib/data/features/communication/models/conversation_entity_collection.g.dart:524:12 • experimental_member_use
+warning • 'getAllByIndex' is experimental and could be removed or changed at any time • lib/data/features/communication/models/conversation_entity_collection.g.dart:531:12 • experimental_member_use
+warning • 'getAllByIndexSync' is experimental and could be removed or changed at any time • lib/data/features/communication/models/conversation_entity_collection.g.dart:538:12 • experimental_member_use
+warning • 'deleteAllByIndex' is experimental and could be removed or changed at any time • lib/data/features/communication/models/conversation_entity_collection.g.dart:543:12 • experimental_member_use
+warning • 'deleteAllByIndexSync' is experimental and could be removed or changed at any time • lib/data/features/communication/models/conversation_entity_collection.g.dart:548:12 • experimental_member_use
+warning • 'putByIndex' is experimental and could be removed or changed at any time • lib/data/features/communication/models/conversation_entity_collection.g.dart:552:12 • experimental_member_use
+warning • 'putByIndexSync' is experimental and could be removed or changed at any time • lib/data/features/communication/models/conversation_entity_collection.g.dart:559:12 • experimental_member_use
+warning • 'putAllByIndex' is experimental and could be removed or changed at any time • lib/data/features/communication/models/conversation_entity_collection.g.dart:563:12 • experimental_member_use
+warning • 'putAllByIndexSync' is experimental and could be removed or changed at any time • lib/data/features/communication/models/conversation_entity_collection.g.dart:570:12 • experimental_member_use
+warning • 'getByIndex' is experimental and could be removed or changed at any time • lib/data/features/communication/models/message_entity_collection.g.dart:611:12 • experimental_member_use
+warning • 'getByIndexSync' is experimental and could be removed or changed at any time • lib/data/features/communication/models/message_entity_collection.g.dart:615:12 • experimental_member_use
+warning • 'deleteByIndex' is experimental and could be removed or changed at any time • lib/data/features/communication/models/message_entity_collection.g.dart:619:12 • experimental_member_use
+warning • 'deleteByIndexSync' is experimental and could be removed or changed at any time • lib/data/features/communication/models/message_entity_collection.g.dart:623:12 • experimental_member_use
+warning • 'getAllByIndex' is experimental and could be removed or changed at any time • lib/data/features/communication/models/message_entity_collection.g.dart:628:12 • experimental_member_use
+warning • 'getAllByIndexSync' is experimental and could be removed or changed at any time • lib/data/features/communication/models/message_entity_collection.g.dart:633:12 • experimental_member_use
+warning • 'deleteAllByIndex' is experimental and could be removed or changed at any time • lib/data/features/communication/models/message_entity_collection.g.dart:638:12 • experimental_member_use
+warning • 'deleteAllByIndexSync' is experimental and could be removed or changed at any time • lib/data/features/communication/models/message_entity_collection.g.dart:643:12 • experimental_member_use
+warning • 'putByIndex' is experimental and could be removed or changed at any time • lib/data/features/communication/models/message_entity_collection.g.dart:647:12 • experimental_member_use
+warning • 'putByIndexSync' is experimental and could be removed or changed at any time • lib/data/features/communication/models/message_entity_collection.g.dart:651:12 • experimental_member_use
+warning • 'putAllByIndex' is experimental and could be removed or changed at any time • lib/data/features/communication/models/message_entity_collection.g.dart:655:12 • experimental_member_use
+warning • 'putAllByIndexSync' is experimental and could be removed or changed at any time • lib/data/features/communication/models/message_entity_collection.g.dart:662:12 • experimental_member_use
+warning • 'getByIndex' is experimental and could be removed or changed at any time • lib/data/features/communication/models/unread_entity_collection.g.dart:245:12 • experimental_member_use
+warning • 'getByIndexSync' is experimental and could be removed or changed at any time • lib/data/features/communication/models/unread_entity_collection.g.dart:249:12 • experimental_member_use
+warning • 'deleteByIndex' is experimental and could be removed or changed at any time • lib/data/features/communication/models/unread_entity_collection.g.dart:253:12 • experimental_member_use
+warning • 'deleteByIndexSync' is experimental and could be removed or changed at any time • lib/data/features/communication/models/unread_entity_collection.g.dart:257:12 • experimental_member_use
+warning • 'getAllByIndex' is experimental and could be removed or changed at any time • lib/data/features/communication/models/unread_entity_collection.g.dart:264:12 • experimental_member_use
+warning • 'getAllByIndexSync' is experimental and could be removed or changed at any time • lib/data/features/communication/models/unread_entity_collection.g.dart:271:12 • experimental_member_use
+warning • 'deleteAllByIndex' is experimental and could be removed or changed at any time • lib/data/features/communication/models/unread_entity_collection.g.dart:276:12 • experimental_member_use
+warning • 'deleteAllByIndexSync' is experimental and could be removed or changed at any time • lib/data/features/communication/models/unread_entity_collection.g.dart:281:12 • experimental_member_use
+warning • 'putByIndex' is experimental and could be removed or changed at any time • lib/data/features/communication/models/unread_entity_collection.g.dart:285:12 • experimental_member_use
+warning • 'putByIndexSync' is experimental and could be removed or changed at any time • lib/data/features/communication/models/unread_entity_collection.g.dart:292:12 • experimental_member_use
+warning • 'putAllByIndex' is experimental and could be removed or changed at any time • lib/data/features/communication/models/unread_entity_collection.g.dart:298:12 • experimental_member_use
+warning • 'putAllByIndexSync' is experimental and could be removed or changed at any time • lib/data/features/communication/models/unread_entity_collection.g.dart:305:12 • experimental_member_use
+   info • The import of 'package:provider/provider.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter_bloc/flutter_bloc.dart' • lib/presentation/features/attendance/view/staff_attendance_tabbed_view.dart:5:8 • unnecessary_import
+warning • The declaration '_buildMenuItem' isn't referenced • lib/presentation/features/attendance/widgets/staff_attendance_vertical_popup.dart:81:10 • unused_element
+warning • Dead code • lib/presentation/features/auth/cubit/auth_cubit.dart:461:30 • dead_code
+warning • The left operand can't be null, so the right operand is never executed • lib/presentation/features/auth/cubit/auth_cubit.dart:461:33 • dead_null_aware_expression
+warning • Dead code • lib/presentation/features/auth/cubit/auth_cubit.dart:463:54 • dead_code
+warning • The left operand can't be null, so the right operand is never executed • lib/presentation/features/auth/cubit/auth_cubit.dart:463:57 • dead_null_aware_expression
+warning • The left operand can't be null, so the right operand is never executed • lib/presentation/features/auth/cubit/auth_cubit.dart:464:60 • dead_null_aware_expression
+   info • 'onPopInvoked' is deprecated and shouldn't be used. Use onPopInvokedWithResult instead. This feature was deprecated after v3.22.0-12.0.pre • lib/presentation/features/auth/view/org_selection_screen.dart:87:7 • deprecated_member_use
+warning • Unused import: 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart' • lib/presentation/features/auth/view/school_selection_screen.dart:10:8 • unused_import
+   info • The import of 'package:provider/provider.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter_bloc/flutter_bloc.dart' • lib/presentation/features/auth/view/school_selection_screen.dart:15:8 • unnecessary_import
+warning • Unused import: 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart' • lib/presentation/features/auth/view/sign_in_screen.dart:16:8 • unused_import
+warning • Unused import: 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart' • lib/presentation/features/auth/view/sign_in_screen.dart:17:8 • unused_import
+   info • 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre • lib/presentation/features/billing/view/auto_pay_payment_methods_screen.dart:483:17 • deprecated_member_use
+   info • 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre • lib/presentation/features/billing/view/auto_pay_payment_methods_screen.dart:484:17 • deprecated_member_use
+warning • A value for optional parameter 'height' isn't ever given • lib/presentation/features/billing/view/parent_billing_screen.dart:412:61 • unused_element_parameter
+   info • 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre • lib/presentation/features/billing/view/pay_now_amount_screen.dart:155:17 • deprecated_member_use
+   info • 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre • lib/presentation/features/billing/view/pay_now_amount_screen.dart:159:17 • deprecated_member_use
+   info • 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre • lib/presentation/features/billing/view/pay_now_amount_screen.dart:212:17 • deprecated_member_use
+   info • 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre • lib/presentation/features/billing/view/pay_now_amount_screen.dart:216:17 • deprecated_member_use
+   info • 'MaterialStatePropertyAll' is deprecated and shouldn't be used. Use WidgetStatePropertyAll instead. Moved to the Widgets layer to make code available outside of Material. This feature was deprecated after v3.19.0-0.3.pre • lib/presentation/features/billing/widgets/create_invoice_dialog.dart:137:27 • deprecated_member_use
+   info • 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre • lib/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart:618:13 • deprecated_member_use
+   info • 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre • lib/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart:619:13 • deprecated_member_use
+warning • The value of the field '_staffIsSignedIn' isn't used • lib/presentation/features/classroom/views/classroom_tab_cards/classroom_students_tab_card.dart:130:8 • unused_field
+warning • Unused import: 'package:flutter/foundation.dart' • lib/presentation/features/communication/cubit/communication_cubit.dart:31:8 • unused_import
+warning • The value of the local variable 'debugPrevCount' isn't used • lib/presentation/features/communication/cubit/communication_cubit.dart:276:23 • unused_local_variable
+warning • The value of the local variable 'debugPrevCount' isn't used • lib/presentation/features/communication/cubit/communication_cubit.dart:356:23 • unused_local_variable
+warning • The value of the local variable 'debugUserCode' isn't used • lib/presentation/features/communication/cubit/conversation_list_cubit.dart:86:18 • unused_local_variable
+warning • The value of the local variable 'debugOrgCode' isn't used • lib/presentation/features/communication/cubit/conversation_list_cubit.dart:88:18 • unused_local_variable
+warning • The value of the local variable 'debugSchoolCode' isn't used • lib/presentation/features/communication/cubit/conversation_list_cubit.dart:90:18 • unused_local_variable
+warning • The value of the local variable 'debugPrevCount' isn't used • lib/presentation/features/communication/cubit/conversation_list_cubit.dart:99:19 • unused_local_variable
+warning • The value of the local variable 'debugPrevCount' isn't used • lib/presentation/features/communication/cubit/conversation_list_cubit.dart:142:19 • unused_local_variable
+warning • The value of the local variable 'latest' isn't used • lib/presentation/features/communication/cubit/conversation_thread_cubit.dart:230:19 • unused_local_variable
+warning • The value of the local variable 'debugPrevCount' isn't used • lib/presentation/features/communication/cubit/conversation_thread_cubit.dart:235:23 • unused_local_variable
+warning • The value of the local variable 'newStatus' isn't used • lib/presentation/features/geofencing/cubit/geofence_cubit.dart:82:11 • unused_local_variable
+warning • The value of the local variable 'immediateGeofenceStatus' isn't used • lib/presentation/features/geofencing/cubit/geofence_cubit.dart:517:23 • unused_local_variable
+warning • The value of the field '_blocContext' isn't used • lib/presentation/features/kiosk/view/logout/kiosk_logout_page.dart:29:21 • unused_field
+warning • The declaration '_submitPinInternal' isn't referenced • lib/presentation/features/kiosk/widgets/kiosk_pin_pad_widget.dart:69:8 • unused_element
+warning • The declaration '_onPopInvokedWithResult' isn't referenced • lib/presentation/features/kiosk/widgets/kiosk_sign_in_and_sign_out.dart:71:8 • unused_element
+   info • The import of 'package:provider/provider.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter_bloc/flutter_bloc.dart' • lib/presentation/features/newsletter/view/parent_newsletter_list_tab.dart:7:8 • unnecessary_import
+   info • The import of 'package:provider/provider.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter_bloc/flutter_bloc.dart' • lib/presentation/features/newsletter/view/parent_newsletter_screen.dart:3:8 • unnecessary_import
+warning • The '!' will have no effect because the receiver can't be null • lib/presentation/features/newsletter/view/widgets/newsletter_component_view.dart:161:58 • unnecessary_non_null_assertion
+warning • The value of the field '_periodDate' isn't used • lib/presentation/features/reports/view/billing_report_form_screen.dart:47:17 • unused_field
+warning • The declaration '_SelectAllButton' isn't referenced • lib/presentation/features/reports/widgets/multi_select_filter_field.dart:515:7 • unused_element
+warning • The declaration '_ClearAllButton' isn't referenced • lib/presentation/features/reports/widgets/multi_select_filter_field.dart:541:7 • unused_element
+warning • The declaration '_parse24hTime' isn't referenced • lib/presentation/features/scheduling/cubit/add_shift_cubit.dart:887:12 • unused_element
+   info • The import of 'package:flutter/foundation.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' • lib/presentation/features/scheduling/model/scheduling_models.dart:1:8 • unnecessary_import
+warning • Unused import: 'package:flutter/material.dart' • lib/presentation/features/scheduling/utils/staff_shift_slot_mapper.dart:1:8 • unused_import
+warning • A value for optional parameter 'colorFilter' isn't ever given • lib/presentation/features/scheduling/widgets/scheduling_legend.dart:111:45 • unused_element_parameter
+warning • Unused import: 'staff_schedule_tile.dart' • lib/presentation/features/scheduling/widgets/week_classroom_row.dart:5:8 • unused_import
+warning • The declaration '_LoadingState' isn't referenced • lib/presentation/features/staff/cubit/staff_document_state.dart:27:7 • unused_element
+   info • The import of 'package:flutter/services.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' • lib/presentation/features/staff/view/add_document_screen.dart:5:8 • unnecessary_import
+warning • The value of the field '_loggedInStaffAllowedClassroomCodes' isn't used • lib/presentation/features/staff/view/add_staff_screen.dart:83:15 • unused_field
+warning • The '!' will have no effect because the receiver can't be null • lib/presentation/features/staff/view/edit_schedule_screen.dart:168:41 • unnecessary_non_null_assertion
+warning • The '!' will have no effect because the receiver can't be null • lib/presentation/features/staff/view/edit_schedule_screen.dart:169:41 • unnecessary_non_null_assertion
+warning • The '!' will have no effect because the receiver can't be null • lib/presentation/features/staff/view/edit_schedule_screen.dart:186:41 • unnecessary_non_null_assertion
+warning • The '!' will have no effect because the receiver can't be null • lib/presentation/features/staff/view/edit_schedule_screen.dart:187:41 • unnecessary_non_null_assertion
+warning • The '!' will have no effect because the receiver can't be null • lib/presentation/features/staff/view/edit_schedule_screen.dart:188:41 • unnecessary_non_null_assertion
+warning • The '!' will have no effect because the receiver can't be null • lib/presentation/features/staff/view/edit_schedule_screen.dart:189:41 • unnecessary_non_null_assertion
+warning • The '!' will have no effect because the receiver can't be null • lib/presentation/features/staff/view/edit_schedule_screen.dart:200:41 • unnecessary_non_null_assertion
+warning • The '!' will have no effect because the receiver can't be null • lib/presentation/features/staff/view/edit_schedule_screen.dart:201:41 • unnecessary_non_null_assertion
+warning • The '!' will have no effect because the receiver can't be null • lib/presentation/features/staff/view/edit_schedule_screen.dart:203:43 • unnecessary_non_null_assertion
+warning • The '!' will have no effect because the receiver can't be null • lib/presentation/features/staff/view/edit_schedule_screen.dart:210:43 • unnecessary_non_null_assertion
+warning • The declaration '_LoadingState' isn't referenced • lib/presentation/features/students/cubit/student_document_state.dart:28:7 • unused_element
+   info • The import of 'package:flutter/services.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' • lib/presentation/features/students/view/add_document_screen.dart:4:8 • unnecessary_import
+warning • The value of the field '_ClassroomError' isn't used • lib/presentation/features/students/view/add_student_screen.dart:46:11 • unused_field
+   info • The import of 'package:provider/provider.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter_bloc/flutter_bloc.dart' • lib/presentation/features/students/view/student_profile_screen.dart:10:8 • unnecessary_import
+warning • The declaration '_fteDisplay' isn't referenced • lib/presentation/features/students/view/student_profile_screen.dart:288:15 • unused_element
+   info • The import of 'package:provider/provider.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter_bloc/flutter_bloc.dart' • lib/presentation/features/students/view/student_profile_tab_cards/student_about_tab_card.dart:6:8 • unnecessary_import
+   info • 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre • lib/presentation/features/students/widgets/same_last_name_siblings_dialog.dart:197:37 • deprecated_member_use
+   info • 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre • lib/presentation/features/students/widgets/same_last_name_siblings_dialog.dart:202:37 • deprecated_member_use
+warning • A value for optional parameter 'key' isn't ever given • lib/shared/common/widgets/activity_status_panel.dart:125:11 • unused_element_parameter
+   info • 'WillPopScope' is deprecated and shouldn't be used. Use PopScope instead. The Android predictive back feature will not work with WillPopScope. This feature was deprecated after v3.12.0-1.0.pre • lib/shared/common/widgets/classroom_selection_widget_exact.dart:195:16 • deprecated_member_use
+warning • The value of the local variable 'responsive' isn't used • lib/shared/common/widgets/confirmation_dialogue_box.dart:23:11 • unused_local_variable
+warning • The value of the local variable 'isAllSelected' isn't used • lib/shared/common/widgets/custom_repeat_on_days_selector.dart:62:16 • unused_local_variable
+warning • The declaration '_showWarningMessage' isn't referenced • lib/shared/common/widgets/schedule_picker.dart:232:8 • unused_element
+warning • Unused import: 'package:wowcare/domain/features/communication/repositories/communication_repository.dart' • test/presentation/features/communication/v2/cubit/conversation_thread_cubit_test.dart:12:8 • unused_import
+warning • Unused import: 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart' • test/presentation/features/reports/view/staff_absent_report_screen_test.dart:20:8 • unused_import
+warning • The getter doesn't override an inherited getter • test/presentation/features/reports/view/staff_absent_report_screen_test.dart:102:12 • override_on_non_overriding_member
+warning • The getter doesn't override an inherited getter • test/presentation/features/reports/view/staff_absent_report_screen_test.dart:106:12 • override_on_non_overriding_member
+warning • The getter doesn't override an inherited getter • test/presentation/features/reports/view/staff_absent_report_screen_test.dart:108:12 • override_on_non_overriding_member
+warning • Unused import: 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart' • test/presentation/features/reports/view/staff_attendance_per_week_report_screen_test.dart:20:8 • unused_import
+warning • The getter doesn't override an inherited getter • test/presentation/features/reports/view/staff_attendance_per_week_report_screen_test.dart:102:12 • override_on_non_overriding_member
+warning • The getter doesn't override an inherited getter • test/presentation/features/reports/view/staff_attendance_per_week_report_screen_test.dart:106:12 • override_on_non_overriding_member
+warning • The getter doesn't override an inherited getter • test/presentation/features/reports/view/staff_attendance_per_week_report_screen_test.dart:108:12 • override_on_non_overriding_member
+warning • Unused import: 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart' • test/presentation/features/reports/view/staff_details_report_screen_test.dart:20:8 • unused_import
+warning • The getter doesn't override an inherited getter • test/presentation/features/reports/view/staff_details_report_screen_test.dart:102:12 • override_on_non_overriding_member
+warning • The getter doesn't override an inherited getter • test/presentation/features/reports/view/staff_details_report_screen_test.dart:106:12 • override_on_non_overriding_member
+warning • The getter doesn't override an inherited getter • test/presentation/features/reports/view/staff_details_report_screen_test.dart:108:12 • override_on_non_overriding_member
+warning • Unused import: 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart' • test/presentation/features/reports/view/staff_schedule_report_screen_test.dart:20:8 • unused_import
+warning • The getter doesn't override an inherited getter • test/presentation/features/reports/view/staff_schedule_report_screen_test.dart:102:12 • override_on_non_overriding_member
+warning • The getter doesn't override an inherited getter • test/presentation/features/reports/view/staff_schedule_report_screen_test.dart:106:12 • override_on_non_overriding_member
+warning • The getter doesn't override an inherited getter • test/presentation/features/reports/view/staff_schedule_report_screen_test.dart:108:12 • override_on_non_overriding_member
+warning • Unused import: 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart' • test/presentation/features/reports/view/student_attendance_per_student_report_screen_test.dart:18:8 • unused_import
+warning • Unused import: 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart' • test/presentation/features/reports/view/student_incident_report_screen_test.dart:19:8 • unused_import
+warning • Unused import: 'package:wowcare/domain/features/communication/entities/enums.dart' • test/widget_test.dart:6:8 • unused_import
+

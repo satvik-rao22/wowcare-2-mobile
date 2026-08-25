@@ -44,17 +44,16 @@ class AttendanceRepositoryImpl
   /// calls leave it false so their scoping is unchanged.
   Future<List<String>> _attendanceAllowedClassroomCodes({
     bool studentCrossClass = false,
-  }) =>
-      studentCrossClass
-          ? resolveStudentAttendanceAllowedClassroomCodes(storage: _storage)
-          : resolveAttendanceAllowedClassroomCodes(storage: _storage);
+  }) => studentCrossClass
+      ? resolveStudentAttendanceAllowedClassroomCodes(storage: _storage)
+      : resolveAttendanceAllowedClassroomCodes(storage: _storage);
 
   /// Builds attendance list query classroom params:
   /// - [classroomCodes]: user filter (intersected with allowed when scoped)
   /// - [allowedClassroomCodes]: full permission scope
   /// - [studentCrossClass]: see [_attendanceAllowedClassroomCodes].
   Future<({List<String>? classroomCodes, List<String> allowedClassroomCodes})>
-      _resolveAttendanceClassroomQueryParams(
+  _resolveAttendanceClassroomQueryParams(
     List<String>? classroomCodes, {
     bool studentCrossClass = false,
   }) async {
@@ -539,8 +538,9 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
-    final classroomQuery =
-        await _resolveAttendanceClassroomQueryParams(classroomCodes);
+    final classroomQuery = await _resolveAttendanceClassroomQueryParams(
+      classroomCodes,
+    );
     final pageModel = await _remoteDataSource.getStaffAttendanceDaily(
       fromAttendanceDate: fromAttendanceDate,
       toAttendanceDate: toAttendanceDate,
@@ -647,8 +647,9 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
-    final classroomQuery =
-        await _resolveAttendanceClassroomQueryParams(classroomCodes);
+    final classroomQuery = await _resolveAttendanceClassroomQueryParams(
+      classroomCodes,
+    );
     final pageModel = await _remoteDataSource.getStaffAttendanceCustom(
       fromAttendanceDate: fromAttendanceDate,
       toAttendanceDate: toAttendanceDate,
@@ -673,8 +674,9 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
-    final classroomQuery =
-        await _resolveAttendanceClassroomQueryParams(classroomCodes);
+    final classroomQuery = await _resolveAttendanceClassroomQueryParams(
+      classroomCodes,
+    );
     final pageModel = await _remoteDataSource.getStaffAttendanceAbsent(
       fromAbsenceDate: fromAbsenceDate,
       toAbsenceDate: toAbsenceDate,
@@ -699,8 +701,9 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
-    final classroomQuery =
-        await _resolveAttendanceClassroomQueryParams(classroomCodes);
+    final classroomQuery = await _resolveAttendanceClassroomQueryParams(
+      classroomCodes,
+    );
     final pageModel = await _remoteDataSource.getStaffAbsentFormList(
       fromAbsenceDate: fromAbsenceDate,
       toAbsenceDate: toAbsenceDate,
@@ -726,8 +729,9 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
-    final classroomQuery =
-        await _resolveAttendanceClassroomQueryParams(classroomCodes);
+    final classroomQuery = await _resolveAttendanceClassroomQueryParams(
+      classroomCodes,
+    );
     final pageModel = await _remoteDataSource
         .getStaffAttendanceAbsentToggleView(
           fromAbsenceDate: fromAbsenceDate,
@@ -766,8 +770,9 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
-    final classroomQuery =
-        await _resolveAttendanceClassroomQueryParams(classroomCodes);
+    final classroomQuery = await _resolveAttendanceClassroomQueryParams(
+      classroomCodes,
+    );
     final pageModel = await _remoteDataSource.getStaffSignInFormList(
       fromAttendanceDate: fromAttendanceDate,
       toAttendanceDate: toAttendanceDate,
@@ -793,8 +798,9 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
-    final classroomQuery =
-        await _resolveAttendanceClassroomQueryParams(classroomCodes);
+    final classroomQuery = await _resolveAttendanceClassroomQueryParams(
+      classroomCodes,
+    );
     final pageModel = await _remoteDataSource.getStaffSignOutFormList(
       fromAttendanceDate: fromAttendanceDate,
       toAttendanceDate: toAttendanceDate,
@@ -820,8 +826,9 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
-    final classroomQuery =
-        await _resolveAttendanceClassroomQueryParams(classroomCodes);
+    final classroomQuery = await _resolveAttendanceClassroomQueryParams(
+      classroomCodes,
+    );
     final pageModel = await _remoteDataSource.getStaffTransferFormList(
       fromAbsenceDate: fromAbsenceDate,
       toAbsenceDate: toAbsenceDate,
@@ -1103,15 +1110,16 @@ class AttendanceRepositoryImpl
   }
 
   @override
-  Future<StudentAttendanceExpectedSummary>
-  getStudentAttendanceExpectedSummary({
+  Future<StudentAttendanceExpectedSummary> getStudentAttendanceExpectedSummary({
     String? classroomCode,
     bool schoolWide = false,
     bool forceRefresh = false,
   }) async {
     if (schoolWide) {
       final cacheKey = _studentAttendanceSummaryCacheKey('school_wide');
-      final cached = forceRefresh ? null : await _cacheManager.loadCache(cacheKey);
+      final cached = forceRefresh
+          ? null
+          : await _cacheManager.loadCache(cacheKey);
       if (cached != null) {
         return StudentAttendanceExpectedSummary(
           expected: cached['expected'] as int? ?? 0,
@@ -1123,9 +1131,7 @@ class AttendanceRepositoryImpl
       }
 
       final model = await _remoteDataSource
-          .getStudentAttendanceExpectedSummaryCard(
-            classroomCode: null,
-          );
+          .getStudentAttendanceExpectedSummaryCard(classroomCode: null);
 
       await _cacheManager.saveCache(cacheKey, {
         'expected': model.expected,
@@ -1147,7 +1153,9 @@ class AttendanceRepositoryImpl
     final fromArg = classroomCode?.trim() ?? '';
     if (fromArg.isNotEmpty) {
       final cacheKey = _studentAttendanceSummaryCacheKey(fromArg);
-      final cached = forceRefresh ? null : await _cacheManager.loadCache(cacheKey);
+      final cached = forceRefresh
+          ? null
+          : await _cacheManager.loadCache(cacheKey);
       if (cached != null) {
         return StudentAttendanceExpectedSummary(
           expected: cached['expected'] as int? ?? 0,
@@ -1159,9 +1167,7 @@ class AttendanceRepositoryImpl
       }
 
       final model = await _remoteDataSource
-          .getStudentAttendanceExpectedSummaryCard(
-            classroomCode: fromArg,
-          );
+          .getStudentAttendanceExpectedSummaryCard(classroomCode: fromArg);
 
       await _cacheManager.saveCache(cacheKey, {
         'expected': model.expected,
@@ -1186,7 +1192,9 @@ class AttendanceRepositoryImpl
     final effective = _effectiveClassroomCodeForSummary(null, allowed);
     final cacheKey = _studentAttendanceSummaryCacheKey(effective);
 
-    final cached = forceRefresh ? null : await _cacheManager.loadCache(cacheKey);
+    final cached = forceRefresh
+        ? null
+        : await _cacheManager.loadCache(cacheKey);
     if (cached != null) {
       return StudentAttendanceExpectedSummary(
         expected: cached['expected'] as int? ?? 0,
@@ -1198,9 +1206,7 @@ class AttendanceRepositoryImpl
     }
 
     final model = await _remoteDataSource
-        .getStudentAttendanceExpectedSummaryCard(
-          classroomCode: effective,
-        );
+        .getStudentAttendanceExpectedSummaryCard(classroomCode: effective);
 
     await _cacheManager.saveCache(cacheKey, {
       'expected': model.expected,
@@ -1227,7 +1233,9 @@ class AttendanceRepositoryImpl
   }) async {
     if (schoolWide) {
       final cacheKey = _staffAttendanceSummaryCacheKey('school_wide');
-      final cached = forceRefresh ? null : await _cacheManager.loadCache(cacheKey);
+      final cached = forceRefresh
+          ? null
+          : await _cacheManager.loadCache(cacheKey);
       if (cached != null) {
         return StudentAttendanceExpectedSummary(
           expected: cached['expected'] as int? ?? 0,
@@ -1238,9 +1246,8 @@ class AttendanceRepositoryImpl
         );
       }
 
-      final model = await _remoteDataSource.getStaffAttendanceExpectedSummaryCard(
-        classroomCode: null,
-      );
+      final model = await _remoteDataSource
+          .getStaffAttendanceExpectedSummaryCard(classroomCode: null);
 
       await _cacheManager.saveCache(cacheKey, {
         'expected': model.expected,
@@ -1262,7 +1269,9 @@ class AttendanceRepositoryImpl
     final fromArg = classroomCode?.trim() ?? '';
     if (fromArg.isNotEmpty) {
       final cacheKey = _staffAttendanceSummaryCacheKey(fromArg);
-      final cached = forceRefresh ? null : await _cacheManager.loadCache(cacheKey);
+      final cached = forceRefresh
+          ? null
+          : await _cacheManager.loadCache(cacheKey);
       if (cached != null) {
         return StudentAttendanceExpectedSummary(
           expected: cached['expected'] as int? ?? 0,
@@ -1273,9 +1282,8 @@ class AttendanceRepositoryImpl
         );
       }
 
-      final model = await _remoteDataSource.getStaffAttendanceExpectedSummaryCard(
-        classroomCode: fromArg,
-      );
+      final model = await _remoteDataSource
+          .getStaffAttendanceExpectedSummaryCard(classroomCode: fromArg);
 
       await _cacheManager.saveCache(cacheKey, {
         'expected': model.expected,
@@ -1298,7 +1306,9 @@ class AttendanceRepositoryImpl
     final effective = _effectiveClassroomCodeForSummary(null, allowed);
     final cacheKey = _staffAttendanceSummaryCacheKey(effective);
 
-    final cached = forceRefresh ? null : await _cacheManager.loadCache(cacheKey);
+    final cached = forceRefresh
+        ? null
+        : await _cacheManager.loadCache(cacheKey);
     if (cached != null) {
       return StudentAttendanceExpectedSummary(
         expected: cached['expected'] as int? ?? 0,
@@ -1403,22 +1413,26 @@ class AttendanceRepositoryImpl
     final payload = <String, dynamic>{
       'staffCode': staffCode,
       'timeZone': tz,
-      if (signedInAt != null) 'signedInAt': signedInAt.toUtc().toIso8601String(),
+      if (signedInAt != null)
+        'signedInAt': signedInAt.toUtc().toIso8601String(),
       if (signedOutAt != null)
         'signedOutAt': signedOutAt.toUtc().toIso8601String(),
       if (!isTransferRecord && signedInAt != null) 'signedInMethod': 'APP',
       if (!isTransferRecord && signedOutAt != null) 'signedOutMethod': 'APP',
-      if (originalClassroomCode != null && originalClassroomCode.trim().isNotEmpty)
+      if (originalClassroomCode != null &&
+          originalClassroomCode.trim().isNotEmpty)
         'originalClassroomCode': originalClassroomCode.trim(),
-      if (currentClassroomCode != null && currentClassroomCode.trim().isNotEmpty)
+      if (currentClassroomCode != null &&
+          currentClassroomCode.trim().isNotEmpty)
         'currentClassroomCode': currentClassroomCode.trim(),
       if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
     };
 
     // The backend validates the editing teacher's classroom assignment
     // against this list (mirrors markStudentsAbsent/markStaffAbsent).
-    final allowed =
-        await _attendanceAllowedClassroomCodes(studentCrossClass: true);
+    final allowed = await _attendanceAllowedClassroomCodes(
+      studentCrossClass: true,
+    );
 
     return _remoteDataSource.updateStudentAttendanceRecord(
       attendanceRecordCode: attendanceRecordCode,
@@ -1460,8 +1474,9 @@ class AttendanceRepositoryImpl
       'occurredAt': occurredAt?.toUtc().toIso8601String(),
     };
 
-    final allowed =
-        await _attendanceAllowedClassroomCodes(studentCrossClass: true);
+    final allowed = await _attendanceAllowedClassroomCodes(
+      studentCrossClass: true,
+    );
     return _remoteDataSource.createStudentSignInRecords(
       payload: payload,
       allowedClassroomCodes: allowed,
@@ -1489,10 +1504,8 @@ class AttendanceRepositoryImpl
       if (data['message'] != null) {
         message = data['message'].toString();
       }
-      currentClassroomCode = (data['currentClassroomCode'] as String?)
-          ?.trim();
-      primaryClassroomCode = (data['primaryClassroomCode'] as String?)
-          ?.trim();
+      currentClassroomCode = (data['currentClassroomCode'] as String?)?.trim();
+      primaryClassroomCode = (data['primaryClassroomCode'] as String?)?.trim();
     }
     if (success) {
       AttendanceEvents.notifyChanged();
@@ -1534,7 +1547,10 @@ class AttendanceRepositoryImpl
       queryParameters: queryParameters,
       isParent: isParent,
     );
-    return _attendanceActionResult(data, defaultMessage: 'Signed-In successfully');
+    return _attendanceActionResult(
+      data,
+      defaultMessage: 'Signed-In successfully',
+    );
   }
 
   @override
@@ -1575,7 +1591,10 @@ class AttendanceRepositoryImpl
     final body = Map<String, dynamic>.from(payload);
     await applyStudentAllowedClassroomCodesToAttendanceBody(body, _storage);
     final data = await _remoteDataSource.postStudentTransfer(body: body);
-    return _attendanceActionResult(data, defaultMessage: 'Transfer successfully');
+    return _attendanceActionResult(
+      data,
+      defaultMessage: 'Transfer successfully',
+    );
   }
 
   @override
@@ -1593,7 +1612,10 @@ class AttendanceRepositoryImpl
       body: body,
       isSelf: isSelf,
     );
-    return _attendanceActionResult(data, defaultMessage: 'Signed-In successfully');
+    return _attendanceActionResult(
+      data,
+      defaultMessage: 'Signed-In successfully',
+    );
   }
 
   @override
@@ -1607,7 +1629,10 @@ class AttendanceRepositoryImpl
     if (!isSelf) {
       await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
     }
-    final data = await _remoteDataSource.postStaffSignOut(body: body, isSelf: isSelf);
+    final data = await _remoteDataSource.postStaffSignOut(
+      body: body,
+      isSelf: isSelf,
+    );
     return _attendanceActionResult(
       data,
       defaultMessage: 'Signed-Out successfully',
@@ -1641,42 +1666,37 @@ class AttendanceRepositoryImpl
   @override
   Future<Map<String, dynamic>?> fetchStudentAttendanceProfile({
     required Map<String, dynamic> queryParameters,
-  }) =>
-      _remoteDataSource.getStudentAttendanceProfileRaw(
-        queryParameters: queryParameters,
-      );
+  }) => _remoteDataSource.getStudentAttendanceProfileRaw(
+    queryParameters: queryParameters,
+  );
 
   @override
   Future<Map<String, dynamic>?> fetchStudentAttendanceProfileAbsentToggle({
     required Map<String, dynamic> queryParameters,
-  }) =>
-      _remoteDataSource.getStudentAttendanceProfileAbsentToggleRaw(
-        queryParameters: queryParameters,
-      );
+  }) => _remoteDataSource.getStudentAttendanceProfileAbsentToggleRaw(
+    queryParameters: queryParameters,
+  );
 
   @override
   Future<Map<String, dynamic>?> fetchStaffAttendanceProfile({
     required Map<String, dynamic> queryParameters,
-  }) =>
-      _remoteDataSource.getStaffAttendanceProfileRaw(
-        queryParameters: queryParameters,
-      );
+  }) => _remoteDataSource.getStaffAttendanceProfileRaw(
+    queryParameters: queryParameters,
+  );
 
   @override
   Future<Map<String, dynamic>?> fetchStaffAttendanceProfileAbsentToggle({
     required Map<String, dynamic> queryParameters,
-  }) =>
-      _remoteDataSource.getStaffAttendanceProfileAbsentToggleRaw(
-        queryParameters: queryParameters,
-      );
+  }) => _remoteDataSource.getStaffAttendanceProfileAbsentToggleRaw(
+    queryParameters: queryParameters,
+  );
 
   @override
   Future<Map<String, dynamic>?> fetchStudentAttendanceAbsentView({
     required Map<String, dynamic> queryParameters,
-  }) =>
-      _remoteDataSource.getStudentAttendanceAbsentViewRaw(
-        queryParameters: queryParameters,
-      );
+  }) => _remoteDataSource.getStudentAttendanceAbsentViewRaw(
+    queryParameters: queryParameters,
+  );
 
   @override
   Future<Map<String, dynamic>?> getStudentAttendanceAbsentView({

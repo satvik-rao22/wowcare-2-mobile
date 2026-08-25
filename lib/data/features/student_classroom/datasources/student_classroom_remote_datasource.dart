@@ -50,9 +50,7 @@ class StudentClassroomRemoteDataSourceImpl
         ? storedSchoolCode
         : fallbackSchoolCode.trim();
 
-    final headers = <String, dynamic>{
-      'accept': 'application/json',
-    };
+    final headers = <String, dynamic>{'accept': 'application/json'};
     if (resolvedSchoolCode.isNotEmpty) {
       headers['X-School-Code'] = resolvedSchoolCode;
       headers['x-school-code'] = resolvedSchoolCode;
@@ -185,5 +183,3 @@ class StudentClassroomRemoteDataSourceImpl
     return StudentClassroomAssignResponseModel.fromJson(body);
   }
 }
-
-

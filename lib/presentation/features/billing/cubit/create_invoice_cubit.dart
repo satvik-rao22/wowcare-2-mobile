@@ -115,16 +115,16 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     required UpdateInvoiceUseCase updateInvoice,
     required GetInvoiceByCodeUseCase getInvoiceByCode,
     required StorageService storage,
-  })  : _getFeeStructures = getFeeStructures,
-        _getOtherFees = getOtherFees,
-        _getDiscounts = getDiscounts,
-        _getSubsidies = getSubsidies,
-        _createInvoice = createInvoice,
-        _issueInvoice = issueInvoice,
-        _updateInvoice = updateInvoice,
-        _getInvoiceByCode = getInvoiceByCode,
-        _storage = storage,
-        super(CreateInvoiceState.initial());
+  }) : _getFeeStructures = getFeeStructures,
+       _getOtherFees = getOtherFees,
+       _getDiscounts = getDiscounts,
+       _getSubsidies = getSubsidies,
+       _createInvoice = createInvoice,
+       _issueInvoice = issueInvoice,
+       _updateInvoice = updateInvoice,
+       _getInvoiceByCode = getInvoiceByCode,
+       _storage = storage,
+       super(CreateInvoiceState.initial());
 
   final GetFeeStructuresUseCase _getFeeStructures;
   final GetOtherFeesUseCase _getOtherFees;
@@ -148,7 +148,9 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
   void initialize(Map<String, dynamic>? data) {
     if (data != null) {
       final rawCode = data['invoiceCode']?.toString().trim();
-      _editingInvoiceCode = (rawCode != null && rawCode.isNotEmpty) ? rawCode : null;
+      _editingInvoiceCode = (rawCode != null && rawCode.isNotEmpty)
+          ? rawCode
+          : null;
       var items = state.items;
       if (data['invoiceItems'] is List) {
         final raw = data['invoiceItems'] as List<dynamic>;
@@ -168,16 +170,18 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
         }
       }
 
-      emit(state.copyWith(
-        items: items,
-        invoiceDate: () => data['invoiceDate'] is DateTime
-            ? data['invoiceDate'] as DateTime
-            : state.invoiceDate,
-        dueDate: () => data['dueDate'] is DateTime
-            ? data['dueDate'] as DateTime
-            : state.dueDate,
-        revision: state.revision + 1,
-      ));
+      emit(
+        state.copyWith(
+          items: items,
+          invoiceDate: () => data['invoiceDate'] is DateTime
+              ? data['invoiceDate'] as DateTime
+              : state.invoiceDate,
+          dueDate: () => data['dueDate'] is DateTime
+              ? data['dueDate'] as DateTime
+              : state.dueDate,
+          revision: state.revision + 1,
+        ),
+      );
     }
 
     loadCatalog();
@@ -199,8 +203,7 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
       final items = invoice.items.isEmpty
           ? [InvoiceItemFormData.initial(isPrimary: true)]
           : invoice.items.mapIndexed((index, it) {
-              final amount =
-                  it.totalPrice != 0 ? it.totalPrice : it.unitPrice;
+              final amount = it.totalPrice != 0 ? it.totalPrice : it.unitPrice;
               final fd = InvoiceItemFormData(
                 type: InvoiceItemTypes.fromApiCode(it.itemType),
                 description: it.description,
@@ -214,14 +217,16 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
               }
               return fd;
             }).toList();
-      emit(state.copyWith(
-        items: items,
-        invoiceDate: () => invoice.issueDate ?? state.invoiceDate,
-        dueDate: () => invoice.dueDate ?? state.dueDate,
-        serviceDate: () => invoice.periodStart ?? state.serviceDate,
-        serviceDateEnd: () => invoice.periodEnd ?? state.serviceDateEnd,
-        revision: state.revision + 1,
-      ));
+      emit(
+        state.copyWith(
+          items: items,
+          invoiceDate: () => invoice.issueDate ?? state.invoiceDate,
+          dueDate: () => invoice.dueDate ?? state.dueDate,
+          serviceDate: () => invoice.periodStart ?? state.serviceDate,
+          serviceDateEnd: () => invoice.periodEnd ?? state.serviceDateEnd,
+          revision: state.revision + 1,
+        ),
+      );
     } catch (_) {
       // Keep the (default) form; the user can still edit manually.
     }
@@ -231,40 +236,58 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
   /// so one failing endpoint never blanks the others; the dropdowns simply stay
   /// empty until data arrives (no loader is shown).
   Future<void> loadCatalog() async {
-    final school =
-        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     if (school.isEmpty) {
       if (!isClosed) emit(state.copyWith(catalogLoaded: true));
       return;
     }
 
     final results = await Future.wait([
-      _safe(() async => _feeStructureOptions(
-          await _getFeeStructures(school: school, status: 'ACTIVE'))),
-      _safe(() async => _otherFeeOptions(
-          await _getOtherFees(school: school, status: 'ACTIVE'))),
-      _safe(() async => _discountOptions(
-          (await _getDiscounts(school: school, status: 'ACTIVE', size: 200))
-              .content)),
-      _safe(() async => _subsidyOptions(
-          await _getSubsidies(school: school, status: 'ACTIVE'))),
+      _safe(
+        () async => _feeStructureOptions(
+          await _getFeeStructures(school: school, status: 'ACTIVE'),
+        ),
+      ),
+      _safe(
+        () async => _otherFeeOptions(
+          await _getOtherFees(school: school, status: 'ACTIVE'),
+        ),
+      ),
+      _safe(
+        () async => _discountOptions(
+          (await _getDiscounts(
+            school: school,
+            status: 'ACTIVE',
+            size: 200,
+          )).content,
+        ),
+      ),
+      _safe(
+        () async => _subsidyOptions(
+          await _getSubsidies(school: school, status: 'ACTIVE'),
+        ),
+      ),
     ]);
 
     if (isClosed) return;
-    emit(state.copyWith(
-      catalog: <String, List<InvoiceCatalogOption>>{
-        InvoiceItemTypes.tuitionFee: results[0],
-        InvoiceItemTypes.otherFee: results[1],
-        InvoiceItemTypes.discount: results[2],
-        InvoiceItemTypes.subsidy: results[3],
-      },
-      catalogLoaded: true,
-      revision: state.revision + 1,
-    ));
+    emit(
+      state.copyWith(
+        catalog: <String, List<InvoiceCatalogOption>>{
+          InvoiceItemTypes.tuitionFee: results[0],
+          InvoiceItemTypes.otherFee: results[1],
+          InvoiceItemTypes.discount: results[2],
+          InvoiceItemTypes.subsidy: results[3],
+        },
+        catalogLoaded: true,
+        revision: state.revision + 1,
+      ),
+    );
   }
 
   Future<List<InvoiceCatalogOption>> _safe(
-      Future<List<InvoiceCatalogOption>> Function() task) async {
+    Future<List<InvoiceCatalogOption>> Function() task,
+  ) async {
     try {
       return await task();
     } catch (_) {
@@ -275,7 +298,8 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
   // ─── Catalog → option mappers ─────────────────────────────────────────────
 
   List<InvoiceCatalogOption> _feeStructureOptions(
-      List<FeeStructureEntity> structures) {
+    List<FeeStructureEntity> structures,
+  ) {
     final options = <InvoiceCatalogOption>[];
     for (final s in structures) {
       for (final d in s.feesDetails) {
@@ -284,19 +308,23 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
         final label = cycle.isEmpty
             ? s.ageGroupName.trim()
             : '${s.ageGroupName.trim()} — $cycle';
-        options.add(InvoiceCatalogOption(
-            label: label, amount: d.cost, code: d.code));
+        options.add(
+          InvoiceCatalogOption(label: label, amount: d.cost, code: d.code),
+        );
       }
     }
     return options;
   }
 
   List<InvoiceCatalogOption> _otherFeeOptions(List<OtherFeeEntity> fees) => [
-        for (final f in fees)
-          if (f.description.trim().isNotEmpty)
-            InvoiceCatalogOption(
-                label: f.description.trim(), amount: f.cost, code: f.code),
-      ];
+    for (final f in fees)
+      if (f.description.trim().isNotEmpty)
+        InvoiceCatalogOption(
+          label: f.description.trim(),
+          amount: f.cost,
+          code: f.code,
+        ),
+  ];
 
   /// Normalizes a catalog `discountType` to the API value type the invoice
   /// payload expects (`PERCENT` / `FLAT`).
@@ -325,16 +353,16 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
       ];
 
   List<InvoiceCatalogOption> _subsidyOptions(List<SubsidyEntity> subsidies) => [
-        for (final s in subsidies)
-          if (s.name.trim().isNotEmpty)
-            InvoiceCatalogOption(
-              label: s.name.trim(),
-              amount: s.deductionAmount ?? s.price ?? 0,
-              code: s.code,
-              valueType: _normalizeValueType(s.discountType),
-              valueInput: s.deductionAmount ?? s.price ?? 0,
-            ),
-      ];
+    for (final s in subsidies)
+      if (s.name.trim().isNotEmpty)
+        InvoiceCatalogOption(
+          label: s.name.trim(),
+          amount: s.deductionAmount ?? s.price ?? 0,
+          code: s.code,
+          valueType: _normalizeValueType(s.discountType),
+          valueInput: s.deductionAmount ?? s.price ?? 0,
+        ),
+  ];
 
   // ─── Intents ──────────────────────────────────────────────────────────────
 
@@ -349,10 +377,12 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
 
   void addItem() {
     if (state.isFormLocked) return;
-    emit(state.copyWith(
-      items: [...state.items, InvoiceItemFormData.initial()],
-      revision: state.revision + 1,
-    ));
+    emit(
+      state.copyWith(
+        items: [...state.items, InvoiceItemFormData.initial()],
+        revision: state.revision + 1,
+      ),
+    );
   }
 
   void removeItem(int index) {
@@ -441,9 +471,12 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     double base = 0;
     for (final item in state.items) {
       if (InvoiceItemTypes.isDeduction(item.type)) continue;
-      base += double.tryParse(item.amountController.text.trim().isEmpty
-              ? item.amount
-              : item.amountController.text.trim()) ??
+      base +=
+          double.tryParse(
+            item.amountController.text.trim().isEmpty
+                ? item.amount
+                : item.amountController.text.trim(),
+          ) ??
           0;
     }
     return base;
@@ -456,8 +489,9 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     for (final item in state.items) {
       if (!InvoiceItemTypes.isDeduction(item.type)) continue;
       final value = double.tryParse(item.valueController.text.trim()) ?? 0;
-      final computed =
-          (item.valueType ?? 'FLAT') == 'PERCENT' ? base * value / 100 : value;
+      final computed = (item.valueType ?? 'FLAT') == 'PERCENT'
+          ? base * value / 100
+          : value;
       final filled = computed.toStringAsFixed(2);
       item.amount = filled;
       item.amountController.text = filled;
@@ -491,26 +525,32 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     final dueDate = state.dueDate;
     if (dueDate == null) {
       return const InvoiceSubmitResult(
-          success: false, error: 'Please select the invoice due date.');
+        success: false,
+        error: 'Please select the invoice due date.',
+      );
     }
     if (students.isEmpty) {
       return const InvoiceSubmitResult(
-          success: false, error: 'Please keep at least one student.');
+        success: false,
+        error: 'Please keep at least one student.',
+      );
     }
 
     final items = _buildItemParams();
     if (items.isEmpty) {
       return const InvoiceSubmitResult(
-          success: false, error: 'Please add at least one invoice item.');
+        success: false,
+        error: 'Please add at least one invoice item.',
+      );
     }
 
     try {
       final shouldIssue = mode == 'send';
 
-      final org =
-          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final school =
-          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final org = (await _storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+      final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
 
       // Edit mode: only PATCH the existing invoice via the /draft endpoint —
       // never issue it. The invoice may already be SENT (issuing a non-DRAFT
@@ -537,17 +577,19 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
 
       var created = 0;
       for (final student in students) {
-        final result = await _createInvoice(CreateInvoiceParams(
-          organizationCode: org,
-          schoolCode: school,
-          studentCode: student.code,
-          issueDate: issueDate,
-          dueDate: dueDate,
-          periodStart: state.serviceDate,
-          periodEnd: state.serviceDateEnd,
-          notes: notes,
-          items: items,
-        ));
+        final result = await _createInvoice(
+          CreateInvoiceParams(
+            organizationCode: org,
+            schoolCode: school,
+            studentCode: student.code,
+            issueDate: issueDate,
+            dueDate: dueDate,
+            periodStart: state.serviceDate,
+            periodEnd: state.serviceDateEnd,
+            notes: notes,
+            items: items,
+          ),
+        );
         // "Save & Send" issues the freshly-created invoice; "Save as Draft"
         // leaves it unissued.
         if (shouldIssue && result.code.isNotEmpty) {
@@ -558,33 +600,40 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
       return InvoiceSubmitResult(success: true, created: created);
     } catch (e) {
       return InvoiceSubmitResult(
-          success: false, error: ApiErrorHandler.extractErrorMessage(e));
+        success: false,
+        error: ApiErrorHandler.extractErrorMessage(e),
+      );
     }
   }
 
   List<CreateInvoiceItemParams> _buildItemParams() {
     final result = <CreateInvoiceItemParams>[];
     for (final item in state.items) {
-      final amount = double.tryParse(item.amountController.text.isEmpty
-              ? item.amount
-              : item.amountController.text) ??
+      final amount =
+          double.tryParse(
+            item.amountController.text.isEmpty
+                ? item.amount
+                : item.amountController.text,
+          ) ??
           0;
       final description = item.descriptionController.text.trim().isEmpty
           ? item.description.trim()
           : item.descriptionController.text.trim();
       if (description.isEmpty) continue;
       final isDeduction = InvoiceItemTypes.isDeduction(item.type);
-      result.add(CreateInvoiceItemParams(
-        itemType: InvoiceItemTypes.apiCode(item.type),
-        description: description,
-        amount: amount,
-        quantity: 1,
-        sourceCode: item.sourceCode,
-        valueType: isDeduction ? (item.valueType ?? 'FLAT') : null,
-        valueInput: isDeduction
-            ? (double.tryParse(item.valueController.text.trim()) ?? 0)
-            : null,
-      ));
+      result.add(
+        CreateInvoiceItemParams(
+          itemType: InvoiceItemTypes.apiCode(item.type),
+          description: description,
+          amount: amount,
+          quantity: 1,
+          sourceCode: item.sourceCode,
+          valueType: isDeduction ? (item.valueType ?? 'FLAT') : null,
+          valueInput: isDeduction
+              ? (double.tryParse(item.valueController.text.trim()) ?? 0)
+              : null,
+        ),
+      );
     }
     return result;
   }
@@ -627,8 +676,8 @@ class InvoiceItemFormData {
     required this.description,
     required this.amount,
     this.isPrimary = false,
-  })  : descriptionController = TextEditingController(text: description),
-        amountController = TextEditingController(text: amount);
+  }) : descriptionController = TextEditingController(text: description),
+       amountController = TextEditingController(text: amount);
 
   factory InvoiceItemFormData.initial({bool isPrimary = false}) {
     return InvoiceItemFormData(

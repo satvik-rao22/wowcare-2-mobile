@@ -15,9 +15,9 @@ class PublishShiftsCubit extends Cubit<PublishShiftsState> {
   PublishShiftsCubit({
     required PublishStaffShiftsUseCase publishStaffShiftsUseCase,
     required StorageService storageService,
-  })  : _publishStaffShiftsUseCase = publishStaffShiftsUseCase,
-        _storageService = storageService,
-        super(const PublishShiftsState());
+  }) : _publishStaffShiftsUseCase = publishStaffShiftsUseCase,
+       _storageService = storageService,
+       super(const PublishShiftsState());
 
   final PublishStaffShiftsUseCase _publishStaffShiftsUseCase;
   final StorageService _storageService;
@@ -30,10 +30,7 @@ class PublishShiftsCubit extends Cubit<PublishShiftsState> {
     List<String> selectedStaffCodes = const <String>[],
   }) async {
     emit(
-      state.copyWith(
-        status: PublishShiftsStatus.submitting,
-        clearError: true,
-      ),
+      state.copyWith(status: PublishShiftsStatus.submitting, clearError: true),
     );
 
     try {

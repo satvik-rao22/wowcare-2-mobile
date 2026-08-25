@@ -5,9 +5,9 @@ import '../models/student_models.dart';
 /// [StudentHealth] entity.
 extension StudentHealthModelMapper on StudentHealthModel {
   StudentHealth toEntity() => StudentHealth(
-        allergy: allergy,
-        medications: medications,
-        dietRestrictions: dietRestrictions,
-        photoPermission: photoPermission,
-      );
+    allergy: allergy,
+    medications: medications,
+    dietRestrictions: dietRestrictions,
+    photoPermission: photoPermission,
+  );
 }

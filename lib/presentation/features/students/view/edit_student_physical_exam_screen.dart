@@ -15,6 +15,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class EditStudentPhysicalExamScreen extends StatefulWidget {
   const EditStudentPhysicalExamScreen({
@@ -39,9 +40,7 @@ class _EditStudentPhysicalExamScreenState
   String? _status;
   bool _isSaving = false;
 
-  static const List<String> _statusOptions = <String>[
-    'Completed',
-  ];
+  static const List<String> _statusOptions = <String>['Completed'];
 
   @override
   void initState() {
@@ -68,10 +67,8 @@ class _EditStudentPhysicalExamScreenState
     try {
       final result = await showDialog<Map<String, dynamic>>(
         context: context,
-        builder: (context) => const CalendarDialog(
-          isRangePicker: false,
-          isTimePicker: false,
-        ),
+        builder: (context) =>
+            const CalendarDialog(isRangePicker: false, isTimePicker: false),
       );
 
       if (result != null && result['date'] != null) {
@@ -210,17 +207,15 @@ class _EditStudentPhysicalExamScreenState
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          const Text.rich(
+          Text.rich(
             TextSpan(
               text: 'Physical Checkup Date',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 15,
-                fontWeight: FontWeight.w400,
-                color: Color(0xff573353),
-              ),
+              style: AppTextStyles.body.copyWith(color: Color(0xff573353)),
               children: [
-                TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                TextSpan(
+                  text: ' *',
+                  style: AppTextStyles.body.copyWith(color: Colors.red),
+                ),
               ],
             ),
           ),
@@ -239,10 +234,8 @@ class _EditStudentPhysicalExamScreenState
                 children: [
                   Text(
                     selectedDateText,
-                    style: TextStyle(
+                    style: AppTextStyles.body.copyWith(
                       color: _examDate == null ? Colors.grey : Colors.black,
-                      fontSize: 14,
-                      fontFamily: 'Manrope',
                     ),
                   ),
                   SvgPicture.asset(
@@ -263,12 +256,7 @@ class _EditStudentPhysicalExamScreenState
             hintText: 'Select an option',
             items: _statusOptions,
             selectedItem: _status,
-            labelStyle: const TextStyle(
-              fontSize: 15,
-              fontFamily: 'Manrope',
-              fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
-            ),
+            labelStyle: AppTextStyles.body.copyWith(color: Color(0xff573353)),
             labelBottomSpacing: 6,
             onSelect: (val) => setState(() => _status = val ?? _status),
           ),
@@ -306,5 +294,3 @@ class _EditStudentPhysicalExamScreenState
     );
   }
 }
-
-

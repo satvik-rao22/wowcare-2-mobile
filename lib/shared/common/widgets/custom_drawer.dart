@@ -48,6 +48,7 @@ import 'package:wowcare/presentation/features/availability/view/future_availabil
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class CustomDrawer extends StatefulWidget {
   const CustomDrawer({super.key});
@@ -283,11 +284,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   currentName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: AppTextStyles.sectionHeader.copyWith(color: Colors.white),
                 ),
               ),
               Icon(
@@ -943,9 +940,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.go(
-                                      AdminChatHostScreen.routeName,
-                                    );
+                                    context.go(AdminChatHostScreen.routeName);
                                   },
                                 ),
                               if (showParentNewsletterDrawer)
@@ -1349,7 +1344,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           return Text(
                             version.isNotEmpty ? "Version : $version" : "",
                             textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.white),
+                            style: AppTextStyles.body.copyWith(color: Colors.white),
                           );
                         },
                       ),
@@ -1524,7 +1519,7 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                 title: Text(
                   widget.title,
                   maxLines: 1,
-                  style: TextStyle(color: _getTextColor()),
+                  style: AppTextStyles.body.copyWith(color: _getTextColor()),
                 ),
                 children: widget.children,
                 trailing: const Icon(Icons.keyboard_arrow_down),
@@ -1544,11 +1539,9 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                 title: Text(
                   widget.title,
                   maxLines: 1,
-                  style: TextStyle(
-                    color: _effectiveIsCurrentRoute
+                  style: AppTextStyles.body.copyWith(color: _effectiveIsCurrentRoute
                         ? AppColors.themeColor
-                        : Colors.white,
-                  ),
+                        : Colors.white),
                 ),
                 tileColor: _effectiveIsCurrentRoute
                     ? Colors.white
@@ -1610,7 +1603,7 @@ class DrawerListTile extends StatelessWidget {
       onTap: onTap,
       horizontalTitleGap: horizontalTitleGap,
       leading: leading,
-      title: Text(title, maxLines: 1, style: TextStyle(color: textColor)),
+      title: Text(title, maxLines: 1, style: AppTextStyles.body.copyWith(color: textColor)),
       trailing: trailing,
     );
   }
@@ -1656,7 +1649,7 @@ class _NestedExpansionTile extends StatelessWidget {
       title: Text(
         title,
         maxLines: 1,
-        style: const TextStyle(color: AppColors.themeColor),
+        style: AppTextStyles.body.copyWith(color: AppColors.themeColor),
       ),
       // Indent sub-items relative to this tile's own leading icon so they
       // read as nested children (e.g. "Room Chat"/"Admin Chat" under

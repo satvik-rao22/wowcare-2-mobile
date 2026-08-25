@@ -1077,7 +1077,7 @@ class _StudentAttendanceDailyViewScreenState
                                 Expanded(
                                   child: AppText.body(
                                     errorMessage,
-                                    style: TextStyle(
+                                    style: AppTextStyles.body.copyWith(
                                       color: AppColors.errorColor,
                                     ),
                                   ),
@@ -1111,7 +1111,9 @@ class _StudentAttendanceDailyViewScreenState
                                 ),
                                 child: AppText.body(
                                   'No absent students found for the selected date',
-                                  style: TextStyle(color: Colors.grey),
+                                  style: AppTextStyles.body.copyWith(
+                                    color: Colors.grey,
+                                  ),
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -1185,7 +1187,9 @@ class _StudentAttendanceDailyViewScreenState
                                 ),
                                 child: AppText.body(
                                   'No attendance records found for the selected date',
-                                  style: TextStyle(color: Colors.grey),
+                                  style: AppTextStyles.body.copyWith(
+                                    color: Colors.grey,
+                                  ),
                                   textAlign: TextAlign.center,
                                 ),
                               ),

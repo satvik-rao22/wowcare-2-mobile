@@ -25,7 +25,8 @@ class StaffSchedulingRemoteDataSourceImpl
   final Dio _client;
 
   /// Resolves a path on the staff MS (LOCAL tunnel / UAT gateway).
-  static String staffMsEndpoint(String path) => ApiPaths.staffMicroserviceUrl(path);
+  static String staffMsEndpoint(String path) =>
+      ApiPaths.staffMicroserviceUrl(path);
 
   @override
   Future<StaffShiftsPageModel> getStaffShifts({
@@ -66,6 +67,8 @@ class StaffSchedulingRemoteDataSourceImpl
       throw Exception('Unexpected staff-shifts API response format');
     }
 
-    return StaffShiftsPageModel.fromJson(response.data! as Map<String, dynamic>);
+    return StaffShiftsPageModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
   }
 }

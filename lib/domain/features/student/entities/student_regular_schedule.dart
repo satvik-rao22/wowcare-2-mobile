@@ -16,6 +16,11 @@ class StudentRegularScheduleEntry extends Equatable {
   final int endMinute;
 
   @override
-  List<Object?> get props =>
-      [dayOfWeek, startHour, startMinute, endHour, endMinute];
+  List<Object?> get props => [
+    dayOfWeek,
+    startHour,
+    startMinute,
+    endHour,
+    endMinute,
+  ];
 }

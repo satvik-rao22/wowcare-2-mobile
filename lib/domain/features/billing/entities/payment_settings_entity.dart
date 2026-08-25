@@ -44,11 +44,11 @@ class PaymentSettingsEntity extends Equatable {
   /// Allowed `cardType` values for the Forte webview `<select>` (the HTML
   /// hides any option not in this list).
   List<String> get allowedMethods => <String>[
-        if (acceptsCard) 'visa',
-        if (acceptsCard) 'mast',
-        if (acceptsCard) 'disc',
-        if (acceptAch) 'echeck',
-      ];
+    if (acceptsCard) 'visa',
+    if (acceptsCard) 'mast',
+    if (acceptsCard) 'disc',
+    if (acceptAch) 'echeck',
+  ];
 
   /// Permissive fallback used until real settings load (or when they fail):
   /// accept every method and assume the parent pays the fee, so nothing is
@@ -64,12 +64,12 @@ class PaymentSettingsEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        acceptCreditCard,
-        creditCardFeePaidBy,
-        acceptDebitCard,
-        debitCardFeePaidBy,
-        acceptAch,
-        achFeePaidBy,
-        schoolCode,
-      ];
+    acceptCreditCard,
+    creditCardFeePaidBy,
+    acceptDebitCard,
+    debitCardFeePaidBy,
+    acceptAch,
+    achFeePaidBy,
+    schoolCode,
+  ];
 }

@@ -68,7 +68,8 @@ class LedgerRemoteDataSourceImpl implements LedgerRemoteDataSource {
       data: request.toJson(),
     );
 
-    final data = (response.data?['data'] as Map<String, dynamic>?) ??
+    final data =
+        (response.data?['data'] as Map<String, dynamic>?) ??
         response.data ??
         {};
     return LedgerModel.fromJson(data);
@@ -80,7 +81,8 @@ class LedgerRemoteDataSourceImpl implements LedgerRemoteDataSource {
       ApiPaths.url(ApiPaths.ledgerByCode(ledgerCode)),
     );
 
-    final data = (response.data?['data'] as Map<String, dynamic>?) ??
+    final data =
+        (response.data?['data'] as Map<String, dynamic>?) ??
         response.data ??
         {};
     return LedgerModel.fromJson(data);
@@ -88,9 +90,7 @@ class LedgerRemoteDataSourceImpl implements LedgerRemoteDataSource {
 
   @override
   Future<void> deleteLedger(String ledgerCode) async {
-    await _client.delete<void>(
-      ApiPaths.url(ApiPaths.ledgerByCode(ledgerCode)),
-    );
+    await _client.delete<void>(ApiPaths.url(ApiPaths.ledgerByCode(ledgerCode)));
   }
 
   @override
@@ -103,7 +103,8 @@ class LedgerRemoteDataSourceImpl implements LedgerRemoteDataSource {
       data: request.toJson(),
     );
 
-    final data = (response.data?['data'] as Map<String, dynamic>?) ??
+    final data =
+        (response.data?['data'] as Map<String, dynamic>?) ??
         response.data ??
         {};
     return LedgerModel.fromJson(data);

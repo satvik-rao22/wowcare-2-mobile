@@ -460,7 +460,8 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                           setState(() => _expandAll = !_expandAll),
                       staffAttendanceStatusByCode: _staffSignInStatusByCode,
                       highlightShiftCode: widget.highlightShiftCode,
-                      highlightClassroomCode: _tappedHighlightClassroomCode ??
+                      highlightClassroomCode:
+                          _tappedHighlightClassroomCode ??
                           widget.highlightClassroomCode,
                       onStaffShiftTap: (entry, classroomName) =>
                           _openStaffShiftFromEntry(
@@ -544,9 +545,9 @@ class _DatePickerHeader extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         // Creating shifts is a CLASSROOM_SCHEDULE write.
-        if (context
-            .read<RoleCubit>()
-            .canWriteModule(AppAccessModules.classroomSchedule))
+        if (context.read<RoleCubit>().canWriteModule(
+          AppAccessModules.classroomSchedule,
+        ))
           GradientAddButton(onTap: onAddTap),
       ],
     );
@@ -669,7 +670,8 @@ class _DailyClassroomListCard extends StatelessWidget {
             for (int i = 0; i < classrooms.length; i++)
               DayClassroomSection(
                 key: ValueKey(
-                    'day-${classrooms[i].classroomCode}-$expandAll-$highlightClassroomCode'),
+                  'day-${classrooms[i].classroomCode}-$expandAll-$highlightClassroomCode',
+                ),
                 classroom: classrooms[i],
                 viewMode: SchedulingViewMode.day,
                 day: day,

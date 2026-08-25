@@ -28,7 +28,7 @@ final class OnboardingCompleted extends OnboardingState {
 /// Owns the onboarding completion logic so the view stays display-only.
 class OnboardingCubit extends Cubit<OnboardingState> {
   OnboardingCubit(this._authLocalDataSource, this._storage)
-      : super(const OnboardingInitial());
+    : super(const OnboardingInitial());
 
   final AuthLocalDataSource _authLocalDataSource;
   final StorageService _storage;

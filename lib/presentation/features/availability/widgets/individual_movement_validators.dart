@@ -4,8 +4,7 @@ import 'package:wowcare/presentation/features/availability/widgets/individual_mo
 class IndividualMovementValidators {
   IndividualMovementValidators._();
 
-  static DateTime dateOnly(DateTime d) =>
-      DateTime(d.year, d.month, d.day);
+  static DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
   /// Same student, same calendar day, same from & to => duplicate.
   static bool isDuplicateMovement({

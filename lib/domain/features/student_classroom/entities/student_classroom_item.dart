@@ -41,23 +41,21 @@ class StudentClassroomItem extends Equatable {
 
   @override
   List<Object?> get props => [
-        classroomCode,
-        studentCode,
-        firstName,
-        lastName,
-        profilePictureUrl,
-        status,
-        expectedToday,
-        signedIn,
-        absent,
-        notMarked,
-        nap,
-        photoPermission,
-        notes,
-        medication,
-        allergies,
-        dietaryRestriction,
-      ];
+    classroomCode,
+    studentCode,
+    firstName,
+    lastName,
+    profilePictureUrl,
+    status,
+    expectedToday,
+    signedIn,
+    absent,
+    notMarked,
+    nap,
+    photoPermission,
+    notes,
+    medication,
+    allergies,
+    dietaryRestriction,
+  ];
 }
-
-

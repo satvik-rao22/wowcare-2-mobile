@@ -36,4 +36,3 @@ class ActivityUploadSessionModel extends ActivityUploadSession {
     );
   }
 }
-

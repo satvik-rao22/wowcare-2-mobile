@@ -41,10 +41,7 @@ class ClassroomCountModel {
 }
 
 class SchoolFteModel {
-  const SchoolFteModel({
-    required this.schoolCode,
-    required this.schoolFte,
-  });
+  const SchoolFteModel({required this.schoolCode, required this.schoolFte});
 
   final String schoolCode;
   final double schoolFte;

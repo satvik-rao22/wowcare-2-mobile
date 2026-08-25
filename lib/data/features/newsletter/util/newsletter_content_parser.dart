@@ -3,7 +3,10 @@ import 'dart:convert';
 import 'package:wowcare/data/features/newsletter/models/newsletter_models.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_component.dart';
 
-final RegExp _assetCodePattern = RegExp(r'AST_[A-Z0-9-]+', caseSensitive: false);
+final RegExp _assetCodePattern = RegExp(
+  r'AST_[A-Z0-9-]+',
+  caseSensitive: false,
+);
 
 /// Builds ordered preview components from API `components` or `layoutJson`.
 List<NewsletterComponent> parseNewsletterComponents({
@@ -11,17 +14,18 @@ List<NewsletterComponent> parseNewsletterComponents({
   required String layoutJson,
 }) {
   if (components.isNotEmpty) {
-    final parsed = components
-        .map(
-          (NewsletterComponentModel model) => NewsletterComponent(
-            id: model.id,
-            componentType: model.componentType,
-            sortOrder: model.sortOrder,
-            parts: parseComponentParts(contentJson: model.contentJson),
-          ),
-        )
-        .toList()
-      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final parsed =
+        components
+            .map(
+              (NewsletterComponentModel model) => NewsletterComponent(
+                id: model.id,
+                componentType: model.componentType,
+                sortOrder: model.sortOrder,
+                parts: parseComponentParts(contentJson: model.contentJson),
+              ),
+            )
+            .toList()
+          ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     return parsed;
   }
 

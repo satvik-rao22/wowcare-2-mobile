@@ -18,11 +18,10 @@ class StudentImportantDates extends Equatable {
 
   @override
   List<Object?> get props => [
-        enrollDate,
-        schoolStartDate,
-        currentClassroomStartDate,
-        upcomingMoveDate,
-        schoolLeavingDate,
-      ];
+    enrollDate,
+    schoolStartDate,
+    currentClassroomStartDate,
+    upcomingMoveDate,
+    schoolLeavingDate,
+  ];
 }
-

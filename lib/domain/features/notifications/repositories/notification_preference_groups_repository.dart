@@ -2,7 +2,9 @@ import 'package:wowcare/data/features/notifications/models/notification_preferen
 import 'package:wowcare/domain/features/notifications/entities/notification_preference_group.dart';
 
 abstract class NotificationPreferenceGroupsRepository {
-  Future<List<NotificationPreferenceGroup>> getGroups({required String userCode});
+  Future<List<NotificationPreferenceGroup>> getGroups({
+    required String userCode,
+  });
 
   Future<void> updateGroups({
     required String userCode,

@@ -71,24 +71,39 @@ class NewsletterModel extends Equatable {
       updatedAt: DateTime.tryParse((json['updatedAt'] ?? '').toString()),
       components: componentsJson is List
           ? componentsJson
-              .whereType<Map>()
-              .map((e) => NewsletterComponentModel.fromJson(Map<String, dynamic>.from(e)))
-              .toList(growable: false)
+                .whereType<Map>()
+                .map(
+                  (e) => NewsletterComponentModel.fromJson(
+                    Map<String, dynamic>.from(e),
+                  ),
+                )
+                .toList(growable: false)
           : const <NewsletterComponentModel>[],
       attachments: attachmentsJson is List
           ? attachmentsJson
-              .whereType<Map>()
-              .map((e) => NewsletterAttachmentModel.fromJson(Map<String, dynamic>.from(e)))
-              .toList(growable: false)
+                .whereType<Map>()
+                .map(
+                  (e) => NewsletterAttachmentModel.fromJson(
+                    Map<String, dynamic>.from(e),
+                  ),
+                )
+                .toList(growable: false)
           : const <NewsletterAttachmentModel>[],
       recipients: recipientsJson is List
           ? recipientsJson
-              .whereType<Map>()
-              .map((e) => NewsletterRecipientModel.fromJson(Map<String, dynamic>.from(e)))
-              .toList(growable: false)
+                .whereType<Map>()
+                .map(
+                  (e) => NewsletterRecipientModel.fromJson(
+                    Map<String, dynamic>.from(e),
+                  ),
+                )
+                .toList(growable: false)
           : const <NewsletterRecipientModel>[],
-      recipientCount: json['recipientCount'] as int? ??
-          (json['recipients'] is List ? (json['recipients'] as List).length : 0),
+      recipientCount:
+          json['recipientCount'] as int? ??
+          (json['recipients'] is List
+              ? (json['recipients'] as List).length
+              : 0),
     );
   }
 
@@ -142,25 +157,24 @@ class NewsletterModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        code,
-        organizationCode,
-        schoolCode,
-        title,
-        subtitle,
-        layoutJson,
-        backgroundPattern,
-        colorTheme,
-        assetCode,
-        status,
-        createdBy,
-        createdByName,
-        createdAt,
-        updatedAt,
-        components,
-        attachments,
-        recipients,
-        recipientCount,
-      ];
+    id,
+    code,
+    organizationCode,
+    schoolCode,
+    title,
+    subtitle,
+    layoutJson,
+    backgroundPattern,
+    colorTheme,
+    assetCode,
+    status,
+    createdBy,
+    createdByName,
+    createdAt,
+    updatedAt,
+    components,
+    attachments,
+    recipients,
+    recipientCount,
+  ];
 }
-

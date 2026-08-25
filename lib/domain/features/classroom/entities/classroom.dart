@@ -30,4 +30,3 @@ class Classroom extends Equatable {
   @override
   List<Object?> get props => [code, name, minAgeMonths, maxAgeMonths];
 }
-

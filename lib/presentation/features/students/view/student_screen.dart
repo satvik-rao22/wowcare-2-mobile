@@ -60,6 +60,7 @@ import '../../../../shared/common/widgets/post_add_student_bottom_sheet.dart';
 import '../widgets/student_card.dart';
 import 'add_student_wizard_screen.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class StudentScreen extends StatefulWidget {
   const StudentScreen({
@@ -1845,10 +1846,8 @@ class _StudentScreenState extends State<StudentScreen> {
                                     // status filter, next to the gradient Clear All.
                                     CustomChip(
                                       label: _statusChipLabel(),
-                                      labelStyle: const TextStyle(
+                                      labelStyle: AppTextStyles.label.copyWith(
                                         color: AppColors.secondaryColor,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
                                       ),
                                       color: const Color.fromRGBO(
                                         177,
@@ -1857,7 +1856,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                         0.3,
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    SizedBox(width: 8),
                                     CustomClearAllChip(
                                       onTap: () => _clearAllFilters(),
                                     ),
@@ -1867,12 +1866,9 @@ class _StudentScreenState extends State<StudentScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
-                                    const Text(
+                                    Text(
                                       'Show inactive',
-                                      style: TextStyle(
-                                        fontFamily: 'Manrope',
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
+                                      style: AppTextStyles.label.copyWith(
                                         color: Color(0xff573353),
                                       ),
                                     ),
@@ -1946,7 +1942,9 @@ class _StudentScreenState extends State<StudentScreen> {
                               children: [
                                 Text(
                                   'Error loading students',
-                                  style: TextStyle(color: Colors.red),
+                                  style: AppTextStyles.body.copyWith(
+                                    color: Colors.red,
+                                  ),
                                 ),
                                 const SizedBox(height: 8),
                                 ElevatedButton(

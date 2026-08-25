@@ -3,28 +3,28 @@
 <plist version="1.0">
 <dict>
 	<key>API_KEY</key>
-	<string>AIzaSyB0F4lAWYniARnK39Z_PV8_PYmBmDQrvv4</string>
+	<string>AIzaSyA15iigpnFAe6Zo85KQ3baWKhXnB4rUXII</string>
 	<key>GCM_SENDER_ID</key>
-	<string>861387942693</string>
+	<string>767932730187</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
 	<string>com.wiseowl.wowcareapp</string>
 	<key>PROJECT_ID</key>
-	<string>wowcare2-atoconn</string>
+	<string>wowcare2-prod</string>
 	<key>STORAGE_BUCKET</key>
-	<string>wowcare2-atoconn.firebasestorage.app</string>
+	<string>wowcare2-prod.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
-	<false/>
+	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
-	<false/>
+	<false></false>
 	<key>IS_APPINVITE_ENABLED</key>
-	<true/>
+	<true></true>
 	<key>IS_GCM_ENABLED</key>
-	<true/>
+	<true></true>
 	<key>IS_SIGNIN_ENABLED</key>
-	<true/>
+	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:861387942693:ios:6d658e9f7daf22295548cc</string>
+	<string>1:767932730187:ios:1f3b958333d932811cf6ce</string>
 </dict>
 </plist>

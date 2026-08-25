@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class RoundedButton extends StatefulWidget {
   final String lable;
@@ -54,7 +55,7 @@ class _RoundedButtonState extends State<RoundedButton> {
                 )
               : Text(
                   widget.lable,
-                  style: TextStyle(color: widget.lableColor, fontSize: 16),
+                  style: AppTextStyles.bodyLarge.copyWith(color: widget.lableColor),
                 ),
         ),
       ),

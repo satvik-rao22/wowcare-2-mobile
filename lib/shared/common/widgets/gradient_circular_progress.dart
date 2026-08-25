@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class GradientCircularProgress extends StatelessWidget {
   final double size;
@@ -42,15 +43,13 @@ class GradientCircularProgress extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               loadingText!,
-              style: textStyle ?? TextStyle(
-                color: AppColors.primaryColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+              style:
+                  textStyle ??
+                  AppTextStyles.body.copyWith(color: AppColors.primaryColor),
             ),
           ],
         ],
       ),
     );
   }
-} 
+}

@@ -18,7 +18,7 @@ class SelectionState<T> extends Equatable {
 
 class SelectionCubit<T> extends Cubit<SelectionState<T>> {
   SelectionCubit({Set<T>? initialSelection})
-      : super(SelectionState<T>(selectedItems: initialSelection ?? <T>{}));
+    : super(SelectionState<T>(selectedItems: initialSelection ?? <T>{}));
 
   void toggle(T item) {
     final current = Set<T>.from(state.selectedItems);

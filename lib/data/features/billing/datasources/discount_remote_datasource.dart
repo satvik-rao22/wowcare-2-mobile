@@ -62,7 +62,9 @@ class DiscountRemoteDataSourceImpl implements DiscountRemoteDataSource {
       data: request.toJson(),
     );
     final data =
-        (response.data?['data'] as Map<String, dynamic>?) ?? response.data ?? {};
+        (response.data?['data'] as Map<String, dynamic>?) ??
+        response.data ??
+        {};
     return DiscountModel.fromJson(data);
   }
 
@@ -76,7 +78,9 @@ class DiscountRemoteDataSourceImpl implements DiscountRemoteDataSource {
       data: request.toJson(),
     );
     final data =
-        (response.data?['data'] as Map<String, dynamic>?) ?? response.data ?? {};
+        (response.data?['data'] as Map<String, dynamic>?) ??
+        response.data ??
+        {};
     return DiscountModel.fromJson(data);
   }
 
@@ -87,13 +91,11 @@ class DiscountRemoteDataSourceImpl implements DiscountRemoteDataSource {
 
   @override
   Future<void> deactivateDiscount(String code) async {
-    await _client.post<void>(
-        ApiPaths.url(ApiPaths.discountDeactivate(code)));
+    await _client.post<void>(ApiPaths.url(ApiPaths.discountDeactivate(code)));
   }
 
   @override
   Future<void> reactivateDiscount(String code) async {
-    await _client.post<void>(
-        ApiPaths.url(ApiPaths.discountReactivate(code)));
+    await _client.post<void>(ApiPaths.url(ApiPaths.discountReactivate(code)));
   }
 }

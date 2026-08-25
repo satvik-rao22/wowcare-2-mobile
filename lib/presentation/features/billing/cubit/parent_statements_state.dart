@@ -13,14 +13,14 @@ class ParentStatementsState extends Equatable {
   });
 
   const ParentStatementsState.initial()
-      : customStartDate = null,
-        customEndDate = null,
-        isStatementsLoading = false,
-        isGenerating = false,
-        displayCount = 10,
-        statements = const [],
-        downloadingCodes = const {},
-        errorMessage = '';
+    : customStartDate = null,
+      customEndDate = null,
+      isStatementsLoading = false,
+      isGenerating = false,
+      displayCount = 10,
+      statements = const [],
+      downloadingCodes = const {},
+      errorMessage = '';
 
   final DateTime? customStartDate;
   final DateTime? customEndDate;
@@ -48,14 +48,26 @@ class ParentStatementsState extends Equatable {
     Iterable<BillingStatementEntity> result = all;
     if (hasDateRange) {
       final selectedStart = DateTime(
-          customStartDate!.year, customStartDate!.month, customStartDate!.day);
+        customStartDate!.year,
+        customStartDate!.month,
+        customStartDate!.day,
+      );
       final selectedEnd = DateTime(
-          customEndDate!.year, customEndDate!.month, customEndDate!.day);
+        customEndDate!.year,
+        customEndDate!.month,
+        customEndDate!.day,
+      );
       result = all.where((stmt) {
-        final stmtStart = DateTime(stmt.periodStart.year, stmt.periodStart.month,
-            stmt.periodStart.day);
-        final stmtEnd =
-            DateTime(stmt.periodEnd.year, stmt.periodEnd.month, stmt.periodEnd.day);
+        final stmtStart = DateTime(
+          stmt.periodStart.year,
+          stmt.periodStart.month,
+          stmt.periodStart.day,
+        );
+        final stmtEnd = DateTime(
+          stmt.periodEnd.year,
+          stmt.periodEnd.month,
+          stmt.periodEnd.day,
+        );
         return stmtStart.isBefore(selectedEnd.add(const Duration(days: 1))) &&
             stmtEnd.isAfter(selectedStart.subtract(const Duration(days: 1)));
       });
@@ -90,29 +102,32 @@ class ParentStatementsState extends Equatable {
     String? Function()? errorMessage,
   }) {
     return ParentStatementsState(
-      customStartDate:
-          customStartDate != null ? customStartDate() : this.customStartDate,
-      customEndDate:
-          customEndDate != null ? customEndDate() : this.customEndDate,
+      customStartDate: customStartDate != null
+          ? customStartDate()
+          : this.customStartDate,
+      customEndDate: customEndDate != null
+          ? customEndDate()
+          : this.customEndDate,
       isStatementsLoading: isStatementsLoading ?? this.isStatementsLoading,
       isGenerating: isGenerating ?? this.isGenerating,
       displayCount: displayCount ?? this.displayCount,
       statements: statements ?? this.statements,
       downloadingCodes: downloadingCodes ?? this.downloadingCodes,
-      errorMessage:
-          errorMessage != null ? (errorMessage() ?? '') : this.errorMessage,
+      errorMessage: errorMessage != null
+          ? (errorMessage() ?? '')
+          : this.errorMessage,
     );
   }
 
   @override
   List<Object?> get props => [
-        customStartDate,
-        customEndDate,
-        isStatementsLoading,
-        isGenerating,
-        displayCount,
-        statements,
-        downloadingCodes,
-        errorMessage,
-      ];
+    customStartDate,
+    customEndDate,
+    isStatementsLoading,
+    isGenerating,
+    displayCount,
+    statements,
+    downloadingCodes,
+    errorMessage,
+  ];
 }

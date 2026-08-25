@@ -63,7 +63,10 @@ class DiscountCard extends StatelessWidget {
             Expanded(
               child: isActive
                   ? _FilledActionButton(label: 'Edit', onTap: onEdit)
-                  : _OutlineActionButton(label: 'Reactivate', onTap: onReactivate),
+                  : _OutlineActionButton(
+                      label: 'Reactivate',
+                      onTap: onReactivate,
+                    ),
             ),
           ],
         ),
@@ -137,9 +140,7 @@ class _OutlineActionButton extends StatelessWidget {
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
           side: const BorderSide(color: _accent),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: Text(
           label,

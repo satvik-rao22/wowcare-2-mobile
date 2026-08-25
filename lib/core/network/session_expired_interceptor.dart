@@ -23,7 +23,10 @@ class SessionExpiredInterceptor extends Interceptor {
   static const String _retriedFlag = '__retried';
 
   @override
-  Future<void> onError(DioException err, ErrorInterceptorHandler handler) async {
+  Future<void> onError(
+    DioException err,
+    ErrorInterceptorHandler handler,
+  ) async {
     final status = err.response?.statusCode;
     if (status != 401 || _shouldIgnorePath(err.requestOptions)) {
       handler.next(err);
@@ -50,7 +53,9 @@ class SessionExpiredInterceptor extends Interceptor {
           // Surface the REPLAY's error, not the original 401: propagating the
           // stale 401 would tell every caller "session dead" for what was
           // actually a network failure — the same mistake, one layer down.
-          AppLogger.d('[TokenRefresh] replay after refresh failed: $replayError');
+          AppLogger.d(
+            '[TokenRefresh] replay after refresh failed: $replayError',
+          );
           handler.next(replayError);
           return;
         } catch (e) {

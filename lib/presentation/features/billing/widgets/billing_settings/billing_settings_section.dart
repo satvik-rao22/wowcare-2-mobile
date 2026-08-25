@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_settings/discounts_section.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class BillingSettingsSection extends StatefulWidget {
   const BillingSettingsSection({
@@ -13,8 +14,7 @@ class BillingSettingsSection extends StatefulWidget {
   final VoidCallback? onLoadMoreNeeded;
 
   @override
-  State<BillingSettingsSection> createState() =>
-      _BillingSettingsSectionState();
+  State<BillingSettingsSection> createState() => _BillingSettingsSectionState();
 }
 
 class _BillingSettingsSectionState extends State<BillingSettingsSection> {
@@ -48,10 +48,7 @@ class _BillingSettingsSectionState extends State<BillingSettingsSection> {
                   ),
                   child: Text(
                     _subTabs[index],
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                    style: AppTextStyles.title.copyWith(
                       color: isSelected
                           ? AppColors.themeColor
                           : const Color(0xff573353),

@@ -20,10 +20,10 @@ class ActivityModerationCubit extends Cubit<ActivityModerationState> {
     required DeleteActivityUseCase deleteActivityUseCase,
     required ApproveActivityUseCase approveActivityUseCase,
     required RejectActivityUseCase rejectActivityUseCase,
-  })  : _delete = deleteActivityUseCase,
-        _approve = approveActivityUseCase,
-        _reject = rejectActivityUseCase,
-        super(const ActivityModerationIdle());
+  }) : _delete = deleteActivityUseCase,
+       _approve = approveActivityUseCase,
+       _reject = rejectActivityUseCase,
+       super(const ActivityModerationIdle());
 
   final DeleteActivityUseCase _delete;
   final ApproveActivityUseCase _approve;
@@ -49,10 +49,12 @@ class ActivityModerationCubit extends Cubit<ActivityModerationState> {
       emit(ActivityModerationSuccess(action: action, message: message));
     } catch (e) {
       if (isClosed) return;
-      emit(ActivityModerationFailure(
-        action: action,
-        message: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        ActivityModerationFailure(
+          action: action,
+          message: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 }

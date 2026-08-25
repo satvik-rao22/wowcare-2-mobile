@@ -10,11 +10,11 @@ class LedgerFormState extends Equatable {
   });
 
   const LedgerFormState.initial(String? initialCategory)
-      : selectedCategory = initialCategory,
-        isSubmitting = false,
-        isLoading = false,
-        titleError = false,
-        categoryError = false;
+    : selectedCategory = initialCategory,
+      isSubmitting = false,
+      isLoading = false,
+      titleError = false,
+      categoryError = false;
 
   final String? selectedCategory;
   final bool isSubmitting;
@@ -30,7 +30,9 @@ class LedgerFormState extends Equatable {
     bool? categoryError,
   }) {
     return LedgerFormState(
-      selectedCategory: selectedCategory != null ? selectedCategory() : this.selectedCategory,
+      selectedCategory: selectedCategory != null
+          ? selectedCategory()
+          : this.selectedCategory,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       isLoading: isLoading ?? this.isLoading,
       titleError: titleError ?? this.titleError,
@@ -39,6 +41,11 @@ class LedgerFormState extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      [selectedCategory, isSubmitting, isLoading, titleError, categoryError];
+  List<Object?> get props => [
+    selectedCategory,
+    isSubmitting,
+    isLoading,
+    titleError,
+    categoryError,
+  ];
 }

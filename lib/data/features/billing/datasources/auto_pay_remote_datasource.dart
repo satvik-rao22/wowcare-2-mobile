@@ -7,7 +7,9 @@ abstract class AutoPayRemoteDataSource {
     required String organizationCode,
     required String schoolCode,
   });
-  Future<PaymentSettingsModel?> getPaymentSettings({required String schoolCode});
+  Future<PaymentSettingsModel?> getPaymentSettings({
+    required String schoolCode,
+  });
   Future<AutoPayStatusModel> getAutoPayStatus({
     required String organizationCode,
     required String schoolCode,
@@ -25,7 +27,8 @@ abstract class AutoPayRemoteDataSource {
     required String guardianCode,
   });
   Future<PaymentMethodModel> addPaymentMethod(
-      AddPaymentMethodRequestModel request);
+    AddPaymentMethodRequestModel request,
+  );
   Future<PaymentMethodModel> setPrimaryPaymentMethod({
     required String paymentMethodCode,
     required String organizationCode,
@@ -164,7 +167,8 @@ class AutoPayRemoteDataSourceImpl implements AutoPayRemoteDataSource {
 
   @override
   Future<PaymentMethodModel> addPaymentMethod(
-      AddPaymentMethodRequestModel request) async {
+    AddPaymentMethodRequestModel request,
+  ) async {
     final response = await _client.post<Map<String, dynamic>>(
       ApiPaths.url(ApiPaths.paymentGatewayMethods),
       data: request.toJson(),
@@ -251,7 +255,8 @@ class AutoPayRemoteDataSourceImpl implements AutoPayRemoteDataSource {
 
   @override
   Future<GuardianPayResultModel> guardianPay(
-      GuardianPayRequestModel request) async {
+    GuardianPayRequestModel request,
+  ) async {
     final response = await _client.post<Map<String, dynamic>>(
       ApiPaths.url(ApiPaths.paymentGatewayGuardianPay),
       data: request.toJson(),

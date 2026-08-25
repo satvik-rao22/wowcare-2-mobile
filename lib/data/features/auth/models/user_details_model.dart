@@ -29,9 +29,7 @@ import 'package:equatable/equatable.dart';
 ///   ]
 /// }
 class UserDetailsResponseModel extends Equatable {
-  const UserDetailsResponseModel({
-    required this.data,
-  });
+  const UserDetailsResponseModel({required this.data});
 
   final List<UserDetailModel> data;
 
@@ -76,8 +74,12 @@ class UserDetailModel extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      [userCode, organizationCode, organizationName, schools];
+  List<Object?> get props => [
+    userCode,
+    organizationCode,
+    organizationName,
+    schools,
+  ];
 }
 
 class SchoolDetailModel extends Equatable {
@@ -110,7 +112,13 @@ class SchoolDetailModel extends Equatable {
   }
 
   @override
-  List<Object?> get props => [schoolCode, schoolName, status, role, permissions];
+  List<Object?> get props => [
+    schoolCode,
+    schoolName,
+    status,
+    role,
+    permissions,
+  ];
 }
 
 class PermissionModel extends Equatable {

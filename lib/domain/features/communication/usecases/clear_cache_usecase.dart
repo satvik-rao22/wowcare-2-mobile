@@ -14,6 +14,5 @@ class ClearConversationsCacheUseCase {
   final CommunicationRepository _repository;
   ClearConversationsCacheUseCase(this._repository);
 
-  Future<Either<Failure, void>> call() =>
-      _repository.clearConversationsCache();
+  Future<Either<Failure, void>> call() => _repository.clearConversationsCache();
 }

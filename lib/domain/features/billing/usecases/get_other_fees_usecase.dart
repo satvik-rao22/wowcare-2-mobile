@@ -6,9 +6,6 @@ class GetOtherFeesUseCase {
 
   final InvoiceCatalogRepository _repository;
 
-  Future<List<OtherFeeEntity>> call({
-    required String school,
-    String? status,
-  }) =>
+  Future<List<OtherFeeEntity>> call({required String school, String? status}) =>
       _repository.getOtherFees(school: school, status: status);
 }

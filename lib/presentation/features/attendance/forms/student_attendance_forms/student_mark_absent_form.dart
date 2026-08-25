@@ -95,7 +95,9 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
           Navigator.of(context).pop();
         } else {
           redirectToAttendanceDaily(
-              context, StudentAttendanceTabbedView.routeName);
+            context,
+            StudentAttendanceTabbedView.routeName,
+          );
         }
       case false:
         final message = outcome.error != null
@@ -133,18 +135,14 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
     if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
       context,
     )) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
           child: Padding(
             padding: EdgeInsets.all(24.0),
             child: Text(
               'Access Denied: You must be inside geofence and signed in to manage student attendance.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.red,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTextStyles.title.copyWith(color: Colors.red),
             ),
           ),
         ),
@@ -225,7 +223,8 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: const BorderSide(
-                              color: Color.fromRGBO(87, 51, 83, 0.4)),
+                            color: Color.fromRGBO(87, 51, 83, 0.4),
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -290,14 +289,9 @@ class RemoveStudentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.themeColor,
-        ),
+        border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
@@ -320,10 +314,8 @@ class RemoveStudentTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     softWrap: false,
-                    style: const TextStyle(
+                    style: AppTextStyles.body.copyWith(
                       color: AppColors.primaryColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -333,7 +325,7 @@ class RemoveStudentTile extends StatelessWidget {
           GestureDetector(
             onTap: onRemove,
             child: SvgPicture.asset(MediaRes.delete_icon),
-          )
+          ),
         ],
       ),
     );

@@ -36,6 +36,7 @@ import 'package:wowcare/presentation/features/communication/shared/utils/partici
 import 'package:wowcare/presentation/features/communication/shared/widgets/messaging_shimmer.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../widgets/messaging_list_tile.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class StaffMessagingTab extends StatefulWidget {
   const StaffMessagingTab({super.key, this.isStaffMessaging = true});
@@ -1564,13 +1565,13 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                   : (widget.isStaffMessaging
                         ? 'No staff conversations yet'
                         : 'No conversations yet'),
-              style: const TextStyle(fontSize: 15, color: Colors.grey),
+              style: AppTextStyles.body.copyWith(color: Colors.grey),
             ),
             if (!noMatches) ...[
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 'Use the + button to start one',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
+                style: AppTextStyles.label.copyWith(color: Colors.grey),
               ),
             ],
           ],
@@ -1702,25 +1703,21 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                   children: [
                     Text(
                       contact.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                      style: AppTextStyles.title.copyWith(
                         color: Color(0xff573353),
                       ),
                     ),
                     if (isDisabled)
                       Text(
                         contact.isInactive ? 'Inactive' : 'No parent linked',
-                        style: const TextStyle(
-                          fontSize: 12,
+                        style: AppTextStyles.bodySmall.copyWith(
                           color: Color(0xFF636E72),
                         ),
                       )
                     else if (contact.subtitle.isNotEmpty)
                       Text(
                         contact.subtitle,
-                        style: const TextStyle(
-                          fontSize: 13,
+                        style: AppTextStyles.label.copyWith(
                           color: Color(0xFF636E72),
                         ),
                       ),

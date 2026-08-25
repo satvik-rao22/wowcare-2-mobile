@@ -33,14 +33,14 @@ class SchedulingCubit extends Cubit<SchedulingState> {
     required SchedulingStaffListCubit schedulingStaffListCubit,
     required StaffRepository staffRepository,
     required StorageService storageService,
-  })  : _getSchoolStaffShiftsUseCase = getSchoolStaffShiftsUseCase,
-        _getClassroomForecastUseCase = getClassroomForecastUseCase,
-        _getClassroomForecastRangeUseCase = getClassroomForecastRangeUseCase,
-        _getStaffShiftHoursRangeUseCase = getStaffShiftHoursRangeUseCase,
-        _schedulingStaffListCubit = schedulingStaffListCubit,
-        _staffRepository = staffRepository,
-        _storageService = storageService,
-        super(SchedulingState.initial());
+  }) : _getSchoolStaffShiftsUseCase = getSchoolStaffShiftsUseCase,
+       _getClassroomForecastUseCase = getClassroomForecastUseCase,
+       _getClassroomForecastRangeUseCase = getClassroomForecastRangeUseCase,
+       _getStaffShiftHoursRangeUseCase = getStaffShiftHoursRangeUseCase,
+       _schedulingStaffListCubit = schedulingStaffListCubit,
+       _staffRepository = staffRepository,
+       _storageService = storageService,
+       super(SchedulingState.initial());
 
   final GetSchoolStaffShiftsUseCase _getSchoolStaffShiftsUseCase;
   final GetClassroomForecastUseCase _getClassroomForecastUseCase;
@@ -186,12 +186,7 @@ class SchedulingCubit extends Cubit<SchedulingState> {
       );
 
       if (isClosed) return;
-      emit(
-        state.copyWith(
-          isLoading: false,
-          classrooms: classrooms,
-        ),
-      );
+      emit(state.copyWith(isLoading: false, classrooms: classrooms));
       _hasLoadedOnce = true;
     } catch (e) {
       if (isClosed) return;
@@ -217,12 +212,12 @@ class SchedulingCubit extends Cubit<SchedulingState> {
     var codes = filteredCode != null
         ? <String>[filteredCode]
         : _allClassroomCodes.isNotEmpty
-            ? List<String>.from(_allClassroomCodes)
-            : shifts
-                .map((s) => s.classroomCode.trim())
-                .where((c) => c.isNotEmpty)
-                .toSet()
-                .toList(growable: false);
+        ? List<String>.from(_allClassroomCodes)
+        : shifts
+              .map((s) => s.classroomCode.trim())
+              .where((c) => c.isNotEmpty)
+              .toSet()
+              .toList(growable: false);
 
     var base = _mergeClassroomSchedules(
       _groupShiftsByClassroom(
@@ -249,9 +244,7 @@ class SchedulingCubit extends Cubit<SchedulingState> {
     final windowEnd = ForecastSlotMapper.minutesOf(displayEnd);
 
     if (codes.isEmpty) {
-      codes.addAll(
-        base.map((c) => c.classroomCode).where((c) => c.isNotEmpty),
-      );
+      codes.addAll(base.map((c) => c.classroomCode).where((c) => c.isNotEmpty));
     }
     if (codes.isEmpty) {
       return _applyDaySchoolHoursShell(
@@ -294,9 +287,9 @@ class SchedulingCubit extends Cubit<SchedulingState> {
     for (final block in forecastBlocks) {
       final code = block.classroomCode.trim();
       if (code.isEmpty) continue;
-      blocksByClassroom.putIfAbsent(code, () => <ClassroomForecastBlock>[]).add(
-            block,
-          );
+      blocksByClassroom
+          .putIfAbsent(code, () => <ClassroomForecastBlock>[])
+          .add(block);
     }
 
     if (state.viewMode == SchedulingViewMode.week) {
@@ -404,83 +397,85 @@ class SchedulingCubit extends Cubit<SchedulingState> {
       shiftsForScheduledCount: classroomShifts,
     );
 
-    final staffEntries = classroom.staff.map((entry) {
-      final shiftCode = entry.shiftCode?.trim() ?? '';
-      if (shiftCode.isEmpty) {
-        return StaffScheduleEntry(
-          staffName: entry.staffName,
-          staffCode: entry.staffCode,
-          scheduledHours: entry.scheduledHours,
-          availableHours: entry.availableHours,
-          unscheduledHours: entry.unscheduledHours,
-          startTime: entry.startTime,
-          endTime: entry.endTime,
-          isPublished: entry.isPublished,
-          shiftCode: entry.shiftCode,
-          photoUrl: entry.photoUrl,
-          profilePhotoAssetCode: entry.profilePhotoAssetCode,
-          staffDaySlots: entry.staffDaySlots,
-          staffSlotDetails: entry.staffSlotDetails,
-          timelineStartMinutes: windowStart,
-          timelineEndMinutes: windowEnd,
-          slotMinutes: blockMinutes,
-        );
-      }
+    final staffEntries = classroom.staff
+        .map((entry) {
+          final shiftCode = entry.shiftCode?.trim() ?? '';
+          if (shiftCode.isEmpty) {
+            return StaffScheduleEntry(
+              staffName: entry.staffName,
+              staffCode: entry.staffCode,
+              scheduledHours: entry.scheduledHours,
+              availableHours: entry.availableHours,
+              unscheduledHours: entry.unscheduledHours,
+              startTime: entry.startTime,
+              endTime: entry.endTime,
+              isPublished: entry.isPublished,
+              shiftCode: entry.shiftCode,
+              photoUrl: entry.photoUrl,
+              profilePhotoAssetCode: entry.profilePhotoAssetCode,
+              staffDaySlots: entry.staffDaySlots,
+              staffSlotDetails: entry.staffSlotDetails,
+              timelineStartMinutes: windowStart,
+              timelineEndMinutes: windowEnd,
+              slotMinutes: blockMinutes,
+            );
+          }
 
-      StaffShift? shift;
-      for (final s in classroomShifts) {
-        if (s.shiftCode.trim() == shiftCode) {
-          shift = s;
-          break;
-        }
-      }
-      if (shift == null) {
-        return StaffScheduleEntry(
-          staffName: entry.staffName,
-          staffCode: entry.staffCode,
-          scheduledHours: entry.scheduledHours,
-          availableHours: entry.availableHours,
-          unscheduledHours: entry.unscheduledHours,
-          startTime: entry.startTime,
-          endTime: entry.endTime,
-          isPublished: entry.isPublished,
-          shiftCode: entry.shiftCode,
-          photoUrl: entry.photoUrl,
-          profilePhotoAssetCode: entry.profilePhotoAssetCode,
-          staffDaySlots: entry.staffDaySlots,
-          staffSlotDetails: entry.staffSlotDetails,
-          timelineStartMinutes: windowStart,
-          timelineEndMinutes: windowEnd,
-          slotMinutes: blockMinutes,
-        );
-      }
+          StaffShift? shift;
+          for (final s in classroomShifts) {
+            if (s.shiftCode.trim() == shiftCode) {
+              shift = s;
+              break;
+            }
+          }
+          if (shift == null) {
+            return StaffScheduleEntry(
+              staffName: entry.staffName,
+              staffCode: entry.staffCode,
+              scheduledHours: entry.scheduledHours,
+              availableHours: entry.availableHours,
+              unscheduledHours: entry.unscheduledHours,
+              startTime: entry.startTime,
+              endTime: entry.endTime,
+              isPublished: entry.isPublished,
+              shiftCode: entry.shiftCode,
+              photoUrl: entry.photoUrl,
+              profilePhotoAssetCode: entry.profilePhotoAssetCode,
+              staffDaySlots: entry.staffDaySlots,
+              staffSlotDetails: entry.staffSlotDetails,
+              timelineStartMinutes: windowStart,
+              timelineEndMinutes: windowEnd,
+              slotMinutes: blockMinutes,
+            );
+          }
 
-      final staffTimeline = StaffShiftSlotMapper.buildTimeline(
-        windowStartMinutes: windowStart,
-        windowEndMinutes: windowEnd,
-        slotMinutes: blockMinutes,
-        shift: shift,
-      );
+          final staffTimeline = StaffShiftSlotMapper.buildTimeline(
+            windowStartMinutes: windowStart,
+            windowEndMinutes: windowEnd,
+            slotMinutes: blockMinutes,
+            shift: shift,
+          );
 
-      return StaffScheduleEntry(
-        staffName: entry.staffName,
-        staffCode: entry.staffCode,
-        scheduledHours: entry.scheduledHours,
-        availableHours: entry.availableHours,
-        unscheduledHours: entry.unscheduledHours,
-        startTime: entry.startTime,
-        endTime: entry.endTime,
-        isPublished: entry.isPublished,
-        shiftCode: entry.shiftCode,
-        photoUrl: entry.photoUrl,
-        profilePhotoAssetCode: entry.profilePhotoAssetCode,
-        staffDaySlots: staffTimeline.slots,
-        staffSlotDetails: staffTimeline.details,
-        timelineStartMinutes: staffTimeline.dayStartMinutes,
-        timelineEndMinutes: windowEnd,
-        slotMinutes: staffTimeline.slotMinutes,
-      );
-    }).toList(growable: false);
+          return StaffScheduleEntry(
+            staffName: entry.staffName,
+            staffCode: entry.staffCode,
+            scheduledHours: entry.scheduledHours,
+            availableHours: entry.availableHours,
+            unscheduledHours: entry.unscheduledHours,
+            startTime: entry.startTime,
+            endTime: entry.endTime,
+            isPublished: entry.isPublished,
+            shiftCode: entry.shiftCode,
+            photoUrl: entry.photoUrl,
+            profilePhotoAssetCode: entry.profilePhotoAssetCode,
+            staffDaySlots: staffTimeline.slots,
+            staffSlotDetails: staffTimeline.details,
+            timelineStartMinutes: staffTimeline.dayStartMinutes,
+            timelineEndMinutes: windowEnd,
+            slotMinutes: staffTimeline.slotMinutes,
+          );
+        })
+        .toList(growable: false);
 
     return ClassroomDaySchedule(
       classroomCode: classroom.classroomCode,
@@ -509,7 +504,9 @@ class SchedulingCubit extends Cubit<SchedulingState> {
   }) {
     if (state.viewMode != SchedulingViewMode.day) return classrooms;
 
-    final windowStart = ForecastSlotMapper.minutesOf(schoolHours.startTimeOfDay);
+    final windowStart = ForecastSlotMapper.minutesOf(
+      schoolHours.startTimeOfDay,
+    );
     final windowEnd = ForecastSlotMapper.minutesOf(schoolHours.endTimeOfDay);
     final blockMinutes = schoolHours.durationMinutes ?? 30;
 
@@ -530,8 +527,7 @@ class SchedulingCubit extends Cubit<SchedulingState> {
 
   void setClassroomFilter(String? name) {
     final trimmed = name?.trim();
-    final next =
-        trimmed == null || trimmed.isEmpty ? null : trimmed;
+    final next = trimmed == null || trimmed.isEmpty ? null : trimmed;
     if (next == state.classroomFilter) return;
     emit(state.copyWith(classroomFilter: next));
     load();
@@ -615,20 +611,17 @@ class SchedulingCubit extends Cubit<SchedulingState> {
     for (final shift in shifts) {
       final code = shift.classroomCode.trim();
       if (code.isEmpty) continue;
-      final bucket = byClassroom.putIfAbsent(
-        code,
-        () {
-          final shiftName = shift.classroomName.trim();
-          if (shiftName.isNotEmpty) {
-            return _ClassroomBucket(code: code, name: shiftName);
-          }
-          final lookup = _classroomNamesByCode[code]?.trim() ?? '';
-          return _ClassroomBucket(
-            code: code,
-            name: lookup.isNotEmpty ? lookup : code,
-          );
-        },
-      );
+      final bucket = byClassroom.putIfAbsent(code, () {
+        final shiftName = shift.classroomName.trim();
+        if (shiftName.isNotEmpty) {
+          return _ClassroomBucket(code: code, name: shiftName);
+        }
+        final lookup = _classroomNamesByCode[code]?.trim() ?? '';
+        return _ClassroomBucket(
+          code: code,
+          name: lookup.isNotEmpty ? lookup : code,
+        );
+      });
       bucket.shifts.add(shift);
     }
 
@@ -654,22 +647,24 @@ class _ClassroomBucket {
     required Map<String, StaffHoursTotals> hoursByStaff,
     required Map<String, String?> profilePhotoByStaff,
   }) {
-    final staffEntries = shifts.map((s) {
-      final staffCode = s.staffCode.trim();
-      final totals = hoursByStaff[staffCode] ?? StaffHoursTotals.zero;
-      return StaffScheduleEntry(
-        staffName: s.staffName.isNotEmpty ? s.staffName : staffCode,
-        staffCode: staffCode,
-        scheduledHours: totals.scheduledHours,
-        availableHours: totals.availableHours,
-        unscheduledHours: totals.unscheduledHours,
-        startTime: _formatTimeOfDay(s.startTime),
-        endTime: _formatTimeOfDay(s.endTime),
-        isPublished: s.isPublished,
-        shiftCode: s.shiftCode,
-        profilePhotoAssetCode: profilePhotoByStaff[staffCode],
-      );
-    }).toList(growable: false);
+    final staffEntries = shifts
+        .map((s) {
+          final staffCode = s.staffCode.trim();
+          final totals = hoursByStaff[staffCode] ?? StaffHoursTotals.zero;
+          return StaffScheduleEntry(
+            staffName: s.staffName.isNotEmpty ? s.staffName : staffCode,
+            staffCode: staffCode,
+            scheduledHours: totals.scheduledHours,
+            availableHours: totals.availableHours,
+            unscheduledHours: totals.unscheduledHours,
+            startTime: _formatTimeOfDay(s.startTime),
+            endTime: _formatTimeOfDay(s.endTime),
+            isPublished: s.isPublished,
+            shiftCode: s.shiftCode,
+            profilePhotoAssetCode: profilePhotoByStaff[staffCode],
+          );
+        })
+        .toList(growable: false);
 
     return ClassroomDaySchedule(
       classroomCode: code,

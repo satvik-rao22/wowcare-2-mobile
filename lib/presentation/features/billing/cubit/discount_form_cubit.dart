@@ -14,10 +14,10 @@ class DiscountFormCubit extends Cubit<DiscountFormState> {
     required CreateDiscountUseCase createDiscountUseCase,
     required UpdateDiscountUseCase updateDiscountUseCase,
     required StorageService storageService,
-  })  : _createDiscountUseCase = createDiscountUseCase,
-        _updateDiscountUseCase = updateDiscountUseCase,
-        _storageService = storageService,
-        super(const DiscountFormState());
+  }) : _createDiscountUseCase = createDiscountUseCase,
+       _updateDiscountUseCase = updateDiscountUseCase,
+       _storageService = storageService,
+       super(const DiscountFormState());
 
   final CreateDiscountUseCase _createDiscountUseCase;
   final UpdateDiscountUseCase _updateDiscountUseCase;
@@ -39,11 +39,13 @@ class DiscountFormCubit extends Cubit<DiscountFormState> {
       return const DiscountFormResult(status: DiscountFormStatus.invalid);
     }
 
-    emit(state.copyWith(
-      isSubmitting: true,
-      nameError: false,
-      percentageError: false,
-    ));
+    emit(
+      state.copyWith(
+        isSubmitting: true,
+        nameError: false,
+        percentageError: false,
+      ),
+    );
 
     try {
       final school =
@@ -52,8 +54,9 @@ class DiscountFormCubit extends Cubit<DiscountFormState> {
         name: nameTrimmed,
         school: school,
         percentage: pct,
-        description:
-            description?.trim().isEmpty == true ? null : description?.trim(),
+        description: description?.trim().isEmpty == true
+            ? null
+            : description?.trim(),
       );
 
       DiscountEntity entity;
@@ -66,14 +69,16 @@ class DiscountFormCubit extends Cubit<DiscountFormState> {
         );
       }
 
-      if (isClosed) return const DiscountFormResult(status: DiscountFormStatus.error);
+      if (isClosed)
+        return const DiscountFormResult(status: DiscountFormStatus.error);
       emit(state.copyWith(isSubmitting: false));
       return DiscountFormResult(
         status: DiscountFormStatus.success,
         discount: DiscountAccountModel.fromEntity(entity),
       );
     } catch (_) {
-      if (isClosed) return const DiscountFormResult(status: DiscountFormStatus.error);
+      if (isClosed)
+        return const DiscountFormResult(status: DiscountFormStatus.error);
       emit(state.copyWith(isSubmitting: false));
       return const DiscountFormResult(status: DiscountFormStatus.error);
     }

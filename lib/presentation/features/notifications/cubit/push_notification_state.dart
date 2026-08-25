@@ -9,10 +9,10 @@ class PushNotificationState extends Equatable {
   });
 
   const PushNotificationState.initial()
-      : token = null,
-        navigationRequest = null,
-        newMessageEventSeq = 0,
-        incomingConversationCode = null;
+    : token = null,
+      navigationRequest = null,
+      newMessageEventSeq = 0,
+      incomingConversationCode = null;
 
   /// The current device FCM token, once resolved.
   final String? token;
@@ -55,9 +55,9 @@ class PushNotificationState extends Equatable {
 
   @override
   List<Object?> get props => [
-        token,
-        navigationRequest,
-        newMessageEventSeq,
-        incomingConversationCode,
-      ];
+    token,
+    navigationRequest,
+    newMessageEventSeq,
+    incomingConversationCode,
+  ];
 }

@@ -100,9 +100,7 @@ class SiblingCardsWidget extends StatelessWidget {
         color: AppColors.cardColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-            color: AppColors.cardBorderColor,
-          ),
+          side: BorderSide(color: AppColors.cardBorderColor),
         ),
         child: Padding(
           padding: const EdgeInsets.all(24.0),

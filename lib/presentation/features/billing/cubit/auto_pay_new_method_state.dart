@@ -11,12 +11,12 @@ class AutoPayNewMethodState extends Equatable {
   });
 
   const AutoPayNewMethodState.initial()
-      : paymentMethod = '',
-        expMonth = '',
-        expYear = '',
-        accountType = '',
-        isSaving = false,
-        fieldErrors = const <String, String>{};
+    : paymentMethod = '',
+      expMonth = '',
+      expYear = '',
+      accountType = '',
+      isSaving = false,
+      fieldErrors = const <String, String>{};
 
   final String paymentMethod;
   final String expMonth;
@@ -52,11 +52,11 @@ class AutoPayNewMethodState extends Equatable {
 
   @override
   List<Object?> get props => [
-        paymentMethod,
-        expMonth,
-        expYear,
-        accountType,
-        isSaving,
-        fieldErrors,
-      ];
+    paymentMethod,
+    expMonth,
+    expYear,
+    accountType,
+    isSaving,
+    fieldErrors,
+  ];
 }

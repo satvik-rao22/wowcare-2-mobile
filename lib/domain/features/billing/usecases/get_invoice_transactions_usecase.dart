@@ -16,15 +16,14 @@ class GetInvoiceTransactionsUseCase {
     String? status,
     int page = 0,
     int size = 10,
-  }) =>
-      _repository.getTransactions(
-        organizationCode: organizationCode,
-        school: school,
-        dateFrom: dateFrom,
-        dateTo: dateTo,
-        type: type,
-        status: status,
-        page: page,
-        size: size,
-      );
+  }) => _repository.getTransactions(
+    organizationCode: organizationCode,
+    school: school,
+    dateFrom: dateFrom,
+    dateTo: dateTo,
+    type: type,
+    status: status,
+    page: page,
+    size: size,
+  );
 }

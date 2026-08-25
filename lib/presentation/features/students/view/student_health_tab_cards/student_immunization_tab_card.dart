@@ -671,11 +671,8 @@ class _DialogField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: AppTextStyles.caption.copyWith(
             color: AppColors.primaryColor.withValues(alpha: 0.6),
-            fontFamily: 'Manrope',
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 8),
@@ -742,11 +739,8 @@ class _DialogDropdown extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: AppTextStyles.caption.copyWith(
             color: AppColors.primaryColor.withValues(alpha: 0.6),
-            fontFamily: 'Manrope',
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 8),

@@ -39,17 +39,17 @@ class StudentGuardian extends Equatable {
 
   @override
   List<Object?> get props => [
-        guardianCode,
-        userCode,
-        firstName,
-        lastName,
-        mobile,
-        email,
-        clockPin,
-        relationToStudent,
-        primaryContact,
-        legalCustody,
-        profilePhotoUrl,
-        profilePhotoAssetCode,
-      ];
+    guardianCode,
+    userCode,
+    firstName,
+    lastName,
+    mobile,
+    email,
+    clockPin,
+    relationToStudent,
+    primaryContact,
+    legalCustody,
+    profilePhotoUrl,
+    profilePhotoAssetCode,
+  ];
 }

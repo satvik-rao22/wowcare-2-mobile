@@ -13,14 +13,14 @@ class DiscountState extends Equatable {
   });
 
   DiscountState.initial()
-      : allDiscounts = const [],
-        searchQuery = '',
-        statusFilter = 'ACTIVE',
-        isLoading = false,
-        isLoadingMore = false,
-        hasMore = true,
-        currentPage = 0,
-        errorMessage = null;
+    : allDiscounts = const [],
+      searchQuery = '',
+      statusFilter = 'ACTIVE',
+      isLoading = false,
+      isLoadingMore = false,
+      hasMore = true,
+      currentPage = 0,
+      errorMessage = null;
 
   final List<DiscountAccountModel> allDiscounts;
   final String searchQuery;
@@ -39,9 +39,7 @@ class DiscountState extends Equatable {
   List<DiscountAccountModel> get filteredDiscounts {
     final q = searchQuery.trim().toLowerCase();
     if (q.isEmpty) return allDiscounts;
-    return allDiscounts
-        .where((d) => d.name.toLowerCase().contains(q))
-        .toList();
+    return allDiscounts.where((d) => d.name.toLowerCase().contains(q)).toList();
   }
 
   DiscountState copyWith({
@@ -57,20 +55,24 @@ class DiscountState extends Equatable {
     return DiscountState(
       allDiscounts: allDiscounts ?? this.allDiscounts,
       searchQuery: searchQuery ?? this.searchQuery,
-      statusFilter:
-          statusFilter != null ? statusFilter() : this.statusFilter,
+      statusFilter: statusFilter != null ? statusFilter() : this.statusFilter,
       isLoading: isLoading ?? this.isLoading,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       hasMore: hasMore ?? this.hasMore,
       currentPage: currentPage ?? this.currentPage,
-      errorMessage:
-          errorMessage != null ? errorMessage() : this.errorMessage,
+      errorMessage: errorMessage != null ? errorMessage() : this.errorMessage,
     );
   }
 
   @override
   List<Object?> get props => [
-        allDiscounts, searchQuery, statusFilter, isLoading,
-        isLoadingMore, hasMore, currentPage, errorMessage,
-      ];
+    allDiscounts,
+    searchQuery,
+    statusFilter,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    currentPage,
+    errorMessage,
+  ];
 }

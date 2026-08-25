@@ -31,9 +31,18 @@ class DiscountEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        code, name, description, percentage, deductionAmount,
-        maxInvoiceAmount, reference, discountType, price, status, school,
-      ];
+    code,
+    name,
+    description,
+    percentage,
+    deductionAmount,
+    maxInvoiceAmount,
+    reference,
+    discountType,
+    price,
+    status,
+    school,
+  ];
 }
 
 class DiscountPageEntity extends Equatable {
@@ -54,8 +63,7 @@ class DiscountPageEntity extends Equatable {
   bool get hasMore => !last;
 
   @override
-  List<Object?> get props =>
-      [content, totalPages, totalElements, number, last];
+  List<Object?> get props => [content, totalPages, totalElements, number, last];
 }
 
 class CreateDiscountParams extends Equatable {
@@ -85,7 +93,15 @@ class CreateDiscountParams extends Equatable {
 
   @override
   List<Object?> get props => [
-        name, school, percentage, description, deductionAmount,
-        maxInvoiceAmount, reference, discountType, price, status,
-      ];
+    name,
+    school,
+    percentage,
+    description,
+    deductionAmount,
+    maxInvoiceAmount,
+    reference,
+    discountType,
+    price,
+    status,
+  ];
 }

@@ -39,8 +39,12 @@ class NotificationPreferenceGroupsState extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      <Object?>[groups, isLoading, savingGroupCodes, errorMessage];
+  List<Object?> get props => <Object?>[
+    groups,
+    isLoading,
+    savingGroupCodes,
+    errorMessage,
+  ];
 }
 
 /// Owns the grouped notification-preferences screen. Loads groups from
@@ -53,10 +57,10 @@ class NotificationPreferenceGroupsCubit
     required GetNotificationPreferenceGroupsUseCase getGroups,
     required UpdateNotificationPreferenceGroupsUseCase updateGroups,
     required StorageService storage,
-  })  : _getGroups = getGroups,
-        _updateGroups = updateGroups,
-        _storage = storage,
-        super(const NotificationPreferenceGroupsState());
+  }) : _getGroups = getGroups,
+       _updateGroups = updateGroups,
+       _storage = storage,
+       super(const NotificationPreferenceGroupsState());
 
   final GetNotificationPreferenceGroupsUseCase _getGroups;
   final UpdateNotificationPreferenceGroupsUseCase _updateGroups;
@@ -67,7 +71,12 @@ class NotificationPreferenceGroupsCubit
     try {
       final userCode = await _read(StorageKeys.userCode);
       if (userCode.isEmpty) {
-        emit(state.copyWith(groups: const <NotificationPreferenceGroup>[], isLoading: false));
+        emit(
+          state.copyWith(
+            groups: const <NotificationPreferenceGroup>[],
+            isLoading: false,
+          ),
+        );
         return;
       }
       final groups = await _getGroups(userCode: userCode);
@@ -75,10 +84,12 @@ class NotificationPreferenceGroupsCubit
         ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
       emit(state.copyWith(groups: sorted, isLoading: false));
     } catch (e) {
-      emit(state.copyWith(
-        isLoading: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -98,11 +109,13 @@ class NotificationPreferenceGroupsCubit
     final updatedGroup = group.copyWithChannel(channel, value);
     final updatedGroups = List<NotificationPreferenceGroup>.from(state.groups)
       ..[index] = updatedGroup;
-    emit(state.copyWith(
-      groups: updatedGroups,
-      savingGroupCodes: <String>{...state.savingGroupCodes, groupCode},
-      errorMessage: null,
-    ));
+    emit(
+      state.copyWith(
+        groups: updatedGroups,
+        savingGroupCodes: <String>{...state.savingGroupCodes, groupCode},
+        errorMessage: null,
+      ),
+    );
 
     try {
       final userCode = await _read(StorageKeys.userCode);
@@ -117,22 +130,27 @@ class NotificationPreferenceGroupsCubit
           ],
         ),
       );
-      emit(state.copyWith(
-        savingGroupCodes: state.savingGroupCodes
-            .where((c) => c != groupCode)
-            .toSet(),
-      ));
+      emit(
+        state.copyWith(
+          savingGroupCodes: state.savingGroupCodes
+              .where((c) => c != groupCode)
+              .toSet(),
+        ),
+      );
     } catch (e) {
       // Revert the optimistic flip.
-      final revertedGroups =
-          List<NotificationPreferenceGroup>.from(state.groups)
-            ..[index] = group;
-      emit(state.copyWith(
-        groups: revertedGroups,
-        savingGroupCodes:
-            state.savingGroupCodes.where((c) => c != groupCode).toSet(),
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      final revertedGroups = List<NotificationPreferenceGroup>.from(
+        state.groups,
+      )..[index] = group;
+      emit(
+        state.copyWith(
+          groups: revertedGroups,
+          savingGroupCodes: state.savingGroupCodes
+              .where((c) => c != groupCode)
+              .toSet(),
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 

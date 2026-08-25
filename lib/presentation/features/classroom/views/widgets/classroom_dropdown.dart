@@ -86,9 +86,7 @@ class _ClassroomDropdownState extends State<ClassroomDropdown> {
           GestureDetector(
             onTap: _toggleDropdown,
             behavior: HitTestBehavior.opaque,
-            child: Container(
-              color: Colors.transparent,
-            ),
+            child: Container(color: Colors.transparent),
           ),
           Positioned(
             left: offset.dx,

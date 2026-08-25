@@ -10,10 +10,9 @@ class GetGuardianFamilyLedgerUseCase {
     required String organizationCode,
     required String school,
     required String guardianCode,
-  }) =>
-      _repository.getGuardianFamilyLedger(
-        organizationCode: organizationCode,
-        school: school,
-        guardianCode: guardianCode,
-      );
+  }) => _repository.getGuardianFamilyLedger(
+    organizationCode: organizationCode,
+    school: school,
+    guardianCode: guardianCode,
+  );
 }

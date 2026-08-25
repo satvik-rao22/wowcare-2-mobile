@@ -18,4 +18,3 @@ class NewsletterRecipientEntity extends Equatable {
   @override
   List<Object?> get props => [id, code, userCode, userName, status];
 }
-

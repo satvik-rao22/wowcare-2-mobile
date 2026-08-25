@@ -52,26 +52,26 @@ class StaffShift extends Equatable {
 
   @override
   List<Object?> get props => [
-        shiftCode,
-        staffCode,
-        classroomCode,
-        classroomName,
-        staffName,
-        shiftDate,
-        startTime,
-        endTime,
-        breakStartTime,
-        breakEndTime,
-        notes,
-        isPublished,
-        seriesCode,
-        isRecurring,
-        seriesRecurrenceDays,
-        seriesEndDate,
-        availableHours,
-        scheduledHours,
-        unscheduledHours,
-      ];
+    shiftCode,
+    staffCode,
+    classroomCode,
+    classroomName,
+    staffName,
+    shiftDate,
+    startTime,
+    endTime,
+    breakStartTime,
+    breakEndTime,
+    notes,
+    isPublished,
+    seriesCode,
+    isRecurring,
+    seriesRecurrenceDays,
+    seriesEndDate,
+    availableHours,
+    scheduledHours,
+    unscheduledHours,
+  ];
 }
 
 /// Request body for `POST /api/v1/staff-shifts`. Mirrors the swagger contract.
@@ -106,6 +106,7 @@ class StaffShiftCreateRequest extends Equatable {
   final TimeOfDay? breakEndTime;
   final bool publish;
   final bool repeat;
+
   /// 1=Monday … 7=Sunday (matches `java.time.DayOfWeek.getValue()`).
   final List<int> repeatDays;
   final DateTime? repeatUntilDate;
@@ -140,23 +141,23 @@ class StaffShiftCreateRequest extends Equatable {
 
   @override
   List<Object?> get props => [
-        staffCode,
-        classroomCode,
-        schoolCode,
-        organizationCode,
-        shiftDate,
-        startTime,
-        endTime,
-        breakStartTime,
-        breakEndTime,
-        publish,
-        repeat,
-        repeatDays,
-        repeatUntilDate,
-        overrideConflicts,
-        forceAdd,
-        notes,
-      ];
+    staffCode,
+    classroomCode,
+    schoolCode,
+    organizationCode,
+    shiftDate,
+    startTime,
+    endTime,
+    breakStartTime,
+    breakEndTime,
+    publish,
+    repeat,
+    repeatDays,
+    repeatUntilDate,
+    overrideConflicts,
+    forceAdd,
+    notes,
+  ];
 }
 
 /// Request body for `PUT /api/v1/staff-shifts/{shiftCode}` — updates a
@@ -198,21 +199,21 @@ class StaffShiftUpdateRequest extends Equatable {
 
   @override
   List<Object?> get props => [
-        shiftCode,
-        staffCode,
-        schoolCode,
-        organizationCode,
-        classroomCode,
-        shiftDate,
-        startTime,
-        endTime,
-        breakStartTime,
-        breakEndTime,
-        notes,
-        overrideConflicts,
-        forceAdd,
-        publish,
-      ];
+    shiftCode,
+    staffCode,
+    schoolCode,
+    organizationCode,
+    classroomCode,
+    shiftDate,
+    startTime,
+    endTime,
+    breakStartTime,
+    breakEndTime,
+    notes,
+    overrideConflicts,
+    forceAdd,
+    publish,
+  ];
 }
 
 /// Request body for `PUT /api/v1/staff-shifts/series/{seriesCode}` — updates
@@ -255,10 +256,12 @@ class StaffShiftSeriesUpdateRequest extends Equatable {
   final String? notes;
   final bool overrideConflicts;
   final bool repeat;
+
   /// 0=Monday … 6=Sunday (matches the wire format the backend expects on
   /// POST and now also on series PUT).
   final List<int> repeatDays;
   final DateTime? repeatUntilDate;
+
   /// Required by the backend to actually flip `shiftStatus` to PUBLISHED on
   /// every occurrence in the series. The swagger doesn't list this on the
   /// series-PUT body but the API honors it when the full identity block is
@@ -267,24 +270,24 @@ class StaffShiftSeriesUpdateRequest extends Equatable {
 
   @override
   List<Object?> get props => [
-        seriesCode,
-        shiftCode,
-        staffCode,
-        schoolCode,
-        organizationCode,
-        shiftDate,
-        classroomCode,
-        startTime,
-        endTime,
-        breakStartTime,
-        breakEndTime,
-        notes,
-        overrideConflicts,
-        repeat,
-        repeatDays,
-        repeatUntilDate,
-        publish,
-      ];
+    seriesCode,
+    shiftCode,
+    staffCode,
+    schoolCode,
+    organizationCode,
+    shiftDate,
+    classroomCode,
+    startTime,
+    endTime,
+    breakStartTime,
+    breakEndTime,
+    notes,
+    overrideConflicts,
+    repeat,
+    repeatDays,
+    repeatUntilDate,
+    publish,
+  ];
 }
 
 /// Result returned by `POST /api/v1/staff-shifts`.
@@ -311,13 +314,13 @@ class StaffShiftCreateResult extends Equatable {
 
   @override
   List<Object?> get props => [
-        createdCount,
-        skippedCount,
-        overriddenCount,
-        seriesCode,
-        createdShiftCodes,
-        skippedDates,
-        overriddenDates,
-        warnings,
-      ];
+    createdCount,
+    skippedCount,
+    overriddenCount,
+    seriesCode,
+    createdShiftCodes,
+    skippedDates,
+    overriddenDates,
+    warnings,
+  ];
 }

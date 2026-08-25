@@ -28,8 +28,7 @@ abstract class AttendanceRepository {
   /// [classroomCode] is sent as `classroomCode` on the summary/card API.
   /// When null or empty, the repository may fall back to the first allowed
   /// classroom for the current user.
-  Future<StudentAttendanceExpectedSummary>
-  getStudentAttendanceExpectedSummary({
+  Future<StudentAttendanceExpectedSummary> getStudentAttendanceExpectedSummary({
     String? classroomCode,
     bool schoolWide = false,
     bool forceRefresh = false,

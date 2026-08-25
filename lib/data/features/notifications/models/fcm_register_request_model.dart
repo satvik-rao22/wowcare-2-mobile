@@ -22,14 +22,14 @@ class FcmRegisterRequestModel {
   final bool isActive;
 
   Map<String, dynamic> toJson() => {
-        'userCode': userCode,
-        'organizationCode': organizationCode,
-        'schoolCode': schoolCode,
-        'role': role,
-        'fcmToken': fcmToken,
-        'isActive': isActive,
-        'deviceType': deviceType,
-        'deviceId': deviceId,
-        if (deviceInfo != null && deviceInfo!.isNotEmpty) 'deviceInfo': deviceInfo,
-      };
+    'userCode': userCode,
+    'organizationCode': organizationCode,
+    'schoolCode': schoolCode,
+    'role': role,
+    'fcmToken': fcmToken,
+    'isActive': isActive,
+    'deviceType': deviceType,
+    'deviceId': deviceId,
+    if (deviceInfo != null && deviceInfo!.isNotEmpty) 'deviceInfo': deviceInfo,
+  };
 }

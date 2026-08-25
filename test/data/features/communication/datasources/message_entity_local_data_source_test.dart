@@ -79,7 +79,10 @@ void main() {
   final baseTime = DateTime(2026, 1, 1);
   final seeded = List.generate(
     10,
-    (i) => _message(code: 'MSG-$i', sentAt: baseTime.add(Duration(days: i))),
+    (i) => _message(
+      code: 'MSG-$i',
+      sentAt: baseTime.add(Duration(days: i)),
+    ),
   );
 
   setUp(() async {
@@ -100,21 +103,22 @@ void main() {
       expect(result.length, 3);
     });
 
-    test('returns at most `limit` even when far fewer than the cache size',
-        () async {
-      final result = await dataSource.getMessages(
-        conversationCode: _conversation,
-        organizationCode: _org,
-        schoolCode: _school,
-        limit: 1,
-      );
+    test(
+      'returns at most `limit` even when far fewer than the cache size',
+      () async {
+        final result = await dataSource.getMessages(
+          conversationCode: _conversation,
+          organizationCode: _org,
+          schoolCode: _school,
+          limit: 1,
+        );
 
-      expect(result.length, 1);
-      expect(result.single.code, 'MSG-9'); // newest
-    });
+        expect(result.length, 1);
+        expect(result.single.code, 'MSG-9'); // newest
+      },
+    );
 
-    test('does not throw or truncate when limit exceeds cache size',
-        () async {
+    test('does not throw or truncate when limit exceeds cache size', () async {
       final result = await dataSource.getMessages(
         conversationCode: _conversation,
         organizationCode: _org,
@@ -137,29 +141,43 @@ void main() {
 
       final codes = result.map((m) => m.code).toList();
       expect(codes, [
-        'MSG-9', 'MSG-8', 'MSG-7', 'MSG-6', 'MSG-5',
-        'MSG-4', 'MSG-3', 'MSG-2', 'MSG-1', 'MSG-0',
+        'MSG-9',
+        'MSG-8',
+        'MSG-7',
+        'MSG-6',
+        'MSG-5',
+        'MSG-4',
+        'MSG-3',
+        'MSG-2',
+        'MSG-1',
+        'MSG-0',
       ]);
     });
   });
 
   group('getMessages — tenancy scoping', () {
     test('excludes messages from other conversations/orgs/schools', () async {
-      await cacheService.put(_message(
-        code: 'OTHER-CONV',
-        sentAt: baseTime.add(const Duration(days: 20)),
-        conversationCode: 'CONV-OTHER',
-      ));
-      await cacheService.put(_message(
-        code: 'OTHER-ORG',
-        sentAt: baseTime.add(const Duration(days: 20)),
-        organizationCode: 'ORG-OTHER',
-      ));
-      await cacheService.put(_message(
-        code: 'OTHER-SCHOOL',
-        sentAt: baseTime.add(const Duration(days: 20)),
-        schoolCode: 'SCH-OTHER',
-      ));
+      await cacheService.put(
+        _message(
+          code: 'OTHER-CONV',
+          sentAt: baseTime.add(const Duration(days: 20)),
+          conversationCode: 'CONV-OTHER',
+        ),
+      );
+      await cacheService.put(
+        _message(
+          code: 'OTHER-ORG',
+          sentAt: baseTime.add(const Duration(days: 20)),
+          organizationCode: 'ORG-OTHER',
+        ),
+      );
+      await cacheService.put(
+        _message(
+          code: 'OTHER-SCHOOL',
+          sentAt: baseTime.add(const Duration(days: 20)),
+          schoolCode: 'SCH-OTHER',
+        ),
+      );
 
       final result = await dataSource.getMessages(
         conversationCode: _conversation,
@@ -188,32 +206,36 @@ void main() {
       expect(codes, ['MSG-5', 'MSG-4', 'MSG-3', 'MSG-2', 'MSG-1', 'MSG-0']);
     });
 
-    test('combines cursor with limit for a single page of older messages',
-        () async {
-      final result = await dataSource.getMessages(
-        conversationCode: _conversation,
-        organizationCode: _org,
-        schoolCode: _school,
-        limit: 2,
-        beforeMessageCode: 'MSG-6',
-      );
+    test(
+      'combines cursor with limit for a single page of older messages',
+      () async {
+        final result = await dataSource.getMessages(
+          conversationCode: _conversation,
+          organizationCode: _org,
+          schoolCode: _school,
+          limit: 2,
+          beforeMessageCode: 'MSG-6',
+        );
 
-      final codes = result.map((m) => m.code).toList();
-      expect(codes, ['MSG-5', 'MSG-4']);
-    });
+        final codes = result.map((m) => m.code).toList();
+        expect(codes, ['MSG-5', 'MSG-4']);
+      },
+    );
 
-    test('returns an empty list when the cursor message is not cached',
-        () async {
-      final result = await dataSource.getMessages(
-        conversationCode: _conversation,
-        organizationCode: _org,
-        schoolCode: _school,
-        limit: 50,
-        beforeMessageCode: 'MSG-NOT-IN-CACHE',
-      );
+    test(
+      'returns an empty list when the cursor message is not cached',
+      () async {
+        final result = await dataSource.getMessages(
+          conversationCode: _conversation,
+          organizationCode: _org,
+          schoolCode: _school,
+          limit: 50,
+          beforeMessageCode: 'MSG-NOT-IN-CACHE',
+        );
 
-      expect(result, isEmpty);
-    });
+        expect(result, isEmpty);
+      },
+    );
 
     test(
       'two consecutive paginated fetches cover every message exactly once '
@@ -225,8 +247,12 @@ void main() {
           schoolCode: _school,
           limit: 4,
         );
-        expect(page1.map((m) => m.code).toList(),
-            ['MSG-9', 'MSG-8', 'MSG-7', 'MSG-6']);
+        expect(page1.map((m) => m.code).toList(), [
+          'MSG-9',
+          'MSG-8',
+          'MSG-7',
+          'MSG-6',
+        ]);
 
         final page2 = await dataSource.getMessages(
           conversationCode: _conversation,
@@ -235,8 +261,12 @@ void main() {
           limit: 4,
           beforeMessageCode: page1.last.code, // 'MSG-6'
         );
-        expect(page2.map((m) => m.code).toList(),
-            ['MSG-5', 'MSG-4', 'MSG-3', 'MSG-2']);
+        expect(page2.map((m) => m.code).toList(), [
+          'MSG-5',
+          'MSG-4',
+          'MSG-3',
+          'MSG-2',
+        ]);
 
         final allCodes = [...page1, ...page2].map((m) => m.code).toSet();
         expect(allCodes.length, 8); // no duplicates across the two pages

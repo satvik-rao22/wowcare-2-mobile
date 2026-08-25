@@ -20,6 +20,7 @@ import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/gradient_background.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 const _kPrimary = Color(0xff573353);
 
@@ -79,7 +80,10 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
     if (!mounted) return;
     if (result == true) {
       CoreUtils.showTopSnackBar(
-          context: context, message: 'Transaction added.', isSuccess: true);
+        context: context,
+        message: 'Transaction added.',
+        isSuccess: true,
+      );
     }
   }
 
@@ -121,7 +125,8 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
                               children: [
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         ledger.name,
@@ -158,13 +163,18 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
                                 fetchInitialTime: false,
                                 label: 'Date Range',
                                 onRangeSelected: (start, end) {
-                                  final fromStr =
-                                      DateFormat('yyyy-MM-dd').format(start);
+                                  final fromStr = DateFormat(
+                                    'yyyy-MM-dd',
+                                  ).format(start);
                                   final toStr = end != null
                                       ? DateFormat('yyyy-MM-dd').format(end)
                                       : fromStr;
-                                  unawaited(_cubit.setDateRange(
-                                      from: fromStr, to: toStr));
+                                  unawaited(
+                                    _cubit.setDateRange(
+                                      from: fromStr,
+                                      to: toStr,
+                                    ),
+                                  );
                                 },
                               ),
                             ),
@@ -196,17 +206,17 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off_outlined,
-                size: 52,
-                color: AppColors.primaryColor.withValues(alpha: 0.3)),
+            Icon(
+              Icons.cloud_off_outlined,
+              size: 52,
+              color: AppColors.primaryColor.withValues(alpha: 0.3),
+            ),
             const SizedBox(height: 12),
             Text(
               state.errorMessage ?? 'Error loading transactions.',
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontFamily: 'Manrope',
+              style: AppTextStyles.body.copyWith(
                 color: AppColors.billingTextSecondary,
-                fontSize: 14,
               ),
             ),
             const SizedBox(height: 12),
@@ -228,17 +238,17 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(Icons.receipt_long_outlined,
-                  size: 52,
-                  color: AppColors.primaryColor.withValues(alpha: 0.3)),
+              Icon(
+                Icons.receipt_long_outlined,
+                size: 52,
+                color: AppColors.primaryColor.withValues(alpha: 0.3),
+              ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'No transactions found.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'Manrope',
+                style: AppTextStyles.body.copyWith(
                   color: AppColors.billingTextSecondary,
-                  fontSize: 14,
                 ),
               ),
             ],
@@ -278,19 +288,22 @@ class _LedgerSubtitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final category = ledger.category?.isNotEmpty == true ? ledger.category! : null;
+    final category = ledger.category?.isNotEmpty == true
+        ? ledger.category!
+        : null;
     final nature = ledger.nature?.isNotEmpty == true ? ledger.nature! : null;
-    final label = category ?? nature ?? (ledger.type.isNotEmpty ? ledger.type : null);
+    final label =
+        category ?? nature ?? (ledger.type.isNotEmpty ? ledger.type : null);
 
     final currentBal = ledger.currentBalance ?? ledger.openBalance;
-    final balType = ledger.balanceType?.isNotEmpty == true ? ledger.balanceType! : null;
-    final balText = '\$${currentBal.toStringAsFixed(2)}'
+    final balType = ledger.balanceType?.isNotEmpty == true
+        ? ledger.balanceType!
+        : null;
+    final balText =
+        '\$${currentBal.toStringAsFixed(2)}'
         '${balType != null ? ' $balType' : ''}';
 
-    const style = TextStyle(
-      fontFamily: 'Manrope',
-      fontSize: 13,
-      fontWeight: FontWeight.w400,
+    final style = AppTextStyles.label.copyWith(
       color: AppColors.billingTextSecondary,
     );
 
@@ -300,7 +313,7 @@ class _LedgerSubtitle extends StatelessWidget {
         children: [
           if (label != null) ...[
             Text(label, style: style),
-            const Text(' · ', style: style),
+            Text(' · ', style: style),
           ],
           Text(balText, style: style),
         ],
@@ -320,28 +333,31 @@ class _LedgerEntryCard extends StatelessWidget {
     final isTablet = MediaQuery.of(context).size.width > 600;
     final bool hasDebit = tx.debit != null && tx.debit! != 0;
     final bool hasCredit = tx.credit != null && tx.credit! != 0;
-    final double amount =
-        hasDebit ? tx.debit! : hasCredit ? tx.credit! : 0.0;
+    final double amount = hasDebit
+        ? tx.debit!
+        : hasCredit
+        ? tx.credit!
+        : 0.0;
     final Color amountColor = hasDebit
         ? const Color(0xFFF85A5A)
         : hasCredit
-            ? const Color(0xFF4CAF50)
-            : kBillingCardTextColor;
-    final String amountPrefix = hasDebit ? '-' : hasCredit ? '+' : '';
+        ? const Color(0xFF4CAF50)
+        : kBillingCardTextColor;
+    final String amountPrefix = hasDebit
+        ? '-'
+        : hasCredit
+        ? '+'
+        : '';
 
     return StaffStyleCard(
       header: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            _formatDate(tx.date),
-            style: BillingCardText.name(isTablet),
-          ),
+          Text(_formatDate(tx.date), style: BillingCardText.name(isTablet)),
           if (tx.type != null && tx.type!.isNotEmpty) ...[
             const SizedBox(width: 8),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: const Color(0xFF1565C0).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
@@ -378,16 +394,12 @@ class _LedgerEntryCard extends StatelessWidget {
         ],
       ),
       expandedChildren: [
-        if (tx.contraAccount != null &&
-            tx.contraAccount!.isNotEmpty) ...[
-          StaffCardDetailRow(
-              label: 'Contra Ledger', value: tx.contraAccount!),
+        if (tx.contraAccount != null && tx.contraAccount!.isNotEmpty) ...[
+          StaffCardDetailRow(label: 'Contra Ledger', value: tx.contraAccount!),
           const SizedBox(height: 10),
         ],
-        if (tx.description != null &&
-            tx.description!.isNotEmpty) ...[
-          StaffCardDetailRow(
-              label: 'Narration', value: tx.description!),
+        if (tx.description != null && tx.description!.isNotEmpty) ...[
+          StaffCardDetailRow(label: 'Narration', value: tx.description!),
           const SizedBox(height: 10),
         ],
         if (hasDebit) ...[
@@ -408,7 +420,8 @@ class _LedgerEntryCard extends StatelessWidget {
         ],
         StaffCardDetailRow(
           label: 'Running Balance',
-          value: '\$${tx.balance.toStringAsFixed(2)}'
+          value:
+              '\$${tx.balance.toStringAsFixed(2)}'
               '${tx.balanceType != null ? ' ${tx.balanceType}' : ''}',
         ),
       ],

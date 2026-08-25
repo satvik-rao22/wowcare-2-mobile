@@ -549,10 +549,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         context.go('/dashboard');
       }
     } else {
-      redirectToAttendanceDaily(
-        context,
-        StaffAttendanceTabbedView.routeName,
-      );
+      redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
     }
   }
 
@@ -703,10 +700,8 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     softWrap: false,
-                    style: const TextStyle(
+                    style: AppTextStyles.body.copyWith(
                       color: AppColors.primaryColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),

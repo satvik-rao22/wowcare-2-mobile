@@ -80,9 +80,7 @@ class ReportFormLayout extends StatelessWidget {
                     margin: EdgeInsets.symmetric(
                       horizontal: responsive.horizontalSpacing,
                     ),
-                    padding: EdgeInsets.all(
-                      responsive.isTablet ? 32.0 : 16.0,
-                    ),
+                    padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.all(
@@ -170,7 +168,10 @@ class ReportFieldLabel extends StatelessWidget {
           children: [
             TextSpan(text: label),
             if (isRequired)
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: Colors.red),
+              ),
           ],
         ),
       ),
@@ -295,10 +296,18 @@ class _MonthYearPickerDialog extends StatefulWidget {
 
 class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
   static const List<String> _monthNames = <String>[
-    'Jan', 'Feb', 'Mar',
-    'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep',
-    'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   late int _year;
@@ -322,8 +331,7 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
     final selectedYear = widget.initialMonth.year;
 
     return Dialog(
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         child: Column(
@@ -333,8 +341,10 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.chevron_left,
-                      color: Color(0xff573353)),
+                  icon: const Icon(
+                    Icons.chevron_left,
+                    color: Color(0xff573353),
+                  ),
                   onPressed: _year > _minYear
                       ? () => setState(() => _year--)
                       : null,
@@ -349,8 +359,10 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.chevron_right,
-                      color: Color(0xff573353)),
+                  icon: const Icon(
+                    Icons.chevron_right,
+                    color: Color(0xff573353),
+                  ),
                   onPressed: _year < _maxYear
                       ? () => setState(() => _year++)
                       : null,
@@ -389,8 +401,9 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
                       style: TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: 16,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
                         color: const Color(0xff573353),
                       ),
                     ),
@@ -479,4 +492,3 @@ class ReportFormatSelector extends StatelessWidget {
     );
   }
 }
-

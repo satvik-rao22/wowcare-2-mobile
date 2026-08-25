@@ -11,14 +11,14 @@ class KioskQrModel extends KioskQrEntity {
     required DateTime validFrom,
     required DateTime validTo,
   }) : super(
-    qrPayload: qrPayload,
-    qrToken: qrToken,
-    schoolCode: schoolCode,
-    organizationCode: organizationCode,
-    isActive: isActive,
-    validFrom: validFrom,
-    validTo: validTo,
-  );
+         qrPayload: qrPayload,
+         qrToken: qrToken,
+         schoolCode: schoolCode,
+         organizationCode: organizationCode,
+         isActive: isActive,
+         validFrom: validFrom,
+         validTo: validTo,
+       );
 
   factory KioskQrModel.fromJson(Map<String, dynamic> json) {
     return KioskQrModel(

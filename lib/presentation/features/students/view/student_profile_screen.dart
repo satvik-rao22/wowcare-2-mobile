@@ -37,6 +37,7 @@ import 'package:wowcare/presentation/features/communication/bulk_messaging/util/
 import '../../../../app/theme/media_res.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class StudentProfileScreen extends StatefulWidget {
   static const String routeName = '/dashboard/student-profile';
@@ -325,12 +326,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               Expanded(
                 child: Text(
                   t,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xff573353),
-                  ),
+                  style: AppTextStyles.body.copyWith(color: Color(0xff573353)),
                 ),
               ),
             ],
@@ -374,17 +370,14 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
             borderRadius: BorderRadius.circular(16),
           ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            padding: EdgeInsets.fromLTRB(20, 16, 20, 12),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Details',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
+                  style: AppTextStyles.heading.copyWith(
                     color: Color(0xff573353),
                   ),
                 ),
@@ -669,17 +662,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 borderSide: BorderSide(color: AppColors.themeColor),
               ),
               indicatorPadding: const EdgeInsets.only(bottom: 8),
-              labelStyle: const TextStyle(
-                //color: Colors.black,
+              labelStyle: AppTextStyles.bodyLarge.copyWith(
                 color: const Color(0xFF241631),
-                fontFamily: 'Manrope',
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
               ),
-              unselectedLabelStyle: TextStyle(
+              unselectedLabelStyle: AppTextStyles.emptyState.copyWith(
                 color: AppColors.primaryColor.withValues(alpha: 0.5),
-                fontFamily: 'Manrope',
-                fontSize: 16,
               ),
               //labelColor: Colors.black,
               labelColor: const Color(0xFF241631),
@@ -941,9 +928,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                         ),
                         child: Text(
                           _displayClassroom,
-                          style: const TextStyle(
+                          style: AppTextStyles.body.copyWith(
                             color: Colors.blue,
-                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),

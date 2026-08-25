@@ -6,7 +6,7 @@ import 'package:wowcare/domain/features/newsletter/usecases/get_newsletter_by_co
 
 class PreviewNewsletterCubit extends Cubit<PreviewNewsletterState> {
   PreviewNewsletterCubit(this._getNewsletterByCodeUseCase)
-      : super(const PreviewNewsletterState.initial());
+    : super(const PreviewNewsletterState.initial());
 
   final GetNewsletterByCodeUseCase _getNewsletterByCodeUseCase;
 
@@ -24,11 +24,7 @@ class PreviewNewsletterCubit extends Cubit<PreviewNewsletterState> {
       return;
     }
 
-    emit(
-      PreviewNewsletterState.loading(
-        newsletter: initialNewsletter,
-      ),
-    );
+    emit(PreviewNewsletterState.loading(newsletter: initialNewsletter));
 
     try {
       final newsletter = await _getNewsletterByCodeUseCase(code);
@@ -54,26 +50,26 @@ class PreviewNewsletterState extends Equatable {
   });
 
   const PreviewNewsletterState.initial()
-      : newsletter = null,
-        isLoading = true,
-        errorMessage = null;
+    : newsletter = null,
+      isLoading = true,
+      errorMessage = null;
 
   const PreviewNewsletterState.loading({Newsletter? newsletter})
-      : newsletter = newsletter,
-        isLoading = true,
-        errorMessage = null;
+    : newsletter = newsletter,
+      isLoading = true,
+      errorMessage = null;
 
   const PreviewNewsletterState.loaded({required Newsletter newsletter})
-      : newsletter = newsletter,
-        isLoading = false,
-        errorMessage = null;
+    : newsletter = newsletter,
+      isLoading = false,
+      errorMessage = null;
 
   const PreviewNewsletterState.failure({
     Newsletter? newsletter,
     required String errorMessage,
-  })  : newsletter = newsletter,
-        isLoading = false,
-        errorMessage = errorMessage;
+  }) : newsletter = newsletter,
+       isLoading = false,
+       errorMessage = errorMessage;
 
   final Newsletter? newsletter;
   final bool isLoading;

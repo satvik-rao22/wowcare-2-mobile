@@ -232,15 +232,10 @@ class _EnrollmentOverviewCard extends StatelessWidget {
             leftValue: activeCount.toDouble(),
             rightValue: upcomingCount.toDouble(),
             onTitleTap: () {
-              context.go(
-                StudentScreen.routeName,
-              );
+              context.go(StudentScreen.routeName);
             },
             onLeftTap: () {
-              context.go(
-                StudentScreen.routeName,
-                extra: {'filter': 'ACTIVE'},
-              );
+              context.go(StudentScreen.routeName, extra: {'filter': 'ACTIVE'});
             },
             onRightTap: () {
               context.go(

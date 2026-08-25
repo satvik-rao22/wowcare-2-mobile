@@ -9,21 +9,19 @@ import '../../student_classroom/entities/student_classroom_item.dart';
 abstract class ClassroomRepository {
   Future<List<Classroom>> getActiveClassrooms({
     required String schoolCode,
+
     /// When true, restricts results to type=CLASSROOM.
     /// When false, omits the type filter.
     bool onlyTypeClassroom,
+
     /// Overrides [onlyTypeClassroom] when non-null. Sets `type=<value>` on
     /// the request, used to fetch a specific non-CLASSROOM type (e.g. ADMIN).
     String? typeOverride,
   });
 
-  Future<ClassroomDetails> getClassroomByCode({
-    required String code,
-  });
+  Future<ClassroomDetails> getClassroomByCode({required String code});
 
-  Future<SchoolCapacity> getSchoolCapacity({
-    required String schoolCode,
-  });
+  Future<SchoolCapacity> getSchoolCapacity({required String schoolCode});
 
   Future<ClassroomCount> getClassroomCount({
     required String schoolCode,
@@ -100,4 +98,3 @@ abstract class ClassroomRepository {
     required String assetCode,
   });
 }
-

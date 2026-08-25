@@ -26,10 +26,10 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
     required MarkStaffAbsentUseCase markStaffAbsentUseCase,
     required StorageService storageService,
     required ApiClient apiClient,
-  })  : _markStaffAbsentUseCase = markStaffAbsentUseCase,
-        _storageService = storageService,
-        _apiClient = apiClient,
-        super(StaffMarkAbsentState.initial());
+  }) : _markStaffAbsentUseCase = markStaffAbsentUseCase,
+       _storageService = storageService,
+       _apiClient = apiClient,
+       super(StaffMarkAbsentState.initial());
 
   final MarkStaffAbsentUseCase _markStaffAbsentUseCase;
   final StorageService _storageService;
@@ -77,14 +77,15 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
     final start = (schoolIana != null && schoolIana.isNotEmpty)
         ? SchoolZoneDateTime.schoolCalendarTodayOnly(schoolIana)
         : _localToday();
-    emit(state.copyWith(
-      schoolIana: schoolIana,
-      isStaffAdminPersona: isAdmin,
-      currentStaffCode:
-          currentStaffCode.isNotEmpty ? currentStaffCode : null,
-      startDate: start,
-      endDate: start,
-    ));
+    emit(
+      state.copyWith(
+        schoolIana: schoolIana,
+        isStaffAdminPersona: isAdmin,
+        currentStaffCode: currentStaffCode.isNotEmpty ? currentStaffCode : null,
+        startDate: start,
+        endDate: start,
+      ),
+    );
   }
 
   Future<bool> _resolveIsStaffAdminPersona() async {
@@ -183,7 +184,8 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
 
     // Self attendance (even for an admin persona) is always "today" —
     // defense in depth alongside the UI's disabled date pickers.
-    final isSelfTarget = targetStaffCodes.length == 1 &&
+    final isSelfTarget =
+        targetStaffCodes.length == 1 &&
         targetStaffCodes.first == markerStaffCode;
     final iana = state.schoolIana;
     final today = (iana != null && iana.isNotEmpty)
@@ -240,16 +242,16 @@ class StaffMarkAbsentSubmitOutcome {
     required String message,
     required bool returnToTabbedView,
   }) : this._(
-          success: true,
-          message: message,
-          returnToTabbedView: returnToTabbedView,
-        );
+         success: true,
+         message: message,
+         returnToTabbedView: returnToTabbedView,
+       );
 
   const StaffMarkAbsentSubmitOutcome.failure(String message)
-      : this._(success: false, message: message);
+    : this._(success: false, message: message);
 
   const StaffMarkAbsentSubmitOutcome.error(Object error)
-      : this._(success: false, error: error);
+    : this._(success: false, error: error);
 
   const StaffMarkAbsentSubmitOutcome.noop() : this._(success: false);
 

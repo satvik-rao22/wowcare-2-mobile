@@ -63,24 +63,24 @@ class FamilyLedgerTransactionEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        invoiceCode,
-        recurring,
-        subscriptionCode,
-        studentCode,
-        studentName,
-        transactionType,
-        status,
-        method,
-        description,
-        items,
-        amount,
-        balance,
-        paidAmount,
-        refundedAmount,
-        ledgerDelta,
-        date,
-      ];
+    id,
+    invoiceCode,
+    recurring,
+    subscriptionCode,
+    studentCode,
+    studentName,
+    transactionType,
+    status,
+    method,
+    description,
+    items,
+    amount,
+    balance,
+    paidAmount,
+    refundedAmount,
+    ledgerDelta,
+    date,
+  ];
 }
 
 /// The full family billing ledger from `GET /api/v1/invoices/family-ledger`.
@@ -115,17 +115,17 @@ class FamilyLedgerEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        ownerType,
-        ownerCode,
-        familyName,
-        openBalance,
-        paid,
-        refunded,
-        netPaid,
-        inProcess,
-        unpaid,
-        students,
-        guardians,
-        transactions,
-      ];
+    ownerType,
+    ownerCode,
+    familyName,
+    openBalance,
+    paid,
+    refunded,
+    netPaid,
+    inProcess,
+    unpaid,
+    students,
+    guardians,
+    transactions,
+  ];
 }

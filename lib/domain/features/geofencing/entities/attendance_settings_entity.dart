@@ -30,14 +30,14 @@ class AttendanceSettingsEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        gpsSignInEnabled,
-        parentGpsSignInEnabled,
-        proximityRadiusMeters,
-        maxProximityLimitMeters,
-        allowOutsideSchoolHours,
-        outsideTimeWindowMinutes,
-        allowTeacherCrossClassAttendance,
-        autoSignOutEnabled,
-        autoSignOutDelayMinutes,
-      ];
+    gpsSignInEnabled,
+    parentGpsSignInEnabled,
+    proximityRadiusMeters,
+    maxProximityLimitMeters,
+    allowOutsideSchoolHours,
+    outsideTimeWindowMinutes,
+    allowTeacherCrossClassAttendance,
+    autoSignOutEnabled,
+    autoSignOutDelayMinutes,
+  ];
 }

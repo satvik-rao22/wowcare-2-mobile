@@ -5,6 +5,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 enum SignMethod { gps, qr, pin, kiosk, direct, web, system }
 
@@ -287,26 +288,14 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: _plum,
-              height: 16 / 13,
-            ),
+            style: AppTextStyles.label.copyWith(color: _plum, height: 16 / 13),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: _plum,
-              height: 19 / 14,
-            ),
+            style: AppTextStyles.body.copyWith(color: _plum, height: 19 / 14),
             textAlign: TextAlign.end,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
@@ -329,13 +318,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: _plum,
-              height: 16 / 13,
-            ),
+            style: AppTextStyles.label.copyWith(color: _plum, height: 16 / 13),
           ),
         ),
         const SizedBox(width: 8),
@@ -366,10 +349,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
               Flexible(
                 child: Text(
                   value,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                  style: AppTextStyles.body.copyWith(
                     color: _plum,
                     height: 19 / 14,
                   ),
@@ -566,10 +546,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
+        style: AppTextStyles.title.copyWith(
           color: Color(0xFF6C7FD8),
           height: 16 / 16,
         ),
@@ -591,10 +568,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
         ),
         child: Text(
           label,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
+          style: AppTextStyles.title.copyWith(
             color: Colors.white,
             height: 16 / 16,
           ),

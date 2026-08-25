@@ -10,9 +10,9 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
   StudentDocumentCubit({
     required AddStudentDocumentUseCase addStudentDocumentUseCase,
     required UpdateStudentDocumentUseCase updateStudentDocumentUseCase,
-  })  : _addStudentDocumentUseCase = addStudentDocumentUseCase,
-        _updateStudentDocumentUseCase = updateStudentDocumentUseCase,
-        super(const StudentDocumentState.initial());
+  }) : _addStudentDocumentUseCase = addStudentDocumentUseCase,
+       _updateStudentDocumentUseCase = updateStudentDocumentUseCase,
+       super(const StudentDocumentState.initial());
 
   final AddStudentDocumentUseCase _addStudentDocumentUseCase;
   final UpdateStudentDocumentUseCase _updateStudentDocumentUseCase;
@@ -46,9 +46,11 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
 
     result.fold(
       (failure) {
-        emit(StudentDocumentState.error(
-          failure.message ?? 'Failed to add document',
-        ));
+        emit(
+          StudentDocumentState.error(
+            failure.message ?? 'Failed to add document',
+          ),
+        );
       },
       (message) {
         emit(StudentDocumentState.success(message));
@@ -87,9 +89,11 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
 
     result.fold(
       (failure) {
-        emit(StudentDocumentState.error(
-          failure.message ?? 'Failed to update document',
-        ));
+        emit(
+          StudentDocumentState.error(
+            failure.message ?? 'Failed to update document',
+          ),
+        );
       },
       (message) {
         emit(StudentDocumentState.success(message));

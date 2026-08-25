@@ -467,20 +467,14 @@ class _FamilyCard extends StatelessWidget {
                     children: [
                       Text(
                         'Relation',
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
+                        style: AppTextStyles.label.copyWith(
                           color: Color(0xff573353),
                           height: 16 / 13,
                         ),
                       ),
                       Text(
                         relation,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                        style: AppTextStyles.body.copyWith(
                           color: Color(0xff573353),
                           height: 19 / 14,
                         ),
@@ -494,20 +488,14 @@ class _FamilyCard extends StatelessWidget {
                     children: [
                       Text(
                         'Email ID',
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
+                        style: AppTextStyles.label.copyWith(
                           color: Color(0xff573353),
                           height: 16 / 13,
                         ),
                       ),
                       Text(
                         email,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                        style: AppTextStyles.body.copyWith(
                           color: Color(0xff573353),
                           height: 19 / 14,
                         ),
@@ -521,20 +509,14 @@ class _FamilyCard extends StatelessWidget {
                     children: [
                       Text(
                         'Phone Number',
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
+                        style: AppTextStyles.label.copyWith(
                           color: Color(0xff573353),
                           height: 16 / 13,
                         ),
                       ),
                       Text(
                         phone,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                        style: AppTextStyles.body.copyWith(
                           color: Color(0xff573353),
                           height: 19 / 14,
                         ),
@@ -548,20 +530,14 @@ class _FamilyCard extends StatelessWidget {
                     children: [
                       Text(
                         'Sign-in Pin',
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
+                        style: AppTextStyles.label.copyWith(
                           color: Color(0xff573353),
                           height: 16 / 13,
                         ),
                       ),
                       Text(
                         pin,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                        style: AppTextStyles.body.copyWith(
                           color: Color(0xff573353),
                           height: 19 / 14,
                         ),

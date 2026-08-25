@@ -7,9 +7,7 @@ abstract class BillingStatementsRepository {
     required String subscriberCode,
   });
 
-  Future<Uint8List> downloadStatement({
-    required String statementCode,
-  });
+  Future<Uint8List> downloadStatement({required String statementCode});
 
   Future<BillingStatementEntity> generateStatement({
     required String organizationCode,

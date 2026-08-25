@@ -8,6 +8,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Modern attachment bottom sheet with quick emoji reactions, attachment
 /// options, and a shortcut to open the participant info dialog.
@@ -133,7 +134,10 @@ class _MessageAttachmentBottomSheetState
   Future<void> _notImplemented(String feature) async {
     Navigator.of(context).pop();
     if (!mounted) return;
-    CoreUtils.showTopSnackBar(context: context, message: '$feature coming soon');
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: '$feature coming soon',
+    );
   }
 
   /// Classifies each file by its own extension (image / video / document)
@@ -174,8 +178,8 @@ class _MessageAttachmentBottomSheetState
         continue;
       }
 
-      final mime = lookupMimeType(file.path) ??
-          FilePickerUtils.getMimeType(ext);
+      final mime =
+          lookupMimeType(file.path) ?? FilePickerUtils.getMimeType(ext);
       valid.add(
         ChatAttachment(
           localPath: file.path,
@@ -275,9 +279,7 @@ class _MessageAttachmentBottomSheetState
               alignment: Alignment.centerLeft,
               child: Text(
                 'Quick Reactions',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                style: AppTextStyles.sectionHeader.copyWith(
                   color: AppColors.primaryColor.withValues(alpha: 0.7),
                 ),
               ),

@@ -12,6 +12,7 @@ import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
 import '../../../../shared/common/widgets/calendar_dialog.dart';
 import '../../../../shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class DateWidget extends StatefulWidget {
   const DateWidget({
@@ -100,18 +101,13 @@ class _DateWidgetState extends State<DateWidget> {
       children: [
         RichText(
           text: TextSpan(
-            style: TextStyle(
-              color: AppColors.primaryColor,
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              fontFamily: 'Manrope',
-            ),
+            style: AppTextStyles.label.copyWith(color: AppColors.primaryColor),
             children: [
               TextSpan(text: 'Date'),
               if (widget.isRequired)
                 TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: AppTextStyles.body.copyWith(color: Colors.red),
                 ),
             ],
           ),
@@ -174,12 +170,10 @@ class _DateWidgetState extends State<DateWidget> {
                   selectedDate != null
                       ? DateFormat('MMM dd, yyyy').format(selectedDate)
                       : 'Select Date',
-                  style: TextStyle(
+                  style: AppTextStyles.body.copyWith(
                     color: selectedDate == null
                         ? AppColors.primaryColor.withValues(alpha: 0.6)
                         : AppColors.primaryColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),

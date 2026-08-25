@@ -153,8 +153,9 @@ class AddShiftState extends Equatable {
       shiftStart: identical(shiftStart, _unset)
           ? this.shiftStart
           : shiftStart as TimeOfDay?,
-      shiftEnd:
-          identical(shiftEnd, _unset) ? this.shiftEnd : shiftEnd as TimeOfDay?,
+      shiftEnd: identical(shiftEnd, _unset)
+          ? this.shiftEnd
+          : shiftEnd as TimeOfDay?,
       breakStart: identical(breakStart, _unset)
           ? this.breakStart
           : breakStart as TimeOfDay?,
@@ -184,8 +185,9 @@ class AddShiftState extends Equatable {
       breakEndError: identical(breakEndError, _unset)
           ? this.breakEndError
           : breakEndError as String?,
-      daysError:
-          identical(daysError, _unset) ? this.daysError : daysError as String?,
+      daysError: identical(daysError, _unset)
+          ? this.daysError
+          : daysError as String?,
       schoolHoursError: identical(schoolHoursError, _unset)
           ? this.schoolHoursError
           : schoolHoursError as String?,
@@ -194,29 +196,29 @@ class AddShiftState extends Equatable {
 
   @override
   List<Object?> get props => [
-        date,
-        untilDate,
-        selectedClassroomCode,
-        selectedStaffCode,
-        shiftStart,
-        shiftEnd,
-        breakStart,
-        breakEnd,
-        repeatOn,
-        selectedDays,
-        publish,
-        saving,
-        noScheduleForSelectedDate,
-        schoolHoursResolver,
-        adminClassrooms,
-        untilDateError,
-        shiftStartError,
-        shiftEndError,
-        breakStartError,
-        breakEndError,
-        daysError,
-        schoolHoursError,
-      ];
+    date,
+    untilDate,
+    selectedClassroomCode,
+    selectedStaffCode,
+    shiftStart,
+    shiftEnd,
+    breakStart,
+    breakEnd,
+    repeatOn,
+    selectedDays,
+    publish,
+    saving,
+    noScheduleForSelectedDate,
+    schoolHoursResolver,
+    adminClassrooms,
+    untilDateError,
+    shiftStartError,
+    shiftEndError,
+    breakStartError,
+    breakEndError,
+    daysError,
+    schoolHoursError,
+  ];
 }
 
 /// Sentinel for [AddShiftState.copyWith] so callers can distinguish "leave the

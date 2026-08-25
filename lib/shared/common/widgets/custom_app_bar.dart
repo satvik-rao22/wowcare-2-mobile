@@ -37,6 +37,7 @@ import 'package:wowcare/presentation/features/user-profile/view_model/user_profi
 import 'package:wowcare/core/util/string_utils.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/user_details_school_roles.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class TabBarStyle {
   final TabAlignment? tabAlignment;
@@ -547,12 +548,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
               const SizedBox(width: 12),
               Text(
                 'My Profile',
-                style: TextStyle(
-                  color: AppColors.primaryColor,
-                  fontFamily: 'Manrope',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                ),
+                style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -582,12 +578,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
                       : 'Sign-in pin';
                   return Text(
                     text,
-                    style: TextStyle(
-                      color: AppColors.primaryColor,
-                      fontFamily: 'Manrope',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                    ),
+                    style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   );
@@ -608,12 +599,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
                 const SizedBox(width: 12),
                 Text(
                   'Switch Profile',
-                  style: TextStyle(
-                    color: AppColors.primaryColor,
-                    fontFamily: 'Manrope',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                  ),
+                  style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -632,12 +618,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
                 const SizedBox(width: 12),
                 Text(
                   'Switch Organisation',
-                  style: TextStyle(
-                    color: AppColors.primaryColor,
-                    fontFamily: 'Manrope',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                  ),
+                  style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -653,14 +634,9 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
                 color: AppColors.primaryColor.withValues(alpha: 0.5),
               ),
               const SizedBox(width: 12),
-              const Text(
+              Text(
                 'Change Password',
-                style: TextStyle(
-                  color: AppColors.primaryColor,
-                  fontFamily: 'Manrope',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                ),
+                style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -678,12 +654,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
               const SizedBox(width: 12),
               Text(
                 'Notification settings',
-                style: TextStyle(
-                  color: AppColors.primaryColor,
-                  fontFamily: 'Manrope',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                ),
+                style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -701,12 +672,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
               const SizedBox(width: 12),
               Text(
                 'Help',
-                style: TextStyle(
-                  color: AppColors.primaryColor,
-                  fontFamily: 'Manrope',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                ),
+                style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -724,12 +690,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
               const SizedBox(width: 12),
               Text(
                 'Logout',
-                style: TextStyle(
-                  color: AppColors.primaryColor,
-                  fontFamily: 'Manrope',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                ),
+                style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),

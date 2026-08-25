@@ -25,7 +25,8 @@ class ImageUploadService {
 
   /// Dedupes concurrent resolutions of the same asset code so a list of cards
   /// sharing one code issues a single network call.
-  final Map<String, Future<String>> _assetUrlInFlight = <String, Future<String>>{};
+  final Map<String, Future<String>> _assetUrlInFlight =
+      <String, Future<String>>{};
 
   /// When an asset never finishes backend processing, [_waitForDocumentAssetUrlByCode]
   /// gives up after its timeout — but on its own that's only a one-time
@@ -94,7 +95,11 @@ class ImageUploadService {
     }
     final sessionCode = (data['sessionCode'] ?? '').toString().trim();
     final documentApiBasePath =
-        (data['documentApiBasePath'] ?? ApiPaths.documentUploadSessionsRoot.replaceFirst('/upload-sessions', ''))
+        (data['documentApiBasePath'] ??
+                ApiPaths.documentUploadSessionsRoot.replaceFirst(
+                  '/upload-sessions',
+                  '',
+                ))
             .toString()
             .trim();
     if (sessionCode.isEmpty) {
@@ -103,7 +108,10 @@ class ImageUploadService {
     return UploadSessionResult(
       sessionCode: sessionCode,
       documentApiBasePath: documentApiBasePath.isEmpty
-          ? ApiPaths.documentUploadSessionsRoot.replaceFirst('/upload-sessions', '')
+          ? ApiPaths.documentUploadSessionsRoot.replaceFirst(
+              '/upload-sessions',
+              '',
+            )
           : documentApiBasePath,
     );
   }
@@ -119,7 +127,10 @@ class ImageUploadService {
     required String ownerType,
     required String ownerCode,
   }) async {
-    final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final origin = ApiConstants.documentMsBaseUrl.replaceAll(
+      RegExp(r'/+$'),
+      '',
+    );
     final path = ApiPaths.documentAssetPresignPath(
       documentApiBasePath: documentApiBasePath,
       sessionCode: sessionCode,
@@ -176,10 +187,13 @@ class ImageUploadService {
     }
 
     final assetCode = (firstUpload['assetCode'] ?? '').toString().trim();
-    final presignedPutUrl =
-        (firstUpload['presignedPutUrl'] ?? '').toString().trim();
+    final presignedPutUrl = (firstUpload['presignedPutUrl'] ?? '')
+        .toString()
+        .trim();
     if (assetCode.isEmpty || presignedPutUrl.isEmpty) {
-      throw Exception('Missing assetCode or presignedPutUrl in presign response');
+      throw Exception(
+        'Missing assetCode or presignedPutUrl in presign response',
+      );
     }
 
     final rawHeaders = firstUpload['requiredHeaders'];
@@ -214,7 +228,10 @@ class ImageUploadService {
   }) async {
     if (assets.isEmpty) return const [];
 
-    final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final origin = ApiConstants.documentMsBaseUrl.replaceAll(
+      RegExp(r'/+$'),
+      '',
+    );
     final path = ApiPaths.documentAssetPresignPath(
       documentApiBasePath: documentApiBasePath,
       sessionCode: sessionCode,
@@ -274,7 +291,9 @@ class ImageUploadService {
       final assetCode = (raw['assetCode'] ?? '').toString().trim();
       final presignedPutUrl = (raw['presignedPutUrl'] ?? '').toString().trim();
       if (assetCode.isEmpty || presignedPutUrl.isEmpty) {
-        throw Exception('Missing assetCode or presignedPutUrl in presign response');
+        throw Exception(
+          'Missing assetCode or presignedPutUrl in presign response',
+        );
       }
       final rawHeaders = raw['requiredHeaders'];
       final requiredHeaders = <String, String>{};
@@ -321,7 +340,10 @@ class ImageUploadService {
     required String assetCode,
     required String documentApiBasePath,
   }) async {
-    final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final origin = ApiConstants.documentMsBaseUrl.replaceAll(
+      RegExp(r'/+$'),
+      '',
+    );
     final path = ApiPaths.documentAssetCompletePath(
       documentApiBasePath: documentApiBasePath,
       sessionCode: sessionCode,
@@ -380,8 +402,9 @@ class ImageUploadService {
                 status != null && status >= 200 && status < 300,
           ),
           onSendProgress: (sent, total) {
-            final effectiveTotal =
-                (total > 0) ? total : (bytes.isNotEmpty ? bytes.length : 0);
+            final effectiveTotal = (total > 0)
+                ? total
+                : (bytes.isNotEmpty ? bytes.length : 0);
             if (effectiveTotal <= 0) return;
             final fraction = sent / effectiveTotal;
             final percent = (fraction * 100).clamp(0, 100).round();
@@ -442,7 +465,9 @@ class ImageUploadService {
         throw Exception(result.failureMessage);
       }
       if (AppTime.nowUtc().isAfter(deadline)) {
-        throw Exception('Photo processing is taking too long. Please try again.');
+        throw Exception(
+          'Photo processing is taking too long. Please try again.',
+        );
       }
       await Future.delayed(pollEvery);
     }
@@ -484,9 +509,14 @@ class ImageUploadService {
   /// resolved asset's status/deliveryUrl/thumbnailUrl, keyed by assetCode.
   /// Codes missing from the response (not yet visible to the resolve
   /// endpoint) are simply absent from the result.
-  Future<Map<String, ({String status, String deliveryUrl, String thumbnailUrl})>>
+  Future<
+    Map<String, ({String status, String deliveryUrl, String thumbnailUrl})>
+  >
   resolveMediaAssets(List<String> assetCodes) async {
-    final codes = assetCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    final codes = assetCodes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
     if (codes.isEmpty) return const {};
 
     final response = await _apiClient.client.post<dynamic>(
@@ -495,7 +525,8 @@ class ImageUploadService {
     );
 
     final body = response.data;
-    final result = <String, ({String status, String deliveryUrl, String thumbnailUrl})>{};
+    final result =
+        <String, ({String status, String deliveryUrl, String thumbnailUrl})>{};
     if (body is! Map) return result;
     final data = body['data'];
     if (data is! Map) return result;
@@ -524,7 +555,10 @@ class ImageUploadService {
   Future<Map<String, String>> waitUntilAssetsReadyBackoff({
     required List<String> assetCodes,
   }) async {
-    final pending = assetCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toSet();
+    final pending = assetCodes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet();
     if (pending.isEmpty) return const {};
 
     final resolved = <String, String>{};
@@ -675,9 +709,7 @@ class ImageUploadService {
     );
     final response = await _apiClient.client.post<dynamic>(
       endpoint,
-      data: <String, dynamic>{
-        'assetCode': assetCode.trim(),
-      },
+      data: <String, dynamic>{'assetCode': assetCode.trim()},
     );
     final body = response.data;
     if (body is! Map<String, dynamic>) {
@@ -697,8 +729,9 @@ class ImageUploadService {
         (data['profilePhotoAssetCode'] ?? data['assetCode'] ?? '')
             .toString()
             .trim();
-    final effectiveAssetCode =
-        finalizedAssetCode.isNotEmpty ? finalizedAssetCode : assetCode.trim();
+    final effectiveAssetCode = finalizedAssetCode.isNotEmpty
+        ? finalizedAssetCode
+        : assetCode.trim();
     final directUrl = (data['url'] ?? '').toString().trim();
     final thumbnailUrl = (data['thumbnailUrl'] ?? '').toString().trim();
     if (directUrl.isNotEmpty) return directUrl;
@@ -709,9 +742,7 @@ class ImageUploadService {
     );
     if (mediaAssetUrl.isNotEmpty) return mediaAssetUrl;
 
-    final profileUrl = await _waitForStaffProfilePhotoUrl(
-      staffCode: staffCode,
-    );
+    final profileUrl = await _waitForStaffProfilePhotoUrl(staffCode: staffCode);
     if (profileUrl.isNotEmpty) return profileUrl;
     throw Exception('Profile photo URL missing after finalize');
   }
@@ -843,8 +874,10 @@ class ImageUploadService {
     // (itself a recognized microservice segment), treats it as the
     // ambiguous "resource name == microservice name" case and duplicates
     // it into `/api/v1/document/document/...`.
-    final origin =
-        ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final origin = ApiConstants.documentMsBaseUrl.replaceAll(
+      RegExp(r'/+$'),
+      '',
+    );
     final endpoint =
         '$origin${ApiPaths.schoolCloudUploadSessionsPath(schoolCode)}';
     final response = await _apiClient.client
@@ -970,8 +1003,9 @@ class ImageUploadService {
         (data['profilePhotoAssetCode'] ?? data['assetCode'] ?? '')
             .toString()
             .trim();
-    final effectiveAssetCode =
-        finalizedAssetCode.isNotEmpty ? finalizedAssetCode : assetCode.trim();
+    final effectiveAssetCode = finalizedAssetCode.isNotEmpty
+        ? finalizedAssetCode
+        : assetCode.trim();
     final url = (data['url'] ?? '').toString().trim();
     if (url.isEmpty) {
       final mediaAssetUrl = await _waitForDocumentAssetUrlByCode(
@@ -1008,9 +1042,7 @@ class ImageUploadService {
     );
     final response = await _apiClient.client.post<dynamic>(
       endpoint,
-      data: <String, dynamic>{
-        'assetCode': assetCode.trim(),
-      },
+      data: <String, dynamic>{'assetCode': assetCode.trim()},
     );
     final body = response.data;
     if (body is! Map<String, dynamic>) {
@@ -1030,8 +1062,9 @@ class ImageUploadService {
         (data['profilePhotoAssetCode'] ?? data['assetCode'] ?? '')
             .toString()
             .trim();
-    final effectiveAssetCode =
-        finalizedAssetCode.isNotEmpty ? finalizedAssetCode : assetCode.trim();
+    final effectiveAssetCode = finalizedAssetCode.isNotEmpty
+        ? finalizedAssetCode
+        : assetCode.trim();
     final directUrl = (data['url'] ?? '').toString().trim();
     if (directUrl.isNotEmpty) return directUrl;
 
@@ -1092,9 +1125,7 @@ class ImageUploadService {
   String? cachedMediaAssetUrl(String assetCode) =>
       _assetUrlCache[assetCode.trim()];
 
-  Future<String> getMediaAssetUrlByCode({
-    required String assetCode,
-  }) async {
+  Future<String> getMediaAssetUrlByCode({required String assetCode}) async {
     final normalized = assetCode.trim();
     if (normalized.isEmpty) return '';
 
@@ -1117,14 +1148,15 @@ class ImageUploadService {
 
     final future = _waitForDocumentAssetUrlByCode(assetCode: normalized)
         .then((String url) {
-      if (url.isNotEmpty) {
-        _assetUrlCache[normalized] = url;
-        _assetUrlFailedAt.remove(normalized);
-      } else {
-        _assetUrlFailedAt[normalized] = AppTime.nowUtc();
-      }
-      return url;
-    }).whenComplete(() => _assetUrlInFlight.remove(normalized));
+          if (url.isNotEmpty) {
+            _assetUrlCache[normalized] = url;
+            _assetUrlFailedAt.remove(normalized);
+          } else {
+            _assetUrlFailedAt[normalized] = AppTime.nowUtc();
+          }
+          return url;
+        })
+        .whenComplete(() => _assetUrlInFlight.remove(normalized));
 
     _assetUrlInFlight[normalized] = future;
     return future;
@@ -1155,8 +1187,9 @@ class ImageUploadService {
     final ownerCode = (data['ownerCode'] ?? '').toString().trim();
     return UploadSessionResult(
       sessionCode: sessionCode,
-      documentApiBasePath:
-          documentApiBasePath.isEmpty ? '/api/v1' : documentApiBasePath,
+      documentApiBasePath: documentApiBasePath.isEmpty
+          ? '/api/v1'
+          : documentApiBasePath,
       ownerType: ownerType.isEmpty ? null : ownerType,
       ownerCode: ownerCode.isEmpty ? null : ownerCode,
     );
@@ -1250,8 +1283,10 @@ class ImageUploadService {
                   normalizedStudent,
               orElse: () => <String, dynamic>{},
             );
-            final mappedAssetCode =
-                (matched['assetCode'] ?? '').toString().trim().toUpperCase();
+            final mappedAssetCode = (matched['assetCode'] ?? '')
+                .toString()
+                .trim()
+                .toUpperCase();
             if (mappedAssetCode.isNotEmpty &&
                 (normalizedExpectedAsset.isEmpty ||
                     mappedAssetCode == normalizedExpectedAsset)) {
@@ -1341,8 +1376,9 @@ class ImageUploadService {
             final value = (raw ?? '').toString().trim();
             if (value.isNotEmpty) return value;
           }
-          final profilePhotoAssetCode =
-              (data['profilePhotoAssetCode'] ?? '').toString().trim();
+          final profilePhotoAssetCode = (data['profilePhotoAssetCode'] ?? '')
+              .toString()
+              .trim();
           if (profilePhotoAssetCode.isNotEmpty) {
             final resolved = await _waitForDocumentAssetUrlByCode(
               assetCode: profilePhotoAssetCode,
@@ -1414,4 +1450,3 @@ class _UploadSessionStatusResult {
   final bool isReady;
   final String? failureMessage;
 }
-

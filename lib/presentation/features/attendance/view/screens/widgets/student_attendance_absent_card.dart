@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 enum AbsentMarkMethod { gps, qr, kiosk, app, web }
 
@@ -220,13 +221,7 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: _plum,
-              height: 16 / 13,
-            ),
+            style: AppTextStyles.label.copyWith(color: _plum, height: 16 / 13),
           ),
         ),
         const SizedBox(width: 8),
@@ -241,10 +236,7 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
               Flexible(
                 child: Text(
                   value,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                  style: AppTextStyles.body.copyWith(
                     color: _plum,
                     height: 19 / 14,
                   ),
@@ -265,18 +257,13 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         side: const BorderSide(color: Color(0xFF6C7FD8)),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         padding: EdgeInsets.zero,
         backgroundColor: Colors.white,
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
+        style: AppTextStyles.title.copyWith(
           color: Color(0xFF6C7FD8),
           height: 16 / 16,
         ),
@@ -288,9 +275,17 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
     const size = 18.0;
     switch (method) {
       case AbsentMarkMethod.gps:
-        return SvgPicture.asset(MediaRes.gpsMethodIcon, width: size, height: size);
+        return SvgPicture.asset(
+          MediaRes.gpsMethodIcon,
+          width: size,
+          height: size,
+        );
       case AbsentMarkMethod.qr:
-        return SvgPicture.asset(MediaRes.qrAttendanceIcon, width: size, height: size);
+        return SvgPicture.asset(
+          MediaRes.qrAttendanceIcon,
+          width: size,
+          height: size,
+        );
       case AbsentMarkMethod.kiosk:
         return Icon(
           Icons.point_of_sale_outlined,
@@ -302,14 +297,20 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
           MediaRes.appMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
+          ),
         );
       case AbsentMarkMethod.web:
         return SvgPicture.asset(
           MediaRes.webMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
+          ),
         );
     }
   }

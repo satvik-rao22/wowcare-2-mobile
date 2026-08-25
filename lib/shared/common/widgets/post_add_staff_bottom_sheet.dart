@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class PostAddStaffBottomSheet extends StatelessWidget {
   final String staffName;
@@ -87,12 +88,7 @@ class PostAddStaffBottomSheet extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 'A new staff${staffName.isNotEmpty ? ' $staffName ' : ' '}is added successfully',
-                style: const TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF573353),
-                ),
+                style: AppTextStyles.body.copyWith(color: Color(0xFF573353)),
                 textAlign: TextAlign.center,
               ),
               SizedBox(height: verticalPadding * 1.5),

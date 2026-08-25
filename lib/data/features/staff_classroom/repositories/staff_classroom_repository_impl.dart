@@ -27,16 +27,18 @@ class StaffClassroomRepositoryImpl implements StaffClassroomRepository {
     final parts = <String>[schoolCode.trim()];
 
     List<String> norm(List<String>? v, {bool upper = false}) {
-      final list = (v ?? [])
-          .map((e) => upper ? e.trim().toUpperCase() : e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList()
-        ..sort();
+      final list =
+          (v ?? [])
+              .map((e) => upper ? e.trim().toUpperCase() : e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList()
+            ..sort();
       return list;
     }
 
     final normClassCodes = norm(classCodes);
-    if (normClassCodes.isNotEmpty) parts.add('class=${normClassCodes.join(',')}');
+    if (normClassCodes.isNotEmpty)
+      parts.add('class=${normClassCodes.join(',')}');
 
     final normPrimary = norm(primaryClassroomCodes);
     if (normPrimary.isNotEmpty) parts.add('primary=${normPrimary.join(',')}');
@@ -171,4 +173,3 @@ class StaffClassroomRepositoryImpl implements StaffClassroomRepository {
     );
   }
 }
-

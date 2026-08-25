@@ -19,12 +19,12 @@ class DiscountCubit extends Cubit<DiscountState> {
     required DeactivateDiscountUseCase deactivateDiscountUseCase,
     required ReactivateDiscountUseCase reactivateDiscountUseCase,
     required StorageService storageService,
-  })  : _getDiscountsUseCase = getDiscountsUseCase,
-        _deleteDiscountUseCase = deleteDiscountUseCase,
-        _deactivateDiscountUseCase = deactivateDiscountUseCase,
-        _reactivateDiscountUseCase = reactivateDiscountUseCase,
-        _storageService = storageService,
-        super(DiscountState.initial());
+  }) : _getDiscountsUseCase = getDiscountsUseCase,
+       _deleteDiscountUseCase = deleteDiscountUseCase,
+       _deactivateDiscountUseCase = deactivateDiscountUseCase,
+       _reactivateDiscountUseCase = reactivateDiscountUseCase,
+       _storageService = storageService,
+       super(DiscountState.initial());
 
   final GetDiscountsUseCase _getDiscountsUseCase;
   final DeleteDiscountUseCase _deleteDiscountUseCase;
@@ -65,40 +65,45 @@ class DiscountCubit extends Cubit<DiscountState> {
         status: state.statusFilter,
         page: page,
       );
-      final newItems =
-          result.content.map(DiscountAccountModel.fromEntity).toList();
-      final merged =
-          reset ? newItems : [...state.allDiscounts, ...newItems];
+      final newItems = result.content
+          .map(DiscountAccountModel.fromEntity)
+          .toList();
+      final merged = reset ? newItems : [...state.allDiscounts, ...newItems];
       if (isClosed) return;
-      emit(state.copyWith(
-        allDiscounts: merged,
-        isLoading: false,
-        isLoadingMore: false,
-        hasMore: result.hasMore,
-        currentPage: result.number,
-        errorMessage: () => null,
-      ));
+      emit(
+        state.copyWith(
+          allDiscounts: merged,
+          isLoading: false,
+          isLoadingMore: false,
+          hasMore: result.hasMore,
+          currentPage: result.number,
+          errorMessage: () => null,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoading: false,
-        isLoadingMore: false,
-        errorMessage: () => e.toString(),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isLoadingMore: false,
+          errorMessage: () => e.toString(),
+        ),
+      );
     }
   }
 
   // ─── Search / filter ──────────────────────────────────────────────────────
 
-  void setSearchQuery(String query) =>
-      emit(state.copyWith(searchQuery: query));
+  void setSearchQuery(String query) => emit(state.copyWith(searchQuery: query));
 
   void setStatusFilter(String? status) {
     if (state.statusFilter == status) return;
-    emit(DiscountState.initial().copyWith(
-      searchQuery: state.searchQuery,
-      statusFilter: () => status,
-    ));
+    emit(
+      DiscountState.initial().copyWith(
+        searchQuery: state.searchQuery,
+        statusFilter: () => status,
+      ),
+    );
     unawaited(loadInitial());
   }
 
@@ -111,14 +116,11 @@ class DiscountCubit extends Cubit<DiscountState> {
   // ─── CRUD callbacks ───────────────────────────────────────────────────────
 
   void addDiscount(DiscountAccountModel discount) {
-    emit(state.copyWith(
-      allDiscounts: [discount, ...state.allDiscounts],
-    ));
+    emit(state.copyWith(allDiscounts: [discount, ...state.allDiscounts]));
   }
 
   void updateDiscount(DiscountAccountModel discount) {
-    final index =
-        state.allDiscounts.indexWhere((e) => e.code == discount.code);
+    final index = state.allDiscounts.indexWhere((e) => e.code == discount.code);
     if (index == -1) return;
     final updated = List<DiscountAccountModel>.from(state.allDiscounts);
     updated[index] = discount;
@@ -128,10 +130,13 @@ class DiscountCubit extends Cubit<DiscountState> {
   Future<bool> deleteDiscount(String code) async {
     try {
       await _deleteDiscountUseCase(code);
-      emit(state.copyWith(
-        allDiscounts:
-            state.allDiscounts.where((e) => e.code != code).toList(),
-      ));
+      emit(
+        state.copyWith(
+          allDiscounts: state.allDiscounts
+              .where((e) => e.code != code)
+              .toList(),
+        ),
+      );
       return true;
     } catch (_) {
       return false;
@@ -142,10 +147,13 @@ class DiscountCubit extends Cubit<DiscountState> {
     try {
       await _deactivateDiscountUseCase(code);
       if (state.statusFilter == 'ACTIVE') {
-        emit(state.copyWith(
-          allDiscounts:
-              state.allDiscounts.where((e) => e.code != code).toList(),
-        ));
+        emit(
+          state.copyWith(
+            allDiscounts: state.allDiscounts
+                .where((e) => e.code != code)
+                .toList(),
+          ),
+        );
       } else {
         final updated = state.allDiscounts.map((e) {
           return e.code == code ? e.copyWith(status: 'INACTIVE') : e;
@@ -162,10 +170,13 @@ class DiscountCubit extends Cubit<DiscountState> {
     try {
       await _reactivateDiscountUseCase(code);
       if (state.statusFilter == 'INACTIVE') {
-        emit(state.copyWith(
-          allDiscounts:
-              state.allDiscounts.where((e) => e.code != code).toList(),
-        ));
+        emit(
+          state.copyWith(
+            allDiscounts: state.allDiscounts
+                .where((e) => e.code != code)
+                .toList(),
+          ),
+        );
       } else {
         final updated = state.allDiscounts.map((e) {
           return e.code == code ? e.copyWith(status: 'ACTIVE') : e;
@@ -177,5 +188,4 @@ class DiscountCubit extends Cubit<DiscountState> {
       return false;
     }
   }
-
 }

@@ -28,10 +28,7 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
     List<String>? status,
     String? attendanceStatus,
   }) {
-    final parts = <String>[
-      schoolCode.trim(),
-      classroomCode.trim(),
-    ];
+    final parts = <String>[schoolCode.trim(), classroomCode.trim()];
 
     final normFirst = (firstName ?? '').trim().toLowerCase();
     final normLast = (lastName ?? '').trim().toLowerCase();
@@ -47,26 +44,30 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
       parts.add('search=$normSearch');
     }
 
-    final normTags = (tagCodes ?? [])
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList()
-      ..sort();
-    final normStudentCodes = (studentCodes ?? [])
-        .map((e) => e.trim().toUpperCase())
-        .where((e) => e.isNotEmpty)
-        .toList()
-      ..sort();
-    final normGuardians = (guardianCodes ?? [])
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList()
-      ..sort();
-    final normStatus = (status ?? [])
-        .map((e) => e.trim().toUpperCase())
-        .where((e) => e.isNotEmpty)
-        .toList()
-      ..sort();
+    final normTags =
+        (tagCodes ?? [])
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList()
+          ..sort();
+    final normStudentCodes =
+        (studentCodes ?? [])
+            .map((e) => e.trim().toUpperCase())
+            .where((e) => e.isNotEmpty)
+            .toList()
+          ..sort();
+    final normGuardians =
+        (guardianCodes ?? [])
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList()
+          ..sort();
+    final normStatus =
+        (status ?? [])
+            .map((e) => e.trim().toUpperCase())
+            .where((e) => e.isNotEmpty)
+            .toList()
+          ..sort();
     final normAttendance = (attendanceStatus ?? '').trim().toUpperCase();
 
     if (normTags.isNotEmpty) {
@@ -124,8 +125,9 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
     if (!refresh) {
       final cachedPayload = await _cacheManager.loadCache(cacheKey);
       if (cachedPayload != null) {
-        final listModel =
-            StudentClassroomListModel.fromCacheJson(cachedPayload);
+        final listModel = StudentClassroomListModel.fromCacheJson(
+          cachedPayload,
+        );
         return listModel.items.map(_mapModelToEntity).toList();
       }
     }
@@ -172,9 +174,7 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
     return response.message;
   }
 
-  StudentClassroomItem _mapModelToEntity(
-    StudentClassroomItemModel model,
-  ) {
+  StudentClassroomItem _mapModelToEntity(StudentClassroomItemModel model) {
     return StudentClassroomItem(
       classroomCode: model.classroomCode,
       studentCode: model.studentCode,
@@ -195,5 +195,3 @@ class StudentClassroomRepositoryImpl implements StudentClassroomRepository {
     );
   }
 }
-
-

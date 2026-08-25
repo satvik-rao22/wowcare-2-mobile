@@ -3,6 +3,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// A single recipient's delivery/read state for [MessageInfoDialog] —
 /// stack-agnostic so both the legacy (Room Chat / Staff Direct) and v2
@@ -153,10 +154,7 @@ class MessageInfoDialog extends StatelessWidget {
                         _plainText(messageText),
                         maxLines: 5,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                        style: AppTextStyles.body.copyWith(
                           color: AppColors.primaryColor,
                           height: 1.45,
                         ),

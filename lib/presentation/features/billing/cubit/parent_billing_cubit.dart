@@ -13,9 +13,9 @@ class ParentBillingCubit extends Cubit<ParentBillingState> {
   ParentBillingCubit({
     required GetGuardianFamilyLedgerUseCase getGuardianFamilyLedger,
     required StorageService storage,
-  })  : _getGuardianFamilyLedger = getGuardianFamilyLedger,
-        _storage = storage,
-        super(const ParentBillingState.initial());
+  }) : _getGuardianFamilyLedger = getGuardianFamilyLedger,
+       _storage = storage,
+       super(const ParentBillingState.initial());
 
   final GetGuardianFamilyLedgerUseCase _getGuardianFamilyLedger;
   final StorageService _storage;
@@ -26,16 +26,18 @@ class ParentBillingCubit extends Cubit<ParentBillingState> {
     // A background refresh (pull-to-refresh) keeps the current ledger on screen
     // instead of showing the loading state, and refetches silently.
     final keepVisible = background && state.ledger != null;
-    emit(state.copyWith(
-      isLoading: !keepVisible,
-      errorMessage: () => null,
-      displayCount: _pageSize,
-    ));
+    emit(
+      state.copyWith(
+        isLoading: !keepVisible,
+        errorMessage: () => null,
+        displayCount: _pageSize,
+      ),
+    );
     try {
-      final org =
-          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final school =
-          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final org = (await _storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+      final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       final guardianCode =
           (await _storage.getString(StorageKeys.guardianCode) ?? '').trim();
       if (org.isEmpty || school.isEmpty || guardianCode.isEmpty) {
@@ -56,10 +58,12 @@ class ParentBillingCubit extends Cubit<ParentBillingState> {
         emit(state.copyWith(isLoading: false));
         return;
       }
-      emit(state.copyWith(
-        isLoading: false,
-        errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -97,7 +101,8 @@ class ParentBillingCubit extends Cubit<ParentBillingState> {
     emit(
       state.copyWith(
         startDate: startDate,
-        endDate: endDate ??
+        endDate:
+            endDate ??
             DateTime(
               startDate.year,
               startDate.month,

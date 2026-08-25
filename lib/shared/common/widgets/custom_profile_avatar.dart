@@ -77,19 +77,19 @@ class CustomProfileAvatar extends StatelessWidget {
           //           },
           //         ),
           //       )
-          //     : 
+          //     :
           CircleAvatar(
             backgroundColor: Colors.blue, // ColorUtils.getColorFromName(
-              // context.isPersonnel
-              //     ? context.currentStaff!.name
-              //     : context.currentGuardian!.fullName,
+            // context.isPersonnel
+            //     ? context.currentStaff!.name
+            //     : context.currentGuardian!.fullName,
             // ),
             radius: radius,
             child: Text(
               'U', // StringUtils.getInitials(
-                // context.isPersonnel
-                //     ? context.currentStaff!.name
-                //     : context.currentGuardian!.fullName,
+              // context.isPersonnel
+              //     ? context.currentStaff!.name
+              //     : context.currentGuardian!.fullName,
               // ),
               style: TextStyle(
                 fontWeight: FontWeight.w600,

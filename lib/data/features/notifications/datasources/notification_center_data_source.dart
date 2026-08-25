@@ -80,8 +80,7 @@ class MockNotificationCenterDataSource implements NotificationCenterDataSource {
   @override
   Future<void> markAsRead(String id) async {
     await Future<void>.delayed(const Duration(milliseconds: 150));
-    _items =
-        _items.map((n) => n.id == id ? _copyRead(n, true) : n).toList();
+    _items = _items.map((n) => n.id == id ? _copyRead(n, true) : n).toList();
   }
 
   @override

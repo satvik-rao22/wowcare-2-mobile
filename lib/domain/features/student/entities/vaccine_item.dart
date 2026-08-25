@@ -4,10 +4,7 @@ import 'package:equatable/equatable.dart';
 ///
 /// Preserves both the backend code (`VCC_*`) and the display name (e.g. `DTaP`).
 class VaccineItem extends Equatable {
-  const VaccineItem({
-    required this.code,
-    required this.name,
-  });
+  const VaccineItem({required this.code, required this.name});
 
   final String code;
   final String name;

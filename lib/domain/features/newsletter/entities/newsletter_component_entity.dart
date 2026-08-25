@@ -16,4 +16,3 @@ class NewsletterComponentEntity extends Equatable {
   @override
   List<Object?> get props => [id, type, data, order];
 }
-

@@ -18,6 +18,7 @@ import 'package:wowcare/domain/features/student/repositories/student_repository.
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class AddStudentStep2Screen extends StatefulWidget {
   const AddStudentStep2Screen({
@@ -749,14 +750,14 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                       enableSearch: true,
                                       selectedItem:
                                           _selectedExistingParents.isEmpty
-                                              ? null
-                                              : _selectedExistingParents.first,
+                                          ? null
+                                          : _selectedExistingParents.first,
                                       onSelect: (selected) {
                                         setState(() {
                                           _selectedExistingParents =
                                               selected == null
-                                                  ? <String>[]
-                                                  : <String>[selected];
+                                              ? <String>[]
+                                              : <String>[selected];
                                         });
                                       },
                                     ),
@@ -1016,7 +1017,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: Color(0xff573353),
     );
 
     return Column(
@@ -1027,9 +1028,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(
+              TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: AppTextStyles.body.copyWith(color: Colors.red),
               ),
             ],
           ),
@@ -1110,8 +1111,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                       const SizedBox(height: 8),
                       Text(
                         'Upload Photo',
-                        style: TextStyle(
-                          fontSize: 12,
+                        style: AppTextStyles.bodySmall.copyWith(
                           color: Colors.grey.shade600,
                         ),
                       ),
@@ -1122,11 +1122,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         const SizedBox(height: 4),
         Text(
           'JPG, PNG, max 10MB (Optional)',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-            fontFamily: 'Manrope',
-          ),
+          style: AppTextStyles.bodySmall.copyWith(color: Colors.grey.shade600),
         ),
       ],
     );

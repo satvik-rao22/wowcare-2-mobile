@@ -13,11 +13,7 @@ import 'notification_category_style.dart';
 /// Stateless and dumb: it renders the [notification] and forwards taps to
 /// [onTap]. All read-state logic lives in the cubit.
 class NotificationCard extends StatelessWidget {
-  const NotificationCard({
-    super.key,
-    required this.notification,
-    this.onTap,
-  });
+  const NotificationCard({super.key, required this.notification, this.onTap});
 
   final AppNotification notification;
   final VoidCallback? onTap;
@@ -103,14 +99,13 @@ class NotificationCard extends StatelessWidget {
                             fontFamily: 'Manrope',
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
-                            color: AppColors.primaryColor.withValues(alpha: 0.5),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 10),
-                        _CategoryChip(
-                          label: chipLabel,
-                          style: style,
-                        ),
+                        _CategoryChip(label: chipLabel, style: style),
                       ],
                     ),
                   ],

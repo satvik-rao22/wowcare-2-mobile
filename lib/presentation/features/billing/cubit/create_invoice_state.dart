@@ -15,16 +15,16 @@ class CreateInvoiceState extends Equatable {
 
   /// Starts with a single primary item row and an empty catalog.
   factory CreateInvoiceState.initial() => CreateInvoiceState(
-        items: [InvoiceItemFormData.initial(isPrimary: true)],
-        invoiceDate: null,
-        dueDate: null,
-        serviceDate: null,
-        serviceDateEnd: null,
-        catalog: const <String, List<InvoiceCatalogOption>>{},
-        catalogLoaded: false,
-        isFormLocked: false,
-        revision: 0,
-      );
+    items: [InvoiceItemFormData.initial(isPrimary: true)],
+    invoiceDate: null,
+    dueDate: null,
+    serviceDate: null,
+    serviceDateEnd: null,
+    catalog: const <String, List<InvoiceCatalogOption>>{},
+    catalogLoaded: false,
+    isFormLocked: false,
+    revision: 0,
+  );
 
   final List<InvoiceItemFormData> items;
   final DateTime? invoiceDate;
@@ -51,9 +51,12 @@ class CreateInvoiceState extends Equatable {
   double get totalAmount {
     double total = 0;
     for (final item in items) {
-      final amount = double.tryParse(item.amountController.text.isEmpty
-              ? item.amount
-              : item.amountController.text) ??
+      final amount =
+          double.tryParse(
+            item.amountController.text.isEmpty
+                ? item.amount
+                : item.amountController.text,
+          ) ??
           0;
       if (InvoiceItemTypes.isDeduction(item.type)) {
         total -= amount;
@@ -80,8 +83,9 @@ class CreateInvoiceState extends Equatable {
       invoiceDate: invoiceDate != null ? invoiceDate() : this.invoiceDate,
       dueDate: dueDate != null ? dueDate() : this.dueDate,
       serviceDate: serviceDate != null ? serviceDate() : this.serviceDate,
-      serviceDateEnd:
-          serviceDateEnd != null ? serviceDateEnd() : this.serviceDateEnd,
+      serviceDateEnd: serviceDateEnd != null
+          ? serviceDateEnd()
+          : this.serviceDateEnd,
       catalog: catalog ?? this.catalog,
       catalogLoaded: catalogLoaded ?? this.catalogLoaded,
       isFormLocked: isFormLocked ?? this.isFormLocked,
@@ -91,13 +95,13 @@ class CreateInvoiceState extends Equatable {
 
   @override
   List<Object?> get props => [
-        invoiceDate,
-        dueDate,
-        serviceDate,
-        serviceDateEnd,
-        catalog,
-        catalogLoaded,
-        isFormLocked,
-        revision,
-      ];
+    invoiceDate,
+    dueDate,
+    serviceDate,
+    serviceDateEnd,
+    catalog,
+    catalogLoaded,
+    isFormLocked,
+    revision,
+  ];
 }

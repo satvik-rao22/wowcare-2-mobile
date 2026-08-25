@@ -138,7 +138,8 @@ class ChatAttachmentUploader {
     var step = 'CREATE_UPLOAD_SESSION';
     try {
       final organizationCode =
-          (await _storage.getString(StorageKeys.organizationCode))?.trim() ?? '';
+          (await _storage.getString(StorageKeys.organizationCode))?.trim() ??
+          '';
       final schoolCode =
           (await _storage.getString(StorageKeys.schoolCode))?.trim() ?? '';
 
@@ -245,15 +246,13 @@ class ChatAttachmentUploader {
                 fileSizeBytes: a.sizeBytes,
               ),
               'registering ${presign.assetCode}',
-            ).then(
-              (id) {
-                AppLogger.i(
-                  '[CHAT ATTACHMENT] ATTACHMENT REGISTERED — '
-                  'assetCode=${presign.assetCode}, attachmentId=$id',
-                );
-                return id;
-              },
-            );
+            ).then((id) {
+              AppLogger.i(
+                '[CHAT ATTACHMENT] ATTACHMENT REGISTERED — '
+                'assetCode=${presign.assetCode}, attachmentId=$id',
+              );
+              return id;
+            });
           },
         );
         for (var n = 0; n < needsFullUpload.length; n++) {
@@ -286,7 +285,9 @@ class ChatAttachmentUploader {
         for (var n = 0; n < needsRegisterOnly.length; n++) {
           final idx = needsRegisterOnly[n];
           final assetCode = attachments[idx].code!.trim();
-          result[idx] = attachments[idx].copyWith(attachmentId: attachmentIds[n]);
+          result[idx] = attachments[idx].copyWith(
+            attachmentId: attachmentIds[n],
+          );
           toResolve[assetCode] = idx;
         }
       }
@@ -297,16 +298,17 @@ class ChatAttachmentUploader {
       // Don't publish before ready: block until every registered asset has
       // a real delivery URL.
       step = 'WAIT_ASSET_READY';
-      final deliveryUrls = await _imageUploadService.waitUntilAssetsReadyBackoff(
-        assetCodes: toResolve.keys.toList(),
-      );
+      final deliveryUrls = await _imageUploadService
+          .waitUntilAssetsReadyBackoff(assetCodes: toResolve.keys.toList());
       for (final entry in toResolve.entries) {
         final url = deliveryUrls[entry.key];
         if (url != null && url.isNotEmpty) {
           result[entry.value] = result[entry.value].copyWith(remoteUrl: url);
         }
       }
-      AppLogger.i('[CHAT ATTACHMENT] ALL ASSETS READY — count=${toResolve.length}');
+      AppLogger.i(
+        '[CHAT ATTACHMENT] ALL ASSETS READY — count=${toResolve.length}',
+      );
 
       return result;
     } catch (e) {
@@ -334,7 +336,8 @@ class ChatAttachmentUploader {
         .toList();
     if (codes.isEmpty) return attachments;
 
-    Map<String, ({String status, String deliveryUrl, String thumbnailUrl})> resolved;
+    Map<String, ({String status, String deliveryUrl, String thumbnailUrl})>
+    resolved;
     try {
       resolved = await _imageUploadService.resolveMediaAssets(codes);
     } catch (_) {
@@ -347,7 +350,9 @@ class ChatAttachmentUploader {
       if (assetCode.isEmpty) return a;
       final info = resolved[assetCode];
       if (info == null) return a;
-      final url = info.deliveryUrl.isNotEmpty ? info.deliveryUrl : info.thumbnailUrl;
+      final url = info.deliveryUrl.isNotEmpty
+          ? info.deliveryUrl
+          : info.thumbnailUrl;
       if (info.status != 'READY' || url.isEmpty) return a;
       return a.copyWith(remoteUrl: url);
     }).toList();

@@ -16,11 +16,11 @@ class KioskLogoutCubit extends Cubit<KioskLogoutState> {
     required VerifyKioskPinUseCase verifyKioskPinUseCase,
     required StorageService storageService,
     required KioskAccessControl kioskAccessControl,
-  })  : _authCubit = authCubit,
-        _verifyKioskPin = verifyKioskPinUseCase,
-        _storage = storageService,
-        _kioskAccessControl = kioskAccessControl,
-        super(const KioskLogoutInitial());
+  }) : _authCubit = authCubit,
+       _verifyKioskPin = verifyKioskPinUseCase,
+       _storage = storageService,
+       _kioskAccessControl = kioskAccessControl,
+       super(const KioskLogoutInitial());
 
   final AuthCubit _authCubit;
   final VerifyKioskPinUseCase _verifyKioskPin;
@@ -38,12 +38,16 @@ class KioskLogoutCubit extends Cubit<KioskLogoutState> {
     emit(const KioskLogoutLoading());
 
     try {
-      AppLogger.d('[Kiosk Logout] Starting logout process with isLogout=true, pin=$pin');
+      AppLogger.d(
+        '[Kiosk Logout] Starting logout process with isLogout=true, pin=$pin',
+      );
 
       // Get the school code from storage (set during kiosk login)
       final schoolCode = await _storage.getString(StorageKeys.schoolCode);
       if (schoolCode == null || schoolCode.isEmpty) {
-        AppLogger.w('[Kiosk Logout] School code not found in storage, but will attempt logout anyway');
+        AppLogger.w(
+          '[Kiosk Logout] School code not found in storage, but will attempt logout anyway',
+        );
         // Don't fail here - allow logout to proceed with empty schoolCode
         // The API might still process this for the current session
       }
@@ -70,14 +74,18 @@ class KioskLogoutCubit extends Cubit<KioskLogoutState> {
 
       if (isClosed) return true;
 
-      AppLogger.d('[Kiosk Logout] Clearing session and deactivating kiosk mode');
+      AppLogger.d(
+        '[Kiosk Logout] Clearing session and deactivating kiosk mode',
+      );
 
       // Clear the session - this ensures tokens and auth state are wiped
       try {
         await _authCubit.logoutSession();
         AppLogger.d('[Kiosk Logout] Session cleared successfully');
       } catch (sessionError) {
-        AppLogger.w('[Kiosk Logout] Session clear had error (non-fatal): $sessionError');
+        AppLogger.w(
+          '[Kiosk Logout] Session clear had error (non-fatal): $sessionError',
+        );
         // Continue anyway - we still need to deactivate kiosk mode
       }
 

@@ -21,4 +21,4 @@ class ResponsiveHelper {
   double get inputFieldHeight => isTablet ? 56.0 : 48.0;
   double get buttonHeight => isTablet ? 64.0 : 56.0;
   double get buttonFontSize => isTablet ? 20.0 : 18.0;
-} 
+}

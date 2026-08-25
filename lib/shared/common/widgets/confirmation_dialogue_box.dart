@@ -21,7 +21,7 @@ class ConfirmationDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    
+
     return AlertDialog(
       title: Text(title),
       content: Text(content),

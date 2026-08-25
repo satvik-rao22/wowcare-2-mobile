@@ -30,8 +30,9 @@ class _AddDiscountScreenState extends State<AddDiscountScreen> {
   );
 
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _percentageController =
-      TextEditingController(text: '0');
+  final TextEditingController _percentageController = TextEditingController(
+    text: '0',
+  );
 
   @override
   void dispose() {
@@ -99,11 +100,13 @@ class _AddDiscountScreenState extends State<AddDiscountScreen> {
                   label: 'Percentage (%)',
                   hint: '0',
                   controller: _percentageController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(
-                        RegExp(r'^\d{0,3}(\.\d{0,2})?')),
+                      RegExp(r'^\d{0,3}(\.\d{0,2})?'),
+                    ),
                   ],
                   error: state.percentageError
                       ? '*Enter a value between 0 and 100.'
@@ -131,10 +134,8 @@ class _AddDiscountScreenState extends State<AddDiscountScreen> {
                   ),
                 ],
                 borderRadius: BorderRadius.only(
-                  topLeft:
-                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  topRight:
-                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                 ),
               ),
               child: CustomButtonLayout(
@@ -174,21 +175,22 @@ class _AddDiscountScreenState extends State<AddDiscountScreen> {
               if (required)
                 TextSpan(
                   text: ' *',
-                  style: AppTextStyles.small
-                      .copyWith(color: AppColors.errorColor),
+                  style: AppTextStyles.small.copyWith(
+                    color: AppColors.errorColor,
+                  ),
                 ),
             ],
           ),
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
-          constraints:
-              BoxConstraints(minHeight: responsive.inputFieldHeight),
+          constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
             color: AppColors.billingCardColor,
             border: Border.all(color: AppColors.billingBorderHeavy),
             borderRadius: BorderRadius.circular(
-                responsive.isTablet ? 12.0 : 8.0),
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,
@@ -211,8 +213,7 @@ class _AddDiscountScreenState extends State<AddDiscountScreen> {
             padding: const EdgeInsets.only(top: 4.0, left: 2.0),
             child: Text(
               error,
-              style: AppTextStyles.small
-                  .copyWith(color: AppColors.errorColor),
+              style: AppTextStyles.small.copyWith(color: AppColors.errorColor),
             ),
           ),
       ],

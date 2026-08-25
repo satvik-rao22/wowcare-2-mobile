@@ -54,7 +54,8 @@ class EditUserProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) =>
-          serviceLocator<EditUserProfileCubit>()..loadProfile(isParent: isParent),
+          serviceLocator<EditUserProfileCubit>()
+            ..loadProfile(isParent: isParent),
       child: _EditUserProfileForm(
         initialFirstName: initialFirstName,
         initialLastName: initialLastName,
@@ -349,7 +350,8 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
       return;
     }
     final zipDigits = zip.replaceAll(RegExp(r'\D'), '');
-    if (zipDigits.isNotEmpty && !RegExp(r'^\d{5}(\d{4})?$').hasMatch(zipDigits)) {
+    if (zipDigits.isNotEmpty &&
+        !RegExp(r'^\d{5}(\d{4})?$').hasMatch(zipDigits)) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Zip Code must be 5 digits (12345) or ZIP+4 (12345-6789)',
@@ -413,8 +415,9 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
         // instead of celebrating.
         CoreUtils.showTopSnackBar(
           context: context,
-          message:
-              message.isNotEmpty ? message : 'Profile updated successfully',
+          message: message.isNotEmpty
+              ? message
+              : 'Profile updated successfully',
           isSuccess: !cubit.emailChangeFailed,
           isWarning: cubit.emailChangeFailed,
         );

@@ -10,17 +10,18 @@ import 'package:wowcare/presentation/features/newsletter/util/newsletter_thumbna
 
 /// Maps student-newsletter API entities to the shared preview/list [Newsletter] model.
 Newsletter mapNewsletterEntityToNewsletter(NewsletterEntity entity) {
-  final components = entity.components
-      .map(
-        (c) => NewsletterComponentModel(
-          id: c.id ?? 0,
-          componentType: c.type,
-          sortOrder: c.order ?? 0,
-          contentJson: c.data.isNotEmpty ? jsonEncode(c.data) : '',
-        ),
-      )
-      .toList()
-    ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+  final components =
+      entity.components
+          .map(
+            (c) => NewsletterComponentModel(
+              id: c.id ?? 0,
+              componentType: c.type,
+              sortOrder: c.order ?? 0,
+              contentJson: c.data.isNotEmpty ? jsonEncode(c.data) : '',
+            ),
+          )
+          .toList()
+        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
   final parsedComponents = parseNewsletterComponents(
     components: components,
@@ -38,8 +39,7 @@ Newsletter mapNewsletterEntityToNewsletter(NewsletterEntity entity) {
         ),
       )
       .where(
-        (a) =>
-            a.mediaCode.trim().isNotEmpty || a.assetUrl.trim().isNotEmpty,
+        (a) => a.mediaCode.trim().isNotEmpty || a.assetUrl.trim().isNotEmpty,
       )
       .toList();
 
@@ -67,37 +67,39 @@ Newsletter mapNewsletterEntityToNewsletter(NewsletterEntity entity) {
     sentAt: entity.updatedAt ?? entity.createdAt,
     createdAt: entity.createdAt,
     recipientCount: entity.recipientCount,
-    recipientNames: entity.recipients
-        .map((recipient) {
-          final name = recipient.userName.trim();
-          if (name.isNotEmpty) return name;
-          return recipient.userCode.trim();
-        })
-        .where((String name) => name.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort(
-        (String a, String b) => a.toLowerCase().compareTo(b.toLowerCase()),
-      ),
-    recipients: entity.recipients
-        .map((recipient) {
-          final name = recipient.userName.trim();
-          final code = recipient.userCode.trim();
-          final displayName = name.isNotEmpty ? name : code;
-          if (displayName.isEmpty) return null;
-          return NewsletterRecipientSummary(
-            displayName: displayName,
-            userCode: code,
-          );
-        })
-        .whereType<NewsletterRecipientSummary>()
-        .toList()
-      ..sort(
-        (NewsletterRecipientSummary a, NewsletterRecipientSummary b) =>
-            a.displayName.toLowerCase().compareTo(
-                  b.displayName.toLowerCase(),
-                ),
-      ),
+    recipientNames:
+        entity.recipients
+            .map((recipient) {
+              final name = recipient.userName.trim();
+              if (name.isNotEmpty) return name;
+              return recipient.userCode.trim();
+            })
+            .where((String name) => name.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort(
+            (String a, String b) => a.toLowerCase().compareTo(b.toLowerCase()),
+          ),
+    recipients:
+        entity.recipients
+            .map((recipient) {
+              final name = recipient.userName.trim();
+              final code = recipient.userCode.trim();
+              final displayName = name.isNotEmpty ? name : code;
+              if (displayName.isEmpty) return null;
+              return NewsletterRecipientSummary(
+                displayName: displayName,
+                userCode: code,
+              );
+            })
+            .whereType<NewsletterRecipientSummary>()
+            .toList()
+          ..sort(
+            (NewsletterRecipientSummary a, NewsletterRecipientSummary b) => a
+                .displayName
+                .toLowerCase()
+                .compareTo(b.displayName.toLowerCase()),
+          ),
     classroomCodes: const <String>[],
     createdByName: entity.createdByName,
     bodyHtml: buildNewsletterBodyHtml(

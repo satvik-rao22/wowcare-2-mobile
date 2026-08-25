@@ -17,18 +17,18 @@ class TransactionsState extends Equatable {
   });
 
   const TransactionsState.initial()
-      : transactions = const [],
-        searchQuery = '',
-        overview = null,
-        dateFrom = null,
-        dateTo = null,
-        activeFilter = null,
-        isLoading = true,
-        isLoadingMore = false,
-        hasMore = false,
-        page = 0,
-        errorMessage = null,
-        successMessage = null;
+    : transactions = const [],
+      searchQuery = '',
+      overview = null,
+      dateFrom = null,
+      dateTo = null,
+      activeFilter = null,
+      isLoading = true,
+      isLoadingMore = false,
+      hasMore = false,
+      page = 0,
+      errorMessage = null,
+      successMessage = null;
 
   final List<TransactionRecord> transactions;
   final String searchQuery;
@@ -128,17 +128,17 @@ class TransactionsState extends Equatable {
 
   @override
   List<Object?> get props => [
-        transactions,
-        searchQuery,
-        overview,
-        dateFrom,
-        dateTo,
-        activeFilter,
-        isLoading,
-        isLoadingMore,
-        hasMore,
-        page,
-        errorMessage,
-        successMessage,
-      ];
+    transactions,
+    searchQuery,
+    overview,
+    dateFrom,
+    dateTo,
+    activeFilter,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    page,
+    errorMessage,
+    successMessage,
+  ];
 }

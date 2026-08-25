@@ -7,17 +7,15 @@ import '../../../../shared/common/widgets/profile_show_widget.dart';
 import '../view_model/profile_menu_header_cubit.dart';
 
 class ProfileMenuHeader extends StatelessWidget {
-  const ProfileMenuHeader({
-    super.key,
-    this.isParentPersona = false,
-  });
+  const ProfileMenuHeader({super.key, this.isParentPersona = false});
 
   final bool isParentPersona;
 
   Future<void> _pickProfileImage(BuildContext context) async {
     try {
-      final XFile? image =
-          await ImagePicker().pickImage(source: ImageSource.gallery);
+      final XFile? image = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+      );
       if (image == null) return;
       // TODO: wire this to upload/update avatar in your backend/state
       if (!context.mounted) return;
@@ -46,8 +44,9 @@ class ProfileMenuHeader extends StatelessWidget {
             GestureDetector(
               onTap: () => _pickProfileImage(context),
               child: DocumentImageWidget(
-                fileUuid:
-                    state.displayName.isNotEmpty ? state.displayName : 'User',
+                fileUuid: state.displayName.isNotEmpty
+                    ? state.displayName
+                    : 'User',
                 imageUrl: state.guardianPhotoUrl.isNotEmpty
                     ? state.guardianPhotoUrl
                     : null,

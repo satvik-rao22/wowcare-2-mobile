@@ -65,8 +65,9 @@ class ApiClient {
             url: options.uri.toString(),
             method: options.method,
             headers: options.headers.cast<String, dynamic>(),
-            queryParameters:
-                options.queryParameters.isEmpty ? null : options.queryParameters,
+            queryParameters: options.queryParameters.isEmpty
+                ? null
+                : options.queryParameters,
             body: options.data,
           );
           handler.next(options);
@@ -113,5 +114,3 @@ class ApiClient {
 
   Dio get client => _dio;
 }
-
-

@@ -155,7 +155,8 @@ class ApiPaths {
   /// Maps [path] to [ApiMicroservices] for [ApiConstants.baseUrlForMicroservice].
   /// Paths do not include the MS name in the URL.
   static String microserviceKeyFromPath(String path) {
-    if (ApiConstants.isGatewayEnv) return ApiPathsUat.microserviceKeyFromPath(path);
+    if (ApiConstants.isGatewayEnv)
+      return ApiPathsUat.microserviceKeyFromPath(path);
     final p = path.startsWith('/') ? path : '/$path';
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
     if (parts.length < 3 || parts[0] != 'api') {
@@ -321,7 +322,9 @@ class ApiPaths {
 
   /// Same as [url]; the [baseUrl] argument is ignored (kept for call-site compatibility).
   static String urlWithBase(String path, String baseUrl) =>
-      ApiConstants.isGatewayEnv ? ApiPathsUat.urlWithBase(path, baseUrl) : url(path);
+      ApiConstants.isGatewayEnv
+      ? ApiPathsUat.urlWithBase(path, baseUrl)
+      : url(path);
 
   // —— Auth (user host) ——
   static const String authLogin = '/api/v1/auth/login';

@@ -12,6 +12,7 @@ import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class StaffCard extends StatefulWidget {
@@ -54,6 +55,7 @@ class StaffCard extends StatefulWidget {
   final bool isActive;
   final String? status;
   final VoidCallback? onPrimaryAction;
+
   /// Permanently deletes the staff member. Only surfaced for deactivated staff.
   final VoidCallback? onDeleteAction;
   final VoidCallback? onEdit;
@@ -61,8 +63,10 @@ class StaffCard extends StatefulWidget {
   final ValueChanged<bool?>? onSelected;
   final List<String> availableClassrooms;
   final Map<String, String> classroomCodeByName;
+
   /// Day-of-week (MONDAY, TUESDAY, ...) → "start - end" work time.
   final Map<String, String> workScheduleByDay;
+
   /// Day-of-week (MONDAY, TUESDAY, ...) → "start - end" break time.
   final Map<String, String> breakScheduleByDay;
 
@@ -138,14 +142,12 @@ class _StaffCardState extends State<StaffCard> {
 
   static Future<List<String>> _fetchSchoolOpenDays() async {
     final storage = serviceLocator<StorageService>();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     if (schoolCode.isEmpty) return const <String>[];
     final repo = serviceLocator<StaffRepository>();
     final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
-    final open = <String>{
-      for (final d in days) d.dayOfWeek.toUpperCase(),
-    };
+    final open = <String>{for (final d in days) d.dayOfWeek.toUpperCase()};
     final ordered = _weekOrder
         .where(open.contains)
         .map((k) => _enumToShort[k]!)
@@ -169,11 +171,13 @@ class _StaffCardState extends State<StaffCard> {
 
     // Generic: split on underscores/spaces and title‑case each part.
     final parts = upper.split(RegExp(r'[_\s]+'));
-    final words = parts.map((part) {
-      if (part.isEmpty) return '';
-      final lower = part.toLowerCase();
-      return lower[0].toUpperCase() + lower.substring(1);
-    }).where((w) => w.isNotEmpty);
+    final words = parts
+        .map((part) {
+          if (part.isEmpty) return '';
+          final lower = part.toLowerCase();
+          return lower[0].toUpperCase() + lower.substring(1);
+        })
+        .where((w) => w.isNotEmpty);
     return words.join(' ');
   }
 
@@ -202,10 +206,7 @@ class _StaffCardState extends State<StaffCard> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.cardBorderColor,
-                width: 1,
-              ),
+              border: Border.all(color: AppColors.cardBorderColor, width: 1),
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
@@ -220,7 +221,9 @@ class _StaffCardState extends State<StaffCard> {
                   children: [
                     Container(
                       height: 60,
-                      padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isTablet ? 24 : 16,
+                      ),
                       alignment: Alignment.center,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.start,
@@ -328,14 +331,10 @@ class _StaffCardState extends State<StaffCard> {
                           children: [
                             Row(
                               children: [
-                                const Text(
+                                Text(
                                   'Allowed\nClassroom',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
-                                    height: 16 / 13,
+                                  style: AppTextStyles.label.copyWith(
+                                    color: const Color(0xff573353),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -348,19 +347,24 @@ class _StaffCardState extends State<StaffCard> {
                                       children: [
                                         if (orderedAllowedClassrooms.isNotEmpty)
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 4,
+                                            ),
                                             decoration: BoxDecoration(
                                               color: const Color(0x4DB1AFE9),
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                             ),
                                             child: Text(
                                               orderedAllowedClassrooms[0],
-                                              style: const TextStyle(
-                                                fontFamily: 'Manrope',
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 13,
-                                                color: Color(0xFF4B5B7A),
-                                              ),
+                                              style: AppTextStyles.label
+                                                  .copyWith(
+                                                    fontWeight: FontWeight.w600,
+                                                    color: const Color(
+                                                      0xFF4B5B7A,
+                                                    ),
+                                                  ),
                                             ),
                                           ),
                                         if (orderedAllowedClassrooms.length > 1)
@@ -369,20 +373,25 @@ class _StaffCardState extends State<StaffCard> {
                                                 .skip(1)
                                                 .join(', '),
                                             child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 4,
+                                                  ),
                                               decoration: BoxDecoration(
                                                 color: const Color(0x66D9FFCB),
-                                                borderRadius: BorderRadius.circular(8),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
                                               ),
                                               child: Text(
                                                 '+${orderedAllowedClassrooms.length - 1}',
-                                                style: const TextStyle(
-                                                  fontFamily: 'Inter',
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w400,
-                                                  color: Color(0xFF1B237E),
-                                                  height: 15 / 12,
-                                                ),
+                                                style: AppTextStyles.caption
+                                                    .copyWith(
+                                                      fontFamily: 'Inter',
+                                                      color: const Color(
+                                                        0xFF1B237E,
+                                                      ),
+                                                    ),
                                               ),
                                             ),
                                           ),
@@ -398,40 +407,35 @@ class _StaffCardState extends State<StaffCard> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                const Text(
-                                  'Schedule',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
-                                    height: 16 / 13,
+                                  Text(
+                                    'Schedule',
+                                    style: AppTextStyles.label.copyWith(
+                                      color: const Color(0xff573353),
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                Wrap(
-                                  spacing: 4,
-                                  runSpacing: 4,
-                                  alignment: WrapAlignment.start,
-                                  children: [
-                                    ...(() {
-                                      // Days the school is open, sourced from
-                                      // the regular-schedule API. Render a
-                                      // chip for every open day so Sat/Sun
-                                      // appear too — even if the staff has
-                                      // no work/break entries for that day.
-                                      if (_schoolOpenShortDays.isNotEmpty) {
-                                        return _schoolOpenShortDays;
-                                      }
-                                      return const <String>[
-                                        'Mon',
-                                        'Tue',
-                                        'Wed',
-                                        'Thu',
-                                        'Fri',
-                                      ];
-                                    })().map(
-                                      (shortDay) {
+                                  const SizedBox(height: 4),
+                                  Wrap(
+                                    spacing: 4,
+                                    runSpacing: 4,
+                                    alignment: WrapAlignment.start,
+                                    children: [
+                                      ...(() {
+                                        // Days the school is open, sourced from
+                                        // the regular-schedule API. Render a
+                                        // chip for every open day so Sat/Sun
+                                        // appear too — even if the staff has
+                                        // no work/break entries for that day.
+                                        if (_schoolOpenShortDays.isNotEmpty) {
+                                          return _schoolOpenShortDays;
+                                        }
+                                        return const <String>[
+                                          'Mon',
+                                          'Tue',
+                                          'Wed',
+                                          'Thu',
+                                          'Fri',
+                                        ];
+                                      })().map((shortDay) {
                                         final enumDay =
                                             _shortToEnum[shortDay] ?? 'FRIDAY';
 
@@ -439,9 +443,11 @@ class _StaffCardState extends State<StaffCard> {
                                             widget.workScheduleByDay[enumDay];
                                         final brk =
                                             widget.breakScheduleByDay[enumDay];
-                                        final hasWork = work != null &&
+                                        final hasWork =
+                                            work != null &&
                                             work.trim().isNotEmpty;
-                                        final hasBreak = brk != null &&
+                                        final hasBreak =
+                                            brk != null &&
                                             brk.trim().isNotEmpty;
                                         final isActive = hasWork || hasBreak;
 
@@ -454,15 +460,14 @@ class _StaffCardState extends State<StaffCard> {
                                             color: isActive
                                                 ? const Color(0x4DB1AFE9)
                                                 : const Color(0xFFF3F4FB),
-                                            borderRadius:
-                                                BorderRadius.circular(8),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                           ),
                                           child: Text(
                                             shortDay,
-                                            style: TextStyle(
-                                              fontFamily: 'Manrope',
+                                            style: AppTextStyles.label.copyWith(
                                               fontWeight: FontWeight.w600,
-                                              fontSize: 13,
                                               color: isActive
                                                   ? const Color(0xFF4B5B7A)
                                                   : const Color(0xFFB1AFC9),
@@ -493,40 +498,33 @@ class _StaffCardState extends State<StaffCard> {
                                           message: tooltipText,
                                           triggerMode:
                                               TooltipTriggerMode.longPress,
-                                          showDuration:
-                                              const Duration(seconds: 3),
+                                          showDuration: const Duration(
+                                            seconds: 3,
+                                          ),
                                           preferBelow: true,
                                           child: chip,
                                         );
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            )),
+                                      }),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
                             const SizedBox(height: 10),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                const Text(
+                                Text(
                                   'Designation',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
-                                    height: 16 / 13,
+                                  style: AppTextStyles.label.copyWith(
+                                    color: const Color(0xff573353),
                                   ),
                                 ),
                                 Text(
                                   _formatEnumLabel(widget.designation),
-                                  style: const TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xff573353),
-                                    height: 19 / 14,
+                                  style: AppTextStyles.body.copyWith(
+                                    color: const Color(0xff573353),
                                   ),
                                 ),
                               ],
@@ -536,25 +534,19 @@ class _StaffCardState extends State<StaffCard> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                const Text(
+                                Text(
                                   'Email',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
-                                    height: 16 / 13,
+                                  style: AppTextStyles.label.copyWith(
+                                    color: const Color(0xff573353),
                                   ),
                                 ),
                                 Flexible(
                                   child: Text(
-                                    widget.email.isNotEmpty ? widget.email : '-',
-                                    style: const TextStyle(
-                                      fontFamily: 'Manrope',
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: Color(0xff573353),
-                                      height: 19 / 14,
+                                    widget.email.isNotEmpty
+                                        ? widget.email
+                                        : '-',
+                                    style: AppTextStyles.body.copyWith(
+                                      color: const Color(0xff573353),
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                     textAlign: TextAlign.right,
@@ -567,42 +559,42 @@ class _StaffCardState extends State<StaffCard> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                const Text(
+                                Text(
                                   'Phone Number',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
-                                    height: 16 / 13,
+                                  style: AppTextStyles.label.copyWith(
+                                    color: const Color(0xff573353),
                                   ),
                                 ),
                                 SelectableText(
                                   _formatUsPhone(widget.phoneNumber),
-                                  contextMenuBuilder: (BuildContext context, dynamic editableState) {
-                                    final List<ContextMenuButtonItem> items = List<ContextMenuButtonItem>.from(
-                                      editableState.contextMenuButtonItems,
-                                    );
-                                    items.add(
-                                      ContextMenuButtonItem(
-                                        onPressed: () {
-                                          Navigator.of(context).pop();
-                                          _callPhone(widget.phoneNumber);
-                                        },
-                                        label: 'Call',
-                                      ),
-                                    );
-                                    return AdaptiveTextSelectionToolbar.buttonItems(
-                                      anchors: editableState.contextMenuAnchors,
-                                      buttonItems: items,
-                                    );
-                                  },
-                                  style: const TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xff573353),
-                                    height: 19 / 14,
+                                  contextMenuBuilder:
+                                      (
+                                        BuildContext context,
+                                        dynamic editableState,
+                                      ) {
+                                        final List<ContextMenuButtonItem>
+                                        items =
+                                            List<ContextMenuButtonItem>.from(
+                                              editableState
+                                                  .contextMenuButtonItems,
+                                            );
+                                        items.add(
+                                          ContextMenuButtonItem(
+                                            onPressed: () {
+                                              Navigator.of(context).pop();
+                                              _callPhone(widget.phoneNumber);
+                                            },
+                                            label: 'Call',
+                                          ),
+                                        );
+                                        return AdaptiveTextSelectionToolbar.buttonItems(
+                                          anchors:
+                                              editableState.contextMenuAnchors,
+                                          buttonItems: items,
+                                        );
+                                      },
+                                  style: AppTextStyles.body.copyWith(
+                                    color: const Color(0xff573353),
                                   ),
                                 ),
                               ],
@@ -610,60 +602,11 @@ class _StaffCardState extends State<StaffCard> {
                             const SizedBox(height: 8),
                             // Edit / Deactivate / Delete are all STAFF writes —
                             // hide the whole action row for view-only personas.
-                            if (context
-                                .read<RoleCubit>()
-                                .canWriteModule(AppAccessModules.staff))
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: SizedBox(
-                                    height: 40,
-                                    child: OutlinedButton(
-                                      onPressed: () {
-                                        showModalBottomSheet(
-                                          context: context,
-                                          isScrollControlled: true,
-                                          backgroundColor: Colors.transparent,
-                                          builder: (ctx) {
-                                            return DeleteConfirmationBottomSheet(
-                                              name: widget.name,
-                                              type: widget.isActive
-                                                  ? 'staff_deactivate'
-                                                  : 'staff_reactivate',
-                                              onDelete: () {
-                                                widget.onPrimaryAction?.call();
-                                                return Future.value();
-                                              },
-                                              onCancel: () {
-                                                Navigator.of(ctx).pop();
-                                              },
-                                            );
-                                          },
-                                        );
-                                      },
-                                      style: OutlinedButton.styleFrom(
-                                        side: const BorderSide(color: Color(0xFF6C7FD8)),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        padding: EdgeInsets.zero,
-                                      ),
-                                      child: Text(
-                                        widget.isActive ? 'Deactivate' : 'Reactivate',
-                                        style: const TextStyle(
-                                          fontFamily: 'Manrope',
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: Color(0xFF6C7FD8),
-                                          height: 16 / 16,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                // Deactivated staff can be permanently deleted.
-                                if (!widget.isActive) ...[
+                            if (context.read<RoleCubit>().canWriteModule(
+                              AppAccessModules.staff,
+                            ))
+                              Row(
+                                children: [
                                   Expanded(
                                     child: SizedBox(
                                       height: 40,
@@ -676,9 +619,12 @@ class _StaffCardState extends State<StaffCard> {
                                             builder: (ctx) {
                                               return DeleteConfirmationBottomSheet(
                                                 name: widget.name,
-                                                type: 'staff_delete',
+                                                type: widget.isActive
+                                                    ? 'staff_deactivate'
+                                                    : 'staff_reactivate',
                                                 onDelete: () {
-                                                  widget.onDeleteAction?.call();
+                                                  widget.onPrimaryAction
+                                                      ?.call();
                                                   return Future.value();
                                                 },
                                                 onCancel: () {
@@ -693,101 +639,171 @@ class _StaffCardState extends State<StaffCard> {
                                             color: Color(0xFF6C7FD8),
                                           ),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(8),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                           ),
                                           padding: EdgeInsets.zero,
                                         ),
-                                        child: const Text(
-                                          'Delete',
-                                          style: TextStyle(
-                                            fontFamily: 'Manrope',
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFF6C7FD8),
-                                            height: 16 / 16,
+                                        child: Text(
+                                          widget.isActive
+                                              ? 'Deactivate'
+                                              : 'Reactivate',
+                                          style: AppTextStyles.button(
+                                            color: const Color(0xFF6C7FD8),
                                           ),
                                         ),
                                       ),
                                     ),
                                   ),
                                   const SizedBox(width: 16),
-                                ],
-                                Expanded(
-                                  child: Container(
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
-                                      gradient: AppColors.buildPrimaryGradient(),
-                                    ),
-                                    child: TextButton(
-                                      onPressed: () {
-                                        // Invoke external handler if provided
-                                        widget.onEdit?.call();
-
-                                        // Derive first/last name from full name
-                                        final parts = widget.name.trim().split(' ');
-                                        final initialFirstName = parts.isNotEmpty ? parts.first : '';
-                                        final initialLastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
-
-                                        // Map status from API format to UI format
-                                        String? mappedStatus;
-                                        if (widget.status != null) {
-                                          final statusUpper = widget.status!.toUpperCase();
-                                          if (statusUpper == 'ACTIVE') {
-                                            mappedStatus = 'Active';
-                                          } else if (statusUpper == 'INACTIVE') {
-                                            mappedStatus = 'Inactive';
-                                          } else if (statusUpper == 'UPCOMING') {
-                                            mappedStatus = 'Upcoming';
-                                          } else {
-                                            mappedStatus = widget.status;
-                                          }
-                                        }
-
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => EditProfileDetailsScreen(
-                                              staffCode: widget.staffCode,
-                                              initialFirstName: initialFirstName,
-                                              initialLastName: initialLastName,
-                                              initialStatus: mappedStatus,
-                                              initialDesignation: widget.designation,
-                                              initialAllowedClassrooms: widget.allowedClassrooms,
-                                              initialPrimaryClassroom: widget.classroom,
-                                              initialEmail: widget.email,
-                                              initialPhoneNumber: widget.phoneNumber,
-                                              initialClassroomNames: widget.availableClassrooms,
-                                              initialClassroomCodeByName: {
-                                                for (final entry in widget.classroomCodeByName.entries)
-                                                  entry.value: entry.key,
+                                  // Deactivated staff can be permanently deleted.
+                                  if (!widget.isActive) ...[
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: 40,
+                                        child: OutlinedButton(
+                                          onPressed: () {
+                                            showModalBottomSheet(
+                                              context: context,
+                                              isScrollControlled: true,
+                                              backgroundColor:
+                                                  Colors.transparent,
+                                              builder: (ctx) {
+                                                return DeleteConfirmationBottomSheet(
+                                                  name: widget.name,
+                                                  type: 'staff_delete',
+                                                  onDelete: () {
+                                                    widget.onDeleteAction
+                                                        ?.call();
+                                                    return Future.value();
+                                                  },
+                                                  onCancel: () {
+                                                    Navigator.of(ctx).pop();
+                                                  },
+                                                );
                                               },
+                                            );
+                                          },
+                                          style: OutlinedButton.styleFrom(
+                                            side: const BorderSide(
+                                              color: Color(0xFF6C7FD8),
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            padding: EdgeInsets.zero,
+                                          ),
+                                          child: Text(
+                                            'Delete',
+                                            style: AppTextStyles.button(
+                                              color: const Color(0xFF6C7FD8),
                                             ),
                                           ),
-                                        ).then((_) {
-                                          if (context.mounted) {
-                                            context.read<StaffCubit>().refresh();
-                                          }
-                                        });
-                                      },
-                                      style: TextButton.styleFrom(
-                                        padding: EdgeInsets.zero,
+                                        ),
                                       ),
-                                      child: const Text(
-                                        'Edit',
-                                        style: TextStyle(
-                                          fontFamily: 'Manrope',
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white,
-                                          height: 16 / 16,
+                                    ),
+                                    const SizedBox(width: 16),
+                                  ],
+                                  Expanded(
+                                    child: Container(
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        gradient:
+                                            AppColors.buildPrimaryGradient(),
+                                      ),
+                                      child: TextButton(
+                                        onPressed: () {
+                                          // Invoke external handler if provided
+                                          widget.onEdit?.call();
+
+                                          // Derive first/last name from full name
+                                          final parts = widget.name
+                                              .trim()
+                                              .split(' ');
+                                          final initialFirstName =
+                                              parts.isNotEmpty
+                                              ? parts.first
+                                              : '';
+                                          final initialLastName =
+                                              parts.length > 1
+                                              ? parts.sublist(1).join(' ')
+                                              : '';
+
+                                          // Map status from API format to UI format
+                                          String? mappedStatus;
+                                          if (widget.status != null) {
+                                            final statusUpper = widget.status!
+                                                .toUpperCase();
+                                            if (statusUpper == 'ACTIVE') {
+                                              mappedStatus = 'Active';
+                                            } else if (statusUpper ==
+                                                'INACTIVE') {
+                                              mappedStatus = 'Inactive';
+                                            } else if (statusUpper ==
+                                                'UPCOMING') {
+                                              mappedStatus = 'Upcoming';
+                                            } else {
+                                              mappedStatus = widget.status;
+                                            }
+                                          }
+
+                                          Navigator.of(context)
+                                              .push(
+                                                MaterialPageRoute(
+                                                  builder: (_) => EditProfileDetailsScreen(
+                                                    staffCode: widget.staffCode,
+                                                    initialFirstName:
+                                                        initialFirstName,
+                                                    initialLastName:
+                                                        initialLastName,
+                                                    initialStatus: mappedStatus,
+                                                    initialDesignation:
+                                                        widget.designation,
+                                                    initialAllowedClassrooms:
+                                                        widget
+                                                            .allowedClassrooms,
+                                                    initialPrimaryClassroom:
+                                                        widget.classroom,
+                                                    initialEmail: widget.email,
+                                                    initialPhoneNumber:
+                                                        widget.phoneNumber,
+                                                    initialClassroomNames: widget
+                                                        .availableClassrooms,
+                                                    initialClassroomCodeByName: {
+                                                      for (final entry
+                                                          in widget
+                                                              .classroomCodeByName
+                                                              .entries)
+                                                        entry.value: entry.key,
+                                                    },
+                                                  ),
+                                                ),
+                                              )
+                                              .then((_) {
+                                                if (context.mounted) {
+                                                  context
+                                                      .read<StaffCubit>()
+                                                      .refresh();
+                                                }
+                                              });
+                                        },
+                                        style: TextButton.styleFrom(
+                                          padding: EdgeInsets.zero,
+                                        ),
+                                        child: Text(
+                                          'Edit',
+                                          style: AppTextStyles.button(
+                                            color: Colors.white,
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
                           ],
                         ),
                       ),
@@ -819,7 +835,4 @@ class _StaffCardState extends State<StaffCard> {
       await launchUrl(uri);
     }
   }
-
 }
-
-

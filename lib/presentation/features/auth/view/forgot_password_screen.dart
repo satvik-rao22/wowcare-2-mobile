@@ -8,7 +8,7 @@ import 'package:wowcare/domain/features/auth/usecases/forgot_password_usecase.da
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
-  
+
   static const routeName = '/forgot-password';
 
   @override
@@ -21,7 +21,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   Future<void> _handleSubmit() async {
     final email = _emailController.text.trim();
-    
+
     // Basic email validation
     if (email.isEmpty || !email.contains('@')) {
       CoreUtils.showTopSnackBar(
@@ -124,7 +124,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         SizedBox(height: screenHeight * 0.01),
                         ShaderMask(
                           shaderCallback: (Rect bounds) {
-                            return AppColors.buildPrimaryGradient().createShader(bounds);
+                            return AppColors.buildPrimaryGradient()
+                                .createShader(bounds);
                           },
                           blendMode: BlendMode.srcIn,
                           child: Text(
@@ -214,7 +215,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             fillColor: const Color(0xFFF8F9FA),
                             border: const OutlineInputBorder(
                               borderSide: BorderSide.none,
-                              borderRadius: BorderRadius.all(Radius.circular(12)),
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(12),
+                              ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -262,12 +265,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                 width: 24,
                                 height: 24,
                                 child: CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
                                   strokeWidth: 2.5,
                                 ),
                               )
                             : Text(
-                                _emailController.text.contains('@') && _emailController.text.isNotEmpty
+                                _emailController.text.contains('@') &&
+                                        _emailController.text.isNotEmpty
                                     ? 'Submit'
                                     : 'Continue',
                                 style: TextStyle(

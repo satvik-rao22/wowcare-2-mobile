@@ -3,11 +3,11 @@ import 'app_time.dart';
 import 'storage_keys.dart';
 
 /// Global cache manager for handling cached data with timestamps and expiration.
-/// 
+///
 /// This is a generic cache manager that can be used for any API/feature.
 /// Each repository should define its own cache keys following the pattern:
 /// `{feature}_{resource}_cache_{identifier}`
-/// 
+///
 /// Example:
 /// - `staff_list_cache_$schoolCode`
 /// - `staff_documents_cache_$staffCode`
@@ -18,11 +18,11 @@ class CacheManager {
   final StorageService _storageService;
 
   /// Helper method to build a cache key following the standard pattern.
-  /// 
+  ///
   /// [feature] - Feature/module name (e.g., 'staff', 'students', 'classes')
   /// [resource] - Resource type (e.g., 'list', 'documents', 'details')
   /// [identifier] - Unique identifier (e.g., schoolCode, staffCode, studentId)
-  /// 
+  ///
   /// Returns: `{feature}_{resource}_cache_{identifier}`
   static String buildCacheKey({
     required String feature,
@@ -33,7 +33,7 @@ class CacheManager {
   }
 
   /// Saves data to cache with a timestamp.
-  /// 
+  ///
   /// [key] - Unique cache key
   /// [payload] - Data to cache (must be JSON-serializable)
   Future<void> saveCache(String key, Map<String, dynamic> payload) async {
@@ -45,7 +45,7 @@ class CacheManager {
   }
 
   /// Loads cached data if it exists and is not expired.
-  /// 
+  ///
   /// [key] - Unique cache key
   /// [validFor] - Max age for this entry; defaults to [StorageKeys.cacheValidDuration].
   /// Returns the cached payload if valid, null otherwise
@@ -134,10 +134,10 @@ class CacheManager {
   }
 
   /// Invalidates cache using the standard key pattern.
-  /// 
+  ///
   /// This is a convenience method that builds the key and invalidates it.
   /// Use this after any mutation (add/edit/delete) to ensure fresh data on next fetch.
-  /// 
+  ///
   /// Example:
   /// ```dart
   /// await _cacheManager.invalidateCacheByKey(
@@ -159,4 +159,3 @@ class CacheManager {
     await invalidateCache(key);
   }
 }
-

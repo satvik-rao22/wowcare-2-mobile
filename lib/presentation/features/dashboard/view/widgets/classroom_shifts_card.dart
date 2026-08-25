@@ -19,6 +19,7 @@ import 'package:wowcare/presentation/features/scheduling/widgets/staff_schedule_
 
 import '../../../../../app/theme/media_res.dart';
 import '../../../scheduling/view/scheduling_screen.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 // date formatter used for the scheduling deep-link
 final _ymd = DateFormat('yyyy-MM-dd');
@@ -166,12 +167,10 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                 // ── Card header ─────────────────────────────────────────────────
                 Row(
                   children: [
-                    const Text(
+                    Text(
                       'Classroom Shifts',
-                      style: TextStyle(
+                      style: AppTextStyles.heading.copyWith(
                         color: AppColors.primaryColor,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -326,8 +325,7 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                                           isLast:
                                               i == displayEntries.length - 1 &&
                                               !hasMoreToShow,
-                                          onClassroomNameTap: () =>
-                                              context.go(
+                                          onClassroomNameTap: () => context.go(
                                             '${SchedulingScreen.routeName}'
                                             '?view=day'
                                             '&highlightCode=${displayEntries[i].classroomCode}'

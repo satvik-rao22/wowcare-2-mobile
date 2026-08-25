@@ -40,7 +40,8 @@ class FamilySummaryModel {
     return FamilySummaryModel(
       ownerType: (json['ownerType'] as String?) ?? '',
       ownerCode: (json['ownerCode'] as String?) ?? '',
-      studentCodes: (json['studentCodes'] as List<dynamic>?)
+      studentCodes:
+          (json['studentCodes'] as List<dynamic>?)
               ?.whereType<String>()
               .toList() ??
           const <String>[],

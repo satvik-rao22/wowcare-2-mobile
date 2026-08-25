@@ -6,11 +6,7 @@ class GetVaccineNameToCodeMapForSchoolUseCase {
 
   final StudentRepository _repository;
 
-  Future<Map<String, String>> call({
-    required String schoolCode,
-  }) {
-    return _repository.getVaccineNameToCodeMapForSchool(
-      schoolCode: schoolCode,
-    );
+  Future<Map<String, String>> call({required String schoolCode}) {
+    return _repository.getVaccineNameToCodeMapForSchool(schoolCode: schoolCode);
   }
 }

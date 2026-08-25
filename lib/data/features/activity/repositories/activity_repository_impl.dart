@@ -14,11 +14,9 @@ import '../datasources/activity_remote_datasource.dart';
 import '../models/activity_settings_models.dart';
 
 class ActivityRepositoryImpl implements ActivityRepository {
-  ActivityRepositoryImpl(
-    this._remoteDataSource,
-    StorageService storageService,
-  )   : _cacheManager = CacheManager(storageService),
-        _storageService = storageService;
+  ActivityRepositoryImpl(this._remoteDataSource, StorageService storageService)
+    : _cacheManager = CacheManager(storageService),
+      _storageService = storageService;
 
   final ActivityRemoteDataSource _remoteDataSource;
   final CacheManager _cacheManager;
@@ -91,8 +89,9 @@ class ActivityRepositoryImpl implements ActivityRepository {
         _activitySettingsCacheKey(classroomCode),
       );
       if (cachedPayload != null) {
-        final listModel =
-            ActivitySettingsListModel.fromCacheJson(cachedPayload);
+        final listModel = ActivitySettingsListModel.fromCacheJson(
+          cachedPayload,
+        );
         return listModel.items.map(_mapModelToEntity).toList();
       }
     }
@@ -201,19 +200,13 @@ class ActivityRepositoryImpl implements ActivityRepository {
   }
 
   @override
-  Future<List<String>> getNapStartStudents({
-    required String classroomCode,
-  }) {
+  Future<List<String>> getNapStartStudents({required String classroomCode}) {
     return _remoteDataSource.getNapStartStudents(classroomCode: classroomCode);
   }
 
   @override
-  Future<ActivityDetail> getActivity({
-    required String code,
-  }) async {
-    final data = await _remoteDataSource.getActivityByCode(
-      cardGroupCode: code,
-    );
+  Future<ActivityDetail> getActivity({required String code}) async {
+    final data = await _remoteDataSource.getActivityByCode(cardGroupCode: code);
     return ActivityDetail.fromApiData(data);
   }
 
@@ -260,9 +253,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
 
   @override
   Future<String> rejectActivity({required String code}) async {
-    final message = await _remoteDataSource.rejectActivity(
-      cardGroupCode: code,
-    );
+    final message = await _remoteDataSource.rejectActivity(cardGroupCode: code);
     await ActivityFeedInvalidation.invalidate(_storageService);
     return message;
   }
@@ -371,7 +362,9 @@ class ActivityRepositoryImpl implements ActivityRepository {
       'attachments': attachments,
     };
 
-    final cards = await _remoteDataSource.createSharedActivities(payload: payload);
+    final cards = await _remoteDataSource.createSharedActivities(
+      payload: payload,
+    );
     await ActivityFeedInvalidation.invalidate(_storageService);
     return cards;
   }
@@ -425,5 +418,3 @@ class ActivityRepositoryImpl implements ActivityRepository {
     return _remoteDataSource.getPendingIncidentCount();
   }
 }
-
-

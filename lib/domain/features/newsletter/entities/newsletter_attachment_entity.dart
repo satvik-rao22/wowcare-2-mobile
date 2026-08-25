@@ -20,4 +20,3 @@ class NewsletterAttachmentEntity extends Equatable {
   @override
   List<Object?> get props => [id, code, name, url, mimeType, sizeBytes];
 }
-

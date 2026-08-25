@@ -5,9 +5,9 @@ import '../models/student_models.dart';
 /// [StudentPhysicalExam] entity.
 extension StudentPhysicalExamModelMapper on StudentPhysicalExamModel {
   StudentPhysicalExam toEntity() => StudentPhysicalExam(
-        code: code,
-        examDate: examDate,
-        status: status,
-        notes: notes,
-      );
+    code: code,
+    examDate: examDate,
+    status: status,
+    notes: notes,
+  );
 }

@@ -39,18 +39,18 @@ class StudentPickup extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        studentCode,
-        firstName,
-        lastName,
-        email,
-        phoneNumber,
-        relation,
-        clockPin,
-        relationshipDescription,
-        pickupType,
-        carpoolId,
-        profilePhotoUrl,
-        profilePhotoAssetCode,
-      ];
+    code,
+    studentCode,
+    firstName,
+    lastName,
+    email,
+    phoneNumber,
+    relation,
+    clockPin,
+    relationshipDescription,
+    pickupType,
+    carpoolId,
+    profilePhotoUrl,
+    profilePhotoAssetCode,
+  ];
 }

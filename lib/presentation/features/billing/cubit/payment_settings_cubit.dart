@@ -15,9 +15,9 @@ class PaymentSettingsCubit extends Cubit<PaymentSettingsState> {
   PaymentSettingsCubit({
     required GetPaymentSettingsUseCase getPaymentSettings,
     required StorageService storage,
-  })  : _getPaymentSettings = getPaymentSettings,
-        _storage = storage,
-        super(const PaymentSettingsState());
+  }) : _getPaymentSettings = getPaymentSettings,
+       _storage = storage,
+       super(const PaymentSettingsState());
 
   final GetPaymentSettingsUseCase _getPaymentSettings;
   final StorageService _storage;
@@ -28,26 +28,29 @@ class PaymentSettingsCubit extends Cubit<PaymentSettingsState> {
   Future<void> load({String? schoolCode}) async {
     emit(state.copyWith(status: PaymentSettingsStatus.loading));
     try {
-      final school = (schoolCode ??
-              await _storage.getString(StorageKeys.schoolCode) ??
-              '')
-          .trim();
+      final school =
+          (schoolCode ?? await _storage.getString(StorageKeys.schoolCode) ?? '')
+              .trim();
       if (school.isEmpty) {
         emit(state.copyWith(status: PaymentSettingsStatus.failure));
         return;
       }
       final settings = await _getPaymentSettings(schoolCode: school);
       if (isClosed) return;
-      emit(state.copyWith(
-        status: PaymentSettingsStatus.loaded,
-        settings: settings ?? PaymentSettingsEntity.fallback,
-      ));
+      emit(
+        state.copyWith(
+          status: PaymentSettingsStatus.loaded,
+          settings: settings ?? PaymentSettingsEntity.fallback,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        status: PaymentSettingsStatus.failure,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          status: PaymentSettingsStatus.failure,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 }

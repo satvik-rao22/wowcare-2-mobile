@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class CustomTextField extends StatelessWidget {
   const CustomTextField({
@@ -33,11 +34,7 @@ class CustomTextField extends StatelessWidget {
         if (label != null)
           Text(
             label!,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: AppColors.themeColor,
-            ),
+            style: AppTextStyles.bodyLarge.copyWith(color: AppColors.themeColor),
           ),
         if (label != null) const SizedBox(height: 8),
         TextField(
@@ -60,7 +57,7 @@ class CustomTextField extends StatelessWidget {
               : null,
           decoration: InputDecoration(
             hintText: hintText,
-            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+            hintStyle: AppTextStyles.body.copyWith(color: Colors.grey.shade400),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: Colors.grey.shade300),

@@ -49,6 +49,7 @@ class StudentAttendanceDailyItem extends Equatable {
   final String? signedOutAt;
   final StudentAttendanceTime? signedOutTime;
   final String? signedOutBy;
+
   /// Sign-in method code as returned by the API (e.g. GPS, PIN, QR, APP).
   final String? signedInMethod;
 
@@ -86,40 +87,40 @@ class StudentAttendanceDailyItem extends Equatable {
 
   @override
   List<Object?> get props => [
-        attendanceRecordCode,
-        attendanceDate,
-        studentCode,
-        studentName,
-        isExpectedToday,
-        classroomName,
-        signedInAt,
-        signedInTime,
-        signedInBy,
-        signedOutAt,
-        signedOutTime,
-        signedOutBy,
-        signedInMethod,
-        signedOutMethod,
-        classroomCode,
-        tagCodes,
-        tagNames,
-        duration,
-        // Transfer-related fields
-        isTransfer,
-        sequenceNumber,
-        totalSequenceCount,
-        hasNextTransfer,
-        isLastSequenceEntry,
-        fromClassroomCode,
-        fromClassroomName,
-        toClassroomCode,
-        toClassroomName,
-        transferTime,
-        nextActionTime,
-        transferredBy,
-        transferReason,
-        notExpectedComment,
-      ];
+    attendanceRecordCode,
+    attendanceDate,
+    studentCode,
+    studentName,
+    isExpectedToday,
+    classroomName,
+    signedInAt,
+    signedInTime,
+    signedInBy,
+    signedOutAt,
+    signedOutTime,
+    signedOutBy,
+    signedInMethod,
+    signedOutMethod,
+    classroomCode,
+    tagCodes,
+    tagNames,
+    duration,
+    // Transfer-related fields
+    isTransfer,
+    sequenceNumber,
+    totalSequenceCount,
+    hasNextTransfer,
+    isLastSequenceEntry,
+    fromClassroomCode,
+    fromClassroomName,
+    toClassroomCode,
+    toClassroomName,
+    transferTime,
+    nextActionTime,
+    transferredBy,
+    transferReason,
+    notExpectedComment,
+  ];
 }
 
 class StudentAttendanceTime extends Equatable {
@@ -165,6 +166,12 @@ class StudentAttendanceDailyPage extends Equatable {
   final bool hasMore;
 
   @override
-  List<Object?> get props =>
-      [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 }

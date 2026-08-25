@@ -30,6 +30,7 @@ import 'package:wowcare/data/features/student/datasources/student_remote_datasou
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class EditStudentProfileDetailsScreen extends StatefulWidget {
   const EditStudentProfileDetailsScreen({
@@ -1200,7 +1201,7 @@ class _EditStudentProfileDetailsScreenState
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: Color(0xff573353),
     );
 
     return Column(
@@ -1212,9 +1213,9 @@ class _EditStudentProfileDetailsScreenState
             children: [
               TextSpan(text: label),
               if (isRequired)
-                const TextSpan(
+                TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: AppTextStyles.body.copyWith(color: Colors.red),
                 ),
             ],
           ),

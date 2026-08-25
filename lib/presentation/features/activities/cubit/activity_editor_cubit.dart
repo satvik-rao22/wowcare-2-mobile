@@ -25,7 +25,8 @@ import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_
 /// View/UI dependency here.
 class ActivityEditorCubit extends Cubit<ActivityEditorState> {
   ActivityEditorCubit({
-    required GetClassroomActivitySettingsUseCase getClassroomActivitySettingsUseCase,
+    required GetClassroomActivitySettingsUseCase
+    getClassroomActivitySettingsUseCase,
     required GetActivityTypeDetailsUseCase getActivityTypeDetailsUseCase,
     required CreateActivityUseCase createActivityUseCase,
     required GetActivityUseCase getActivityUseCase,
@@ -35,23 +36,25 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     required CreateSharedActivitiesUseCase createSharedActivitiesUseCase,
     required GuardianParentSignatureUseCase guardianParentSignatureUseCase,
     required GetGuardianNameCodeMapForSchoolUseCase
-        getGuardianNameCodeMapForSchoolUseCase,
+    getGuardianNameCodeMapForSchoolUseCase,
     required GetStaffTodaySignInStatusUseCase getStaffTodaySignInStatusUseCase,
-  })  : _getClassroomActivitySettingsUseCase = getClassroomActivitySettingsUseCase,
-        _getActivityTypeDetailsUseCase = getActivityTypeDetailsUseCase,
-        _createActivityUseCase = createActivityUseCase,
-        _getActivityUseCase = getActivityUseCase,
-        _updateActivityUseCase = updateActivityUseCase,
-        _approveActivityUseCase = approveActivityUseCase,
-        _rejectActivityUseCase = rejectActivityUseCase,
-        _createSharedActivitiesUseCase = createSharedActivitiesUseCase,
-        _guardianParentSignatureUseCase = guardianParentSignatureUseCase,
-        _getGuardianNameCodeMapForSchoolUseCase =
-            getGuardianNameCodeMapForSchoolUseCase,
-        _getStaffTodaySignInStatusUseCase = getStaffTodaySignInStatusUseCase,
-        super(const ActivityEditorState());
+  }) : _getClassroomActivitySettingsUseCase =
+           getClassroomActivitySettingsUseCase,
+       _getActivityTypeDetailsUseCase = getActivityTypeDetailsUseCase,
+       _createActivityUseCase = createActivityUseCase,
+       _getActivityUseCase = getActivityUseCase,
+       _updateActivityUseCase = updateActivityUseCase,
+       _approveActivityUseCase = approveActivityUseCase,
+       _rejectActivityUseCase = rejectActivityUseCase,
+       _createSharedActivitiesUseCase = createSharedActivitiesUseCase,
+       _guardianParentSignatureUseCase = guardianParentSignatureUseCase,
+       _getGuardianNameCodeMapForSchoolUseCase =
+           getGuardianNameCodeMapForSchoolUseCase,
+       _getStaffTodaySignInStatusUseCase = getStaffTodaySignInStatusUseCase,
+       super(const ActivityEditorState());
 
-  final GetClassroomActivitySettingsUseCase _getClassroomActivitySettingsUseCase;
+  final GetClassroomActivitySettingsUseCase
+  _getClassroomActivitySettingsUseCase;
   final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
   final CreateActivityUseCase _createActivityUseCase;
   final GetActivityUseCase _getActivityUseCase;
@@ -61,17 +64,16 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
   final CreateSharedActivitiesUseCase _createSharedActivitiesUseCase;
   final GuardianParentSignatureUseCase _guardianParentSignatureUseCase;
   final GetGuardianNameCodeMapForSchoolUseCase
-      _getGuardianNameCodeMapForSchoolUseCase;
+  _getGuardianNameCodeMapForSchoolUseCase;
   final GetStaffTodaySignInStatusUseCase _getStaffTodaySignInStatusUseCase;
 
   Future<List<ActivitySetting>> getClassroomActivitySettings({
     required String classroomCode,
     bool refresh = false,
-  }) =>
-      _getClassroomActivitySettingsUseCase(
-        classroomCode: classroomCode,
-        refresh: refresh,
-      );
+  }) => _getClassroomActivitySettingsUseCase(
+    classroomCode: classroomCode,
+    refresh: refresh,
+  );
 
   Future<ActivityTypeDetails> getActivityTypeDetails({required String code}) =>
       _getActivityTypeDetailsUseCase(code: code);
@@ -96,25 +98,24 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     bool? requireAdminApproval,
     List<Map<String, dynamic>> parameterValues = const [],
     List<Map<String, dynamic>> attachments = const [],
-  }) =>
-      _createActivityUseCase(
-        activityTypeCode: activityTypeCode,
-        classroomCode: classroomCode,
-        studentCodes: studentCodes,
-        staffCode: staffCode,
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-        activityDate: activityDate,
-        description: description,
-        napStart: napStart,
-        napEnd: napEnd,
-        napReminderEnabled: napReminderEnabled,
-        napReminderUserCode: napReminderUserCode,
-        napReminderRole: napReminderRole,
-        requireAdminApproval: requireAdminApproval,
-        parameterValues: parameterValues,
-        attachments: attachments,
-      );
+  }) => _createActivityUseCase(
+    activityTypeCode: activityTypeCode,
+    classroomCode: classroomCode,
+    studentCodes: studentCodes,
+    staffCode: staffCode,
+    schoolCode: schoolCode,
+    organizationCode: organizationCode,
+    activityDate: activityDate,
+    description: description,
+    napStart: napStart,
+    napEnd: napEnd,
+    napReminderEnabled: napReminderEnabled,
+    napReminderUserCode: napReminderUserCode,
+    napReminderRole: napReminderRole,
+    requireAdminApproval: requireAdminApproval,
+    parameterValues: parameterValues,
+    attachments: attachments,
+  );
 
   Future<String> updateActivity({
     required String code,
@@ -125,17 +126,16 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     required String description,
     List<Map<String, dynamic>> parameterValues = const [],
     List<Map<String, dynamic>> attachments = const [],
-  }) =>
-      _updateActivityUseCase(
-        code: code,
-        studentCodes: studentCodes,
-        applyToStudentCodes: applyToStudentCodes,
-        staffCode: staffCode,
-        activityDate: activityDate,
-        description: description,
-        parameterValues: parameterValues,
-        attachments: attachments,
-      );
+  }) => _updateActivityUseCase(
+    code: code,
+    studentCodes: studentCodes,
+    applyToStudentCodes: applyToStudentCodes,
+    staffCode: staffCode,
+    activityDate: activityDate,
+    description: description,
+    parameterValues: parameterValues,
+    attachments: attachments,
+  );
 
   Future<String> approveActivity({required String code}) =>
       _approveActivityUseCase(code: code);
@@ -156,20 +156,19 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     bool? requireAdminApproval,
     required List<Map<String, dynamic>> attachments,
     List<Map<String, dynamic>> parameterValues = const [],
-  }) =>
-      _createSharedActivitiesUseCase(
-        activityTypeCode: activityTypeCode,
-        classroomCode: classroomCode,
-        studentCodes: studentCodes,
-        staffCode: staffCode,
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-        activityDate: activityDate,
-        description: description,
-        requireAdminApproval: requireAdminApproval,
-        attachments: attachments,
-        parameterValues: parameterValues,
-      );
+  }) => _createSharedActivitiesUseCase(
+    activityTypeCode: activityTypeCode,
+    classroomCode: classroomCode,
+    studentCodes: studentCodes,
+    staffCode: staffCode,
+    schoolCode: schoolCode,
+    organizationCode: organizationCode,
+    activityDate: activityDate,
+    description: description,
+    requireAdminApproval: requireAdminApproval,
+    attachments: attachments,
+    parameterValues: parameterValues,
+  );
 
   /// Records a guardian/parent signature on an incident activity parameter.
   Future<String> guardianParentSignature({
@@ -177,20 +176,18 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     required String parameterCode,
     required String guardianCode,
     String? signatureValue,
-  }) =>
-      _guardianParentSignatureUseCase(
-        code: code,
-        parameterCode: parameterCode,
-        guardianCode: guardianCode,
-        signatureValue: signatureValue,
-      );
+  }) => _guardianParentSignatureUseCase(
+    code: code,
+    parameterCode: parameterCode,
+    guardianCode: guardianCode,
+    signatureValue: signatureValue,
+  );
 
   /// Guardian name → code map for the school (used by the incident form's
   /// guardian-signature picker).
   Future<Map<String, String>> getGuardianNameCodeMapForSchool({
     required String schoolCode,
-  }) =>
-      _getGuardianNameCodeMapForSchoolUseCase(schoolCode: schoolCode);
+  }) => _getGuardianNameCodeMapForSchoolUseCase(schoolCode: schoolCode);
 
   /// True when it's safe to submit — either this isn't an admin-on-behalf-of
   /// create at all, or the picked staff member is confirmed signed in today.
@@ -209,8 +206,7 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     final own = (ownStaffCode ?? '').trim();
     if (picked.isEmpty || picked == own) return true;
     try {
-      final status =
-          await _getStaffTodaySignInStatusUseCase(staffCode: picked);
+      final status = await _getStaffTodaySignInStatusUseCase(staffCode: picked);
       return status?.toUpperCase() == 'SIGNED_IN';
     } catch (_) {
       return true;

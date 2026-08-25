@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class CustomToggle extends StatefulWidget {
   const CustomToggle({
@@ -35,6 +36,7 @@ class _CustomToggleState extends State<CustomToggle> {
     super.initState();
     _internalToggle = widget.isToggled;
   }
+
   @override
   void didUpdateWidget(covariant CustomToggle oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -58,17 +60,15 @@ class _CustomToggleState extends State<CustomToggle> {
 
   @override
   Widget build(BuildContext context) {
-    return widget.labelOnLeftSide ?
-          Row(
+    return widget.labelOnLeftSide
+        ? Row(
             children: [
               if (widget.label.trim().isNotEmpty)
                 Text(
                   widget.label,
-                  style: widget.labelStyle ??
-                      TextStyle(
-                        color: AppColors.primaryColor.withValues(alpha: 0.6),
-                        fontWeight: FontWeight.w500,
-                      ),
+                  style:
+                      widget.labelStyle ??
+                      AppTextStyles.body.copyWith(color: AppColors.primaryColor.withValues(alpha: 0.6)),
                 ),
               if (widget.label.trim().isNotEmpty) const SizedBox(width: 8),
               GestureDetector(
@@ -84,8 +84,9 @@ class _CustomToggleState extends State<CustomToggle> {
                         ? AppColors.buildPrimaryGradient()
                         : AppColors.buildPrimaryGradient().withOpacity(0.5),
                   ),
-                  alignment:
-                  _internalToggle ? Alignment.centerRight : Alignment.centerLeft,
+                  alignment: _internalToggle
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     width: 20,
@@ -96,47 +97,45 @@ class _CustomToggleState extends State<CustomToggle> {
                   ),
                 ),
               ),
-
             ],
           )
-        :Row(
-      children: [
-        GestureDetector(
-          onTap: widget.enabled ? _handleToggle : null,
-          child: AnimatedContainer(
-            height: 28,
-            width: 56,
-            padding: const EdgeInsets.all(4),
-            duration: const Duration(milliseconds: 200),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(100),
-              gradient: _internalToggle
-                  ? AppColors.buildPrimaryGradient()
-                  : AppColors.buildPrimaryGradient().withOpacity(0.5),
-            ),
-            alignment:
-                _internalToggle ? Alignment.centerRight : Alignment.centerLeft,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 20,
-              decoration: const BoxDecoration(
-                color: AppColors.cardColor,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-        ),
-        if (widget.label.trim().isNotEmpty) const SizedBox(width: 8),
-        if (widget.label.trim().isNotEmpty)
-          Text(
-            widget.label,
-            style: widget.labelStyle ??
-                TextStyle(
-                  color: AppColors.primaryColor.withValues(alpha: 0.6),
-                  fontWeight: FontWeight.w500,
+        : Row(
+            children: [
+              GestureDetector(
+                onTap: widget.enabled ? _handleToggle : null,
+                child: AnimatedContainer(
+                  height: 28,
+                  width: 56,
+                  padding: const EdgeInsets.all(4),
+                  duration: const Duration(milliseconds: 200),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(100),
+                    gradient: _internalToggle
+                        ? AppColors.buildPrimaryGradient()
+                        : AppColors.buildPrimaryGradient().withOpacity(0.5),
+                  ),
+                  alignment: _internalToggle
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 20,
+                    decoration: const BoxDecoration(
+                      color: AppColors.cardColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
                 ),
-          ),
-      ],
-    );
+              ),
+              if (widget.label.trim().isNotEmpty) const SizedBox(width: 8),
+              if (widget.label.trim().isNotEmpty)
+                Text(
+                  widget.label,
+                  style:
+                      widget.labelStyle ??
+                      AppTextStyles.body.copyWith(color: AppColors.primaryColor.withValues(alpha: 0.6)),
+                ),
+            ],
+          );
   }
 }

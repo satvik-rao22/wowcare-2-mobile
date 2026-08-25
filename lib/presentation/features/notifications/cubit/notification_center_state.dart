@@ -22,17 +22,17 @@ class NotificationCenterState extends Equatable {
   });
 
   const NotificationCenterState.initial()
-      : items = const [],
-        isLoading = true,
-        isRefreshing = false,
-        isMutating = false,
-        isLoadingMore = false,
-        hasMore = false,
-        page = 0,
-        moduleFilter = null,
-        onlyUnread = false,
-        errorMessage = null,
-        serverUnreadCount = null;
+    : items = const [],
+      isLoading = true,
+      isRefreshing = false,
+      isMutating = false,
+      isLoadingMore = false,
+      hasMore = false,
+      page = 0,
+      moduleFilter = null,
+      onlyUnread = false,
+      errorMessage = null,
+      serverUnreadCount = null;
 
   final List<AppNotification> items;
   final bool isLoading;
@@ -109,8 +109,9 @@ class NotificationCenterState extends Equatable {
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       hasMore: hasMore ?? this.hasMore,
       page: page ?? this.page,
-      moduleFilter:
-          clearModuleFilter ? null : (moduleFilter ?? this.moduleFilter),
+      moduleFilter: clearModuleFilter
+          ? null
+          : (moduleFilter ?? this.moduleFilter),
       onlyUnread: onlyUnread ?? this.onlyUnread,
       errorMessage: errorMessage,
       serverUnreadCount: serverUnreadCount ?? this.serverUnreadCount,
@@ -119,16 +120,16 @@ class NotificationCenterState extends Equatable {
 
   @override
   List<Object?> get props => [
-        items,
-        isLoading,
-        isRefreshing,
-        isMutating,
-        isLoadingMore,
-        hasMore,
-        page,
-        moduleFilter,
-        onlyUnread,
-        errorMessage,
-        serverUnreadCount,
-      ];
+    items,
+    isLoading,
+    isRefreshing,
+    isMutating,
+    isLoadingMore,
+    hasMore,
+    page,
+    moduleFilter,
+    onlyUnread,
+    errorMessage,
+    serverUnreadCount,
+  ];
 }

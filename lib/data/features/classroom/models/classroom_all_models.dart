@@ -17,9 +17,11 @@ class ClassroomAllItemModel {
 
   factory ClassroomAllItemModel.fromJson(Map<String, dynamic> json) {
     // Support both 'code' and 'classroomCode' (backend may use either)
-    final code = (json['code'] as String? ?? json['classroomCode'] as String?) ??
+    final code =
+        (json['code'] as String? ?? json['classroomCode'] as String?) ??
         (json['id']?.toString() ?? '');
-    final name = (json['name'] as String? ?? json['classroomName'] as String?) ?? '';
+    final name =
+        (json['name'] as String? ?? json['classroomName'] as String?) ?? '';
     return ClassroomAllItemModel(
       code: code,
       name: name,
@@ -56,13 +58,13 @@ class RatioClassroomItemModel {
   final int studentsTeacherRatio;
 
   factory RatioClassroomItemModel.fromJson(Map<String, dynamic> json) {
-    final code = (json['code'] as String? ??
+    final code =
+        (json['code'] as String? ??
             json['classroomCode'] as String? ??
             json['id']?.toString()) ??
         '';
-    final name = (json['name'] as String? ??
-            json['classroomName'] as String?) ??
-        '';
+    final name =
+        (json['name'] as String? ?? json['classroomName'] as String?) ?? '';
     return RatioClassroomItemModel(
       code: code,
       name: name,
@@ -79,9 +81,7 @@ class RatioClassroomPageResponseModel {
 
   final List<RatioClassroomItemModel> items;
 
-  factory RatioClassroomPageResponseModel.fromJson(
-    Map<String, dynamic> json,
-  ) {
+  factory RatioClassroomPageResponseModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'];
     List<dynamic> content = const [];
     if (data is Map<String, dynamic>) {
@@ -126,5 +126,3 @@ class ClassroomAllResponseModel {
     );
   }
 }
-
-

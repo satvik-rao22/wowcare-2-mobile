@@ -7,7 +7,7 @@ part 'date_range_state.dart';
 /// selector widget.
 class DateRangeCubit extends Cubit<DateRangeState> {
   DateRangeCubit({DateTime? start, DateTime? end})
-      : super(DateRangeState(startDate: start, endDate: end));
+    : super(DateRangeState(startDate: start, endDate: end));
 
   void setRange(DateTime? start, DateTime? end) {
     emit(DateRangeState(startDate: start, endDate: end));

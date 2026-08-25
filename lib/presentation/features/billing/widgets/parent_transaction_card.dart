@@ -139,8 +139,9 @@ class ParentTransactionCard extends StatelessWidget {
       description: transaction.description,
       studentName: transaction.studentName,
       classroom: '',
-      studentCode:
-          transaction.studentCode.isNotEmpty ? transaction.studentCode : null,
+      studentCode: transaction.studentCode.isNotEmpty
+          ? transaction.studentCode
+          : null,
       paidAmount: transaction.paidAmount,
       refundedAmount: transaction.refundedAmount,
       invoiceCode: transaction.invoiceCode,
@@ -157,70 +158,76 @@ class ParentTransactionCard extends StatelessWidget {
     final expanded = <Widget>[];
     if (transaction.method.isNotEmpty && _type != 'invoice') {
       expanded
-        ..add(StaffCardDetailRow(
-          label: 'Payment Method',
-          value: transaction.method,
-        ))
+        ..add(
+          StaffCardDetailRow(
+            label: 'Payment Method',
+            value: transaction.method,
+          ),
+        )
         ..add(const SizedBox(height: 10));
     }
-    expanded.add(StaffCardDetailRow(
-      label: 'Status',
-      value: _formatStatus(transaction.status),
-    ));
+    expanded.add(
+      StaffCardDetailRow(
+        label: 'Status',
+        value: _formatStatus(transaction.status),
+      ),
+    );
     expanded.add(const SizedBox(height: 10));
     if (transaction.description.isNotEmpty) {
-      expanded.add(StaffCardDetailRow(
-        label: 'Description',
-        value: transaction.description,
-      ));
+      expanded.add(
+        StaffCardDetailRow(
+          label: 'Description',
+          value: transaction.description,
+        ),
+      );
       expanded.add(const SizedBox(height: 10));
     }
     if (transaction.items.isNotEmpty) {
-      expanded.add(StaffCardDetailRow(
-        label: 'Items',
-        value: transaction.items.join(', '),
-      ));
+      expanded.add(
+        StaffCardDetailRow(label: 'Items', value: transaction.items.join(', ')),
+      );
       expanded.add(const SizedBox(height: 10));
     }
-    expanded.add(StaffCardDetailRow(
-      label: 'Amount',
-      value: '\$${transaction.amount.toStringAsFixed(2)}',
-    ));
+    expanded.add(
+      StaffCardDetailRow(
+        label: 'Amount',
+        value: '\$${transaction.amount.toStringAsFixed(2)}',
+      ),
+    );
     if (_type == 'payment') {
       expanded
         ..add(const SizedBox(height: 16))
-        ..add(StaffCardActions(
-          primaryLabel: 'View Receipt',
-          onPrimary: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => ViewReceiptScreen(
-                transaction: _toTransactionItem(),
-                viewType: 'receipt',
+        ..add(
+          StaffCardActions(
+            primaryLabel: 'View Receipt',
+            onPrimary: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => ViewReceiptScreen(
+                  transaction: _toTransactionItem(),
+                  viewType: 'receipt',
+                ),
               ),
             ),
           ),
-        ));
+        );
     } else if (_type == 'invoice') {
       expanded
         ..add(const SizedBox(height: 16))
-        ..add(StaffCardActions(
-          primaryLabel: 'View Invoice',
-          onPrimary: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => ViewInvoiceScreen(
-                transaction: _toTransactionItem(),
+        ..add(
+          StaffCardActions(
+            primaryLabel: 'View Invoice',
+            onPrimary: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) =>
+                    ViewInvoiceScreen(transaction: _toTransactionItem()),
               ),
             ),
           ),
-        ));
+        );
     }
 
     return StaffStyleCard(
-      leading: DocumentImageWidget(
-        fileUuid: '',
-        name: _displayName,
-        size: 50,
-      ),
+      leading: DocumentImageWidget(fileUuid: '', name: _displayName, size: 50),
       header: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -251,8 +258,9 @@ class ParentTransactionCard extends StatelessWidget {
             children: [
               Text(
                 '\$${transaction.amount.toStringAsFixed(2)}',
-                style: BillingCardText.name(isTablet)
-                    .copyWith(fontWeight: FontWeight.w700),
+                style: BillingCardText.name(
+                  isTablet,
+                ).copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 4),
               Text(
@@ -298,18 +306,14 @@ class ParentStatementCard extends StatelessWidget {
   String get _formattedType => statement.statementType.isEmpty
       ? '—'
       : statement.statementType[0].toUpperCase() +
-          statement.statementType.substring(1).toLowerCase();
+            statement.statementType.substring(1).toLowerCase();
 
   @override
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.width > 600;
     final generatedAt = statement.generatedAt;
     return StaffStyleCard(
-      leading: DocumentImageWidget(
-        fileUuid: '',
-        name: _title,
-        size: 50,
-      ),
+      leading: DocumentImageWidget(fileUuid: '', name: _title, size: 50),
       header: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -329,10 +333,7 @@ class ParentStatementCard extends StatelessWidget {
         ],
       ),
       expandedChildren: [
-        StaffCardDetailRow(
-          label: 'Statement Type',
-          value: _formattedType,
-        ),
+        StaffCardDetailRow(label: 'Statement Type', value: _formattedType),
         const SizedBox(height: 10),
         StaffCardDetailRow(
           label: 'Generated On',

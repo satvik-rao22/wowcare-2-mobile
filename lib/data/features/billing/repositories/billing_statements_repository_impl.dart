@@ -13,15 +13,14 @@ class BillingStatementsRepositoryImpl implements BillingStatementsRepository {
   Future<List<BillingStatementEntity>> getStatements({
     required String subscriberCode,
   }) async {
-    final models =
-        await _dataSource.getStatements(subscriberCode: subscriberCode);
+    final models = await _dataSource.getStatements(
+      subscriberCode: subscriberCode,
+    );
     return models.map((m) => m.toEntity()).toList();
   }
 
   @override
-  Future<Uint8List> downloadStatement({
-    required String statementCode,
-  }) =>
+  Future<Uint8List> downloadStatement({required String statementCode}) =>
       _dataSource.downloadStatement(statementCode: statementCode);
 
   @override

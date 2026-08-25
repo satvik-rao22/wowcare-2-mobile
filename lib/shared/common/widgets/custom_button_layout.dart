@@ -28,6 +28,7 @@ class CustomButtonLayout extends StatelessWidget {
   final String? disabledConfirmTooltip;
   final bool showCancelButton;
   final bool isForm;
+
   /// When true, shows a white loader on top of the confirm button
   /// and disables all button interactions.
   final bool isLoading;
@@ -66,7 +67,8 @@ class CustomButtonLayout extends StatelessWidget {
                   Opacity(
                     opacity: isLoading ? 0.6 : 1,
                     child: Tooltip(
-                      message: (onPressedConfirm == null &&
+                      message:
+                          (onPressedConfirm == null &&
                               disabledConfirmTooltip != null)
                           ? disabledConfirmTooltip!
                           : '',

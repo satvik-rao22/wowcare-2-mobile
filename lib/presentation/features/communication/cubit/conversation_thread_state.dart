@@ -20,17 +20,17 @@ class ConversationThreadState extends Equatable {
   const ConversationThreadState.initial({
     required String conversationCode,
     ConversationEntity? conversation,
-  })  : conversationCode = conversationCode,
-        messages = const [],
-        isLoading = false,
-        isRefreshing = false,
-        isFromCache = false,
-        isSending = false,
-        hasOlderMessages = true,
-        conversation = conversation,
-        sendError = null,
-        errorMessage = null,
-        successMessage = null;
+  }) : conversationCode = conversationCode,
+       messages = const [],
+       isLoading = false,
+       isRefreshing = false,
+       isFromCache = false,
+       isSending = false,
+       hasOlderMessages = true,
+       conversation = conversation,
+       sendError = null,
+       errorMessage = null,
+       successMessage = null;
 
   const ConversationThreadState.loaded({
     required String conversationCode,
@@ -38,17 +38,17 @@ class ConversationThreadState extends Equatable {
     required bool isFromCache,
     bool hasOlderMessages = false,
     ConversationEntity? conversation,
-  })  : conversationCode = conversationCode,
-        messages = messages,
-        isLoading = false,
-        isRefreshing = false,
-        isFromCache = isFromCache,
-        isSending = false,
-        hasOlderMessages = hasOlderMessages,
-        conversation = conversation,
-        sendError = null,
-        errorMessage = null,
-        successMessage = null;
+  }) : conversationCode = conversationCode,
+       messages = messages,
+       isLoading = false,
+       isRefreshing = false,
+       isFromCache = isFromCache,
+       isSending = false,
+       hasOlderMessages = hasOlderMessages,
+       conversation = conversation,
+       sendError = null,
+       errorMessage = null,
+       successMessage = null;
 
   final String conversationCode;
   final List<MessageEntity> messages;
@@ -103,22 +103,24 @@ class ConversationThreadState extends Equatable {
       conversation: conversation ?? this.conversation,
       sendError: clearSendError ? null : (sendError ?? this.sendError),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-      successMessage: clearSuccess ? null : (successMessage ?? this.successMessage),
+      successMessage: clearSuccess
+          ? null
+          : (successMessage ?? this.successMessage),
     );
   }
 
   @override
   List<Object?> get props => [
-        conversationCode,
-        messages,
-        isLoading,
-        isRefreshing,
-        isFromCache,
-        isSending,
-        hasOlderMessages,
-        conversation,
-        sendError,
-        errorMessage,
-        successMessage,
-      ];
+    conversationCode,
+    messages,
+    isLoading,
+    isRefreshing,
+    isFromCache,
+    isSending,
+    hasOlderMessages,
+    conversation,
+    sendError,
+    errorMessage,
+    successMessage,
+  ];
 }

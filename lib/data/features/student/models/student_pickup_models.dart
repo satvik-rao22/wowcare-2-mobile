@@ -43,7 +43,9 @@ class StudentPickupModel extends Equatable {
     }
 
     return StudentPickupModel(
-      code: (json['code'] ?? json['pickupCode'] ?? json['pickup_code']) as String?,
+      code:
+          (json['code'] ?? json['pickupCode'] ?? json['pickup_code'])
+              as String?,
       studentCode: json['studentCode'] as String?,
       firstName: json['firstName'] as String? ?? '',
       lastName: json['lastName'] as String? ?? '',
@@ -54,30 +56,34 @@ class StudentPickupModel extends Equatable {
       relationshipDescription: json['relationshipDescription'] as String?,
       pickupType: json['pickupType'] as String?,
       carpoolId: (json['carpoolId'] ?? json['guardianCode']) as String?,
-      profilePhotoUrl: firstNonEmpty(
-        const ['profilePhotoUrl', 'photoUrl', 'profileImageUrl', 'imageUrl'],
-      ),
-      profilePhotoAssetCode: firstNonEmpty(
-        const ['profilePhotoAssetCode', 'photoAssetCode', 'mediaAssetCode'],
-      ),
+      profilePhotoUrl: firstNonEmpty(const [
+        'profilePhotoUrl',
+        'photoUrl',
+        'profileImageUrl',
+        'imageUrl',
+      ]),
+      profilePhotoAssetCode: firstNonEmpty(const [
+        'profilePhotoAssetCode',
+        'photoAssetCode',
+        'mediaAssetCode',
+      ]),
     );
   }
 
   @override
   List<Object?> get props => [
-        code,
-        studentCode,
-        firstName,
-        lastName,
-        email,
-        phoneNumber,
-        relation,
-        clockPin,
-        relationshipDescription,
-        pickupType,
-        carpoolId,
-        profilePhotoUrl,
-        profilePhotoAssetCode,
-      ];
+    code,
+    studentCode,
+    firstName,
+    lastName,
+    email,
+    phoneNumber,
+    relation,
+    clockPin,
+    relationshipDescription,
+    pickupType,
+    carpoolId,
+    profilePhotoUrl,
+    profilePhotoAssetCode,
+  ];
 }
-

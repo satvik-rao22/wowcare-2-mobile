@@ -27,22 +27,24 @@ Future<String> resolveLoggedInSchoolCode(StorageService storage) async {
 
   final loginContext = await storage.getJson(StorageKeys.loginContext);
   if (loginContext != null) {
-    final fromContext = pick(
-      loginContext['LastLoginSchoolCode']?.toString(),
-    );
+    final fromContext = pick(loginContext['LastLoginSchoolCode']?.toString());
     if (fromContext != null) return fromContext;
   }
 
   if (organizationCode.isNotEmpty) {
-    final fromOrgSchoolList =
-        await _schoolFromOrganizationsAndSchools(storage, organizationCode);
+    final fromOrgSchoolList = await _schoolFromOrganizationsAndSchools(
+      storage,
+      organizationCode,
+    );
     if (fromOrgSchoolList != null) return fromOrgSchoolList;
 
     final fromRoles = await _schoolFromRoles(storage, organizationCode);
     if (fromRoles != null) return fromRoles;
 
-    final fromUserDetails =
-        await _schoolFromUserAccessDetails(storage, organizationCode);
+    final fromUserDetails = await _schoolFromUserAccessDetails(
+      storage,
+      organizationCode,
+    );
     if (fromUserDetails != null) return fromUserDetails;
   }
 
@@ -65,7 +67,8 @@ Future<String?> _schoolFromOrganizationsAndSchools(
   String organizationCode,
 ) async {
   final rawList =
-      (await storage.getString(StorageKeys.organizationsAndSchools) ?? '').trim();
+      (await storage.getString(StorageKeys.organizationsAndSchools) ?? '')
+          .trim();
   if (rawList.isEmpty) return null;
 
   try {

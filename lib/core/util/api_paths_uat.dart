@@ -72,7 +72,12 @@ class ApiPathsUat {
       'individual-movements',
       'future-availability',
     },
-    ApiMicroservices.activity: {'classrooms', 'activities', 'activity-types', 'admin'},
+    ApiMicroservices.activity: {
+      'classrooms',
+      'activities',
+      'activity-types',
+      'admin',
+    },
     ApiMicroservices.document: {'media-assets', 'upload-sessions'},
 
     //. Communication
@@ -262,7 +267,10 @@ class ApiPathsUat {
     if (microserviceKeyFromPath(p) == ApiMicroservices.communication) {
       if (p.startsWith('/api/v1/messaging/')) return p; // already prefixed
       if (p.startsWith('/api/v1/conversations')) {
-        return p.replaceFirst('/api/v1/conversations', '/api/v1/messaging/conversations');
+        return p.replaceFirst(
+          '/api/v1/conversations',
+          '/api/v1/messaging/conversations',
+        );
       }
       if (p.startsWith('/api/v1/messages')) {
         return p.replaceFirst('/api/v1/messages', '/api/v1/messaging/messages');
@@ -274,8 +282,9 @@ class ApiPathsUat {
     // UAT (same MS as newsletter), so prepend that segment (keeping the
     // `notification/...` resource):
     //   /api/v1/notification/...  →  /api/v1/newsletter/notification/...
-    final notificationSegment =
-        _uatSegmentForMicroservice(ApiMicroservices.newsLatter);
+    final notificationSegment = _uatSegmentForMicroservice(
+      ApiMicroservices.newsLatter,
+    );
     if (p.startsWith('/api/v1/$notificationSegment/notification/')) {
       return p; // already done
     }

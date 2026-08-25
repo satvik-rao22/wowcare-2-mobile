@@ -267,10 +267,8 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
           children: [
             Text(
               'Invoice Number : ',
-              style: TextStyle(
-                fontSize: 15,
+              style: AppTextStyles.body.copyWith(
                 color: AppColors.billingGreyMedium,
-                fontWeight: FontWeight.w500,
               ),
             ),
             Text(
@@ -293,10 +291,8 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
             children: [
               Text(
                 'Invoice Period : ',
-                style: TextStyle(
-                  fontSize: 15,
+                style: AppTextStyles.body.copyWith(
                   color: AppColors.billingGreyMedium,
-                  fontWeight: FontWeight.w500,
                 ),
                 textAlign: TextAlign.start,
               ),
@@ -318,10 +314,8 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
           children: [
             Text(
               'Due Date : ',
-              style: TextStyle(
-                fontSize: 15,
+              style: AppTextStyles.body.copyWith(
                 color: AppColors.billingGreyMedium,
-                fontWeight: FontWeight.w500,
               ),
             ),
             Text(
@@ -356,10 +350,8 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                 flex: 4,
                 child: Text(
                   'Description',
-                  style: TextStyle(
-                    fontSize: 15,
+                  style: AppTextStyles.body.copyWith(
                     color: AppColors.billingGreyMedium,
-                    fontWeight: FontWeight.w500,
                   ),
                   textAlign: TextAlign.start,
                 ),
@@ -368,10 +360,8 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                 flex: 2,
                 child: Text(
                   'Amount',
-                  style: TextStyle(
-                    fontSize: 15,
+                  style: AppTextStyles.body.copyWith(
                     color: AppColors.billingGreyMedium,
-                    fontWeight: FontWeight.w500,
                   ),
                   textAlign: TextAlign.end,
                 ),
@@ -422,10 +412,8 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                   flex: 4,
                   child: Text(
                     'Total Amount',
-                    style: TextStyle(
+                    style: AppTextStyles.title.copyWith(
                       color: AppColors.primaryColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
                     ),
                     textAlign: TextAlign.start,
                   ),
@@ -434,10 +422,8 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                   flex: 2,
                   child: Text(
                     '\$${_amountController.text}',
-                    style: TextStyle(
+                    style: AppTextStyles.title.copyWith(
                       color: AppColors.primaryColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
                     ),
                     textAlign: TextAlign.end,
                   ),
@@ -500,10 +486,8 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                   )
                 : Text(
                     _isDraft ? 'Send Invoice' : 'Resend Invoice',
-                    style: TextStyle(
+                    style: AppTextStyles.title.copyWith(
                       color: AppColors.billingButtonTextColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
                     ),
                   ),
           ),

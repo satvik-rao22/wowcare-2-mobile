@@ -42,10 +42,7 @@ class FeatureFlagLocalDataSourceImpl implements FeatureFlagLocalDataSource {
     await _prefs.setBool(key, enabled);
 
     // Update last sync time
-    await _prefs.setInt(
-      _lastSyncKey,
-      AppTime.nowUtc().millisecondsSinceEpoch,
-    );
+    await _prefs.setInt(_lastSyncKey, AppTime.nowUtc().millisecondsSinceEpoch);
   }
 
   @override

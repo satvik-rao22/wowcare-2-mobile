@@ -24,10 +24,10 @@ class LedgerFormCubit extends Cubit<LedgerFormState> {
     required CreateLedgerUseCase createLedgerUseCase,
     required UpdateLedgerUseCase updateLedgerUseCase,
     required StorageService storageService,
-  })  : _createLedgerUseCase = createLedgerUseCase,
-        _updateLedgerUseCase = updateLedgerUseCase,
-        _storageService = storageService,
-        super(LedgerFormState.initial(initialCategory));
+  }) : _createLedgerUseCase = createLedgerUseCase,
+       _updateLedgerUseCase = updateLedgerUseCase,
+       _storageService = storageService,
+       super(LedgerFormState.initial(initialCategory));
 
   final CreateLedgerUseCase _createLedgerUseCase;
   final UpdateLedgerUseCase _updateLedgerUseCase;
@@ -63,8 +63,7 @@ class LedgerFormCubit extends Cubit<LedgerFormState> {
         organization: org,
         school: school,
         category: state.selectedCategory,
-        description:
-            description.trim().isEmpty ? null : description.trim(),
+        description: description.trim().isEmpty ? null : description.trim(),
       );
 
       final LedgerEntity entity;

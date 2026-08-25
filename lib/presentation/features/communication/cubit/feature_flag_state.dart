@@ -25,32 +25,25 @@ class FeatureFlagState extends Equatable {
   }
 
   /// Master communication enable/disable
-  bool get isCommunicationEnabled =>
-      flags['communicationEnabled'] ?? true;
+  bool get isCommunicationEnabled => flags['communicationEnabled'] ?? true;
 
   /// Parent messaging (Room Chat + Admin Chat)
-  bool get isParentMessagingEnabled =>
-      flags['parentMessagingEnabled'] ?? true;
+  bool get isParentMessagingEnabled => flags['parentMessagingEnabled'] ?? true;
 
   /// Staff messaging (Staff Direct)
-  bool get isStaffMessagingEnabled =>
-      flags['staffMessagingEnabled'] ?? true;
+  bool get isStaffMessagingEnabled => flags['staffMessagingEnabled'] ?? true;
 
   /// Admin Chat specifically
-  bool get isAdminChatEnabled =>
-      flags['adminChatEnabled'] ?? true;
+  bool get isAdminChatEnabled => flags['adminChatEnabled'] ?? true;
 
   /// Bulk messaging (admin-only)
-  bool get isBulkMessagingEnabled =>
-      flags['bulkMessagingEnabled'] ?? false;
+  bool get isBulkMessagingEnabled => flags['bulkMessagingEnabled'] ?? false;
 
   /// Private mode feature
-  bool get isPrivateModeEnabled =>
-      flags['privateModeEnabled'] ?? true;
+  bool get isPrivateModeEnabled => flags['privateModeEnabled'] ?? true;
 
   /// Firebase realtime sync
-  bool get isRealtimeEnabled =>
-      flags['realtimeEnabled'] ?? true;
+  bool get isRealtimeEnabled => flags['realtimeEnabled'] ?? true;
 
   /// Create a copy with optional field overrides
   FeatureFlagState copyWith({

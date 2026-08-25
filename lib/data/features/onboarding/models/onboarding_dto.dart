@@ -11,11 +11,6 @@ class OnboardingDto {
     required this.description,
   });
 
-  OnboardingEntity toEntity() => OnboardingEntity(
-        image: image,
-        title: title,
-        description: description,
-      );
+  OnboardingEntity toEntity() =>
+      OnboardingEntity(image: image, title: title, description: description);
 }
-
-

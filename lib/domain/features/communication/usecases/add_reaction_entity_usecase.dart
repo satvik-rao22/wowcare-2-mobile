@@ -11,9 +11,6 @@ class AddReactionEntityUseCase {
     required String messageCode,
     required String emoji,
   }) {
-    return _repository.addReaction(
-      messageCode: messageCode,
-      emoji: emoji,
-    );
+    return _repository.addReaction(messageCode: messageCode, emoji: emoji);
   }
 }

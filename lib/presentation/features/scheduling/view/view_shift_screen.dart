@@ -92,10 +92,8 @@ class ViewShiftScreen extends StatelessWidget {
                   ),
                 ],
                 borderRadius: BorderRadius.only(
-                  topLeft:
-                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  topRight:
-                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                 ),
               ),
               child: CustomButtonLayout(
@@ -125,11 +123,7 @@ class ViewShiftScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _buildDateField(
-                  responsive,
-                  label: 'Date',
-                  date: date,
-                ),
+                child: _buildDateField(responsive, label: 'Date', date: date),
               ),
               SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
               Expanded(
@@ -173,17 +167,11 @@ class ViewShiftScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _buildTimeField(
-                  label: 'Break Start',
-                  time: breakStart,
-                ),
+                child: _buildTimeField(label: 'Break Start', time: breakStart),
               ),
               SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
               Expanded(
-                child: _buildTimeField(
-                  label: 'Break End',
-                  time: breakEnd,
-                ),
+                child: _buildTimeField(label: 'Break End', time: breakEnd),
               ),
             ],
           ),
@@ -234,7 +222,10 @@ class ViewShiftScreen extends StatelessWidget {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: Colors.red),
+              ),
             ],
           ),
         ),
@@ -347,8 +338,7 @@ class ViewShiftScreen extends StatelessWidget {
           _SeriesOption(
             scope: _SeriesScope.thisShift,
             label: '$actionLabel this shift',
-            description:
-                'Only the occurrence on this day will be ${lower}d.',
+            description: 'Only the occurrence on this day will be ${lower}d.',
           ),
           _SeriesOption(
             scope: _SeriesScope.entireSeries,
@@ -500,10 +490,7 @@ class _ShiftScopeBottomSheet extends StatelessWidget {
 }
 
 class _ScopeRadioTile extends StatelessWidget {
-  const _ScopeRadioTile({
-    required this.option,
-    required this.onTap,
-  });
+  const _ScopeRadioTile({required this.option, required this.onTap});
 
   final _SeriesOption option;
   final VoidCallback onTap;
@@ -525,10 +512,7 @@ class _ScopeRadioTile extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.only(top: 2),
-              child: _RadioDot(),
-            ),
+            const Padding(padding: EdgeInsets.only(top: 2), child: _RadioDot()),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -580,10 +564,7 @@ class _RadioDot extends StatelessWidget {
       height: 20,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(
-          color: AppColors.themeColor,
-          width: 2,
-        ),
+        border: Border.all(color: AppColors.themeColor, width: 2),
       ),
     );
   }
@@ -596,4 +577,3 @@ enum ShiftStatus {
   const ShiftStatus(this.label);
   final String label;
 }
-

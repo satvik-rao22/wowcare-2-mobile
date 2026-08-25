@@ -673,11 +673,12 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                                               doc,
                                                             ),
                                                         style: OutlinedButton.styleFrom(
-                                                          side: const BorderSide(
-                                                            color: Color(
-                                                              0xFF6C7FD8,
-                                                            ),
-                                                          ),
+                                                          side:
+                                                              const BorderSide(
+                                                                color: Color(
+                                                                  0xFF6C7FD8,
+                                                                ),
+                                                              ),
                                                           shape: RoundedRectangleBorder(
                                                             borderRadius:
                                                                 BorderRadius.circular(
@@ -739,7 +740,8 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                                           ? const SizedBox(
                                                               width: 18,
                                                               height: 18,
-                                                              child: PrimaryCircularLoader(),
+                                                              child:
+                                                                  PrimaryCircularLoader(),
                                                             )
                                                           : const Text(
                                                               'View',

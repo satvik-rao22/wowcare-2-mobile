@@ -156,9 +156,8 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                 child: Text(
                   'Student code is required to load important dates',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: AppTextStyles.bodyLarge.copyWith(
                     color: AppColors.primaryColor.withValues(alpha: 0.7),
-                    fontSize: 16,
                   ),
                 ),
               ),
@@ -252,9 +251,8 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                         padding: const EdgeInsets.all(16),
                         child: Text(
                           _errorMessage!,
-                          style: const TextStyle(
+                          style: AppTextStyles.body.copyWith(
                             color: Colors.redAccent,
-                            fontSize: 14,
                           ),
                         ),
                       )

@@ -39,13 +39,12 @@ class InvoiceCatalogRemoteDataSourceImpl
     String? status,
     required int page,
     required int size,
-  }) =>
-      <String, dynamic>{
-        'school': school,
-        if (status != null && status.isNotEmpty) 'status': status,
-        'page': page,
-        'size': size,
-      };
+  }) => <String, dynamic>{
+    'school': school,
+    if (status != null && status.isNotEmpty) 'status': status,
+    'page': page,
+    'size': size,
+  };
 
   @override
   Future<List<FeeStructureModel>> getFeeStructures({
@@ -57,7 +56,11 @@ class InvoiceCatalogRemoteDataSourceImpl
     final response = await _client.get<Map<String, dynamic>>(
       ApiPaths.url(ApiPaths.feeStructures),
       queryParameters: _query(
-          school: school, status: status, page: page, size: size),
+        school: school,
+        status: status,
+        page: page,
+        size: size,
+      ),
     );
     return parseCatalogContent(response.data ?? {}, FeeStructureModel.fromJson);
   }
@@ -72,7 +75,11 @@ class InvoiceCatalogRemoteDataSourceImpl
     final response = await _client.get<Map<String, dynamic>>(
       ApiPaths.url(ApiPaths.otherFees),
       queryParameters: _query(
-          school: school, status: status, page: page, size: size),
+        school: school,
+        status: status,
+        page: page,
+        size: size,
+      ),
     );
     return parseCatalogContent(response.data ?? {}, OtherFeeModel.fromJson);
   }
@@ -87,7 +94,11 @@ class InvoiceCatalogRemoteDataSourceImpl
     final response = await _client.get<Map<String, dynamic>>(
       ApiPaths.url(ApiPaths.subsidies),
       queryParameters: _query(
-          school: school, status: status, page: page, size: size),
+        school: school,
+        status: status,
+        page: page,
+        size: size,
+      ),
     );
     return parseCatalogContent(response.data ?? {}, SubsidyModel.fromJson);
   }

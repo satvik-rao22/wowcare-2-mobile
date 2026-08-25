@@ -1068,7 +1068,7 @@ class _StaffAttendanceDailyViewScreenState
               const SizedBox(height: 16),
               AppText.body(
                 'No staff attendance records found for the selected date',
-                style: TextStyle(color: Colors.grey[600]),
+                style: AppTextStyles.body.copyWith(color: Colors.grey[600]),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -1352,7 +1352,7 @@ class _StaffAttendanceDailyViewScreenState
               const SizedBox(height: 16),
               AppText.body(
                 'No absent staff found for the selected date',
-                style: TextStyle(color: Colors.grey[600]),
+                style: AppTextStyles.body.copyWith(color: Colors.grey[600]),
                 textAlign: TextAlign.center,
               ),
             ],

@@ -21,10 +21,7 @@ class InvoiceAnalyticsModel {
     ) {
       final raw = data[key];
       if (raw is! List) return [];
-      return raw
-          .whereType<Map<String, dynamic>>()
-          .map(fromJson)
-          .toList();
+      return raw.whereType<Map<String, dynamic>>().map(fromJson).toList();
     }
 
     return InvoiceAnalyticsModel(

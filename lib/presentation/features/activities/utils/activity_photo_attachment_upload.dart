@@ -36,6 +36,7 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
   required bool Function() mounted,
   required void Function(bool uploading) setUploading,
   void Function(int percent)? onOverallProgressPercent,
+
   /// Fired with (completedCount, totalCount) after each file's upload+
   /// complete call, before the batched ready-poll — lets callers show
   /// granular "N/M uploaded" progress text alongside the overall percent.
@@ -43,11 +44,9 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
 }) async {
   if (files.isEmpty) return const [];
 
-  final normalizedStudentCodes = studentCodes
-      .map((e) => e.trim())
-      .where((e) => e.isNotEmpty)
-      .toList()
-    ..sort();
+  final normalizedStudentCodes =
+      studentCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+        ..sort();
   final uploadContextKey = [
     organizationCode.trim(),
     schoolCode.trim(),
@@ -65,8 +64,9 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
   final isShared = bindingMode.trim().toUpperCase() == 'SHARED';
   final ownerType = isShared ? 'CLASSROOM' : 'STUDENT';
   final ownerCode = isShared ? classroomCode.trim() : studentCodes.first;
-  final missing =
-      files.where((f) => !state.assetCodeByPath.containsKey(f.path)).toList();
+  final missing = files
+      .where((f) => !state.assetCodeByPath.containsKey(f.path))
+      .toList();
 
   if (missing.isNotEmpty) {
     setState(() => setUploading(true));
@@ -109,8 +109,9 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
             lookupMimeType(photo.path) ??
             FilePickerUtils.getMimeType(fileName.split('.').last);
         final contentLengthBytes = await photo.length();
-        final checksumSha256 =
-            await uploadService.computeFileChecksumSha256(photo);
+        final checksumSha256 = await uploadService.computeFileChecksumSha256(
+          photo,
+        );
         final presign = await uploadService.createAssetPresign(
           sessionCode: uploadSession.sessionCode,
           documentApiBasePath: uploadSession.documentApiBasePath,
@@ -130,8 +131,9 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
           onProgress: (_, __, percent) {
             final overallFraction =
                 ((fileIndex - 1) + (percent / 100)) / totalFiles;
-            final overallPercent =
-                (overallFraction * 100).clamp(0, 100).round();
+            final overallPercent = (overallFraction * 100)
+                .clamp(0, 100)
+                .round();
             if (mounted()) {
               setState(() => onOverallProgressPercent?.call(overallPercent));
             }

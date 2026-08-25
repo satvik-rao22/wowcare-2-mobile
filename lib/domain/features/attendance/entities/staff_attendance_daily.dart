@@ -72,7 +72,8 @@ class StaffAttendanceDailyItem extends Equatable {
   final String? transferReason;
   final String? notExpectedComment;
 
-  bool get hasSignIn => signedInTime != null || (signedInBy != null && signedInBy!.isNotEmpty);
+  bool get hasSignIn =>
+      signedInTime != null || (signedInBy != null && signedInBy!.isNotEmpty);
 
   String? get formattedSignInTime => signedInTime?.formattedTime;
 
@@ -80,38 +81,38 @@ class StaffAttendanceDailyItem extends Equatable {
 
   @override
   List<Object?> get props => [
-        attendanceRecordCode,
-        staffCode,
-        staffName,
-        isExpectedToday,
-        classroomName,
-        classroomCode,
-        attendedDays,
-        signedInBy,
-        signedInTime,
-        signedOutBy,
-        signedOutTime,
-        designation,
-        attendedTime,
-        attendedHours,
-        attendedMinutes,
-        signedInMethod,
-        signedOutMethod,
-        isTransfer,
-        sequenceNumber,
-        totalSequenceCount,
-        hasNextTransfer,
-        isLastSequenceEntry,
-        fromClassroomCode,
-        fromClassroomName,
-        toClassroomCode,
-        toClassroomName,
-        transferTime,
-        nextActionTime,
-        transferredBy,
-        transferReason,
-        notExpectedComment,
-      ];
+    attendanceRecordCode,
+    staffCode,
+    staffName,
+    isExpectedToday,
+    classroomName,
+    classroomCode,
+    attendedDays,
+    signedInBy,
+    signedInTime,
+    signedOutBy,
+    signedOutTime,
+    designation,
+    attendedTime,
+    attendedHours,
+    attendedMinutes,
+    signedInMethod,
+    signedOutMethod,
+    isTransfer,
+    sequenceNumber,
+    totalSequenceCount,
+    hasNextTransfer,
+    isLastSequenceEntry,
+    fromClassroomCode,
+    fromClassroomName,
+    toClassroomCode,
+    toClassroomName,
+    transferTime,
+    nextActionTime,
+    transferredBy,
+    transferReason,
+    notExpectedComment,
+  ];
 }
 
 class StaffAttendanceTime extends Equatable {
@@ -156,7 +157,12 @@ class StaffAttendanceDailyPage extends Equatable {
   final bool hasMore;
 
   @override
-  List<Object?> get props =>
-      [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 }
-

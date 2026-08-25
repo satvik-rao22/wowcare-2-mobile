@@ -14,6 +14,7 @@ import 'package:wowcare/presentation/features/billing/widgets/accounting/date_ra
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 // ---------------------------------------------------------------------------
 // BillingCard widget (admin dashboard)
@@ -35,8 +36,9 @@ class BillingCard extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider<TransactionsCubit>(
-          create: (_) => serviceLocator<TransactionsCubit>()
-            ..loadOverview(dateFrom: monthStart, dateTo: monthEnd),
+          create: (_) =>
+              serviceLocator<TransactionsCubit>()
+                ..loadOverview(dateFrom: monthStart, dateTo: monthEnd),
         ),
         BlocProvider<AnalyticsCubit>(
           create: (_) => serviceLocator<AnalyticsCubit>()..load(),
@@ -93,9 +95,9 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
       _rangeEnd = end;
     });
     return context.read<TransactionsCubit>().loadOverview(
-          dateFrom: start,
-          dateTo: DateTime(end.year, end.month, end.day, 23, 59, 59),
-        );
+      dateFrom: start,
+      dateTo: DateTime(end.year, end.month, end.day, 23, 59, 59),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -119,10 +121,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
       final key = e.name.trim().toLowerCase();
       if (key.length >= 3) byMonth[key.substring(0, 3)] = e.value;
     }
-    return List<double>.generate(
-      12,
-      (i) => byMonth[_monthAbbr[i]] ?? 0.0,
-    );
+    return List<double>.generate(12, (i) => byMonth[_monthAbbr[i]] ?? 0.0);
   }
 
   // ---------------------------------------------------------------------------
@@ -224,9 +223,9 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                           onSelect: (value) {
                             if (value != null) {
                               setState(() => _selectedYear = int.parse(value));
-                              context
-                                  .read<AnalyticsCubit>()
-                                  .setYear(_selectedYear);
+                              context.read<AnalyticsCubit>().setYear(
+                                _selectedYear,
+                              );
                             }
                           },
                         ),
@@ -252,8 +251,9 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                           child: ShimmerLoader(height: 220),
                         );
                       }
-                      final revenue =
-                          _toMonthlyValues(state.analytics?.revenue ?? const []);
+                      final revenue = _toMonthlyValues(
+                        state.analytics?.revenue ?? const [],
+                      );
                       return _buildYearlySection(revenue);
                     },
                   ),
@@ -322,8 +322,10 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
             Expanded(
               child: _buildBillingStatus(
                 amount: '\$${overview.outstanding.toStringAsFixed(2)}',
-                percentage:
-                    _getPercentage(overview.outstanding, totalAllAmounts),
+                percentage: _getPercentage(
+                  overview.outstanding,
+                  totalAllAmounts,
+                ),
                 label: 'Outstanding',
                 percentageColor: Colors.red,
               ),
@@ -371,8 +373,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
           const SizedBox(height: 24),
           Text(
             'No revenue data for this year',
-            style: TextStyle(
-              fontSize: 14,
+            style: AppTextStyles.body.copyWith(
               color: AppColors.primaryColor.withValues(alpha: 0.6),
             ),
           ),
@@ -437,9 +438,8 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                       }
                       return Text(
                         months[i],
-                        style: const TextStyle(
+                        style: AppTextStyles.bodySmall.copyWith(
                           color: Colors.grey,
-                          fontSize: 12,
                         ),
                       );
                     },
@@ -452,9 +452,8 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                     getTitlesWidget: (value, meta) {
                       return Text(
                         '${(value / 1000).round()}k',
-                        style: const TextStyle(
+                        style: AppTextStyles.bodySmall.copyWith(
                           color: Colors.grey,
-                          fontSize: 12,
                         ),
                       );
                     },
@@ -551,27 +550,17 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
       children: [
         Text(
           amount,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: AppColors.themeColor,
-          ),
+          style: AppTextStyles.display.copyWith(color: AppColors.themeColor),
         ),
         const SizedBox(height: 4),
         Text(
           percentage,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: percentageColor,
-          ),
+          style: AppTextStyles.heading.copyWith(color: percentageColor),
         ),
         const SizedBox(height: 4),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
+          style: AppTextStyles.bodyLarge.copyWith(
             color: AppColors.primaryColor.withValues(alpha: 0.8),
           ),
         ),

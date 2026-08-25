@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class CommonMultiSelectDropdown extends StatefulWidget {
   const CommonMultiSelectDropdown({
@@ -18,7 +19,8 @@ class CommonMultiSelectDropdown extends StatefulWidget {
   final bool isRequired;
 
   @override
-  State<CommonMultiSelectDropdown> createState() => _CommonMultiSelectDropdownState();
+  State<CommonMultiSelectDropdown> createState() =>
+      _CommonMultiSelectDropdownState();
 }
 
 class _CommonMultiSelectDropdownState extends State<CommonMultiSelectDropdown> {
@@ -84,16 +86,14 @@ class _CommonMultiSelectDropdownState extends State<CommonMultiSelectDropdown> {
       children: [
         RichText(
           text: TextSpan(
-            style: const TextStyle(
-              fontSize: 14,
-              fontFamily: 'Manrope',
-              fontWeight: FontWeight.w400,
-              color: AppColors.primaryColor,
-            ),
+            style: AppTextStyles.body.copyWith(color: AppColors.primaryColor),
             children: [
               TextSpan(text: widget.label),
               if (widget.isRequired)
-                const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                TextSpan(
+                  text: ' *',
+                  style: AppTextStyles.body.copyWith(color: Colors.red),
+                ),
             ],
           ),
         ),
@@ -113,11 +113,14 @@ class _CommonMultiSelectDropdownState extends State<CommonMultiSelectDropdown> {
                 Expanded(
                   child: Text(
                     count == 0 ? 'Select' : '$count item(s) selected',
-                    style: const TextStyle(fontFamily: 'Manrope'),
+                    style: AppTextStyles.body,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primaryColor),
+                const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppColors.primaryColor,
+                ),
               ],
             ),
           ),
@@ -126,5 +129,3 @@ class _CommonMultiSelectDropdownState extends State<CommonMultiSelectDropdown> {
     );
   }
 }
-
-

@@ -11,11 +11,10 @@ class GetInvoiceOverviewUseCase {
     required String school,
     DateTime? dateFrom,
     DateTime? dateTo,
-  }) =>
-      _repository.getOverview(
-        organizationCode: organizationCode,
-        school: school,
-        dateFrom: dateFrom,
-        dateTo: dateTo,
-      );
+  }) => _repository.getOverview(
+    organizationCode: organizationCode,
+    school: school,
+    dateFrom: dateFrom,
+    dateTo: dateTo,
+  );
 }

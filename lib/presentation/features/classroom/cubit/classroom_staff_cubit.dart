@@ -11,9 +11,9 @@ class ClassroomStaffCubit extends Cubit<ClassroomStaffState> {
   ClassroomStaffCubit({
     required GetStaffClassroomsUseCase getStaffClassroomsUseCase,
     required StorageService storageService,
-  })  : _getStaffClassroomsUseCase = getStaffClassroomsUseCase,
-        _storageService = storageService,
-        super(const ClassroomStaffState.initial());
+  }) : _getStaffClassroomsUseCase = getStaffClassroomsUseCase,
+       _storageService = storageService,
+       super(const ClassroomStaffState.initial());
 
   final GetStaffClassroomsUseCase _getStaffClassroomsUseCase;
   final StorageService _storageService;
@@ -189,4 +189,3 @@ class ClassroomStaffCubit extends Cubit<ClassroomStaffState> {
     }).toList();
   }
 }
-

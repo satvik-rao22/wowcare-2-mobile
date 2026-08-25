@@ -8,6 +8,7 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/trans
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class ReceivePaymentIssueRefundScreen extends StatefulWidget {
   const ReceivePaymentIssueRefundScreen({
@@ -253,9 +254,9 @@ class _ReceivePaymentIssueRefundScreenState
         children: <InlineSpan>[
           TextSpan(text: text),
           if (required)
-            const TextSpan(
+            TextSpan(
               text: ' *',
-              style: TextStyle(color: AppColors.errorColor),
+              style: AppTextStyles.body.copyWith(color: AppColors.errorColor),
             ),
         ],
       ),
@@ -405,11 +406,11 @@ class _ReceivePaymentIssueRefundScreenState
           controller: _amountController,
         ),
         if (_amountError)
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 4.0, left: 2.0),
             child: Text(
               '*Please enter an amount.',
-              style: TextStyle(color: Colors.red, fontSize: 12),
+              style: AppTextStyles.bodySmall.copyWith(color: Colors.red),
             ),
           ),
       ],
@@ -492,11 +493,11 @@ class _ReceivePaymentIssueRefundScreenState
             ),
         ],
         if (_amountError)
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 4.0, left: 2.0),
             child: Text(
               '*Please enter an amount.',
-              style: TextStyle(color: Colors.red, fontSize: 12),
+              style: AppTextStyles.bodySmall.copyWith(color: Colors.red),
             ),
           ),
       ],
@@ -539,21 +540,15 @@ class _ReceivePaymentIssueRefundScreenState
                       student.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                      style: AppTextStyles.title.copyWith(
                         color: AppColors.billingTextColor,
-                        fontFamily: 'Manrope',
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Outstanding: \$${student.outstanding.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
+                      style: AppTextStyles.label.copyWith(
                         color: AppColors.billingGrey,
-                        fontFamily: 'Manrope',
                       ),
                     ),
                   ],
@@ -572,11 +567,11 @@ class _ReceivePaymentIssueRefundScreenState
             ],
           ),
           if (over)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 6.0, left: 2.0),
               child: Text(
                 '*Amount exceeds outstanding.',
-                style: TextStyle(color: Colors.red, fontSize: 12),
+                style: AppTextStyles.bodySmall.copyWith(color: Colors.red),
               ),
             ),
         ],
@@ -601,12 +596,7 @@ class _ReceivePaymentIssueRefundScreenState
       child: Center(
         child: Text(
           _initials(name),
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Manrope',
-          ),
+          style: AppTextStyles.title.copyWith(color: Colors.white),
         ),
       ),
     );
@@ -896,12 +886,7 @@ class _ReceivePaymentIssueRefundScreenState
               child: Center(
                 child: Text(
                   _getUserInitials(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Manrope',
-                  ),
+                  style: AppTextStyles.heading.copyWith(color: Colors.white),
                 ),
               ),
             ),
@@ -909,11 +894,8 @@ class _ReceivePaymentIssueRefundScreenState
             Expanded(
               child: Text(
                 widget.transaction.studentName,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                style: AppTextStyles.heading.copyWith(
                   color: AppColors.billingTextColor,
-                  fontFamily: 'Manrope',
                 ),
               ),
             ),
@@ -923,31 +905,22 @@ class _ReceivePaymentIssueRefundScreenState
         if (widget.isRefund) ...<Widget>[
           Text(
             'Invoice Amount : \$ ${widget.transaction.amount.toStringAsFixed(2)}',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+            style: AppTextStyles.title.copyWith(
               color: AppColors.billingTextColor,
-              fontFamily: 'Manrope',
             ),
           ),
           const SizedBox(height: 6),
           Text(
             'Max Refundable : \$ ${widget.transaction.maxRefundable.toStringAsFixed(2)}',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+            style: AppTextStyles.title.copyWith(
               color: AppColors.billingTextColor,
-              fontFamily: 'Manrope',
             ),
           ),
         ] else
           Text(
             'Account Balance : \$ ${effectiveBalance.toStringAsFixed(2)}',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+            style: AppTextStyles.title.copyWith(
               color: AppColors.billingTextColor,
-              fontFamily: 'Manrope',
             ),
           ),
         const SizedBox(height: 12),

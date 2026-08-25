@@ -68,8 +68,7 @@ class _FakeRepo implements ConversationEntityRepository {
     String? search,
     bool? unreadOnly,
     bool includeRestUnreadCounts = true,
-  }) async =>
-      const Right([]);
+  }) async => const Right([]);
 
   @override
   Future<Either<Failure, List<ConversationEntity>>> getCachedConversations({

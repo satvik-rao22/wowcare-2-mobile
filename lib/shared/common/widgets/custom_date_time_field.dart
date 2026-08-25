@@ -59,7 +59,7 @@ class CustomDateTimeField extends StatefulWidget {
 
   // Add callback for date range selection
   final Function(DateTime, DateTime?)? onRangeSelected;
-  
+
   final String? dateFormat;
 
   @override
@@ -134,11 +134,14 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
     try {
       // resolveForCurrentSchool pulls a fresh server clock as part of resolving,
       // so schoolCalendarDateAndTimeNow below reflects authoritative "now".
-      final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-        apiClient: serviceLocator<ApiClient>(),
+      final schoolTimeZone =
+          await SchoolTimezoneResolver.resolveForCurrentSchool(
+            storage: serviceLocator<StorageService>(),
+            apiClient: serviceLocator<ApiClient>(),
+          );
+      final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(
+        schoolTimeZone,
       );
-      final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTimeZone);
       dateTime = DateTime(
         dt.$1.year,
         dt.$1.month,
@@ -193,15 +196,15 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
     if (widget.isRangePicker) {
       if (selectedDate != null) {
         if (rangeEndDate != null) {
-          final startStr = widget.dateFormat != null 
+          final startStr = widget.dateFormat != null
               ? DateFormat(widget.dateFormat!).format(selectedDate!)
               : DateUtilsNew.formatToReadableDate(selectedDate!);
-          final endStr = widget.dateFormat != null 
+          final endStr = widget.dateFormat != null
               ? DateFormat(widget.dateFormat!).format(rangeEndDate!)
               : DateUtilsNew.formatToReadableDate(rangeEndDate!);
           selectedValue = "$startStr - $endStr";
         } else {
-          selectedValue = widget.dateFormat != null 
+          selectedValue = widget.dateFormat != null
               ? DateFormat(widget.dateFormat!).format(selectedDate!)
               : DateUtilsNew.formatToReadableDate(selectedDate!);
         }
@@ -216,7 +219,7 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
       }
     } else {
       if (selectedDate != null) {
-        selectedValue = widget.dateFormat != null 
+        selectedValue = widget.dateFormat != null
             ? DateFormat(widget.dateFormat!).format(selectedDate!)
             : DateUtilsNew.formatToReadableDate(selectedDate!);
       }
@@ -233,7 +236,8 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
           RichText(
             text: TextSpan(
               text: widget.label!,
-              style: widget.labelStyle ??
+              style:
+                  widget.labelStyle ??
                   TextStyle(
                     color: AppColors.primaryColor.withValues(alpha: 0.5),
                     fontSize: calHelper.headerFontSize * 0.7,

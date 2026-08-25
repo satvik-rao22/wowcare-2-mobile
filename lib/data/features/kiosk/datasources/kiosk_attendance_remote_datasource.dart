@@ -52,7 +52,8 @@ abstract class KioskAttendanceRemoteDataSource {
 
 /// Implementation of kiosk attendance remote data source.
 /// Uses Dio for HTTP communication with the backend.
-class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSource {
+class KioskAttendanceRemoteDataSourceImpl
+    implements KioskAttendanceRemoteDataSource {
   KioskAttendanceRemoteDataSourceImpl(this._client);
 
   final Dio _client;
@@ -95,8 +96,8 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
       final responseData = response.data as Map<String, dynamic>;
       final data = responseData['data'] is List
           ? (responseData['data'] as List).isNotEmpty
-              ? (responseData['data'] as List)[0] as Map<String, dynamic>
-              : <String, dynamic>{}
+                ? (responseData['data'] as List)[0] as Map<String, dynamic>
+                : <String, dynamic>{}
           : responseData['data'] as Map<String, dynamic>? ?? {};
 
       AppLogger.d('[KIOSK] AttendanceSuccess=true, staffCode=$staffCode');
@@ -146,8 +147,8 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
       final responseData = response.data as Map<String, dynamic>;
       final data = responseData['data'] is List
           ? (responseData['data'] as List).isNotEmpty
-              ? (responseData['data'] as List)[0] as Map<String, dynamic>
-              : <String, dynamic>{}
+                ? (responseData['data'] as List)[0] as Map<String, dynamic>
+                : <String, dynamic>{}
           : responseData['data'] as Map<String, dynamic>? ?? {};
 
       AppLogger.d('[KIOSK] AttendanceSuccess=true, staffCode=$staffCode');

@@ -458,7 +458,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
-              offset: const Offset(0, -4),
+              offset: Offset(0, -4),
               blurRadius: 16,
             ),
           ],
@@ -502,9 +502,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(
+              TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: AppTextStyles.body.copyWith(color: Colors.red),
               ),
             ],
           ),
@@ -622,10 +622,10 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
               fontSize: responsive.labelFontSize,
             ),
             children: [
-              const TextSpan(text: 'Upload Document'),
-              const TextSpan(
+              TextSpan(text: 'Upload Document'),
+              TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: AppTextStyles.body.copyWith(color: Colors.red),
               ),
             ],
           ),

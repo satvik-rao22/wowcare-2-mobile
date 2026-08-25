@@ -31,16 +31,16 @@ class ClassroomForecastBlock extends Equatable {
 
   @override
   List<Object?> get props => [
-        blockDate,
-        blockStart,
-        blockEnd,
-        classroomCode,
-        blockStatus,
-        expectedStudents,
-        ratioRule,
-        requiredStaff,
-        scheduledStaff,
-        withinMonitoringWindow,
-        staffShiftCodes,
-      ];
+    blockDate,
+    blockStart,
+    blockEnd,
+    classroomCode,
+    blockStatus,
+    expectedStudents,
+    ratioRule,
+    requiredStaff,
+    scheduledStaff,
+    withinMonitoringWindow,
+    staffShiftCodes,
+  ];
 }

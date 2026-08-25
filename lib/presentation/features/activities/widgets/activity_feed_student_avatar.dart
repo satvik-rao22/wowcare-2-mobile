@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/colors.dart';
-import '../../../../app/theme/fonts.dart';
+
 import '../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Bottom sheet listing students on an activity card (tap initials stack).
 ///
@@ -50,18 +51,16 @@ Future<void> showActivityStudentListSheet(
                   padding: const EdgeInsets.fromLTRB(16, 14, 4, 12),
                   decoration: BoxDecoration(
                     color: AppColors.themeColor.withValues(alpha: 0.08),
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(16)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
                   ),
                   child: Row(
                     children: [
                       Expanded(
                         child: Text(
                           'Student',
-                          style: TextStyle(
-                            fontFamily: Fonts.manrope,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
+                          style: AppTextStyles.heading.copyWith(
                             color: AppColors.primaryColor,
                           ),
                         ),
@@ -76,8 +75,10 @@ Future<void> showActivityStudentListSheet(
                 Flexible(
                   child: ListView.separated(
                     shrinkWrap: true,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     itemCount: names.length,
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (_, i) {
@@ -124,14 +125,7 @@ Future<void> showActivityStudentListSheet(
                       ),
                     ),
                     onPressed: () => Navigator.of(ctx).pop(),
-                    child: const Text(
-                      'Close',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                      ),
-                    ),
+                    child: const Text('Close', style: AppTextStyles.title),
                   ),
                 ),
               ],
@@ -159,6 +153,7 @@ Widget activityFeedStudentAvatarStack(
     final c = (studentCodes[i] ?? '').trim();
     return c.isEmpty ? null : c;
   }
+
   const size = 28.0;
 
   // Single-student activity: show the name beside the avatar instead of a
@@ -181,10 +176,7 @@ Widget activityFeedStudentAvatarStack(
             students.first,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: Fonts.manrope,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+            style: AppTextStyles.sectionHeader.copyWith(
               color: AppColors.primaryColor,
             ),
           ),

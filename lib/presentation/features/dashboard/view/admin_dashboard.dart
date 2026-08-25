@@ -124,7 +124,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
               // parameters natively, so this sets the convention.
               context.go(
                 '/activityFeed?tab=custom&activityType=Incident&classroom=All',
-                extra: <String, dynamic>{'timestamp': DateTime.now().millisecondsSinceEpoch},
+                extra: <String, dynamic>{
+                  'timestamp': DateTime.now().millisecondsSinceEpoch,
+                },
               );
             },
           ),

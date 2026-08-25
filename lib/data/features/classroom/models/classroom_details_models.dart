@@ -20,8 +20,10 @@ class ClassroomDetailsDataModel {
   final String name;
   final int capacity;
   final double studentsPerTeacher;
+
   /// API `minAge`: inclusive lower bound in whole months (0 = unset / from birth UI side).
   final int minAgeTotalMonths;
+
   /// API `maxAge`: inclusive upper bound in whole months (0 = unset).
   final int maxAgeTotalMonths;
   final String type;
@@ -65,9 +67,9 @@ class ClassroomDetailsDataModel {
       final text = (raw ?? '').toString().trim();
       if (text.isEmpty) continue;
 
-      final fractionMatch =
-          RegExp(r'^(\d+(?:\.\d+)?)\s*[:/\-]\s*(\d+(?:\.\d+)?)$')
-              .firstMatch(text);
+      final fractionMatch = RegExp(
+        r'^(\d+(?:\.\d+)?)\s*[:/\-]\s*(\d+(?:\.\d+)?)$',
+      ).firstMatch(text);
       if (fractionMatch != null) {
         final students = double.tryParse(fractionMatch.group(1) ?? '');
         final teachers = double.tryParse(fractionMatch.group(2) ?? '');

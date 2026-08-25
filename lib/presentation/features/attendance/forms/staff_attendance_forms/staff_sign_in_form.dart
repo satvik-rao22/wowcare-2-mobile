@@ -671,7 +671,8 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     try {
       final result = await serviceLocator<AttendanceRepository>()
           .submitStaffSignIn(payload: payload, isSelf: useSelfEndpoint);
-      final isAlreadySignedIn = !result.success &&
+      final isAlreadySignedIn =
+          !result.success &&
           result.message.toLowerCase().contains('already signed');
       final success = result.success || isAlreadySignedIn;
       var message = result.message;
@@ -722,8 +723,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     } catch (e) {
       if (!mounted) return;
       final errorMessage = ApiErrorHandler.extractErrorMessage(e);
-      final isAlreadySignedIn =
-          errorMessage.toLowerCase().contains('already signed');
+      final isAlreadySignedIn = errorMessage.toLowerCase().contains(
+        'already signed',
+      );
       if (isAlreadySignedIn) {
         AttendanceEvents.notifyChanged();
         CoreUtils.showTopSnackBarFromSnackBar(
@@ -788,10 +790,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         context.go('/dashboard');
       }
     } else {
-      redirectToAttendanceDaily(
-        context,
-        StaffAttendanceTabbedView.routeName,
-      );
+      redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
     }
   }
 

@@ -12,6 +12,7 @@ import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Colours for the breakdown bar segments that have no exact theme constant.
 const Color _signedOutColor = Color(0xFF8BB4EF);
@@ -340,10 +341,8 @@ class _StatColumn extends StatelessWidget {
         Text(
           value,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: AppTextStyles.screenTitle.copyWith(
             color: AppColors.themeColor,
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(height: 8),
@@ -351,36 +350,23 @@ class _StatColumn extends StatelessWidget {
         Text(
           label,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: AppColors.primaryColor,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
+          style: AppTextStyles.label.copyWith(color: AppColors.primaryColor),
         ),
-        // if (showTrend) ...[
-        //   const SizedBox(height: 6),
-        //   const Row(
-        //     mainAxisAlignment: MainAxisAlignment.center,
-        //     crossAxisAlignment: CrossAxisAlignment.start,
-        //     children: [
-        //       Icon(Icons.trending_up, size: 12, color: AppColors.successColor),
-        //       SizedBox(width: 3),
-        //       Flexible(
-        //         child: Text(
-        //           '0% vs last month',
-        //           textAlign: TextAlign.center,
-        //           style: TextStyle(
-        //             color: AppColors.successColor,
-        //             fontSize: 10,
-        //             fontWeight: FontWeight.w600,
-        //           ),
-        //         ),
-        //       ),
-        //     ],
-        //   ),
-        // ],
       ],
     );
+    // if (showTrend) ...[
+    //   const SizedBox(height: 6),
+    //   const Row(
+    //     mainAxisAlignment: MainAxisAlignment.center,
+    //     crossAxisAlignment: CrossAxisAlignment.start,
+    //     children: [
+    //       Icon(Icons.trending_up, size: 12, color: AppColors.successColor),
+    //       SizedBox(width: 3),
+    //       Flexible(
+    //         child: Text(
+    //           '0% vs last month',
+    //           textAlign: TextAlign.center,
+    //           style: AppTextStyles.body;
   }
 }
 
@@ -488,11 +474,7 @@ class _StatColumnShimmer extends StatelessWidget {
         Text(
           label,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Colors.transparent, // Layout identical to real text
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
+          style: AppTextStyles.label.copyWith(color: Colors.transparent),
         ),
         if (showTrend) ...[
           const SizedBox(height: 6),
@@ -534,11 +516,7 @@ class _StatBarShimmer extends StatelessWidget {
           children: [
             Text(
               title,
-              style: const TextStyle(
-                color: Colors.transparent,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+              style: AppTextStyles.body.copyWith(color: Colors.transparent),
             ),
             Container(
               height: 22,

@@ -11,9 +11,6 @@ class RemoveReactionUseCase {
     required String messageCode,
     required String emoji,
   }) {
-    return _repository.removeReaction(
-      messageCode: messageCode,
-      emoji: emoji,
-    );
+    return _repository.removeReaction(messageCode: messageCode, emoji: emoji);
   }
 }

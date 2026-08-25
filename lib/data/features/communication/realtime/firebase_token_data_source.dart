@@ -66,10 +66,7 @@ class FirebaseTokenDataSourceImpl implements FirebaseTokenDataSource {
       if (apnsToken != null) payload['apnsToken'] = apnsToken;
     }
 
-    final endpoint = ApiPaths.urlWithBase(
-      '/api/v1/firebase/token',
-      _baseUrl,
-    );
+    final endpoint = ApiPaths.urlWithBase('/api/v1/firebase/token', _baseUrl);
     await apiClient.client.post(endpoint, data: payload);
 
     await prefs.setString(_kLastRegisteredFcmToken, cacheKey);

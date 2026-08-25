@@ -72,8 +72,9 @@ class AppNotificationModel extends AppNotification {
       final fromDef = def.toUpperCase().endsWith('_DEF')
           ? def.substring(0, def.length - 4)
           : def;
-      final action =
-          (eventType != null && eventType.isNotEmpty) ? eventType : fromDef;
+      final action = (eventType != null && eventType.isNotEmpty)
+          ? eventType
+          : fromDef;
       if (action.isNotEmpty) data['action'] = action;
     }
 
@@ -116,7 +117,8 @@ class AppNotificationModel extends AppNotification {
 
     final status = (json['status'] ?? '').toString().trim().toUpperCase();
     final readAt = json['readAt'];
-    final isRead = (status.isNotEmpty && status != 'UNREAD') ||
+    final isRead =
+        (status.isNotEmpty && status != 'UNREAD') ||
         (readAt != null && readAt.toString().trim().isNotEmpty);
 
     final title = (json['title'] ?? '').toString().trim();
@@ -130,7 +132,7 @@ class AppNotificationModel extends AppNotification {
       category: NotificationCategory.fromApi(categoryRaw),
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
-              AppTime.nowUtc(),
+          AppTime.nowUtc(),
       isRead: isRead,
       data: data,
     );
@@ -149,16 +151,16 @@ class AppNotificationModel extends AppNotification {
       id: (json['id'] ?? json['notificationCode'] ?? '').toString(),
       title: (json['title'] ?? json['message'] ?? '').toString(),
       body: (json['body'] ?? json['description'])?.toString(),
-      subjectName:
-          (json['subjectName'] ?? json['personName'] ?? json['name'])
-              ?.toString(),
+      subjectName: (json['subjectName'] ?? json['personName'] ?? json['name'])
+          ?.toString(),
       category: NotificationCategory.fromApi(
         (json['category'] ?? json['type'])?.toString(),
       ),
       createdAt:
-          DateTime.tryParse((json['createdAt'] ?? json['createdOn'] ?? '')
-                  .toString()) ??
-              AppTime.nowUtc(),
+          DateTime.tryParse(
+            (json['createdAt'] ?? json['createdOn'] ?? '').toString(),
+          ) ??
+          AppTime.nowUtc(),
       isRead: _asBool(json['isRead'] ?? json['read']),
       data: data,
     );

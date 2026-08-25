@@ -25,7 +25,8 @@ class StudentEditAttendanceForm extends StatefulWidget {
   final DateTime attendanceDate;
 
   @override
-  State<StudentEditAttendanceForm> createState() => _StudentEditAttendanceFormState();
+  State<StudentEditAttendanceForm> createState() =>
+      _StudentEditAttendanceFormState();
 }
 
 class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
@@ -74,8 +75,9 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
       if (message == null) return; // noop (already submitting)
       // A future sign-in/out time is a correctable user mistake, not a system
       // failure — surface it as a yellow warning rather than a red error.
-      final isFutureTimeWarning =
-          message.toLowerCase().contains('cannot be in the future');
+      final isFutureTimeWarning = message.toLowerCase().contains(
+        'cannot be in the future',
+      );
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: SnackBar(
@@ -93,9 +95,10 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
     return BlocProvider<StudentEditAttendanceFormCubit>.value(
       value: _cubit,
       child:
-          BlocBuilder<StudentEditAttendanceFormCubit, StudentEditAttendanceState>(
-        builder: (context, state) => _buildForm(context, state),
-      ),
+          BlocBuilder<
+            StudentEditAttendanceFormCubit,
+            StudentEditAttendanceState
+          >(builder: (context, state) => _buildForm(context, state)),
     );
   }
 
@@ -165,7 +168,7 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
                 const SizedBox(height: 4),
                 AppText.small(
                   student.roomName,
-                  style: const TextStyle(
+                  style: AppTextStyles.body.copyWith(
                     color: AppColors.secondaryColor,
                   ),
                 ),
@@ -187,12 +190,8 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
       children: [
         AppText.label(label),
         const SizedBox(height: 8),
-        GradientTimePickerField(
-          time: time,
-          onTimeSelected: onTimeChanged,
-        ),
+        GradientTimePickerField(time: time, onTimeSelected: onTimeChanged),
       ],
     );
   }
 }
-

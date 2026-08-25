@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// One person's reaction, resolved for display — stack-agnostic so both the
 /// legacy (Room Chat / Staff Direct) and v2 (Admin Chat) message models can
@@ -79,7 +80,7 @@ class ReactionInfoDialog extends StatelessWidget {
                     color: AppColors.primaryColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Text('❤️', style: TextStyle(fontSize: 16)),
+                  child: const Text('❤️', style: AppTextStyles.bodyLarge),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(
@@ -113,7 +114,7 @@ class ReactionInfoDialog extends StatelessWidget {
                   for (final entry in byEmoji.entries) ...[
                     Row(
                       children: [
-                        Text(entry.key, style: const TextStyle(fontSize: 16)),
+                        Text(entry.key, style: AppTextStyles.bodyLarge),
                         const SizedBox(width: 6),
                         Text(
                           '(${entry.value.length})',

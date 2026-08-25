@@ -20,8 +20,10 @@ class GetOrCreateClassroomChatUseCase {
     if (existing != null) return Right(existing);
 
     // 2. Get-or-create + reconcile on the server.
-    final recon =
-        await _repository.reconcileClassroomChat(classroomCode, classroomName: classroomName);
+    final recon = await _repository.reconcileClassroomChat(
+      classroomCode,
+      classroomName: classroomName,
+    );
     final reconFailure = recon.fold<Failure?>((l) => l, (_) => null);
     if (reconFailure != null) return Left(reconFailure);
 
@@ -39,10 +41,13 @@ class GetOrCreateClassroomChatUseCase {
       _find(classroomCode);
 
   Future<ConversationEntity?> _find(String classroomCode) async {
-    final result = await _repository.getConversationsForClassroom(classroomCode);
+    final result = await _repository.getConversationsForClassroom(
+      classroomCode,
+    );
     return result.fold((_) => null, (list) {
       final matches = list.where(
-        (c) => c.type == ConversationType.classroomChat &&
+        (c) =>
+            c.type == ConversationType.classroomChat &&
             c.status.toUpperCase() == 'ACTIVE',
       );
       return matches.isEmpty ? null : matches.first;
