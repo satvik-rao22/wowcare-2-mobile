@@ -7,20 +7,35 @@ on:
 
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: flutter-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  FLUTTER_VERSION: "3.41.9"
+
 jobs:
 
+  # ==========================================================
+  # Flutter Checks + Android Validation
+  # ==========================================================
   flutter-checks:
     name: Flutter Checks
     runs-on: ubuntu-latest
 
     steps:
+      # ----------------------------------------------------------
+      # Checkout
+      # ----------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ----------------------------------------------------------
+      # Java
+      # ----------------------------------------------------------
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -28,34 +43,65 @@ jobs:
           java-version: "17"
           cache: gradle
 
+      # ----------------------------------------------------------
+      # Flutter
+      # ----------------------------------------------------------
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.32.0"
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
+      # ----------------------------------------------------------
+      # Flutter Doctor
+      # ----------------------------------------------------------
       - name: Flutter Doctor
-        run: flutter doctor -v
+        run: make doctor
 
+      # ----------------------------------------------------------
+      # Install Dependencies
+      # ----------------------------------------------------------
       - name: Install dependencies
-        run: flutter pub get
+        run: make get
 
+      # ----------------------------------------------------------
+      # Verify Formatting
+      # ----------------------------------------------------------
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
 
+      # ----------------------------------------------------------
+      # Analyze
+      # ----------------------------------------------------------
       - name: Analyze
-        run: flutter analyze
+        run: make analyze
 
-      - name: Run tests
+      # ----------------------------------------------------------
+      # Run Tests
+      # ----------------------------------------------------------
+      - name: Run tests with coverage
         run: flutter test --coverage
 
-      - name: Build Android Debug APK
-        run: |
-          flutter build apk \
-            --debug \
-            --dart-define=ENVIRONMENT=UAT
+      # ----------------------------------------------------------
+      # Build Android UAT Debug APK
+      # Uses Makefile:
+      # flutter build apk --debug --dart-define=ENVIRONMENT=UAT
+      # ----------------------------------------------------------
+      - name: Build Android UAT Debug APK
+        run: make uat-apk-debug
 
+      # ----------------------------------------------------------
+      # Verify APK
+      # ----------------------------------------------------------
+      - name: Verify Android APK
+        run: |
+          test -f build/app/outputs/flutter-apk/app-debug.apk
+          ls -lh build/app/outputs/flutter-apk/app-debug.apk
+
+      # ----------------------------------------------------------
+      # Upload Coverage
+      # ----------------------------------------------------------
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v4
@@ -65,35 +111,72 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      # ----------------------------------------------------------
+      # Upload Debug APK
+      # ----------------------------------------------------------
+      - name: Upload Android Debug APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wowcare-uat-debug-apk-${{ github.run_number }}
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: ignore
+          retention-days: 7
 
+
+  # ==========================================================
+  # iOS Validation
+  # ==========================================================
   ios-validation:
     name: iOS Validation
     runs-on: macos-latest
 
     steps:
+      # ----------------------------------------------------------
+      # Checkout
+      # ----------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ----------------------------------------------------------
+      # Flutter
+      # ----------------------------------------------------------
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.32.0"
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
+      # ----------------------------------------------------------
+      # Flutter Doctor
+      # ----------------------------------------------------------
       - name: Flutter Doctor
-        run: flutter doctor -v
+        run: make doctor
 
+      # ----------------------------------------------------------
+      # Install Dependencies
+      # ----------------------------------------------------------
       - name: Install dependencies
-        run: flutter pub get
+        run: make get
 
+      # ----------------------------------------------------------
+      # CocoaPods
+      # ----------------------------------------------------------
       - name: Install CocoaPods
         working-directory: ios
         run: pod install
 
-      - name: Build iOS without signing
-        run: |
-          flutter build ios \
-            --debug \
-            --no-codesign \
-            --dart-define=ENVIRONMENT=UAT
+      # ----------------------------------------------------------
+      # Build iOS UAT Debug
+      # Using Makefile command:
+      # flutter build ios --debug --dart-define=ENVIRONMENT=UAT
+      #
+      # --no-codesign is added because this is PR validation
+      # ----------------------------------------------------------
+      # - name: Build iOS UAT Debug without signing
+      #   run: |
+      #     flutter build ios \
+      #       --debug \
+      #       --no-codesign \
+      #       --dart-define=ENVIRONMENT=UAT
