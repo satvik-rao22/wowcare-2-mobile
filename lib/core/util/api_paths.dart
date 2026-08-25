@@ -135,7 +135,7 @@ class ApiPaths {
   ///
   /// Some endpoints (e.g. `GET /api/v1/student-classroom`) require these headers.
   static bool requiresOrganizationAndSchoolHeaders(String path) {
-    if (ApiConstants.isUat) {
+    if (ApiConstants.isGatewayEnv) {
       return ApiPathsUat.requiresOrganizationAndSchoolHeaders(path);
     }
     final p = path.startsWith('/') ? path : '/$path';
@@ -155,7 +155,7 @@ class ApiPaths {
   /// Maps [path] to [ApiMicroservices] for [ApiConstants.baseUrlForMicroservice].
   /// Paths do not include the MS name in the URL.
   static String microserviceKeyFromPath(String path) {
-    if (ApiConstants.isUat) return ApiPathsUat.microserviceKeyFromPath(path);
+    if (ApiConstants.isGatewayEnv) return ApiPathsUat.microserviceKeyFromPath(path);
     final p = path.startsWith('/') ? path : '/$path';
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
     if (parts.length < 3 || parts[0] != 'api') {
@@ -260,7 +260,7 @@ class ApiPaths {
 
   /// Full URL: host from [ApiConstants.baseUrlForMicroservice] + [path].
   static String url(String path) {
-    if (ApiConstants.isUat) return ApiPathsUat.url(path);
+    if (ApiConstants.isGatewayEnv) return ApiPathsUat.url(path);
     final p = path.startsWith('/') ? path : '/$path';
     final ms = microserviceKeyFromPath(p);
     final localPath = ms == ApiMicroservices.communication
@@ -321,7 +321,7 @@ class ApiPaths {
 
   /// Same as [url]; the [baseUrl] argument is ignored (kept for call-site compatibility).
   static String urlWithBase(String path, String baseUrl) =>
-      ApiConstants.isUat ? ApiPathsUat.urlWithBase(path, baseUrl) : url(path);
+      ApiConstants.isGatewayEnv ? ApiPathsUat.urlWithBase(path, baseUrl) : url(path);
 
   // —— Auth (user host) ——
   static const String authLogin = '/api/v1/auth/login';
@@ -836,7 +836,7 @@ class ApiPaths {
   static String schoolCloudUploadSessionsPath(String schoolCode) =>
       '/api/v1/document/schools/${Uri.encodeComponent(schoolCode.trim())}/cloud/upload-sessions';
 
-  static String get documentUploadSessionsRoot => ApiConstants.isUat
+  static String get documentUploadSessionsRoot => ApiConstants.isGatewayEnv
       ? '/api/v1/document/upload-sessions'
       : '/api/v1/upload-sessions';
 
@@ -845,7 +845,7 @@ class ApiPaths {
     required String sessionCode,
   }) {
     var base = documentApiBasePath.trim();
-    final defaultDocumentBasePath = ApiConstants.isUat
+    final defaultDocumentBasePath = ApiConstants.isGatewayEnv
         ? '/api/v1/document'
         : '/api/v1';
     if (base.isEmpty) base = defaultDocumentBasePath;
@@ -858,7 +858,7 @@ class ApiPaths {
     }
     // UAT: documentMsBaseUrl is the bare gateway host, so the document MS
     // namespace (`/api/v1/document`) must live in the path itself.
-    if (ApiConstants.isUat && !base.startsWith('/api/v1/document')) {
+    if (ApiConstants.isGatewayEnv && !base.startsWith('/api/v1/document')) {
       base = '/api/v1/document';
     }
     base = base.replaceAll(RegExp(r'/+$'), '');
@@ -871,7 +871,7 @@ class ApiPaths {
     required String assetCode,
   }) {
     var base = documentApiBasePath.trim();
-    final defaultDocumentBasePath = ApiConstants.isUat
+    final defaultDocumentBasePath = ApiConstants.isGatewayEnv
         ? '/api/v1/document'
         : '/api/v1';
     if (base.isEmpty) base = defaultDocumentBasePath;
@@ -884,7 +884,7 @@ class ApiPaths {
     }
     // UAT: documentMsBaseUrl is the bare gateway host, so the document MS
     // namespace (`/api/v1/document`) must live in the path itself.
-    if (ApiConstants.isUat && !base.startsWith('/api/v1/document')) {
+    if (ApiConstants.isGatewayEnv && !base.startsWith('/api/v1/document')) {
       base = '/api/v1/document';
     }
     base = base.replaceAll(RegExp(r'/+$'), '');
@@ -896,7 +896,7 @@ class ApiPaths {
   static String documentUploadSessionPath(String sessionCode) =>
       '$documentUploadSessionsRoot/$sessionCode';
   static String documentMediaAssetByCodePath(String assetCode) =>
-      ApiConstants.isUat
+      ApiConstants.isGatewayEnv
       ? '/api/v1/document/media-assets/${Uri.encodeComponent(assetCode.trim())}'
       : '/api/v1/media-assets/${Uri.encodeComponent(assetCode.trim())}';
 

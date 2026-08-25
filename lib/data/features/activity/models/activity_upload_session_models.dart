@@ -20,7 +20,7 @@ class ActivityUploadSessionModel extends ActivityUploadSession {
       throw Exception('Upload session code is missing');
     }
 
-    final fallbackDocumentBasePath = ApiConstants.isUat
+    final fallbackDocumentBasePath = ApiConstants.isGatewayEnv
         ? '/api/v1/document'
         : '/document-ms/api/v1';
     final documentApiBasePath =
