@@ -10,6 +10,8 @@ import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.da
 import 'package:wowcare/presentation/features/splash/cubit/splash_cubit.dart';
 import 'package:wowcare/shared/common/widgets/animation_slide_widgets.dart';
 
+import '../../../../core/util/app_update/app_update_config.dart';
+
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -18,6 +20,19 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+
+  @override
+  void initState() {
+    handleUpdate();
+    super.initState();
+  }
+
+  handleUpdate() async {
+    await handleAppUpdate(context).then((canNavigate){
+      context.read<SplashCubit>().resolve();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -58,6 +73,8 @@ class _SplashScreenState extends State<SplashScreen> {
 /// here rather than in the (BuildContext-free) cubit.
 class SplashScreenWrapper extends StatefulWidget {
   const SplashScreenWrapper({super.key});
+
+
 
   @override
   State<SplashScreenWrapper> createState() => _SplashScreenWrapperState();
@@ -102,6 +119,8 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
         return;
     }
   }
+
+
 
   /// Switches the active org/school to the killed-state notification's target
   /// (multi-school user) before routing to its deep-link, so the destination

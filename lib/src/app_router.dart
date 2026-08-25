@@ -370,7 +370,7 @@ final GoRouter appRouter = GoRouter(
           roleCubit: context.read<RoleCubit>(),
           parentChildCubit: context.read<ParentChildCubit>(),
           authCubit: context.read<AuthCubit>(),
-        )..resolve(),
+        ),
         child: const SplashScreenWrapper(),
       ),
     ),
