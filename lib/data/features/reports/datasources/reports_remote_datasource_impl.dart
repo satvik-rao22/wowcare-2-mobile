@@ -384,7 +384,7 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     }
 
     // In UAT, ensure /api/v1/media-assets/ has the /document/ prefix
-    if (ApiConstants.isUat) {
+    if (ApiConstants.isGatewayEnv) {
       if (downloadUrl.startsWith('/api/v1/media-assets/')) {
         downloadUrl = downloadUrl.replaceFirst(
           '/api/v1/media-assets/',
