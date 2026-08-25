@@ -115,6 +115,8 @@ class _EditStudentProfileDetailsScreenState
   Map<String, String> _studentNameToCode = {};
 
   List<String> _availableGuardianNames = [];
+  Map<String, String> _guardianNameToCode = {};
+  Map<String, bool> _guardianInitialCustody = {};
   // Waitlist and Graduated removed: no mobile workflow exists for either
   // status, so offering them here just let a student get stuck in a status
   // nothing on mobile can act on. A student already carrying one of these
@@ -386,24 +388,34 @@ class _EditStudentProfileDetailsScreenState
         return '';
       }
 
-      final rawRows = <Map<String, String>>[];
+      final rawRows = <Map<String, dynamic>>[];
       for (final g in guardians) {
         final base = _guardianDisplayName(g);
         final code = (g['guardianCode'] ?? g['code'] ?? '').toString().trim();
-        if (base.isEmpty) continue;
-        rawRows.add(<String, String>{'name': base, 'code': code});
+        final legalCustody = g['legalCustody'] == true;
+        if (base.isEmpty || code.isEmpty) continue;
+        rawRows.add(<String, dynamic>{
+          'name': base,
+          'code': code,
+          'legalCustody': legalCustody,
+        });
       }
 
       final names = <String>[];
+      final nameToCode = <String, String>{};
+      final initialCustody = <String, bool>{};
       for (final row in rawRows) {
-        final base = row['name']!;
-        final displayLabel = base;
-        names.add(displayLabel);
+        final base = row['name'] as String;
+        names.add(base);
+        nameToCode[base] = row['code'] as String;
+        initialCustody[base] = row['legalCustody'] as bool;
       }
       if (!mounted) return;
 
       setState(() {
         _availableGuardianNames = names;
+        _guardianNameToCode = nameToCode;
+        _guardianInitialCustody = initialCustody;
         _selectedChildCustody.removeWhere(
           (g) => !_availableGuardianNames.contains(g),
         );
@@ -736,6 +748,22 @@ class _EditStudentProfileDetailsScreenState
         await repository.updateStudentSiblings(
           studentCode: widget.studentCode,
           siblingCodes: siblingCodes,
+        );
+      }
+
+      // 5) Child custody PATCH /api/v1/guardian/{code} — only for guardians
+      // whose custody selection actually changed, so unrelated guardians
+      // aren't touched.
+      for (final entry in _guardianNameToCode.entries) {
+        final name = entry.key;
+        final code = entry.value;
+        final desiredCustody = _selectedChildCustody.contains(name);
+        final currentCustody = _guardianInitialCustody[name] ?? false;
+        if (desiredCustody == currentCustody) continue;
+        await repository.updateGuardian(
+          code: code,
+          studentCode: widget.studentCode,
+          fields: <String, dynamic>{'legalCustody': desiredCustody},
         );
       }
 
