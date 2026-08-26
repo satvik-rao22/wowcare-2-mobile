@@ -480,6 +480,9 @@ class _StaffScreenState extends State<StaffScreen> {
           isActiveProfile:
               member != null && member.status.trim().toUpperCase() == 'ACTIVE',
           todayStatusRaw: status,
+          // Admin-only override: lets an admin sign in a staff member who
+          // was marked absent for the day, clearing that absence record.
+          allowAbsentSignInOverride: context.read<RoleCubit>().isTrueAdmin,
         ),
       );
     }

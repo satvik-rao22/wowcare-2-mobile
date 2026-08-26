@@ -196,6 +196,15 @@ class NotificationRouteResolver {
 
   // ── helpers ──────────────────────────────────────────────────────────────
 
+  /// The student a notification refers to, if any — same fallbacks as the
+  /// routing table (direct `studentCode`/`student_code`, or embedded in a
+  /// details link's `targetCode` param). Exposed so [NotificationNavigator]
+  /// can keep the parent persona's sibling selector ([ParentChildCubit]) in
+  /// sync with whichever child a tapped notification is about, without
+  /// duplicating the payload-key knowledge that lives here.
+  static String? studentCodeFor(PushNotification n) =>
+      _firstCode(n, _kStudent) ?? _codeFromEmbeddedLink(n, 'targetCode');
+
   /// First non-empty value among [keys] in the payload (handles camelCase /
   /// snake_case variants the backend may send).
   static String? _firstCode(PushNotification n, List<String> keys) {

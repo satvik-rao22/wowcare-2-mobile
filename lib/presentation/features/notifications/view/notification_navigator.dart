@@ -5,6 +5,7 @@ import 'package:wowcare/src/app_router.dart';
 import '../../../../core/util/active_school_switcher.dart';
 import '../../../../core/util/logger_service.dart';
 import '../../../../domain/features/notifications/entities/push_notification.dart';
+import '../../../../shared/common/app/cubit/parent_child_cubit.dart';
 import '../../../../shared/common/app/cubit/role_cubit.dart';
 import '../cubit/push_notification_cubit.dart';
 import '../routing/notification_route_resolver.dart';
@@ -84,6 +85,17 @@ class _NotificationNavigatorState extends State<NotificationNavigator> {
       isAdminPersona: roleCubit.role == 'admin',
     );
     if (destination == null) return;
+    // Keep the parent persona's sibling selector (the global child dropdown)
+    // in sync with whichever child this notification is about — otherwise a
+    // tap on Child B's notification while Child A is selected navigates to
+    // Child B's screen but leaves the dropdown (and every other screen that
+    // reads ParentChildCubit) still showing Child A.
+    if (mounted && roleCubit.isParent) {
+      final studentCode = NotificationRouteResolver.studentCodeFor(message);
+      if (studentCode != null) {
+        context.read<ParentChildCubit>().selectByCode(studentCode);
+      }
+    }
     // URL changes (incl. the `highlightCode` query param) → go_router rebuilds
     // the branch, so the destination screen can scroll-to / flash the target.
     AppLogger.d(

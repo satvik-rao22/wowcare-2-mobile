@@ -4,9 +4,9 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -579,6 +579,9 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
         staffAttendanceGateFromTodayStatus(
           isActiveProfile: isActive,
           todayStatusRaw: _attendanceStatusByStaffCode[code],
+          // Admin-only override: lets an admin sign in a staff member who
+          // was marked absent for the day, clearing that absence record.
+          allowAbsentSignInOverride: context.read<RoleCubit>().isTrueAdmin,
         ),
       );
     }
@@ -850,6 +853,17 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     _handleExternalRefresh();
   }
 
+  /// Whether the filter funnel has anything applied beyond the ACTIVE
+  /// default, so the funnel icon can surface a red dot for it.
+  bool get _isStaffFilterActive {
+    final statusSet = _selectedStatusList
+        .map((e) => e.trim().toUpperCase())
+        .toSet();
+    final isDefaultStatus =
+        statusSet.length == 1 && statusSet.first == 'ACTIVE';
+    return !isDefaultStatus || _selectedDesignation.isNotEmpty;
+  }
+
   Future<void> _openFilterScreen() async {
     final result = await Navigator.push<ClassroomStaffFilterResult>(
       context,
@@ -979,12 +993,10 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  IconButton(
+                                  FilterIconButton(
+                                    iconAsset: MediaRes.filterIcon,
+                                    isActive: _isStaffFilterActive,
                                     onPressed: _openFilterScreen,
-                                    icon: SvgPicture.asset(
-                                      MediaRes.filterIcon,
-                                      height: 22,
-                                    ),
                                   ),
                                 ],
                               ),

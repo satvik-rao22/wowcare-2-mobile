@@ -1486,6 +1486,11 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                                 _cityController,
                                 isRequired: true,
                                 textCapitalization: TextCapitalization.words,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r"[a-zA-Z\s.'-]"),
+                                  ),
+                                ],
                               ),
                               SizedBox(height: responsive.verticalSpacing),
                               _buildCustomDropdown(

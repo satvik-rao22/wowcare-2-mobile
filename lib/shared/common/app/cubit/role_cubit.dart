@@ -84,6 +84,11 @@ class RoleCubit extends Cubit<RoleState> {
   bool get isGuardian => isParent;
   bool get isAdmin => state.role == 'admin' || state.role == 'staff';
   bool get isStaff => state.role == 'staff';
+  /// True only for the ADMIN persona (director/principal/school-admin/
+  /// org-admin), unlike [isAdmin] which also covers the STAFF (teacher)
+  /// persona. Use this where a permission must be admin-only, e.g. staff
+  /// attendance override sign-in for an absent staff member.
+  bool get isTrueAdmin => state.role == 'admin';
   bool get isKiosk => state.role == 'kiosk';
   /// True specifically for the `ORGANIZATION_ADMIN` backend role. Does not
   /// change [isAdmin] (still true for org admins, as before) — this is an
