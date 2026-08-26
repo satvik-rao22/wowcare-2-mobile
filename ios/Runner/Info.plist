@@ -57,6 +57,22 @@
 			</array>
 		</dict>
 	</dict>
+	<!-- The DEV backend (http://5.78.83.44:<port>) is plain HTTP, which App
+	     Transport Security blocks by default. Scoped to that one host —
+	     NSAllowsArbitraryLoads would permit HTTP to ANY host in every build,
+	     including App Store releases, and App Review flags it. Remove this
+	     block once DEV serves TLS. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>5.78.83.44</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

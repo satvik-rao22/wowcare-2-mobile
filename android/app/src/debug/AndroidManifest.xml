@@ -4,4 +4,11 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- The DEV backend (http://5.78.83.44:<port>) is plain HTTP, which Android
+         9+ blocks by default. Declared in the DEBUG manifest only, so release
+         and profile builds never ship with cleartext enabled. If you need a
+         DEV release or profile build, replace this with a scoped
+         res/xml/network_security_config.xml limited to that host instead of
+         moving this attribute into the main manifest. -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>
