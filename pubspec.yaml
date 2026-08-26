@@ -2,7 +2,7 @@ name: wowcare
 description: "WowCare 2.O"
 
 publish_to: 'none'
-version: 1.0.0+8
+version: 1.0.0+10
 
 environment:
   sdk: ^3.9.2
@@ -198,9 +198,9 @@ flutter:
 
 
 
-flutter_launcher_icons:
-  android: true
-  ios: true
-  image_path: "assets/vectors/ChildcareWow_App_Logo.png"
-  adaptive_icon_background: "#ffffff"
-  adaptive_icon_foreground: "assets/vectors/ChildcareWow_App_Logo.png"
+# flutter_launcher_icons:
+#   android: true
+#   ios: true
+#   image_path: "assets/vectors/ChildcareWow_App_Logo.png"
+#   adaptive_icon_background: "#ffffff"
+#   adaptive_icon_foreground: "assets/vectors/ChildcareWow_App_Logo.png"

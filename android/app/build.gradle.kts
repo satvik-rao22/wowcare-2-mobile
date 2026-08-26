@@ -46,7 +46,7 @@ if (keystorePropertiesFile.exists()) {
 // to "local" so a bare `./gradlew` still builds a valid variant.
 // ---------------------------------------------------------------------------
 val dartEnvironment: String by lazy {
-    val encoded = (project.findProperty("dart.defines") as? String) ?: ""
+    val encoded = ((project.findProperty("dart-defines") ?: project.findProperty("dart.defines")) as? String) ?: ""
     if (encoded.isBlank()) return@lazy "local"
     val decoded: List<String> = encoded.split(",")
         .filter { it.isNotBlank() }
@@ -76,8 +76,8 @@ val copyGoogleServices by tasks.registering {
     // only the google-services.json is forced to the uat folder. To restore
     // per-environment Firebase projects, change this back to
     // "firebase/$dartEnvironment/google-services.json".
-    val firebaseConfigEnvironment = "uat"
-    println("[firebase] build env=$dartEnvironment → using firebase/$firebaseConfigEnvironment config (wowcare2-uat)")
+    val firebaseConfigEnvironment = dartEnvironment
+    println("[firebase] build env=$dartEnvironment → using firebase/$firebaseConfigEnvironment config")
     val srcPath = "firebase/$firebaseConfigEnvironment/google-services.json"
     doLast {
         val src = file(srcPath)
