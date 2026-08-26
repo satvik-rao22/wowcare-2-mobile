@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/billing/entities/invoice_list_entity.dart';
+import 'package:wowcare/domain/features/billing/usecases/get_invoice_by_code_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_profile_usecase.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
@@ -20,7 +23,8 @@ class ViewInvoiceScreen extends StatefulWidget {
 }
 
 class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
-  static final DateFormat _dateFormat = DateFormat('MMM dd, yyyy');
+  // Unpadded day (e.g. "Aug 9, 2026") to match the web invoice modal.
+  static final DateFormat _dateFormat = DateFormat('MMM d, yyyy');
 
   String _formatDate(DateTime date) => _dateFormat.format(date);
 
@@ -28,10 +32,18 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
   // classroom is looked up separately by student code.
   String? _roomName;
 
+  // The transaction row (esp. the family-ledger "Family Transaction" list)
+  // only carries a summary shape with no invoice number/due date/service
+  // period — the web app's invoice modal shows all three, so the full
+  // invoice is fetched by code here to match it, regardless of which list
+  // this screen was opened from.
+  InvoiceListItemEntity? _invoiceDetail;
+
   @override
   void initState() {
     super.initState();
     _loadRoomName();
+    _loadInvoiceDetail();
   }
 
   Future<void> _loadRoomName() async {
@@ -48,13 +60,48 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
     }
   }
 
+  Future<void> _loadInvoiceDetail() async {
+    final code = widget.transaction.invoiceCode?.trim();
+    if (code == null || code.isEmpty) {
+      debugPrint(
+        '[ViewInvoiceScreen] No invoiceCode on this transaction row — '
+        'Invoice Number/Due Date/Invoice Period will fall back to the '
+        'summary the list screen passed in.',
+      );
+      return;
+    }
+    try {
+      final detail = await serviceLocator<GetInvoiceByCodeUseCase>()(code);
+      if (!mounted) return;
+      setState(() => _invoiceDetail = detail);
+    } catch (e) {
+      // Fall back to whatever summary fields the transaction row carried.
+      CoreUtils.logApiError('[ViewInvoiceScreen] getInvoiceByCode($code) failed: $e');
+    }
+  }
+
+  String? get _invoiceNumberLabel {
+    final code = (_invoiceDetail?.code ?? widget.transaction.invoiceCode ?? '')
+        .trim();
+    return code.isEmpty ? null : code;
+  }
+
   String? get _dueDateLabel {
+    final resolved = _invoiceDetail?.dueDate;
+    if (resolved != null) return _formatDate(resolved);
     final raw = widget.transaction.endDate;
     if (raw != null && raw.trim().isNotEmpty) {
       final parsed = DateTime.tryParse(raw.trim());
       if (parsed != null) return _formatDate(parsed);
     }
     return null;
+  }
+
+  String? get _invoicePeriodLabel {
+    final start = _invoiceDetail?.periodStart;
+    final end = _invoiceDetail?.periodEnd;
+    if (start == null || end == null) return null;
+    return '${_formatDate(start)} to ${_formatDate(end)}';
   }
 
   @override
@@ -123,13 +170,26 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
   }
 
   Widget _buildInvoiceMeta() {
+    // Matches the web invoice modal's field set (Invoice Number / Due Date /
+    // Invoice Period). Falls back to the issue date only if none of those
+    // resolved (e.g. the invoice-detail fetch failed and the row carried no
+    // invoiceCode), so the screen never renders with no date at all.
+    final rows = <Widget>[
+      if (_invoiceNumberLabel != null)
+        _metaRow('Invoice Number', _invoiceNumberLabel!),
+      if (_dueDateLabel != null) _metaRow('Due Date', _dueDateLabel!),
+      if (_invoicePeriodLabel != null)
+        _metaRow('Invoice Period', _invoicePeriodLabel!),
+    ];
+    if (rows.isEmpty) {
+      rows.add(_metaRow('Invoice Date', _formatDate(widget.transaction.date)));
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _metaRow('Invoice Date', _formatDate(widget.transaction.date)),
-        if (_dueDateLabel != null) ...[
-          const SizedBox(height: 6),
-          _metaRow('Due Date', _dueDateLabel!),
+        for (var i = 0; i < rows.length; i++) ...[
+          if (i > 0) const SizedBox(height: 6),
+          rows[i],
         ],
       ],
     );

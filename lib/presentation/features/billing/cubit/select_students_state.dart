@@ -13,6 +13,7 @@ class SelectStudentsState extends Equatable {
     required this.searchQuery,
     required this.selectedStudentCodes,
     required this.isLoading,
+    this.isCheckingRecipients = false,
     this.errorMessage,
   });
 
@@ -28,6 +29,7 @@ class SelectStudentsState extends Equatable {
         searchQuery = '',
         selectedStudentCodes = const <String>{},
         isLoading = true,
+        isCheckingRecipients = false,
         errorMessage = null;
 
   /// Server-filtered (ACTIVE + classroom + tag) student list for the page.
@@ -50,6 +52,9 @@ class SelectStudentsState extends Equatable {
   final String searchQuery;
   final Set<String> selectedStudentCodes;
   final bool isLoading;
+
+  /// True while the check-recipients call triggered by "Next" is in flight.
+  final bool isCheckingRecipients;
   final String? errorMessage;
 
   /// Client-side search over the server-filtered list (name contains query).
@@ -73,6 +78,7 @@ class SelectStudentsState extends Equatable {
     String? searchQuery,
     Set<String>? selectedStudentCodes,
     bool? isLoading,
+    bool? isCheckingRecipients,
     String? errorMessage,
   }) {
     return SelectStudentsState(
@@ -88,6 +94,7 @@ class SelectStudentsState extends Equatable {
       searchQuery: searchQuery ?? this.searchQuery,
       selectedStudentCodes: selectedStudentCodes ?? this.selectedStudentCodes,
       isLoading: isLoading ?? this.isLoading,
+      isCheckingRecipients: isCheckingRecipients ?? this.isCheckingRecipients,
       errorMessage: errorMessage,
     );
   }
@@ -105,6 +112,7 @@ class SelectStudentsState extends Equatable {
         searchQuery,
         selectedStudentCodes,
         isLoading,
+        isCheckingRecipients,
         errorMessage,
       ];
 }

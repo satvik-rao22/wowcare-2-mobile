@@ -1081,6 +1081,12 @@ class ApiPaths {
   static const String invoiceRefunds = '/api/v1/invoices/refunds';
   static const String invoiceCredits = '/api/v1/invoices/credits';
 
+  /// `POST /api/v1/invoices/check-recipients?schoolCode={code}` — body is a
+  /// raw JSON array of student codes. Checks whether each has a family/
+  /// billing profile before an invoice can be created for them.
+  static const String invoicesCheckRecipients =
+      '/api/v1/invoices/check-recipients';
+
   /// Paginated invoice list for an organization. Note: same URL shape as
   /// [invoiceByCode] but a GET that returns a page — keep them distinct.
   static String invoicesByOrganization(String organizationCode) =>

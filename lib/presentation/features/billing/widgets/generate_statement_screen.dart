@@ -76,7 +76,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
 
   List<String> get _yearOptions {
     final now = billingSchoolCurrentYear();
-    return List.generate(8, (i) => '${now - 5 + i}');
+    return List.generate(6, (i) => '${now - i}');
   }
 
   bool _validate() {

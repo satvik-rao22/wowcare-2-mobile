@@ -285,6 +285,44 @@ class CreateCreditParams extends Equatable {
       ];
 }
 
+/// One student's result from `POST /api/v1/invoices/check-recipients`.
+class RecipientEligibilityEntity extends Equatable {
+  const RecipientEligibilityEntity({
+    required this.studentCode,
+    required this.eligible,
+    this.reason,
+  });
+
+  final String studentCode;
+  final bool eligible;
+
+  /// Populated when [eligible] is false — why this student can't receive an
+  /// invoice yet (e.g. no family/billing profile).
+  final String? reason;
+
+  @override
+  List<Object?> get props => [studentCode, eligible, reason];
+}
+
+/// Result of `POST /api/v1/invoices/check-recipients` — run before creating
+/// an invoice to confirm every selected student can actually receive one.
+class CheckRecipientsResultEntity extends Equatable {
+  const CheckRecipientsResultEntity({
+    required this.allEligible,
+    required this.recipients,
+  });
+
+  final bool allEligible;
+  final List<RecipientEligibilityEntity> recipients;
+
+  /// The subset that failed the check, for surfacing reasons to the user.
+  List<RecipientEligibilityEntity> get ineligible =>
+      recipients.where((r) => !r.eligible).toList();
+
+  @override
+  List<Object?> get props => [allEligible, recipients];
+}
+
 class InvoicePaymentResultEntity extends Equatable {
   const InvoicePaymentResultEntity({
     this.ledgerCode,

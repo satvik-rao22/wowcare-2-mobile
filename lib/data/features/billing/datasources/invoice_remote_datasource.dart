@@ -81,6 +81,10 @@ abstract class InvoiceRemoteDataSource {
   Future<InvoiceResultModel> cancelInvoice(String code);
   Future<InvoiceResultModel> issueInvoice(String code);
   Future<InvoiceResultModel> resendInvoice(String code);
+  Future<CheckRecipientsResultModel> checkRecipients({
+    required String schoolCode,
+    required List<String> studentCodes,
+  });
 }
 
 class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
@@ -313,5 +317,18 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       ApiPaths.url(ApiPaths.invoiceResend(code)),
     );
     return InvoiceResultModel.fromJson(response.data ?? {});
+  }
+
+  @override
+  Future<CheckRecipientsResultModel> checkRecipients({
+    required String schoolCode,
+    required List<String> studentCodes,
+  }) async {
+    final response = await _client.post<Map<String, dynamic>>(
+      ApiPaths.url(ApiPaths.invoicesCheckRecipients),
+      queryParameters: <String, dynamic>{'schoolCode': schoolCode},
+      data: studentCodes,
+    );
+    return CheckRecipientsResultModel.fromJson(response.data ?? {});
   }
 }

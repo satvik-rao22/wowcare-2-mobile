@@ -246,6 +246,44 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
               widget.onNext!(context, selectedStudents);
               return;
             }
+
+            // Confirm every selected student can actually receive an
+            // invoice before advancing — e.g. a student with no
+            // family/billing profile yet must be blocked here rather than
+            // failing later at invoice creation.
+            final result = await _cubit.checkRecipients(
+              selectedStudents.map((s) => s.code).toList(),
+            );
+            if (!context.mounted) return;
+            if (result == null) {
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: _cubit.state.errorMessage ??
+                    'Could not verify students. Please try again.',
+                isWarning: true,
+              );
+              return;
+            }
+            if (!result.allEligible) {
+              final nameByCode = {
+                for (final s in selectedStudents) s.code: s.fullName,
+              };
+              // Single line: showTopSnackBar's warning path truncates at the
+              // first newline, so multiple reasons are joined with "; ".
+              final message = result.ineligible.map((r) {
+                final name = nameByCode[r.studentCode] ?? r.studentCode;
+                final reason = (r.reason ?? '').trim();
+                return reason.isEmpty ? name : '$name: $reason';
+              }).join('; ');
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: message,
+                isWarning: true,
+                duration: const Duration(seconds: 4),
+              );
+              return;
+            }
+
             final created = await Navigator.push<bool>(
               context,
               MaterialPageRoute(
@@ -261,15 +299,25 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
               Navigator.of(context).pop(true);
             }
           },
-          child: const Text(
-            'Next',
-            style: TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 16.0,
-              fontWeight: FontWeight.w600,
-              color: AppColors.billingCardColor,
-            ),
-          ),
+          child: _cubit.state.isCheckingRecipients
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor:
+                        AlwaysStoppedAnimation(AppColors.billingCardColor),
+                  ),
+                )
+              : const Text(
+                  'Next',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 16.0,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.billingCardColor,
+                  ),
+                ),
         ),
       ),
     );

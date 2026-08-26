@@ -270,6 +270,27 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     return result;
   }
 
+  @override
+  Future<CheckRecipientsResultEntity> checkRecipients({
+    required String schoolCode,
+    required List<String> studentCodes,
+  }) async {
+    final m = await _dataSource.checkRecipients(
+      schoolCode: schoolCode,
+      studentCodes: studentCodes,
+    );
+    return CheckRecipientsResultEntity(
+      allEligible: m.allEligible,
+      recipients: m.recipients
+          .map((r) => RecipientEligibilityEntity(
+                studentCode: r.studentCode,
+                eligible: r.eligible,
+                reason: r.reason,
+              ))
+          .toList(),
+    );
+  }
+
   // ─── Mappers ────────────────────────────────────────────────────────────────
 
   InvoicePaymentResultEntity _mapPaymentResult(

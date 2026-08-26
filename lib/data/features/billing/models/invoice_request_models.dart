@@ -237,6 +237,46 @@ class InvoicePaymentResultModel {
   }
 }
 
+class RecipientEligibilityModel {
+  const RecipientEligibilityModel({
+    required this.studentCode,
+    required this.eligible,
+    this.reason,
+  });
+
+  final String studentCode;
+  final bool eligible;
+  final String? reason;
+
+  factory RecipientEligibilityModel.fromJson(Map<String, dynamic> json) =>
+      RecipientEligibilityModel(
+        studentCode: (json['studentCode'] as String?) ?? '',
+        eligible: (json['eligible'] as bool?) ?? false,
+        reason: json['reason'] as String?,
+      );
+}
+
+class CheckRecipientsResultModel {
+  const CheckRecipientsResultModel({
+    required this.allEligible,
+    required this.recipients,
+  });
+
+  final bool allEligible;
+  final List<RecipientEligibilityModel> recipients;
+
+  factory CheckRecipientsResultModel.fromJson(Map<String, dynamic> json) {
+    final data = json['data'] as Map<String, dynamic>? ?? json;
+    return CheckRecipientsResultModel(
+      allEligible: (data['allEligible'] as bool?) ?? false,
+      recipients: (data['recipients'] as List<dynamic>? ?? [])
+          .map((e) =>
+              RecipientEligibilityModel.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
 class InvoiceResultModel {
   const InvoiceResultModel({
     required this.code,

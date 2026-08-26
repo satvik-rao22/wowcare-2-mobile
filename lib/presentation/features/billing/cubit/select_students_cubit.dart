@@ -4,6 +4,8 @@ import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/domain/features/billing/entities/invoice_entity.dart';
+import 'package:wowcare/domain/features/billing/usecases/check_invoice_recipients_usecase.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart' as domain;
@@ -24,16 +26,19 @@ class SelectStudentsCubit extends Cubit<SelectStudentsState> {
     required GetStudentPageUseCase getStudentPage,
     required GetActiveClassroomsUseCase getActiveClassrooms,
     required GetTagNameCodeMapForSchoolUseCase getTagNameCodeMap,
+    required CheckInvoiceRecipientsUseCase checkRecipients,
     required StorageService storage,
   })  : _getStudentPage = getStudentPage,
         _getActiveClassrooms = getActiveClassrooms,
         _getTagNameCodeMap = getTagNameCodeMap,
+        _checkRecipients = checkRecipients,
         _storage = storage,
         super(const SelectStudentsState.initial());
 
   final GetStudentPageUseCase _getStudentPage;
   final GetActiveClassroomsUseCase _getActiveClassrooms;
   final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMap;
+  final CheckInvoiceRecipientsUseCase _checkRecipients;
   final StorageService _storage;
 
   String _schoolCode = '';
@@ -199,4 +204,28 @@ class SelectStudentsCubit extends Cubit<SelectStudentsState> {
   List<Student> get selectedStudents => state.students
       .where((s) => state.selectedStudentCodes.contains(s.code))
       .toList();
+
+  /// Runs on "Next": confirms every selected student can actually receive an
+  /// invoice (has a family/billing profile). Returns null on failure —
+  /// [state.errorMessage] carries the reason and the caller should not
+  /// navigate forward.
+  Future<CheckRecipientsResultEntity?> checkRecipients(
+    List<String> studentCodes,
+  ) async {
+    emit(state.copyWith(isCheckingRecipients: true, errorMessage: null));
+    try {
+      final result = await _checkRecipients(
+        schoolCode: _schoolCode,
+        studentCodes: studentCodes,
+      );
+      emit(state.copyWith(isCheckingRecipients: false));
+      return result;
+    } catch (e) {
+      emit(state.copyWith(
+        isCheckingRecipients: false,
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
+      ));
+      return null;
+    }
+  }
 }

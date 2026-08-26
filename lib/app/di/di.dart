@@ -417,6 +417,7 @@ import '../../domain/features/billing/usecases/delete_invoice_usecase.dart';
 import '../../domain/features/billing/usecases/cancel_invoice_usecase.dart';
 import '../../domain/features/billing/usecases/issue_invoice_usecase.dart';
 import '../../domain/features/billing/usecases/resend_invoice_usecase.dart';
+import '../../domain/features/billing/usecases/check_invoice_recipients_usecase.dart';
 import '../../domain/features/billing/usecases/get_invoice_overview_usecase.dart';
 import '../../domain/features/billing/usecases/get_invoice_transactions_usecase.dart';
 import '../../domain/features/billing/usecases/get_invoices_usecase.dart';
@@ -918,6 +919,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentPage: serviceLocator<GetStudentPageUseCase>(),
       getActiveClassrooms: serviceLocator<GetActiveClassroomsUseCase>(),
       getTagNameCodeMap: serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      checkRecipients: serviceLocator<CheckInvoiceRecipientsUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );
@@ -2284,6 +2286,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<CreateInvoiceUseCase>(
     () => CreateInvoiceUseCase(serviceLocator<InvoiceRepository>()),
+  );
+  serviceLocator.registerFactory<CheckInvoiceRecipientsUseCase>(
+    () => CheckInvoiceRecipientsUseCase(serviceLocator<InvoiceRepository>()),
   );
   serviceLocator.registerFactory<UpdateInvoiceUseCase>(
     () => UpdateInvoiceUseCase(serviceLocator<InvoiceRepository>()),
