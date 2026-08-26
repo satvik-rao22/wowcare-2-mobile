@@ -916,6 +916,11 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   StaffAttendanceGate get _todayGate => staffAttendanceGateFromTodayStatus(
     isActiveProfile: _isActiveProfile,
     todayStatusRaw: _todayStatusRaw,
+    // Admin-only override: an admin viewing another staff member's profile
+    // can sign them in even after they were marked absent for the day,
+    // which clears that absence record. The staff persona's own "My
+    // Attendance" view (self) never gets this — no self-service recovery.
+    allowAbsentSignInOverride: !_isSelfStaffPersona,
   );
 
   /// This screen doubles as the staff persona's own "My Attendance" profile

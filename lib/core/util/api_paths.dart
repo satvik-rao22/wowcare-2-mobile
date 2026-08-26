@@ -657,6 +657,10 @@ class ApiPaths {
 
   static const String staffAbsenceRecordsMarkAbsent =
       '/api/v1/staff-absence-records/mark-absent';
+
+  /// DELETE a staff absence record by record code (admin override sign-in).
+  static String staffAbsenceRecordByCode(String absenceRecordCode) =>
+      '/api/v1/staff-absence-records/$absenceRecordCode';
   static const String staffAttendanceSignInStatus =
       '/api/v1/staff-attendance/sign-in/status';
   static const String staffAttendanceSignInStatusAtTime =

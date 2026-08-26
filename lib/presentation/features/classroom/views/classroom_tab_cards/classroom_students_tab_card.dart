@@ -6,6 +6,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -470,6 +471,17 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         ),
       ),
     );
+  }
+
+  /// Whether the filter funnel has anything applied beyond the ACTIVE
+  /// default, so the funnel icon can surface a red dot for it.
+  bool get _isStudentFilterActive {
+    final statusSet = _selectedStatus
+        .map((e) => e.trim().toUpperCase())
+        .toSet();
+    final isDefaultStatus =
+        statusSet.length == 1 && statusSet.first == 'ACTIVE';
+    return !isDefaultStatus || _selectedTagCodes.isNotEmpty;
   }
 
   Future<void> _openClassroomStudentFilter() async {
@@ -1397,12 +1409,10 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          IconButton(
+                          FilterIconButton(
+                            iconAsset: MediaRes.filterIcon,
+                            isActive: _isStudentFilterActive,
                             onPressed: _openClassroomStudentFilter,
-                            icon: SvgPicture.asset(
-                              MediaRes.filterIcon,
-                              height: 22,
-                            ),
                           ),
                         ],
                       ),

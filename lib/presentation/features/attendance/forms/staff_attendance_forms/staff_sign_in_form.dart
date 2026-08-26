@@ -12,6 +12,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/domain/features/attendance/entities/staff_attendance_absent.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -431,6 +432,111 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     return true;
   }
 
+  bool _absenceDateMatchesCalendarDay(
+    String absenceDateRaw,
+    String targetYyyyMmDd,
+  ) {
+    final trimmed = absenceDateRaw.trim();
+    if (trimmed.isEmpty) return false;
+    if (trimmed.length >= 10 && trimmed.substring(0, 10) == targetYyyyMmDd) {
+      return true;
+    }
+    try {
+      final dt = DateTime.parse(trimmed).toLocal();
+      final norm =
+          '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+      return norm == targetYyyyMmDd;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Admin override sign-in: for staff marked absent on
+  /// [attendanceDateYyyyMmDd], delete their absence record first so the day
+  /// isn't left with both an ABSENT record and a sign-in. Only ever called
+  /// for the admin persona (see call site in [_handleSubmit]) — self-service
+  /// staff sign-in never reaches this, matching [StaffAttendanceGate]'s rule
+  /// that an absent staff member cannot recover their own day.
+  Future<void> _deleteTodaysAbsenceRecordsBeforeAdminSignIn({
+    required String attendanceDateYyyyMmDd,
+    required String actingStaffCode,
+    required List<StaffEntity> targets,
+  }) async {
+    final repo = serviceLocator<AttendanceRepository>();
+    final allItems = <StaffAttendanceAbsentItem>[];
+
+    // The absent-form-list lookup is a best-effort PRE-step: it exists only
+    // to clear a same-day absence record before signing the staff member in.
+    // If it fails, do NOT abort the whole sign-in — skip the deletion and
+    // let the sign-in POST run; the backend is the actionable source of
+    // truth if a stale absence record does end up blocking it.
+    try {
+      var page = 0;
+      const pageSize = 200;
+      while (true) {
+        final absentPage = await repo.getStaffAbsentFormList(
+          fromAbsenceDate: attendanceDateYyyyMmDd,
+          toAbsenceDate: attendanceDateYyyyMmDd,
+          page: page,
+          size: pageSize,
+        );
+        allItems.addAll(absentPage.items);
+        if (!absentPage.hasMore) break;
+        page++;
+        if (page > 100) break;
+      }
+    } catch (e) {
+      AppLogger.d(
+        '[StaffSignIn] absent-form-list lookup failed ($e); '
+        'proceeding to sign-in without clearing absence records',
+      );
+      return;
+    }
+
+    final processedStaffCodes = <String>{};
+    for (final s in targets) {
+      final sc = (s.staffCode ?? '').trim();
+      if (sc.isEmpty || processedStaffCodes.contains(sc)) continue;
+
+      final matches = allItems.where((it) {
+        if (it.staffCode.trim() != sc) return false;
+        return _absenceDateMatchesCalendarDay(
+          it.absenceDate,
+          attendanceDateYyyyMmDd,
+        );
+      }).toList();
+
+      if (matches.isEmpty) continue;
+
+      final withCode = matches
+          .where((it) => (it.absenceRecordCode ?? '').trim().isNotEmpty)
+          .toList();
+      if (withCode.isEmpty) {
+        throw Exception(
+          'Cannot sign in ${s.name}: marked absent for this day but the '
+          'absence record could not be resolved. Refresh and try again.',
+        );
+      }
+
+      final room = (s.classroomCode ?? '').trim();
+      var chosen = withCode.first;
+      if (room.isNotEmpty) {
+        final byRoom = withCode
+            .where((it) => it.classroomCode.trim() == room)
+            .toList();
+        if (byRoom.isNotEmpty) {
+          chosen = byRoom.first;
+        }
+      }
+
+      await repo.deleteStaffAbsenceRecord(
+        absenceRecordCode: chosen.absenceRecordCode!.trim(),
+        staffCode: actingStaffCode,
+      );
+      processedStaffCodes.add(sc);
+    }
+  }
+
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;
     if (_selectedStaff.isEmpty) {
@@ -669,6 +775,18 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     }
 
     try {
+      // Admin-only override: clear same-day absence records for any
+      // selected staff who were marked absent, before creating the sign-in.
+      // Self-service (non-admin / QR) sign-in never runs this — an absent
+      // staff member cannot recover their own day this way.
+      if (isStaffAdmin) {
+        await _deleteTodaysAbsenceRecordsBeforeAdminSignIn(
+          attendanceDateYyyyMmDd: attendanceDate,
+          actingStaffCode: staffCode,
+          targets: List<StaffEntity>.from(_selectedStaff),
+        );
+      }
+
       final result = await serviceLocator<AttendanceRepository>()
           .submitStaffSignIn(payload: payload, isSelf: useSelfEndpoint);
       final isAlreadySignedIn = !result.success &&

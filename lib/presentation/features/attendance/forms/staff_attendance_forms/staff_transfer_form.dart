@@ -65,10 +65,10 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
   }
   // The staff member's latest/current classroom code. Seeded from the
   // entity (transfer-list API) for an instant first paint, then overridden
-  // by the staff's attendance/transfer history (the `isLastSequenceEntry`
-  // record — see [_hydrateSelfStaffClassroomDataIfNeeded]), which is the
-  // actually-dynamic source of truth. Re-hydrated after every successful
-  // transfer so this never goes stale.
+  // by today's transfer-form-list lookup (see
+  // [_hydrateSelfStaffClassroomDataIfNeeded]), which is the actually-dynamic
+  // source of truth. Re-hydrated after every successful transfer so this
+  // never goes stale.
   String? _currentClassroomCode;
   bool _hasTransferTargets = true;
   late final ClassroomCubit _classroomCubit;
@@ -134,11 +134,20 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
   /// is actually a STATIC default assignment that does NOT change when a
   /// staff member is transferred — using it showed the staff's permanent
   /// "home" classroom instead of where they currently are. The real source
-  /// of truth is the staff's attendance/transfer history: the daily
-  /// attendance API record where `isLastSequenceEntry == true` is the
-  /// backend's own marker for "this is the staff's current placement."
-  /// Only falls back to the (static) profile field if that history can't
-  /// be resolved at all.
+  /// of truth is the same "Transfer form list" endpoint the staff-selection
+  /// transfer form uses (`getStaffTransferFormList`, queried for today):
+  /// its `classroomCode` reflects every transfer applied so far, including
+  /// same-day transfers.
+  ///
+  /// A prior version of this method tried to derive the current classroom
+  /// from `getStaffAttendanceDaily` over a 365-day window, picking the item
+  /// where `isLastSequenceEntry == true`. That flag (and `sequenceNumber`)
+  /// is scoped to a single day's sign-in/transfer/sign-out chain, not to the
+  /// whole queried range, and the response wasn't sorted by date — so with
+  /// multiple days of history it could latch onto an old day's "last event"
+  /// and keep showing a stale (often the very first) classroom no matter how
+  /// many transfers had since happened. Only falls back to the (static)
+  /// profile field if today's transfer-form-list can't be resolved at all.
   Future<void> _hydrateSelfStaffClassroomDataIfNeeded({
     required bool isAdmin,
   }) async {
@@ -164,37 +173,21 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
 
     var resolved = '';
     try {
-      final now = ServerTimeService.instance.now();
+      final today = fmt(ServerTimeService.instance.now());
       final attendanceRepo = serviceLocator<AttendanceRepository>();
-      final dailyPage = await attendanceRepo.getStaffAttendanceDaily(
-        // A wide lookback, not just "today" — the most recent transfer may
-        // have happened on an earlier date with no attendance event today.
-        fromAttendanceDate: fmt(now.subtract(const Duration(days: 365))),
-        toAttendanceDate: fmt(now),
+      final page = await attendanceRepo.getStaffTransferFormList(
+        fromAbsenceDate: today,
+        toAbsenceDate: today,
         search: selectedStaffCode,
         page: 0,
         size: 100,
       );
 
-      final staffItems = dailyPage.items
-          .where((i) => i.staffCode.trim() == selectedStaffCode)
-          .toList();
-
-      if (staffItems.isNotEmpty) {
-        final latest = staffItems.firstWhere(
-          (i) => i.isLastSequenceEntry == true,
-          orElse: () {
-            staffItems.sort(
-              (a, b) =>
-                  (b.sequenceNumber ?? 0).compareTo(a.sequenceNumber ?? 0),
-            );
-            return staffItems.first;
-          },
-        );
-        final toCode = (latest.toClassroomCode ?? '').trim();
-        resolved = (latest.isTransfer == true && toCode.isNotEmpty)
-            ? toCode
-            : latest.classroomCode.trim();
+      for (final item in page.items) {
+        if (item.staffCode.trim() == selectedStaffCode) {
+          resolved = item.classroomCode.trim();
+          break;
+        }
       }
     } catch (_) {
       // Fall through to the static profile fallback below.

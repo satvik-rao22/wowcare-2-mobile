@@ -40,10 +40,6 @@ class _SignInFormState extends State<SignInForm> {
             usePrimaryGradientText: true,
             textFontSize: 16,
             textFontWeight: FontWeight.w400,
-            suffixIcon: const Icon(
-              IconlyBroken.message,
-              color: AppColors.primaryColor,
-            ),
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Please enter your email';
@@ -57,7 +53,7 @@ class _SignInFormState extends State<SignInForm> {
           const SizedBox(height: 16),
           CustomTextField(
             prefixIcon: const Icon(
-              IconlyBroken.show,
+              IconlyBroken.lock,
               color: AppColors.primaryColor,
             ),
             controller: widget.passwordController,

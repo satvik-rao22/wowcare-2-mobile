@@ -858,6 +858,7 @@ class AttendanceRepositoryImpl
       absenceNote: model.absenceNote,
       markAbsentMethod: model.markAbsentMethod,
       absentDays: model.absentDays,
+      absenceRecordCode: model.absenceRecordCode,
     );
   }
 
@@ -999,6 +1000,19 @@ class AttendanceRepositoryImpl
     final allowed = await _attendanceAllowedClassroomCodes();
     await _remoteDataSource.deleteStaffAttendanceRecord(
       attendanceRecordCode: attendanceRecordCode,
+      staffCode: staffCode,
+      allowedClassroomCodes: allowed,
+    );
+  }
+
+  @override
+  Future<void> deleteStaffAbsenceRecord({
+    required String absenceRecordCode,
+    required String staffCode,
+  }) async {
+    final allowed = await _attendanceAllowedClassroomCodes();
+    await _remoteDataSource.deleteStaffAbsenceRecord(
+      absenceRecordCode: absenceRecordCode,
       staffCode: staffCode,
       allowedClassroomCodes: allowed,
     );
