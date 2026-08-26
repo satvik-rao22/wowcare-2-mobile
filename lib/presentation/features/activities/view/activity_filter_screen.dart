@@ -19,6 +19,7 @@ class ActivityFilterScreen extends StatefulWidget {
     required this.schoolCode,
     required this.classroomCode,
     this.initialFilters,
+    this.forGuardian = false,
   });
 
   static const String routeName = '/activity-filter';
@@ -26,6 +27,11 @@ class ActivityFilterScreen extends StatefulWidget {
   final String schoolCode;
   final String classroomCode;
   final Map<String, List<String>>? initialFilters;
+
+  /// Guardian (parent) variant: Activity Type is the only filter offered.
+  /// Student tags and the approval workflow are staff/admin concerns, and
+  /// activity types parents cannot see are dropped from the type options.
+  final bool forGuardian;
 
   @override
   State<ActivityFilterScreen> createState() => _ActivityFilterScreenState();
@@ -58,12 +64,22 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
   /// (mirrors the previous post-load pruning).
   void _pruneSelectionsToOptions(ActivityFilterState state) {
     setState(() {
-      _selectedTags.removeWhere((t) => !state.tagOptions.contains(t));
+      // Hidden sections carry their incoming selection through untouched —
+      // their options are never fetched, so pruning would silently drop them.
+      if (!widget.forGuardian) {
+        _selectedTags.removeWhere((t) => !state.tagOptions.contains(t));
+        _selectedStatuses
+            .removeWhere((s) => !_approvalStatusOptions.contains(s));
+      }
       _selectedActivityTypes
           .removeWhere((t) => !state.activityTypeOptions.contains(t));
-      _selectedStatuses.removeWhere((s) => !_approvalStatusOptions.contains(s));
     });
   }
+
+  /// Sections rendered, in order. The guardian persona gets Activity Type only.
+  List<String> get _sections => widget.forGuardian
+      ? const <String>['Activity Type']
+      : const <String>['Tags', 'Activity Type', 'Status'];
 
   void _apply() {
     Navigator.pop<Map<String, List<String>>>(context, {
@@ -77,7 +93,10 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
   Widget build(BuildContext context) {
     return BlocProvider<ActivityFilterCubit>(
       create: (_) => serviceLocator<ActivityFilterCubit>()
-        ..loadMetadata(schoolCode: widget.schoolCode),
+        ..loadMetadata(
+          schoolCode: widget.schoolCode,
+          forGuardian: widget.forGuardian,
+        ),
       child: BlocConsumer<ActivityFilterCubit, ActivityFilterState>(
         listenWhen: (prev, curr) =>
             curr.status == ActivityFilterStatus.loaded &&
@@ -120,37 +139,28 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
   }
 
   Widget _buildBody(BuildContext context, ActivityFilterState state) {
+    final sections = _sections;
     if (state.isLoading) {
-      return GridView.builder(
-        padding: EdgeInsets.zero,
-        itemCount: 3,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 1.6,
-        ),
-        itemBuilder: (context, index) {
-          final label = index == 0
-              ? 'Tags'
-              : (index == 1 ? 'Activity Type' : 'Status');
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
+      final placeholders = sections
+          .map(
+            (label) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: AppColors.primaryColor.withValues(alpha: 0.5),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              const ShimmerLoader(height: 40),
-            ],
-          );
-        },
-      );
+                const SizedBox(height: 8),
+                const ShimmerLoader(height: 40),
+              ],
+            ),
+          )
+          .toList();
+      return _buildSectionsLayout(placeholders);
     }
 
     if (state.status == ActivityFilterStatus.error) {
@@ -170,9 +180,11 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
               ),
               const SizedBox(height: 16),
               TextButton(
-                onPressed: () => context
-                    .read<ActivityFilterCubit>()
-                    .loadMetadata(schoolCode: widget.schoolCode),
+                onPressed: () =>
+                    context.read<ActivityFilterCubit>().loadMetadata(
+                      schoolCode: widget.schoolCode,
+                      forGuardian: widget.forGuardian,
+                    ),
                 child: const Text('Retry'),
               ),
             ],
@@ -181,43 +193,25 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
       );
     }
 
-    final tagOptions = state.tagOptions;
-    final activityTypeOptions = state.activityTypeOptions;
-    return GridView.builder(
-      padding: EdgeInsets.zero,
-      physics: const AlwaysScrollableScrollPhysics(),
-      itemCount: 3,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 1.6,
-      ),
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return CustomMultiSelectDropdown(
-            label: 'Tags',
-            hintText: 'Select tags',
-            items: tagOptions,
-            selectedItems: _selectedTags,
-            labelBottomSpacing: 4,
-            onChanged: (values) {
-              setState(() => _selectedTags = List<String>.from(values));
-            },
-          );
-        }
-        if (index == 1) {
-          return CustomMultiSelectDropdown(
-            label: 'Activity Type',
-            hintText: 'Select activity',
-            items: activityTypeOptions,
-            selectedItems: _selectedActivityTypes,
-            labelBottomSpacing: 4,
-            onChanged: (values) {
-              setState(() => _selectedActivityTypes = List<String>.from(values));
-            },
-          );
-        }
+    return _buildSectionsLayout(
+      sections.map((label) => _buildSection(label, state)).toList(),
+    );
+  }
+
+  Widget _buildSection(String label, ActivityFilterState state) {
+    switch (label) {
+      case 'Tags':
+        return CustomMultiSelectDropdown(
+          label: 'Tags',
+          hintText: 'Select tags',
+          items: state.tagOptions,
+          selectedItems: _selectedTags,
+          labelBottomSpacing: 4,
+          onChanged: (values) {
+            setState(() => _selectedTags = List<String>.from(values));
+          },
+        );
+      case 'Status':
         return CustomMultiSelectDropdown(
           label: 'Status',
           hintText: 'Select status',
@@ -228,7 +222,42 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
             setState(() => _selectedStatuses = List<String>.from(values));
           },
         );
-      },
+      default:
+        return CustomMultiSelectDropdown(
+          label: 'Activity Type',
+          hintText: 'Select activity',
+          items: state.activityTypeOptions,
+          selectedItems: _selectedActivityTypes,
+          labelBottomSpacing: 4,
+          onChanged: (values) {
+            setState(() => _selectedActivityTypes = List<String>.from(values));
+          },
+        );
+    }
+  }
+
+  /// Two-per-row grid for the staff/admin filter set; a single full-width
+  /// dropdown when only one filter is offered (guardian persona), where a
+  /// half-width grid cell would leave a lopsided gap.
+  Widget _buildSectionsLayout(List<Widget> tiles) {
+    if (tiles.length == 1) {
+      return ListView(
+        padding: EdgeInsets.zero,
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: tiles,
+      );
+    }
+    return GridView.builder(
+      padding: EdgeInsets.zero,
+      physics: const AlwaysScrollableScrollPhysics(),
+      itemCount: tiles.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 1.6,
+      ),
+      itemBuilder: (context, index) => tiles[index],
     );
   }
 }

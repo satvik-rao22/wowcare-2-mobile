@@ -31,15 +31,40 @@ class ActivityFilterCubit extends Cubit<ActivityFilterState> {
     if (!isClosed) emit(state);
   }
 
-  Future<void> loadMetadata({required String schoolCode}) async {
+  /// Activity types the guardian (parent) persona never receives in its feed.
+  /// Offering one as a filter option could only ever return an empty list, so
+  /// they are dropped from the guardian's options.
+  ///
+  /// Matched on the normalized display name because the activity-types API
+  /// exposes no per-persona visibility flag — the durable fix is for that API
+  /// to carry one (or for the guardian feed to serve its own type list), at
+  /// which point this list goes away.
+  static const List<String> _guardianHiddenTypeNameKeywords = <String>[
+    'observation',
+  ];
+
+  static bool _isHiddenFromGuardians(String typeName) {
+    final normalized = typeName.toLowerCase();
+    return _guardianHiddenTypeNameKeywords.any(normalized.contains);
+  }
+
+  /// [forGuardian] tailors the metadata to the parent persona: student tags are
+  /// an internal staff/admin concept (so that API is not called at all), and
+  /// activity types parents cannot see are dropped from the options.
+  Future<void> loadMetadata({
+    required String schoolCode,
+    bool forGuardian = false,
+  }) async {
     _safeEmit(const ActivityFilterState.loading());
     try {
       // Run tag map + activity types APIs concurrently (as before).
-      final tagMapFuture = ActivityFilterMetadataCache.loadTagNameCodeMap(
-        cacheManager: _cacheManager,
-        useCase: _tagMapUseCase,
-        schoolCode: schoolCode,
-      );
+      final tagMapFuture = forGuardian
+          ? Future<Map<String, String>>.value(const <String, String>{})
+          : ActivityFilterMetadataCache.loadTagNameCodeMap(
+              cacheManager: _cacheManager,
+              useCase: _tagMapUseCase,
+              schoolCode: schoolCode,
+            );
       final typesFuture =
           ActivityFilterMetadataCache.loadActiveActivityTypesForSchool(
         cacheManager: _cacheManager,
@@ -54,6 +79,7 @@ class ActivityFilterCubit extends Cubit<ActivityFilterState> {
       final typeNames = types
           .map((ActivityTypeSummary s) => s.name.trim())
           .where((n) => n.isNotEmpty)
+          .where((n) => !forGuardian || !_isHiddenFromGuardians(n))
           .toSet()
           .toList()
         ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));

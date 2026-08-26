@@ -35,6 +35,7 @@ import '../../../../domain/features/attendance/entities/student_attendance_absen
     hide StudentAttendanceTime;
 import '../utils/activity_parent_feed_merge.dart';
 import '../widgets/activity_feed_student_avatar.dart';
+import '../widgets/activity_filter_icon_button.dart';
 import 'activity_filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -1609,12 +1610,25 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       return;
     }
 
+    if (_parentHome) {
+      // The selection is applied as activityTypeCode, so the label -> code
+      // mapping has to be resolved before the user can pick anything.
+      await _loadActivityTypeSettingsForParentFilter(school);
+      if (!mounted) return;
+    }
+
     final classroomName = _selectdClassroom;
+    // Parents have no classroom dropdown — the feed is already scoped to the
+    // selected child's room, so fall back to that room's code.
     final classroomCode =
         (classroomName != null &&
             _classroomCodeByName.containsKey(classroomName))
         ? _classroomCodeByName[classroomName]!
-        : '';
+        : (_parentHome
+              ? _parentStudentClassroomByCode.values
+                    .map((c) => c.trim())
+                    .firstWhere((c) => c.isNotEmpty, orElse: () => '')
+              : '');
 
     final result = await Navigator.push<Map<String, List<String>>>(
       context,
@@ -1622,6 +1636,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         builder: (_) => ActivityFilterScreen(
           schoolCode: school,
           classroomCode: classroomCode,
+          forGuardian: _parentHome,
           initialFilters: {
             'Tags': List<String>.from(_filterTags),
             'Activity Type': List<String>.from(_filterActivityTypes),
@@ -2378,6 +2393,15 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         return;
       }
 
+      // A notification deep-link can arrive with an activity type already
+      // selected, so this must resolve before the first feed load.
+      if (_filterActivityTypes.isNotEmpty) {
+        await _loadActivityTypeSettingsForParentFilter(school);
+        if (!mounted) return;
+      } else {
+        unawaited(_loadActivityTypeSettingsForParentFilter(school));
+      }
+
       if (mounted) {
         setState(() {
           _loadingParentContext = false;
@@ -2395,6 +2419,32 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       });
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
     }
+  }
+
+  /// In-flight guard: the bootstrap kicks this off in the background while a
+  /// filter tap awaits it, and neither should fire the request twice.
+  Future<void>? _parentFilterSettingsRequest;
+
+  /// School-wide activity-type settings, the label -> activityTypeCode lookup
+  /// behind [_activityTypeCodeForLabel]. The staff path picks these up in
+  /// [_loadRangeFeed] (keyed off the classroom dropdown); parents have no
+  /// such dropdown, so load them here or their Activity Type filter resolves to
+  /// no codes and the feed comes back unfiltered.
+  Future<void> _loadActivityTypeSettingsForParentFilter(String schoolCode) {
+    if (_classroomActivitySettings.isNotEmpty) return Future<void>.value();
+    return _parentFilterSettingsRequest ??= () async {
+      try {
+        final settings = await _feedScope.loadActivityTypeSettingsForFilters(
+          schoolCode: schoolCode,
+        );
+        if (!mounted) return;
+        _classroomActivitySettings = settings;
+      } catch (_) {
+        // Non-blocking: the feed still loads, only the type filter is inert.
+      } finally {
+        _parentFilterSettingsRequest = null;
+      }
+    }();
   }
 
   Future<void> _deleteActivityFromSheet(
@@ -3021,67 +3071,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(100),
-                                      onTap: _openActivityFilter,
-                                      child: Stack(
-                                        clipBehavior: Clip.none,
-                                        children: [
-                                          Padding(
-                                            padding: const EdgeInsets.all(8),
-                                            child: SvgPicture.asset(
-                                              MediaRes.filterIcon,
-                                              height: 20,
-                                            ),
-                                          ),
-                                          Builder(
-                                            builder: (context) {
-                                              final badgeCount =
-                                                  _appliedFilterBadgeCount();
-                                              if (badgeCount == 0) {
-                                                return const SizedBox.shrink();
-                                              }
-                                              return Positioned(
-                                                right: 2,
-                                                top: 2,
-                                                child: Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 5,
-                                                        vertical: 2,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: const Color.fromRGBO(
-                                                      179,
-                                                      38,
-                                                      30,
-                                                      1,
-                                                    ),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          10,
-                                                        ),
-                                                  ),
-                                                  child: Text(
-                                                    badgeCount > 99
-                                                        ? '99+'
-                                                        : '$badgeCount',
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 10,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                                  ActivityFilterIconButton(
+                                    onTap: _openActivityFilter,
+                                    badgeCount: _appliedFilterBadgeCount(),
                                   ),
                                 ],
                               ),
@@ -3118,12 +3110,23 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                               ),
                             ],
                           )
-                        : SizedBox(
-                            height: 40,
-                            child: _datePickerFilter(
-                              selectedStartDate: _selectedStartDate,
-                              selectedEndDate: _selectedEndDate,
-                            ),
+                        : Row(
+                            children: [
+                              Expanded(
+                                child: SizedBox(
+                                  height: 40,
+                                  child: _datePickerFilter(
+                                    selectedStartDate: _selectedStartDate,
+                                    selectedEndDate: _selectedEndDate,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ActivityFilterIconButton(
+                                onTap: _openActivityFilter,
+                                badgeCount: _appliedFilterBadgeCount(),
+                              ),
+                            ],
                           ),
                   ),
                 ),
