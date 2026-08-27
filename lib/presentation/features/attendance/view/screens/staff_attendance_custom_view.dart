@@ -13,6 +13,8 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -367,7 +369,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.xs),
                       // Filters Section
                       CustomSectionCard(
                         child: Column(
@@ -402,8 +404,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                                           if (isLoading && items.isEmpty) {
                                             return ShimmerLoader(
                                               height: 40,
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
+                                              borderRadius: AppRadius.allMd,
                                             );
                                           }
 
@@ -502,7 +503,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                               margin: EdgeInsets.only(
                                 bottom: responsive.verticalSpacing / 2,
                               ),
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: AppRadius.allLg,
                             ),
                             ...List.generate(
                               6,
@@ -511,7 +512,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                                 margin: EdgeInsets.only(
                                   bottom: responsive.verticalSpacing / 2,
                                 ),
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: AppRadius.allLg,
                               ),
                             ),
                           ],
@@ -519,7 +520,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                       else if (filtered.isEmpty)
                         Center(
                           child: Padding(
-                            padding: const EdgeInsets.all(32.0),
+                            padding: const EdgeInsets.all(AppSpacing.xxl),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -528,7 +529,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                                   size: 48,
                                   color: Colors.grey[400],
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: AppSpacing.md),
                                 AppText.body(
                                   'No staff attendance found',
                                   style: TextStyle(color: Colors.grey[600]),
@@ -645,7 +646,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSpacing.xs),
                       Flexible(
                         child: Text(
                           roomName,

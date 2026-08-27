@@ -26,6 +26,8 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -664,7 +666,7 @@ class _StaffAttendanceDailyViewScreenState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const SizedBox(height: 8),
+                              const SizedBox(height: AppSpacing.xs),
                               // Summary Cards — expected stats from attendance API; staff totals from GetStaffCountUseCase
                               StaffAttendanceSummary(
                                 totalStaff: totalStaff,
@@ -812,10 +814,10 @@ class _StaffAttendanceDailyViewScreenState
     required bool hasActiveFilters,
   }) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.allMd,
         color: AppColors.cardColor,
       ),
       child: Column(
@@ -828,17 +830,17 @@ class _StaffAttendanceDailyViewScreenState
                   hintText: 'Search Staff',
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.xs),
               Material(
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: _navigateToFilterScreen,
-                  borderRadius: BorderRadius.circular(100),
+                  borderRadius: AppRadius.allPill,
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(AppSpacing.xs),
                         child: SvgPicture.asset(
                           MediaRes.filterIcon,
                           height: 20,
@@ -881,7 +883,7 @@ class _StaffAttendanceDailyViewScreenState
                   },
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.xs),
               CustomClearAllChip(
                 onTap: hasActiveFilters ? _clearAllFiltersAndSearch : null,
               ),
@@ -1062,12 +1064,12 @@ class _StaffAttendanceDailyViewScreenState
     if (filtered.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.people_outline, size: 48, color: Colors.grey[400]),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
               AppText.body(
                 'No staff attendance records found for the selected date',
                 style: TextStyle(color: Colors.grey[600]),
@@ -1342,7 +1344,7 @@ class _StaffAttendanceDailyViewScreenState
     if (absentState.items.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -1351,7 +1353,7 @@ class _StaffAttendanceDailyViewScreenState
                 size: 48,
                 color: Colors.grey[400],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
               AppText.body(
                 'No absent staff found for the selected date',
                 style: TextStyle(color: Colors.grey[600]),

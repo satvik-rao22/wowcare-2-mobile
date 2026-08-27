@@ -18,6 +18,8 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -758,7 +760,7 @@ class _StudentAttendanceAbsentViewState
               SizedBox(height: responsive.verticalSpacing / 4),
               // Filter section
               CustomSectionCard(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(AppSpacing.sm),
                 child: Column(
                   children: [
                     // Row 1: Full-width Search Bar
@@ -772,7 +774,7 @@ class _StudentAttendanceAbsentViewState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.sm),
                     // Row 2: Date Range (70%) + Clear All (30%)
                     Row(
                       children: [
@@ -825,7 +827,7 @@ class _StudentAttendanceAbsentViewState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.sm),
                     // Row 3: Classroom (50%) + Tags (50%)
                     Row(
                       children: [
@@ -1039,14 +1041,14 @@ class _StudentAttendanceAbsentViewState
                             fontFamily: 'Manrope',
                             fontSize: responsive.isTablet ? 16 : 14,
                             fontWeight: FontWeight.w500,
-                            color: const Color(0xff573353),
+                            color: AppColors.primaryColor,
                             height: 19 / 14,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSpacing.xs),
                       Flexible(
                         child: Text(
                           student.roomName,
@@ -1054,7 +1056,7 @@ class _StudentAttendanceAbsentViewState
                             fontFamily: 'Manrope',
                             fontSize: responsive.isTablet ? 16 : 14,
                             fontWeight: FontWeight.w500,
-                            color: const Color(0xff573353),
+                            color: AppColors.primaryColor,
                             height: 19 / 14,
                           ),
                           maxLines: 1,
@@ -1098,7 +1100,7 @@ class _StudentAttendanceAbsentViewState
               ),
               SizedBox(height: responsive.verticalSpacing / 2),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
                 child: SizedBox(
                   width: double.infinity,
                   child: _loadingButtons[student.studentId] == true
@@ -1108,7 +1110,7 @@ class _StudentAttendanceAbsentViewState
                             color: AppColors.cardBorderColor.withValues(
                               alpha: 0.1,
                             ),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: AppRadius.allSm,
                             border: Border.all(
                               color: AppColors.cardBorderColor,
                               width: 1,
@@ -1116,8 +1118,8 @@ class _StudentAttendanceAbsentViewState
                           ),
                           child: const Center(
                             child: SizedBox(
-                              width: 20,
-                              height: 20,
+                              width: AppSpacing.lg,
+                              height: AppSpacing.lg,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation<Color>(
@@ -1175,7 +1177,7 @@ class _StudentAttendanceAbsentViewState
               fontFamily: 'Manrope',
               fontSize: 13,
               fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 16 / 13,
             ),
           ),
@@ -1189,7 +1191,7 @@ class _StudentAttendanceAbsentViewState
               fontFamily: 'Manrope',
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 19 / 14,
             ),
             textAlign: TextAlign.end,

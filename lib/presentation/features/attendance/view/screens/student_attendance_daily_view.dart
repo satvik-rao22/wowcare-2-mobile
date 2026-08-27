@@ -11,6 +11,8 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -1511,10 +1513,10 @@ class _StudentAttendanceDailyViewScreenState
         _searchController.text.trim().isNotEmpty;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.allMd,
         color: AppColors.cardColor,
       ),
       child: Column(
@@ -1527,17 +1529,17 @@ class _StudentAttendanceDailyViewScreenState
                   hintText: 'Search Students',
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.xs),
               Material(
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: _navigateToFilterScreen,
-                  borderRadius: BorderRadius.circular(100),
+                  borderRadius: AppRadius.allPill,
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(AppSpacing.xs),
                         child: SvgPicture.asset(
                           MediaRes.filterIcon,
                           height: 20,
@@ -1562,7 +1564,7 @@ class _StudentAttendanceDailyViewScreenState
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
               Expanded(
@@ -1581,7 +1583,7 @@ class _StudentAttendanceDailyViewScreenState
                   },
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.xs),
               CustomClearAllChip(
                 onTap: hasActiveFilters
                     ? () {
@@ -1603,7 +1605,7 @@ class _StudentAttendanceDailyViewScreenState
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           Align(
             alignment: Alignment.centerRight,
             child: CustomToggle(

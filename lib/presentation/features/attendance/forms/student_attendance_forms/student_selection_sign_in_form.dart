@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -299,12 +301,12 @@ class _StudentSelectionSignInFormState
                       ? 'Select your children'
                       : 'Select Students',
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(AppRadius.r15),
                     border: Border.all(color: Colors.grey),
                   ),
                   child: TextField(
@@ -322,7 +324,7 @@ class _StudentSelectionSignInFormState
                     onChanged: (_) => _loadStudents(),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm),
                 if (!_restrictToGuardianChildren) ...[
                   Row(
                     children: [
@@ -340,7 +342,7 @@ class _StudentSelectionSignInFormState
                           },
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: CustomMultiSelectDropdown(
                           hintText: 'Tags',
@@ -356,12 +358,12 @@ class _StudentSelectionSignInFormState
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.sm),
                 ],
                 Row(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
                       child: CustomCheckbox(
                         value: isSelectAllChecked,
                         onChanged: (value) => _toggleSelectAll(value, students),
@@ -371,7 +373,7 @@ class _StudentSelectionSignInFormState
                     const AppText.body('Select All'),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm),
               ],
               Expanded(
                 child: state.isLoadingStudents
@@ -386,7 +388,7 @@ class _StudentSelectionSignInFormState
                               style: const TextStyle(color: Colors.red),
                               textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: AppSpacing.xs),
                             TextButton(
                               onPressed: _loadStudents,
                               child: const AppText.body('Retry'),
@@ -465,13 +467,13 @@ class StudentListItem extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           border: Border.all(color: AppColors.themeColor),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppRadius.allSm,
           color: isSelected
               ? const Color.fromARGB(255, 249, 245, 250)
               : Colors.white,
         ),
         child: Padding(
-          padding: const EdgeInsets.only(right: 4),
+          padding: const EdgeInsets.only(right: AppSpacing.xxs),
           child: Row(
             children: [
               Padding(
@@ -490,7 +492,7 @@ class StudentListItem extends StatelessWidget {
                 size: 32,
                 fontSize: 14,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.xs),
               Expanded(
                 child: EllipsisTooltipText(
                   text: student.fullName,

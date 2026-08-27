@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -320,7 +322,7 @@ class _StudentAttendanceCustomViewState
                         SizedBox(height: responsive.verticalSpacing / 4),
                         if (!widget.contentOnly) ...[
                           _buildHeaderTabsRow(),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: AppSpacing.s10),
                           _buildTabIndicator(selectedTab: 1),
                           SizedBox(height: responsive.verticalSpacing),
                         ],
@@ -474,9 +476,9 @@ class _StudentAttendanceCustomViewState
               scrollDirection: Axis.horizontal,
               children: [
                 _buildTabButton('Daily', 0, selectedTab, onTabTap),
-                const SizedBox(width: 16),
+                const SizedBox(width: AppSpacing.md),
                 _buildTabButton('Custom', 1, selectedTab, onTabTap),
-                const SizedBox(width: 16),
+                const SizedBox(width: AppSpacing.md),
                 _buildTabButton('Absent', 2, selectedTab, onTabTap),
               ],
             ),
@@ -492,7 +494,7 @@ class _StudentAttendanceCustomViewState
 
   Widget _buildTabIndicator({required int selectedTab}) {
     return SizedBox(
-      height: 2,
+      height: AppSpacing.s2,
       child: Stack(
         children: [
           Positioned(
@@ -513,7 +515,7 @@ class _StudentAttendanceCustomViewState
     final spacing = responsive.horizontalSpacing / 2;
 
     return CustomSectionCard(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       child: Column(
         children: [
           Row(
@@ -536,7 +538,7 @@ class _StudentAttendanceCustomViewState
                     if (isLoading && items.isEmpty) {
                       return ShimmerLoader(
                         height: 40,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: AppRadius.allMd,
                       );
                     }
                     return CustomMultiSelectDropdown(
@@ -640,7 +642,7 @@ class _StudentAttendanceCustomViewState
   Widget _buildErrorWidget(String message) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           children: [
             const Icon(
@@ -648,19 +650,19 @@ class _StudentAttendanceCustomViewState
               color: AppColors.errorColor,
               size: 48,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             AppText.title(
               'Error loading attendance data',
               style: TextStyle(color: AppColors.errorColor, fontSize: 18),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
             AppText.body(
               message.isNotEmpty ? message : 'Please try again.',
               style: TextStyle(color: AppColors.secondaryColor),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             ElevatedButton.icon(
               onPressed: () => _loadAttendanceData(reset: true),
               icon: const Icon(Icons.refresh),
@@ -672,8 +674,8 @@ class _StudentAttendanceCustomViewState
                 backgroundColor: AppColors.themeColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
+                  horizontal: AppSpacing.xl,
+                  vertical: AppSpacing.sm,
                 ),
               ),
             ),
@@ -686,7 +688,7 @@ class _StudentAttendanceCustomViewState
   Widget _buildEmptyWidget() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           children: [
             const Icon(
@@ -694,13 +696,13 @@ class _StudentAttendanceCustomViewState
               color: AppColors.secondaryColor,
               size: 48,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             AppText.title(
               'No attendance data found',
               style: TextStyle(color: AppColors.secondaryColor, fontSize: 18),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
             AppText.body(
               'Try adjusting your search criteria or date range',
               style: TextStyle(color: AppColors.secondaryColor),
@@ -751,7 +753,7 @@ class _StudentAttendanceCustomViewState
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSpacing.xs),
         Flexible(
           child: Text(
             value,
@@ -801,10 +803,10 @@ class _StudentAttendanceCustomViewState
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.s10),
         decoration: BoxDecoration(
           color: AppColors.cardColor,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: AppRadius.allLg,
           border: Border.all(color: AppColors.cardBorderColor),
           boxShadow: [
             BoxShadow(
@@ -834,7 +836,7 @@ class _StudentAttendanceCustomViewState
                     ),
                   ],
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: AppSpacing.s14),
                 // Header matches staff_card.dart: name (left) + classroom (right).
                 Expanded(
                   child: Row(
@@ -854,7 +856,7 @@ class _StudentAttendanceCustomViewState
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSpacing.xs),
                       Flexible(
                         child: Text(
                           roomName,
@@ -878,13 +880,13 @@ class _StudentAttendanceCustomViewState
             if (isExpanded) ...[
               SizedBox(height: responsive.verticalSpacing / 2),
               Divider(height: 1, color: AppColors.cardBorderColor),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpacing.s10),
               _buildCustomDetailRow('Attended Days', daysAttended),
-              const SizedBox(height: 6),
+              const SizedBox(height: AppSpacing.s6),
               _buildCustomDetailRow('Attended Time', totalHours),
               SizedBox(height: responsive.verticalSpacing / 1.2),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
                 child: SizedBox(
                   width: double.infinity,
                   child: _loadingButtons[attendance.id] == true
@@ -894,7 +896,7 @@ class _StudentAttendanceCustomViewState
                             color: AppColors.cardBorderColor.withValues(
                               alpha: 0.1,
                             ),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: AppRadius.allSm,
                             border: Border.all(
                               color: AppColors.cardBorderColor,
                               width: 1,
@@ -902,8 +904,8 @@ class _StudentAttendanceCustomViewState
                           ),
                           child: const Center(
                             child: SizedBox(
-                              width: 20,
-                              height: 20,
+                              width: AppSpacing.lg,
+                              height: AppSpacing.lg,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation<Color>(

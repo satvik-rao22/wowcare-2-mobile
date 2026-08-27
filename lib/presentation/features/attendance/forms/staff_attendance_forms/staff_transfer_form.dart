@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -591,7 +593,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                         onRemove: () => _removeStaff(_selectedStaff[index]),
                       ),
                     ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: AppSpacing.lg),
                   // Date + Time (50/50 split) - match StudentTransferForm alignment
                   Row(
                     children: [
@@ -600,7 +602,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const AppText.label('Date'),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: AppSpacing.xs),
                             CustomDateTimeField(
                               hasLabel: false,
                               isRangePicker: false,
@@ -634,13 +636,13 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 20),
+                      const SizedBox(width: AppSpacing.lg),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const AppText.label('Time'),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: AppSpacing.xs),
                             IgnorePointer(
                               ignoring: _isStaffAdminPersona != true || _isSelfTarget,
                               child: GradientTimePickerField(
@@ -657,7 +659,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: AppSpacing.lg),
                   // Current classroom + Transfer to classroom (50/50 split) - match StudentTransferForm alignment
                   Row(
                     children: [
@@ -666,15 +668,15 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const AppText.label('Current Classroom'),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: AppSpacing.xs),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 14,
+                                horizontal: AppSpacing.xs,
+                                vertical: AppSpacing.s14,
                               ),
                               decoration: BoxDecoration(
                                 border: Border.all(color: Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: AppRadius.allSm,
                                 color: const Color.fromRGBO(177, 175, 233, 0.1),
                               ),
                               child: AppText.value(
@@ -689,13 +691,13 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 20),
+                      const SizedBox(width: AppSpacing.lg),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const AppText.label('Transfer to Classroom'),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: AppSpacing.xs),
                             CustomDropdown(
                               hintText: _hasTransferTargets
                                   ? 'Select classroom'
@@ -747,10 +749,10 @@ class RemoveStaffTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: AppSpacing.xs),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.themeColor),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppRadius.r10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
       child: Row(
@@ -765,7 +767,7 @@ class RemoveStaffTile extends StatelessWidget {
                   size: 30,
                   fontSize: 12,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: AppSpacing.s6),
                 Flexible(
                   child: Text(
                     staff.name,

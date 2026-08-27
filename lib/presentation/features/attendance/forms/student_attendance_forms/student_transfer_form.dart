@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -524,7 +526,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       return const Scaffold(
         body: Center(
           child: Padding(
-            padding: EdgeInsets.all(24.0),
+            padding: EdgeInsets.all(AppSpacing.xl),
             child: Text(
               'Access Denied: You must be inside geofence and signed in to manage student attendance.',
               textAlign: TextAlign.center,
@@ -561,7 +563,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                 onRemove: () => _removeStudent(currentStudents[index]),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.lg),
             // Date + Time (50/50 split) - align with StaffTransferForm
             Row(
               children: [
@@ -570,7 +572,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const AppText.label('Date'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.xs),
                       CustomDateTimeField(
                         hasLabel: false,
                         isRangePicker: false,
@@ -604,13 +606,13 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 20),
+                const SizedBox(width: AppSpacing.lg),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const AppText.label('Time'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.xs),
                       IgnorePointer(
                         ignoring: !(_isStaffPersona ?? false),
                         child: GradientTimePickerField(
@@ -627,7 +629,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.lg),
             // Below: Current classroom and Transfer to classroom
             Row(
               children: [
@@ -636,18 +638,18 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const AppText.label('Current Classroom'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.xs),
                       Row(
                         children: [
                           Expanded(
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 14,
+                                horizontal: AppSpacing.xs,
+                                vertical: AppSpacing.s14,
                               ),
                               decoration: BoxDecoration(
                                 border: Border.all(color: Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: AppRadius.allSm,
                                 color: const Color.fromRGBO(177, 175, 233, 0.1),
                               ),
                               child: AppText.value(
@@ -665,21 +667,21 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 20),
+                const SizedBox(width: AppSpacing.lg),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const AppText.label('Transfer to Classroom'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.xs),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 0,
+                          horizontal: AppSpacing.xs,
+                          vertical: AppSpacing.none,
                         ),
                         decoration: BoxDecoration(
                           border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: AppRadius.allSm,
                           color: const Color.fromRGBO(177, 175, 233, 0.1),
                         ),
                         child: DropdownButton<String>(
@@ -744,10 +746,11 @@ class RemoveStudentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xs, vertical: AppSpacing.xs),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.themeColor),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppRadius.r10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
       child: Row(
@@ -762,7 +765,7 @@ class RemoveStudentTile extends StatelessWidget {
                   size: 30,
                   fontSize: 12,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: AppSpacing.s6),
                 Flexible(
                   child: Text(
                     student.fullName,
