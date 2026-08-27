@@ -14,6 +14,8 @@ import '../entities/student_attendance_absent_form.dart';
 import '../entities/student_attendance_expected_summary.dart';
 import '../entities/student_attendance_profile_response.dart';
 import '../entities/staff_attendance_profile_response.dart';
+import '../entities/student_attendance_profile_absent_toggle_response.dart';
+import '../entities/staff_attendance_profile_absent_toggle_response.dart';
 import '../entities/qr_validation_result.dart';
 
 abstract class AttendanceRepository {
@@ -416,7 +418,8 @@ abstract class AttendanceRepository {
   });
 
   /// GET student attendance profile absent-toggle list.
-  Future<Map<String, dynamic>?> fetchStudentAttendanceProfileAbsentToggle({
+  Future<StudentAttendanceProfileAbsentToggleResponse?>
+  fetchStudentAttendanceProfileAbsentToggle({
     required Map<String, dynamic> queryParameters,
   });
 
@@ -426,7 +429,8 @@ abstract class AttendanceRepository {
   });
 
   /// GET staff attendance profile absent-toggle list.
-  Future<Map<String, dynamic>?> fetchStaffAttendanceProfileAbsentToggle({
+  Future<StaffAttendanceProfileAbsentToggleResponse?>
+  fetchStaffAttendanceProfileAbsentToggle({
     required Map<String, dynamic> queryParameters,
   });
 

@@ -359,7 +359,7 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
         return;
       }
 
-      final parsed = StaffAttendanceAbsentPageModel.fromJson(raw);
+      final parsed = raw.absentPage;
 
       final merged = append
           ? [...state.absentRecords, ...parsed.items]

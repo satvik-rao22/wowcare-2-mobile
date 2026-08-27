@@ -17,6 +17,8 @@ import '../../../../domain/features/attendance/entities/student_attendance_custo
 import '../../../../domain/features/attendance/entities/student_attendance_expected_summary.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_profile_response.dart';
 import '../../../../domain/features/attendance/entities/staff_attendance_profile_response.dart';
+import '../../../../domain/features/attendance/entities/student_attendance_profile_absent_toggle_response.dart';
+import '../../../../domain/features/attendance/entities/staff_attendance_profile_absent_toggle_response.dart';
 import '../../../../domain/features/attendance/entities/staff_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/staff_attendance_absent.dart'
     as staff_absent;
@@ -1674,12 +1676,18 @@ class AttendanceRepositoryImpl
   }
 
   @override
-  Future<Map<String, dynamic>?> fetchStudentAttendanceProfileAbsentToggle({
+  Future<StudentAttendanceProfileAbsentToggleResponse?>
+  fetchStudentAttendanceProfileAbsentToggle({
     required Map<String, dynamic> queryParameters,
-  }) =>
-      _remoteDataSource.getStudentAttendanceProfileAbsentToggleRaw(
-        queryParameters: queryParameters,
-      );
+  }) async {
+    final raw = await _remoteDataSource
+        .getStudentAttendanceProfileAbsentToggleRaw(
+          queryParameters: queryParameters,
+        );
+    return raw == null
+        ? null
+        : StudentAttendanceProfileAbsentToggleResponse.fromJson(raw);
+  }
 
   @override
   Future<StaffAttendanceProfileResponse?> fetchStaffAttendanceProfile({
@@ -1692,12 +1700,17 @@ class AttendanceRepositoryImpl
   }
 
   @override
-  Future<Map<String, dynamic>?> fetchStaffAttendanceProfileAbsentToggle({
+  Future<StaffAttendanceProfileAbsentToggleResponse?>
+  fetchStaffAttendanceProfileAbsentToggle({
     required Map<String, dynamic> queryParameters,
-  }) =>
-      _remoteDataSource.getStaffAttendanceProfileAbsentToggleRaw(
-        queryParameters: queryParameters,
-      );
+  }) async {
+    final raw = await _remoteDataSource.getStaffAttendanceProfileAbsentToggleRaw(
+      queryParameters: queryParameters,
+    );
+    return raw == null
+        ? null
+        : StaffAttendanceProfileAbsentToggleResponse.fromJson(raw);
+  }
 
   @override
   Future<Map<String, dynamic>?> fetchStudentAttendanceAbsentView({

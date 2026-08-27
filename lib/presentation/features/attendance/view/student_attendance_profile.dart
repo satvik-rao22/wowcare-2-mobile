@@ -884,19 +884,13 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             queryParameters: absentQueryParameters,
           );
 
-      if (absentData is Map<String, dynamic>) {
-        final root = absentData['data'] as Map<String, dynamic>? ?? {};
-        final agg = root['aggregations'] as Map<String, dynamic>? ?? {};
-        final records = root['records'] as Map<String, dynamic>? ?? {};
-        final content = records['content'] as List<dynamic>? ?? const [];
-
-        final absentDaysCount = agg['absentDays'] as int? ?? 0;
+      if (absentData != null) {
+        final absentDaysCount = absentData.absentDays;
 
         final List<_AbsentDayModel> loadedAbsentDays = [];
 
-        for (final e in content) {
-          final m = e as Map<String, dynamic>;
-          final dateStr = m['absenceDate'] as String? ?? '';
+        for (final record in absentData.records) {
+          final dateStr = record.absenceDate;
           final date = dateStr.isNotEmpty
               ? DateTime.tryParse(dateStr) ?? ServerTimeService.instance.now()
               : ServerTimeService.instance.now();
@@ -905,17 +899,18 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             _AbsentDayModel(
               startDate: date,
               endDate: date,
-              absentTime: _formatApiTime(m['markedAbsentTime']),
-              absentBy: (m['markedAbsentByName'] ?? m['markedAbsentBy'] ?? '')
-                  .toString(),
-              note: m['absenceNote'] as String? ?? '',
+              absentTime: _formatApiTime(record.markedAbsentTime),
+              absentBy:
+                  (record.markedAbsentByName ?? record.markedAbsentBy ?? '')
+                      .toString(),
+              note: record.absenceNote,
               markAbsentMethod: _mapAbsentMethodStringToEnum(
-                m['markAbsentMethod'] as String?,
+                record.markAbsentMethod,
               ),
               classroomName: _resolveClassroomNameByCode(
-                m['classroomCode'] as String?,
+                record.classroomCode,
                 codeToNameMap,
-                (m['classroomName'] as String?)?.trim() ?? '',
+                record.classroomName?.trim() ?? '',
                 // render-time fallback uses student?.roomName
               ),
             ),
