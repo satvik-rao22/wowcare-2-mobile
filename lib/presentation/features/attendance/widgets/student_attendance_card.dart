@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 
 class StudentAttendanceCard extends StatefulWidget {
   const StudentAttendanceCard({
@@ -44,7 +46,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
             height: isExpanded ? null : 64.0,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: AppRadius.allMd,
               border: Border.all(
                 color: AppColors.cardBorderColor,
                 width: 1,
@@ -64,7 +66,9 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                     // Header with date and attended time (always visible)
                     Container(
                       height: 60,
-                      padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isTablet ? AppSpacing.xl : AppSpacing.md,
+                      ),
                       alignment: Alignment.center,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -75,7 +79,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                               fontFamily: 'Manrope',
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              color: Color(0xff573353),
+                              color: AppColors.primaryColor,
                               height: 19 / 14,
                             ),
                           ),
@@ -85,7 +89,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                               fontFamily: 'Manrope',
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              color: Color(0xff573353),
+                              color: AppColors.primaryColor,
                               height: 19 / 14,
                             ),
                           ),
@@ -99,26 +103,26 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                       const Divider(
                         height: 1,
                         thickness: 1,
-                        indent: 16,
-                        endIndent: 16,
+                        indent: AppSpacing.md,
+                        endIndent: AppSpacing.md,
                         color: Color(0xFFE9ECEF),
                       ),
-                      
+
                       // Details section
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                        padding: const EdgeInsets.all(AppSpacing.md),
                         child: Column(
                           children: [
                             _buildDetailRow('Classroom', widget.roomName),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: AppSpacing.sm),
                             _buildDetailRow('Sign In', _formatTime(widget.signIn)),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: AppSpacing.sm),
                             _buildDetailRow('Sign In By', _firstName(widget.signInBy)),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: AppSpacing.sm),
                             _buildDetailRow('Sign Out', _formatTime(widget.signOut)),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: AppSpacing.sm),
                             _buildDetailRow('Sign Out By', _firstName(widget.signOutBy)),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: AppSpacing.md),
                             
                             // Action buttons
                             Row(
@@ -131,7 +135,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                                       style: OutlinedButton.styleFrom(
                                         side: const BorderSide(color: Color(0xFF6C7FD8)),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: AppRadius.allSm,
                                         ),
                                         padding: EdgeInsets.zero,
                                       ),
@@ -148,12 +152,12 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 16),
+                                const SizedBox(width: AppSpacing.md),
                                 Expanded(
                                   child: Container(
                                     height: 40,
                                     decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius: AppRadius.allSm,
                                       gradient: AppColors.buildPrimaryGradient(),
                                     ),
                                     child: TextButton(
@@ -201,7 +205,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
             fontFamily: 'Manrope',
             fontSize: 13,
             fontWeight: FontWeight.w400,
-            color: Color(0xff573353),
+            color: AppColors.primaryColor,
             height: 16 / 13,
           ),
         ),
@@ -211,7 +215,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
             fontFamily: 'Manrope',
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: Color(0xff573353),
+            color: AppColors.primaryColor,
             height: 19 / 14,
           ),
         ),
