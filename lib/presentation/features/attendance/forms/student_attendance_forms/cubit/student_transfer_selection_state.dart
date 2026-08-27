@@ -14,6 +14,9 @@ class StudentTransferSelectionState extends Equatable {
     this.tagCodeByName = const <String, String>{},
     this.students = const <StudentAttendanceCustomItem>[],
     this.defaultClassroomName,
+    this.selectedStudents = const <StudentEntity>{},
+    this.selectedClassroomNames = const <String>[],
+    this.selectedTagNames = const <String>[],
   });
 
   final bool isLoadingFilters;
@@ -35,6 +38,13 @@ class StudentTransferSelectionState extends Equatable {
   /// as the initial classroom filter.
   final String? defaultClassroomName;
 
+  /// User-picked selection state (moved out of the View so it survives
+  /// rebuilds and is unit-testable). [selectedStudents] uses
+  /// [StudentEntity] value-equality (by studentCode).
+  final Set<StudentEntity> selectedStudents;
+  final List<String> selectedClassroomNames;
+  final List<String> selectedTagNames;
+
   StudentTransferSelectionState copyWith({
     bool? isLoadingFilters,
     bool? filtersReady,
@@ -50,6 +60,9 @@ class StudentTransferSelectionState extends Equatable {
     Map<String, String>? tagCodeByName,
     List<StudentAttendanceCustomItem>? students,
     String? defaultClassroomName,
+    Set<StudentEntity>? selectedStudents,
+    List<String>? selectedClassroomNames,
+    List<String>? selectedTagNames,
   }) {
     return StudentTransferSelectionState(
       isLoadingFilters: isLoadingFilters ?? this.isLoadingFilters,
@@ -68,6 +81,15 @@ class StudentTransferSelectionState extends Equatable {
       tagCodeByName: tagCodeByName ?? this.tagCodeByName,
       students: students ?? this.students,
       defaultClassroomName: defaultClassroomName ?? this.defaultClassroomName,
+      selectedStudents: selectedStudents != null
+          ? Set<StudentEntity>.from(selectedStudents)
+          : this.selectedStudents,
+      selectedClassroomNames: selectedClassroomNames != null
+          ? List<String>.from(selectedClassroomNames)
+          : this.selectedClassroomNames,
+      selectedTagNames: selectedTagNames != null
+          ? List<String>.from(selectedTagNames)
+          : this.selectedTagNames,
     );
   }
 
@@ -85,5 +107,8 @@ class StudentTransferSelectionState extends Equatable {
     tagCodeByName,
     students,
     defaultClassroomName,
+    selectedStudents,
+    selectedClassroomNames,
+    selectedTagNames,
   ];
 }

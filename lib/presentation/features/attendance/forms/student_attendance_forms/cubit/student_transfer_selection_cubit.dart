@@ -9,6 +9,7 @@ import 'package:wowcare/domain/features/attendance/entities/student_attendance_c
 import 'package:wowcare/domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_transfer_form.dart';
 
 part 'student_transfer_selection_state.dart';
 
@@ -279,11 +280,22 @@ class StudentTransferSelectionCubit
         items = items.where((i) => i.tagCodes.any(allowed.contains)).toList();
       }
 
+      // Prune any previously-selected students that are no longer present in
+      // the freshly-fetched list. This replicates the View's old build-time
+      // `selectedStudents.removeWhere(...)` (moved here so the pruning happens
+      // when the underlying list changes, instead of as a side-effect during
+      // build). Matching is by studentCode, exactly as before.
+      final presentCodes = items.map((i) => i.studentCode).toSet();
+      final prunedSelection = state.selectedStudents
+          .where((s) => presentCodes.contains(s.studentCode))
+          .toSet();
+
       _safeEmit(
         state.copyWith(
           students: items,
           isLoadingStudents: false,
           clearStudentsError: true,
+          selectedStudents: prunedSelection,
         ),
       );
     } catch (error) {
@@ -294,5 +306,57 @@ class StudentTransferSelectionCubit
         ),
       );
     }
+  }
+
+  // --- Selection state (moved out of the View) --------------------------------
+
+  /// Seed the classroom filter with the staff persona's default classroom.
+  /// Replaces the View's initial `_selectedClassrooms = [name]`.
+  void seedDefaultClassroom(String classroomName) {
+    _safeEmit(state.copyWith(selectedClassroomNames: [classroomName]));
+  }
+
+  /// Replace the selected classroom-name filter (multi-select dropdown).
+  void setSelectedClassrooms(List<String> names) {
+    _safeEmit(state.copyWith(selectedClassroomNames: names));
+  }
+
+  /// Replace the selected tag-name filter (multi-select dropdown).
+  void setSelectedTags(List<String> names) {
+    _safeEmit(state.copyWith(selectedTagNames: names));
+  }
+
+  /// Toggle a single student's membership in the selection. Adds when absent,
+  /// removes when present — equivalent to the View's per-student add/remove,
+  /// since the tile always passes `value == !isSelected`.
+  void toggleStudent(StudentEntity student) {
+    final next = Set<StudentEntity>.from(state.selectedStudents);
+    if (next.contains(student)) {
+      next.remove(student);
+    } else {
+      next.add(student);
+    }
+    _safeEmit(state.copyWith(selectedStudents: next));
+  }
+
+  /// Add (or remove) a batch of students in one emit — used by the
+  /// "Select All" checkbox over the currently-visible list.
+  void setStudentsSelected(Iterable<StudentEntity> students, bool selected) {
+    final next = Set<StudentEntity>.from(state.selectedStudents);
+    if (selected) {
+      next.addAll(students);
+    } else {
+      next.removeAll(students);
+    }
+    _safeEmit(state.copyWith(selectedStudents: next));
+  }
+
+  /// Prune the selection, removing every student for which `test` returns
+  /// true (same semantics as `Set.removeWhere`). Mirrors the View's old
+  /// build-time `selectedStudents.removeWhere(...)`; the load-time pruning is
+  /// done inline in [loadStudents].
+  void removeStudentsWhere(bool Function(StudentEntity) test) {
+    final next = state.selectedStudents.where((s) => !test(s)).toSet();
+    _safeEmit(state.copyWith(selectedStudents: next));
   }
 }

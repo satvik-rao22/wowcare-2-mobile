@@ -31,10 +31,12 @@ class StudentSelectionTransferForm extends StatefulWidget {
 
 class _StudentSelectionTransferFormState
     extends State<StudentSelectionTransferForm> {
+  // Selection business state (classrooms/tags/students) now lives in
+  // [StudentTransferSelectionCubit]'s state. `isSelectAllChecked` is a purely
+  // visual checkbox flag kept in the View (its value is deliberately NOT
+  // re-derived from the selection when filters change — preserving the
+  // original behaviour).
   bool isSelectAllChecked = false;
-  List<String> _selectedClassrooms = [];
-  List<String> _selectedTag = [];
-  Set<StudentEntity> selectedStudents = {};
   final TextEditingController _searchController = TextEditingController();
 
   late final StudentTransferSelectionCubit _cubit;
@@ -52,7 +54,7 @@ class _StudentSelectionTransferFormState
     // Staff persona: pre-select their primary classroom, if resolvable.
     final defaultClassroom = _cubit.state.defaultClassroomName;
     if (defaultClassroom != null) {
-      _selectedClassrooms = [defaultClassroom];
+      _cubit.seedDefaultClassroom(defaultClassroom);
     }
     await _loadStudents();
   }
@@ -81,8 +83,8 @@ class _StudentSelectionTransferFormState
     await _cubit.loadStudents(
       fromAttendanceDate: dateString,
       toAttendanceDate: dateString,
-      selectedClassroomNames: _selectedClassrooms,
-      selectedTagNames: _selectedTag,
+      selectedClassroomNames: _cubit.state.selectedClassroomNames,
+      selectedTagNames: _cubit.state.selectedTagNames,
     );
   }
 
@@ -106,7 +108,11 @@ class _StudentSelectionTransferFormState
   /// Client-side re-filter on top of the fetched (already server-narrowed)
   /// list: search text (never sent to the server here) plus a redundant-but-
   /// harmless classroom/tag re-check.
-  List<StudentEntity> _filterStudents(List<StudentEntity> allStudents) {
+  List<StudentEntity> _filterStudents(
+    List<StudentEntity> allStudents,
+    List<String> selectedClassrooms,
+    List<String> selectedTag,
+  ) {
     return allStudents.where((student) {
       bool matchesSearch = true;
       bool matchesRoom = true;
@@ -118,12 +124,12 @@ class _StudentSelectionTransferFormState
         );
       }
 
-      if (_selectedClassrooms.isNotEmpty) {
-        matchesRoom = _selectedClassrooms.contains(student.roomName);
+      if (selectedClassrooms.isNotEmpty) {
+        matchesRoom = selectedClassrooms.contains(student.roomName);
       }
 
-      if (_selectedTag.isNotEmpty) {
-        matchesTag = student.tags.any((tag) => _selectedTag.contains(tag.name));
+      if (selectedTag.isNotEmpty) {
+        matchesTag = student.tags.any((tag) => selectedTag.contains(tag.name));
       }
 
       return matchesSearch && matchesRoom && matchesTag;
@@ -133,13 +139,9 @@ class _StudentSelectionTransferFormState
   void _toggleSelectAll(bool? value, List<StudentEntity> visibleStudents) {
     if (value == null) return;
 
+    _cubit.setStudentsSelected(visibleStudents, value);
     setState(() {
       isSelectAllChecked = value;
-      if (value) {
-        selectedStudents.addAll(visibleStudents);
-      } else {
-        selectedStudents.removeAll(visibleStudents);
-      }
     });
   }
 
@@ -150,16 +152,12 @@ class _StudentSelectionTransferFormState
   ) {
     if (value == null) return;
 
+    // The tile always passes `value == !isSelected`, so a toggle reproduces
+    // the original explicit add/remove exactly.
+    _cubit.toggleStudent(student);
+    final selected = _cubit.state.selectedStudents;
     setState(() {
-      if (value) {
-        selectedStudents.add(student);
-      } else {
-        selectedStudents.remove(student);
-      }
-
-      isSelectAllChecked = visibleStudents.every(
-        (student) => selectedStudents.contains(student),
-      );
+      isSelectAllChecked = visibleStudents.every(selected.contains);
     });
   }
 
@@ -210,10 +208,13 @@ class _StudentSelectionTransferFormState
       bloc: _cubit,
       builder: (context, state) {
         final allStudents = _mapStudents(state.students);
-        final visibleStudents = _filterStudents(allStudents);
-        selectedStudents.removeWhere(
-          (s) => !allStudents.any((e) => e.studentCode == s.studentCode),
+        final visibleStudents = _filterStudents(
+          allStudents,
+          state.selectedClassroomNames,
+          state.selectedTagNames,
         );
+        // Pruning of stale selections happens in the cubit's loadStudents (when
+        // the underlying list changes), not as a build-time side-effect.
 
         return StaffFormLayout(
           title: 'Transfer',
@@ -249,12 +250,10 @@ class _StudentSelectionTransferFormState
                     child: CustomMultiSelectDropdown(
                       hintText: 'Classroom',
                       items: state.classroomOptions,
-                      selectedItems: _selectedClassrooms,
+                      selectedItems: state.selectedClassroomNames,
                       onChanged: (selectedItems) {
                         if (state.isLoadingFilters) return;
-                        setState(() {
-                          _selectedClassrooms = selectedItems;
-                        });
+                        _cubit.setSelectedClassrooms(selectedItems);
                         _loadStudents();
                       },
                     ),
@@ -265,11 +264,9 @@ class _StudentSelectionTransferFormState
                     child: CustomMultiSelectDropdown(
                       hintText: 'Tags',
                       items: state.tagOptions,
-                      selectedItems: _selectedTag,
+                      selectedItems: state.selectedTagNames,
                       onChanged: (selectedItems) {
-                        setState(() {
-                          _selectedTag = selectedItems;
-                        });
+                        _cubit.setSelectedTags(selectedItems);
                         _loadStudents();
                       },
                     ),
@@ -328,7 +325,9 @@ class _StudentSelectionTransferFormState
                         itemCount: visibleStudents.length,
                         itemBuilder: (context, index) {
                           final student = visibleStudents[index];
-                          final isSelected = selectedStudents.contains(student);
+                          final isSelected = state.selectedStudents.contains(
+                            student,
+                          );
 
                           return StudentListItem(
                             student: student,
@@ -351,6 +350,8 @@ class _StudentSelectionTransferFormState
             child: CustomButtonLayout(
               confirmButtonLabel: 'Next',
               onPressedConfirm: () {
+                final selectedStudents = state.selectedStudents;
+                final selectedClassrooms = state.selectedClassroomNames;
                 if (selectedStudents.isEmpty) {
                   CoreUtils.showTopSnackBarFromSnackBar(
                     context: context,
@@ -374,12 +375,12 @@ class _StudentSelectionTransferFormState
                         // single "current" room to exclude from the
                         // destination list, so leave it unset (same as when
                         // no classroom filter is applied at all).
-                        currentClassroomCode: _selectedClassrooms.length == 1
-                            ? state.classroomCodeByName[_selectedClassrooms
+                        currentClassroomCode: selectedClassrooms.length == 1
+                            ? state.classroomCodeByName[selectedClassrooms
                                   .single]
                             : null,
-                        currentClassroomName: _selectedClassrooms.length == 1
-                            ? _selectedClassrooms.single
+                        currentClassroomName: selectedClassrooms.length == 1
+                            ? selectedClassrooms.single
                             : null,
                       ),
                     ),
