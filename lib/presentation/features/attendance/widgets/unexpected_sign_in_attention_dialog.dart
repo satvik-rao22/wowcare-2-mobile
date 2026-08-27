@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
@@ -82,7 +84,10 @@ class _UnexpectedSignInAttentionDialogBodyState
     const headerBg = Color.fromRGBO(243, 238, 250, 1);
 
     return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xl,
+        vertical: AppSpacing.xl,
+      ),
       backgroundColor: Colors.transparent,
       elevation: 0,
       child: Material(
@@ -91,7 +96,7 @@ class _UnexpectedSignInAttentionDialogBodyState
           constraints: const BoxConstraints(maxWidth: 400),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadius.allLg,
             boxShadow: [
               BoxShadow(
                 color: AppColors.primaryColor.withValues(alpha: 0.12),
@@ -105,8 +110,10 @@ class _UnexpectedSignInAttentionDialogBodyState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.s14,
+                ),
                 decoration: const BoxDecoration(
                   color: headerBg,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -145,7 +152,12 @@ class _UnexpectedSignInAttentionDialogBodyState
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                  AppSpacing.sm,
+                ),
                 child: RichText(
                   text: TextSpan(
                     style: AppTextStyles.body.copyWith(
@@ -174,7 +186,7 @@ class _UnexpectedSignInAttentionDialogBodyState
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
                 child: TextField(
                   controller: _commentController,
                   maxLines: 3,
@@ -185,22 +197,27 @@ class _UnexpectedSignInAttentionDialogBodyState
                       color: Colors.grey[600],
                     ),
                     contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
+                      horizontal: AppSpacing.s14,
+                      vertical: AppSpacing.sm,
                     ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(AppRadius.r10),
                       borderSide: BorderSide(color: Colors.grey.shade300),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(AppRadius.r10),
                       borderSide: BorderSide(color: Colors.grey.shade300),
                     ),
                   ),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                ),
                 child: Row(
                   children: [
                     Expanded(
@@ -214,7 +231,7 @@ class _UnexpectedSignInAttentionDialogBodyState
                             ),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: AppSpacing.md),
                     Expanded(
                       child: CustomConfirmButton(
                         label: 'Confirm',

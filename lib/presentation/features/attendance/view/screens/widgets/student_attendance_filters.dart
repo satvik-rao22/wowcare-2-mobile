@@ -6,6 +6,8 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
@@ -137,7 +139,7 @@ class StudentAttendanceFilters extends StatelessWidget {
         color: hasActiveFilters
             ? AppColors.themeColor.withValues(alpha: 0.15)
             : AppColors.cardColor,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppRadius.r10),
         border: Border.all(
           color: hasActiveFilters
               ? AppColors.themeColor
@@ -148,10 +150,10 @@ class StudentAttendanceFilters extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppRadius.r10),
           onTap: onFilterTap,
           child: Padding(
-            padding: EdgeInsets.all(responsive.isTablet ? 10 : 8),
+            padding: EdgeInsets.all(responsive.isTablet ? AppSpacing.s10 : AppSpacing.xs),
             child: Stack(
               clipBehavior: Clip.none,
               children: [

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 
@@ -41,9 +43,9 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
       width: 45,
       child: Material(
         color: AppColors.primaryColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.allMd,
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.allMd,
           onTap: () => _showActionMenu(context),
           child: const Icon(Icons.more_vert, color: Colors.white),
         ),
@@ -85,14 +87,14 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 5),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
             decoration: BoxDecoration(
               color: Colors.blue.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: SvgPicture.asset(svgPath, height: 24, width: 24),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: AppSpacing.s5),
           Text(
             label,
             maxLines: 1,
@@ -147,10 +149,10 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
         // ("Absent") gets cropped. The scroll view guards tiny screens.
         maxHeight: MediaQuery.of(context).size.height * 0.9,
       ),
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.allMd,
         border: Border.all(color: AppColors.classroomStudentTabColor, width: 2),
         boxShadow: [
           BoxShadow(
@@ -165,11 +167,11 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildMenuItem(context, MediaRes.Sign_in, 'Sign-in'),
-            const SizedBox(height: 5),
+            const SizedBox(height: AppSpacing.s5),
             _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out'),
-            const SizedBox(height: 5),
+            const SizedBox(height: AppSpacing.s5),
             _buildMenuItem(context, MediaRes.transfer, 'Transfer'),
-            const SizedBox(height: 5),
+            const SizedBox(height: AppSpacing.s5),
             _buildMenuItem(context, MediaRes.Mark_absent, 'Absent'),
           ],
         ),
@@ -193,7 +195,7 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
           Opacity(
             opacity: isDisabled ? 0.45 : 1,
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 5),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
               decoration: BoxDecoration(
                 color: Colors.blue.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
@@ -201,7 +203,7 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
               child: SvgPicture.asset(svgPath, height: 24, width: 24),
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: AppSpacing.s5),
           Opacity(
             opacity: isDisabled ? 0.5 : 1,
             child: Text(

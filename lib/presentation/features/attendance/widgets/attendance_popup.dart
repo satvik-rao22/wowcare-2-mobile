@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/src/app_router.dart' show dashboardBranchKey;
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -484,7 +486,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
       ),
       child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadius.allLg,
         elevation: 4,
         child: ConstrainedBox(
           constraints: BoxConstraints(
@@ -1322,15 +1324,18 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
       opacity: isDisabled ? 0.4 : 1.0,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.allSm,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xxs,
+            vertical: AppSpacing.xs,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               SvgPicture.asset(icon, height: iconSize, width: iconSize),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.xxs),
               Flexible(
                 child: Text(
                   label,
@@ -1402,24 +1407,24 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
           router.go(StudentAttendanceTabbedView.routeName);
         }
       },
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: AppRadius.allSm,
       child: Container(
         height: isTablet ? 56 : 48,
         width: double.infinity,
         margin: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 20),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppRadius.allSm,
           gradient: AppColors.buildSecondaryGradient(),
         ),
         padding: const EdgeInsets.all(1),
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(7),
+            borderRadius: BorderRadius.circular(AppRadius.r7),
           ),
           child: Center(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
               child: ShaderMask(
                 shaderCallback: (Rect bounds) =>
                     AppColors.buildSecondaryGradient().createShader(bounds),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class StudentAttendanceCardShimmer extends StatelessWidget {
@@ -11,8 +13,14 @@ class StudentAttendanceCardShimmer extends StatelessWidget {
     final responsive = ResponsiveHelper(context);
     final avatarSize = responsive.isTablet ? 52.0 : 50.0;
     final cardPadding = responsive.isTablet
-        ? const EdgeInsets.symmetric(horizontal: 24, vertical: 12)
-        : const EdgeInsets.symmetric(horizontal: 16, vertical: 12);
+        ? const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xl,
+            vertical: AppSpacing.sm,
+          )
+        : const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          );
     final spacing = responsive.isTablet ? 16.0 : 9.0;
 
     return Shimmer.fromColors(
@@ -23,7 +31,7 @@ class StudentAttendanceCardShimmer extends StatelessWidget {
         padding: cardPadding,
         decoration: BoxDecoration(
           color: AppColors.cardColor,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.allMd,
           border: Border.all(color: AppColors.cardBorderColor, width: 1),
         ),
         child: Row(
@@ -48,7 +56,7 @@ class StudentAttendanceCardShimmer extends StatelessWidget {
                     width: double.infinity,
                     decoration: BoxDecoration(
                       color: AppColors.cardColor,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: AppRadius.allXs,
                     ),
                   ),
                   SizedBox(height: responsive.verticalSpacing / 2),
@@ -57,7 +65,7 @@ class StudentAttendanceCardShimmer extends StatelessWidget {
                     width: responsive.isTablet ? 140 : 120,
                     decoration: BoxDecoration(
                       color: AppColors.cardColor,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: AppRadius.allXs,
                     ),
                   ),
                 ],
@@ -71,7 +79,7 @@ class StudentAttendanceCardShimmer extends StatelessWidget {
                 width: responsive.isTablet ? 90 : 80,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: AppRadius.allXs,
                 ),
               ),
             ),
@@ -90,8 +98,14 @@ class StudentAbsentCardShimmer extends StatelessWidget {
     final responsive = ResponsiveHelper(context);
     final avatarSize = responsive.isTablet ? 52.0 : 50.0;
     final cardPadding = responsive.isTablet
-        ? const EdgeInsets.symmetric(horizontal: 24, vertical: 12)
-        : const EdgeInsets.symmetric(horizontal: 16, vertical: 12);
+        ? const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xl,
+            vertical: AppSpacing.sm,
+          )
+        : const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          );
     final spacing = responsive.isTablet ? 16.0 : 9.0;
 
     return Shimmer.fromColors(
@@ -102,7 +116,7 @@ class StudentAbsentCardShimmer extends StatelessWidget {
         padding: cardPadding,
         decoration: BoxDecoration(
           color: AppColors.cardColor,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.allMd,
           border: Border.all(color: AppColors.cardBorderColor, width: 1),
         ),
         child: Row(
@@ -127,7 +141,7 @@ class StudentAbsentCardShimmer extends StatelessWidget {
                     width: double.infinity,
                     decoration: BoxDecoration(
                       color: AppColors.cardColor,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: AppRadius.allXs,
                     ),
                   ),
                   SizedBox(height: responsive.verticalSpacing / 2),
@@ -136,7 +150,7 @@ class StudentAbsentCardShimmer extends StatelessWidget {
                     width: responsive.isTablet ? 140 : 120,
                     decoration: BoxDecoration(
                       color: AppColors.cardColor,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: AppRadius.allXs,
                     ),
                   ),
                   SizedBox(height: responsive.verticalSpacing / 2),
@@ -145,7 +159,7 @@ class StudentAbsentCardShimmer extends StatelessWidget {
                     width: responsive.isTablet ? 110 : 100,
                     decoration: BoxDecoration(
                       color: AppColors.cardColor,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: AppRadius.allXs,
                     ),
                   ),
                 ],
@@ -159,7 +173,7 @@ class StudentAbsentCardShimmer extends StatelessWidget {
                 width: responsive.isTablet ? 70 : 60,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppRadius.allMd,
                 ),
               ),
             ),

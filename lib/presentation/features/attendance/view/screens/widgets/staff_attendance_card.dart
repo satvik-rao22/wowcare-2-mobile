@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -95,7 +97,7 @@ class StaffAttendanceCard extends StatefulWidget {
 class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
   // Shared text tokens mirrored from StaffCard so attendance cards read with
   // the same Manrope/plum visual identity.
-  static const Color _plum = Color(0xff573353);
+  static const Color _plum = AppColors.primaryColor;
 
   @override
   Widget build(BuildContext context) {
@@ -144,7 +146,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.allMd,
           border: Border.all(color: AppColors.cardBorderColor, width: 1),
         ),
         clipBehavior: Clip.antiAlias,
@@ -184,7 +186,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                               ),
                               if (staff.designationName != null &&
                                   staff.designationName!.isNotEmpty) ...[
-                                const SizedBox(height: 2),
+                                const SizedBox(height: AppSpacing.s2),
                                 Text(
                                   staff.designationName!,
                                   style: TextStyle(
@@ -198,7 +200,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: AppSpacing.xs),
                         Flexible(
                           child: Text(
                             staff.roomName,
@@ -224,12 +226,12 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
               const Divider(
                 height: 1,
                 thickness: 1,
-                indent: 16,
-                endIndent: 16,
+                indent: AppSpacing.md,
+                endIndent: AppSpacing.md,
                 color: Color(0xFFE9ECEF),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -238,9 +240,9 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                       'Expected Today?',
                       staff.expectedToday ? 'Yes' : 'No',
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.s10),
                     _buildDetailRow(context, 'Classroom', staff.roomName),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.s10),
                     _buildSignInOutRow(
                       context,
                       'Sign In time & by',
@@ -248,7 +250,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                       staff.signInMethod,
                       showTransferIcon: staff.isTransferSignIn,
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.s10),
                     _buildSignInOutRow(
                       context,
                       'Sign Out time & by',
@@ -257,18 +259,18 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                       showTransferIcon: staff.isTransferSignOut,
                     ),
                     if (duration.isNotEmpty) ...[
-                      const SizedBox(height: 10),
+                      const SizedBox(height: AppSpacing.s10),
                       _buildDetailRow(context, 'Attended Time', duration),
                     ],
                     if ((staff.notExpectedComment ?? '').trim().isNotEmpty) ...[
-                      const SizedBox(height: 10),
+                      const SizedBox(height: AppSpacing.s10),
                       _buildDetailRow(
                         context,
                         'Comment',
                         staff.notExpectedComment!.trim(),
                       ),
                     ],
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.sm),
                     _buildActionButtons(context),
                   ],
                 ),
@@ -296,7 +298,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSpacing.xs),
         Expanded(
           child: Text(
             value,
@@ -338,7 +340,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSpacing.xs),
         Expanded(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -346,7 +348,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
             children: [
               if (method != null) ...[
                 _buildMethodIcon(method),
-                const SizedBox(width: 4),
+                const SizedBox(width: AppSpacing.xxs),
               ],
               if (showTransferIcon) ...[
                 Tooltip(
@@ -361,7 +363,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: AppSpacing.xxs),
               ],
               Flexible(
                 child: Text(
@@ -495,23 +497,23 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
               if (widget.onDelete != null)
                 SizedBox(
                   width: double.infinity,
-                  height: 40,
+                  height: AppSpacing.xxxl,
                   child: _outlinedButton('Delete', widget.onDelete),
                 ),
               if (widget.onDelete != null && widget.onEdit != null)
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.sm),
               if (widget.onEdit != null)
                 SizedBox(
                   width: double.infinity,
-                  height: 40,
+                  height: AppSpacing.xxxl,
                   child: _gradientButton('Edit', widget.onEdit),
                 ),
               if (widget.onView != null) ...[
                 if (widget.onEdit != null || widget.onDelete != null)
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.sm),
                 SizedBox(
                   width: double.infinity,
-                  height: 40,
+                  height: AppSpacing.xxxl,
                   child: _outlinedButton('View', widget.onView),
                 ),
               ],
@@ -526,25 +528,25 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
             if (widget.onDelete != null)
               Expanded(
                 child: SizedBox(
-                  height: 40,
+                  height: AppSpacing.xxxl,
                   child: _outlinedButton('Delete', widget.onDelete),
                 ),
               ),
             if (widget.onDelete != null && widget.onEdit != null)
-              const SizedBox(width: 16),
+              const SizedBox(width: AppSpacing.md),
             if (widget.onEdit != null)
               Expanded(
                 child: SizedBox(
-                  height: 40,
+                  height: AppSpacing.xxxl,
                   child: _gradientButton('Edit', widget.onEdit),
                 ),
               ),
             if (widget.onView != null) ...[
               if (widget.onEdit != null || widget.onDelete != null)
-                const SizedBox(width: 16),
+                const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: SizedBox(
-                  height: 40,
+                  height: AppSpacing.xxxl,
                   child: _outlinedButton('View', widget.onView),
                 ),
               ),
@@ -560,7 +562,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         side: const BorderSide(color: Color(0xFF6C7FD8)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.allSm),
         padding: EdgeInsets.zero,
         backgroundColor: Colors.white,
       ),
@@ -580,7 +582,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
   Widget _gradientButton(String label, VoidCallback? onPressed) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.allSm,
         gradient: AppColors.buildPrimaryGradient(),
       ),
       child: TextButton(

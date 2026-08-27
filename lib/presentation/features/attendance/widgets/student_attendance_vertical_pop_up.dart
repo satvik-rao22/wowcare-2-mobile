@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_out_form.dart';
@@ -117,9 +119,9 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
             right: rightPosition ?? 16,
           ),
           child: Container(
-            padding: const EdgeInsets.all(2),
+            padding: const EdgeInsets.all(AppSpacing.s2),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: AppRadius.allMd,
               gradient: AppColors.buildPrimaryGradient(),
               boxShadow: [
                 BoxShadow(
@@ -139,10 +141,10 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
                 // scroll view below guards genuinely tiny screens.
                 maxHeight: MediaQuery.of(context).size.height * 0.9,
               ),
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(AppRadius.r10),
               ),
               child: SingleChildScrollView(
                 child: Column(
@@ -155,7 +157,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
                     activeDisabledActions,
                     activeReasons,
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: AppSpacing.s5),
                   _buildMenuItem(
                     context,
                     MediaRes.Sign_out,
@@ -163,7 +165,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
                     activeDisabledActions,
                     activeReasons,
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: AppSpacing.s5),
                   _buildMenuItem(
                     context,
                     MediaRes.transfer,
@@ -171,7 +173,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
                     activeDisabledActions,
                     activeReasons,
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: AppSpacing.s5),
                   _buildMenuItem(
                     context,
                     MediaRes.Mark_absent,
@@ -215,7 +217,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
           Opacity(
             opacity: isDisabled ? 0.45 : 1,
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 5),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
               decoration: BoxDecoration(
                 color: Colors.blue.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
@@ -223,7 +225,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
               child: SvgPicture.asset(svgPath, height: 24, width: 24),
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: AppSpacing.s5),
           Opacity(
             opacity: isDisabled ? 0.5 : 1,
             child: Text(
