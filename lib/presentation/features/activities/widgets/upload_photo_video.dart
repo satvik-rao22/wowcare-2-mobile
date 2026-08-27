@@ -242,14 +242,8 @@ class _MediaUploaderState extends State<MediaUploader> {
       if (!mounted) return;
       candidates = [File(camera.path)];
     } else {
-      // Use the SAF document picker (FilePicker) for the gallery so every
-      // allowed image format stays selectable — including GIF (animation
-      // preserved) and HEIC/HEIF. image_picker's pickMultiImage re-encodes
-      // through imageQuality, which flattens GIFs and transcodes HEIC to JPEG,
-      // so we keep FilePicker here and rely on allowedExtensions for filtering.
       final result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: _photoExt,
+        type: FileType.image,
         allowMultiple: true,
       );
       if (!mounted) return;
@@ -343,8 +337,7 @@ class _MediaUploaderState extends State<MediaUploader> {
       file = File(picked.path);
     } else {
       final result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: _videoExt,
+        type: FileType.video,
         allowMultiple: false,
       );
       if (result == null || result.files.isEmpty) return;
@@ -458,6 +451,7 @@ class _MediaUploaderState extends State<MediaUploader> {
     });
     _notifyParent();
   }
+
 
   void _openVideoFullscreen() {
     final url = _existingVideoUrl?.trim();
@@ -806,10 +800,12 @@ class _MediaUploaderState extends State<MediaUploader> {
     );
   }
 
+
   Widget _buildAllPreviews() {
     final showVideoPreview = _keepPhotoAndVideoTogether
         ? (_newVideoFile != null || _existingVideoUrl != null)
         : _currentType == MediaType.video;
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
