@@ -209,6 +209,14 @@ import '../../domain/features/attendance/usecases/submit_student_sign_in_usecase
 import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_cubit.dart';
 import '../../domain/features/attendance/usecases/submit_student_sign_out_usecase.dart';
 import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_out_submit_cubit.dart';
+import '../../domain/features/attendance/usecases/submit_student_transfer_usecase.dart';
+import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_transfer_submit_cubit.dart';
+import '../../domain/features/attendance/usecases/submit_staff_sign_in_usecase.dart';
+import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_submit_cubit.dart';
+import '../../domain/features/attendance/usecases/submit_staff_sign_out_usecase.dart';
+import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_out_submit_cubit.dart';
+import '../../domain/features/attendance/usecases/submit_staff_transfer_usecase.dart';
+import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_transfer_submit_cubit.dart';
 import '../../domain/features/student/usecases/get_student_documents_usecase.dart';
 import '../../domain/features/student/usecases/add_student_document_usecase.dart';
 import '../../domain/features/student/usecases/get_student_important_dates_usecase.dart';
@@ -1070,6 +1078,30 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<StudentSignOutSubmitCubit>(
     () => StudentSignOutSubmitCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SubmitStudentTransferUseCase>(
+    () => SubmitStudentTransferUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<StudentTransferSubmitCubit>(
+    () => StudentTransferSubmitCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SubmitStaffSignInUseCase>(
+    () => SubmitStaffSignInUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<StaffSignInSubmitCubit>(
+    () => StaffSignInSubmitCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SubmitStaffSignOutUseCase>(
+    () => SubmitStaffSignOutUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<StaffSignOutSubmitCubit>(
+    () => StaffSignOutSubmitCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SubmitStaffTransferUseCase>(
+    () => SubmitStaffTransferUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<StaffTransferSubmitCubit>(
+    () => StaffTransferSubmitCubit(serviceLocator()),
   );
   serviceLocator.registerFactory<GetStudentDocumentsUseCase>(
     () => GetStudentDocumentsUseCase(serviceLocator()),

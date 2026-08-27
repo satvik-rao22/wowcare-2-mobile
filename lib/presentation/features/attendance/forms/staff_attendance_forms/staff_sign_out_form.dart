@@ -15,7 +15,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_out_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
@@ -79,6 +79,11 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
   _isStaffAdminPersona; // Admin can backdate (past) but not future; teacher is locked to "now".
   String? _currentStaffCode; // Current user's staff code
 
+  /// Owns the sign-out submit call (View -> Cubit -> UseCase -> Repository).
+  /// Eagerly resolved so [dispose] can always close it.
+  final StaffSignOutSubmitCubit _submitCubit =
+      serviceLocator<StaffSignOutSubmitCubit>();
+
   /// True when this form targets the logged-in user's own attendance record
   /// (My Attendance) rather than another staff member's. Self attendance can
   /// never have its date/time edited, even by an admin persona — only
@@ -124,6 +129,12 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     if (widget.qrToken.isNotEmpty || widget.isKiosk) {
       // QR token/kiosk PIN is passed to form and will be included in submission
     }
+  }
+
+  @override
+  void dispose() {
+    _submitCubit.close();
+    super.dispose();
   }
 
   /// Applies staff selection restrictions based on role
@@ -463,8 +474,10 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     }
 
     try {
-      final result = await serviceLocator<AttendanceRepository>()
-          .submitStaffSignOut(payload: payload, isSelf: isSelfSignOut);
+      final result = await _submitCubit.submit(
+        payload: payload,
+        isSelf: isSelfSignOut,
+      );
       final success = result.success;
       var message = result.message;
 

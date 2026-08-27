@@ -1,0 +1,46 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
+import 'package:wowcare/domain/features/attendance/usecases/submit_staff_sign_out_usecase.dart';
+
+import 'staff_sign_out_submit_state.dart';
+
+/// Owns the staff sign-out submit call and its in-progress/success/failure
+/// state, routing the mutation through [SubmitStaffSignOutUseCase] instead of
+/// the View touching [AttendanceRepository] directly.
+///
+/// [submit] intentionally RETURNS the [AttendanceActionResult] and RETHROWS on
+/// error: this refactor moves the repository call behind the UseCase and
+/// centralises submit state, but the form keeps its exact success/navigation
+/// and catch behaviour, so nothing the user sees changes.
+class StaffSignOutSubmitCubit extends Cubit<StaffSignOutSubmitState> {
+  StaffSignOutSubmitCubit(this._submitStaffSignOut)
+    : super(const StaffSignOutSubmitInitial());
+
+  final SubmitStaffSignOutUseCase _submitStaffSignOut;
+
+  /// True while a submit is in flight.
+  bool get isSubmitting => state is StaffSignOutSubmitInProgress;
+
+  Future<AttendanceActionResult> submit({
+    required Map<String, dynamic> payload,
+    bool isSelf = false,
+  }) async {
+    emit(const StaffSignOutSubmitInProgress());
+    try {
+      final result = await _submitStaffSignOut(
+        payload: payload,
+        isSelf: isSelf,
+      );
+      if (!isClosed) emit(StaffSignOutSubmitSuccess(result));
+      return result;
+    } catch (e) {
+      if (!isClosed) {
+        emit(
+          StaffSignOutSubmitFailure(ApiErrorHandler.extractErrorMessage(e)),
+        );
+      }
+      rethrow;
+    }
+  }
+}

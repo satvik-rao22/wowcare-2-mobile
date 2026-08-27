@@ -14,6 +14,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_transfer_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
@@ -52,6 +53,11 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
   final Map<String, String> _classroomNameToCode = <String, String>{};
   List<StaffEntity> _selectedStaff = [];
   bool _isSubmitting = false;
+
+  /// Owns the transfer submit call (View -> Cubit -> UseCase -> Repository).
+  /// Eagerly resolved so [dispose] can always close it.
+  final StaffTransferSubmitCubit _submitCubit =
+      serviceLocator<StaffTransferSubmitCubit>();
   bool? _isStaffAdminPersona;
   String? _currentStaffCode; // Current user's staff code
 
@@ -97,6 +103,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
 
   @override
   void dispose() {
+    _submitCubit.close();
     super.dispose();
   }
 
@@ -455,8 +462,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     };
 
     try {
-      final result = await serviceLocator<AttendanceRepository>()
-          .submitStaffTransfer(payload: payload);
+      final result = await _submitCubit.submit(payload: payload);
       final success = result.success;
       final message = result.message;
 

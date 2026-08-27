@@ -28,6 +28,7 @@ import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_submit_cubit.dart';
 import 'staff_entity.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
@@ -94,6 +95,11 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
   String?
   _currentStaffCode; // Current user's staff code - for self-only validation
 
+  /// Owns the sign-in submit call (View -> Cubit -> UseCase -> Repository).
+  /// Eagerly resolved so [dispose] can always close it.
+  final StaffSignInSubmitCubit _submitCubit =
+      serviceLocator<StaffSignInSubmitCubit>();
+
   @override
   void initState() {
     super.initState();
@@ -102,6 +108,12 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_initializeFormData());
     });
+  }
+
+  @override
+  void dispose() {
+    _submitCubit.close();
+    super.dispose();
   }
 
   String _naiveCalendarYyyyMmDd(DateTime d) =>
@@ -789,8 +801,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         );
       }
 
-      final result = await serviceLocator<AttendanceRepository>()
-          .submitStaffSignIn(payload: payload, isSelf: useSelfEndpoint);
+      final result = await _submitCubit.submit(
+        payload: payload,
+        isSelf: useSelfEndpoint,
+      );
       final isAlreadySignedIn = !result.success &&
           result.message.toLowerCase().contains('already signed');
       final success = result.success || isAlreadySignedIn;

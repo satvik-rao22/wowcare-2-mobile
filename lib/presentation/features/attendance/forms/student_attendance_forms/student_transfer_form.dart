@@ -11,7 +11,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'dart:convert';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_transfer_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/classroom_visibility.dart';
@@ -119,6 +119,11 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
   Map<String, String> _classroomNameToCode = <String, String>{};
   bool _hasTransferTargets = true;
 
+  /// Owns the transfer submit call (View -> Cubit -> UseCase -> Repository).
+  /// Eagerly resolved so [dispose] can always close it.
+  final StudentTransferSubmitCubit _submitCubit =
+      serviceLocator<StudentTransferSubmitCubit>();
+
   @override
   void initState() {
     super.initState();
@@ -131,6 +136,12 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     }
     _loadAvailableClassroomsFromApi();
     _loadPersonaFlags();
+  }
+
+  @override
+  void dispose() {
+    _submitCubit.close();
+    super.dispose();
   }
 
   Future<void> _loadPersonaFlags() async {
@@ -473,8 +484,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     };
 
     try {
-      final result = await serviceLocator<AttendanceRepository>()
-          .submitStudentTransfer(payload: payload);
+      final result = await _submitCubit.submit(payload: payload);
       final success = result.success;
       final message = result.message;
 
