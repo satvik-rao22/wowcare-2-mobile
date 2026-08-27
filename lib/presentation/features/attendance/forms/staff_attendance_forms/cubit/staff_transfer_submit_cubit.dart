@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
+import 'package:wowcare/domain/features/attendance/entities/staff_transfer_request.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_staff_transfer_usecase.dart';
 
 import 'staff_transfer_submit_state.dart';
@@ -23,11 +24,11 @@ class StaffTransferSubmitCubit extends Cubit<StaffTransferSubmitState> {
   bool get isSubmitting => state is StaffTransferSubmitInProgress;
 
   Future<AttendanceActionResult> submit({
-    required Map<String, dynamic> payload,
+    required StaffTransferRequest request,
   }) async {
     emit(const StaffTransferSubmitInProgress());
     try {
-      final result = await _submitStaffTransfer(payload: payload);
+      final result = await _submitStaffTransfer(request: request);
       if (!isClosed) emit(StaffTransferSubmitSuccess(result));
       return result;
     } catch (e) {

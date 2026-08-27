@@ -1,21 +1,28 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
+import 'package:wowcare/domain/features/attendance/entities/staff_transfer_request.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_staff_transfer_usecase.dart';
 
-/// Fake repository: captures the arguments and returns/throws on demand.
-/// Every other AttendanceRepository member routes through noSuchMethod and
-/// throws if the use case unexpectedly calls it.
+const _request = StaffTransferRequest(
+  staffCode: 'STF-1',
+  staffCodes: ['STF-1'],
+  toClassroomCode: 'CLS_1',
+  toClassroomCodeByStaffCode: {'STF-1': 'CLS_1'},
+  timeZone: 'Asia/Kolkata',
+  transferredAt: '2026-08-27T09:00:00.000Z',
+);
+
 class _FakeAttendanceRepository implements AttendanceRepository {
-  Map<String, dynamic>? capturedPayload;
+  StaffTransferRequest? capturedRequest;
   AttendanceActionResult? resultToReturn;
   Object? errorToThrow;
 
   @override
   Future<AttendanceActionResult> submitStaffTransfer({
-    required Map<String, dynamic> payload,
+    required StaffTransferRequest request,
   }) async {
-    capturedPayload = payload;
+    capturedRequest = request;
     if (errorToThrow != null) throw errorToThrow!;
     return resultToReturn!;
   }
@@ -35,44 +42,24 @@ void main() {
       useCase = SubmitStaffTransferUseCase(repo);
     });
 
-    test('forwards payload and returns the repository result', () async {
+    test('forwards request and returns the repository result', () async {
       const expected = AttendanceActionResult(
         success: true,
         message: 'Transferred successfully',
       );
       repo.resultToReturn = expected;
-      final payload = <String, dynamic>{
-        'staffCodes': ['STF-1'],
-        'toClassroomCode': 'CLS_2',
-      };
 
-      final result = await useCase(payload: payload);
+      final result = await useCase(request: _request);
 
       expect(result, same(expected));
-      expect(repo.capturedPayload, same(payload));
-    });
-
-    test('a success:false response is returned unchanged (no throw)', () async {
-      const expected = AttendanceActionResult(
-        success: false,
-        message: 'Already in that classroom',
-      );
-      repo.resultToReturn = expected;
-
-      final result = await useCase(payload: const <String, dynamic>{});
-
-      expect(result, same(expected));
-      expect(result.success, isFalse);
+      expect(repo.capturedRequest, same(_request));
     });
 
     test('propagates repository errors unchanged (no wrapping/swallowing)', () {
       final failure = Exception('network down');
       repo.errorToThrow = failure;
 
-      expect(
-        () => useCase(payload: const <String, dynamic>{}),
-        throwsA(same(failure)),
-      );
+      expect(() => useCase(request: _request), throwsA(same(failure)));
     });
   });
 }

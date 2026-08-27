@@ -14,6 +14,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/domain/features/attendance/entities/staff_transfer_request.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_transfer_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -451,18 +452,18 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       transferredAt = SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
     }
 
-    final payload = <String, dynamic>{
-      'staffCode': staffCode,
-      'staffCodes': staffCodes,
-      'toClassroomCode': toClassroomCode,
-      'toClassroomCodeByStaffCode': toClassroomCodeByStaffCode,
-      'transferReason': 'Transferred via mobile app',
-      'timeZone': schoolTimeZone,
-      'transferredAt': transferredAt.toUtc().toIso8601String(),
-    };
+    // transferReason defaults to the generic placeholder the payload carried.
+    final request = StaffTransferRequest(
+      staffCode: staffCode,
+      staffCodes: staffCodes,
+      toClassroomCode: toClassroomCode,
+      toClassroomCodeByStaffCode: toClassroomCodeByStaffCode,
+      timeZone: schoolTimeZone,
+      transferredAt: transferredAt.toUtc().toIso8601String(),
+    );
 
     try {
-      final result = await _submitCubit.submit(payload: payload);
+      final result = await _submitCubit.submit(request: request);
       final success = result.success;
       final message = result.message;
 

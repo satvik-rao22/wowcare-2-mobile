@@ -1,5 +1,6 @@
 import '../entities/attendance_action_result.dart';
 import '../entities/student_transfer_request.dart';
+import '../entities/staff_transfer_request.dart';
 import '../entities/student_attendance_daily.dart';
 import '../entities/student_attendance_custom.dart';
 import '../entities/staff_attendance_daily.dart';
@@ -384,7 +385,7 @@ abstract class AttendanceRepository {
 
   /// Submits a staff classroom transfer.
   Future<AttendanceActionResult> submitStaffTransfer({
-    required Map<String, dynamic> payload,
+    required StaffTransferRequest request,
   });
 
   /// Patches a staff daily attendance record by its row code.

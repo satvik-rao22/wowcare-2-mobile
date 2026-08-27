@@ -1,9 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
+import 'package:wowcare/domain/features/attendance/entities/staff_transfer_request.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_staff_transfer_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_transfer_submit_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_transfer_submit_state.dart';
+
+const _request = StaffTransferRequest(
+  staffCode: 'STF-1',
+  staffCodes: ['STF-1'],
+  toClassroomCode: 'CLS_1',
+  toClassroomCodeByStaffCode: {'STF-1': 'CLS_1'},
+  timeZone: 'Asia/Kolkata',
+  transferredAt: '2026-08-27T09:00:00.000Z',
+);
 
 /// The use case's constructor needs a repository, but the fake overrides
 /// [call] so the repository is never touched.
@@ -19,14 +29,14 @@ class _FakeSubmitUseCase extends SubmitStaffTransferUseCase {
   AttendanceActionResult? resultToReturn;
   Object? errorToThrow;
   int calls = 0;
-  Map<String, dynamic>? lastPayload;
+  StaffTransferRequest? lastRequest;
 
   @override
   Future<AttendanceActionResult> call({
-    required Map<String, dynamic> payload,
+    required StaffTransferRequest request,
   }) async {
     calls++;
-    lastPayload = payload;
+    lastRequest = request;
     if (errorToThrow != null) throw errorToThrow!;
     return resultToReturn!;
   }
@@ -64,14 +74,12 @@ void main() {
         ]),
       );
 
-      final returned = await cubit.submit(
-        payload: const <String, dynamic>{'a': 1},
-      );
+      final returned = await cubit.submit(request: _request);
 
       await expectation;
       expect(returned, same(result));
       expect(useCase.calls, 1);
-      expect(useCase.lastPayload, const <String, dynamic>{'a': 1});
+      expect(useCase.lastRequest, same(_request));
       expect(
         (cubit.state as StaffTransferSubmitSuccess).result,
         same(result),
@@ -85,7 +93,7 @@ void main() {
       );
       useCase.resultToReturn = result;
 
-      final returned = await cubit.submit(payload: const <String, dynamic>{});
+      final returned = await cubit.submit(request: _request);
 
       expect(returned.success, isFalse);
       expect(cubit.state, isA<StaffTransferSubmitSuccess>());
@@ -104,7 +112,7 @@ void main() {
       );
 
       await expectLater(
-        () => cubit.submit(payload: const <String, dynamic>{}),
+        () => cubit.submit(request: _request),
         throwsA(same(error)),
       );
 
