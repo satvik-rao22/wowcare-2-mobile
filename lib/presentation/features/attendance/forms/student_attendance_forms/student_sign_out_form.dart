@@ -13,7 +13,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_out_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:geolocator/geolocator.dart';
@@ -122,6 +122,11 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
   bool _isSubmitting = false;
   bool? _isStaffPersona;
 
+  /// Owns the sign-out submit call (View -> Cubit -> UseCase -> Repository).
+  /// Eagerly resolved so [dispose] can always close it.
+  final StudentSignOutSubmitCubit _submitCubit =
+      serviceLocator<StudentSignOutSubmitCubit>();
+
   @override
   void initState() {
     super.initState();
@@ -129,6 +134,12 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       currentStudents = List.from(widget.students);
     }
     _loadPersonaFlags();
+  }
+
+  @override
+  void dispose() {
+    _submitCubit.close();
+    super.dispose();
   }
 
   void _removeStudent(StudentEntity student) {
@@ -465,11 +476,10 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     }
 
     try {
-      final result = await serviceLocator<AttendanceRepository>()
-          .submitStudentSignOut(
-            payload: payload,
-            isParent: isParent || widget.isKiosk || widget.isQrScan,
-          );
+      final result = await _submitCubit.submit(
+        payload: payload,
+        isParent: isParent || widget.isKiosk || widget.isQrScan,
+      );
       final success = result.success;
       var message = result.message;
 
