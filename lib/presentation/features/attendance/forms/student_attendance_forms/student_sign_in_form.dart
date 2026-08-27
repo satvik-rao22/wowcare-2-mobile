@@ -19,9 +19,11 @@ import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/delete_student_absence_record_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_sign_in_request.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_state.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_gate_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_gate_state.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/unexpected_sign_in_attention_dialog.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -36,7 +38,6 @@ import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
@@ -125,218 +126,79 @@ class StudentSignInForm extends StatefulWidget {
 }
 
 class _StudentSignInFormState extends State<StudentSignInForm> {
-  DateTime selectedDate = ServerTimeService.instance.now();
-  TimeOfDay selectedTime = ServerTimeService.instance.timeOfDayNow();
-
-  /// School IANA id from API; when set, date/time defaults and [occurredAt] use this zone.
-  String? _schoolIana;
-  List<StudentEntity> currentStudents = [];
-  bool _isSubmitting = false;
-
   /// Owns the sign-in submit call (View -> Cubit -> UseCase -> Repository).
   /// Eagerly resolved so [dispose] can always close it.
   final StudentSignInSubmitCubit _submitCubit =
       serviceLocator<StudentSignInSubmitCubit>();
-  bool? _isStaffPersona;
-  Map<String, bool> _expectedTodayFromApi = {};
-  bool _unexpectedGateLoading = true;
-  bool _unexpectedSignInAcknowledged = false;
-  String _notExpectedComment = '';
-  int _unexpectedGateToken = 0;
+
+  /// Owns ALL of the form's business state (date/time, school zone, persona,
+  /// current students, unexpected-sign-in gate). The View is now stateless
+  /// (no `setState`) and reads everything via `BlocBuilder`. Dialog + navigation
+  /// stay here in the View — the cubit never touches [BuildContext].
+  final StudentSignInGateCubit _gateCubit =
+      serviceLocator<StudentSignInGateCubit>();
+
+  /// Pure re-entrancy guard for the submit handler — NOT UI state (the button's
+  /// disabled/spinner reads [_submitCubit]'s InProgress). This spans the whole
+  /// operation (pre-submit steps included), so a double-tap during the pre-step
+  /// window can't fire two submits — the guarantee the old local `_isSubmitting`
+  /// gave, which the submit cubit's InProgress (which starts only at submit())
+  /// does not cover.
+  bool _submitInFlight = false;
 
   @override
   void initState() {
     super.initState();
-    currentStudents = List.from(widget.students);
-    _loadPersonaFlags();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _bootstrapSchoolZone();
+    // Mirrors the original two-path bootstrap:
+    //  - seed the working student list, then
+    //  - _loadPersonaFlags(): resolve persona, then post-frame run the gate, and
+    //  - post-frame _bootstrapSchoolZone(): resolve zone + setCurrentDateTime,
+    //    then run the gate.
+    _gateCubit.seedStudents(widget.students);
+    _gateCubit.loadPersonaFlags().then((_) {
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _runGate());
+      }
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _gateCubit.bootstrapSchoolZone();
+      if (mounted) _runGate();
     });
   }
 
   @override
   void dispose() {
+    _gateCubit.close();
     _submitCubit.close();
     super.dispose();
   }
 
-  Future<void> _bootstrapSchoolZone() async {
-    final z = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
-    );
-    if (!mounted) return;
-    setState(() {
-      _schoolIana = z;
-    });
-    setCurrentDateTime();
-    await _runUnexpectedSignInGate();
-  }
-
-  /// Selected calendar day as yyyy-MM-dd (naive components — intended school business date).
-  String _naiveCalendarYyyyMmDd(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
-  bool _hasUnexpectedAmongSelected() {
-    for (final s in currentStudents) {
-      final code = s.studentCode.trim();
-      if (code.isEmpty) continue;
-      final expected = _expectedTodayFromApi[code] ?? s.isExpectedToday;
-      if (!expected) return true;
-    }
-    return false;
-  }
-
-  List<String> _unexpectedStudentFullNames() {
-    final out = <String>[];
-    for (final s in currentStudents) {
-      final code = s.studentCode.trim();
-      if (code.isEmpty) continue;
-      final expected = _expectedTodayFromApi[code] ?? s.isExpectedToday;
-      if (!expected) out.add(s.fullName);
-    }
-    return out;
-  }
-
-  Future<void> _runUnexpectedSignInGate() async {
-    if (!mounted) return;
-    if (currentStudents.isEmpty) {
-      setState(() {
-        _unexpectedGateLoading = false;
-        _unexpectedSignInAcknowledged = true;
-      });
-      return;
-    }
-    final token = ++_unexpectedGateToken;
-    setState(() {
-      _unexpectedGateLoading = true;
-    });
-
-    final dateStr = _naiveCalendarYyyyMmDd(selectedDate);
-    try {
-      final useCase = serviceLocator<GetStudentSignInFormListUseCase>();
-      final page = await useCase(
-        fromAttendanceDate: dateStr,
-        toAttendanceDate: dateStr,
-        classroomCodes: null,
-        tagCodes: null,
-        search: null,
-        page: 0,
-        size: 500,
+  /// Runs the cubit's expected-today fetch (token cancellation lives in the
+  /// cubit), then owns the dialog + navigation the cubit cannot: a superseded
+  /// resolve does nothing; a current result that needs the dialog shows it and
+  /// either acknowledges (confirm) or pops the screen (cancel).
+  Future<void> _runGate() async {
+    final outcome = await _gateCubit.resolveExpectedToday();
+    if (!mounted || outcome.superseded) return;
+    if (outcome.needsDialog) {
+      final result = await showUnexpectedSignInAttentionDialog(
+        context,
+        unexpectedFullNames: outcome.unexpectedNames,
+        forStaff: false,
       );
-      if (!mounted || token != _unexpectedGateToken) return;
-      final m = <String, bool>{};
-      for (final item in page.items) {
-        m[item.studentCode.trim()] = item.isExpectedToday;
+      if (!mounted) return;
+      if (result?.confirmed == true) {
+        _gateCubit.acknowledgeUnexpected(result?.comment ?? '');
+      } else {
+        Navigator.of(context).pop();
       }
-      setState(() {
-        _expectedTodayFromApi = m;
-      });
-    } catch (_) {
-      if (!mounted || token != _unexpectedGateToken) return;
-      setState(() {
-        _expectedTodayFromApi = {};
-      });
-    }
-
-    if (!mounted || token != _unexpectedGateToken) return;
-
-    final hasUnexpected = _hasUnexpectedAmongSelected();
-    if (!hasUnexpected) {
-      setState(() {
-        _unexpectedSignInAcknowledged = true;
-        _unexpectedGateLoading = false;
-      });
-      return;
-    }
-
-    setState(() {
-      _unexpectedSignInAcknowledged = false;
-      _unexpectedGateLoading = false;
-    });
-
-    if (!mounted || token != _unexpectedGateToken) return;
-
-    final result = await showUnexpectedSignInAttentionDialog(
-      context,
-      unexpectedFullNames: _unexpectedStudentFullNames(),
-      forStaff: false,
-    );
-
-    if (!mounted || token != _unexpectedGateToken) return;
-
-    if (result?.confirmed == true) {
-      setState(() {
-        _unexpectedSignInAcknowledged = true;
-        _notExpectedComment = result?.comment ?? '';
-      });
-    } else {
-      Navigator.of(context).pop();
     }
   }
 
-  Future<void> _loadPersonaFlags() async {
-    final isStaff = await _resolveIsStaffPersona();
-    if (!mounted) return;
-    setState(() {
-      _isStaffPersona = isStaff;
-      if (!_isStaffPersona!) {
-        setCurrentDateTime();
-      }
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _runUnexpectedSignInGate();
-    });
-  }
-
-  /// True for any staff-side login (school/org admin or regular staff);
-  /// false for guardian/parent and kiosk-PIN access. Gates date/time editing.
-  Future<bool> _resolveIsStaffPersona() async {
-    try {
-      final storage = serviceLocator<StorageService>();
-      final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-          .trim();
-      if (staffType.isNotEmpty) return true;
-
-      final rolesJson = await storage.getString(StorageKeys.roles);
-      if (rolesJson == null || rolesJson.trim().isEmpty) return false;
-      final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
-      for (final r in roles) {
-        final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
-            .toString()
-            .toUpperCase();
-        if (roleCode.contains('GUARDIAN') ||
-            roleCode.contains('PARENT') ||
-            roleCode.contains('KIOSK')) {
-          continue;
-        }
-        return true;
-      }
-    } catch (_) {}
-    return false;
-  }
-
-  void setCurrentDateTime() {
-    final dateTime = ServerTimeService.instance.now();
-    setState(() {
-      selectedDate = dateTime;
-      selectedTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
-    });
-  }
-
-  void _removeStudent(StudentEntity student) {
-    setState(() {
-      currentStudents.remove(student);
-    });
-    if (currentStudents.isEmpty) {
+  void _removeStudent(StudentEntity s) {
+    final nowEmpty = _gateCubit.removeStudent(s);
+    if (nowEmpty) {
       Navigator.pop(context);
-      return;
-    }
-    if (!_hasUnexpectedAmongSelected()) {
-      setState(() {
-        _unexpectedSignInAcknowledged = true;
-        _notExpectedComment = '';
-      });
     }
   }
 
@@ -491,7 +353,12 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
   }
 
   Future<void> _submitSignIn() async {
-    if (_isSubmitting) return;
+    final gateState = _gateCubit.state;
+    if (_submitInFlight) return;
+    // Snapshot the business state the request is built from (unchanged logic).
+    final currentStudents = gateState.currentStudents;
+    final selectedDate = gateState.selectedDate;
+    final selectedTime = gateState.selectedTime;
     if (currentStudents.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
@@ -511,7 +378,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     );
 
     // Staff (admin or regular) pick school-local date/time; parents/kiosk use "now" in the school's zone.
-    final isStaffPersona = _isStaffPersona ?? await _resolveIsStaffPersona();
+    // Persona is resolved during initState (loadPersonaFlags) before any user
+    // interaction, so it is non-null here in practice; default to non-staff.
+    final isStaffPersona = gateState.isStaffPersona ?? false;
 
     final DateTime occurredAt = isStaffPersona
         ? SchoolZoneDateTime.resolvePickedInstantUtc(
@@ -687,8 +556,8 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       qrToken: (widget.isQrScan && widget.qrToken.isNotEmpty)
           ? widget.qrToken
           : null,
-      notExpectedComment: _notExpectedComment.trim().isNotEmpty
-          ? _notExpectedComment.trim()
+      notExpectedComment: gateState.notExpectedComment.trim().isNotEmpty
+          ? gateState.notExpectedComment.trim()
           : null,
       guardianCode: resolvedGuardianCode,
       pin: resolvedPin,
@@ -702,10 +571,11 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
           : null,
     );
 
-    setState(() {
-      _isSubmitting = true;
-    });
-
+    // Submit state (spinner / button-disable) is driven by [_submitCubit], which
+    // emits InProgress at the start of submit() below and Success/Failure at the
+    // end. [_submitInFlight] is only a re-entrancy guard (covers the pre-steps
+    // too), never UI state.
+    _submitInFlight = true;
     try {
       if (!isParent) {
         final staffCode = (request.staffCode ?? '').trim();
@@ -812,11 +682,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       );
       if (isGpsParentDisabled && mounted) Navigator.of(context).pop();
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+      _submitInFlight = false;
     }
   }
 
@@ -843,121 +709,128 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       );
     }
 
-    if (currentStudents.isEmpty) {
-      // Fallback if students list is empty
-      currentStudents = List.from(widget.students);
-    }
-
-    return StaffFormLayout(
-      title: 'Sign-In',
-      isKiosk: widget.isKiosk,
-      showKioskBackButton: widget.isKiosk,
-      showKioskLogoutMenu: widget.isKiosk,
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            GridView.builder(
-              physics: const NeverScrollableScrollPhysics(),
-              shrinkWrap: true,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 14,
-                mainAxisSpacing: 14,
-                childAspectRatio: 3.5,
-              ),
-              itemCount: currentStudents.length,
-              itemBuilder: (context, index) => RemoveStudentTile(
-                student: currentStudents[index],
-                onRemove: () => _removeStudent(currentStudents[index]),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const AppText.label('Date'),
-                      const SizedBox(height: AppSpacing.xs),
-                      CustomDateTimeField(
-                        hasLabel: false,
-                        isRangePicker: false,
-                        isTime: false,
-                        fetchInitialTime: false,
-                        initialDate: selectedDate,
-                        isDisabled: !(_isStaffPersona ?? false),
-                        onDateSelected: (date) {
-                          setState(() {
-                            // Prevent future dates (school calendar), not device calendar.
-                            final iana = _schoolIana;
-                            final today = iana != null && iana.isNotEmpty
-                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(
-                                    iana,
-                                  )
-                                : DateTime(
-                                    ServerTimeService.instance.now().year,
-                                    ServerTimeService.instance.now().month,
-                                    ServerTimeService.instance.now().day,
-                                  );
-                            final pickedDay = DateTime(
-                              date.year,
-                              date.month,
-                              date.day,
-                            );
-                            selectedDate = pickedDay.isAfter(today)
-                                ? today
-                                : date;
-                          });
-                          unawaited(_runUnexpectedSignInGate());
-                        },
-                      ),
-                    ],
+    return BlocProvider<StudentSignInGateCubit>.value(
+      value: _gateCubit,
+      child: BlocBuilder<StudentSignInGateCubit, StudentSignInGateState>(
+        builder: (context, gate) {
+          final currentStudents = gate.currentStudents;
+          final isStaffPersona = gate.isStaffPersona ?? false;
+          return StaffFormLayout(
+            title: 'Sign-In',
+            isKiosk: widget.isKiosk,
+            showKioskBackButton: widget.isKiosk,
+            showKioskLogoutMenu: widget.isKiosk,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  GridView.builder(
+                    physics: const NeverScrollableScrollPhysics(),
+                    shrinkWrap: true,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 14,
+                      mainAxisSpacing: 14,
+                      childAspectRatio: 3.5,
+                    ),
+                    itemCount: currentStudents.length,
+                    itemBuilder: (context, index) => RemoveStudentTile(
+                      student: currentStudents[index],
+                      onRemove: () => _removeStudent(currentStudents[index]),
+                    ),
                   ),
-                ),
-                const SizedBox(width: AppSpacing.lg),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: AppSpacing.lg),
+                  Row(
                     children: [
-                      const AppText.label('Time'),
-                      const SizedBox(height: AppSpacing.xs),
-                      IgnorePointer(
-                        ignoring: !(_isStaffPersona ?? false),
-                        child: GradientTimePickerField(
-                          time: selectedTime,
-                          onTimeSelected: (t) {
-                            setState(() {
-                              selectedTime = t;
-                            });
-                          },
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const AppText.label('Date'),
+                            const SizedBox(height: AppSpacing.xs),
+                            CustomDateTimeField(
+                              hasLabel: false,
+                              isRangePicker: false,
+                              isTime: false,
+                              fetchInitialTime: false,
+                              initialDate: gate.selectedDate,
+                              isDisabled: !isStaffPersona,
+                              onDateSelected: (date) {
+                                // Prevent future dates (school calendar), not
+                                // device calendar.
+                                final iana = gate.schoolIana;
+                                final today = iana != null && iana.isNotEmpty
+                                    ? SchoolZoneDateTime
+                                        .schoolCalendarTodayOnly(iana)
+                                    : DateTime(
+                                        ServerTimeService.instance.now().year,
+                                        ServerTimeService.instance.now().month,
+                                        ServerTimeService.instance.now().day,
+                                      );
+                                final pickedDay = DateTime(
+                                  date.year,
+                                  date.month,
+                                  date.day,
+                                );
+                                final clamped = pickedDay.isAfter(today)
+                                    ? today
+                                    : date;
+                                _gateCubit.setSelectedDate(clamped);
+                                unawaited(_runGate());
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.lg),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const AppText.label('Time'),
+                            const SizedBox(height: AppSpacing.xs),
+                            IgnorePointer(
+                              ignoring: !isStaffPersona,
+                              child: GradientTimePickerField(
+                                time: gate.selectedTime,
+                                onTimeSelected: (t) {
+                                  _gateCubit.setSelectedTime(t);
+                                },
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ],
-        ),
-      ),
-      bottomBar: CustomButtonLayout(
-        confirmButtonLabel: 'Sign-In',
-        onPressedConfirm:
-            (_isSubmitting ||
-                _unexpectedGateLoading ||
-                (_hasUnexpectedAmongSelected() &&
-                    !_unexpectedSignInAcknowledged))
-            ? null
-            : _submitSignIn,
-        showCancelButton: widget.isKiosk,
-        onPressedCancel: widget.isKiosk
-            ? () {
-                context.go('/kiosk');
-              }
-            : null,
+            bottomBar:
+                BlocBuilder<StudentSignInSubmitCubit, StudentSignInSubmitState>(
+              bloc: _submitCubit,
+              builder: (context, submitState) {
+                final hasUnexpected = _gateCubit.hasUnexpectedAmongSelected();
+                final disabled =
+                    (submitState is StudentSignInSubmitInProgress) ||
+                        gate.unexpectedGateLoading ||
+                        (hasUnexpected && !gate.unexpectedSignInAcknowledged);
+                return CustomButtonLayout(
+                  confirmButtonLabel: 'Sign-In',
+                  onPressedConfirm: disabled ? null : _submitSignIn,
+                  showCancelButton: widget.isKiosk,
+                  onPressedCancel: widget.isKiosk
+                      ? () {
+                          context.go('/kiosk');
+                        }
+                      : null,
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }
