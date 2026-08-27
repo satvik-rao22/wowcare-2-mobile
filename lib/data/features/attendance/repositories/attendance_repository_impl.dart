@@ -19,6 +19,7 @@ import '../../../../domain/features/attendance/entities/student_attendance_profi
 import '../../../../domain/features/attendance/entities/staff_attendance_profile_response.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_profile_absent_toggle_response.dart';
 import '../../../../domain/features/attendance/entities/staff_attendance_profile_absent_toggle_response.dart';
+import '../../../../domain/features/attendance/entities/student_attendance_absent_view_response.dart';
 import '../../../../domain/features/attendance/entities/staff_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/staff_attendance_absent.dart'
     as staff_absent;
@@ -1713,15 +1714,20 @@ class AttendanceRepositoryImpl
   }
 
   @override
-  Future<Map<String, dynamic>?> fetchStudentAttendanceAbsentView({
+  Future<StudentAttendanceAbsentViewResponse?>
+  fetchStudentAttendanceAbsentView({
     required Map<String, dynamic> queryParameters,
-  }) =>
-      _remoteDataSource.getStudentAttendanceAbsentViewRaw(
-        queryParameters: queryParameters,
-      );
+  }) async {
+    final raw = await _remoteDataSource.getStudentAttendanceAbsentViewRaw(
+      queryParameters: queryParameters,
+    );
+    return raw == null
+        ? null
+        : StudentAttendanceAbsentViewResponse.fromJson(raw);
+  }
 
   @override
-  Future<Map<String, dynamic>?> getStudentAttendanceAbsentView({
+  Future<StudentAttendanceAbsentViewResponse?> getStudentAttendanceAbsentView({
     required String fromAbsenceDate,
     required String toAbsenceDate,
     List<String>? classroomCodes,
@@ -1765,9 +1771,12 @@ class AttendanceRepositoryImpl
     queryParameters['pageable.sort'] =
         sort ?? const <String>['studentName,asc'];
 
-    return _remoteDataSource.getStudentAttendanceAbsentViewRaw(
+    final raw = await _remoteDataSource.getStudentAttendanceAbsentViewRaw(
       queryParameters: queryParameters,
     );
+    return raw == null
+        ? null
+        : StudentAttendanceAbsentViewResponse.fromJson(raw);
   }
 
   @override

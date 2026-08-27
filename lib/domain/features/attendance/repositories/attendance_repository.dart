@@ -16,6 +16,7 @@ import '../entities/student_attendance_profile_response.dart';
 import '../entities/staff_attendance_profile_response.dart';
 import '../entities/student_attendance_profile_absent_toggle_response.dart';
 import '../entities/staff_attendance_profile_absent_toggle_response.dart';
+import '../entities/student_attendance_absent_view_response.dart';
 import '../entities/qr_validation_result.dart';
 
 abstract class AttendanceRepository {
@@ -435,12 +436,12 @@ abstract class AttendanceRepository {
   });
 
   /// GET student absent view list (paginated, filterable).
-  Future<Map<String, dynamic>?> fetchStudentAttendanceAbsentView({
+  Future<StudentAttendanceAbsentViewResponse?> fetchStudentAttendanceAbsentView({
     required Map<String, dynamic> queryParameters,
   });
 
   /// GET student absent view with classroom filter + allowed scope applied.
-  Future<Map<String, dynamic>?> getStudentAttendanceAbsentView({
+  Future<StudentAttendanceAbsentViewResponse?> getStudentAttendanceAbsentView({
     required String fromAbsenceDate,
     required String toAbsenceDate,
     List<String>? classroomCodes,

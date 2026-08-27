@@ -533,7 +533,7 @@ class _StudentAttendanceAbsentViewState
 
       if (!mounted) return;
 
-      if (data is! Map<String, dynamic>) {
+      if (data == null) {
         setState(() {
           _isInitialLoadingStudents = false;
           _isLoadingStudents = false;
@@ -543,7 +543,7 @@ class _StudentAttendanceAbsentViewState
         return;
       }
 
-      final root = data['data'] as Map<String, dynamic>? ?? {};
+      final root = data.data ?? {};
 
       // Cache first page keyed by filters so it can be reused on next load —
       // but only when this persona is unrestricted. A scoped staff member's
