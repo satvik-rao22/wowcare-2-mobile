@@ -17,6 +17,7 @@ import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/unexpected_sign_in_attention_dialog.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -127,6 +128,11 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
   String? _schoolIana;
   List<StudentEntity> currentStudents = [];
   bool _isSubmitting = false;
+
+  /// Owns the sign-in submit call (View -> Cubit -> UseCase -> Repository).
+  /// Eagerly resolved so [dispose] can always close it.
+  final StudentSignInSubmitCubit _submitCubit =
+      serviceLocator<StudentSignInSubmitCubit>();
   bool? _isStaffPersona;
   Map<String, bool> _expectedTodayFromApi = {};
   bool _unexpectedGateLoading = true;
@@ -142,6 +148,12 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _bootstrapSchoolZone();
     });
+  }
+
+  @override
+  void dispose() {
+    _submitCubit.close();
+    super.dispose();
   }
 
   Future<void> _bootstrapSchoolZone() async {
@@ -662,8 +674,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
         });
       } else {
         // KIOSK MODE: Use guardian code directly, no staff code needed
+        // Never log the PIN itself (secret credential) — length only.
         AppLogger.d(
-          '[KIOSK] Building kiosk payload: pin=${widget.pin}, guardianCode=${widget.guardianCode}',
+          '[KIOSK] Building kiosk payload: pinLength=${widget.pin?.length ?? 0}, guardianCode=${widget.guardianCode}',
         );
         payload['method'] = 'PIN';
         payload.addAll(<String, dynamic>{
@@ -690,11 +703,10 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
         }
       }
 
-      final result = await serviceLocator<AttendanceRepository>()
-          .submitStudentSignIn(
-            payload: payload,
-            isParent: isParent || widget.isKiosk || widget.isQrScan,
-          );
+      final result = await _submitCubit.submit(
+        payload: payload,
+        isParent: isParent || widget.isKiosk || widget.isQrScan,
+      );
       final success = result.success;
       var message = result.message;
 
