@@ -1,27 +1,28 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/domain/features/attendance/entities/attendance_profile_absent_toggle_query.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_profile_absent_toggle_response.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/fetch_student_attendance_profile_absent_toggle_usecase.dart';
 
-const _query = <String, dynamic>{
-  'studentCode': 'STU-1',
-  'fromAbsenceDate': '2026-08-01',
-  'toAbsenceDate': '2026-08-27',
-  'page': 0,
-  'size': 100,
-};
+const _query = AttendanceProfileAbsentToggleQuery(
+  studentCode: 'STU-1',
+  fromAbsenceDate: '2026-08-01',
+  toAbsenceDate: '2026-08-27',
+  page: 0,
+  size: 100,
+);
 
 class _FakeAttendanceRepository implements AttendanceRepository {
-  Map<String, dynamic>? capturedQuery;
+  AttendanceProfileAbsentToggleQuery? capturedQuery;
   StudentAttendanceProfileAbsentToggleResponse? resultToReturn;
   Object? errorToThrow;
 
   @override
   Future<StudentAttendanceProfileAbsentToggleResponse?>
       fetchStudentAttendanceProfileAbsentToggle({
-    required Map<String, dynamic> queryParameters,
+    required AttendanceProfileAbsentToggleQuery query,
   }) async {
-    capturedQuery = queryParameters;
+    capturedQuery = query;
     if (errorToThrow != null) throw errorToThrow!;
     return resultToReturn;
   }
@@ -48,7 +49,7 @@ void main() {
       );
       repo.resultToReturn = expected;
 
-      final result = await useCase(queryParameters: _query);
+      final result = await useCase(query: _query);
 
       expect(result, same(expected));
       expect(repo.capturedQuery, same(_query));
@@ -59,7 +60,7 @@ void main() {
       repo.errorToThrow = failure;
 
       expect(
-        () => useCase(queryParameters: _query),
+        () => useCase(query: _query),
         throwsA(same(failure)),
       );
     });

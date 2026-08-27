@@ -1,3 +1,4 @@
+import '../entities/attendance_profile_absent_toggle_query.dart';
 import '../entities/staff_attendance_profile_absent_toggle_response.dart';
 import '../repositories/attendance_repository.dart';
 
@@ -13,10 +14,8 @@ class FetchStaffAttendanceProfileAbsentToggleUseCase {
   final AttendanceRepository _repository;
 
   Future<StaffAttendanceProfileAbsentToggleResponse?> call({
-    required Map<String, dynamic> queryParameters,
+    required AttendanceProfileAbsentToggleQuery query,
   }) {
-    return _repository.fetchStaffAttendanceProfileAbsentToggle(
-      queryParameters: queryParameters,
-    );
+    return _repository.fetchStaffAttendanceProfileAbsentToggle(query: query);
   }
 }

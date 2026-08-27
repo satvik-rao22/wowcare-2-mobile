@@ -4,34 +4,140 @@ import 'package:equatable/equatable.dart';
 ///
 /// This is a pure client-side typing of the raw response the
 /// `student_attendance_absent_view` screen used to parse inline. The screen
-/// reads only the top-level `data` object off the payload —
-/// `data['data'] as Map<String, dynamic>? ?? {}` — and then hands that raw
-/// page map to its own `_applyPagePayload(...)` (content/last/number parsing
-/// and per-record model building) and to `_cacheManager.saveCache(...)`.
+/// previously read the top-level `data` object off the payload —
+/// `data['data'] as Map<String, dynamic>? ?? {}` — and then hand-parsed the
+/// page fields (`content` / `last` / `number`) and each record's fields inside
+/// its own `_applyPagePayload(...)`.
 ///
-/// Because that page map is consumed as a raw `Map<String, dynamic>` by the
-/// screen (and cached/re-read as one), it is exposed here verbatim via the
-/// composed [data] field — a nullable `Map<String, dynamic>` read with the
-/// exact `json['data'] as Map<String, dynamic>?` cast the screen applied,
-/// with the `?? {}` default kept at the consume site so behaviour is
-/// byte-identical.
-class StudentAttendanceAbsentViewResponse extends Equatable {
-  const StudentAttendanceAbsentViewResponse({
-    required this.data,
+/// Those exact casts/defaults now live here so the screen consumes typed
+/// values. [toJson] reconstructs the same key shape the screen used to cache
+/// verbatim, so the cache round-trip (write [toJson], read [fromJson]) stays
+/// byte-faithful.
+
+/// A single absent-student record inside the paged `content` list.
+class StudentAbsentViewRecord extends Equatable {
+  const StudentAbsentViewRecord({
+    required this.absenceDate,
+    required this.classroomName,
+    required this.classroomCode,
+    required this.studentCode,
+    required this.studentName,
+    required this.absentDays,
+    required this.markedAbsentTime,
+    required this.markedAbsentByName,
+    required this.absenceNote,
   });
 
-  /// `json['data'] as Map<String, dynamic>?` (raw page map; the screen applies
-  /// its own `?? {}` default and its own paginated parse on this object).
-  final Map<String, dynamic>? data;
+  /// `m['absenceDate'] as String? ?? ''`
+  final String absenceDate;
+
+  /// `m['classroomName'] as String?`
+  final String? classroomName;
+
+  /// `m['classroomCode'] as String?`
+  final String? classroomCode;
+
+  /// `m['studentCode'] as String? ?? ''`
+  final String studentCode;
+
+  /// `m['studentName'] as String? ?? ''`
+  final String studentName;
+
+  /// `m['absentDays'] as int? ?? 0`
+  final int absentDays;
+
+  /// `m['markedAbsentTime']` kept raw (String OR `{hour,minute,second}` OR null)
+  /// so the screen's `parseTime(...)` can discriminate the shape.
+  final dynamic markedAbsentTime;
+
+  /// `m['markedAbsentByName'] as String? ?? ''`
+  final String markedAbsentByName;
+
+  /// `m['absenceNote'] as String?`
+  final String? absenceNote;
+
+  factory StudentAbsentViewRecord.fromJson(Map<String, dynamic> m) {
+    return StudentAbsentViewRecord(
+      absenceDate: m['absenceDate'] as String? ?? '',
+      classroomName: m['classroomName'] as String?,
+      classroomCode: m['classroomCode'] as String?,
+      studentCode: m['studentCode'] as String? ?? '',
+      studentName: m['studentName'] as String? ?? '',
+      absentDays: m['absentDays'] as int? ?? 0,
+      markedAbsentTime: m['markedAbsentTime'],
+      markedAbsentByName: m['markedAbsentByName'] as String? ?? '',
+      absenceNote: m['absenceNote'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'absenceDate': absenceDate,
+      'classroomName': classroomName,
+      'classroomCode': classroomCode,
+      'studentCode': studentCode,
+      'studentName': studentName,
+      'absentDays': absentDays,
+      'markedAbsentTime': markedAbsentTime,
+      'markedAbsentByName': markedAbsentByName,
+      'absenceNote': absenceNote,
+    };
+  }
+
+  @override
+  List<Object?> get props => [
+        absenceDate,
+        classroomName,
+        classroomCode,
+        studentCode,
+        studentName,
+        absentDays,
+        markedAbsentTime,
+        markedAbsentByName,
+        absenceNote,
+      ];
+}
+
+class StudentAttendanceAbsentViewResponse extends Equatable {
+  const StudentAttendanceAbsentViewResponse({
+    required this.content,
+    required this.last,
+    required this.number,
+  });
+
+  /// `root['content'] as List? ?? const []` mapped to typed records.
+  final List<StudentAbsentViewRecord> content;
+
+  /// `root['last'] as bool?` (screen applies its own `?? true` default).
+  final bool? last;
+
+  /// `root['number'] as int?` (screen applies its own `?? _studentsPage`).
+  final int? number;
 
   factory StudentAttendanceAbsentViewResponse.fromJson(
     Map<String, dynamic> json,
   ) {
+    final root = json['data'] as Map<String, dynamic>? ?? {};
     return StudentAttendanceAbsentViewResponse(
-      data: json['data'] as Map<String, dynamic>?,
+      content: (root['content'] as List? ?? const [])
+          .map((e) =>
+              StudentAbsentViewRecord.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      last: root['last'] as bool?,
+      number: root['number'] as int?,
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'data': <String, dynamic>{
+        'content': content.map((r) => r.toJson()).toList(),
+        'last': last,
+        'number': number,
+      },
+    };
+  }
+
   @override
-  List<Object?> get props => [data];
+  List<Object?> get props => [content, last, number];
 }

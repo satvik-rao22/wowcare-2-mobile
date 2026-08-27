@@ -17,6 +17,8 @@ import '../entities/staff_attendance_profile_response.dart';
 import '../entities/student_attendance_profile_absent_toggle_response.dart';
 import '../entities/staff_attendance_profile_absent_toggle_response.dart';
 import '../entities/student_attendance_absent_view_response.dart';
+import '../entities/attendance_profile_query.dart';
+import '../entities/attendance_profile_absent_toggle_query.dart';
 import '../entities/qr_validation_result.dart';
 
 abstract class AttendanceRepository {
@@ -415,29 +417,24 @@ abstract class AttendanceRepository {
 
   /// GET student attendance profile (present-day summary + records).
   Future<StudentAttendanceProfileResponse?> fetchStudentAttendanceProfile({
-    required Map<String, dynamic> queryParameters,
+    required AttendanceProfileQuery query,
   });
 
   /// GET student attendance profile absent-toggle list.
   Future<StudentAttendanceProfileAbsentToggleResponse?>
   fetchStudentAttendanceProfileAbsentToggle({
-    required Map<String, dynamic> queryParameters,
+    required AttendanceProfileAbsentToggleQuery query,
   });
 
   /// GET staff attendance profile (present-day summary + records).
   Future<StaffAttendanceProfileResponse?> fetchStaffAttendanceProfile({
-    required Map<String, dynamic> queryParameters,
+    required AttendanceProfileQuery query,
   });
 
   /// GET staff attendance profile absent-toggle list.
   Future<StaffAttendanceProfileAbsentToggleResponse?>
   fetchStaffAttendanceProfileAbsentToggle({
-    required Map<String, dynamic> queryParameters,
-  });
-
-  /// GET student absent view list (paginated, filterable).
-  Future<StudentAttendanceAbsentViewResponse?> fetchStudentAttendanceAbsentView({
-    required Map<String, dynamic> queryParameters,
+    required AttendanceProfileAbsentToggleQuery query,
   });
 
   /// GET student absent view with classroom filter + allowed scope applied.

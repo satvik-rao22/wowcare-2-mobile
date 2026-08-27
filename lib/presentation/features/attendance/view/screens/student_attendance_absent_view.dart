@@ -31,6 +31,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_absent_view_usecase.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_view_response.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
@@ -457,7 +458,10 @@ class _StudentAttendanceAbsentViewState
           final cachedPayload = await _cacheManager.loadCache(cacheKey);
           if (!mounted) return;
           if (cachedPayload != null) {
-            _applyPagePayload(cachedPayload, reset: true);
+            _applyPagePayload(
+              StudentAttendanceAbsentViewResponse.fromJson(cachedPayload),
+              reset: true,
+            );
             return;
           }
         }
@@ -543,8 +547,6 @@ class _StudentAttendanceAbsentViewState
         return;
       }
 
-      final root = data.data ?? {};
-
       // Cache first page keyed by filters so it can be reused on next load —
       // but only when this persona is unrestricted. A scoped staff member's
       // results must never be persisted to the shared cache: another user
@@ -565,11 +567,11 @@ class _StudentAttendanceAbsentViewState
             tagCodes: tagCodes,
             search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
           );
-          await _cacheManager.saveCache(cacheKey, root);
+          await _cacheManager.saveCache(cacheKey, data.toJson());
         }
       }
 
-      _applyPagePayload(root, reset: reset);
+      _applyPagePayload(data, reset: reset);
     } catch (error) {
       AppLogger.d('StudentAbsent API error: $error');
       if (!mounted) return;
@@ -639,10 +641,13 @@ class _StudentAttendanceAbsentViewState
   }
 
   /// Applies a paged API/cache payload to local state and list.
-  void _applyPagePayload(Map<String, dynamic> root, {required bool reset}) {
-    final content = root['content'] as List<dynamic>? ?? const [];
-    final last = root['last'] as bool? ?? true;
-    final number = root['number'] as int? ?? _studentsPage;
+  void _applyPagePayload(
+    StudentAttendanceAbsentViewResponse page, {
+    required bool reset,
+  }) {
+    final content = page.content;
+    final last = page.last ?? true;
+    final number = page.number ?? _studentsPage;
 
     String parseTime(dynamic value) {
       if (value == null) return '';
@@ -674,31 +679,30 @@ class _StudentAttendanceAbsentViewState
 
     final newData = content.asMap().entries.map<_AbsentStudentModel>((entry) {
       final indexInPage = entry.key;
-      final e = entry.value;
-      final m = e as Map<String, dynamic>;
+      final record = entry.value;
 
-      final absenceDateStr = m['absenceDate'] as String? ?? '';
+      final absenceDateStr = record.absenceDate;
       final absenceDate = absenceDateStr.isNotEmpty
           ? DateTime.tryParse(absenceDateStr) ?? attendanceSchoolToday()
           : attendanceSchoolToday();
 
-      final classroomName = (m['classroomName'] as String?)?.trim() ?? '';
-      final classroomCode = (m['classroomCode'] as String?)?.trim() ?? '';
+      final classroomName = record.classroomName?.trim() ?? '';
+      final classroomCode = record.classroomCode?.trim() ?? '';
       final roomDisplay = _classroomDisplay(
         classroomCode: classroomCode,
         classroomName: classroomName,
       );
 
       return _AbsentStudentModel(
-        id: (m['studentCode'] as String?) ?? '',
-        name: (m['studentName'] as String?) ?? '',
+        id: record.studentCode,
+        name: record.studentName,
         photoUuid: null,
         roomName: roomDisplay,
-        absentDays: (m['absentDays'] as int?) ?? 0,
+        absentDays: record.absentDays,
         startDate: absenceDate,
-        absentTime: parseTime(m['markedAbsentTime']),
-        absentBy: (m['markedAbsentByName'] as String?) ?? '',
-        note: (m['absenceNote'] as String?),
+        absentTime: parseTime(record.markedAbsentTime),
+        absentBy: record.markedAbsentByName,
+        note: record.absenceNote,
         // No numeric studentId available in this response - use a stable placeholder
         studentId: (number * _pageSize) + indexInPage,
         roomId: 0,

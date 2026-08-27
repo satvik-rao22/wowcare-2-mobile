@@ -55,8 +55,11 @@ void main() {
 
     test('forwards every parameter and returns the repository result',
         () async {
-      const expected =
-          StudentAttendanceAbsentViewResponse(data: <String, dynamic>{'k': 'v'});
+      const expected = StudentAttendanceAbsentViewResponse(
+        content: <StudentAbsentViewRecord>[],
+        last: true,
+        number: 0,
+      );
       repo.resultToReturn = expected;
 
       final result = await useCase(

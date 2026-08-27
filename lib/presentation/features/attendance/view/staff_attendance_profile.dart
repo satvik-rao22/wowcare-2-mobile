@@ -24,6 +24,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/fetch_staff_attendance_profile_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/fetch_staff_attendance_profile_absent_toggle_usecase.dart';
+import 'package:wowcare/domain/features/attendance/entities/attendance_profile_query.dart';
+import 'package:wowcare/domain/features/attendance/entities/attendance_profile_absent_toggle_query.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
@@ -654,27 +656,23 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     final fromStr = DateFormat('yyyy-MM-dd').format(from);
     final toStr = DateFormat('yyyy-MM-dd').format(to);
 
-    final queryParameters = <String, dynamic>{
-      'staffCode': widget.staffCode,
-      'fromAttendanceDate': fromStr,
-      'toAttendanceDate': toStr,
-      'page': 0,
-      'size': 10,
-      'sort': <String>['attendanceDate,desc'],
-    };
-
     final allowedClassroomCodes = await resolveAttendanceAllowedClassroomCodes(
       storage: serviceLocator<StorageService>(),
-    );
-    queryParameters['allowedClassroomCodes'] = List<String>.from(
-      allowedClassroomCodes,
     );
 
     try {
       // ---------- Load staff attendance profile (present days / summary) ----------
       final data =
           await serviceLocator<FetchStaffAttendanceProfileUseCase>()(
-        queryParameters: queryParameters,
+        query: AttendanceProfileQuery(
+          staffCode: widget.staffCode,
+          fromAttendanceDate: fromStr,
+          toAttendanceDate: toStr,
+          page: 0,
+          size: 10,
+          sort: const ['attendanceDate,desc'],
+          allowedClassroomCodes: List<String>.from(allowedClassroomCodes),
+        ),
       );
       if (data != null) {
         // Aggregations
@@ -789,27 +787,20 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       }
 
       // ---------- Load staff absent profile for toggle list ----------
-      final absentQueryParameters = <String, dynamic>{
-        'staffCode': widget.staffCode,
-        'fromAbsenceDate': fromStr,
-        'toAbsenceDate': toStr,
-        'page': 0,
-        'size': 10,
-        'sort': <String>['absenceDate,desc'],
-        // Swagger lists pageable as required for this endpoint.
-        // Keep both styles to remain backward compatible across environments.
-        'pageable.page': 0,
-        'pageable.size': 10,
-        'pageable.sort': <String>['absenceDate,desc'],
-      };
-
-      absentQueryParameters['allowedClassroomCodes'] = List<String>.from(
-        allowedClassroomCodes,
-      );
-
       final absentData = await serviceLocator<
           FetchStaffAttendanceProfileAbsentToggleUseCase>()(
-        queryParameters: absentQueryParameters,
+        query: AttendanceProfileAbsentToggleQuery(
+          staffCode: widget.staffCode,
+          fromAbsenceDate: fromStr,
+          toAbsenceDate: toStr,
+          page: 0,
+          size: 10,
+          sort: const ['absenceDate,desc'],
+          allowedClassroomCodes: List<String>.from(allowedClassroomCodes),
+          // Swagger lists pageable as required for this endpoint.
+          // Keep both styles to remain backward compatible across environments.
+          includePageableAliasParams: true,
+        ),
       );
       if (absentData != null) {
         final absentDaysCount = absentData.absentDays;

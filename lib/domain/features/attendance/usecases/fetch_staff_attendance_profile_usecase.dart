@@ -1,3 +1,4 @@
+import '../entities/attendance_profile_query.dart';
 import '../entities/staff_attendance_profile_response.dart';
 import '../repositories/attendance_repository.dart';
 
@@ -13,10 +14,8 @@ class FetchStaffAttendanceProfileUseCase {
   final AttendanceRepository _repository;
 
   Future<StaffAttendanceProfileResponse?> call({
-    required Map<String, dynamic> queryParameters,
+    required AttendanceProfileQuery query,
   }) {
-    return _repository.fetchStaffAttendanceProfile(
-      queryParameters: queryParameters,
-    );
+    return _repository.fetchStaffAttendanceProfile(query: query);
   }
 }
