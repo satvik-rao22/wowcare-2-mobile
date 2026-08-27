@@ -1,4 +1,5 @@
 import '../entities/attendance_action_result.dart';
+import '../entities/student_transfer_request.dart';
 import '../entities/student_attendance_daily.dart';
 import '../entities/student_attendance_custom.dart';
 import '../entities/staff_attendance_daily.dart';
@@ -365,7 +366,7 @@ abstract class AttendanceRepository {
 
   /// Submits a student classroom transfer.
   Future<AttendanceActionResult> submitStudentTransfer({
-    required Map<String, dynamic> payload,
+    required StudentTransferRequest request,
   });
 
   /// Submits a staff sign-in (admin bulk or teacher-self variant).

@@ -1,9 +1,20 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_transfer_request.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_student_transfer_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_transfer_submit_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_transfer_submit_state.dart';
+
+const _request = StudentTransferRequest(
+  transferDate: '2026-08-27',
+  staffCode: 'STF-1',
+  studentCodes: ['STU-1'],
+  toClassroomCode: 'CLS_1',
+  toClassroomCodeByStudentCode: {'STU-1': 'CLS_1'},
+  timeZone: 'Asia/Kolkata',
+  transferredAt: '2026-08-27T09:00:00.000Z',
+);
 
 /// The use case's constructor needs a repository, but the fake overrides
 /// [call] so the repository is never touched.
@@ -22,7 +33,7 @@ class _FakeSubmitUseCase extends SubmitStudentTransferUseCase {
 
   @override
   Future<AttendanceActionResult> call({
-    required Map<String, dynamic> payload,
+    required StudentTransferRequest request,
   }) async {
     calls++;
     if (errorToThrow != null) throw errorToThrow!;
@@ -62,9 +73,7 @@ void main() {
         ]),
       );
 
-      final returned = await cubit.submit(
-        payload: const <String, dynamic>{'a': 1},
-      );
+      final returned = await cubit.submit(request: _request);
 
       await expectation;
       expect(returned, same(result));
@@ -82,9 +91,7 @@ void main() {
       );
       useCase.resultToReturn = result;
 
-      final returned = await cubit.submit(
-        payload: const <String, dynamic>{},
-      );
+      final returned = await cubit.submit(request: _request);
 
       expect(returned.success, isFalse);
       expect(cubit.state, isA<StudentTransferSubmitSuccess>());
@@ -103,7 +110,7 @@ void main() {
       );
 
       await expectLater(
-        () => cubit.submit(payload: const <String, dynamic>{}),
+        () => cubit.submit(request: _request),
         throwsA(same(error)),
       );
 

@@ -5,6 +5,7 @@ import '../../../../core/util/attendance_events.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/school_timezone_resolver.dart';
 import '../../../../domain/features/attendance/entities/attendance_action_result.dart';
+import '../../../../domain/features/attendance/entities/student_transfer_request.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_expected_summary.dart';
@@ -1584,9 +1585,9 @@ class AttendanceRepositoryImpl
 
   @override
   Future<AttendanceActionResult> submitStudentTransfer({
-    required Map<String, dynamic> payload,
+    required StudentTransferRequest request,
   }) async {
-    final body = Map<String, dynamic>.from(payload);
+    final body = request.toPayload();
     await applyStudentAllowedClassroomCodesToAttendanceBody(body, _storage);
     final data = await _remoteDataSource.postStudentTransfer(body: body);
     return _attendanceActionResult(data, defaultMessage: 'Transfer successfully');
