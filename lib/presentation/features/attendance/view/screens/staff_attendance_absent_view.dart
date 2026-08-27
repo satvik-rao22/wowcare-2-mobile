@@ -15,6 +15,8 @@ import 'package:wowcare/presentation/features/attendance/view/staff_attendance_p
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -413,7 +415,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.xs),
                   // Filters Section
                   CustomSectionCard(
                     child: Column(
@@ -440,7 +442,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
                                   if (isLoading && items.isEmpty) {
                                     return ShimmerLoader(
                                       height: 40,
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: AppRadius.allMd,
                                     );
                                   }
 
@@ -529,7 +531,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
                           height: 100,
                           margin: EdgeInsets.only(
                               bottom: responsive.verticalSpacing / 2),
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: AppRadius.allLg,
                         ),
                         ...List.generate(
                           6,
@@ -540,7 +542,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
                   else if (filtered.isEmpty)
                     Center(
                       child: Padding(
-                        padding: const EdgeInsets.all(32.0),
+                        padding: const EdgeInsets.all(AppSpacing.xxl),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -549,7 +551,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
                               size: 48,
                               color: Colors.grey[400],
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: AppSpacing.md),
                             AppText.body(
                               'No absent staff found',
                               style: TextStyle(

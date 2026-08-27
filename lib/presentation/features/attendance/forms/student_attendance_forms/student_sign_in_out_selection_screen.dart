@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -158,7 +159,7 @@ class _StudentSignInOutSelectionScreenState
                       );
                     },
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             CustomConfirmButton(
               label: _isValidating ? 'Validating...' : 'Sign Out',
               onPressed: _isValidating

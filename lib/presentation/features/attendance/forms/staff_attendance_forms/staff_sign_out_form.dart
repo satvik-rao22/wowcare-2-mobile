@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -593,7 +595,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                   canRemove: _selectedStaff.length > 1,
                 ),
               ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.lg),
             Row(
               children: [
                 Expanded(
@@ -601,7 +603,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const AppText.label('Date'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.xs),
                       CustomDateTimeField(
                         hasLabel: false,
                         isRangePicker: false,
@@ -633,13 +635,13 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 20),
+                const SizedBox(width: AppSpacing.lg),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const AppText.label('Time'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.xs),
                       IgnorePointer(
                         // Teachers cannot modify time; submission will also
                         // force "now" for them. Admin personas can edit the
@@ -678,10 +680,13 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
 
   Widget _buildStaffCard(StaffEntity staff, {required bool canRemove}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.themeColor),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppRadius.r10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
       child: Row(
@@ -696,7 +701,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                   size: 30,
                   fontSize: 12,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: AppSpacing.s6),
                 Flexible(
                   child: Text(
                     staff.name,

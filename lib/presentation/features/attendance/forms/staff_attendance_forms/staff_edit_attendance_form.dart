@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -112,20 +113,20 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
       child: SingleChildScrollView(
         padding: EdgeInsets.symmetric(
           horizontal: isTablet ? 24 : 16,
-          vertical: 16,
+          vertical: AppSpacing.md,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildStaffHeaderCard(staff),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.xl),
             _buildTimeSection(
               context: context,
               label: 'Sign-In Time',
               time: state.signInTime,
               onTimeChanged: _cubit.setSignInTime,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             _buildTimeSection(
               context: context,
               label: 'Sign-Out Time',
@@ -145,17 +146,20 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
 
   Widget _buildStaffHeaderCard(StaffAttendanceCardData staff) {
     return CustomSectionCard(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
+      ),
       child: Row(
         children: [
-          const SizedBox(width: 4),
+          const SizedBox(width: AppSpacing.xxs),
           DocumentImageWidget(
             fileUuid: staff.staffPhotoUuid ?? '',
             name: staff.staffName,
             size: 36,
             fontSize: 14,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.xs),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,7 +171,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
                 ),
                 if (staff.designationName != null &&
                     staff.designationName!.isNotEmpty) ...[
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.xxs),
                   AppText.small(
                     staff.designationName!,
                     style: const TextStyle(
@@ -193,7 +197,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AppText.label(label),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.xs),
         GradientTimePickerField(
           time: time,
           onTimeSelected: onTimeChanged,
