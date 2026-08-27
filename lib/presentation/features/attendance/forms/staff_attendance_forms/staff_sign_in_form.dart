@@ -15,6 +15,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_absent.dart';
+import 'package:wowcare/domain/features/attendance/entities/staff_sign_in_request.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -711,7 +712,6 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       }
     }
 
-    late final Map<String, dynamic> payload;
     final bool isQrSignIn = widget.qrToken.isNotEmpty;
     // The dashboard's personal sign-in card (forceSelf) is a GPS sign-in for
     // both admin and staff personas — only the admin bulk picker flow reports
@@ -730,29 +730,37 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     // endpoint always forces "now".
     final bool useSelfEndpoint = !isStaffAdmin || isQrSignIn;
 
+    // Resolve the values the two shapes share into locals (keeping every guard
+    // above), then assemble a typed StaffSignInRequest whose toPayload()
+    // reproduces the exact payload map this form used to build for each shape.
+    final double latitude = position?.latitude ?? 0;
+    final double longitude = position?.longitude ?? 0;
+    final String occurredAtIso = occurredAt.toUtc().toIso8601String();
+    final String? notExpectedComment = _notExpectedComment.trim().isNotEmpty
+        ? _notExpectedComment.trim()
+        : null;
+
+    final StaffSignInRequest request;
     if (useSelfEndpoint) {
       // Self sign-in: matches POST /staff-attendance-records/sign-in/self body.
-      payload = <String, dynamic>{
-        'staffCode': staffCode,
-        'method': widget.isKiosk ? 'PIN' : signInMethod,
-        'latitude': position?.latitude ?? 0,
-        'longitude': position?.longitude ?? 0,
-        'withinGeofence': withinGeofence,
-        'timeZone': schoolTimeZone,
-        'occurredAt': occurredAt.toUtc().toIso8601String(),
-        'isExpectedToday': _isExpectedTodayForStaffCode(
+      request = StaffSignInRequest(
+        mode: StaffSignInMode.self,
+        staffCode: staffCode,
+        signInMethod: signInMethod,
+        latitude: latitude,
+        longitude: longitude,
+        withinGeofence: withinGeofence,
+        timeZone: schoolTimeZone,
+        occurredAtIso: occurredAtIso,
+        isExpectedToday: _isExpectedTodayForStaffCode(
           staffCode,
           expectedFromApi,
         ),
-      };
-      if (widget.isKiosk && widget.pin != null) {
-        payload['pin'] = widget.pin;
-      } else if (isQrSignIn) {
-        payload['qrToken'] = widget.qrToken;
-      }
-      if (_notExpectedComment.trim().isNotEmpty) {
-        payload['notExpectedComment'] = _notExpectedComment.trim();
-      }
+        isKiosk: widget.isKiosk,
+        pin: widget.pin,
+        qrToken: isQrSignIn ? widget.qrToken : null,
+        notExpectedComment: notExpectedComment,
+      );
     } else {
       // Admin bulk sign-in: supports signing in other staff.
       final staffCodes = targetStaffCodes;
@@ -766,26 +774,25 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
           ? classroomCodeByStaffCode.values.first
           : '';
 
-      payload = <String, dynamic>{
-        'isExpectedToday': _requestBodyIsExpectedToday(
+      request = StaffSignInRequest(
+        mode: StaffSignInMode.adminBulk,
+        staffCode: staffCode,
+        signInMethod: signInMethod,
+        latitude: latitude,
+        longitude: longitude,
+        withinGeofence: withinGeofence,
+        timeZone: schoolTimeZone,
+        occurredAtIso: occurredAtIso,
+        isExpectedToday: _requestBodyIsExpectedToday(
           staffCodes: staffCodes,
           fromApi: expectedFromApi,
         ),
-        'attendanceDate': attendanceDate,
-        'staffCode': staffCode,
-        'staffCodes': staffCodes,
-        'classroomCode': classroomCode,
-        'classroomCodeByStaffCode': classroomCodeByStaffCode,
-        'method': signInMethod,
-        'latitude': position?.latitude ?? 0,
-        'longitude': position?.longitude ?? 0,
-        'withinGeofence': withinGeofence,
-        'timeZone': schoolTimeZone,
-        'occurredAt': occurredAt.toUtc().toIso8601String(),
-      };
-      if (_notExpectedComment.trim().isNotEmpty) {
-        payload['notExpectedComment'] = _notExpectedComment.trim();
-      }
+        attendanceDate: attendanceDate,
+        staffCodes: staffCodes,
+        classroomCode: classroomCode,
+        classroomCodeByStaffCode: classroomCodeByStaffCode,
+        notExpectedComment: notExpectedComment,
+      );
     }
 
     try {
@@ -802,7 +809,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       }
 
       final result = await _submitCubit.submit(
-        payload: payload,
+        request: request,
         isSelf: useSelfEndpoint,
       );
       final isAlreadySignedIn = !result.success &&

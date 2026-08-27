@@ -1,4 +1,5 @@
 import '../entities/attendance_action_result.dart';
+import '../entities/staff_sign_in_request.dart';
 import '../repositories/attendance_repository.dart';
 
 /// Submits a staff sign-in through the repository.
@@ -17,9 +18,9 @@ class SubmitStaffSignInUseCase {
   final AttendanceRepository _repository;
 
   Future<AttendanceActionResult> call({
-    required Map<String, dynamic> payload,
+    required StaffSignInRequest request,
     required bool isSelf,
   }) {
-    return _repository.submitStaffSignIn(payload: payload, isSelf: isSelf);
+    return _repository.submitStaffSignIn(request: request, isSelf: isSelf);
   }
 }

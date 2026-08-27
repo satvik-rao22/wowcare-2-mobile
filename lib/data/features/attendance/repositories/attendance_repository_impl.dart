@@ -8,6 +8,7 @@ import '../../../../domain/features/attendance/entities/attendance_action_result
 import '../../../../domain/features/attendance/entities/student_transfer_request.dart';
 import '../../../../domain/features/attendance/entities/staff_transfer_request.dart';
 import '../../../../domain/features/attendance/entities/staff_attendance_daily_update_request.dart';
+import '../../../../domain/features/attendance/entities/staff_sign_in_request.dart';
 import '../../../../domain/features/attendance/entities/student_sign_in_request.dart';
 import '../../../../domain/features/attendance/entities/student_sign_out_request.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
@@ -1599,10 +1600,10 @@ class AttendanceRepositoryImpl
 
   @override
   Future<AttendanceActionResult> submitStaffSignIn({
-    required Map<String, dynamic> payload,
+    required StaffSignInRequest request,
     required bool isSelf,
   }) async {
-    final body = Map<String, dynamic>.from(payload);
+    final body = request.toPayload();
     // The self sign-in endpoint does not accept allowedClassroomCodes — only
     // the admin bulk endpoint uses that field for classroom-scoped authorization.
     if (!isSelf) {

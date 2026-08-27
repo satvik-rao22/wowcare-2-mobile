@@ -2,6 +2,7 @@ import '../entities/attendance_action_result.dart';
 import '../entities/student_transfer_request.dart';
 import '../entities/staff_transfer_request.dart';
 import '../entities/staff_attendance_daily_update_request.dart';
+import '../entities/staff_sign_in_request.dart';
 import '../entities/student_sign_in_request.dart';
 import '../entities/student_sign_out_request.dart';
 import '../entities/student_attendance_daily.dart';
@@ -375,7 +376,7 @@ abstract class AttendanceRepository {
 
   /// Submits a staff sign-in (admin bulk or teacher-self variant).
   Future<AttendanceActionResult> submitStaffSignIn({
-    required Map<String, dynamic> payload,
+    required StaffSignInRequest request,
     required bool isSelf,
   });
 
