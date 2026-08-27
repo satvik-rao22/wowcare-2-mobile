@@ -1,9 +1,20 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_sign_in_request.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_student_sign_in_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_state.dart';
+
+const _request = StudentSignInRequest(
+  mode: StudentSignInMode.staff,
+  studentCodes: ['STU-1'],
+  signInMethod: 'APP',
+  latitude: 0,
+  longitude: 0,
+  withinGeofence: true,
+  timeZone: 'Asia/Kolkata',
+);
 
 /// The use case's constructor needs a repository, but the fake overrides
 /// [call] so the repository is never touched.
@@ -23,7 +34,7 @@ class _FakeSubmitUseCase extends SubmitStudentSignInUseCase {
 
   @override
   Future<AttendanceActionResult> call({
-    required Map<String, dynamic> payload,
+    required StudentSignInRequest request,
     required bool isParent,
   }) async {
     calls++;
@@ -66,7 +77,7 @@ void main() {
       );
 
       final returned = await cubit.submit(
-        payload: const <String, dynamic>{'a': 1},
+        request: _request,
         isParent: false,
       );
 
@@ -88,7 +99,7 @@ void main() {
       useCase.resultToReturn = result;
 
       final returned = await cubit.submit(
-        payload: const <String, dynamic>{},
+        request: _request,
         isParent: true,
       );
 
@@ -110,7 +121,7 @@ void main() {
       );
 
       await expectLater(
-        () => cubit.submit(payload: const <String, dynamic>{}, isParent: false),
+        () => cubit.submit(request: _request, isParent: false),
         throwsA(same(error)),
       );
 

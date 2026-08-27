@@ -19,6 +19,7 @@ import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_sign_in_request.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/unexpected_sign_in_attention_dialog.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -612,21 +613,13 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       } catch (_) {}
     }
 
-    final payload = <String, dynamic>{
-      'studentCodes': studentCodes,
-      'method': signInMethod,
-      'latitude': position?.latitude ?? 0,
-      'longitude': position?.longitude ?? 0,
-      'withinGeofence': withinGeofence,
-      'timeZone': schoolTimeZone,
-    };
-    // Include QR token if this is a QR scan
-    if (widget.isQrScan && widget.qrToken.isNotEmpty) {
-      payload['qrToken'] = widget.qrToken;
-    }
-    if (_notExpectedComment.trim().isNotEmpty) {
-      payload['notExpectedComment'] = _notExpectedComment.trim();
-    }
+    // Resolve persona-specific values (with the same guards as before), then
+    // assemble a typed StudentSignInRequest whose toPayload() reproduces the
+    // exact payload map this form used to build.
+    final StudentSignInMode mode;
+    String? resolvedGuardianCode;
+    String? resolvedPin;
+    String? resolvedStaffCode;
     if (isParent) {
       final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
       if (!mounted) return;
@@ -640,8 +633,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
         );
         return;
       }
-      payload['guardianCode'] = guardianCode;
-      payload['pin'] = widget.pin ?? '';
+      mode = StudentSignInMode.parent;
+      resolvedGuardianCode = guardianCode;
+      resolvedPin = widget.pin ?? '';
     } else {
       if (defaultClassroomCode.isEmpty) {
         CoreUtils.showTopSnackBarFromSnackBar(
@@ -667,27 +661,45 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
           );
           return;
         }
-        payload.addAll(<String, dynamic>{
-          'attendanceDate': attendanceDate,
-          'staffCode': staffCode,
-          'classroomCode': defaultClassroomCode,
-          'classroomCodeByStudentCode': classroomCodeByStudentCode,
-          'occurredAt': occurredAt.toUtc().toIso8601String(),
-        });
+        mode = StudentSignInMode.staff;
+        resolvedStaffCode = staffCode;
       } else {
-        // KIOSK MODE: Use guardian code directly, no staff code needed
+        // KIOSK MODE: Use guardian code directly, no staff code needed.
         // Never log the PIN itself (secret credential) — length only.
         AppLogger.d(
           '[KIOSK] Building kiosk payload: pinLength=${widget.pin?.length ?? 0}, guardianCode=${widget.guardianCode}',
         );
-        payload['method'] = 'PIN';
-        payload.addAll(<String, dynamic>{
-          'guardianCode': widget.guardianCode,
-          'pin': widget.pin,
-          'isExpected': true,
-        });
+        mode = StudentSignInMode.kiosk;
+        resolvedGuardianCode = widget.guardianCode;
+        resolvedPin = widget.pin;
       }
     }
+
+    final request = StudentSignInRequest(
+      mode: mode,
+      studentCodes: studentCodes,
+      signInMethod: signInMethod,
+      latitude: position?.latitude ?? 0,
+      longitude: position?.longitude ?? 0,
+      withinGeofence: withinGeofence,
+      timeZone: schoolTimeZone,
+      qrToken: (widget.isQrScan && widget.qrToken.isNotEmpty)
+          ? widget.qrToken
+          : null,
+      notExpectedComment: _notExpectedComment.trim().isNotEmpty
+          ? _notExpectedComment.trim()
+          : null,
+      guardianCode: resolvedGuardianCode,
+      pin: resolvedPin,
+      attendanceDate: mode == StudentSignInMode.staff ? attendanceDate : null,
+      staffCode: resolvedStaffCode,
+      classroomCode: mode == StudentSignInMode.staff ? defaultClassroomCode : null,
+      classroomCodeByStudentCode:
+          mode == StudentSignInMode.staff ? classroomCodeByStudentCode : null,
+      occurredAtIso: mode == StudentSignInMode.staff
+          ? occurredAt.toUtc().toIso8601String()
+          : null,
+    );
 
     setState(() {
       _isSubmitting = true;
@@ -695,7 +707,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
 
     try {
       if (!isParent) {
-        final staffCode = (payload['staffCode'] ?? '').toString().trim();
+        final staffCode = (request.staffCode ?? '').trim();
         if (staffCode.isNotEmpty) {
           await _deleteTodaysAbsenceRecordsBeforeStaffSignIn(
             attendanceDateYyyyMmDd: attendanceDate,
@@ -706,7 +718,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       }
 
       final result = await _submitCubit.submit(
-        payload: payload,
+        request: request,
         isParent: isParent || widget.isKiosk || widget.isQrScan,
       );
       final success = result.success;

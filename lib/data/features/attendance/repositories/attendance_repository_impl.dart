@@ -8,6 +8,7 @@ import '../../../../domain/features/attendance/entities/attendance_action_result
 import '../../../../domain/features/attendance/entities/student_transfer_request.dart';
 import '../../../../domain/features/attendance/entities/staff_transfer_request.dart';
 import '../../../../domain/features/attendance/entities/staff_attendance_daily_update_request.dart';
+import '../../../../domain/features/attendance/entities/student_sign_in_request.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_expected_summary.dart';
@@ -1528,10 +1529,10 @@ class AttendanceRepositoryImpl
 
   @override
   Future<AttendanceActionResult> submitStudentSignIn({
-    required Map<String, dynamic> payload,
+    required StudentSignInRequest request,
     required bool isParent,
   }) async {
-    final body = Map<String, dynamic>.from(payload);
+    final body = request.toPayload();
     Map<String, dynamic>? queryParameters;
     if (isParent) {
       final g = (body['guardianCode'] ?? '').toString().trim();

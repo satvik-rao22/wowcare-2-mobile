@@ -1,4 +1,5 @@
 import '../entities/attendance_action_result.dart';
+import '../entities/student_sign_in_request.dart';
 import '../repositories/attendance_repository.dart';
 
 /// Submits a student sign-in through the repository.
@@ -17,9 +18,9 @@ class SubmitStudentSignInUseCase {
   final AttendanceRepository _repository;
 
   Future<AttendanceActionResult> call({
-    required Map<String, dynamic> payload,
+    required StudentSignInRequest request,
     required bool isParent,
   }) {
-    return _repository.submitStudentSignIn(payload: payload, isParent: isParent);
+    return _repository.submitStudentSignIn(request: request, isParent: isParent);
   }
 }
