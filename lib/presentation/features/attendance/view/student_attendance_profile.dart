@@ -743,31 +743,25 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       // --------- Load attendance (present days / summary) ----------
       final profileData = await serviceLocator<AttendanceRepository>()
           .fetchStudentAttendanceProfile(queryParameters: queryParameters);
-      if (profileData is Map<String, dynamic>) {
-        final root = profileData['data'] as Map<String, dynamic>? ?? {};
-        final agg = root['aggregations'] as Map<String, dynamic>? ?? {};
-        final records = root['records'] as Map<String, dynamic>? ?? {};
-        final content = records['content'] as List<dynamic>? ?? const [];
-
-        final attendedDays = agg['attendedDays'] as int? ?? 0;
-        final totalAttendedTime = agg['totalAttendedTime'] as String? ?? '';
+      if (profileData != null) {
+        final attendedDays = profileData.attendedDays;
+        final totalAttendedTime = profileData.totalAttendedTime;
 
         final List<_AttendanceModel> loadedAttendances = [];
 
-        for (final e in content) {
-          final m = e as Map<String, dynamic>;
-          final dateStr = m['attendanceDate'] as String? ?? '';
+        for (final record in profileData.records) {
+          final dateStr = record.attendanceDate;
           final date = dateStr.isNotEmpty
               ? DateTime.tryParse(dateStr) ?? ServerTimeService.instance.now()
               : ServerTimeService.instance.now();
 
-          final int sequenceNumber = m['sequenceNumber'] as int? ?? 1;
-          final int totalSequenceCount = m['totalSequenceCount'] as int? ?? 1;
+          final int sequenceNumber = record.sequenceNumber;
+          final int totalSequenceCount = record.totalSequenceCount;
 
-          final signedInDisplay = _formatApiTime(m['signedInTime']);
-          final signedOutDisplay = _formatApiTime(m['signedOutTime']);
-          final transferDisplay = _formatApiTime(m['transferTime']);
-          final nextActionDisplay = _formatApiTime(m['nextActionTime']);
+          final signedInDisplay = _formatApiTime(record.signedInTime);
+          final signedOutDisplay = _formatApiTime(record.signedOutTime);
+          final transferDisplay = _formatApiTime(record.transferTime);
+          final nextActionDisplay = _formatApiTime(record.nextActionTime);
 
           String effectiveSignIn = signedInDisplay;
           String effectiveSignOut = signedOutDisplay;
@@ -795,23 +789,23 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           }
 
           final fallbackClassroom =
-              m['classroomName'] as String? ?? widget.roomName;
+              record.classroomName ?? widget.roomName;
           final resolvedClassroomName = _resolveClassroomNameByCode(
-            m['classroomCode'] as String?,
+            record.classroomCode,
             codeToNameMap,
             fallbackClassroom,
           );
 
           final signOutMethodEnum = _mapAbsentMethodStringToEnum(
-            m['signedOutMethod'] as String?,
+            record.signedOutMethod,
           );
           // On a classroom transfer the "sign in/out" for that segment is the
           // transfer itself, performed by `transferredBy`. The API leaves
           // signedInBy/signedOutBy empty on transfer records, so fall back to
           // transferredBy for the person's name.
-          final transferredBy = (m['transferredBy'] as String? ?? '').trim();
+          final transferredBy = record.transferredBy.trim();
 
-          final rawSignedInBy = (m['signedInBy'] as String? ?? '').trim();
+          final rawSignedInBy = record.signedInBy.trim();
           final signInByText = rawSignedInBy.isNotEmpty
               ? rawSignedInBy
               : (isTransferSignIn ? transferredBy : '');
@@ -819,7 +813,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           // Auto sign-out has no person: the API sends signedOutMethod=SYSTEM
           // with an empty signedOutBy. Show "System" (web parity) so the row
           // isn't blank; keep the real name / transfer person when present.
-          final rawSignedOutBy = (m['signedOutBy'] as String? ?? '').trim();
+          final rawSignedOutBy = record.signedOutBy.trim();
           final signOutByText = rawSignedOutBy.isNotEmpty
               ? rawSignedOutBy
               : (isTransferSignOut && transferredBy.isNotEmpty
@@ -836,17 +830,16 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
               roomName: resolvedClassroomName,
               signInBy: signInByText,
               signOutBy: signOutByText,
-              attendedTime: m['attendedTime'] as String? ?? '',
-              attendedHours: m['attendedHours'] as int? ?? 0,
-              attendedMinutes: m['attendedMinutes'] as int? ?? 0,
+              attendedTime: record.attendedTime,
+              attendedHours: record.attendedHours,
+              attendedMinutes: record.attendedMinutes,
               isTransferSignIn: isTransferSignIn,
               isTransferSignOut: isTransferSignOut,
               signInMethod: _mapAbsentMethodStringToEnum(
-                m['signedInMethod'] as String?,
+                record.signedInMethod,
               ),
               signOutMethod: signOutMethodEnum,
-              notExpectedComment: (m['notExpectedComment'] as String? ?? '')
-                  .trim(),
+              notExpectedComment: record.notExpectedComment.trim(),
             ),
           );
         }

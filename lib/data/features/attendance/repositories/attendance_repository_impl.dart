@@ -15,6 +15,7 @@ import '../../../../domain/features/attendance/entities/student_sign_out_request
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_expected_summary.dart';
+import '../../../../domain/features/attendance/entities/student_attendance_profile_response.dart';
 import '../../../../domain/features/attendance/entities/staff_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/staff_attendance_absent.dart'
     as staff_absent;
@@ -1662,12 +1663,14 @@ class AttendanceRepositoryImpl
   }
 
   @override
-  Future<Map<String, dynamic>?> fetchStudentAttendanceProfile({
+  Future<StudentAttendanceProfileResponse?> fetchStudentAttendanceProfile({
     required Map<String, dynamic> queryParameters,
-  }) =>
-      _remoteDataSource.getStudentAttendanceProfileRaw(
-        queryParameters: queryParameters,
-      );
+  }) async {
+    final raw = await _remoteDataSource.getStudentAttendanceProfileRaw(
+      queryParameters: queryParameters,
+    );
+    return raw == null ? null : StudentAttendanceProfileResponse.fromJson(raw);
+  }
 
   @override
   Future<Map<String, dynamic>?> fetchStudentAttendanceProfileAbsentToggle({
