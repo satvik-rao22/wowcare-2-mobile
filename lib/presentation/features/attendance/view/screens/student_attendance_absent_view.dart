@@ -1,4 +1,6 @@
 import 'dart:async';
+
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -256,7 +258,7 @@ class _StudentAttendanceAbsentViewState
         _isLoadingTagMap = false;
       });
     } catch (e) {
-      debugPrint('Failed to load tag data: $e');
+      AppLogger.d('Failed to load tag data: $e');
       if (!mounted) return;
       setState(() {
         _isLoadingTagMap = false;
@@ -567,7 +569,7 @@ class _StudentAttendanceAbsentViewState
 
       _applyPagePayload(root, reset: reset);
     } catch (error) {
-      debugPrint('StudentAbsent API error: $error');
+      AppLogger.d('StudentAbsent API error: $error');
       if (!mounted) return;
       final message = ApiErrorHandler.extractErrorMessage(error);
       CoreUtils.showTopSnackBar(

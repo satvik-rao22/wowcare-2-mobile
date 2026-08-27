@@ -1,4 +1,6 @@
 import 'dart:async' show unawaited;
+
+import 'package:wowcare/core/util/logger_service.dart';
 import 'dart:convert' show jsonDecode;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -323,7 +325,7 @@ class _StaffAttendanceDailyViewScreenState
     final search = _searchQuery.isEmpty ? null : _searchQuery;
 
     if (_showAbsentOnly) {
-      debugPrint(
+      AppLogger.d(
         '[StaffDaily] Loading ABSENT toggle list | date=$_selectedDate | '
         'classrooms=$classroomCodes | tags=$tagCodes | search=$search | reset=$reset',
       );
@@ -346,7 +348,7 @@ class _StaffAttendanceDailyViewScreenState
       return;
     }
 
-    debugPrint(
+    AppLogger.d(
       '[StaffDaily] Loading DAILY list (non-absent) | date=$_selectedDate | '
       'classrooms=$classroomCodes | tags=$tagCodes | signInAtFilter=$_signInAtFilter | '
       'signOutAtFilter=$_signOutAtFilter | search=$search | reset=$reset',
@@ -904,7 +906,7 @@ class _StaffAttendanceDailyViewScreenState
                     _statusLegendFilter = null;
                   }
                 });
-                debugPrint(
+                AppLogger.d(
                   '[StaffDaily] Show Absent toggled: $_showAbsentOnly',
                 );
                 _loadAttendanceData(context, reset: true);

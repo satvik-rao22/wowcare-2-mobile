@@ -1,5 +1,7 @@
 import 'dart:async' show unawaited;
 
+import 'package:wowcare/core/util/logger_service.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -372,7 +374,7 @@ class _StudentAttendanceDailyViewScreenState
       });
     } catch (e) {
       // Non-critical for filters; log but don't block UI
-      debugPrint('Failed to load tag name-to-code map: $e');
+      AppLogger.d('Failed to load tag name-to-code map: $e');
       if (!mounted) return;
       setState(() {
         _isLoadingTagMap = false;
@@ -419,7 +421,7 @@ class _StudentAttendanceDailyViewScreenState
         classrooms: _classroomCubit.state.classrooms,
       );
       if (codes == null) {
-        debugPrint('Warning: No classroom data available for code resolution');
+        AppLogger.d('Warning: No classroom data available for code resolution');
       }
       return codes;
     }
@@ -439,7 +441,7 @@ class _StudentAttendanceDailyViewScreenState
 
     // Ensure tag mapping is loaded
     if (_tagNameToCode.isEmpty && !_isLoadingTagMap) {
-      debugPrint(
+      AppLogger.d(
         'Warning: Tag name-to-code map is empty. Attempting to reload...',
       );
       _loadTagNameCodeMap();
@@ -456,7 +458,7 @@ class _StudentAttendanceDailyViewScreenState
       final unresolved = _selectedTagNames
           .where((n) => !_tagNameToCode.containsKey(n))
           .toList();
-      debugPrint('Warning: Could not resolve tag codes for: $unresolved');
+      AppLogger.d('Warning: Could not resolve tag codes for: $unresolved');
     }
 
     return codes.isEmpty ? null : codes;
@@ -470,17 +472,17 @@ class _StudentAttendanceDailyViewScreenState
         : null;
 
     // Debug logging for filter application
-    debugPrint('[StudentAttendanceDaily] Loading attendance data:');
-    debugPrint('  - Date: $_selectedDate');
-    debugPrint('  - Classroom Names: $_selectedClassroomNames');
-    debugPrint('  - Classroom Codes: $classroomCodes');
-    debugPrint('  - Tag Names: $_selectedTagNames');
-    debugPrint('  - Tag Codes: $tagCodes');
-    debugPrint('  - Search: $search');
-    debugPrint('  - Show Absent Only: $_showAbsentOnly');
-    debugPrint('  - signInAtFilter: $_signInAtFilter');
-    debugPrint('  - signOutAtFilter: $_signOutAtFilter');
-    debugPrint('  - Reset: $reset');
+    AppLogger.d('[StudentAttendanceDaily] Loading attendance data:');
+    AppLogger.d('  - Date: $_selectedDate');
+    AppLogger.d('  - Classroom Names: $_selectedClassroomNames');
+    AppLogger.d('  - Classroom Codes: $classroomCodes');
+    AppLogger.d('  - Tag Names: $_selectedTagNames');
+    AppLogger.d('  - Tag Codes: $tagCodes');
+    AppLogger.d('  - Search: $search');
+    AppLogger.d('  - Show Absent Only: $_showAbsentOnly');
+    AppLogger.d('  - signInAtFilter: $_signInAtFilter');
+    AppLogger.d('  - signOutAtFilter: $_signOutAtFilter');
+    AppLogger.d('  - Reset: $reset');
 
     if (_showAbsentOnly) {
       if (reset) {

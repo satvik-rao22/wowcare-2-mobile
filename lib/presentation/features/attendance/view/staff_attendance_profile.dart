@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -869,8 +870,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         }
       }
     } catch (error, stack) {
-      debugPrint('StaffAttendanceProfile API error: $error');
-      debugPrint('$stack');
+      AppLogger.d('StaffAttendanceProfile API error: $error');
+      AppLogger.d('$stack');
       if (!mounted) return;
       setState(() {
         isAttendancesLoading = false;

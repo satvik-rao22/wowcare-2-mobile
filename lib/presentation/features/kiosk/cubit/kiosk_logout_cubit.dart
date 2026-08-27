@@ -38,7 +38,8 @@ class KioskLogoutCubit extends Cubit<KioskLogoutState> {
     emit(const KioskLogoutLoading());
 
     try {
-      AppLogger.d('[Kiosk Logout] Starting logout process with isLogout=true, pin=$pin');
+      // Never log the PIN itself (secret credential) — length only, for debugging.
+      AppLogger.d('[Kiosk Logout] Starting logout process with isLogout=true, pinLength=${pin.length}');
 
       // Get the school code from storage (set during kiosk login)
       final schoolCode = await _storage.getString(StorageKeys.schoolCode);

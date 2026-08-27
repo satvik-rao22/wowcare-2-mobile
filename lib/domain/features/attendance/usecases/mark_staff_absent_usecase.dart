@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -77,7 +77,7 @@ class MarkStaffAbsentUseCase {
   }
 
   /// Best-effort `POST /api/v1/staff-shifts/absent-days` per affected staff.
-  /// Failures here are surfaced via debugPrint but never bubble up — the
+  /// Failures here are surfaced via AppLogger (debug-only) but never bubble up — the
   /// mark-absent records have already been written.
   Future<void> _stripShiftsOnAbsentDays(
     List<String> staffCodes,
@@ -96,7 +96,7 @@ class MarkStaffAbsentUseCase {
           absentDates: absentDays,
         );
       } catch (e) {
-        debugPrint('markStaffShiftAbsentDays failed for $code: $e');
+        AppLogger.d('markStaffShiftAbsentDays failed for $code: $e');
       }
     }
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -104,7 +105,7 @@ class _StudentAttendanceTabbedViewState
       context.read<GeofenceCubit>().checkStaffSignInStatus();
     });
 
-    debugPrint(
+    AppLogger.d(
       '[StudentAttendanceTabbedView] initialized: '
       'filter=${widget.dailyIncomingFilter}, hasBackButton=${widget.hasBackButton}, '
       'routeName=${StudentAttendanceTabbedView.routeName}',
