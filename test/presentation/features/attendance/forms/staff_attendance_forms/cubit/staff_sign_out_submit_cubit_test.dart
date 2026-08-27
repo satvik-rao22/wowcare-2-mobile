@@ -1,9 +1,24 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
+import 'package:wowcare/domain/features/attendance/entities/staff_sign_out_request.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_staff_sign_out_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_out_submit_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_out_submit_state.dart';
+
+const _sampleRequest = StaffSignOutRequest(
+  attendanceDate: '2026-08-27',
+  staffCode: 'STF-1',
+  staffCodes: ['STF-1'],
+  classroomCode: 'CLS_1',
+  classroomCodeByStaffCode: {'STF-1': 'CLS_1'},
+  signOutMethod: 'APP',
+  latitude: 0,
+  longitude: 0,
+  withinGeofence: false,
+  timeZone: 'Asia/Kolkata',
+  occurredAtIso: '2026-08-27T09:00:00.000Z',
+);
 
 class _UnusedRepo implements AttendanceRepository {
   @override
@@ -21,7 +36,7 @@ class _FakeSubmitUseCase extends SubmitStaffSignOutUseCase {
 
   @override
   Future<AttendanceActionResult> call({
-    required Map<String, dynamic> payload,
+    required StaffSignOutRequest request,
     bool isSelf = false,
   }) async {
     calls++;
@@ -64,7 +79,7 @@ void main() {
       );
 
       final returned = await cubit.submit(
-        payload: const <String, dynamic>{'a': 1},
+        request: _sampleRequest,
         isSelf: true,
       );
 
@@ -86,7 +101,7 @@ void main() {
       useCase.resultToReturn = result;
 
       final returned = await cubit.submit(
-        payload: const <String, dynamic>{},
+        request: _sampleRequest,
         isSelf: false,
       );
 
@@ -108,7 +123,7 @@ void main() {
       );
 
       await expectLater(
-        () => cubit.submit(payload: const <String, dynamic>{}, isSelf: false),
+        () => cubit.submit(request: _sampleRequest, isSelf: false),
         throwsA(same(error)),
       );
 

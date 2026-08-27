@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
+import 'package:wowcare/domain/features/attendance/entities/staff_sign_out_request.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_staff_sign_out_usecase.dart';
 
 import 'staff_sign_out_submit_state.dart';
@@ -23,13 +24,13 @@ class StaffSignOutSubmitCubit extends Cubit<StaffSignOutSubmitState> {
   bool get isSubmitting => state is StaffSignOutSubmitInProgress;
 
   Future<AttendanceActionResult> submit({
-    required Map<String, dynamic> payload,
+    required StaffSignOutRequest request,
     bool isSelf = false,
   }) async {
     emit(const StaffSignOutSubmitInProgress());
     try {
       final result = await _submitStaffSignOut(
-        payload: payload,
+        request: request,
         isSelf: isSelf,
       );
       if (!isClosed) emit(StaffSignOutSubmitSuccess(result));

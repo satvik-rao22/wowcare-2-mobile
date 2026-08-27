@@ -1,4 +1,5 @@
 import '../entities/attendance_action_result.dart';
+import '../entities/staff_sign_out_request.dart';
 import '../repositories/attendance_repository.dart';
 
 /// Submits a staff sign-out through the repository.
@@ -17,11 +18,11 @@ class SubmitStaffSignOutUseCase {
   final AttendanceRepository _repository;
 
   Future<AttendanceActionResult> call({
-    required Map<String, dynamic> payload,
+    required StaffSignOutRequest request,
     bool isSelf = false,
   }) {
     return _repository.submitStaffSignOut(
-      payload: payload,
+      request: request,
       isSelf: isSelf,
     );
   }

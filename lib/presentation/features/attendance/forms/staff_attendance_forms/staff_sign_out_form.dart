@@ -15,6 +15,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
+import 'package:wowcare/domain/features/attendance/entities/staff_sign_out_request.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_out_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -453,29 +454,29 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     // honored — only non-admins use the strictly-"now" self endpoint.
     final bool isSelfSignOut = !isStaffAdmin || isQrSignOut || widget.isKiosk;
 
-    final payload = <String, dynamic>{
-      'attendanceDate': attendanceDate,
-      'staffCode': staffCode,
-      'staffCodes': staffCodes,
-      'classroomCode': classroomCode,
-      'classroomCodeByStaffCode': classroomCodeByStaffCode,
-      'method': widget.isKiosk ? 'PIN' : signOutMethod,
-      'latitude': position?.latitude ?? 0,
-      'longitude': position?.longitude ?? 0,
-      'withinGeofence': withinGeofence,
-      'timeZone': schoolTimeZone,
-      'occurredAt': occurredAt.toUtc().toIso8601String(),
-    };
-    // Include QR token or pin
-    if (widget.isKiosk && widget.pin != null) {
-      payload['pin'] = widget.pin;
-    } else if (isQrSignOut) {
-      payload['qrToken'] = widget.qrToken;
-    }
+    // Assemble a typed StaffSignOutRequest whose toPayload() reproduces the
+    // exact payload map this form used to build (single shape; kiosk overrides
+    // the method to PIN and the pin/qrToken keys stay mutually exclusive).
+    final request = StaffSignOutRequest(
+      attendanceDate: attendanceDate,
+      staffCode: staffCode,
+      staffCodes: staffCodes,
+      classroomCode: classroomCode,
+      classroomCodeByStaffCode: classroomCodeByStaffCode,
+      signOutMethod: signOutMethod,
+      isKiosk: widget.isKiosk,
+      latitude: position?.latitude ?? 0,
+      longitude: position?.longitude ?? 0,
+      withinGeofence: withinGeofence,
+      timeZone: schoolTimeZone,
+      occurredAtIso: occurredAt.toUtc().toIso8601String(),
+      pin: widget.pin,
+      qrToken: isQrSignOut ? widget.qrToken : null,
+    );
 
     try {
       final result = await _submitCubit.submit(
-        payload: payload,
+        request: request,
         isSelf: isSelfSignOut,
       );
       final success = result.success;

@@ -3,6 +3,7 @@ import '../entities/student_transfer_request.dart';
 import '../entities/staff_transfer_request.dart';
 import '../entities/staff_attendance_daily_update_request.dart';
 import '../entities/staff_sign_in_request.dart';
+import '../entities/staff_sign_out_request.dart';
 import '../entities/student_sign_in_request.dart';
 import '../entities/student_sign_out_request.dart';
 import '../entities/student_attendance_daily.dart';
@@ -383,7 +384,7 @@ abstract class AttendanceRepository {
   /// Submits a staff sign-out.
   /// Set [isSelf] to true to use the self sign-out endpoint.
   Future<AttendanceActionResult> submitStaffSignOut({
-    required Map<String, dynamic> payload,
+    required StaffSignOutRequest request,
     bool isSelf = false,
   });
 
