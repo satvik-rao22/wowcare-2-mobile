@@ -7,6 +7,7 @@ import '../../../../core/util/school_timezone_resolver.dart';
 import '../../../../domain/features/attendance/entities/attendance_action_result.dart';
 import '../../../../domain/features/attendance/entities/student_transfer_request.dart';
 import '../../../../domain/features/attendance/entities/staff_transfer_request.dart';
+import '../../../../domain/features/attendance/entities/staff_attendance_daily_update_request.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_expected_summary.dart';
@@ -1644,13 +1645,15 @@ class AttendanceRepositoryImpl
   }
 
   @override
-  Future<Map<String, dynamic>?> updateStaffAttendanceDailyRecord({
+  Future<void> updateStaffAttendanceDailyRecord({
     required String attendanceCode,
-    required Map<String, dynamic> body,
-  }) {
-    return _remoteDataSource.patchStaffAttendanceDailyRecord(
+    required StaffAttendanceDailyUpdateRequest request,
+  }) async {
+    // The datasource still returns the raw response map, but no caller consumes
+    // it — the patch succeeding (no throw) is the only signal callers use.
+    await _remoteDataSource.patchStaffAttendanceDailyRecord(
       rowCode: attendanceCode,
-      body: body,
+      body: request.toPayload(),
     );
   }
 

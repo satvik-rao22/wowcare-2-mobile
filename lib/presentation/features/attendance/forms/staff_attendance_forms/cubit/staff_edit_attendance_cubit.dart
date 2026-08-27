@@ -6,6 +6,7 @@ import '../../../../../../core/network/api_client.dart';
 import '../../../../../../core/storage/storage_service.dart';
 import '../../../../../../core/util/school_timezone_resolver.dart';
 import '../../../../../../core/util/school_zone_datetime.dart';
+import '../../../../../../domain/features/attendance/entities/staff_attendance_daily_update_request.dart';
 import '../../../../../../domain/features/attendance/repositories/attendance_repository.dart';
 import '../../attendance_time_parse_util.dart';
 import '../../edit_attendance_submit_outcome.dart';
@@ -132,20 +133,18 @@ class StaffEditAttendanceFormCubit extends Cubit<StaffEditAttendanceState> {
           )
         : null;
 
-    final payload = <String, dynamic>{
-      'staffCode': _staffCode,
-      if (signedInAt != null) 'signedInAt': signedInAt.toUtc().toIso8601String(),
-      if (signedOutAt != null)
-        'signedOutAt': signedOutAt.toUtc().toIso8601String(),
-      if (!isTransferRecord && signedInAt != null) 'signedInMethod': 'APP',
-      if (!isTransferRecord && signedOutAt != null) 'signedOutMethod': 'APP',
-      'timeZone': schoolTimeZone,
-    };
+    final request = StaffAttendanceDailyUpdateRequest(
+      staffCode: _staffCode,
+      timeZone: schoolTimeZone,
+      signedInAtIso: signedInAt?.toUtc().toIso8601String(),
+      signedOutAtIso: signedOutAt?.toUtc().toIso8601String(),
+      isTransferRecord: isTransferRecord,
+    );
 
     try {
       await _attendanceRepository.updateStaffAttendanceDailyRecord(
         attendanceCode: attendanceCode,
-        body: payload,
+        request: request,
       );
       if (!isClosed) emit(state.copyWith(isSubmitting: false));
       return const EditAttendanceSubmitOutcome.success(

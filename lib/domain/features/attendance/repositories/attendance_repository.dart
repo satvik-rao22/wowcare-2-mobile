@@ -1,6 +1,7 @@
 import '../entities/attendance_action_result.dart';
 import '../entities/student_transfer_request.dart';
 import '../entities/staff_transfer_request.dart';
+import '../entities/staff_attendance_daily_update_request.dart';
 import '../entities/student_attendance_daily.dart';
 import '../entities/student_attendance_custom.dart';
 import '../entities/staff_attendance_daily.dart';
@@ -389,9 +390,11 @@ abstract class AttendanceRepository {
   });
 
   /// Patches a staff daily attendance record by its row code.
-  Future<Map<String, dynamic>?> updateStaffAttendanceDailyRecord({
+  ///
+  /// The backend response is not consumed by callers, so this returns `void`.
+  Future<void> updateStaffAttendanceDailyRecord({
     required String attendanceCode,
-    required Map<String, dynamic> body,
+    required StaffAttendanceDailyUpdateRequest request,
   });
 
   // --- Attendance profile / absent reads (raw response maps) ---
