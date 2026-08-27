@@ -1,4 +1,5 @@
 import '../entities/attendance_action_result.dart';
+import '../entities/student_sign_out_request.dart';
 import '../repositories/attendance_repository.dart';
 
 /// Submits a student sign-out through the repository.
@@ -17,11 +18,11 @@ class SubmitStudentSignOutUseCase {
   final AttendanceRepository _repository;
 
   Future<AttendanceActionResult> call({
-    required Map<String, dynamic> payload,
+    required StudentSignOutRequest request,
     required bool isParent,
   }) {
     return _repository.submitStudentSignOut(
-      payload: payload,
+      request: request,
       isParent: isParent,
     );
   }

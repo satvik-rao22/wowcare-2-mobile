@@ -1,21 +1,31 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_sign_out_request.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_student_sign_out_usecase.dart';
 
-/// Fake repository: captures the arguments and returns/throws on demand.
+const _request = StudentSignOutRequest(
+  mode: StudentSignOutMode.staff,
+  studentCodes: ['STU-1'],
+  signOutMethod: 'APP',
+  latitude: 0,
+  longitude: 0,
+  withinGeofence: false,
+  timeZone: 'Asia/Kolkata',
+);
+
 class _FakeAttendanceRepository implements AttendanceRepository {
-  Map<String, dynamic>? capturedPayload;
+  StudentSignOutRequest? capturedRequest;
   bool? capturedIsParent;
   AttendanceActionResult? resultToReturn;
   Object? errorToThrow;
 
   @override
   Future<AttendanceActionResult> submitStudentSignOut({
-    required Map<String, dynamic> payload,
+    required StudentSignOutRequest request,
     required bool isParent,
   }) async {
-    capturedPayload = payload;
+    capturedRequest = request;
     capturedIsParent = isParent;
     if (errorToThrow != null) throw errorToThrow!;
     return resultToReturn!;
@@ -36,21 +46,17 @@ void main() {
       useCase = SubmitStudentSignOutUseCase(repo);
     });
 
-    test('forwards payload and isParent, and returns the repository result', () async {
+    test('forwards request and isParent, and returns the repository result', () async {
       const expected = AttendanceActionResult(
         success: true,
         message: 'Signed-Out successfully',
       );
       repo.resultToReturn = expected;
-      final payload = <String, dynamic>{
-        'studentCodes': ['STU-1'],
-        'method': 'APP',
-      };
 
-      final result = await useCase(payload: payload, isParent: false);
+      final result = await useCase(request: _request, isParent: false);
 
       expect(result, same(expected));
-      expect(repo.capturedPayload, same(payload));
+      expect(repo.capturedRequest, same(_request));
       expect(repo.capturedIsParent, isFalse);
     });
 
@@ -60,7 +66,7 @@ void main() {
         message: 'ok',
       );
 
-      await useCase(payload: const <String, dynamic>{}, isParent: true);
+      await useCase(request: _request, isParent: true);
 
       expect(repo.capturedIsParent, isTrue);
     });
@@ -70,7 +76,7 @@ void main() {
       repo.errorToThrow = failure;
 
       expect(
-        () => useCase(payload: const <String, dynamic>{}, isParent: false),
+        () => useCase(request: _request, isParent: false),
         throwsA(same(failure)),
       );
     });

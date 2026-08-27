@@ -15,6 +15,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_sign_out_request.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_out_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -407,18 +408,13 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       } catch (_) {}
     }
 
-    final payload = <String, dynamic>{
-      'studentCodes': studentCodes,
-      'method': signOutMethod,
-      'latitude': position?.latitude ?? 0,
-      'longitude': position?.longitude ?? 0,
-      'withinGeofence': withinGeofence,
-      'timeZone': schoolTimeZone,
-    };
-    // Include QR token if this is a QR scan
-    if (widget.isQrScan && widget.qrToken.isNotEmpty) {
-      payload['qrToken'] = widget.qrToken;
-    }
+    // Resolve persona-specific values (with the same guards as before), then
+    // assemble a typed StudentSignOutRequest whose toPayload() reproduces the
+    // exact payload map this form used to build.
+    final StudentSignOutMode mode;
+    String? resolvedGuardianCode;
+    String? resolvedPin;
+    String? resolvedStaffCode;
     if (isParent) {
       final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
       if (!mounted) return;
@@ -432,8 +428,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         );
         return;
       }
-      payload['guardianCode'] = guardianCode;
-      payload['pin'] = widget.pin ?? '';
+      mode = StudentSignOutMode.parent;
+      resolvedGuardianCode = guardianCode;
+      resolvedPin = widget.pin ?? '';
     } else {
       if (defaultClassroomCode.isEmpty) {
         CoreUtils.showTopSnackBarFromSnackBar(
@@ -459,27 +456,43 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
           );
           return;
         }
-        payload.addAll(<String, dynamic>{
-          'attendanceDate': attendanceDate,
-          'staffCode': staffCode,
-          'classroomCode': defaultClassroomCode,
-          'classroomCodeByStudentCode': classroomCodeByStudentCode,
-          'occurredAt': occurredAt.toUtc().toIso8601String(),
-        });
+        mode = StudentSignOutMode.staff;
+        resolvedStaffCode = staffCode;
       } else {
-        // KIOSK MODE: Use guardian code directly, no staff code needed
-        payload['method'] = 'PIN';
-        payload.addAll(<String, dynamic>{
-          'guardianCode': widget.guardianCode,
-          'pin': widget.pin,
-          'isExpected': true,
-        });
+        // KIOSK MODE: Use guardian code directly, no staff code needed.
+        mode = StudentSignOutMode.kiosk;
+        resolvedGuardianCode = widget.guardianCode;
+        resolvedPin = widget.pin;
       }
     }
 
+    final request = StudentSignOutRequest(
+      mode: mode,
+      studentCodes: studentCodes,
+      signOutMethod: signOutMethod,
+      latitude: position?.latitude ?? 0,
+      longitude: position?.longitude ?? 0,
+      withinGeofence: withinGeofence,
+      timeZone: schoolTimeZone,
+      qrToken: (widget.isQrScan && widget.qrToken.isNotEmpty)
+          ? widget.qrToken
+          : null,
+      guardianCode: resolvedGuardianCode,
+      pin: resolvedPin,
+      attendanceDate: mode == StudentSignOutMode.staff ? attendanceDate : null,
+      staffCode: resolvedStaffCode,
+      classroomCode:
+          mode == StudentSignOutMode.staff ? defaultClassroomCode : null,
+      classroomCodeByStudentCode:
+          mode == StudentSignOutMode.staff ? classroomCodeByStudentCode : null,
+      occurredAtIso: mode == StudentSignOutMode.staff
+          ? occurredAt.toUtc().toIso8601String()
+          : null,
+    );
+
     try {
       final result = await _submitCubit.submit(
-        payload: payload,
+        request: request,
         isParent: isParent || widget.isKiosk || widget.isQrScan,
       );
       final success = result.success;
