@@ -22,9 +22,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_custom_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
@@ -81,18 +79,7 @@ class _StudentAttendanceCustomViewState
   @override
   void initState() {
     super.initState();
-    // Resolve cubit from DI with safe fallback (for hot-reload scenarios)
-    if (serviceLocator.isRegistered<StudentAttendanceCustomCubit>()) {
-      _cubit = serviceLocator<StudentAttendanceCustomCubit>();
-    } else {
-      final repo = serviceLocator<AttendanceRepository>();
-      _cubit = StudentAttendanceCustomCubit(
-        getStudentAttendanceCustomUseCase: GetStudentAttendanceCustomUseCase(
-          repo,
-        ),
-        repository: repo,
-      );
-    }
+    _cubit = serviceLocator<StudentAttendanceCustomCubit>();
 
     _customSearchController.addListener(_onSearchChanged);
     widget.refreshNotifier?.addListener(_onRefreshRequested);

@@ -18,7 +18,8 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/domain/features/attendance/usecases/fetch_student_attendance_profile_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/fetch_student_attendance_profile_absent_toggle_usecase.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -741,8 +742,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       final codeToNameMap = await _loadClassroomCodeToNameMap();
       _applyResolvedClassroomHeaderName(codeToNameMap);
       // --------- Load attendance (present days / summary) ----------
-      final profileData = await serviceLocator<AttendanceRepository>()
-          .fetchStudentAttendanceProfile(queryParameters: queryParameters);
+      final profileData =
+          await serviceLocator<FetchStudentAttendanceProfileUseCase>()(
+        queryParameters: queryParameters,
+      );
       if (profileData != null) {
         final attendedDays = profileData.attendedDays;
         final totalAttendedTime = profileData.totalAttendedTime;
@@ -879,10 +882,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         allowedClassroomCodes,
       );
 
-      final absentData = await serviceLocator<AttendanceRepository>()
-          .fetchStudentAttendanceProfileAbsentToggle(
-            queryParameters: absentQueryParameters,
-          );
+      final absentData = await serviceLocator<
+          FetchStudentAttendanceProfileAbsentToggleUseCase>()(
+        queryParameters: absentQueryParameters,
+      );
 
       if (absentData != null) {
         final absentDaysCount = absentData.absentDays;

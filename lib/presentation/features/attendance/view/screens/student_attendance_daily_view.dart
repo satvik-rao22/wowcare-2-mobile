@@ -40,10 +40,6 @@ import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_absent_toggle_view_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
@@ -169,34 +165,8 @@ class _StudentAttendanceDailyViewScreenState
   void initState() {
     super.initState();
     _highlightStudentCode = widget.highlightCode?.trim();
-    // Note: after adding new GetIt registrations, Flutter hot-reload does NOT rerun `main()`
-    // (and therefore doesn't rerun `configureDependencies()`), so the cubit may not be
-    // registered in the current process yet. This fallback prevents a runtime crash.
-    if (serviceLocator.isRegistered<StudentAttendanceDailyCubit>()) {
-      _cubit = serviceLocator<StudentAttendanceDailyCubit>();
-    } else {
-      final repo = serviceLocator<AttendanceRepository>();
-
-      _cubit = StudentAttendanceDailyCubit(
-        getStudentAttendanceDailyUseCase: GetStudentAttendanceDailyUseCase(
-          repo,
-        ),
-        getStudentAttendanceExpectedSummaryUseCase:
-            GetStudentAttendanceExpectedSummaryUseCase(repo),
-        repository: repo,
-      );
-    }
-
-    if (serviceLocator.isRegistered<StudentAttendanceAbsentToggleCubit>()) {
-      _absentToggleCubit = serviceLocator<StudentAttendanceAbsentToggleCubit>();
-    } else {
-      final repo = serviceLocator<AttendanceRepository>();
-
-      _absentToggleCubit = StudentAttendanceAbsentToggleCubit(
-        getStudentAttendanceAbsentToggleViewUseCase:
-            GetStudentAttendanceAbsentToggleViewUseCase(repo),
-      );
-    }
+    _cubit = serviceLocator<StudentAttendanceDailyCubit>();
+    _absentToggleCubit = serviceLocator<StudentAttendanceAbsentToggleCubit>();
 
     // ClassroomCubit is required by StudentFilterScreen to populate "Classroom".
     if (serviceLocator.isRegistered<ClassroomCubit>()) {

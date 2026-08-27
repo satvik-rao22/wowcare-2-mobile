@@ -21,8 +21,9 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/fetch_staff_attendance_profile_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/fetch_staff_attendance_profile_absent_toggle_usecase.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
@@ -605,7 +606,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     try {
       // forEditStaff:true hits /staff/{code}/profile, which carries name,
       // designation and primaryClassroom name.
-      final profile = await serviceLocator<StaffRepository>().getStaffProfile(
+      final profile = await serviceLocator<GetStaffProfileUseCase>()(
         staffCode: code,
         forEditStaff: true,
       );
@@ -671,8 +672,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
 
     try {
       // ---------- Load staff attendance profile (present days / summary) ----------
-      final data = await serviceLocator<AttendanceRepository>()
-          .fetchStaffAttendanceProfile(queryParameters: queryParameters);
+      final data =
+          await serviceLocator<FetchStaffAttendanceProfileUseCase>()(
+        queryParameters: queryParameters,
+      );
       if (data != null) {
         // Aggregations
         final attendedDays = data.attendedDays;
@@ -804,10 +807,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         allowedClassroomCodes,
       );
 
-      final absentData = await serviceLocator<AttendanceRepository>()
-          .fetchStaffAttendanceProfileAbsentToggle(
-            queryParameters: absentQueryParameters,
-          );
+      final absentData = await serviceLocator<
+          FetchStaffAttendanceProfileAbsentToggleUseCase>()(
+        queryParameters: absentQueryParameters,
+      );
       if (absentData != null) {
         final absentDaysCount = absentData.absentDays;
 

@@ -13,7 +13,8 @@ import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_absent_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/delete_staff_absence_record_usecase.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_absent.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_sign_in_request.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -477,7 +478,6 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     required String actingStaffCode,
     required List<StaffEntity> targets,
   }) async {
-    final repo = serviceLocator<AttendanceRepository>();
     final allItems = <StaffAttendanceAbsentItem>[];
 
     // The absent-form-list lookup is a best-effort PRE-step: it exists only
@@ -489,7 +489,8 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       var page = 0;
       const pageSize = 200;
       while (true) {
-        final absentPage = await repo.getStaffAbsentFormList(
+        final absentPage =
+            await serviceLocator<GetStaffAbsentFormListUseCase>()(
           fromAbsenceDate: attendanceDateYyyyMmDd,
           toAbsenceDate: attendanceDateYyyyMmDd,
           page: page,
@@ -544,7 +545,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         }
       }
 
-      await repo.deleteStaffAbsenceRecord(
+      await serviceLocator<DeleteStaffAbsenceRecordUseCase>()(
         absenceRecordCode: chosen.absenceRecordCode!.trim(),
         staffCode: actingStaffCode,
       );

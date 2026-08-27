@@ -30,7 +30,7 @@ import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_absent_view_usecase.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
@@ -519,17 +519,17 @@ class _StudentAttendanceAbsentViewState
     final trimmedSearch = _searchQuery.trim();
 
     try {
-      final data = await serviceLocator<AttendanceRepository>()
-          .getStudentAttendanceAbsentView(
-            fromAbsenceDate: fromStr,
-            toAbsenceDate: toStr,
-            classroomCodes: classroomCodes,
-            tagCodes: tagCodes,
-            search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
-            page: _studentsPage,
-            size: _pageSize,
-            sort: const <String>['studentName,asc'],
-          );
+      final data =
+          await serviceLocator<GetStudentAttendanceAbsentViewUseCase>()(
+        fromAbsenceDate: fromStr,
+        toAbsenceDate: toStr,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
+        page: _studentsPage,
+        size: _pageSize,
+        sort: const <String>['studentName,asc'],
+      );
 
       if (!mounted) return;
 

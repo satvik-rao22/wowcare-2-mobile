@@ -17,7 +17,8 @@ import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/delete_student_absence_record_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_sign_in_request.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_cubit.dart';
@@ -367,7 +368,6 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     required String staffCode,
     required List<StudentEntity> students,
   }) async {
-    final repo = serviceLocator<AttendanceRepository>();
     final allItems = <StudentAttendanceAbsentFormItem>[];
 
     // The absent-form-list lookup is a best-effort PRE-step: it exists only to
@@ -380,7 +380,8 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       var page = 0;
       const pageSize = 200;
       while (true) {
-        final absentPage = await repo.getStudentAbsentFormList(
+        final absentPage =
+            await serviceLocator<GetStudentAbsentFormListUseCase>()(
           fromAbsenceDate: attendanceDateYyyyMmDd,
           toAbsenceDate: attendanceDateYyyyMmDd,
           page: page,
@@ -435,7 +436,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
         }
       }
 
-      await repo.deleteStudentAbsenceRecord(
+      await serviceLocator<DeleteStudentAbsenceRecordUseCase>()(
         absenceRecordCode: chosen.absenceRecordCode!.trim(),
         staffCode: staffCode,
       );

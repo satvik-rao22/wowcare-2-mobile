@@ -219,6 +219,13 @@ import '../../domain/features/attendance/usecases/submit_staff_transfer_usecase.
 import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_transfer_submit_cubit.dart';
 import '../../domain/features/attendance/usecases/delete_staff_attendance_record_usecase.dart';
 import '../../domain/features/attendance/usecases/delete_student_attendance_record_usecase.dart';
+import '../../domain/features/attendance/usecases/delete_student_absence_record_usecase.dart';
+import '../../domain/features/attendance/usecases/delete_staff_absence_record_usecase.dart';
+import '../../domain/features/attendance/usecases/fetch_student_attendance_profile_usecase.dart';
+import '../../domain/features/attendance/usecases/fetch_student_attendance_profile_absent_toggle_usecase.dart';
+import '../../domain/features/attendance/usecases/fetch_staff_attendance_profile_usecase.dart';
+import '../../domain/features/attendance/usecases/fetch_staff_attendance_profile_absent_toggle_usecase.dart';
+import '../../domain/features/attendance/usecases/get_student_attendance_absent_view_usecase.dart';
 import '../../presentation/features/attendance/cubit/staff_attendance_delete_cubit.dart';
 import '../../presentation/features/attendance/cubit/student_attendance_delete_cubit.dart';
 import '../../domain/features/student/usecases/get_student_documents_usecase.dart';
@@ -1118,6 +1125,29 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<StudentAttendanceDeleteCubit>(
     () => StudentAttendanceDeleteCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteStudentAbsenceRecordUseCase>(
+    () => DeleteStudentAbsenceRecordUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteStaffAbsenceRecordUseCase>(
+    () => DeleteStaffAbsenceRecordUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<FetchStudentAttendanceProfileUseCase>(
+    () => FetchStudentAttendanceProfileUseCase(serviceLocator()),
+  );
+  serviceLocator
+      .registerFactory<FetchStudentAttendanceProfileAbsentToggleUseCase>(
+    () => FetchStudentAttendanceProfileAbsentToggleUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<FetchStaffAttendanceProfileUseCase>(
+    () => FetchStaffAttendanceProfileUseCase(serviceLocator()),
+  );
+  serviceLocator
+      .registerFactory<FetchStaffAttendanceProfileAbsentToggleUseCase>(
+    () => FetchStaffAttendanceProfileAbsentToggleUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentAttendanceAbsentViewUseCase>(
+    () => GetStudentAttendanceAbsentViewUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetStudentDocumentsUseCase>(
     () => GetStudentDocumentsUseCase(serviceLocator()),
