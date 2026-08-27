@@ -735,7 +735,7 @@ class _StudentAttendanceCustomViewState
   }
 
   /// Expanded-card detail row styled exactly like staff_card.dart:
-  /// label 13/w400 and value 14/w500, both Manrope in Color(0xff573353).
+  /// label 13/w400 and value 14/w500, both Manrope in AppColors.primaryColor.
   Widget _buildCustomDetailRow(String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -748,7 +748,7 @@ class _StudentAttendanceCustomViewState
               fontFamily: 'Manrope',
               fontSize: 13,
               fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 16 / 13,
             ),
           ),
@@ -761,7 +761,7 @@ class _StudentAttendanceCustomViewState
               fontFamily: 'Manrope',
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 19 / 14,
             ),
             textAlign: TextAlign.end,
@@ -849,7 +849,7 @@ class _StudentAttendanceCustomViewState
                             fontFamily: 'Manrope',
                             fontSize: responsive.isTablet ? 16 : 14,
                             fontWeight: FontWeight.w500,
-                            color: const Color(0xff573353),
+                            color: AppColors.primaryColor,
                             height: 19 / 14,
                           ),
                           maxLines: 2,
@@ -864,7 +864,7 @@ class _StudentAttendanceCustomViewState
                             fontFamily: 'Manrope',
                             fontSize: responsive.isTablet ? 16 : 14,
                             fontWeight: FontWeight.w500,
-                            color: const Color(0xff573353),
+                            color: AppColors.primaryColor,
                             height: 19 / 14,
                           ),
                           maxLines: 1,
