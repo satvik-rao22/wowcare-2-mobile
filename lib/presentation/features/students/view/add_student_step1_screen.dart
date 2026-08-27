@@ -811,11 +811,14 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
           final relationLabel = (map['relation'] as String?)?.trim() ?? '';
           final relationOther = (map['relationOther'] as String?)?.trim() ?? '';
-          final relationToStudent =
-              (relationLabel == 'Other' && relationOther.isNotEmpty
-                      ? relationOther
-                      : relationLabel)
-                  .toUpperCase();
+          final relationToStudent = relationLabel.toUpperCase();
+          // Free-text description backing an "Other" relation — sent
+          // separately from relationToStudent (a fixed backend enum), never
+          // substituted in for it.
+          final relationshipDescription =
+              relationLabel == 'Other' && relationOther.isNotEmpty
+                  ? relationOther
+                  : null;
 
           final bool primaryContact =
               map['isEmergencyContact'] as bool? ?? true;
@@ -830,6 +833,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
               email: parentEmail,
               mobile: parentPhoneDigits,
               relationToStudent: relationToStudent,
+              relationshipDescription: relationshipDescription,
               primaryContact: primaryContact,
               legalCustody: legalCustody,
               profilePhotoUrl: null,

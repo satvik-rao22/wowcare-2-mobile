@@ -12,6 +12,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student_classroom/usecases/assign_students_to_classroom_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
@@ -85,6 +86,18 @@ class _AssignStudentToClassroomFormState
   final List<StudentEntity> _allStudents = [];
   final List<String> _allRooms = [];
   final List<String> _allTags = [];
+
+  /// Classroom display name → code, so the (name-based) Classroom dropdown
+  /// selection can be sent to the API as `classroomCodes`.
+  Map<String, String> _classroomNameToCode = {};
+
+  /// Tag display name → code, for the `tagCodes` query param.
+  Map<String, String> _tagNameToCode = {};
+
+  /// Every classroom code except the target — the default `classroomCodes`
+  /// query when no specific Classroom filter is selected.
+  List<String> _availableClassroomCodes = [];
+
   Set<String> _assignedStudentCodes = {};
   bool _isLoadingStudents = false;
   String? _studentsError;
@@ -115,7 +128,7 @@ class _AssignStudentToClassroomFormState
           .where((code) => code.isNotEmpty)
           .toSet();
     } catch (_) {}
-    _loadStudentsFromApi();
+    _loadFilterOptionsThenStudents();
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -127,6 +140,59 @@ class _AssignStudentToClassroomFormState
     super.dispose();
   }
 
+  /// Loads the full Classroom/Tags option lists once (every active
+  /// classroom except the target, and the school's full tag catalog — not
+  /// derived from whichever students the first fetch happens to return),
+  /// then does the first student fetch.
+  Future<void> _loadFilterOptionsThenStudents() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+
+      final activeClassrooms =
+          await serviceLocator<GetActiveClassroomsUseCase>()(
+            schoolCode: schoolCode,
+            onlyTypeClassroom: true,
+          );
+      final availableClassrooms = activeClassrooms
+          .where((classroom) => classroom.code != widget.classroomCode)
+          .toList();
+      _classroomNameToCode = {
+        for (final c in availableClassrooms)
+          if (c.name.trim().isNotEmpty) c.name.trim(): c.code.trim(),
+      };
+      _availableClassroomCodes =
+          availableClassrooms.map((c) => c.code).toList();
+
+      // Full school tag catalog — not just the tags present among the
+      // currently loaded students, which would silently hide any tag no
+      // student outside the target classroom happens to have right now.
+      final tagCatalog = await serviceLocator<
+              GetTagNameCodeMapForSchoolUseCase>()(schoolCode: schoolCode);
+      _tagNameToCode = tagCatalog;
+
+      if (mounted) {
+        setState(() {
+          _allRooms
+            ..clear()
+            ..addAll(_classroomNameToCode.keys.toList()..sort());
+          _allTags
+            ..clear()
+            ..addAll(_tagNameToCode.keys.toList()..sort());
+        });
+      }
+    } catch (_) {
+      // Filter options failing to load shouldn't block the student fetch
+      // below — the dropdowns just stay empty and the user can retry via search.
+    }
+    await _loadStudentsFromApi();
+  }
+
+  /// Fetches students with the current Classroom/Tags selections applied
+  /// server-side (`classroomCodes` / `tagCodes` query params) — re-run
+  /// whenever either selection changes. Free-text search stays client-side
+  /// over this already-filtered result.
   Future<void> _loadStudentsFromApi() async {
     setState(() {
       _isLoadingStudents = true;
@@ -142,25 +208,20 @@ class _AssignStudentToClassroomFormState
 
       final getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
 
-      // Fetch all active classrooms to get the "rest" of the classrooms
-      final activeClassrooms =
-          await serviceLocator<GetActiveClassroomsUseCase>()(
-            schoolCode: schoolCode,
-            onlyTypeClassroom: true,
-          );
+      final selectedClassroomCode =
+          (_selectedClassroom != null && _selectedClassroom!.trim().isNotEmpty)
+              ? _classroomNameToCode[_selectedClassroom!.trim()]
+              : null;
+      final classroomCodes = selectedClassroomCode != null
+          ? [selectedClassroomCode]
+          : _availableClassroomCodes;
 
-      // Filter out the target classroom to get available classrooms
-      final availableClassrooms = activeClassrooms
-          .where((classroom) => classroom.code != widget.classroomCode)
-          .toList();
-
-      final classroomCodes = availableClassrooms
-          .map((classroom) => classroom.code)
+      final tagCodes = _selectedTag
+          .map((label) => _tagNameToCode[label])
+          .whereType<String>()
           .toList();
 
       final fetchedStudents = <StudentEntity>[];
-      final uniqueRooms = <String>{};
-      final uniqueTags = <String>{};
 
       int page = 0;
       bool hasMore = true;
@@ -171,6 +232,7 @@ class _AssignStudentToClassroomFormState
           size: _pageSize,
           status: 'ACTIVE',
           classroomCodes: classroomCodes,
+          tagCodes: tagCodes.isEmpty ? null : tagCodes,
         );
 
         for (final s in studentPage.items) {
@@ -196,13 +258,6 @@ class _AssignStudentToClassroomFormState
               dob: s.dob,
             ),
           );
-          if (s.classroom.trim().isNotEmpty) {
-            uniqueRooms.add(s.classroom.trim());
-          }
-          for (final t in s.tags) {
-            final normalized = t.trim();
-            if (normalized.isNotEmpty) uniqueTags.add(normalized);
-          }
         }
 
         hasMore = studentPage.hasMore;
@@ -214,18 +269,6 @@ class _AssignStudentToClassroomFormState
         _allStudents
           ..clear()
           ..addAll(fetchedStudents);
-        final availableRoomNames = availableClassrooms
-            .map((c) => c.name.trim())
-            .where((name) => name.isNotEmpty)
-            .toSet()
-            .toList();
-
-        _allRooms
-          ..clear()
-          ..addAll(availableRoomNames..sort());
-        _allTags
-          ..clear()
-          ..addAll(uniqueTags.toList()..sort());
         _filterStudents();
       });
       unawaited(_loadTodaySignInStatuses(fetchedStudents));
@@ -272,9 +315,13 @@ class _AssignStudentToClassroomFormState
     });
   }
 
+  /// Search-text filtering (plus the already-assigned exclusion) only —
+  /// Classroom and Tags are applied server-side by [_loadStudentsFromApi]
+  /// via `classroomCodes` / `tagCodes` query params, so [_allStudents] is
+  /// already scoped to them.
   void _filterStudents() {
-    final allStudents = _allStudents;
-    _filteredStudents = allStudents.where((student) {
+    final query = _searchController.text.trim().toLowerCase();
+    _filteredStudents = _allStudents.where((student) {
       // Exclude students whose current classroom matches the target classroom
       if (student.roomCode != null &&
           student.roomCode!.trim().toUpperCase() ==
@@ -285,25 +332,8 @@ class _AssignStudentToClassroomFormState
       if (_assignedStudentCodes.contains(student.code.trim().toUpperCase())) {
         return false;
       }
-      bool matchesSearch = true;
-      bool matchesRoom = true;
-      bool matchesTag = true;
-
-      if (_searchController.text.isNotEmpty) {
-        matchesSearch = student.fullName.toLowerCase().contains(
-          _searchController.text.toLowerCase(),
-        );
-      }
-
-      if (_selectedClassroom != null && _selectedClassroom != '') {
-        matchesRoom = (student.roomName ?? '').contains(_selectedClassroom!);
-      }
-
-      if (_selectedTag.isNotEmpty) {
-        matchesTag = student.tags.any((tag) => _selectedTag.contains(tag.name));
-      }
-
-      return matchesSearch && matchesRoom && matchesTag;
+      if (query.isEmpty) return true;
+      return student.fullName.toLowerCase().contains(query);
     }).toList();
     setState(() {});
   }
@@ -350,14 +380,9 @@ class _AssignStudentToClassroomFormState
     });
   }
 
-  List<StudentEntity> _getVisibleStudents() {
-    return _filteredStudents.isEmpty &&
-            _searchController.text.isEmpty &&
-            (_selectedClassroom?.isEmpty ?? true) &&
-            _selectedTag.isEmpty
-        ? _allStudents
-        : _filteredStudents;
-  }
+  /// [_filterStudents] keeps this in sync with the search box on every
+  /// change, so it's always safe to read directly.
+  List<StudentEntity> _getVisibleStudents() => _filteredStudents;
 
   @override
   Widget build(BuildContext context) {
@@ -425,10 +450,8 @@ class _AssignStudentToClassroomFormState
                 flex: 4,
                 child: CustomDropdown(
                   onSelect: (value) {
-                    setState(() {
-                      _selectedClassroom = value;
-                      _filterStudents();
-                    });
+                    setState(() => _selectedClassroom = value);
+                    _loadStudentsFromApi();
                   },
                   hintText: 'Classroom',
                   items: _allRooms
@@ -447,10 +470,8 @@ class _AssignStudentToClassroomFormState
                   items: _allTags,
                   selectedItems: _selectedTag,
                   onChanged: (selectedItems) {
-                    setState(() {
-                      _selectedTag = selectedItems;
-                      _filterStudents();
-                    });
+                    setState(() => _selectedTag = selectedItems);
+                    _loadStudentsFromApi();
                   },
                 ),
               ),

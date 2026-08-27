@@ -106,16 +106,19 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
         children: [
           _buildLabeledField(
             label: 'Allergies',
+            hint: 'Eg. Peanuts, Dairy',
             controller: _allergyController,
           ),
           const SizedBox(height: 16),
           _buildLabeledField(
             label: 'Medications',
+            hint: 'Eg. Inhaler, EpiPen',
             controller: _medicationsController,
           ),
           const SizedBox(height: 16),
           _buildLabeledField(
             label: 'Diet Restriction',
+            hint: 'Eg. Vegetarian, Nut-free',
             controller: _dietRestrictionsController,
           ),
           const SizedBox(height: 16),
@@ -177,6 +180,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
   Widget _buildLabeledField({
     required String label,
     required TextEditingController controller,
+    String? hint,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -208,9 +212,16 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
               fontWeight: FontWeight.w600,
               color: Color(0xff573353),
             ),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: Colors.grey,
+              ),
               border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(
+              contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 10,
               ),

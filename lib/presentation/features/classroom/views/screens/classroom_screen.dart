@@ -481,7 +481,7 @@ class _ClassroomScreenState extends State<ClassroomScreen>
                                 );
                               },
                         icon: SvgPicture.asset(
-                          MediaRes.infoButtonIcon,
+                          MediaRes.classroomInfoIcon,
                           height: 32,
                         ),
                       ),

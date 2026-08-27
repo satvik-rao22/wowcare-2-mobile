@@ -225,10 +225,9 @@ class _HealthCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String _displayOrDash(String? v) {
-      if (v == null) return '-';
-      final t = v.trim();
-      return t.isEmpty ? '-' : t;
+    String _displayOrFallback(String? v, String fallback) {
+      final t = v?.trim() ?? '';
+      return t.isEmpty ? fallback : t;
     }
 
     return IntrinsicHeight(
@@ -270,7 +269,7 @@ class _HealthCard extends StatelessWidget {
                       ),
                       Flexible(
                         child: Text(
-                          _displayOrDash(allergies),
+                          _displayOrFallback(allergies, 'No Allergies'),
                           style: const TextStyle(
                             fontFamily: 'Manrope',
                             fontSize: 14,
@@ -301,7 +300,7 @@ class _HealthCard extends StatelessWidget {
                       ),
                       Flexible(
                         child: Text(
-                          _displayOrDash(medication),
+                          _displayOrFallback(medication, 'No Medications'),
                           style: const TextStyle(
                             fontFamily: 'Manrope',
                             fontSize: 14,
@@ -332,7 +331,10 @@ class _HealthCard extends StatelessWidget {
                       ),
                       Flexible(
                         child: Text(
-                          _displayOrDash(dietRestrictions),
+                          _displayOrFallback(
+                            dietRestrictions,
+                            'No Diet Restriction',
+                          ),
                           style: const TextStyle(
                             fontFamily: 'Manrope',
                             fontSize: 14,

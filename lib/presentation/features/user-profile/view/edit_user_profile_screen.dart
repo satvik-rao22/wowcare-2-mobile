@@ -687,7 +687,13 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
                           LengthLimitingTextInputFormatter(10),
                           _UserPhoneNumberFormatter(),
                         ]
-                      : const <TextInputFormatter>[]),
+                      : (label == 'City'
+                            ? <TextInputFormatter>[
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r"[a-zA-Z\s.'-]"),
+                                ),
+                              ]
+                            : const <TextInputFormatter>[])),
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: labelStyle.copyWith(color: Colors.grey),

@@ -19,6 +19,7 @@ import 'package:wowcare/domain/features/staff_classroom/repositories/staff_class
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/presentation/features/classroom/views/filters/designation_display_utils.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart'; // UI-only
 // import 'package:wowcare/core/extentions/context_extentions.dart'; // UI-only
 // import 'package:wowcare/core/services/injection_container.dart'; // UI-only
@@ -32,12 +33,6 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 
-class RoomDTO {
-  final String code;
-  final String name;
-  const RoomDTO({required this.code, required this.name});
-}
-
 class Staff {
   final int id;
   final String code;
@@ -45,7 +40,6 @@ class Staff {
   final String designation;
   final String? profileImageUrl;
   final String? profilePhotoAssetCode;
-  final List<RoomDTO> rooms;
   const Staff({
     required this.id,
     required this.code,
@@ -53,7 +47,6 @@ class Staff {
     required this.designation,
     this.profileImageUrl,
     this.profilePhotoAssetCode,
-    this.rooms = const [],
   });
 }
 
@@ -76,13 +69,39 @@ class AssignStaffToClassroomForm extends StatefulWidget {
 
 class _AssignStaffToClassroomFormState
     extends State<AssignStaffToClassroomForm> {
+  /// Backend designation codes (API filter values) — same fixed set as
+  /// [StaffFilterScreen], not derived from whichever staff happen to be
+  /// loaded, so every designation is always selectable regardless of who's
+  /// currently in the roster.
+  static const List<String> _designationCodes = [
+    'OWNER',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'LEAD_TEACHER',
+    'ASSOCIATE_TEACHER',
+    'ASSISTANT_TEACHER',
+    'FLOATER',
+  ];
+
+  Map<String, String> get _labelToDesignationCode => {
+    for (final code in _designationCodes) formatDesignationForDisplay(code): code,
+  };
+
   bool isSelectAllChecked = false;
   String? _selectedClassroom = '';
+
+  /// Selected designation display labels (dropdown-facing); translated to
+  /// codes in [_loadStaffsFromApi] via [_labelToDesignationCode].
   List<String> _selectedDesignations = [];
   List<Staff> _filteredStaffs = [];
   final List<Staff> _allStaffs = [];
   final List<String> _allRooms = [];
   final List<String> _allDesignations = [];
+
+  /// Classroom display name → code, so the (name-based) Classroom dropdown
+  /// selection can be sent to the API as `primaryClassroomCodes`.
+  Map<String, String> _classroomNameToCode = {};
   bool _isLoadingStaffs = false;
   String? _staffsError;
   Set<Staff> selectedStaffs = {};
@@ -106,7 +125,7 @@ class _AssignStaffToClassroomFormState
   @override
   void initState() {
     super.initState();
-    _loadStaffsFromApi();
+    _loadFilterOptionsThenStaffs();
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -126,13 +145,57 @@ class _AssignStaffToClassroomFormState
   Future<List<StaffClassroomItem>> _fetchManageStaffList({
     required String schoolCode,
     required String excludeClassroomCode,
+    List<String>? primaryClassroomCodes,
+    List<String>? designation,
   }) {
     return serviceLocator<StaffClassroomRepository>().getManageStaffList(
       schoolCode: schoolCode,
       excludeClassroomCode: excludeClassroomCode,
+      primaryClassroomCodes: primaryClassroomCodes,
+      designation: designation,
     );
   }
 
+  /// Loads the full Classroom/Designation option lists once (every active
+  /// classroom + the fixed designation set, mirroring StaffFilterScreen —
+  /// not derived from a roster that's naturally incomplete, since this
+  /// screen excludes staff already in the target classroom), then does the
+  /// first staff fetch.
+  Future<void> _loadFilterOptionsThenStaffs() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final getClassrooms = serviceLocator<GetActiveClassroomsUseCase>();
+      final classrooms = await getClassrooms(
+        schoolCode: schoolCode,
+        onlyTypeClassroom: false,
+      );
+      _classroomNameToCode = {
+        for (final c in classrooms)
+          if (c.name.trim().isNotEmpty) c.name.trim(): c.code.trim(),
+      };
+      if (mounted) {
+        setState(() {
+          _allRooms
+            ..clear()
+            ..addAll(_classroomNameToCode.keys.toList()..sort());
+          _allDesignations
+            ..clear()
+            ..addAll(_labelToDesignationCode.keys.toList()..sort());
+        });
+      }
+    } catch (_) {
+      // Filter options failing to load shouldn't block the staff fetch below
+      // — the dropdowns just stay empty and the user can retry via search.
+    }
+    await _loadStaffsFromApi();
+  }
+
+  /// Fetches the roster with the current Classroom/Designation selections
+  /// applied server-side (`primaryClassroomCodes` / `designation` query
+  /// params) — re-run whenever either selection changes. Free-text search
+  /// stays client-side over this already-filtered result.
   Future<void> _loadStaffsFromApi() async {
     setState(() {
       _isLoadingStaffs = true;
@@ -151,18 +214,21 @@ class _AssignStaffToClassroomFormState
         throw 'Missing classroom code.';
       }
 
-      final getClassrooms = serviceLocator<GetActiveClassroomsUseCase>();
-      final classrooms = await getClassrooms(
-        schoolCode: schoolCode,
-        onlyTypeClassroom: false,
-      );
-      final classroomNameByCode = <String, String>{
-        for (final c in classrooms) c.code: c.name,
-      };
+      final selectedClassroomCode =
+          (_selectedClassroom != null && _selectedClassroom!.trim().isNotEmpty)
+              ? _classroomNameToCode[_selectedClassroom!.trim()]
+              : null;
+      final designationCodes = _selectedDesignations
+          .map((label) => _labelToDesignationCode[label])
+          .whereType<String>()
+          .toList();
 
       final roster = await _fetchManageStaffList(
         schoolCode: schoolCode,
         excludeClassroomCode: excludeClassroomCode,
+        primaryClassroomCodes:
+            selectedClassroomCode != null ? [selectedClassroomCode] : null,
+        designation: designationCodes.isEmpty ? null : designationCodes,
       );
 
       final byStaffCode = <String, StaffClassroomItem>{};
@@ -176,18 +242,8 @@ class _AssignStaffToClassroomFormState
         ..sort((a, b) => a.fullName.compareTo(b.fullName));
 
       final fetchedStaffs = <Staff>[];
-      final uniqueRoomNames = <String>{};
-      final uniqueDesignations = <String>{};
       var id = 0;
       for (final s in rows) {
-        final cc = s.classroomCode.trim();
-        final rooms = <RoomDTO>[];
-        if (cc.isNotEmpty) {
-          final name = classroomNameByCode[cc] ?? cc;
-          rooms.add(RoomDTO(code: cc, name: name));
-          if (name.trim().isNotEmpty) uniqueRoomNames.add(name.trim());
-        }
-
         final rawPhoto = (s.profilePictureUrl ?? '').trim();
         final looksLikeUrl = rawPhoto.startsWith('http://') ||
             rawPhoto.startsWith('https://');
@@ -201,12 +257,8 @@ class _AssignStaffToClassroomFormState
             profileImageUrl: looksLikeUrl ? rawPhoto : null,
             profilePhotoAssetCode:
                 (!looksLikeUrl && rawPhoto.isNotEmpty) ? rawPhoto : null,
-            rooms: rooms,
           ),
         );
-        if (s.designation.trim().isNotEmpty) {
-          uniqueDesignations.add(s.designation.trim());
-        }
       }
 
       if (!mounted) return;
@@ -214,12 +266,6 @@ class _AssignStaffToClassroomFormState
         _allStaffs
           ..clear()
           ..addAll(fetchedStaffs);
-        _allRooms
-          ..clear()
-          ..addAll(uniqueRoomNames.toList()..sort());
-        _allDesignations
-          ..clear()
-          ..addAll(uniqueDesignations.toList()..sort());
         _filterStaffs();
       });
       unawaited(_loadTodaySignInStatuses(fetchedStaffs));
@@ -267,31 +313,16 @@ class _AssignStaffToClassroomFormState
     });
   }
 
+  /// Search-text filtering only — Classroom and Designation are applied
+  /// server-side by [_loadStaffsFromApi] via `primaryClassroomCodes` /
+  /// `designation` query params, so [_allStaffs] is already scoped to them.
   void _filterStaffs() {
-    final allStaffs = _allStaffs;
-    _filteredStaffs = allStaffs.where((staff) {
-      bool matchesSearch = true;
-      bool matchesRoom = true;
-      bool matchesDesignation = true;
-
-      if (_searchController.text.isNotEmpty) {
-        matchesSearch = staff.name.toLowerCase().contains(
-          _searchController.text.toLowerCase(),
-        );
-      }
-
-      if (_selectedClassroom != null && _selectedClassroom != '') {
-        matchesRoom = staff.rooms.any(
-          (room) => _selectedClassroom!.contains(room.name),
-        );
-      }
-
-      if (_selectedDesignations.isNotEmpty) {
-        matchesDesignation = _selectedDesignations.contains(staff.designation);
-      }
-
-      return matchesSearch && matchesRoom && matchesDesignation;
-    }).toList();
+    final query = _searchController.text.trim().toLowerCase();
+    _filteredStaffs = query.isEmpty
+        ? _allStaffs
+        : _allStaffs
+            .where((staff) => staff.name.toLowerCase().contains(query))
+            .toList();
     setState(() {});
   }
 
@@ -335,14 +366,9 @@ class _AssignStaffToClassroomFormState
     });
   }
 
-  List<Staff> _getVisibleStaffs() {
-    return _filteredStaffs.isEmpty &&
-            _searchController.text.isEmpty &&
-            (_selectedClassroom?.isEmpty ?? true) &&
-            _selectedDesignations.isEmpty
-        ? _allStaffs
-        : _filteredStaffs;
-  }
+  /// [_filterStaffs] keeps this in sync with the search box on every change,
+  /// so it's always safe to read directly.
+  List<Staff> _getVisibleStaffs() => _filteredStaffs;
 
   @override
   Widget build(BuildContext context) {
@@ -386,7 +412,7 @@ class _AssignStaffToClassroomFormState
           SearchBar(
             controller: _searchController,
             constraints: const BoxConstraints(minHeight: 44),
-            hintText: 'Search Staffs',
+            hintText: 'Search Staff',
             hintStyle: WidgetStatePropertyAll(
               TextStyle(
                 fontFamily: 'Manrope',
@@ -411,10 +437,8 @@ class _AssignStaffToClassroomFormState
                 flex: 4,
                 child: CustomDropdown(
                   onSelect: (value) {
-                    setState(() {
-                      _selectedClassroom = value;
-                      _filterStaffs();
-                    });
+                    setState(() => _selectedClassroom = value);
+                    _loadStaffsFromApi();
                   },
                   hintText: 'Classroom',
                   items: _allRooms,
@@ -431,10 +455,8 @@ class _AssignStaffToClassroomFormState
                   items: _allDesignations,
                   selectedItems: _selectedDesignations,
                   onChanged: (selectedItems) {
-                    setState(() {
-                      _selectedDesignations = selectedItems;
-                      _filterStaffs();
-                    });
+                    setState(() => _selectedDesignations = selectedItems);
+                    _loadStaffsFromApi();
                   },
                 ),
               ),

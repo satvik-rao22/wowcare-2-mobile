@@ -226,6 +226,7 @@ abstract class StudentRemoteDataSource {
     String? profilePhotoUrl,
     String? userCode,
     String? organizationCode,
+    String? relationshipDescription,
   });
 
   /// Fetches guardians/parents for a student via `GET /api/v1/guardian/{studentCode}`.
@@ -1227,6 +1228,7 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     String? profilePhotoUrl,
     String? userCode,
     String? organizationCode,
+    String? relationshipDescription,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.guardianUser,
@@ -1252,6 +1254,10 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     }
     if (organizationCode != null && organizationCode.trim().isNotEmpty) {
       body['organizationCode'] = organizationCode.trim();
+    }
+    if (relationshipDescription != null &&
+        relationshipDescription.trim().isNotEmpty) {
+      body['relationshipDescription'] = relationshipDescription.trim();
     }
 
     final response = await _client.post<dynamic>(endpoint, data: body);

@@ -7,53 +7,78 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/notifications/realtime/notification_realtime_data_source.dart';
+import 'package:wowcare/domain/features/notifications/usecases/get_notification_unread_counts_usecase.dart';
 
 part 'notification_badge_state.dart';
 
-/// Holds the unread notification count for the app-bar bell badge, mirroring the
-/// messaging [UnreadBadgeCubit]. The COUNT is always derived directly from the
-/// live Firestore collection `userNotifications/{userCode}/notifications` —
-/// never from REST (see [NotificationRealtimeDataSource]'s own doc).
+/// Holds the unread notification count for the app-bar bell badge.
+///
+/// REST (`GET /notification/inbox/unread-counts`, via
+/// [GetNotificationUnreadCountsUseCase]) is the actual number source — the
+/// Firestore collection `userNotifications/{userCode}/notifications` is only
+/// used as a live "something changed, re-check" trigger (it doesn't need to
+/// hold accurate per-notification data itself, and currently the backend
+/// doesn't write anything into it — see [NotificationRealtimeDataSource]'s
+/// own doc for the collection path). This was always the intended design
+/// (see the comment in [GlobalScaffold]'s `initState` where this cubit is
+/// started: "startWatching() does an immediate REST refresh AND attaches a
+/// live Firestore listener that refreshes the REST count") — the REST half
+/// had regressed out of this cubit at some point while that comment stayed.
 ///
 /// Unlike messaging's badge, this listener doesn't need re-scoping on a
 /// school/persona switch ([SchoolSwitchEvents]): it's keyed by userCode only,
-/// and the live snapshot already reflects the account's actual notifications
-/// regardless of which persona is currently active — the old REST count was
-/// the one that needed a re-read there (server-scoped via `x-role`/
-/// `x-school-code` headers), and that's gone now.
+/// and the REST endpoint's own `role`/`schoolCode` params are re-resolved
+/// fresh on every fetch via [GetNotificationUnreadCountsUseCase].
 ///
 /// A shared app-session singleton: provided at the app root and started once per
 /// [GlobalScaffold] mount via [startWatching].
 class NotificationBadgeCubit extends Cubit<NotificationBadgeState> {
   NotificationBadgeCubit({
     required NotificationRealtimeDataSource realtime,
+    required GetNotificationUnreadCountsUseCase getUnreadCounts,
     required StorageService storage,
   }) : _realtime = realtime,
+       _getUnreadCounts = getUnreadCounts,
        _storage = storage,
        super(const NotificationBadgeState.initial());
 
   final NotificationRealtimeDataSource _realtime;
+  final GetNotificationUnreadCountsUseCase _getUnreadCounts;
   final StorageService _storage;
 
   StreamSubscription<int>? _firestoreSub;
   String _watchedUserCode = '';
 
-  /// No REST re-fetch to trigger any more — Firestore is the only source and
-  /// updates live on its own. Kept as a no-op-unless-not-yet-watching entry
-  /// point so existing callers (FCM push handlers, background-tap) that used
-  /// to force a REST re-read still have something safe to call; it just
-  /// ensures the live subscription is attached.
-  Future<void> refresh() => startWatching();
+  /// Re-fetches the authoritative REST count. Safe to call as often as
+  /// needed (e.g. after marking read, or when a push notification arrives).
+  Future<void> refresh() => _refreshFromRest();
 
-  /// Same as [refresh] — kept for existing call sites. There's no longer a
-  /// "re-read once more shortly after" retry to do: the live listener already
-  /// self-corrects on the backend's own timeline, with no single read to be
-  /// stale against.
-  Future<void> refreshWithRetry() => startWatching();
+  /// Same as [refresh] — kept as a distinct name for existing call sites
+  /// (FCM push handlers) that want the semantic of "a push just arrived,
+  /// re-check now".
+  Future<void> refreshWithRetry() => _refreshFromRest();
 
-  /// Attaches the live Firestore listener so the badge updates as
-  /// notifications arrive / are read. Idempotent per user: safe to call on
-  /// every [GlobalScaffold] mount (login, navigation, school switch). The
+  Future<void> _refreshFromRest() async {
+    try {
+      final counts = await _getUnreadCounts();
+      if (isClosed) return;
+      AppLogger.d(
+        '[NotifBadge] REST unread=${counts.unread} unclicked=${counts.unclicked}',
+      );
+      emit(state.copyWith(
+        unreadCount: counts.unread,
+        unclickedCount: counts.unclicked,
+      ));
+    } catch (e) {
+      AppLogger.d('[NotifBadge] REST unread-counts fetch failed: $e');
+    }
+  }
+
+  /// Does an immediate REST refresh, then attaches the live Firestore
+  /// listener so a change to `userNotifications/{userCode}/notifications`
+  /// (once the backend writes to it) re-triggers a REST refresh rather than
+  /// being trusted for its own doc count. Idempotent per user: safe to call
+  /// on every [GlobalScaffold] mount (login, navigation, school switch). The
   /// notifications collection is keyed by userCode only (not school), so the
   /// subscription is reused across school switches.
   Future<void> startWatching() async {
@@ -63,6 +88,9 @@ class NotificationBadgeCubit extends Cubit<NotificationBadgeState> {
       AppLogger.d('[NotifBadge] startWatching skipped — no userCode yet');
       return;
     }
+
+    unawaited(_refreshFromRest());
+
     if (_watchedUserCode == userCode && _firestoreSub != null) return;
 
     AppLogger.d('[NotifBadge] startWatching user=$userCode');
@@ -73,8 +101,11 @@ class NotificationBadgeCubit extends Cubit<NotificationBadgeState> {
         .listen(
           (count) {
             if (isClosed) return;
-            AppLogger.d('[NotifBadge] Firestore unread=$count');
-            emit(state.copyWith(unreadCount: count));
+            AppLogger.d(
+              '[NotifBadge] Firestore change signal (docCount=$count) — '
+              're-checking REST',
+            );
+            unawaited(_refreshFromRest());
           },
           onError: (_) {},
         );

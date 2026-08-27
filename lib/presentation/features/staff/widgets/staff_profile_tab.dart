@@ -19,6 +19,7 @@ import 'package:wowcare/core/util/string_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 
 class StaffProfileTab extends StatefulWidget {
   const StaffProfileTab({
@@ -66,12 +67,33 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
     'SUNDAY',
   ];
 
+  /// Whether [widget.staffCode] is the logged-in staff member's own code —
+  /// null while unresolved. The Profile Information edit button only renders
+  /// once this is explicitly `false` (confirmed NOT own profile); it never
+  /// renders on `null` or `true`, so it cannot flash visible-then-hidden
+  /// while the async check is still in flight.
+  bool? _isOwnProfile;
+
   @override
   void initState() {
     super.initState();
     _profileCubit = serviceLocator<StaffProfileCubit>()
       ..loadInitial(widget.staffCode);
     _loadSchoolOpenDays();
+    _resolveIsOwnProfile();
+  }
+
+  Future<void> _resolveIsOwnProfile() async {
+    try {
+      final ownStaffCode = (await resolveStaffCodeForLoggedInUser()).trim();
+      if (!mounted) return;
+      // An empty result means resolution failed — leave _isOwnProfile at
+      // null (button stays hidden) rather than guessing "not own profile".
+      if (ownStaffCode.isEmpty) return;
+      setState(() => _isOwnProfile = ownStaffCode == widget.staffCode.trim());
+    } catch (_) {
+      // Leave _isOwnProfile at null — see field doc; button stays hidden.
+    }
   }
 
   @override
@@ -367,6 +389,9 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
             return CustomRefreshIndicator(
               onRefresh: () async {
                 await _profileCubit.refresh(widget.staffCode);
+                // Self-heals a stuck-hidden edit button if the self-profile
+                // check failed on initial load (see _resolveIsOwnProfile).
+                if (_isOwnProfile == null) _resolveIsOwnProfile();
               },
               child: Padding(
                 // Bottom pads only by the nav's visible height (above the safe
@@ -409,90 +434,102 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            GestureDetector(
-                              onTap: () async {
-                                // Map allowed/primary classroom codes to display names using cached metadata.
-                                final allowedClassroomNames = profile
-                                    .allowedClassroomCodes
-                                    .map(_displayClassroomName)
-                                    .toList();
-                                final primaryClassroomName =
-                                    profile.primaryClassroomCode.isEmpty
-                                    ? null
-                                    : _displayClassroomName(
-                                        profile.primaryClassroomCode,
-                                      );
+                            // A staff member can't edit their OWN profile
+                            // (designation, classroom assignment, etc.) —
+                            // Documents editing is unaffected, this only
+                            // gates the Profile Information edit button.
+                            // Renders only once _isOwnProfile is explicitly
+                            // false (see field doc) — never on null/true, so
+                            // it can't flash visible then disappear.
+                            if (_isOwnProfile == false)
+                              GestureDetector(
+                                onTap: () async {
+                                  // Map allowed/primary classroom codes to display names using cached metadata.
+                                  final allowedClassroomNames = profile
+                                      .allowedClassroomCodes
+                                      .map(_displayClassroomName)
+                                      .toList();
+                                  final primaryClassroomName =
+                                      profile.primaryClassroomCode.isEmpty
+                                      ? null
+                                      : _displayClassroomName(
+                                          profile.primaryClassroomCode,
+                                        );
 
-                                final result = await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        EditProfileDetailsScreen(
-                                          staffCode: profile.staffCode,
-                                          initialFirstName: profile.firstName,
-                                          initialLastName: profile.lastName,
-                                          initialStatus: _getStatusLabel(
-                                            profile.status,
+                                  final result = await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          EditProfileDetailsScreen(
+                                            staffCode: profile.staffCode,
+                                            initialFirstName: profile.firstName,
+                                            initialLastName: profile.lastName,
+                                            initialStatus: _getStatusLabel(
+                                              profile.status,
+                                            ),
+                                            initialDesignation:
+                                                profile.designation,
+                                            initialAllowedClassrooms:
+                                                allowedClassroomNames,
+                                            initialPrimaryClassroom:
+                                                primaryClassroomName,
+                                            initialBirthDate:
+                                                profile.birthDate.isEmpty
+                                                ? null
+                                                : DateTime.tryParse(
+                                                    profile.birthDate,
+                                                  ),
+                                            initialJobTag: profile.jobTag,
+                                            initialEmail: profile.email,
+                                            initialPhoneNumber:
+                                                profile.phoneNumber,
+                                            initialStreet:
+                                                profile.address.street,
+                                            initialCity: profile.address.city,
+                                            initialState: profile.address.state,
+                                            initialCountry:
+                                                profile.address.country,
+                                            initialZipCode:
+                                                profile.address.zipCode,
+                                            initialClassroomNames:
+                                                widget.classroomNames,
+                                            initialClassroomCodeByName:
+                                                widget.classroomNameByCode ==
+                                                    null
+                                                ? null
+                                                : {
+                                                    for (final entry
+                                                        in widget
+                                                            .classroomNameByCode!
+                                                            .entries)
+                                                      entry.value: entry.key,
+                                                  },
                                           ),
-                                          initialDesignation:
-                                              profile.designation,
-                                          initialAllowedClassrooms:
-                                              allowedClassroomNames,
-                                          initialPrimaryClassroom:
-                                              primaryClassroomName,
-                                          initialBirthDate:
-                                              profile.birthDate.isEmpty
-                                              ? null
-                                              : DateTime.tryParse(
-                                                  profile.birthDate,
-                                                ),
-                                          initialJobTag: profile.jobTag,
-                                          initialEmail: profile.email,
-                                          initialPhoneNumber:
-                                              profile.phoneNumber,
-                                          initialStreet: profile.address.street,
-                                          initialCity: profile.address.city,
-                                          initialState: profile.address.state,
-                                          initialCountry:
-                                              profile.address.country,
-                                          initialZipCode:
-                                              profile.address.zipCode,
-                                          initialClassroomNames:
-                                              widget.classroomNames,
-                                          initialClassroomCodeByName:
-                                              widget.classroomNameByCode == null
-                                              ? null
-                                              : {
-                                                  for (final entry
-                                                      in widget
-                                                          .classroomNameByCode!
-                                                          .entries)
-                                                    entry.value: entry.key,
-                                                },
-                                        ),
-                                  ),
-                                );
+                                    ),
+                                  );
 
-                                // If profile was updated, refresh from API.
-                                if (result == true) {
-                                  await _profileCubit.refresh(widget.staffCode);
-                                }
-                              },
-                              child: Container(
-                                width: 38,
-                                height: 38,
-                                decoration: BoxDecoration(
-                                  gradient: AppColors.buildPrimaryGradient(),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                alignment: Alignment.center,
-                                child: const Icon(
-                                  Icons.edit,
-                                  size: 22,
-                                  color: Colors.white,
+                                  // If profile was updated, refresh from API.
+                                  if (result == true) {
+                                    await _profileCubit.refresh(
+                                      widget.staffCode,
+                                    );
+                                  }
+                                },
+                                child: Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    gradient: AppColors.buildPrimaryGradient(),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: const Icon(
+                                    Icons.edit,
+                                    size: 22,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
-                            ),
                           ],
                         ),
                         const SizedBox(height: 16),

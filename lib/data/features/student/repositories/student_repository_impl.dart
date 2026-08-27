@@ -1107,6 +1107,7 @@ class StudentRepositoryImpl
     String? profilePhotoUrl,
     String? userCode,
     String? organizationCode,
+    String? relationshipDescription,
   }) async {
     final result = await _remoteDataSource.createGuardianUser(
       schoolCode: schoolCode,
@@ -1121,6 +1122,7 @@ class StudentRepositoryImpl
       profilePhotoUrl: profilePhotoUrl,
       userCode: userCode,
       organizationCode: organizationCode,
+      relationshipDescription: relationshipDescription,
     );
 
     // New guardian added – invalidate guardians cache so next load is fresh.

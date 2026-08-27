@@ -659,8 +659,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         return 'Select students in the same classroom to record activities together.';
       }
     }
-    return 'You cannot record activities for absent, not marked, or not signed-in '
-        'students. Only students with green signed-in status today can be selected.';
+    return 'Activities can be recorded only when all selected students are '
+        'signed in.';
   }
 
   // Backend disabled

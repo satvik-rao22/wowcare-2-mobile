@@ -117,10 +117,14 @@ class StaffClassroomRepositoryImpl implements StaffClassroomRepository {
   Future<List<StaffClassroomItem>> getManageStaffList({
     required String schoolCode,
     required String excludeClassroomCode,
+    List<String>? primaryClassroomCodes,
+    List<String>? designation,
   }) async {
     final models = await _remoteDataSource.getManageStaffList(
       schoolCode: schoolCode,
       excludeClassroomCode: excludeClassroomCode,
+      primaryClassroomCodes: primaryClassroomCodes,
+      designation: designation,
     );
     return models.map(_mapModelToEntity).toList();
   }

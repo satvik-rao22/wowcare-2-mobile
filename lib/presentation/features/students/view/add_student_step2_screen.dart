@@ -495,6 +495,13 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
 
             final relationLabel = (_selectedRelation ?? '').trim();
             final relationToStudent = relationLabel.toUpperCase();
+            // Free-text description backing an "Other" relation — the
+            // backend expects this whenever relationToStudent is OTHER.
+            final relationshipDescription =
+                relationLabel == 'Other' &&
+                        _relationOtherController.text.trim().isNotEmpty
+                    ? _relationOtherController.text.trim()
+                    : null;
 
             final primaryContact = _isEmergencyContact;
             final legalCustody = _isChildCustody;
@@ -511,6 +518,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                 'email': email,
                 'mobile': digits,
                 'relationToStudent': relationToStudent,
+                if (relationshipDescription != null)
+                  'relationshipDescription': relationshipDescription,
                 'primaryContact': primaryContact,
                 'legalCustody': legalCustody,
                 'updatedBy': loggedInUserCode.trim(),
@@ -548,6 +557,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                 email: email,
                 mobile: digits,
                 relationToStudent: relationToStudent,
+                relationshipDescription: relationshipDescription,
                 primaryContact: primaryContact,
                 legalCustody: legalCustody,
                 userCode: loggedInUserCode.trim().isEmpty
