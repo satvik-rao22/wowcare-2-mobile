@@ -270,7 +270,7 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
         return;
       }
 
-      final parsed = StaffAttendanceDailyPageModel.fromJson(raw);
+      final parsed = raw.dailyPage;
 
       // Aggregations from API response.
       String staffName = state.staffName;

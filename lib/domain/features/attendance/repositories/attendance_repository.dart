@@ -13,6 +13,7 @@ import '../entities/staff_attendance_absent.dart';
 import '../entities/student_attendance_absent_form.dart';
 import '../entities/student_attendance_expected_summary.dart';
 import '../entities/student_attendance_profile_response.dart';
+import '../entities/staff_attendance_profile_response.dart';
 import '../entities/qr_validation_result.dart';
 
 abstract class AttendanceRepository {
@@ -420,7 +421,7 @@ abstract class AttendanceRepository {
   });
 
   /// GET staff attendance profile (present-day summary + records).
-  Future<Map<String, dynamic>?> fetchStaffAttendanceProfile({
+  Future<StaffAttendanceProfileResponse?> fetchStaffAttendanceProfile({
     required Map<String, dynamic> queryParameters,
   });
 
