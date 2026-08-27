@@ -217,6 +217,10 @@ import '../../domain/features/attendance/usecases/submit_staff_sign_out_usecase.
 import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_out_submit_cubit.dart';
 import '../../domain/features/attendance/usecases/submit_staff_transfer_usecase.dart';
 import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_transfer_submit_cubit.dart';
+import '../../domain/features/attendance/usecases/delete_staff_attendance_record_usecase.dart';
+import '../../domain/features/attendance/usecases/delete_student_attendance_record_usecase.dart';
+import '../../presentation/features/attendance/cubit/staff_attendance_delete_cubit.dart';
+import '../../presentation/features/attendance/cubit/student_attendance_delete_cubit.dart';
 import '../../domain/features/student/usecases/get_student_documents_usecase.dart';
 import '../../domain/features/student/usecases/add_student_document_usecase.dart';
 import '../../domain/features/student/usecases/get_student_important_dates_usecase.dart';
@@ -1102,6 +1106,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<StaffTransferSubmitCubit>(
     () => StaffTransferSubmitCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteStaffAttendanceRecordUseCase>(
+    () => DeleteStaffAttendanceRecordUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<StaffAttendanceDeleteCubit>(
+    () => StaffAttendanceDeleteCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteStudentAttendanceRecordUseCase>(
+    () => DeleteStudentAttendanceRecordUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<StudentAttendanceDeleteCubit>(
+    () => StudentAttendanceDeleteCubit(serviceLocator()),
   );
   serviceLocator.registerFactory<GetStudentDocumentsUseCase>(
     () => GetStudentDocumentsUseCase(serviceLocator()),

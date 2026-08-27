@@ -28,6 +28,7 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_daily_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_absent_toggle_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_delete_cubit.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_daily.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart'
     hide StudentAttendanceTime;
@@ -149,6 +150,10 @@ class _StudentAttendanceDailyViewScreenState
   late final StudentAttendanceDailyCubit _cubit;
   late final StudentAttendanceAbsentToggleCubit _absentToggleCubit;
   late final ClassroomCubit _classroomCubit;
+
+  /// Owns the delete-attendance call (View -> Cubit -> UseCase -> Repository).
+  final StudentAttendanceDeleteCubit _deleteCubit =
+      serviceLocator<StudentAttendanceDeleteCubit>();
   final GetClassroomByCodeUseCase _getClassroomByCode =
       serviceLocator<GetClassroomByCodeUseCase>();
   final Map<String, String> _absentToggleClassroomNameByCode = {};
@@ -408,6 +413,7 @@ class _StudentAttendanceDailyViewScreenState
     _searchController.dispose();
     _cubit.close();
     _absentToggleCubit.close();
+    _deleteCubit.close();
     super.dispose();
   }
 
@@ -1359,14 +1365,11 @@ class _StudentAttendanceDailyViewScreenState
                                                 return;
                                               }
 
-                                              await serviceLocator<
-                                                    AttendanceRepository
-                                                  >()
-                                                  .deleteStudentAttendanceRecord(
-                                                    attendanceRecordCode:
-                                                        normalizedAttendanceCode,
-                                                    staffCode: staffCode,
-                                                  );
+                                              await _deleteCubit.delete(
+                                                attendanceRecordCode:
+                                                    normalizedAttendanceCode,
+                                                staffCode: staffCode,
+                                              );
 
                                               CoreUtils.showTopSnackBarFromSnackBar(
                                                 context: context,
