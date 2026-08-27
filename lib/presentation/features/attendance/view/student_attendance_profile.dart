@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_profile_usecase.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -598,13 +598,14 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     final code = _activeStudentCode.trim();
     if (code.isEmpty) return;
     try {
-      final profile = await serviceLocator<StudentRemoteDataSource>()
-          .getStudentProfile(code);
+      final profile = await serviceLocator<GetStudentProfileUseCase>()(
+        code: code,
+      );
       if (!mounted) return;
       final current = student;
       if (current == null) return;
       final name = profile.fullName.trim();
-      final classroom = (profile.classroom ?? '').trim();
+      final classroom = (profile.classroomName ?? '').trim();
       setState(() {
         student = current.copyWith(
           name: name.isNotEmpty ? name : current.name,
