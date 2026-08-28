@@ -72,7 +72,7 @@ class AttendancePopupManager {
 
     showDialog(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: AppColors.attendancePopupBarrierColor,
       barrierDismissible: true,
       builder: (dialogContext) => MultiBlocProvider(
         providers: [
@@ -476,7 +476,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     final maxPopupHeight = (screenHeight * 0.45).clamp(140.0, 350.0);
 
     return Dialog(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       elevation: 0,
       alignment: Alignment.bottomCenter,
       insetPadding: EdgeInsets.only(
@@ -485,7 +485,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
         bottom: bottomPadding,
       ),
       child: Material(
-        color: Colors.white,
+        color: AppColors.cardColor,
         borderRadius: AppRadius.allLg,
         elevation: 4,
         child: ConstrainedBox(
@@ -513,7 +513,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   labelPadding: EdgeInsets.zero,
                   padding: EdgeInsets.symmetric(horizontal: isTablet ? 16 : 8),
                   labelStyle: TextStyle(
-                    color: Colors.black,
+                    color: AppColors.attendanceIconColor,
                     fontFamily: Fonts.manrope,
                     fontSize: isTablet ? 18 : 16,
                     fontWeight: FontWeight.w500,
@@ -1419,7 +1419,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
         padding: const EdgeInsets.all(1),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.cardColor,
             borderRadius: BorderRadius.circular(AppRadius.r7),
           ),
           child: Center(

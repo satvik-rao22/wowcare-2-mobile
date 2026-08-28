@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 
 typedef StaffAttendanceActionTap = void Function(String actionLabel);
@@ -47,7 +48,7 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
         child: InkWell(
           borderRadius: AppRadius.allMd,
           onTap: () => _showActionMenu(context),
-          child: const Icon(Icons.more_vert, color: Colors.white),
+          child: const Icon(Icons.more_vert, color: AppColors.cardColor),
         ),
       ),
     );
@@ -59,7 +60,7 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
       barrierDismissible: true,
       builder: (BuildContext context) {
         return Dialog(
-          backgroundColor: Colors.transparent,
+          backgroundColor: AppColors.transparentColor,
           elevation: 0,
           insetPadding: EdgeInsets.only(
             top: topPosition ?? 100,
@@ -89,10 +90,10 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
             decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.1),
+              color: AppColors.attendanceInfoHighlightColor,
               shape: BoxShape.circle,
             ),
-            child: SvgPicture.asset(svgPath, height: 24, width: 24),
+            child: SvgPicture.asset(svgPath, height: AppDimensions.iconMd, width: AppDimensions.iconMd),
           ),
           const SizedBox(height: AppSpacing.s5),
           Text(
@@ -151,12 +152,12 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
       ),
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardColor,
         borderRadius: AppRadius.allMd,
-        border: Border.all(color: AppColors.classroomStudentTabColor, width: 2),
+        border: Border.all(color: AppColors.classroomStudentTabColor, width: AppDimensions.borderThick),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: AppColors.attendanceCardShadowColor,
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -197,10 +198,10 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
               decoration: BoxDecoration(
-                color: Colors.blue.withValues(alpha: 0.1),
+                color: AppColors.attendanceInfoHighlightColor,
                 shape: BoxShape.circle,
               ),
-              child: SvgPicture.asset(svgPath, height: 24, width: 24),
+              child: SvgPicture.asset(svgPath, height: AppDimensions.iconMd, width: AppDimensions.iconMd),
             ),
           ),
           const SizedBox(height: AppSpacing.s5),

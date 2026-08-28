@@ -139,7 +139,7 @@ class StudentAttendanceSummary extends StatelessWidget {
                 width: 40,
                 height: 24,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: AppColors.attendanceBorderLightColor,
                   borderRadius: AppRadius.allXs,
                 ),
               ),
@@ -148,7 +148,7 @@ class StudentAttendanceSummary extends StatelessWidget {
                 width: 80,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: AppColors.attendanceBorderLightColor,
                   borderRadius: AppRadius.allXs,
                 ),
               ),
@@ -161,7 +161,7 @@ class StudentAttendanceSummary extends StatelessWidget {
                 Container(
                   height: responsive.isTablet ? 24 : 20,
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: AppColors.attendanceBorderLightColor,
                     borderRadius: AppRadius.allPill,
                   ),
                 ),
@@ -172,7 +172,7 @@ class StudentAttendanceSummary extends StatelessWidget {
                       child: Container(
                         height: responsive.isTablet ? 18 : 16,
                         decoration: BoxDecoration(
-                          color: Colors.grey[300],
+                          color: AppColors.attendanceBorderLightColor,
                           borderRadius: AppRadius.allXs,
                         ),
                       ),
@@ -182,7 +182,7 @@ class StudentAttendanceSummary extends StatelessWidget {
                       child: Container(
                         height: responsive.isTablet ? 18 : 16,
                         decoration: BoxDecoration(
-                          color: Colors.grey[300],
+                          color: AppColors.attendanceBorderLightColor,
                           borderRadius: AppRadius.allXs,
                         ),
                       ),

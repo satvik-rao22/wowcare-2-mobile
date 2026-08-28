@@ -11,6 +11,8 @@ class AppColors {
   static const cardColor = Colors.white;
   static final cardBorderColor = AppColors.primaryColor.withValues(alpha: 0.15);
 
+  static const Color transparentColor = Colors.transparent;
+
   static const fieldBackgroundColor = Color.fromRGBO(177, 175, 233, 0.1);
 
   static const accentColor = Color.fromRGBO(220, 156, 19, 1);
@@ -239,4 +241,41 @@ class AppColors {
     const Color(0xFFD1C4E9),
     const Color(0xFFFFAB91),
   ];
+
+  // Attendance specific colors
+  static const Color attendanceActionAccentColor = Color(
+    0xFF6C7FD8,
+  ); // Card Edit/Delete outlined button border + label
+  static const Color attendanceCardDividerColor = Color(
+    0xFFE9ECEF,
+  ); // Divider between card sections
+  static const Color attendanceDialogBodyTextColor = Color(
+    0xFF424242,
+  ); // Dialog body text
+  static const Color attendanceDialogHintTextColor = Color(
+    0xFF757575,
+  ); // Dialog hint/label text (was Colors.grey[600])
+  static const Color attendanceBorderLightColor = Color(
+    0xFFE0E0E0,
+  ); // Input borders / placeholder icon+text (was Colors.grey.shade300 / grey[300])
+  static const Color attendanceShimmerBaseColor = Color(
+    0xFFE0E0E0,
+  ); // Loading skeleton base (was Colors.grey.shade300) — kept separate from the border token
+  static const Color attendanceShimmerHighlightColor = Color(
+    0xFFF5F5F5,
+  ); // Loading skeleton highlight (was Colors.grey.shade100)
+  static const Color attendanceOverlayScrimColor = Color(
+    0x73000000,
+  ); // Dialog barrier (was Colors.black.withValues(alpha: 0.45))
+  static const Color attendanceCardShadowColor = Color(
+    0x1A000000,
+  ); // Card/popup shadow (was Colors.black.withValues(alpha: 0.1))
+  static const Color attendanceInfoHighlightColor = Color(
+    0x1A2196F3,
+  ); // Info tint (was Colors.blue.withValues(alpha: 0.1))
+  static const Color attendanceIconColor =
+      Colors.black; // Popup icon/label (was bare Colors.black)
+  static const Color attendancePopupBarrierColor = Color(
+    0x8A000000,
+  ); // Attendance popup dialog barrier (was Colors.black54)
 }

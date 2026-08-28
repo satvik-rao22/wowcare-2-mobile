@@ -7,6 +7,7 @@ import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
@@ -103,11 +104,11 @@ class StaffAttendanceFilters extends StatelessWidget {
           color: hasActiveFilters
               ? AppColors.themeColor
               : AppColors.cardBorderColor,
-          width: 1,
+          width: AppDimensions.hairline,
         ),
       ),
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.transparentColor,
         child: InkWell(
           borderRadius: BorderRadius.circular(AppRadius.r10),
           onTap: onFilterTap,

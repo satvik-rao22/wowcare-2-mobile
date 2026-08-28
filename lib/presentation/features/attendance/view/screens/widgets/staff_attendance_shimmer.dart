@@ -3,6 +3,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class StaffAttendanceCardShimmer extends StatelessWidget {
@@ -24,15 +25,15 @@ class StaffAttendanceCardShimmer extends StatelessWidget {
     final spacing = responsive.isTablet ? 16.0 : 9.0;
 
     return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
+      baseColor: AppColors.attendanceShimmerBaseColor,
+      highlightColor: AppColors.attendanceShimmerHighlightColor,
       child: Container(
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
         padding: cardPadding,
         decoration: BoxDecoration(
           color: AppColors.cardColor,
           borderRadius: AppRadius.allMd,
-          border: Border.all(color: AppColors.cardBorderColor, width: 1),
+          border: Border.all(color: AppColors.cardBorderColor, width: AppDimensions.hairline),
         ),
         child: Row(
           children: [
@@ -78,7 +79,7 @@ class StaffAttendanceCardShimmer extends StatelessWidget {
                 height: responsive.isTablet ? 18 : 16,
                 width: responsive.isTablet ? 90 : 80,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.cardColor,
                   borderRadius: AppRadius.allXs,
                 ),
               ),
@@ -109,15 +110,15 @@ class StaffAbsentCardShimmer extends StatelessWidget {
     final spacing = responsive.isTablet ? 16.0 : 9.0;
 
     return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
+      baseColor: AppColors.attendanceShimmerBaseColor,
+      highlightColor: AppColors.attendanceShimmerHighlightColor,
       child: Container(
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
         padding: cardPadding,
         decoration: BoxDecoration(
           color: AppColors.cardColor,
           borderRadius: AppRadius.allMd,
-          border: Border.all(color: AppColors.cardBorderColor, width: 1),
+          border: Border.all(color: AppColors.cardBorderColor, width: AppDimensions.hairline),
         ),
         child: Row(
           children: [
@@ -172,7 +173,7 @@ class StaffAbsentCardShimmer extends StatelessWidget {
                 height: responsive.isTablet ? 28 : 24,
                 width: responsive.isTablet ? 70 : 60,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.cardColor,
                   borderRadius: AppRadius.allMd,
                 ),
               ),

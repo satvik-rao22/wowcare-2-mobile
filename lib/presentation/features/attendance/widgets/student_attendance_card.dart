@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class StudentAttendanceCard extends StatefulWidget {
   const StudentAttendanceCard({
@@ -45,16 +47,16 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
             width: constraints.maxWidth,
             height: isExpanded ? null : 64.0,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.cardColor,
               borderRadius: AppRadius.allMd,
               border: Border.all(
                 color: AppColors.cardBorderColor,
-                width: 1,
+                width: AppDimensions.hairline,
               ),
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
-              color: Colors.transparent,
+              color: AppColors.transparentColor,
               child: InkWell(
                 onTap: () {
                   setState(() {
@@ -75,23 +77,11 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                         children: [
                           Text(
                             DateFormat('MMM dd, yyyy').format(widget.date),
-                            style: const TextStyle(
-                              fontFamily: 'Manrope',
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.primaryColor,
-                              height: 19 / 14,
-                            ),
+                            style: AppTextStyles.value,
                           ),
                           Text(
                             _calculateAttendedTime(widget.signIn, widget.signOut),
-                            style: const TextStyle(
-                              fontFamily: 'Manrope',
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.primaryColor,
-                              height: 19 / 14,
-                            ),
+                            style: AppTextStyles.value,
                           ),
                         ],
                       ),
@@ -102,10 +92,10 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                       // Divider
                       const Divider(
                         height: 1,
-                        thickness: 1,
+                        thickness: AppDimensions.hairline,
                         indent: AppSpacing.md,
                         endIndent: AppSpacing.md,
-                        color: Color(0xFFE9ECEF),
+                        color: AppColors.attendanceCardDividerColor,
                       ),
 
                       // Details section
@@ -133,20 +123,20 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                                     child: OutlinedButton(
                                       onPressed: widget.onDelete,
                                       style: OutlinedButton.styleFrom(
-                                        side: const BorderSide(color: Color(0xFF6C7FD8)),
+                                        side: const BorderSide(
+                                          color: AppColors
+                                              .attendanceActionAccentColor,
+                                        ),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: AppRadius.allSm,
                                         ),
                                         padding: EdgeInsets.zero,
                                       ),
-                                      child: const Text(
+                                      child: Text(
                                         'Delete',
-                                        style: TextStyle(
-                                          fontFamily: 'Manrope',
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: Color(0xFF6C7FD8),
-                                          height: 16 / 16,
+                                        style: AppTextStyles.title.copyWith(
+                                          color: AppColors
+                                              .attendanceActionAccentColor,
                                         ),
                                       ),
                                     ),
@@ -165,14 +155,10 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                                       style: TextButton.styleFrom(
                                         padding: EdgeInsets.zero,
                                       ),
-                                      child: const Text(
+                                      child: Text(
                                         'Edit',
-                                        style: TextStyle(
-                                          fontFamily: 'Manrope',
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white,
-                                          height: 16 / 16,
+                                        style: AppTextStyles.title.copyWith(
+                                          color: AppColors.cardColor,
                                         ),
                                       ),
                                     ),
@@ -201,23 +187,11 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            color: AppColors.primaryColor,
-            height: 16 / 13,
-          ),
+          style: AppTextStyles.label,
         ),
         Text(
           value,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: AppColors.primaryColor,
-            height: 19 / 14,
-          ),
+          style: AppTextStyles.value,
         ),
       ],
     );

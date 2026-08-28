@@ -42,7 +42,7 @@ Future<UnexpectedSignInAttentionResult?> showUnexpectedSignInAttentionDialog(
   return showDialog<UnexpectedSignInAttentionResult>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: AppColors.attendanceOverlayScrimColor,
     builder: (ctx) {
       return _UnexpectedSignInAttentionDialogBody(
         unexpectedFullNames: unexpectedFullNames,
@@ -88,14 +88,14 @@ class _UnexpectedSignInAttentionDialogBodyState
         horizontal: AppSpacing.xl,
         vertical: AppSpacing.xl,
       ),
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       elevation: 0,
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.transparentColor,
         child: Container(
           constraints: const BoxConstraints(maxWidth: 400),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.cardColor,
             borderRadius: AppRadius.allLg,
             boxShadow: [
               BoxShadow(
@@ -161,7 +161,7 @@ class _UnexpectedSignInAttentionDialogBodyState
                 child: RichText(
                   text: TextSpan(
                     style: AppTextStyles.body.copyWith(
-                      color: const Color(0xFF424242),
+                      color: AppColors.attendanceDialogBodyTextColor,
                       height: 1.35,
                     ),
                     children: [
@@ -177,7 +177,7 @@ class _UnexpectedSignInAttentionDialogBodyState
                         text:
                             ' are not expected today. Do you still want to sign-in $target?',
                         style: AppTextStyles.body.copyWith(
-                          color: const Color(0xFF424242),
+                          color: AppColors.attendanceDialogBodyTextColor,
                           height: 1.35,
                         ),
                       ),
@@ -194,7 +194,7 @@ class _UnexpectedSignInAttentionDialogBodyState
                   decoration: InputDecoration(
                     hintText: 'Add a Comment',
                     hintStyle: AppTextStyles.body.copyWith(
-                      color: Colors.grey[600],
+                      color: AppColors.attendanceDialogHintTextColor,
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.s14,
@@ -202,11 +202,11 @@ class _UnexpectedSignInAttentionDialogBodyState
                     ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(AppRadius.r10),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      borderSide: const BorderSide(color: AppColors.attendanceBorderLightColor),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(AppRadius.r10),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      borderSide: const BorderSide(color: AppColors.attendanceBorderLightColor),
                     ),
                   ),
                 ),

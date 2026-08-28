@@ -5,6 +5,8 @@ import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 
@@ -97,10 +99,6 @@ class StudentAttendanceCard extends StatefulWidget {
 }
 
 class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
-  // Shared text tokens mirrored from StaffCard so attendance cards read with
-  // the same Manrope/plum visual identity.
-  static const Color _plum = AppColors.primaryColor;
-
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
@@ -148,9 +146,12 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
         duration: const Duration(milliseconds: 200),
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardColor,
           borderRadius: AppRadius.allMd,
-          border: Border.all(color: AppColors.cardBorderColor, width: 1),
+          border: Border.all(
+            color: AppColors.cardBorderColor,
+            width: AppDimensions.hairline,
+          ),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -174,12 +175,8 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                         Flexible(
                           child: Text(
                             student.studentName,
-                            style: TextStyle(
-                              fontFamily: 'Manrope',
+                            style: AppTextStyles.value.copyWith(
                               fontSize: isTablet ? 16 : 14,
-                              fontWeight: FontWeight.w500,
-                              color: _plum,
-                              height: 19 / 14,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -189,12 +186,8 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                         Flexible(
                           child: Text(
                             student.roomName,
-                            style: TextStyle(
-                              fontFamily: 'Manrope',
+                            style: AppTextStyles.value.copyWith(
                               fontSize: isTablet ? 16 : 14,
-                              fontWeight: FontWeight.w500,
-                              color: _plum,
-                              height: 19 / 14,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -210,10 +203,10 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
             if (widget.isExpanded) ...[
               const Divider(
                 height: 1,
-                thickness: 1,
+                thickness: AppDimensions.hairline,
                 indent: AppSpacing.md,
                 endIndent: AppSpacing.md,
-                color: Color(0xFFE9ECEF),
+                color: AppColors.attendanceCardDividerColor,
               ),
               Padding(
                 padding: const EdgeInsets.all(AppSpacing.md),
@@ -276,26 +269,14 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: _plum,
-              height: 16 / 13,
-            ),
+            style: AppTextStyles.label,
           ),
         ),
         const SizedBox(width: AppSpacing.xs),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: _plum,
-              height: 19 / 14,
-            ),
+            style: AppTextStyles.value,
             textAlign: TextAlign.end,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
@@ -318,13 +299,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: _plum,
-              height: 16 / 13,
-            ),
+            style: AppTextStyles.label,
           ),
         ),
         const SizedBox(width: AppSpacing.xs),
@@ -355,13 +330,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
               Flexible(
                 child: Text(
                   value,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: _plum,
-                    height: 19 / 14,
-                  ),
+                  style: AppTextStyles.value,
                   textAlign: TextAlign.end,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
@@ -548,19 +517,15 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
     return OutlinedButton(
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
-        side: const BorderSide(color: Color(0xFF6C7FD8)),
+        side: const BorderSide(color: AppColors.attendanceActionAccentColor),
         shape: RoundedRectangleBorder(borderRadius: AppRadius.allSm),
         padding: EdgeInsets.zero,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.cardColor,
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF6C7FD8),
-          height: 16 / 16,
+        style: AppTextStyles.title.copyWith(
+          color: AppColors.attendanceActionAccentColor,
         ),
       ),
     );
@@ -576,17 +541,11 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
         onPressed: onPressed,
         style: TextButton.styleFrom(
           padding: EdgeInsets.zero,
-          backgroundColor: Colors.transparent,
+          backgroundColor: AppColors.transparentColor,
         ),
         child: Text(
           label,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-            height: 16 / 16,
-          ),
+          style: AppTextStyles.title.copyWith(color: AppColors.cardColor),
         ),
       ),
     );
