@@ -13,6 +13,7 @@ import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
+import 'package:wowcare/presentation/features/attendance/util/debounced_search_mixin.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_shimmer.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -92,11 +93,11 @@ class StudentAttendanceAbsentView extends StatefulWidget {
 
 class _StudentAttendanceAbsentViewState
     extends State<StudentAttendanceAbsentView>
+    with DebouncedSearchMixin
     implements AttendanceTabRefresh {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
-  Timer? _searchDebounceTimer;
   List<String> _selectedClassroomNames = <String>[];
   List<String>? _selectedClassroomCodes;
   List<String> _selectedTagNames = <String>[];
@@ -276,7 +277,7 @@ class _StudentAttendanceAbsentViewState
     _searchController.dispose();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
-    _searchDebounceTimer?.cancel();
+    cancelSearchDebounce();
     super.dispose();
   }
 
@@ -358,11 +359,7 @@ class _StudentAttendanceAbsentViewState
       _searchQuery = newQuery;
     });
 
-    _searchDebounceTimer?.cancel();
-    _searchDebounceTimer = Timer(const Duration(milliseconds: 200), () {
-      if (!mounted) return;
-      _triggerSearchReload();
-    });
+    debounceSearch(_triggerSearchReload);
   }
 
   void _triggerSearchReload() {

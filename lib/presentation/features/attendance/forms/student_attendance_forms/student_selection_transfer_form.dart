@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_search_field.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
@@ -223,24 +224,9 @@ class _StudentSelectionTransferFormState
             children: [
               const AppText.subtitle('Select Students'),
               const SizedBox(height: AppSpacing.sm),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(AppRadius.r15),
-                  border: Border.all(color: Colors.grey),
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search Students',
-                    hintStyle: AppTextStyles.body.copyWith(
-                      color: Colors.grey[700],
-                    ),
-                    border: InputBorder.none,
-                    icon: const Icon(Icons.search, color: Colors.grey),
-                  ),
-                ),
+              AttendanceSearchField(
+                controller: _searchController,
+                hintText: 'Search Students',
               ),
               const SizedBox(height: AppSpacing.sm),
               Row(
