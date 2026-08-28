@@ -1072,9 +1072,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   }
 
   Widget _buildPopupMenu() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth >= 600;
-    final isLargeTablet = screenWidth >= 900;
+    final isTablet = ResponsiveHelper(context).isTabletCompact;
+    final isLargeTablet = ResponsiveHelper(context).isWide;
 
     return GradientAddButton(
       onTap: () {
@@ -1091,9 +1090,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     final contentPadding = ResponsiveSizing.contentPadding(context);
     final safeAreaTop = mediaQuery.padding.top;
     final appBarHeight = AppBar().preferredSize.height;
-    final double screenWidth = mediaQuery.size.width;
-    final bool isTablet = screenWidth >= 600;
-    final bool isLargeTablet = screenWidth >= 900;
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
+    final bool isLargeTablet = ResponsiveHelper(context).isWide;
     final double floatingButtonSize = isLargeTablet
         ? 72.0
         : (isTablet ? 56.0 : 40.0);

@@ -5,6 +5,7 @@ import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class StudentAttendanceCard extends StatefulWidget {
   const StudentAttendanceCard({
@@ -37,8 +38,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveHelper(context).isTabletCompact;
 
     return LayoutBuilder(
       builder: (context, constraints) {

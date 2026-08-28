@@ -9,7 +9,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_card.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -101,7 +101,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
   }
 
   Widget _buildForm(BuildContext context, StaffEditAttendanceState state) {
-    final isTablet = ResponsiveSizing.isTablet(context);
+    final isTablet = ResponsiveHelper(context).isTabletCompact;
     final staff = widget.staffAttendance;
 
     final titleName = staff.staffName.isNotEmpty

@@ -11,6 +11,7 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_mark_absent_form.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
@@ -83,9 +84,8 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
     // Use the shared GradientAddButton for consistent FAB styling.
     // Mirror the responsive sizing used in StaffScreen by deriving
     // tablet breakpoints from the current screen width.
-    final screenWidth = MediaQuery.of(context).size.width;
-    final bool isTablet = screenWidth >= 600;
-    final bool isLargeTablet = screenWidth >= 900;
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
+    final bool isLargeTablet = ResponsiveHelper(context).isWide;
 
     return GradientAddButton(
       onTap: () =>
@@ -100,9 +100,8 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
     Set<String> activeDisabledActions,
     Map<String, String> activeReasons,
   ) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final bool isTablet = screenWidth >= 600;
-    final bool isLargeTablet = screenWidth >= 900;
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
+    final bool isLargeTablet = ResponsiveHelper(context).isWide;
     final double buttonSize = isLargeTablet ? 72.0 : (isTablet ? 56.0 : 40.0);
     showDialog(
       context: context,

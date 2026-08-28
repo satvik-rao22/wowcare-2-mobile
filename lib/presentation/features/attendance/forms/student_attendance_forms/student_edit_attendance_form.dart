@@ -10,7 +10,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_card.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_edit_attendance_cubit.dart';
@@ -101,7 +101,7 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
   }
 
   Widget _buildForm(BuildContext context, StudentEditAttendanceState state) {
-    final isTablet = ResponsiveSizing.isTablet(context);
+    final isTablet = ResponsiveHelper(context).isTabletCompact;
     final student = widget.studentAttendance;
     final titleName = student.studentName.isNotEmpty
         ? student.studentName
