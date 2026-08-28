@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_search_field.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -222,13 +223,9 @@ class _StaffSelectionMarkAbsentFormState
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => StaffMarkAbsentForm(
-          staffList: selectedStaff.toList(),
-        ),
-      ),
+    context.push(
+      '/attendance/staff-mark-absent',
+      extra: {'staffList': selectedStaff.toList()},
     );
   }
 

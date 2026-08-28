@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -258,28 +259,25 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
       return;
     }
 
-    Widget? form;
+    String? path;
 
     switch (label) {
       case 'Sign-in':
-        form = const StudentSelectionSignInForm();
+        path = '/attendance/student-selection-sign-in';
         break;
       case 'Sign-Out':
-        form = const StudentSelectionSignOutForm();
+        path = '/attendance/student-selection-sign-out';
         break;
       case 'Transfer':
-        form = const StudentSelectionTransferForm();
+        path = '/attendance/student-selection-transfer';
         break;
       case 'Absent':
-        form = const StudentSelectionMarkAbsentForm();
+        path = '/attendance/student-selection-mark-absent';
         break;
     }
 
-    if (form != null) {
-      Navigator.push<void>(
-        context,
-        MaterialPageRoute(builder: (_) => form!),
-      ).then((_) {
+    if (path != null) {
+      context.push(path).then((_) {
         refreshCallback();
       });
     }

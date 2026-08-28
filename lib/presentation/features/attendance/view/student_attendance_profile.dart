@@ -1120,6 +1120,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     }
 
     if (target == null || !mounted) return;
+    // GoRouter holdout (documented): carries a refreshCallback closure and a form-local StudentEntity list, which don't fit GoRouter's URL/extra model — kept as an imperative Navigator.push.
     await Navigator.push(context, MaterialPageRoute(builder: (_) => target!));
     if (!mounted) return;
     await refreshData();

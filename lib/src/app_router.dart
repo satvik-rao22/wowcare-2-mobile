@@ -26,6 +26,15 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_edit_attendance_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_edit_attendance_form.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_card.dart'
     show StaffAttendanceCardData;
@@ -675,6 +684,98 @@ final GoRouter appRouter = GoRouter(
           ),
         );
       },
+    ),
+    GoRoute(
+      path: '/attendance/staff-sign-in',
+      pageBuilder: (context, state) {
+        final e = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          StaffSignInForm(
+            staff: e['staff'] as StaffEntity?,
+            staffList: (e['staffList'] as List?)?.cast<StaffEntity>(),
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/attendance/staff-sign-out',
+      pageBuilder: (context, state) {
+        final e = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          StaffSignOutForm(
+            staff: e['staff'] as StaffEntity?,
+            staffList: (e['staffList'] as List?)?.cast<StaffEntity>(),
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/attendance/staff-transfer',
+      pageBuilder: (context, state) {
+        final e = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          StaffTransferForm(
+            staff: e['staff'] as StaffEntity?,
+            staffList: (e['staffList'] as List?)?.cast<StaffEntity>(),
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/attendance/staff-mark-absent',
+      pageBuilder: (context, state) {
+        final e = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          StaffMarkAbsentForm(
+            staff: e['staff'] as StaffEntity?,
+            staffList: (e['staffList'] as List?)?.cast<StaffEntity>(),
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/attendance/staff-selection-sign-in',
+      pageBuilder: (context, state) =>
+          _fastPage(state, const StaffSelectionSignInForm()),
+    ),
+    GoRoute(
+      path: '/attendance/staff-selection-sign-out',
+      pageBuilder: (context, state) =>
+          _fastPage(state, const StaffSelectionSignOutForm()),
+    ),
+    GoRoute(
+      path: '/attendance/staff-selection-transfer',
+      pageBuilder: (context, state) =>
+          _fastPage(state, const StaffSelectionTransferForm()),
+    ),
+    GoRoute(
+      path: '/attendance/staff-selection-mark-absent',
+      pageBuilder: (context, state) =>
+          _fastPage(state, const StaffSelectionMarkAbsentForm()),
+    ),
+    GoRoute(
+      path: '/attendance/student-selection-sign-in',
+      pageBuilder: (context, state) =>
+          _fastPage(state, const StudentSelectionSignInForm()),
+    ),
+    GoRoute(
+      path: '/attendance/student-selection-sign-out',
+      pageBuilder: (context, state) =>
+          _fastPage(state, const StudentSelectionSignOutForm()),
+    ),
+    GoRoute(
+      path: '/attendance/student-selection-transfer',
+      pageBuilder: (context, state) =>
+          _fastPage(state, const StudentSelectionTransferForm()),
+    ),
+    GoRoute(
+      path: '/attendance/student-selection-mark-absent',
+      pageBuilder: (context, state) =>
+          _fastPage(state, const StudentSelectionMarkAbsentForm()),
     ),
 
     StatefulShellRoute.indexedStack(

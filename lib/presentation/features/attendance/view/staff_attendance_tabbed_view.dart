@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -543,35 +544,33 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       if (!mounted) return;
       switch (label) {
         case 'Sign-in':
-          Navigator.push<void>(
-            context,
-            MaterialPageRoute(builder: (_) => StaffSignInForm(staff: staff)),
+          context.push(
+            '/attendance/staff-sign-in',
+            extra: {'staff': staff},
           ).then((_) {
             if (mounted) _refreshAllAfterAttendanceFlow();
           });
           break;
         case 'Sign-Out':
-          Navigator.push<void>(
-            context,
-            MaterialPageRoute(builder: (_) => StaffSignOutForm(staff: staff)),
+          context.push(
+            '/attendance/staff-sign-out',
+            extra: {'staff': staff},
           ).then((_) {
             if (mounted) _refreshAllAfterAttendanceFlow();
           });
           break;
         case 'Transfer':
-          Navigator.push<void>(
-            context,
-            MaterialPageRoute(builder: (_) => StaffTransferForm(staff: staff)),
+          context.push(
+            '/attendance/staff-transfer',
+            extra: {'staff': staff},
           ).then((_) {
             if (mounted) _refreshAllAfterAttendanceFlow();
           });
           break;
         case 'Absent':
-          Navigator.push<void>(
-            context,
-            MaterialPageRoute(
-              builder: (_) => StaffMarkAbsentForm(staff: staff),
-            ),
+          context.push(
+            '/attendance/staff-mark-absent',
+            extra: {'staff': staff},
           ).then((_) {
             if (mounted) _refreshAllAfterAttendanceFlow();
           });
@@ -582,36 +581,22 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
 
     switch (label) {
       case 'Sign-in':
-        Navigator.push<void>(
-          context,
-          MaterialPageRoute(builder: (_) => const StaffSelectionSignInForm()),
-        ).then((_) {
+        context.push('/attendance/staff-selection-sign-in').then((_) {
           if (mounted) _refreshAllAfterAttendanceFlow();
         });
         break;
       case 'Sign-Out':
-        Navigator.push<void>(
-          context,
-          MaterialPageRoute(builder: (_) => const StaffSelectionSignOutForm()),
-        ).then((_) {
+        context.push('/attendance/staff-selection-sign-out').then((_) {
           if (mounted) _refreshAllAfterAttendanceFlow();
         });
         break;
       case 'Transfer':
-        Navigator.push<void>(
-          context,
-          MaterialPageRoute(builder: (_) => const StaffSelectionTransferForm()),
-        ).then((_) {
+        context.push('/attendance/staff-selection-transfer').then((_) {
           if (mounted) _refreshAllAfterAttendanceFlow();
         });
         break;
       case 'Absent':
-        Navigator.push<void>(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const StaffSelectionMarkAbsentForm(),
-          ),
-        ).then((_) {
+        context.push('/attendance/staff-selection-mark-absent').then((_) {
           if (mounted) _refreshAllAfterAttendanceFlow();
         });
         break;

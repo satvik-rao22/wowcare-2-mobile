@@ -196,6 +196,7 @@ class _StudentSelectionMarkAbsentFormState
       );
       return;
     } else {
+      // GoRouter holdout (documented): carries a refreshCallback closure and a form-local StudentEntity list, which don't fit GoRouter's URL/extra model — kept as an imperative Navigator.push.
       Navigator.push(
         context,
         MaterialPageRoute(

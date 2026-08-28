@@ -954,19 +954,19 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       isExpectedToday: widget.isExpectedToday,
     );
 
-    Widget? target;
+    String? path;
     if (actionLabel == 'Sign-in') {
-      target = StaffSignInForm(staff: entity);
+      path = '/attendance/staff-sign-in';
     } else if (actionLabel == 'Sign-Out') {
-      target = StaffSignOutForm(staff: entity);
+      path = '/attendance/staff-sign-out';
     } else if (actionLabel == 'Transfer') {
-      target = StaffTransferForm(staff: entity);
+      path = '/attendance/staff-transfer';
     } else if (actionLabel == 'Absent') {
-      target = StaffMarkAbsentForm(staff: entity);
+      path = '/attendance/staff-mark-absent';
     }
 
-    if (target == null || !mounted) return;
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => target!));
+    if (path == null || !mounted) return;
+    await context.push(path, extra: {'staff': entity});
     if (!mounted) return;
     await refreshData();
   }
