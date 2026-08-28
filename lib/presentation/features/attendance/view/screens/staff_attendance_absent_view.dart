@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -623,23 +624,21 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
         });
       },
       onView: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => StaffAttendanceProfile(
-              staffCode: staff.id,
-              staffId: staff.staffId,
-              staffName: staff.name,
-              staffPhotoUuid: staff.photoUuid,
-              roomName: staff.roomName,
-              isSignedIn: staff.hasSignIn,
-              isAbsent: true,
-              isExpectedToday: staff.expectedToday,
-              isPresentToday: false,
-              profileStatus: 'A',
-              initialShowAbsentDays: true,
-            ),
-          ),
+        context.push(
+          StaffAttendanceProfile.routeName,
+          extra: {
+            'staffCode': staff.id,
+            'staffId': staff.staffId,
+            'staffName': staff.name,
+            'staffPhotoUuid': staff.photoUuid,
+            'roomName': staff.roomName,
+            'isSignedIn': staff.hasSignIn,
+            'isAbsent': true,
+            'isExpectedToday': staff.expectedToday,
+            'isPresentToday': false,
+            'profileStatus': 'A',
+            'initialShowAbsentDays': true,
+          },
         );
       },
     );

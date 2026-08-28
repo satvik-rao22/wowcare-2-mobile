@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -683,23 +684,21 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                   height: responsive.buttonHeight * 0.8,
                   child: CustomCancelButton(
                     onPressedCancel: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => StaffAttendanceProfile(
-                            staffCode: attendance.id,
-                            staffId: attendance.staffId,
-                            staffName: staffName,
-                            staffPhotoUuid: attendance.staffPhotoUuid,
-                            designationName: attendance.designationName,
-                            roomName: roomName,
-                            isSignedIn: attendance.hasSignIn,
-                            isAbsent: false,
-                            isExpectedToday: attendance.expectedToday,
-                            isPresentToday: attendance.hasSignIn,
-                            profileStatus: 'A',
-                          ),
-                        ),
+                      context.push(
+                        StaffAttendanceProfile.routeName,
+                        extra: {
+                          'staffCode': attendance.id,
+                          'staffId': attendance.staffId,
+                          'staffName': staffName,
+                          'staffPhotoUuid': attendance.staffPhotoUuid,
+                          'designationName': attendance.designationName,
+                          'roomName': roomName,
+                          'isSignedIn': attendance.hasSignIn,
+                          'isAbsent': false,
+                          'isExpectedToday': attendance.expectedToday,
+                          'isPresentToday': attendance.hasSignIn,
+                          'profileStatus': 'A',
+                        },
                       );
                     },
                     cancelButtonLabel: 'View',

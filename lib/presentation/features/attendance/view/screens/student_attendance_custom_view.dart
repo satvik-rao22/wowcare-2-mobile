@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
@@ -915,24 +916,22 @@ class _StudentAttendanceCustomViewState
                             setState(
                               () => _loadingButtons[attendance.id] = false,
                             );
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => StudentAttendanceProfile(
-                                  studentCode: attendance.studentCode,
-                                  studentId: attendance.studentId,
-                                  studentName: attendance.studentName,
-                                  studentPhotoUuid: attendance.studentPhotoUuid,
-                                  roomName: attendance.roomName,
-                                  isSignedIn: attendance.hasSignIn,
-                                  isAbsent:
-                                      !attendance.hasSignIn &&
-                                      attendance.expectedToday,
-                                  isExpectedToday: attendance.expectedToday,
-                                  isPresentToday: attendance.hasSignIn,
-                                  profileStatus: 'A',
-                                ),
-                              ),
+                            context.push(
+                              StudentAttendanceProfile.routeName,
+                              extra: {
+                                'studentCode': attendance.studentCode,
+                                'studentId': attendance.studentId,
+                                'studentName': attendance.studentName,
+                                'studentPhotoUuid': attendance.studentPhotoUuid,
+                                'roomName': attendance.roomName,
+                                'isSignedIn': attendance.hasSignIn,
+                                'isAbsent':
+                                    !attendance.hasSignIn &&
+                                    attendance.expectedToday,
+                                'isExpectedToday': attendance.expectedToday,
+                                'isPresentToday': attendance.hasSignIn,
+                                'profileStatus': 'A',
+                              },
                             );
                           },
                         ),

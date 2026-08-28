@@ -1412,8 +1412,13 @@ Widget _studentAttendanceProfileScreen(Object? extra) {
     studentPhotoUuid: args['studentPhotoUuid'] as String?,
     roomName: args['roomName'] as String? ?? '—',
     isSignedIn: args['isSignedIn'] as bool? ?? false,
+    isAbsent: args['isAbsent'] as bool? ?? false,
+    isExpectedToday: args['isExpectedToday'] as bool? ?? true,
+    isPresentToday: args['isPresentToday'] as bool? ?? false,
+    profileStatus: args['profileStatus'] as String? ?? 'A',
     syncWithParentChildSelection:
         args['syncWithParentChildSelection'] as bool? ?? false,
+    initialShowAbsentDays: args['initialShowAbsentDays'] as bool? ?? false,
   );
 }
 
@@ -1426,6 +1431,12 @@ Widget _staffAttendanceProfileScreen(Object? extra) {
     staffPhotoUuid: args['staffPhotoUuid'] as String?,
     designationName: args['designationName'] as String? ?? '',
     roomName: args['roomName'] as String? ?? '-',
+    isSignedIn: args['isSignedIn'] as bool? ?? false,
+    isAbsent: args['isAbsent'] as bool? ?? false,
+    isExpectedToday: args['isExpectedToday'] as bool? ?? true,
+    isPresentToday: args['isPresentToday'] as bool? ?? false,
+    profileStatus: args['profileStatus'] as String? ?? 'A',
+    initialShowAbsentDays: args['initialShowAbsentDays'] as bool? ?? false,
   );
 }
 

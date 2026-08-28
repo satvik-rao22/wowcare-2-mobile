@@ -3,6 +3,7 @@ import 'dart:async' show unawaited;
 import 'package:wowcare/core/util/logger_service.dart';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -1114,25 +1115,21 @@ class _StudentAttendanceDailyViewScreenState
                                   });
                                 },
                                 onView: () {
-                                  Navigator.push<void>(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          StudentAttendanceProfile(
-                                            studentCode: student.id,
-                                            studentId: student.studentId,
-                                            studentName: student.name,
-                                            studentPhotoUuid: student.photoUuid,
-                                            roomName: student.roomName,
-                                            isSignedIn: false,
-                                            isAbsent: true,
-                                            isExpectedToday:
-                                                student.expectedToday,
-                                            isPresentToday: false,
-                                            profileStatus: 'A',
-                                            initialShowAbsentDays: true,
-                                          ),
-                                    ),
+                                  context.push(
+                                    StudentAttendanceProfile.routeName,
+                                    extra: {
+                                      'studentCode': student.id,
+                                      'studentId': student.studentId,
+                                      'studentName': student.name,
+                                      'studentPhotoUuid': student.photoUuid,
+                                      'roomName': student.roomName,
+                                      'isSignedIn': false,
+                                      'isAbsent': true,
+                                      'isExpectedToday': student.expectedToday,
+                                      'isPresentToday': false,
+                                      'profileStatus': 'A',
+                                      'initialShowAbsentDays': true,
+                                    },
                                   ).then((_) {
                                     if (mounted) {
                                       refreshAfterReturningFromAttendanceFlow();
@@ -1376,28 +1373,24 @@ class _StudentAttendanceDailyViewScreenState
                                     );
                                   },
                                   onView: () {
-                                    Navigator.push<void>(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            StudentAttendanceProfile(
-                                              studentCode:
-                                                  student.studentCode ?? '',
-                                              studentId: student.studentId,
-                                              studentName: student.studentName,
-                                              studentPhotoUuid:
-                                                  student.studentPhotoUuid,
-                                              roomName: student.roomName,
-                                              isSignedIn: student.hasSignIn,
-                                              isAbsent:
-                                                  !student.hasSignIn &&
-                                                  student.expectedToday,
-                                              isExpectedToday:
-                                                  student.expectedToday,
-                                              isPresentToday: student.hasSignIn,
-                                              profileStatus: 'A',
-                                            ),
-                                      ),
+                                    context.push(
+                                      StudentAttendanceProfile.routeName,
+                                      extra: {
+                                        'studentCode':
+                                            student.studentCode ?? '',
+                                        'studentId': student.studentId,
+                                        'studentName': student.studentName,
+                                        'studentPhotoUuid':
+                                            student.studentPhotoUuid,
+                                        'roomName': student.roomName,
+                                        'isSignedIn': student.hasSignIn,
+                                        'isAbsent':
+                                            !student.hasSignIn &&
+                                            student.expectedToday,
+                                        'isExpectedToday': student.expectedToday,
+                                        'isPresentToday': student.hasSignIn,
+                                        'profileStatus': 'A',
+                                      },
                                     ).then((_) {
                                       if (mounted) {
                                         refreshAfterReturningFromAttendanceFlow();

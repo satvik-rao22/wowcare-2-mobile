@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -1133,23 +1134,21 @@ class _StudentAttendanceAbsentViewState
                       : CustomCancelButton(
                           cancelButtonLabel: 'View',
                           onPressedCancel: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => StudentAttendanceProfile(
-                                  studentCode: student.id,
-                                  studentId: student.studentId,
-                                  studentName: student.name,
-                                  studentPhotoUuid: student.photoUuid,
-                                  roomName: student.roomName,
-                                  isSignedIn: false,
-                                  isAbsent: true,
-                                  isExpectedToday: true,
-                                  isPresentToday: false,
-                                  profileStatus: 'A',
-                                  initialShowAbsentDays: true,
-                                ),
-                              ),
+                            context.push(
+                              StudentAttendanceProfile.routeName,
+                              extra: {
+                                'studentCode': student.id,
+                                'studentId': student.studentId,
+                                'studentName': student.name,
+                                'studentPhotoUuid': student.photoUuid,
+                                'roomName': student.roomName,
+                                'isSignedIn': false,
+                                'isAbsent': true,
+                                'isExpectedToday': true,
+                                'isPresentToday': false,
+                                'profileStatus': 'A',
+                                'initialShowAbsentDays': true,
+                              },
                             );
                           },
                         ),

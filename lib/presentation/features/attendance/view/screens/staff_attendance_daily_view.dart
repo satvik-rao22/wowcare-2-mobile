@@ -3,6 +3,7 @@ import 'dart:async' show unawaited;
 import 'package:wowcare/core/util/logger_service.dart';
 import 'dart:convert' show jsonDecode;
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -1229,23 +1230,21 @@ class _StaffAttendanceDailyViewScreenState
                   );
                 },
           onView: () {
-            Navigator.push<void>(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StaffAttendanceProfile(
-                  staffCode: staff.id,
-                  staffId: staff.staffId,
-                  staffName: staff.staffName,
-                  staffPhotoUuid: staff.staffPhotoUuid,
-                  designationName: staff.designationName,
-                  roomName: staff.roomName,
-                  isSignedIn: staff.hasSignIn,
-                  isAbsent: false,
-                  isExpectedToday: staff.expectedToday,
-                  isPresentToday: staff.hasSignIn,
-                  profileStatus: 'A',
-                ),
-              ),
+            context.push(
+              StaffAttendanceProfile.routeName,
+              extra: {
+                'staffCode': staff.id,
+                'staffId': staff.staffId,
+                'staffName': staff.staffName,
+                'staffPhotoUuid': staff.staffPhotoUuid,
+                'designationName': staff.designationName,
+                'roomName': staff.roomName,
+                'isSignedIn': staff.hasSignIn,
+                'isAbsent': false,
+                'isExpectedToday': staff.expectedToday,
+                'isPresentToday': staff.hasSignIn,
+                'profileStatus': 'A',
+              },
             ).then((_) {
               if (mounted) {
                 refreshAfterReturningFromAttendanceFlow();
@@ -1409,23 +1408,21 @@ class _StaffAttendanceDailyViewScreenState
             });
           },
           onView: () {
-            Navigator.push<void>(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StaffAttendanceProfile(
-                  staffCode: staff.id,
-                  staffId: staff.staffId,
-                  staffName: staff.name,
-                  staffPhotoUuid: staff.photoUuid,
-                  roomName: staff.roomName,
-                  isSignedIn: staff.hasSignIn,
-                  isAbsent: true,
-                  isExpectedToday: staff.expectedToday,
-                  isPresentToday: false,
-                  profileStatus: 'A',
-                  initialShowAbsentDays: true,
-                ),
-              ),
+            context.push(
+              StaffAttendanceProfile.routeName,
+              extra: {
+                'staffCode': staff.id,
+                'staffId': staff.staffId,
+                'staffName': staff.name,
+                'staffPhotoUuid': staff.photoUuid,
+                'roomName': staff.roomName,
+                'isSignedIn': staff.hasSignIn,
+                'isAbsent': true,
+                'isExpectedToday': staff.expectedToday,
+                'isPresentToday': false,
+                'profileStatus': 'A',
+                'initialShowAbsentDays': true,
+              },
             ).then((_) {
               if (mounted) {
                 refreshAfterReturningFromAttendanceFlow();
