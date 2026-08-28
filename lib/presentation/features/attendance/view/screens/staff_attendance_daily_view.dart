@@ -767,6 +767,12 @@ class _StaffAttendanceDailyViewScreenState
     _isFilterScreenOpen = true;
 
     try {
+      // GoRouter holdout (documented): StaffFilterScreen is a SHARED screen
+      // (staff feature, used by non-attendance callers) that returns a consumed
+      // Map via Navigator.pop(result). Converting this caller to context.push
+      // would force the shared screen's pop semantics to change, risking the
+      // other callers — so this stays Navigator. It also carries the live
+      // _classroomCubit via BlocProvider.value, which must not be recreated.
       final result = await Navigator.push<Map<String, dynamic>?>(
         context,
         MaterialPageRoute(
@@ -1112,14 +1118,12 @@ class _StaffAttendanceDailyViewScreenState
           onEdit: !canEditAttendance
               ? null
               : () async {
-                  await Navigator.push<bool>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => StaffEditAttendanceForm(
-                        staffAttendance: staff,
-                        attendanceDate: _selectedDate,
-                      ),
-                    ),
+                  await context.push(
+                    '/dashboard/staff-edit-attendance-form',
+                    extra: {
+                      'staffAttendance': staff,
+                      'attendanceDate': _selectedDate,
+                    },
                   );
                   if (mounted) {
                     refreshAfterReturningFromAttendanceFlow();

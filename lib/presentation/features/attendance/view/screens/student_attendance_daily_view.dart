@@ -1224,15 +1224,12 @@ class _StudentAttendanceDailyViewScreenState
                                     });
                                   },
                                   onEdit: () async {
-                                    await Navigator.push<bool>(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            StudentEditAttendanceForm(
-                                              studentAttendance: student,
-                                              attendanceDate: _selectedDate,
-                                            ),
-                                      ),
+                                    await context.push(
+                                      '/dashboard/student-edit-attendance-form',
+                                      extra: {
+                                        'studentAttendance': student,
+                                        'attendanceDate': _selectedDate,
+                                      },
                                     );
                                     if (mounted) {
                                       refreshAfterReturningFromAttendanceFlow();
@@ -1613,6 +1610,12 @@ class _StudentAttendanceDailyViewScreenState
       // ever stays in-flight (a hung/guarded request) that barrier-dismissible
       // dialog gets stuck showing a spinner forever. The filter screen's own
       // loading state is dismissible (back button) and self-recovers.
+      // GoRouter holdout (documented): StudentFilterScreen is a SHARED screen
+      // (students feature, used by non-attendance callers) that returns a
+      // consumed Map via Navigator.pop(result). Converting this caller to
+      // context.push would force the shared screen's pop semantics to change,
+      // risking the other callers — so this stays Navigator. It also carries the
+      // live _classroomCubit via BlocProvider.value, which must not be recreated.
       final result = await Navigator.push<Map<String, List<String>>>(
         context,
         MaterialPageRoute(

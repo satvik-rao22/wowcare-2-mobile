@@ -25,6 +25,12 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_out_selection_screen.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_edit_attendance_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_edit_attendance_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_card.dart'
+    show StaffAttendanceCardData;
+import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_card.dart'
+    show StudentAttendanceCardData;
 import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
@@ -1167,6 +1173,38 @@ final GoRouter appRouter = GoRouter(
                         pin: pin,
                         isQrScan: isQrScan,
                         qrToken: qrToken,
+                      ),
+                    );
+                  },
+                ),
+                // Edit-attendance forms (in-shell). The pushed form pops with a
+                // bool on success, but every caller refreshes on return
+                // regardless of the value, so context.push's ignored result is
+                // behaviour-preserving. The row model + date ride in `extra`.
+                GoRoute(
+                  path: 'staff-edit-attendance-form',
+                  pageBuilder: (context, state) {
+                    final e = state.extra as Map<String, dynamic>? ?? const {};
+                    return _fastPage(
+                      state,
+                      StaffEditAttendanceForm(
+                        staffAttendance:
+                            e['staffAttendance'] as StaffAttendanceCardData,
+                        attendanceDate: e['attendanceDate'] as DateTime,
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'student-edit-attendance-form',
+                  pageBuilder: (context, state) {
+                    final e = state.extra as Map<String, dynamic>? ?? const {};
+                    return _fastPage(
+                      state,
+                      StudentEditAttendanceForm(
+                        studentAttendance:
+                            e['studentAttendance'] as StudentAttendanceCardData,
+                        attendanceDate: e['attendanceDate'] as DateTime,
                       ),
                     );
                   },
