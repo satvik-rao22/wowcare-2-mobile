@@ -208,6 +208,7 @@ import '../../domain/features/attendance/usecases/update_student_attendance_reco
 import '../../domain/features/attendance/usecases/submit_student_sign_in_usecase.dart';
 import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_cubit.dart';
 import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_gate_cubit.dart';
+import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_gate_cubit.dart';
 import '../../domain/features/attendance/usecases/submit_student_sign_out_usecase.dart';
 import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_out_submit_cubit.dart';
 import '../../domain/features/attendance/usecases/submit_student_transfer_usecase.dart';
@@ -1088,6 +1089,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<StudentSignInGateCubit>(
     () => StudentSignInGateCubit(
       getStudentSignInFormList: serviceLocator<GetStudentSignInFormListUseCase>(),
+      storageService: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffSignInGateCubit>(
+    () => StaffSignInGateCubit(
+      getStaffSignInFormList: serviceLocator<GetStaffSignInFormListUseCase>(),
       storageService: serviceLocator<StorageService>(),
       apiClient: serviceLocator<ApiClient>(),
     ),
