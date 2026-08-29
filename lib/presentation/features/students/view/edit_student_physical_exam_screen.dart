@@ -10,7 +10,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_physical_exam_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -39,6 +39,12 @@ class _EditStudentPhysicalExamScreenState
   String? _status;
   bool _isSaving = false;
 
+  // Single cubit instance for this screen — the serviceLocator registers the
+  // cubit as a factory, so holding one instance (rather than resolving per
+  // call) is what keeps its single-flight guard effective. Closed in dispose.
+  final StudentPhysicalExamCubit _examCubit =
+      serviceLocator<StudentPhysicalExamCubit>();
+
   static const List<String> _statusOptions = <String>[
     'Completed',
   ];
@@ -62,6 +68,12 @@ class _EditStudentPhysicalExamScreenState
         _status = initial;
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _examCubit.close();
+    super.dispose();
   }
 
   Future<void> _pickDate() async {
@@ -168,9 +180,7 @@ class _EditStudentPhysicalExamScreenState
 
     setState(() => _isSaving = true);
     try {
-      final repo = serviceLocator<StudentRepository>();
-
-      await repo.addStudentPhysicalExam(
+      await _examCubit.add(
         studentCode: widget.studentCode,
         examDate: _examDate!,
         status: apiStatus,

@@ -244,6 +244,9 @@ import '../../domain/features/student/usecases/get_student_health_usecase.dart';
 import '../../domain/features/student/usecases/update_student_health_usecase.dart';
 import '../../domain/features/student/usecases/get_student_immunizations_usecase.dart';
 import '../../domain/features/student/usecases/update_student_immunization_record_usecase.dart';
+import '../../domain/features/student/usecases/get_student_physical_exams_usecase.dart';
+import '../../domain/features/student/usecases/add_student_physical_exam_usecase.dart';
+import '../../domain/features/student/usecases/update_student_physical_exam_usecase.dart';
 import '../../domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_student_codes_for_activity_tag_filter_usecase.dart';
@@ -312,6 +315,7 @@ import '../../presentation/features/attendance/cubit/staff_attendance_absent_tog
 import '../../presentation/features/students/cubit/student_documents_list_cubit.dart';
 import '../../presentation/features/students/cubit/student_physician_cubit.dart';
 import '../../presentation/features/students/cubit/student_health_cubit.dart';
+import '../../presentation/features/students/cubit/student_physical_exam_cubit.dart';
 import '../../presentation/features/students/cubit/student_document_cubit.dart';
 import '../../presentation/features/students/cubit/student_important_dates_cubit.dart';
 import '../../domain/features/communication/repositories/communication_repository.dart';
@@ -1217,6 +1221,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<UpdateStudentImmunizationRecordUseCase>(
     () => UpdateStudentImmunizationRecordUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetStudentPhysicalExamsUseCase>(
+    () => GetStudentPhysicalExamsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<AddStudentPhysicalExamUseCase>(
+    () => AddStudentPhysicalExamUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStudentPhysicalExamUseCase>(
+    () => UpdateStudentPhysicalExamUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetGuardianNamesForSchoolUseCase>(
     () => GetGuardianNamesForSchoolUseCase(serviceLocator()),
   );
@@ -1945,6 +1958,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
       updateStudentHealthUseCase: serviceLocator(),
       getStudentImmunizationsUseCase: serviceLocator(),
       updateStudentImmunizationRecordUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentPhysicalExamCubit>(
+    () => StudentPhysicalExamCubit(
+      getStudentPhysicalExamsUseCase: serviceLocator(),
+      addStudentPhysicalExamUseCase: serviceLocator(),
+      updateStudentPhysicalExamUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentDocumentCubit>(
