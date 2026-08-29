@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_health_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
@@ -35,10 +35,20 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
   bool _photoPermission = true;
   bool _hasShownErrorSnackBar = false;
 
+  /// One cubit instance for this card so its single-flight guard spans taps
+  /// (serviceLocator registers it as a factory — a fresh call would not dedupe).
+  final StudentHealthCubit _healthCubit = serviceLocator<StudentHealthCubit>();
+
   @override
   void initState() {
     super.initState();
     _healthFuture = _buildHealthFuture();
+  }
+
+  @override
+  void dispose() {
+    _healthCubit.close();
+    super.dispose();
   }
 
   Future<StudentHealth?> _buildHealthFuture() async {
@@ -46,9 +56,8 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
     if (code == null || code.isEmpty) {
       return null;
     }
-    final repo = serviceLocator<StudentRepository>();
     try {
-      final model = await repo.getStudentHealth(studentCode: code);
+      final model = await _healthCubit.fetchHealth(code);
       _photoPermission = model.photoPermission ?? true;
       return model;
     } catch (_) {
@@ -168,14 +177,13 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                         _photoPermission = v;
                       });
                       try {
-                        final repo = serviceLocator<StudentRepository>();
                         final body = {
                           'allergy': health?.allergy ?? '',
                           'medications': health?.medications ?? '',
                           'dietRestrictions': health?.dietRestrictions ?? '',
                           'photoPermission': v,
                         };
-                        await repo.updateStudentHealth(
+                        await _healthCubit.updateHealth(
                           studentCode: code,
                           body: body,
                         );

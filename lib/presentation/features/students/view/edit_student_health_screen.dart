@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_health_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
@@ -29,6 +29,10 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
   bool _photoPermission = true;
   bool _isSaving = false;
 
+  /// One cubit instance for this screen so its single-flight guard spans taps
+  /// (serviceLocator registers it as a factory — a fresh call would not dedupe).
+  final StudentHealthCubit _healthCubit = serviceLocator<StudentHealthCubit>();
+
   @override
   void initState() {
     super.initState();
@@ -50,6 +54,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
     _allergyController.dispose();
     _medicationsController.dispose();
     _dietRestrictionsController.dispose();
+    _healthCubit.close();
     super.dispose();
   }
 
@@ -58,8 +63,6 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
     setState(() => _isSaving = true);
 
     try {
-      final repo = serviceLocator<StudentRepository>();
-
       final body = {
         'allergy': _allergyController.text.trim(),
         'medications': _medicationsController.text.trim(),
@@ -67,8 +70,8 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
         'photoPermission': _photoPermission,
       };
 
-      // Direct call via repository using same base URL as GET health.
-      await repo.updateStudentHealth(
+      // Route the write through the cubit → use case → repository.
+      await _healthCubit.updateHealth(
         studentCode: widget.studentCode,
         body: body,
       );

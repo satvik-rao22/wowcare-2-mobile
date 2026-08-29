@@ -240,6 +240,10 @@ import '../../domain/features/student/usecases/get_student_physicians_usecase.da
 import '../../domain/features/student/usecases/add_physician_usecase.dart';
 import '../../domain/features/student/usecases/update_physician_usecase.dart';
 import '../../domain/features/student/usecases/delete_physician_usecase.dart';
+import '../../domain/features/student/usecases/get_student_health_usecase.dart';
+import '../../domain/features/student/usecases/update_student_health_usecase.dart';
+import '../../domain/features/student/usecases/get_student_immunizations_usecase.dart';
+import '../../domain/features/student/usecases/update_student_immunization_record_usecase.dart';
 import '../../domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_student_codes_for_activity_tag_filter_usecase.dart';
@@ -307,6 +311,7 @@ import '../../presentation/features/attendance/cubit/staff_attendance_absent_cub
 import '../../presentation/features/attendance/cubit/staff_attendance_absent_toggle_cubit.dart';
 import '../../presentation/features/students/cubit/student_documents_list_cubit.dart';
 import '../../presentation/features/students/cubit/student_physician_cubit.dart';
+import '../../presentation/features/students/cubit/student_health_cubit.dart';
 import '../../presentation/features/students/cubit/student_document_cubit.dart';
 import '../../presentation/features/students/cubit/student_important_dates_cubit.dart';
 import '../../domain/features/communication/repositories/communication_repository.dart';
@@ -1200,6 +1205,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<DeletePhysicianUseCase>(
     () => DeletePhysicianUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetStudentHealthUseCase>(
+    () => GetStudentHealthUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStudentHealthUseCase>(
+    () => UpdateStudentHealthUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentImmunizationsUseCase>(
+    () => GetStudentImmunizationsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStudentImmunizationRecordUseCase>(
+    () => UpdateStudentImmunizationRecordUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetGuardianNamesForSchoolUseCase>(
     () => GetGuardianNamesForSchoolUseCase(serviceLocator()),
   );
@@ -1920,6 +1937,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
       addPhysicianUseCase: serviceLocator(),
       updatePhysicianUseCase: serviceLocator(),
       deletePhysicianUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentHealthCubit>(
+    () => StudentHealthCubit(
+      getStudentHealthUseCase: serviceLocator(),
+      updateStudentHealthUseCase: serviceLocator(),
+      getStudentImmunizationsUseCase: serviceLocator(),
+      updateStudentImmunizationRecordUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentDocumentCubit>(
