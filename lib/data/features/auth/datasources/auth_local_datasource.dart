@@ -76,9 +76,10 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       AppTime.nowUtc().millisecondsSinceEpoch,
     );
 
-    // Save individual fields for quick access
-    await _storage.saveString(StorageKeys.accessToken, response.accessToken);
-    await _storage.saveString(StorageKeys.refreshToken, response.refreshToken);
+    // Access + refresh tokens live only in secure storage (see
+    // TokenRefreshService). The refresh token is saved securely below via
+    // saveRefreshToken; save the access token securely here.
+    await TokenRefreshService.instance.saveAccessToken(response.accessToken);
     if (response.refreshToken.trim().isEmpty) {
       // Silent time bomb otherwise: the access token keeps working until its
       // own TTL elapses, then TokenRefreshService has nothing to refresh

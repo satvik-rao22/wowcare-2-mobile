@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
@@ -180,8 +181,7 @@ class RoleCubit extends Cubit<RoleState> {
     if (_initialized && !force) return;
     _initialized = true;
     final storage = serviceLocator<StorageService>();
-    final accessToken =
-        (await storage.getString(StorageKeys.accessToken) ?? '').trim();
+    final accessToken = await TokenRefreshService.instance.readAccessToken();
     if (accessToken.isEmpty) {
       return;
     }
