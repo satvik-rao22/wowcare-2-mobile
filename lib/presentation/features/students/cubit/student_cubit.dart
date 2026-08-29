@@ -441,36 +441,60 @@ class StudentCubit extends Cubit<StudentState> {
     );
   }
 
+  /// In-flight roster mutations keyed by `action:studentCode`. A second call for
+  /// the same action+student while the first is still running (a double-tap)
+  /// returns the SAME future instead of issuing a duplicate request — the cubit
+  /// enforces single-flight independently of any UI button-disabling.
+  final Map<String, Future<String>> _inFlightMutations = {};
+
+  Future<String> _singleFlightMutation(
+    String key,
+    Future<String> Function() operation,
+  ) {
+    final existing = _inFlightMutations[key];
+    if (existing != null) return existing;
+    final future = operation();
+    _inFlightMutations[key] = future;
+    future.whenComplete(() => _inFlightMutations.remove(key));
+    return future;
+  }
+
   /// Deactivates a student and refreshes the list. Returns backend message.
-  Future<String> deactivateStudent(String code) async {
-    final schoolCode = await _resolveSchoolCode();
-    final message = await _repository.deactivateStudent(
-      code: code,
-      schoolCode: schoolCode,
-    );
-    await refreshWithCacheReset();
-    return message;
+  Future<String> deactivateStudent(String code) {
+    return _singleFlightMutation('deactivate:$code', () async {
+      final schoolCode = await _resolveSchoolCode();
+      final message = await _repository.deactivateStudent(
+        code: code,
+        schoolCode: schoolCode,
+      );
+      await refreshWithCacheReset();
+      return message;
+    });
   }
 
   /// Reactivates a student and refreshes the list. Returns backend message.
-  Future<String> reactivateStudent(String code) async {
-    final schoolCode = await _resolveSchoolCode();
-    final message = await _repository.reactivateStudent(
-      code: code,
-      schoolCode: schoolCode,
-    );
-    await refreshWithCacheReset();
-    return message;
+  Future<String> reactivateStudent(String code) {
+    return _singleFlightMutation('reactivate:$code', () async {
+      final schoolCode = await _resolveSchoolCode();
+      final message = await _repository.reactivateStudent(
+        code: code,
+        schoolCode: schoolCode,
+      );
+      await refreshWithCacheReset();
+      return message;
+    });
   }
 
-  Future<String> deleteStudent(String code) async {
-    final schoolCode = await _resolveSchoolCode();
-    final message = await _repository.deleteStudent(
-      code: code,
-      schoolCode: schoolCode,
-    );
-    await refreshWithCacheReset();
-    return message;
+  Future<String> deleteStudent(String code) {
+    return _singleFlightMutation('delete:$code', () async {
+      final schoolCode = await _resolveSchoolCode();
+      final message = await _repository.deleteStudent(
+        code: code,
+        schoolCode: schoolCode,
+      );
+      await refreshWithCacheReset();
+      return message;
+    });
   }
 
   // To be called by add/edit/delete flows to keep cache + UI in sync
