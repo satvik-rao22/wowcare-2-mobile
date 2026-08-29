@@ -1665,6 +1665,12 @@ class _StudentAttendanceDailyViewScreenState
   void _openStudentListWithIncomingFilter(String status) {
     final normalized = status.trim().toUpperCase();
     if (normalized != 'ACTIVE' && normalized != 'UPCOMING') return;
+    // GoRouter holdout (documented): pushes the SHARED StudentScreen wrapped in
+    // an attendance-specific MultiBlocProvider (StudentCubit..loadInitial +
+    // ClassroomCubit..loadActiveClassrooms(applyAttendanceStaffScope:true)). The
+    // existing /dashboard/students route inits ClassroomCubit without the
+    // attendance staff-scope — converting would change that shared route for
+    // non-attendance callers.
     Navigator.push<void>(
       context,
       MaterialPageRoute(

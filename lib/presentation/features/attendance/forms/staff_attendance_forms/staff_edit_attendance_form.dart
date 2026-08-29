@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
@@ -54,7 +55,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
   }
 
   void _handleCancel() {
-    Navigator.pop(context);
+    context.pop();
   }
 
   Future<void> _handleSubmit() async {
@@ -68,7 +69,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
           backgroundColor: AppColors.successColor,
         ),
       );
-      Navigator.pop(context, true);
+      context.pop(true);
     } else {
       final message = outcome.error != null
           ? ApiErrorHandler.extractErrorMessage(outcome.error)

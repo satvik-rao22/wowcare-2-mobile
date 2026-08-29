@@ -569,6 +569,12 @@ class _StaffAttendanceDailyViewScreenState
   void _openStaffListWithIncomingFilter(String status) {
     final normalized = status.trim().toUpperCase();
     if (normalized != 'ACTIVE' && normalized != 'UPCOMING') return;
+    // GoRouter holdout (documented): pushes the SHARED StaffScreen wrapped in an
+    // attendance-specific MultiBlocProvider (StaffCubit..loadInitial +
+    // ClassroomCubit..loadActiveClassrooms(onlyTypeClassroom:false)). The
+    // existing /dashboard/staff route builds StaffScreen with different cubit
+    // init (incomingHighlightCode, no status filter) — converting would change
+    // that shared route's behaviour for non-attendance callers.
     Navigator.push<void>(
       context,
       MaterialPageRoute(
