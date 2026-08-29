@@ -10,11 +10,11 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/relation_selector.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_pickup_cubit.dart';
 
 class AddPickupScreen extends StatefulWidget {
   const AddPickupScreen({
@@ -64,6 +64,11 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
 
   late final GetGuardianNamesForSchoolUseCase _getGuardianNamesForSchoolUseCase;
   late final StorageService _storageService;
+
+  /// One cubit instance for this screen so its single-flight mutation guard
+  /// spans taps (serviceLocator registers it as a factory — a fresh call per
+  /// tap would not dedupe).
+  final StudentPickupCubit _pickupCubit = serviceLocator<StudentPickupCubit>();
   bool get _isEditMode =>
       widget.pickupCode != null && widget.pickupCode!.trim().isNotEmpty;
   bool get _hasPrefillData =>
@@ -104,6 +109,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _relationController.dispose();
+    _pickupCubit.close();
     super.dispose();
   }
 
@@ -121,10 +127,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
       final names = await _getGuardianNamesForSchoolUseCase(
         schoolCode: schoolCode,
       );
-      final repo = serviceLocator<StudentRepository>();
-      final rawGuardians = await repo.getGuardiansRawForSchool(
-        schoolCode: schoolCode,
-      );
+      final rawGuardians = await _pickupCubit.fetchGuardiansRaw(schoolCode);
       final details = <String, Map<String, String>>{};
       for (final g in rawGuardians) {
         final first = (g['firstName'] ?? '').toString().trim();
@@ -209,8 +212,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
             .trim()
             .toUpperCase()
             .replaceAll(' ', '_');
-        final repo = serviceLocator<StudentRepository>();
-        final message = await repo.addPickup(
+        final message = await _pickupCubit.add(
           studentCode: widget.studentCode,
           firstName: first,
           lastName: last,
@@ -317,7 +319,6 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     try {
       final normalizedPhone = digits;
 
-      final repo = serviceLocator<StudentRepository>();
       final String message;
       if (_isEditLikeMode) {
         // Edit card flow must update existing pickup only.
@@ -326,7 +327,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
             'Pickup code is missing for edit. Please reopen the pickup card and try again.',
           );
         }
-        message = await repo.updatePickup(
+        message = await _pickupCubit.update(
           code: widget.pickupCode!.trim(),
           studentCode: widget.studentCode,
           firstName: first,
@@ -338,7 +339,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
           pickupType: 'CAREGIVER',
         );
       } else {
-        message = await repo.addPickup(
+        message = await _pickupCubit.add(
           studentCode: widget.studentCode,
           firstName: first,
           lastName: last,
