@@ -236,6 +236,10 @@ import '../../domain/features/student/usecases/get_student_important_dates_useca
 import '../../domain/features/student/usecases/update_student_important_dates_usecase.dart';
 import '../../domain/features/student/usecases/update_student_document_usecase.dart';
 import '../../domain/features/student/usecases/delete_student_document_usecase.dart';
+import '../../domain/features/student/usecases/get_student_physicians_usecase.dart';
+import '../../domain/features/student/usecases/add_physician_usecase.dart';
+import '../../domain/features/student/usecases/update_physician_usecase.dart';
+import '../../domain/features/student/usecases/delete_physician_usecase.dart';
 import '../../domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_student_codes_for_activity_tag_filter_usecase.dart';
@@ -302,6 +306,7 @@ import '../../presentation/features/attendance/cubit/staff_attendance_custom_cub
 import '../../presentation/features/attendance/cubit/staff_attendance_absent_cubit.dart';
 import '../../presentation/features/attendance/cubit/staff_attendance_absent_toggle_cubit.dart';
 import '../../presentation/features/students/cubit/student_documents_list_cubit.dart';
+import '../../presentation/features/students/cubit/student_physician_cubit.dart';
 import '../../presentation/features/students/cubit/student_document_cubit.dart';
 import '../../presentation/features/students/cubit/student_important_dates_cubit.dart';
 import '../../domain/features/communication/repositories/communication_repository.dart';
@@ -1183,6 +1188,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<DeleteStudentDocumentUseCase>(
     () => DeleteStudentDocumentUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetStudentPhysiciansUseCase>(
+    () => GetStudentPhysiciansUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<AddPhysicianUseCase>(
+    () => AddPhysicianUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdatePhysicianUseCase>(
+    () => UpdatePhysicianUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeletePhysicianUseCase>(
+    () => DeletePhysicianUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetGuardianNamesForSchoolUseCase>(
     () => GetGuardianNamesForSchoolUseCase(serviceLocator()),
   );
@@ -1895,6 +1912,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentDocumentsUseCase: serviceLocator(),
       deleteStudentDocumentUseCase: serviceLocator(),
       repository: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentPhysicianCubit>(
+    () => StudentPhysicianCubit(
+      getStudentPhysiciansUseCase: serviceLocator(),
+      addPhysicianUseCase: serviceLocator(),
+      updatePhysicianUseCase: serviceLocator(),
+      deletePhysicianUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentDocumentCubit>(

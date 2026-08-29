@@ -4,7 +4,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/student/entities/student_physician.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_physician_cubit.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
@@ -40,10 +40,22 @@ class StudentPhysicianTabCard extends StatefulWidget {
 class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
   late Future<List<StudentPhysician>> _physiciansFuture;
 
+  /// One cubit instance for this card so its single-flight delete guard spans
+  /// taps (serviceLocator registers it as a factory — a fresh call per tap
+  /// would not dedupe).
+  final StudentPhysicianCubit _physicianCubit =
+      serviceLocator<StudentPhysicianCubit>();
+
   @override
   void initState() {
     super.initState();
     _physiciansFuture = _buildPhysiciansFuture();
+  }
+
+  @override
+  void dispose() {
+    _physicianCubit.close();
+    super.dispose();
   }
 
   Future<List<StudentPhysician>> _buildPhysiciansFuture() {
@@ -51,10 +63,10 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
     if (code == null || code.isEmpty) {
       return Future.value(const <StudentPhysician>[]);
     }
-    final repo = serviceLocator<StudentRepository>();
-    // Repository handles cache via CacheManager; first call may use cache,
-    // subsequent ones will hit API when cache is invalidated after mutations.
-    return repo.getStudentPhysicians(studentCode: code);
+    // Route the read through the cubit → use case → repository. The repository
+    // still handles cache via CacheManager; first call may use cache, subsequent
+    // ones will hit API when cache is invalidated after mutations.
+    return _physicianCubit.fetchPhysicians(code);
   }
 
   Future<void> _handleRefresh() async {
@@ -174,6 +186,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                           notes: physicians[i].notes,
                           onChanged: _handleRefresh,
                           showActionButtons: canStudentWrite,
+                          physicianCubit: _physicianCubit,
                         ),
                         if (i != physicians.length - 1)
                           const SizedBox(height: 12),
@@ -197,6 +210,7 @@ class _PhysicianCard extends StatelessWidget {
     required this.firstName,
     required this.lastName,
     required this.name,
+    required this.physicianCubit,
     this.address,
     this.phoneNumber,
     this.email,
@@ -205,6 +219,7 @@ class _PhysicianCard extends StatelessWidget {
     this.onChanged,
     this.showActionButtons = true,
   });
+  final StudentPhysicianCubit physicianCubit;
   final String code;
   final String studentCode;
   final String firstName;
@@ -466,9 +481,7 @@ class _PhysicianCard extends StatelessWidget {
                               type: 'physician',
                               onDelete: () async {
                                 try {
-                                  final repo =
-                                      serviceLocator<StudentRepository>();
-                                  final message = await repo.deletePhysician(
+                                  final message = await physicianCubit.delete(
                                     code: code,
                                     studentCode: studentCode,
                                   );
