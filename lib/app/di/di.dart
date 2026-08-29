@@ -258,6 +258,8 @@ import '../../domain/features/student/usecases/get_guardian_names_for_school_use
 import '../../domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_student_codes_for_activity_tag_filter_usecase.dart';
 import '../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import '../../domain/features/student/usecases/get_student_tag_names_usecase.dart';
+import '../../domain/features/student/usecases/update_student_tags_usecase.dart';
 import '../../presentation/features/billing/cubit/select_students_cubit.dart';
 import '../../domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_immunization_settings_usecase.dart';
@@ -321,6 +323,7 @@ import '../../presentation/features/attendance/cubit/staff_attendance_absent_cub
 import '../../presentation/features/attendance/cubit/staff_attendance_absent_toggle_cubit.dart';
 import '../../presentation/features/students/cubit/student_documents_list_cubit.dart';
 import '../../presentation/features/students/cubit/student_physician_cubit.dart';
+import '../../presentation/features/students/cubit/student_tags_cubit.dart';
 import '../../presentation/features/students/cubit/student_pickup_cubit.dart';
 import '../../presentation/features/students/cubit/student_guardian_cubit.dart';
 import '../../presentation/features/students/cubit/student_health_cubit.dart';
@@ -1269,6 +1272,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetTagNameCodeMapForSchoolUseCase>(
     () => GetTagNameCodeMapForSchoolUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetStudentTagNamesUseCase>(
+    () => GetStudentTagNamesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStudentTagsUseCase>(
+    () => UpdateStudentTagsUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetStudentCodesForActivityTagFilterUseCase>(
     () => GetStudentCodesForActivityTagFilterUseCase(serviceLocator()),
   );
@@ -1980,6 +1989,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
       addPhysicianUseCase: serviceLocator(),
       updatePhysicianUseCase: serviceLocator(),
       deletePhysicianUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentTagsCubit>(
+    () => StudentTagsCubit(
+      getStudentTagNamesUseCase: serviceLocator(),
+      getTagNamesForSchoolUseCase: serviceLocator(),
+      getTagNameCodeMapForSchoolUseCase: serviceLocator(),
+      updateStudentTagsUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentPickupCubit>(

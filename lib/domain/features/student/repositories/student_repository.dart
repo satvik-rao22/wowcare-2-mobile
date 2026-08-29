@@ -186,6 +186,10 @@ abstract class StudentRepository {
     required String schoolCode,
   });
 
+  /// Returns tag display names for a specific student via
+  /// `GET /api/v1/student-tags/{studentCode}`, with repository-level caching.
+  Future<List<String>> getStudentTagNames({required String studentCode});
+
   /// Students in [classroomCode] matching [tagCodes] for activity feeds.
   ///
   /// `POST /api/v1/student-tags/activity-filter`
