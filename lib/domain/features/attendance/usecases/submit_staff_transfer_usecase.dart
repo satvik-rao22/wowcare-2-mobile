@@ -13,7 +13,13 @@ class SubmitStaffTransferUseCase {
 
   final AttendanceRepository _repository;
 
-  Future<AttendanceActionResult> call({required StaffTransferRequest request}) {
-    return _repository.submitStaffTransfer(request: request);
+  Future<AttendanceActionResult> call({
+    required StaffTransferRequest request,
+    String? idempotencyKey,
+  }) {
+    return _repository.submitStaffTransfer(
+      request: request,
+      idempotencyKey: idempotencyKey,
+    );
   }
 }

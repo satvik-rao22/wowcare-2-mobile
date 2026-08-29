@@ -20,7 +20,12 @@ class SubmitStaffSignInUseCase {
   Future<AttendanceActionResult> call({
     required StaffSignInRequest request,
     required bool isSelf,
+    String? idempotencyKey,
   }) {
-    return _repository.submitStaffSignIn(request: request, isSelf: isSelf);
+    return _repository.submitStaffSignIn(
+      request: request,
+      isSelf: isSelf,
+      idempotencyKey: idempotencyKey,
+    );
   }
 }

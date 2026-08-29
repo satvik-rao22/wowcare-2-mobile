@@ -34,6 +34,7 @@ class _FakeSubmitUseCase extends SubmitStaffTransferUseCase {
   @override
   Future<AttendanceActionResult> call({
     required StaffTransferRequest request,
+    String? idempotencyKey,
   }) async {
     calls++;
     lastRequest = request;

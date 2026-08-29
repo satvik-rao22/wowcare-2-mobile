@@ -1541,6 +1541,7 @@ class AttendanceRepositoryImpl
   Future<AttendanceActionResult> submitStudentSignIn({
     required StudentSignInRequest request,
     required bool isParent,
+    String? idempotencyKey,
   }) async {
     final body = request.toPayload();
     Map<String, dynamic>? queryParameters;
@@ -1561,6 +1562,7 @@ class AttendanceRepositoryImpl
       body: body,
       queryParameters: queryParameters,
       isParent: isParent,
+      idempotencyKey: idempotencyKey,
     );
     return _attendanceActionResult(data, defaultMessage: 'Signed-In successfully');
   }
@@ -1569,6 +1571,7 @@ class AttendanceRepositoryImpl
   Future<AttendanceActionResult> submitStudentSignOut({
     required StudentSignOutRequest request,
     required bool isParent,
+    String? idempotencyKey,
   }) async {
     final body = request.toPayload();
     Map<String, dynamic>? queryParameters;
@@ -1589,6 +1592,7 @@ class AttendanceRepositoryImpl
       body: body,
       queryParameters: queryParameters,
       isParent: isParent,
+      idempotencyKey: idempotencyKey,
     );
     return _attendanceActionResult(
       data,
@@ -1599,10 +1603,14 @@ class AttendanceRepositoryImpl
   @override
   Future<AttendanceActionResult> submitStudentTransfer({
     required StudentTransferRequest request,
+    String? idempotencyKey,
   }) async {
     final body = request.toPayload();
     await applyStudentAllowedClassroomCodesToAttendanceBody(body, _storage);
-    final data = await _remoteDataSource.postStudentTransfer(body: body);
+    final data = await _remoteDataSource.postStudentTransfer(
+      body: body,
+      idempotencyKey: idempotencyKey,
+    );
     return _attendanceActionResult(data, defaultMessage: 'Transfer successfully');
   }
 
@@ -1610,6 +1618,7 @@ class AttendanceRepositoryImpl
   Future<AttendanceActionResult> submitStaffSignIn({
     required StaffSignInRequest request,
     required bool isSelf,
+    String? idempotencyKey,
   }) async {
     final body = request.toPayload();
     // The self sign-in endpoint does not accept allowedClassroomCodes — only
@@ -1620,6 +1629,7 @@ class AttendanceRepositoryImpl
     final data = await _remoteDataSource.postStaffSignIn(
       body: body,
       isSelf: isSelf,
+      idempotencyKey: idempotencyKey,
     );
     return _attendanceActionResult(data, defaultMessage: 'Signed-In successfully');
   }
@@ -1628,6 +1638,7 @@ class AttendanceRepositoryImpl
   Future<AttendanceActionResult> submitStaffSignOut({
     required StaffSignOutRequest request,
     bool isSelf = false,
+    String? idempotencyKey,
   }) async {
     final body = request.toPayload();
     // The self sign-out endpoint does not accept allowedClassroomCodes — only
@@ -1635,7 +1646,11 @@ class AttendanceRepositoryImpl
     if (!isSelf) {
       await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
     }
-    final data = await _remoteDataSource.postStaffSignOut(body: body, isSelf: isSelf);
+    final data = await _remoteDataSource.postStaffSignOut(
+      body: body,
+      isSelf: isSelf,
+      idempotencyKey: idempotencyKey,
+    );
     return _attendanceActionResult(
       data,
       defaultMessage: 'Signed-Out successfully',
@@ -1645,10 +1660,14 @@ class AttendanceRepositoryImpl
   @override
   Future<AttendanceActionResult> submitStaffTransfer({
     required StaffTransferRequest request,
+    String? idempotencyKey,
   }) async {
     final body = request.toPayload();
     await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
-    final data = await _remoteDataSource.postStaffTransfer(body: body);
+    final data = await _remoteDataSource.postStaffTransfer(
+      body: body,
+      idempotencyKey: idempotencyKey,
+    );
     return _attendanceActionResult(
       data,
       defaultMessage: 'Transferred successfully',

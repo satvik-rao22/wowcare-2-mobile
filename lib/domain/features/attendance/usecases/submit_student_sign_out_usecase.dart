@@ -20,10 +20,12 @@ class SubmitStudentSignOutUseCase {
   Future<AttendanceActionResult> call({
     required StudentSignOutRequest request,
     required bool isParent,
+    String? idempotencyKey,
   }) {
     return _repository.submitStudentSignOut(
       request: request,
       isParent: isParent,
+      idempotencyKey: idempotencyKey,
     );
   }
 }

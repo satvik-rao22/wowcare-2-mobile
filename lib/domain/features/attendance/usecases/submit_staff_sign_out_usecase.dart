@@ -20,10 +20,12 @@ class SubmitStaffSignOutUseCase {
   Future<AttendanceActionResult> call({
     required StaffSignOutRequest request,
     bool isSelf = false,
+    String? idempotencyKey,
   }) {
     return _repository.submitStaffSignOut(
       request: request,
       isSelf: isSelf,
+      idempotencyKey: idempotencyKey,
     );
   }
 }

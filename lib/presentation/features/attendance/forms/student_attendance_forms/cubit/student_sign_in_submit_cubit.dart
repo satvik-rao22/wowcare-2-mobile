@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/idempotency_key.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_sign_in_request.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_student_sign_in_usecase.dart';
@@ -20,6 +21,8 @@ class StudentSignInSubmitCubit extends Cubit<StudentSignInSubmitState> {
 
   final SubmitStudentSignInUseCase _submitStudentSignIn;
 
+  String? _idempotencyKey;
+
   /// True while a submit is in flight.
   bool get isSubmitting => state is StudentSignInSubmitInProgress;
 
@@ -29,11 +32,14 @@ class StudentSignInSubmitCubit extends Cubit<StudentSignInSubmitState> {
   }) async {
     emit(const StudentSignInSubmitInProgress());
     try {
+      _idempotencyKey ??= IdempotencyKey.generate();
       final result = await _submitStudentSignIn(
         request: request,
         isParent: isParent,
+        idempotencyKey: _idempotencyKey,
       );
       if (!isClosed) emit(StudentSignInSubmitSuccess(result));
+      _idempotencyKey = null;
       return result;
     } catch (e) {
       if (!isClosed) {

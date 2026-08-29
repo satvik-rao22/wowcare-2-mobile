@@ -34,6 +34,7 @@ class _FakeSubmitUseCase extends SubmitStudentSignOutUseCase {
   Future<AttendanceActionResult> call({
     required StudentSignOutRequest request,
     required bool isParent,
+    String? idempotencyKey,
   }) async {
     calls++;
     lastIsParent = isParent;

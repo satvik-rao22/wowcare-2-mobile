@@ -15,7 +15,11 @@ class SubmitStudentTransferUseCase {
 
   Future<AttendanceActionResult> call({
     required StudentTransferRequest request,
+    String? idempotencyKey,
   }) {
-    return _repository.submitStudentTransfer(request: request);
+    return _repository.submitStudentTransfer(
+      request: request,
+      idempotencyKey: idempotencyKey,
+    );
   }
 }

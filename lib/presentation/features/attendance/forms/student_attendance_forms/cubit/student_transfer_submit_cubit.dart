@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/idempotency_key.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_transfer_request.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_student_transfer_usecase.dart';
@@ -20,6 +21,8 @@ class StudentTransferSubmitCubit extends Cubit<StudentTransferSubmitState> {
 
   final SubmitStudentTransferUseCase _submitStudentTransfer;
 
+  String? _idempotencyKey;
+
   /// True while a submit is in flight.
   bool get isSubmitting => state is StudentTransferSubmitInProgress;
 
@@ -28,8 +31,13 @@ class StudentTransferSubmitCubit extends Cubit<StudentTransferSubmitState> {
   }) async {
     emit(const StudentTransferSubmitInProgress());
     try {
-      final result = await _submitStudentTransfer(request: request);
+      _idempotencyKey ??= IdempotencyKey.generate();
+      final result = await _submitStudentTransfer(
+        request: request,
+        idempotencyKey: _idempotencyKey,
+      );
       if (!isClosed) emit(StudentTransferSubmitSuccess(result));
+      _idempotencyKey = null;
       return result;
     } catch (e) {
       if (!isClosed) {

@@ -20,7 +20,12 @@ class SubmitStudentSignInUseCase {
   Future<AttendanceActionResult> call({
     required StudentSignInRequest request,
     required bool isParent,
+    String? idempotencyKey,
   }) {
-    return _repository.submitStudentSignIn(request: request, isParent: isParent);
+    return _repository.submitStudentSignIn(
+      request: request,
+      isParent: isParent,
+      idempotencyKey: idempotencyKey,
+    );
   }
 }

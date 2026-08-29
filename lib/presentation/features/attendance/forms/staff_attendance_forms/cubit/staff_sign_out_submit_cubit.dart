@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/idempotency_key.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_sign_out_request.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_staff_sign_out_usecase.dart';
@@ -20,6 +21,8 @@ class StaffSignOutSubmitCubit extends Cubit<StaffSignOutSubmitState> {
 
   final SubmitStaffSignOutUseCase _submitStaffSignOut;
 
+  String? _idempotencyKey;
+
   /// True while a submit is in flight.
   bool get isSubmitting => state is StaffSignOutSubmitInProgress;
 
@@ -29,11 +32,14 @@ class StaffSignOutSubmitCubit extends Cubit<StaffSignOutSubmitState> {
   }) async {
     emit(const StaffSignOutSubmitInProgress());
     try {
+      _idempotencyKey ??= IdempotencyKey.generate();
       final result = await _submitStaffSignOut(
         request: request,
         isSelf: isSelf,
+        idempotencyKey: _idempotencyKey,
       );
       if (!isClosed) emit(StaffSignOutSubmitSuccess(result));
+      _idempotencyKey = null;
       return result;
     } catch (e) {
       if (!isClosed) {

@@ -369,23 +369,27 @@ abstract class AttendanceRepository {
   Future<AttendanceActionResult> submitStudentSignIn({
     required StudentSignInRequest request,
     required bool isParent,
+    String? idempotencyKey,
   });
 
   /// Submits a student sign-out (parent or staff variant).
   Future<AttendanceActionResult> submitStudentSignOut({
     required StudentSignOutRequest request,
     required bool isParent,
+    String? idempotencyKey,
   });
 
   /// Submits a student classroom transfer.
   Future<AttendanceActionResult> submitStudentTransfer({
     required StudentTransferRequest request,
+    String? idempotencyKey,
   });
 
   /// Submits a staff sign-in (admin bulk or teacher-self variant).
   Future<AttendanceActionResult> submitStaffSignIn({
     required StaffSignInRequest request,
     required bool isSelf,
+    String? idempotencyKey,
   });
 
   /// Submits a staff sign-out.
@@ -393,11 +397,13 @@ abstract class AttendanceRepository {
   Future<AttendanceActionResult> submitStaffSignOut({
     required StaffSignOutRequest request,
     bool isSelf = false,
+    String? idempotencyKey,
   });
 
   /// Submits a staff classroom transfer.
   Future<AttendanceActionResult> submitStaffTransfer({
     required StaffTransferRequest request,
+    String? idempotencyKey,
   });
 
   /// Patches a staff daily attendance record by its row code.

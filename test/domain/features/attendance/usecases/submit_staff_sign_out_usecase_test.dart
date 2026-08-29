@@ -29,6 +29,7 @@ class _FakeAttendanceRepository implements AttendanceRepository {
   Future<AttendanceActionResult> submitStaffSignOut({
     required StaffSignOutRequest request,
     bool isSelf = false,
+    String? idempotencyKey,
   }) async {
     capturedRequest = request;
     capturedIsSelf = isSelf;

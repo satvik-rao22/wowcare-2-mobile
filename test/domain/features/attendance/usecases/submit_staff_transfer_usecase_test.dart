@@ -21,6 +21,7 @@ class _FakeAttendanceRepository implements AttendanceRepository {
   @override
   Future<AttendanceActionResult> submitStaffTransfer({
     required StaffTransferRequest request,
+    String? idempotencyKey,
   }) async {
     capturedRequest = request;
     if (errorToThrow != null) throw errorToThrow!;

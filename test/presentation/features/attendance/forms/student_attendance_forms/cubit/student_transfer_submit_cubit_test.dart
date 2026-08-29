@@ -34,6 +34,7 @@ class _FakeSubmitUseCase extends SubmitStudentTransferUseCase {
   @override
   Future<AttendanceActionResult> call({
     required StudentTransferRequest request,
+    String? idempotencyKey,
   }) async {
     calls++;
     if (errorToThrow != null) throw errorToThrow!;

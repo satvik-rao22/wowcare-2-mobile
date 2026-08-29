@@ -24,6 +24,7 @@ class _FakeAttendanceRepository implements AttendanceRepository {
   Future<AttendanceActionResult> submitStudentSignIn({
     required StudentSignInRequest request,
     required bool isParent,
+    String? idempotencyKey,
   }) async {
     capturedRequest = request;
     capturedIsParent = isParent;

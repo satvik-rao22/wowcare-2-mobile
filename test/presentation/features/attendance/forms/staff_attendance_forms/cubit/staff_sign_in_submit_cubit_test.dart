@@ -38,6 +38,7 @@ class _FakeSubmitUseCase extends SubmitStaffSignInUseCase {
   Future<AttendanceActionResult> call({
     required StaffSignInRequest request,
     required bool isSelf,
+    String? idempotencyKey,
   }) async {
     calls++;
     lastIsSelf = isSelf;
