@@ -1199,6 +1199,12 @@ class _StudentScreenState extends State<StudentScreen> {
         final int selectedCount = _selectedDemo.where((e) => e).length;
         // Attendance + Activities are not allowed on inactive students.
         final bool hasInactiveSelected = _hasInactiveSelected(students);
+        // Computed ONCE per frame (it scans _selectedDemo/students); it was
+        // previously recomputed at three call sites below.
+        final bool canShowActivities = _canShowActivitiesButton(
+          selectedCount,
+          students,
+        );
 
         // Update selection list when students list changes
         if (_selectedDemo.length != students.length) {
@@ -1224,7 +1230,7 @@ class _StudentScreenState extends State<StudentScreen> {
                       StudentActionPanel(
                         currentPanel: _currentPanel,
                         activityStudentMaps:
-                            _canShowActivitiesButton(selectedCount, students)
+                            canShowActivities
                             ? _activityStudentMaps(
                                 students,
                                 classroomCodeByName: {
@@ -1250,11 +1256,7 @@ class _StudentScreenState extends State<StudentScreen> {
                           });
                         },
                         onActivitiesTap:
-                            (_canShowActivitiesButton(
-                                  selectedCount,
-                                  students,
-                                ) &&
-                                !hasInactiveSelected)
+                            (canShowActivities && !hasInactiveSelected)
                             ? () {
                                 setState(() {
                                   _showActivitiesPanel = !_showActivitiesPanel;
@@ -1357,8 +1359,7 @@ class _StudentScreenState extends State<StudentScreen> {
                         },
                         isProfileEnabled: selectedCount == 1,
                         activitiesEnabled:
-                            _canShowActivitiesButton(selectedCount, students) &&
-                            !hasInactiveSelected,
+                            canShowActivities && !hasInactiveSelected,
                         activitiesDisabledHint: hasInactiveSelected
                             ? 'You cannot record activities for inactive student.'
                             : null,
