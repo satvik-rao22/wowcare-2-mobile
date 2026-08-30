@@ -1471,8 +1471,8 @@ class _StudentScreenState extends State<StudentScreen> {
                                 );
                                 if (!mounted) return;
                                 AppLogger.d(
-                                  '[StudentScreen] Received result from AddStudentWizardScreen: ' +
-                                      result.toString(),
+                                  '[StudentScreen] received AddStudentWizard result '
+                                  '(present=${result != null})',
                                 );
                                 if (result is Map &&
                                     (result['showPostAddPrompt'] == true)) {

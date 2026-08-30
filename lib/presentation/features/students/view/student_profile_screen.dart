@@ -262,10 +262,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   void _onProfileChanged(StudentProfileModel profile) {
     if (!mounted) return;
-    AppLogger.d(
-      '[ProfileHeader] student=${profile.code} name="${profile.fullName}" '
-      'classroom="${profile.classroom}"',
-    );
+    // Do NOT log the student code / name / classroom (PII).
+    AppLogger.d('[ProfileHeader] profile loaded');
     setState(() {
       final nextName = profile.fullName.trim();
       _displayName = nextName.isEmpty ? _displayName : nextName;

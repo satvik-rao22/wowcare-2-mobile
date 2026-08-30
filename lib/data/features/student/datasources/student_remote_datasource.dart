@@ -1439,9 +1439,8 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       queryParameters: <String, dynamic>{'schoolCode': schoolCode},
     );
 
-    AppLogger.d(
-      '[IMMUNIZATION_API] Raw immunization API response: ${response.data}',
-    );
+    // Do NOT log the raw response body (may carry sensitive student/health data).
+    AppLogger.d('[IMMUNIZATION_API] immunization settings response received');
 
     final root = response.data;
     List<dynamic> list = const [];
@@ -1480,7 +1479,7 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       }
     }
 
-    AppLogger.d('[IMMUNIZATION_API] Parsed vaccine models: $vaccines');
+    AppLogger.d('[IMMUNIZATION_API] parsed ${vaccines.length} vaccine models');
     return vaccines;
   }
 

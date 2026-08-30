@@ -134,10 +134,8 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
           studentName.toLowerCase()) {
         sameName = true;
       }
-      // Debug
-      AppLogger.d(
-        '[AddStudent] Returning to previous screen with studentName="$studentName"',
-      );
+      // Do NOT log the student name (PII).
+      AppLogger.d('[AddStudent] returning to previous screen after create');
       CoreUtils.showTopSnackBar(
         duration: sameName ? Duration(seconds: 2) : Duration(seconds: 4),
         context: context,
@@ -149,7 +147,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
         isSuccess: true,
       );
       final result = {'showPostAddPrompt': true, 'studentName': studentName};
-      AppLogger.d('[AddStudent] Navigator.pop result: ' + result.toString());
+      AppLogger.d('[AddStudent] Navigator.pop (result present=${result != null})');
       Navigator.pop(context, result);
     });
   }
