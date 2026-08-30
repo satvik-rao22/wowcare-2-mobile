@@ -1,4 +1,5 @@
 import '../entities/student_health.dart';
+import '../entities/student_health_update_request.dart';
 import '../repositories/student_repository.dart';
 
 class UpdateStudentHealthUseCase {
@@ -8,8 +9,11 @@ class UpdateStudentHealthUseCase {
 
   Future<StudentHealth> call({
     required String studentCode,
-    required Map<String, dynamic> body,
+    required StudentHealthUpdateRequest request,
   }) {
-    return _repository.updateStudentHealth(studentCode: studentCode, body: body);
+    return _repository.updateStudentHealth(
+      studentCode: studentCode,
+      request: request,
+    );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
+import 'package:wowcare/domain/features/student/entities/student_health_update_request.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_health_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -177,15 +178,15 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                         _photoPermission = v;
                       });
                       try {
-                        final body = {
-                          'allergy': health?.allergy ?? '',
-                          'medications': health?.medications ?? '',
-                          'dietRestrictions': health?.dietRestrictions ?? '',
-                          'photoPermission': v,
-                        };
+                        final request = StudentHealthUpdateRequest(
+                          allergy: health?.allergy ?? '',
+                          medications: health?.medications ?? '',
+                          dietRestrictions: health?.dietRestrictions ?? '',
+                          photoPermission: v,
+                        );
                         await _healthCubit.updateHealth(
                           studentCode: code,
-                          body: body,
+                          request: request,
                         );
                         widget.onHealthChanged?.call();
                       } catch (e) {

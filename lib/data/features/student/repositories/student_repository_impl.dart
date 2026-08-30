@@ -9,6 +9,7 @@ import '../../../../domain/features/student/entities/student_document.dart';
 import '../../../../domain/features/student/entities/student_documents_page.dart';
 import '../../../../domain/features/student/entities/student_guardian.dart';
 import '../../../../domain/features/student/entities/student_health.dart';
+import '../../../../domain/features/student/entities/student_health_update_request.dart';
 import '../../../../domain/features/student/entities/student_immunization.dart';
 import '../../../../domain/features/student/entities/student_important_dates.dart';
 import '../../../../domain/features/student/entities/student_physical_exam.dart';
@@ -821,11 +822,11 @@ class StudentRepositoryImpl
   @override
   Future<StudentHealth> updateStudentHealth({
     required String studentCode,
-    required Map<String, dynamic> body,
+    required StudentHealthUpdateRequest request,
   }) async {
     final model = await _remoteDataSource.updateStudentHealth(
       code: studentCode,
-      body: body,
+      body: request.toPayload(),
     );
 
     await _cacheManager.saveCache(

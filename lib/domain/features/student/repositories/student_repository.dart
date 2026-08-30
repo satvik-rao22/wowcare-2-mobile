@@ -3,6 +3,7 @@ import '../entities/student.dart';
 import '../entities/student_documents_page.dart';
 import '../entities/student_guardian.dart';
 import '../entities/student_health.dart';
+import '../entities/student_health_update_request.dart';
 import '../entities/student_immunization.dart';
 import '../entities/student_important_dates.dart';
 import '../entities/student_physical_exam.dart';
@@ -385,7 +386,7 @@ abstract class StudentRepository {
   /// Updates a student's health details. Returns the updated health record.
   Future<StudentHealth> updateStudentHealth({
     required String studentCode,
-    required Map<String, dynamic> body,
+    required StudentHealthUpdateRequest request,
   });
 
   // --- Immunizations ---

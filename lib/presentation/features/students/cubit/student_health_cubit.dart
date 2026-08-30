@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../../domain/features/student/entities/student_health.dart';
+import '../../../../domain/features/student/entities/student_health_update_request.dart';
 import '../../../../domain/features/student/entities/student_immunization.dart';
 import '../../../../domain/features/student/usecases/get_student_health_usecase.dart';
 import '../../../../domain/features/student/usecases/get_student_immunizations_usecase.dart';
@@ -72,14 +73,14 @@ class StudentHealthCubit extends Cubit<StudentHealthState> {
 
   Future<StudentHealth> updateHealth({
     required String studentCode,
-    required Map<String, dynamic> body,
+    required StudentHealthUpdateRequest request,
   }) {
     return _singleFlight<StudentHealth>('health:$studentCode', () async {
       if (!isClosed) emit(state.copyWith(mutationInProgress: true));
       try {
         return await _updateStudentHealthUseCase(
           studentCode: studentCode,
-          body: body,
+          request: request,
         );
       } finally {
         if (!isClosed) emit(state.copyWith(mutationInProgress: false));

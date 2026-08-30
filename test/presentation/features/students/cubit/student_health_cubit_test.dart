@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
+import 'package:wowcare/domain/features/student/entities/student_health_update_request.dart';
 import 'package:wowcare/domain/features/student/entities/student_immunization.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_health_usecase.dart';
@@ -16,6 +17,14 @@ StudentHealth _health({String? allergy}) => StudentHealth(
   dietRestrictions: 'none',
   photoPermission: true,
 );
+
+StudentHealthUpdateRequest _request({String allergy = 'peanuts'}) =>
+    StudentHealthUpdateRequest(
+      allergy: allergy,
+      medications: 'none',
+      dietRestrictions: 'none',
+      photoPermission: true,
+    );
 
 StudentImmunization _immunization(String code) => StudentImmunization(
   code: code,
@@ -54,7 +63,8 @@ class _FakeUpdateHealthUseCase extends UpdateStudentHealthUseCase {
   _FakeUpdateHealthUseCase() : super(_FakeRepo());
 
   int calls = 0;
-  final List<Map<String, dynamic>> bodies = <Map<String, dynamic>>[];
+  final List<StudentHealthUpdateRequest> requests =
+      <StudentHealthUpdateRequest>[];
   Object? error;
   StudentHealth result = _health(allergy: 'updated');
   Completer<StudentHealth>? gate;
@@ -62,10 +72,10 @@ class _FakeUpdateHealthUseCase extends UpdateStudentHealthUseCase {
   @override
   Future<StudentHealth> call({
     required String studentCode,
-    required Map<String, dynamic> body,
+    required StudentHealthUpdateRequest request,
   }) {
     calls++;
-    bodies.add(body);
+    requests.add(request);
     if (error != null) return Future.error(error!);
     if (gate != null) return gate!.future;
     return Future.value(result);
@@ -180,11 +190,14 @@ void main() {
       final fakes = _Fakes();
       final cubit = fakes.build();
 
-      final body = {'allergy': 'peanuts'};
-      final result = await cubit.updateHealth(studentCode: 'S1', body: body);
+      final request = _request();
+      final result = await cubit.updateHealth(
+        studentCode: 'S1',
+        request: request,
+      );
 
       expect(fakes.updateHealth.calls, 1);
-      expect(fakes.updateHealth.bodies.last, body);
+      expect(fakes.updateHealth.requests.last, request);
       expect(result.allergy, 'updated');
       await cubit.close();
     });
@@ -213,7 +226,7 @@ void main() {
       final cubit = fakes.build();
 
       await expectLater(
-        cubit.updateHealth(studentCode: 'S1', body: const {}),
+        cubit.updateHealth(studentCode: 'S1', request: _request()),
         throwsA(isA<Exception>()),
       );
       await cubit.close();
@@ -246,8 +259,8 @@ void main() {
       fakes.updateHealth.gate = gate;
       final cubit = fakes.build();
 
-      final f1 = cubit.updateHealth(studentCode: 'S1', body: const {});
-      final f2 = cubit.updateHealth(studentCode: 'S1', body: const {});
+      final f1 = cubit.updateHealth(studentCode: 'S1', request: _request());
+      final f2 = cubit.updateHealth(studentCode: 'S1', request: _request());
 
       expect(identical(f1, f2), isTrue);
 
