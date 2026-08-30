@@ -6,7 +6,6 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:dio/dio.dart';
 import 'package:gal/gal.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -282,10 +281,11 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
     setState(() => _isResolvingViewUrl = true);
     try {
       final url = await _resolveDocumentUrl(doc);
+      // Do NOT log the resolved URL (a pre-signed document-access link) or the
+      // document name (PII); only non-sensitive metadata + whether it resolved.
       AppLogger.d(
-        '[StudentDocumentsTab] _handleView doc=${doc.documentName} '
-        'assetCode=${doc.assetCode} mimeType=${doc.mimeType} '
-        'resolvedUrl=$url',
+        '[StudentDocumentsTab] _handleView mimeType=${doc.mimeType} '
+        'resolved=${url.isNotEmpty}',
       );
       if (!mounted) return;
       if (url.isEmpty || Uri.tryParse(url) == null) {
@@ -367,7 +367,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
         final safeBase = base.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
         final outPath = p.join(tempDir.path, '$safeBase$ext');
 
-        await Dio().download(url, outPath);
+        await _documentsListCubit.downloadFile(url, outPath);
         if (isVideo) {
           await Gal.putVideo(outPath);
         } else {
