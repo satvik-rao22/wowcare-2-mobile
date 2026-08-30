@@ -260,6 +260,11 @@ import '../../domain/features/student/usecases/get_student_codes_for_activity_ta
 import '../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_student_tag_names_usecase.dart';
 import '../../domain/features/student/usecases/update_student_tags_usecase.dart';
+import '../../domain/features/student/usecases/update_student_profile_usecase.dart';
+import '../../domain/features/student/usecases/update_student_address_usecase.dart';
+import '../../domain/features/student/usecases/update_student_siblings_usecase.dart';
+import '../../domain/features/student/usecases/update_guardian_usecase.dart';
+import '../../presentation/features/students/cubit/student_profile_edit_cubit.dart';
 import '../../presentation/features/billing/cubit/select_students_cubit.dart';
 import '../../domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_immunization_settings_usecase.dart';
@@ -1278,6 +1283,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<UpdateStudentTagsUseCase>(
     () => UpdateStudentTagsUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<UpdateStudentProfileUseCase>(
+    () => UpdateStudentProfileUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStudentAddressUseCase>(
+    () => UpdateStudentAddressUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStudentSiblingsUseCase>(
+    () => UpdateStudentSiblingsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateGuardianUseCase>(
+    () => UpdateGuardianUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetStudentCodesForActivityTagFilterUseCase>(
     () => GetStudentCodesForActivityTagFilterUseCase(serviceLocator()),
   );
@@ -1989,6 +2006,17 @@ Future<void> configureDependencies({String? baseUrl}) async {
       addPhysicianUseCase: serviceLocator(),
       updatePhysicianUseCase: serviceLocator(),
       deletePhysicianUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentProfileEditCubit>(
+    () => StudentProfileEditCubit(
+      getStudentPageUseCase: serviceLocator(),
+      getStudentGuardiansUseCase: serviceLocator(),
+      updateStudentProfileUseCase: serviceLocator(),
+      updateStudentAddressUseCase: serviceLocator(),
+      updateStudentTagsUseCase: serviceLocator(),
+      updateStudentSiblingsUseCase: serviceLocator(),
+      updateGuardianUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentTagsCubit>(
