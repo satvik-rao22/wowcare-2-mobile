@@ -14,7 +14,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/students/util/profile_photo_background.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_create_cubit.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
@@ -81,6 +81,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
   bool _isChildCustody = true;
   File? _profilePhoto;
   bool _isSubmitting = false;
+
+  final StudentCreateCubit _createCubit = serviceLocator<StudentCreateCubit>();
 
   final List<String> _relationOptions = [
     'Mother',
@@ -169,6 +171,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     _emailController.dispose();
     _phoneController.dispose();
     _relationOtherController.dispose();
+    _createCubit.close();
     super.dispose();
   }
 
@@ -262,9 +265,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     required String schoolCode,
     required String studentCode,
   }) async {
-    final repo = serviceLocator<StudentRepository>();
     // Map display names back to guardian codes.
-    final nameCodeMap = await repo.getGuardianNameCodeMapForSchool(
+    final nameCodeMap = await _createCubit.fetchGuardianNameCodeMapForSchool(
       schoolCode: schoolCode,
     );
 
@@ -282,7 +284,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       final guardianCode = nameCodeMap[key];
       if (guardianCode == null || guardianCode.isEmpty) continue;
 
-      await repo.linkExistingGuardian(
+      await _createCubit.linkExistingGuardian(
         guardianCode: guardianCode,
         studentCode: studentCode,
         relation: relationEnum,
@@ -486,7 +488,6 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
               return;
             }
 
-            final repo = serviceLocator<StudentRepository>();
             final first = _firstNameController.text.trim();
             final last = _lastNameController.text.trim();
             final email = _emailController.text.trim().toLowerCase();
@@ -515,7 +516,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                 'legalCustody': legalCustody,
                 'updatedBy': loggedInUserCode.trim(),
               };
-              message = await repo.updateGuardian(
+              message = await _createCubit.updateGuardian(
                 code: guardianCode,
                 studentCode: studentCode,
                 fields: fields,
@@ -540,7 +541,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             } else {
               // Create guardian FIRST, then upload the photo in the background
               // using the new code (resolved inside the detached task).
-              final created = await repo.createGuardianUser(
+              final created = await _createCubit.createGuardianUser(
                 schoolCode: schoolCode,
                 studentCode: studentCode,
                 firstName: first,

@@ -21,6 +21,15 @@ abstract class StudentRepository {
   Future<List<StudentRegularScheduleEntry>> getStudentRegularSchedules({
     required String studentCode,
   });
+
+  /// Updates a student's regular schedule via the dedicated schedule API
+  /// (`PATCH /api/v1/regular-schedules`). Used by the add-student wizard.
+  Future<String> updateStudentRegularSchedules({
+    required String schoolCode,
+    required String studentCode,
+    required List<Map<String, dynamic>> schedule,
+  });
+
   Future<StudentPage> getStudentPage({
     required String schoolCode,
     String? code,

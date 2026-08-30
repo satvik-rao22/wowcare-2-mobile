@@ -264,7 +264,13 @@ import '../../domain/features/student/usecases/update_student_profile_usecase.da
 import '../../domain/features/student/usecases/update_student_address_usecase.dart';
 import '../../domain/features/student/usecases/update_student_siblings_usecase.dart';
 import '../../domain/features/student/usecases/update_guardian_usecase.dart';
+import '../../domain/features/student/usecases/create_student_usecase.dart';
+import '../../domain/features/student/usecases/create_guardian_user_usecase.dart';
+import '../../domain/features/student/usecases/link_existing_guardian_usecase.dart';
+import '../../domain/features/student/usecases/add_student_sibling_usecase.dart';
+import '../../domain/features/student/usecases/update_student_regular_schedules_usecase.dart';
 import '../../presentation/features/students/cubit/student_profile_edit_cubit.dart';
+import '../../presentation/features/students/cubit/student_create_cubit.dart';
 import '../../presentation/features/billing/cubit/select_students_cubit.dart';
 import '../../domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_immunization_settings_usecase.dart';
@@ -1295,6 +1301,21 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<UpdateGuardianUseCase>(
     () => UpdateGuardianUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<CreateStudentUseCase>(
+    () => CreateStudentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateGuardianUserUseCase>(
+    () => CreateGuardianUserUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<LinkExistingGuardianUseCase>(
+    () => LinkExistingGuardianUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<AddStudentSiblingUseCase>(
+    () => AddStudentSiblingUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStudentRegularSchedulesUseCase>(
+    () => UpdateStudentRegularSchedulesUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetStudentCodesForActivityTagFilterUseCase>(
     () => GetStudentCodesForActivityTagFilterUseCase(serviceLocator()),
   );
@@ -2017,6 +2038,19 @@ Future<void> configureDependencies({String? baseUrl}) async {
       updateStudentTagsUseCase: serviceLocator(),
       updateStudentSiblingsUseCase: serviceLocator(),
       updateGuardianUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentCreateCubit>(
+    () => StudentCreateCubit(
+      getStudentPageUseCase: serviceLocator(),
+      getStudentProfileUseCase: serviceLocator(),
+      getGuardianNameCodeMapForSchoolUseCase: serviceLocator(),
+      createStudentUseCase: serviceLocator(),
+      createGuardianUserUseCase: serviceLocator(),
+      linkExistingGuardianUseCase: serviceLocator(),
+      addStudentSiblingUseCase: serviceLocator(),
+      updateGuardianUseCase: serviceLocator(),
+      updateStudentRegularSchedulesUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentTagsCubit>(

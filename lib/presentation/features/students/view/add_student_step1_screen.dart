@@ -20,8 +20,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/students/util/profile_photo_background.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
-import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_create_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/utils/classroom_age_range.dart';
@@ -79,6 +78,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
   String? _calculatedAgeLabel;
   bool _isSubmitting = false;
 
+  final StudentCreateCubit _createCubit = serviceLocator<StudentCreateCubit>();
+
   final List<String> _statusOptions = ['Active', 'Upcoming'];
 
   bool get _isActive => (_selectedStatus ?? '').toLowerCase() == 'active';
@@ -107,6 +108,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
+    _createCubit.close();
     super.dispose();
   }
 
@@ -440,8 +442,6 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
       if (schoolCode.isEmpty) return true;
 
-      final repo = serviceLocator<StudentRepository>();
-
       String norm(String s) => s.trim().toLowerCase();
       final firstNorm = norm(firstName);
       final lastNorm = norm(lastName);
@@ -451,7 +451,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       int pageIndex = 0;
       bool hasMore = true;
       while (hasMore && pageIndex < _duplicateQueryMaxPages) {
-        final page = await repo.getStudentPage(
+        final page = await _createCubit.fetchStudentPage(
           schoolCode: schoolCode,
           firstName: firstName,
           lastName: lastName,
@@ -533,7 +533,6 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
     if (schoolCode.isEmpty) return <Student>[];
 
-    final repo = serviceLocator<StudentRepository>();
     String norm(String s) => s.trim().toLowerCase();
     final firstNorm = norm(firstName);
     final lastNorm = norm(lastName);
@@ -542,7 +541,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     int pageIndex = 0;
     bool hasMore = true;
     while (hasMore && pageIndex < _duplicateQueryMaxPages) {
-      final page = await repo.getStudentPage(
+      final page = await _createCubit.fetchStudentPage(
         schoolCode: schoolCode,
         lastName: lastName,
         page: pageIndex,
@@ -695,9 +694,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
           await storage.getString(StorageKeys.organizationCode) ?? '';
       final userCode = await storage.getString(StorageKeys.userCode) ?? '';
 
-      final repo = serviceLocator<StudentRepository>();
-
-      final Student student = await repo.createStudent(
+      final Student student = await _createCubit.createStudent(
         schoolCode: schoolCode,
         firstName: firstName,
         lastName: lastName,
@@ -754,7 +751,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
               continue;
             }
             try {
-              final nameCodeMap = await repo.getGuardianNameCodeMapForSchool(
+              final nameCodeMap =
+                  await _createCubit.fetchGuardianNameCodeMapForSchool(
                 schoolCode: schoolCode,
               );
 
@@ -772,7 +770,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
               for (final selectedName in selectedExistingParents) {
                 final guardianCode = (nameCodeMap[selectedName] ?? '').trim();
                 if (guardianCode.isEmpty) continue;
-                await repo.linkExistingGuardian(
+                await _createCubit.linkExistingGuardian(
                   guardianCode: guardianCode,
                   studentCode: student.code,
                   relation: relationEnum,
@@ -822,7 +820,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
           final bool legalCustody = map['isChildCustody'] as bool? ?? true;
 
           try {
-            final createdGuardian = await repo.createGuardianUser(
+            final createdGuardian = await _createCubit.createGuardianUser(
               schoolCode: schoolCode,
               studentCode: student.code,
               firstName: parentFirst,
@@ -868,7 +866,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       // Link siblings after guardians (POST /api/v1/student/{code}/add-sibling).
       if (siblingCodesToLink.isNotEmpty) {
         try {
-          await repo.addStudentSibling(
+          await _createCubit.addStudentSibling(
             studentCode: student.code,
             siblingCodes: siblingCodesToLink,
           );
@@ -925,8 +923,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
           }
 
           if (payloadSchedule.isNotEmpty && schoolCode.isNotEmpty) {
-            final remote = serviceLocator<StudentRemoteDataSource>();
-            await remote.updateStudentRegularSchedules(
+            await _createCubit.updateStudentRegularSchedules(
               schoolCode: schoolCode,
               studentCode: student.code,
               schedule: payloadSchedule,

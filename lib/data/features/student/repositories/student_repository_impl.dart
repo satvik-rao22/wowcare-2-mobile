@@ -127,6 +127,19 @@ class StudentRepositoryImpl
   }
 
   @override
+  Future<String> updateStudentRegularSchedules({
+    required String schoolCode,
+    required String studentCode,
+    required List<Map<String, dynamic>> schedule,
+  }) {
+    return _remoteDataSource.updateStudentRegularSchedules(
+      schoolCode: schoolCode,
+      studentCode: studentCode,
+      schedule: schedule,
+    );
+  }
+
+  @override
   Future<StudentProfile> getStudentProfile({required String code}) async {
     final model = await _remoteDataSource.getStudentProfile(code);
     return StudentProfile(
