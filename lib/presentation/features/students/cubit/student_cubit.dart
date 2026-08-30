@@ -42,6 +42,21 @@ class StudentCubit extends Cubit<StudentState> {
   // How many student records to load per page from the API
   static const int _pageSize = 15;
 
+  /// Appends [incoming] onto [existing], skipping any student whose code is
+  /// already present (stable-identity dedup), so overlapping backend pages can't
+  /// show the same student twice. Original order is preserved.
+  static List<Student> _appendDedupedByCode(
+    List<Student> existing,
+    List<Student> incoming,
+  ) {
+    final seen = existing.map((s) => s.code).toSet();
+    final result = List<Student>.from(existing);
+    for (final s in incoming) {
+      if (seen.add(s.code)) result.add(s);
+    }
+    return result;
+  }
+
   Future<String> _resolveSchoolCode() async {
     // Always read the live school from storage (never a stale memoized value):
     // the cubit can outlive an in-place school switch (e.g. an FCM-driven
@@ -277,7 +292,7 @@ class StudentCubit extends Cubit<StudentState> {
 
         if (isClosed) return;
 
-        items.addAll(secondPage.items);
+        items = _appendDedupedByCode(items, secondPage.items);
         currentPage = secondPage.page;
         hasMore = secondPage.hasMore;
       }
@@ -391,7 +406,7 @@ class StudentCubit extends Cubit<StudentState> {
 
       emit(
         state.copyWith(
-          items: [...state.items, ...page.items],
+          items: _appendDedupedByCode(state.items, page.items),
           currentPage: page.page,
           hasMore: page.hasMore,
           isLoadingMore: false,
