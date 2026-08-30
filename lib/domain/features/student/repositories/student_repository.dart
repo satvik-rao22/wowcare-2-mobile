@@ -1,3 +1,4 @@
+import '../entities/school_guardian_summary.dart';
 import '../entities/student.dart';
 import '../entities/student_documents_page.dart';
 import '../entities/student_guardian.dart';
@@ -333,7 +334,7 @@ abstract class StudentRepository {
 
   /// Raw guardians list for a school (includes email/mobile/code), used by UI
   /// flows that need full guardian details for dropdown selection.
-  Future<List<Map<String, dynamic>>> getGuardiansRawForSchool({
+  Future<List<SchoolGuardianSummary>> getGuardiansRawForSchool({
     required String schoolCode,
   });
 

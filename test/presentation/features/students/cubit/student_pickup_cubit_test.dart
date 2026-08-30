@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/domain/features/student/entities/school_guardian_summary.dart';
 import 'package:wowcare/domain/features/student/entities/student_pickup.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/add_pickup_usecase.dart';
@@ -52,11 +53,13 @@ class _FakeGuardiansRawUseCase extends GetGuardiansRawForSchoolUseCase {
 
   int calls = 0;
   final List<String> schoolCodes = <String>[];
-  List<Map<String, dynamic>> result = const <Map<String, dynamic>>[];
+  List<SchoolGuardianSummary> result = const <SchoolGuardianSummary>[];
   Object? error;
 
   @override
-  Future<List<Map<String, dynamic>>> call({required String schoolCode}) async {
+  Future<List<SchoolGuardianSummary>> call({
+    required String schoolCode,
+  }) async {
     calls++;
     schoolCodes.add(schoolCode);
     if (error != null) throw error!;
@@ -179,8 +182,14 @@ void main() {
   group('fetchGuardiansRaw', () {
     test('returns the guardians-raw use-case value', () async {
       final fakes = _Fakes();
-      fakes.guardiansRaw.result = [
-        {'code': 'G1', 'firstName': 'Ann'},
+      fakes.guardiansRaw.result = const [
+        SchoolGuardianSummary(
+          code: 'G1',
+          firstName: 'Ann',
+          lastName: '',
+          email: '',
+          mobile: '',
+        ),
       ];
       final cubit = fakes.build();
 
@@ -188,7 +197,7 @@ void main() {
 
       expect(fakes.guardiansRaw.calls, 1);
       expect(fakes.guardiansRaw.schoolCodes.last, 'SCH');
-      expect(rows.first['code'], 'G1');
+      expect(rows.first.code, 'G1');
       await cubit.close();
     });
   });

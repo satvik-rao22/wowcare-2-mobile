@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../../../domain/features/student/entities/school_guardian_summary.dart';
 import '../../../../domain/features/student/entities/student_pickup.dart';
 import '../../../../domain/features/student/usecases/add_pickup_usecase.dart';
 import '../../../../domain/features/student/usecases/delete_pickup_usecase.dart';
@@ -51,7 +52,7 @@ class StudentPickupCubit extends Cubit<StudentPickupState> {
   }
 
   /// Raw guardians for the add-pickup "select from existing" dropdown.
-  Future<List<Map<String, dynamic>>> fetchGuardiansRaw(String schoolCode) {
+  Future<List<SchoolGuardianSummary>> fetchGuardiansRaw(String schoolCode) {
     return _getGuardiansRawForSchoolUseCase(schoolCode: schoolCode);
   }
 

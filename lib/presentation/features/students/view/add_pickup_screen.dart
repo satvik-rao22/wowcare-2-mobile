@@ -130,12 +130,12 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
       final rawGuardians = await _pickupCubit.fetchGuardiansRaw(schoolCode);
       final details = <String, Map<String, String>>{};
       for (final g in rawGuardians) {
-        final first = (g['firstName'] ?? '').toString().trim();
-        final last = (g['lastName'] ?? '').toString().trim();
-        final email = (g['email'] ?? '').toString().trim();
-        final mobile = (g['mobile'] ?? '').toString().trim();
-        final code = (g['code'] ?? '').toString().trim();
-        final display = '$first $last'.trim();
+        final first = g.firstName;
+        final last = g.lastName;
+        final email = g.email;
+        final mobile = g.mobile;
+        final code = g.code;
+        final display = g.fullName;
         if (display.isEmpty) continue;
         details[display] = <String, String>{
           'code': code,

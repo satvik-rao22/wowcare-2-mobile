@@ -1,3 +1,4 @@
+import '../entities/school_guardian_summary.dart';
 import '../repositories/student_repository.dart';
 
 class GetGuardiansRawForSchoolUseCase {
@@ -5,7 +6,7 @@ class GetGuardiansRawForSchoolUseCase {
 
   final StudentRepository _repository;
 
-  Future<List<Map<String, dynamic>>> call({required String schoolCode}) {
+  Future<List<SchoolGuardianSummary>> call({required String schoolCode}) {
     return _repository.getGuardiansRawForSchool(schoolCode: schoolCode);
   }
 }

@@ -2,6 +2,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/cache_manager.dart';
+import '../../../../domain/features/student/entities/school_guardian_summary.dart';
 import '../../../../domain/features/student/entities/student.dart';
 import '../../../../domain/features/student/entities/student_settings.dart';
 import '../../../../domain/features/student/entities/student_document.dart';
@@ -41,10 +42,13 @@ class StudentRepositoryImpl
   /// Raw guardians list for a school (includes email/mobile/code).
   /// Used by UI flows that need full guardian details.
   @override
-  Future<List<Map<String, dynamic>>> getGuardiansRawForSchool({
+  Future<List<SchoolGuardianSummary>> getGuardiansRawForSchool({
     required String schoolCode,
-  }) {
-    return _remoteDataSource.getGuardiansBySchool(schoolCode: schoolCode);
+  }) async {
+    final raw = await _remoteDataSource.getGuardiansBySchool(
+      schoolCode: schoolCode,
+    );
+    return raw.map(SchoolGuardianSummary.fromMap).toList();
   }
 
   String _timeToLabel(dynamic raw) {
