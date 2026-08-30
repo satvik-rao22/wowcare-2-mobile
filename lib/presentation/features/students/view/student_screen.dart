@@ -197,6 +197,7 @@ class _StudentScreenState extends State<StudentScreen> {
     // filter) — respect it.
     if (current != 'ACTIVE') return;
     try {
+      // MVVM holdout (documented): getStudentProfile here needs the rich StudentProfileModel (status/dob/address/tags/fte/...); the domain StudentProfile entity is a narrow projection, so this read stays on the datasource until the entity is enriched (S6 typed-models).
       final profile = await serviceLocator<StudentRemoteDataSource>()
           .getStudentProfile(code);
       if (!mounted) return;
@@ -357,6 +358,7 @@ class _StudentScreenState extends State<StudentScreen> {
 
   Future<void> _openEditStudentDetails(String studentCode) async {
     try {
+      // MVVM holdout (documented): getStudentProfile here needs the rich StudentProfileModel (status/dob/address/tags/fte/...); the domain StudentProfile entity is a narrow projection, so this read stays on the datasource until the entity is enriched (S6 typed-models).
       final dataSource = serviceLocator<StudentRemoteDataSource>();
       final profile = await dataSource.getStudentProfile(studentCode);
       if (!mounted) return;

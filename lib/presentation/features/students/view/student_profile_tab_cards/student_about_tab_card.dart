@@ -10,11 +10,11 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_profile_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
@@ -60,6 +60,11 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
   /// Mon-Fri in the meantime.
   List<String> _schoolOpenDayLabels = const <String>[];
 
+  /// Routes the regular-schedule write through the MVVM cubit → use case →
+  /// repository. Closed in [dispose].
+  final StudentProfileCubit _profileCubit =
+      serviceLocator<StudentProfileCubit>();
+
   static const Map<String, String> _enumToLabel = <String, String>{
     'MONDAY': 'Monday',
     'TUESDAY': 'Tuesday',
@@ -84,6 +89,12 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
   void initState() {
     super.initState();
     _loadSchoolOpenDays();
+  }
+
+  @override
+  void dispose() {
+    _profileCubit.close();
+    super.dispose();
   }
 
   Future<void> _loadSchoolOpenDays() async {
@@ -749,8 +760,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
 
                   if (payloadSchedule.isEmpty) return;
 
-                  final remote = serviceLocator<StudentRemoteDataSource>();
-                  await remote.updateStudentRegularSchedules(
+                  await _profileCubit.updateRegularSchedules(
                     schoolCode: profile.schoolCode,
                     studentCode: profile.code,
                     schedule: payloadSchedule,

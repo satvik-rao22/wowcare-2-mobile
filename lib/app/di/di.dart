@@ -248,6 +248,7 @@ import '../../domain/features/student/usecases/get_guardians_raw_for_school_usec
 import '../../domain/features/student/usecases/get_student_guardians_usecase.dart';
 import '../../domain/features/student/usecases/delete_guardian_usecase.dart';
 import '../../domain/features/student/usecases/get_student_health_usecase.dart';
+import '../../domain/features/student/usecases/get_student_settings_usecase.dart';
 import '../../domain/features/student/usecases/update_student_health_usecase.dart';
 import '../../domain/features/student/usecases/get_student_immunizations_usecase.dart';
 import '../../domain/features/student/usecases/update_student_immunization_record_usecase.dart';
@@ -338,6 +339,7 @@ import '../../presentation/features/students/cubit/student_tags_cubit.dart';
 import '../../presentation/features/students/cubit/student_pickup_cubit.dart';
 import '../../presentation/features/students/cubit/student_guardian_cubit.dart';
 import '../../presentation/features/students/cubit/student_health_cubit.dart';
+import '../../presentation/features/students/cubit/student_profile_cubit.dart';
 import '../../presentation/features/students/cubit/student_physical_exam_cubit.dart';
 import '../../presentation/features/students/cubit/student_document_cubit.dart';
 import '../../presentation/features/students/cubit/student_important_dates_cubit.dart';
@@ -1256,6 +1258,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStudentHealthUseCase>(
     () => GetStudentHealthUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetStudentSettingsUseCase>(
+    () => GetStudentSettingsUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<UpdateStudentHealthUseCase>(
     () => UpdateStudentHealthUseCase(serviceLocator()),
   );
@@ -2082,6 +2087,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
       updateStudentHealthUseCase: serviceLocator(),
       getStudentImmunizationsUseCase: serviceLocator(),
       updateStudentImmunizationRecordUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentProfileCubit>(
+    () => StudentProfileCubit(
+      getStudentSettingsUseCase: serviceLocator(),
+      getStudentHealthUseCase: serviceLocator(),
+      updateStudentRegularSchedulesUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentPhysicalExamCubit>(
