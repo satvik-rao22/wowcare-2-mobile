@@ -244,9 +244,10 @@ class _StudentScreenState extends State<StudentScreen> {
 
   void _onSearchChanged() {
     final query = _searchController.text.trim();
-    context.read<StudentCubit>().updateSearch(query);
-    // Trigger search API on each keystroke without dropping rapid updates.
-    context.read<StudentCubit>().refresh(ignoreRefreshingGuard: true);
+    // Debounced in the cubit: the query updates immediately (superseding any
+    // in-flight request via the generation guard) and the network refresh fires
+    // once typing settles, instead of a full load per keystroke.
+    context.read<StudentCubit>().onSearchChanged(query);
   }
 
   Future<void> _loadTagNameCodeMap() async {

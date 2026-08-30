@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -39,8 +41,30 @@ class StudentCubit extends Cubit<StudentState> {
   /// of clobbering the current one.
   int _generation = 0;
 
+  /// Debounce for search-as-you-type. Public so a test can shorten it.
+  Duration searchDebounceDelay = const Duration(milliseconds: 300);
+  Timer? _searchDebounce;
+
   // How many student records to load per page from the API
   static const int _pageSize = 15;
+
+  /// Search-as-you-type entry point: updates the query immediately (so the field
+  /// and the generation guard reflect the newest keystroke, superseding any
+  /// in-flight request) but DEBOUNCES the network refresh so rapid typing fires
+  /// a single settled request instead of one full load per keystroke.
+  void onSearchChanged(String query) {
+    updateSearch(query);
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(searchDebounceDelay, () {
+      refresh(ignoreRefreshingGuard: true);
+    });
+  }
+
+  @override
+  Future<void> close() {
+    _searchDebounce?.cancel();
+    return super.close();
+  }
 
   /// Appends [incoming] onto [existing], skipping any student whose code is
   /// already present (stable-identity dedup), so overlapping backend pages can't
