@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:bloc/bloc.dart';
@@ -58,6 +60,13 @@ class StaffCubit extends Cubit<StaffState> {
   final StorageService _storageService;
   String? _schoolCode;
   String? _organizationCode;
+
+  /// Coalesces per-keystroke searches so only the final keystroke in a burst
+  /// hits the list API. See [onSearchChanged].
+  Timer? _searchDebounce;
+
+  /// Delay before a settled search reaches the list API. Overridable in tests.
+  Duration searchDebounceDelay = const Duration(milliseconds: 350);
 
   /// Monotonic query generation. Bumped whenever the logical query changes
   /// (a new refresh, a search/filter change, or a detected school switch) so a
@@ -521,6 +530,21 @@ class StaffCubit extends Cubit<StaffState> {
     await refresh(ignoreRefreshingGuard: true);
   }
 
+  /// Debounced search entry point for rapid typing. Applies the new query
+  /// immediately (via [updateSearch], which bumps the generation so any
+  /// in-flight response for the previous query is discarded) and coalesces the
+  /// list refresh so only the last keystroke in a [searchDebounceDelay] burst
+  /// reaches the API. A follow-up keystroke — including clearing to empty —
+  /// cancels the pending fetch.
+  void onSearchChanged(String query) {
+    updateSearch(query);
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(searchDebounceDelay, () {
+      if (isClosed) return;
+      refresh(ignoreRefreshingGuard: true);
+    });
+  }
+
   void updateSearch(String query) {
     // A new search is a new logical query: supersede any in-flight response.
     _generation++;
@@ -598,5 +622,11 @@ class StaffCubit extends Cubit<StaffState> {
         .where((element) => element.code != code)
         .toList();
     emit(state.copyWith(items: updated));
+  }
+
+  @override
+  Future<void> close() {
+    _searchDebounce?.cancel();
+    return super.close();
   }
 }

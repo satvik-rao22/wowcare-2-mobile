@@ -1037,17 +1037,16 @@ class _StaffScreenState extends State<StaffScreen> {
                                           onlyTypeClassroom: false,
                                         );
 
-                                        // For empty query, reset to full data (staff + counts).
+                                        // Clearing the query shows the shimmer
+                                        // while the full list reloads.
                                         if (query.isEmpty) {
-                                          staffCubit.updateSearch('');
                                           _refreshTriggeredByFilters = true;
-                                          staffCubit.refresh(
-                                            ignoreRefreshingGuard: true,
-                                          );
-                                        } else {
-                                          // Rapid search: only hit the staff list API on each keystroke.
-                                          staffCubit.searchStaff(query);
                                         }
+                                        // Debounced: the query applies at once
+                                        // (superseding stale responses) but the
+                                        // list API fires only on the last
+                                        // keystroke of a burst.
+                                        staffCubit.onSearchChanged(query);
                                       },
                                     ),
                                   ),
