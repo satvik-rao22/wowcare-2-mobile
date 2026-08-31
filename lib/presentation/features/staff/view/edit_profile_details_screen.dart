@@ -17,8 +17,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_profile_edit_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
 import 'package:wowcare/presentation/features/classroom/views/classroom_tab_cards/classroom_staff_tab_card.dart'
     show notifyClassroomStaffChanged;
@@ -180,6 +180,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   // Country is fixed to United States for this screen; no need to build a dropdown list.
 
   late final GetStaffProfileUseCase _getStaffProfileUseCase;
+  late final StaffProfileEditCubit _profileEditCubit;
 
   // Simple validators (align with Add Staff)
   // First character A–Z, then up to 49 characters (letters, space, hyphen, apostrophe).
@@ -209,6 +210,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   void initState() {
     super.initState();
     _getStaffProfileUseCase = serviceLocator<GetStaffProfileUseCase>();
+    _profileEditCubit = serviceLocator<StaffProfileEditCubit>();
     _classroomCubit = serviceLocator<ClassroomCubit>();
 
     // Country is fixed to United States for staff address in this form.
@@ -449,6 +451,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     _streetController.dispose();
     _cityController.dispose();
     _zipCodeController.dispose();
+    _profileEditCubit.close();
     // Do not close _classroomCubit here; it may be provided higher in the tree.
     super.dispose();
   }
@@ -772,8 +775,6 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         'addressCountry': countryCode,
       };
 
-      final repository = serviceLocator<StaffRepository>();
-
       // If email changed, call email-change API first (same behavior as
       // EditUserProfileScreen/EditUserProfileCubit). Its own response
       // `message` (e.g. "verification email sent to the new address") is
@@ -795,7 +796,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           _originalEmail != newEmail;
       if (emailChanged) {
         try {
-          await repository.changeUserEmail(
+          await _profileEditCubit.changeUserEmail(
             userCode: _profileUserCode,
             oldEmail: _originalEmail,
             newEmail: newEmail,
@@ -810,7 +811,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       }
 
       // Update core profile fields
-      final profileMessage = await repository.updateStaffProfile(
+      final profileMessage = await _profileEditCubit.updateProfile(
         staffCode: widget.staffCode,
         fields: profilePayload,
       );
@@ -837,12 +838,12 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
             _profileSchoolCode.isEmpty || _profileSchoolCode == '-';
         if (isOrganizationAdmin || schoolCodeMissing) {
           if (becameActive) {
-            await repository.activateOrganizationAdmin(
+            await _profileEditCubit.activateOrganizationAdmin(
               userCode: _profileUserCode,
               organizationCode: _profileOrganizationCode,
             );
           } else {
-            await repository.deactivateOrganizationAdmin(
+            await _profileEditCubit.deactivateOrganizationAdmin(
               userCode: _profileUserCode,
               organizationCode: _profileOrganizationCode,
             );
@@ -853,14 +854,14 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
               ? 'SCHOOL_ADMIN'
               : 'STAFF';
           if (becameActive) {
-            await repository.activateSchoolUser(
+            await _profileEditCubit.activateSchoolUser(
               userCode: _profileUserCode,
               organizationCode: _profileOrganizationCode,
               schoolCode: _profileSchoolCode,
               role: role,
             );
           } else {
-            await repository.deactivateSchoolUser(
+            await _profileEditCubit.deactivateSchoolUser(
               userCode: _profileUserCode,
               organizationCode: _profileOrganizationCode,
               schoolCode: _profileSchoolCode,
@@ -879,19 +880,19 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       // when empty (the previous `isNotEmpty` guard) silently dropped that
       // removal — the staff member stayed assigned server-side even after
       // unchecking their only classroom and saving.
-      await repository.updateStaffAllowedClassrooms(
+      await _profileEditCubit.updateAllowedClassrooms(
         staffCode: widget.staffCode,
         classroomCodes: allowedClassroomCodes,
       );
       if (primaryClassroomCode != null && primaryClassroomCode.isNotEmpty) {
-        await repository.updateStaffPrimaryClassroom(
+        await _profileEditCubit.updatePrimaryClassroom(
           staffCode: widget.staffCode,
           classroomCode: primaryClassroomCode,
         );
       }
 
       // Then update address via dedicated endpoint
-      final addressMessage = await repository.updateStaffAddress(
+      final addressMessage = await _profileEditCubit.updateAddress(
         staffCode: widget.staffCode,
         fields: addressPayload,
       );

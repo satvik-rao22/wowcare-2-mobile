@@ -159,6 +159,15 @@ import '../../domain/features/staff/usecases/get_important_dates_usecase.dart';
 import '../../domain/features/staff/usecases/update_important_dates_usecase.dart';
 import '../../domain/features/staff/usecases/get_school_regular_schedules_usecase.dart';
 import '../../domain/features/staff/usecases/update_staff_schedules_usecase.dart';
+import '../../domain/features/staff/usecases/update_staff_profile_usecase.dart';
+import '../../domain/features/staff/usecases/update_staff_address_usecase.dart';
+import '../../domain/features/staff/usecases/update_staff_allowed_classrooms_usecase.dart';
+import '../../domain/features/staff/usecases/update_staff_primary_classroom_usecase.dart';
+import '../../domain/features/staff/usecases/change_user_email_usecase.dart';
+import '../../domain/features/staff/usecases/activate_organization_admin_usecase.dart';
+import '../../domain/features/staff/usecases/deactivate_organization_admin_usecase.dart';
+import '../../domain/features/staff/usecases/activate_school_user_usecase.dart';
+import '../../domain/features/staff/usecases/deactivate_school_user_usecase.dart';
 import '../../domain/features/staff/usecases/create_school_user_usecase.dart';
 import '../../domain/features/student/repositories/student_repository.dart';
 import '../../domain/features/student/usecases/get_student_page_usecase.dart';
@@ -321,6 +330,7 @@ import '../../presentation/features/staff/cubit/staff_documents_list_cubit.dart'
 import '../../presentation/features/staff/cubit/staff_profile_cubit.dart';
 import '../../presentation/features/staff/cubit/important_dates_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_schedule_cubit.dart';
+import '../../presentation/features/staff/cubit/staff_profile_edit_cubit.dart';
 import '../../presentation/features/staff/cubit/create_school_user_cubit.dart';
 import '../../presentation/features/students/cubit/student_cubit.dart';
 import '../../presentation/features/attendance/cubit/student_attendance_daily_cubit.dart';
@@ -974,6 +984,33 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<UpdateStaffSchedulesUseCase>(
     () => UpdateStaffSchedulesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStaffProfileUseCase>(
+    () => UpdateStaffProfileUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStaffAddressUseCase>(
+    () => UpdateStaffAddressUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStaffAllowedClassroomsUseCase>(
+    () => UpdateStaffAllowedClassroomsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStaffPrimaryClassroomUseCase>(
+    () => UpdateStaffPrimaryClassroomUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ChangeUserEmailUseCase>(
+    () => ChangeUserEmailUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ActivateOrganizationAdminUseCase>(
+    () => ActivateOrganizationAdminUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeactivateOrganizationAdminUseCase>(
+    () => DeactivateOrganizationAdminUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ActivateSchoolUserUseCase>(
+    () => ActivateSchoolUserUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeactivateSchoolUserUseCase>(
+    () => DeactivateSchoolUserUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<CreateSchoolUserUseCase>(
     () => CreateSchoolUserUseCase(serviceLocator()),
@@ -1916,6 +1953,19 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StaffScheduleCubit(
       getSchoolRegularSchedulesUseCase: serviceLocator(),
       updateStaffSchedulesUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffProfileEditCubit>(
+    () => StaffProfileEditCubit(
+      updateStaffProfileUseCase: serviceLocator(),
+      updateStaffAddressUseCase: serviceLocator(),
+      updateStaffAllowedClassroomsUseCase: serviceLocator(),
+      updateStaffPrimaryClassroomUseCase: serviceLocator(),
+      changeUserEmailUseCase: serviceLocator(),
+      activateOrganizationAdminUseCase: serviceLocator(),
+      deactivateOrganizationAdminUseCase: serviceLocator(),
+      activateSchoolUserUseCase: serviceLocator(),
+      deactivateSchoolUserUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<CreateSchoolUserCubit>(
