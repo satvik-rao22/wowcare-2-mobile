@@ -10,8 +10,8 @@ import '../widgets/reg_request_tile.dart';
 import '../widgets/reg_resolve_sheet.dart';
 import '../widgets/reg_scaffold.dart';
 
-/// Staff "my regularizations" — an optional needs-attention banner (unresolved
-/// soft sign-out) + the list of the staff's requests.
+/// Staff "my regularizations" — an optional needs-attention banner (an
+/// unresolved missed sign-out) + the list of the staff's requests.
 class RegStaffListScreen extends StatelessWidget {
   const RegStaffListScreen({
     super.key,
@@ -20,6 +20,10 @@ class RegStaffListScreen extends StatelessWidget {
   });
 
   final List<RegularizationRequest> requests;
+
+  /// The open past session still needing a request, if any. Only one can exist:
+  /// the gate blocks the next sign-in (staff *and* admin-on-behalf) until it is
+  /// raised, so a backlog never accumulates.
   final MissedSignout? pendingGate;
 
   @override
@@ -55,7 +59,7 @@ class RegStaffListScreen extends StatelessWidget {
           const SizedBox(width: Av2Spacing.sm),
           Expanded(
             child: Text(
-              "Missed sign-out on ${Av2DateFormatter.monthDay(item.attendanceDate)}",
+              'Missed sign-out on ${Av2DateFormatter.monthDay(item.attendanceDate)}',
               style: Av2Text.caption.copyWith(color: Av2Colors.overtime),
             ),
           ),
@@ -76,7 +80,7 @@ class RegStaffListScreen extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(result.confirmedSoftTime
-            ? 'Sign-out confirmed'
+            ? 'Sign-out confirmed · sent for approval'
             : 'Regularization request submitted'),
       ),
     );

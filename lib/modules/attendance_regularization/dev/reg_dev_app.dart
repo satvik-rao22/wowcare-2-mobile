@@ -48,11 +48,21 @@ class _DevMenu extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.all(Av2Spacing.md),
             children: [
-              _btn(context, 'Next-day gate sheet (staff)', () async {
+              _btn(context, 'Next-day gate (staff)', () async {
                 await showRegResolveSheet(
                   context,
                   item: RegularizationFixtures.pendingGate,
                   mandatory: true,
+                );
+              }),
+              const SizedBox(height: Av2Spacing.sm),
+              _btn(context, 'Sign-out missing (admin, auto-approved)', () async {
+                await showRegResolveSheet(
+                  context,
+                  item: RegularizationFixtures.pendingGate,
+                  mandatory: true,
+                  byAdmin: true,
+                  staffName: 'Mohan Sonone',
                 );
               }),
               const SizedBox(height: Av2Spacing.sm),

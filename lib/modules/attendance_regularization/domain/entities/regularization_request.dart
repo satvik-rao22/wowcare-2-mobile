@@ -1,23 +1,7 @@
-/// Kind of correction being requested.
-enum RegType { missedSignOut, missedSignIn, missedFullDay, timeCorrection }
-
-/// Lifecycle of a request.
-enum RegStatus { pending, approved, rejected, cancelled }
-
-extension RegTypeX on RegType {
-  String get label {
-    switch (this) {
-      case RegType.missedSignOut:
-        return 'Missed sign-out';
-      case RegType.missedSignIn:
-        return 'Missed sign-in';
-      case RegType.missedFullDay:
-        return 'Missed full day';
-      case RegType.timeCorrection:
-        return 'Time correction';
-    }
-  }
-}
+/// Lifecycle of a request. There is deliberately **no `rejected`** state:
+/// admins approve (optionally modifying) or leave pending, and the staff
+/// cancels for edge cases.
+enum RegStatus { pending, approved, cancelled }
 
 extension RegStatusX on RegStatus {
   String get label {
@@ -26,8 +10,6 @@ extension RegStatusX on RegStatus {
         return 'Pending';
       case RegStatus.approved:
         return 'Approved';
-      case RegStatus.rejected:
-        return 'Rejected';
       case RegStatus.cancelled:
         return 'Cancelled';
     }
@@ -36,19 +18,19 @@ extension RegStatusX on RegStatus {
   bool get isPending => this == RegStatus.pending;
 }
 
-/// A staff-raised attendance correction request.
+/// An attendance correction request for a **missed sign-out** (the only kind
+/// this module handles — see docs/attendance_regularization_requirements.md
+/// §7.5 for why there is no `type`).
 class RegularizationRequest {
   const RegularizationRequest({
     required this.code,
     required this.staffCode,
     required this.staffName,
     required this.attendanceDate,
-    required this.type,
     required this.reason,
     required this.status,
     required this.createdAt,
     this.classroomName,
-    this.requestedSignInAt,
     this.requestedSignOutAt,
     this.softSignOutAt,
     this.decidedByName,
@@ -61,10 +43,8 @@ class RegularizationRequest {
   final String staffName;
   final String? classroomName;
   final DateTime attendanceDate;
-  final RegType type;
 
-  /// What the staff asked for.
-  final DateTime? requestedSignInAt;
+  /// What the raiser asked for.
   final DateTime? requestedSignOutAt;
 
   /// The system soft sign-out time (school end) being corrected, for context.

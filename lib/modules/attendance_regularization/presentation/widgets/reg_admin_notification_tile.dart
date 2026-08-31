@@ -12,10 +12,21 @@ import 'reg_status_pill.dart';
 /// the approver inbox, a dashboard "needs your approval" card, or a
 /// notifications list. Tap to review/decide.
 class RegAdminNotificationTile extends StatelessWidget {
-  const RegAdminNotificationTile({super.key, required this.request, this.onTap});
+  const RegAdminNotificationTile({
+    super.key,
+    required this.request,
+    this.onTap,
+    this.selected = false,
+    this.onSelectChanged,
+  });
 
   final RegularizationRequest request;
   final VoidCallback? onTap;
+
+  /// When [onSelectChanged] is provided, a leading checkbox is shown for
+  /// multi-select bulk approve. Row tap still opens review via [onTap].
+  final bool selected;
+  final ValueChanged<bool>? onSelectChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -29,11 +40,26 @@ class RegAdminNotificationTile extends StatelessWidget {
           padding: const EdgeInsets.all(Av2Spacing.sm),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(Av2Spacing.radiusLg),
-            border: Border.all(color: Av2Colors.border),
+            border: Border.all(
+                color: selected ? Av2Colors.theme : Av2Colors.border),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (onSelectChanged != null) ...[
+                SizedBox(
+                  height: 24,
+                  width: 24,
+                  child: Checkbox(
+                    value: selected,
+                    activeColor: Av2Colors.theme,
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    onChanged: (v) => onSelectChanged!(v ?? false),
+                  ),
+                ),
+                const SizedBox(width: Av2Spacing.sm),
+              ],
               Av2Avatar(initials: request.initials, diameter: 38),
               const SizedBox(width: Av2Spacing.sm),
               Expanded(child: _body(request)),
@@ -65,7 +91,7 @@ class RegAdminNotificationTile extends StatelessWidget {
             style: Av2Text.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
         const SizedBox(height: 2),
         Text(
-          '${r.type.label} · ${Av2DateFormatter.monthDay(r.attendanceDate)}',
+          'Missed sign-out · ${Av2DateFormatter.monthDay(r.attendanceDate)}',
           style: Av2Text.caption,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -90,9 +116,6 @@ class RegAdminNotificationTile extends StatelessWidget {
       return 'wants ${Av2DateFormatter.compactTime(out)} · was ${Av2DateFormatter.compactTime(soft)}';
     }
     if (out != null) return 'wants out ${Av2DateFormatter.compactTime(out)}';
-    if (r.requestedSignInAt != null) {
-      return 'wants in ${Av2DateFormatter.compactTime(r.requestedSignInAt!)}';
-    }
     return null;
   }
 }

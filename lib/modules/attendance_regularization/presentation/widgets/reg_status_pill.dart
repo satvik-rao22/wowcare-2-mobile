@@ -22,8 +22,6 @@ class RegStatusPill extends StatelessWidget {
         return (Av2Colors.overtimeFill, Av2Colors.overtime);
       case RegStatus.approved:
         return (Av2Colors.successFill, Av2Colors.success);
-      case RegStatus.rejected:
-        return (Av2Colors.dangerFill, Av2Colors.danger);
       case RegStatus.cancelled:
         return (Av2Colors.neutralFill, Av2Colors.neutral);
     }

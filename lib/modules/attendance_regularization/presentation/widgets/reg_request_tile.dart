@@ -35,7 +35,7 @@ class RegRequestTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(request.type.label, style: Av2Text.bodyMedium),
+                    Text('Missed sign-out', style: Av2Text.bodyMedium),
                     const SizedBox(height: 2),
                     Text(
                       _subtitle(request),
@@ -58,9 +58,7 @@ class RegRequestTile extends StatelessWidget {
   String _subtitle(RegularizationRequest r) {
     final date = Av2DateFormatter.monthDay(r.attendanceDate);
     final out = r.requestedSignOutAt;
-    final inAt = r.requestedSignInAt;
     if (out != null) return '$date · out ${Av2DateFormatter.compactTime(out)}';
-    if (inAt != null) return '$date · in ${Av2DateFormatter.compactTime(inAt)}';
     return date;
   }
 }

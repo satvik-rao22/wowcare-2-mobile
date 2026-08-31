@@ -47,7 +47,9 @@ void main() {
 
     expect(find.textContaining('Missed sign-out on'), findsWidgets);
     expect(find.text('Approved'), findsOneWidget);
-    expect(find.text('Rejected'), findsOneWidget);
+    // No 'Rejected' status exists — admins approve or leave pending; staff cancel.
+    expect(find.text('Rejected'), findsNothing);
+    expect(find.text('Cancelled'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -71,7 +73,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('admin inbox can bulk approve all', (tester) async {
+  testWidgets('admin inbox multi-selects then approves the selected set',
+      (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -82,13 +85,20 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    final approveAll = find.textContaining('Approve all');
-    expect(approveAll, findsOneWidget);
-    await tester.tap(approveAll);
+    // No action bar until something is selected.
+    expect(find.textContaining('Approve selected'), findsNothing);
+
+    // Select everything via the header toggle → the action bar appears.
+    await tester.tap(find.text('Select all'));
+    await tester.pumpAndSettle();
+    final approveSelected = find.textContaining('Approve selected');
+    expect(approveSelected, findsOneWidget);
+
+    await tester.tap(approveSelected);
     await tester.pumpAndSettle();
 
-    // Confirmation dialog before approving everything.
-    expect(find.textContaining('Approve all'), findsWidgets);
+    // Confirmation before approving the selected set.
+    expect(find.textContaining('selected'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
@@ -123,6 +133,46 @@ void main() {
     expect(find.textContaining("won't be counted"), findsOneWidget);
     expect(find.text('Actual sign-out time'), findsOneWidget);
     expect(find.text('Confirm & submit'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('admin-raised sheet promises auto-approval and names the staff',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: ElevatedButton(
+              onPressed: () => showRegResolveSheet(
+                context,
+                item: RegularizationFixtures.pendingGate,
+                mandatory: true,
+                byAdmin: true,
+                staffName: 'Mohan Sonone',
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    // Admin copy: names the staff, promises an immediate apply, saves (not
+    // "submits for approval").
+    expect(find.text('Sign-out missing'), findsOneWidget);
+    expect(find.textContaining('Mohan Sonone'), findsOneWidget);
+    expect(find.textContaining('approved automatically'), findsOneWidget);
+    expect(find.text('Save sign-out'), findsOneWidget);
+    // Staff-only wording must not leak into admin mode.
+    expect(find.text('Finish yesterday first'), findsNothing);
+    expect(find.text('Confirm & submit'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

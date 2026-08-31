@@ -7,12 +7,9 @@ import 'package:wowcare/modules/attendance_v2/core/utils/av2_date_formatter.dart
 import '../../domain/entities/regularization_request.dart';
 
 class RegDecision {
-  const RegDecision({
-    this.signInLocal,
-    this.signOutLocal,
-    this.note = '',
-  });
-  final DateTime? signInLocal; // admin-adjusted (modify) — null if unchanged
+  const RegDecision({this.signOutLocal, this.note = ''});
+
+  /// Admin-adjusted sign-out (modify) — null means "approve as submitted".
   final DateTime? signOutLocal;
   final String note;
 }
@@ -44,7 +41,6 @@ class _RegDecisionSheet extends StatefulWidget {
 }
 
 class _RegDecisionSheetState extends State<_RegDecisionSheet> {
-  TimeOfDay? _inTime;
   TimeOfDay? _outTime;
   final _note = TextEditingController();
 
@@ -52,9 +48,6 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
   void initState() {
     super.initState();
     final r = widget.request;
-    if (r.requestedSignInAt != null) {
-      _inTime = TimeOfDay.fromDateTime(r.requestedSignInAt!);
-    }
     if (r.requestedSignOutAt != null) {
       _outTime = TimeOfDay.fromDateTime(r.requestedSignOutAt!);
     }
@@ -66,14 +59,12 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
     super.dispose();
   }
 
-  Future<void> _pick({required bool isIn}) async {
+  Future<void> _pickOutTime() async {
     final picked = await showTimePicker(
       context: context,
-      initialTime: (isIn ? _inTime : _outTime) ?? TimeOfDay.now(),
+      initialTime: _outTime ?? TimeOfDay.now(),
     );
-    if (picked != null) {
-      setState(() => isIn ? _inTime = picked : _outTime = picked);
-    }
+    if (picked != null) setState(() => _outTime = picked);
   }
 
   DateTime? _combine(TimeOfDay? t) {
@@ -85,7 +76,6 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
   void _approve() => Navigator.pop(
         context,
         RegDecision(
-          signInLocal: _combine(_inTime),
           signOutLocal: _combine(_outTime),
           note: _note.text.trim(),
         ),
@@ -117,21 +107,15 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
               ),
               const SizedBox(height: Av2Spacing.md),
               Text(r.staffName, style: Av2Text.title),
-              Text('${r.type.label} · ${Av2DateFormatter.monthDay(r.attendanceDate)}',
+              Text('Missed sign-out · ${Av2DateFormatter.monthDay(r.attendanceDate)}',
                   style: Av2Text.label),
               const SizedBox(height: Av2Spacing.sm),
               _reasonBox(r.reason),
               const SizedBox(height: Av2Spacing.md),
-              if (_inTime != null) ...[
-                Text('Sign-in time', style: Av2Text.bodyMedium),
-                const SizedBox(height: Av2Spacing.xs),
-                _timeField(_inTime!, () => _pick(isIn: true)),
-                const SizedBox(height: Av2Spacing.md),
-              ],
               if (_outTime != null) ...[
                 Text('Sign-out time', style: Av2Text.bodyMedium),
                 const SizedBox(height: Av2Spacing.xs),
-                _timeField(_outTime!, () => _pick(isIn: false)),
+                _timeField(_outTime!, _pickOutTime),
                 const SizedBox(height: Av2Spacing.md),
               ],
               Text('Reason for change', style: Av2Text.bodyMedium),
