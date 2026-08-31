@@ -232,6 +232,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
   bool _loadingFeed = false;
   bool _isFeedRequestInFlight = false;
   String? _lastFeedRequestKey;
+  int _feedGeneration = 0;
   DateTime? _lastFeedCompletedAt;
   bool _lastFeedCompletedWithError = false;
   String? _feedError;
@@ -1854,6 +1855,14 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     }
   }
 
+  /// Snapshot taken when a feed load starts; a response must be DISCARDED if the
+  /// widget is gone, a newer load has superseded this one (generation bumped by a
+  /// refresh / filter / date / classroom change), or the active school changed
+  /// mid-flight (live school switch). Prevents cross-school leakage and
+  /// last-to-return-wins races.
+  bool _isStaleFeedResponse(int gen, String? schoolAtStart) =>
+      !mounted || gen != _feedGeneration || _schoolCode != schoolAtStart;
+
   Future<void> _loadNextDailyFeedPage() async {
     if (_loadingMoreFeed || !_feedHasMore || _loadingFeed) return;
 
@@ -1887,6 +1896,8 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
 
     _loadingMoreFeed = true;
     if (mounted) setState(() {});
+    final feedGen = _feedGeneration;
+    final feedSchoolAtStart = school;
 
     try {
       final selectedStudentCode =
@@ -1974,13 +1985,15 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         ..._mapDailyFeedPageToItems(activityFeedPage),
       ]..sort(_compareActivityItemsByTimeDesc);
 
-      if (!mounted) return;
+      if (_isStaleFeedResponse(feedGen, feedSchoolAtStart)) return;
       setState(() {
         _activities.addAll(items);
-        _activities = groupMultiStudentFeedItems(
-          _activities,
-          attendanceRequireDateAndTimeMatch: false,
-        )..sort(_compareActivityItemsByTimeDesc);
+        _activities = dedupeActivitiesByStableId(
+          groupMultiStudentFeedItems(
+            _activities,
+            attendanceRequireDateAndTimeMatch: false,
+          )..sort(_compareActivityItemsByTimeDesc),
+        );
         _feedHasMore =
             (attendancePage?.hasMore ?? false) ||
             (absentPage?.hasMore ?? false) ||
@@ -1994,7 +2007,9 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
           showOnScreen: true,
           context: context,
         );
-        setState(() => _feedHasMore = false);
+        if (!_isStaleFeedResponse(feedGen, feedSchoolAtStart)) {
+          setState(() => _feedHasMore = false);
+        }
       }
     } finally {
       _loadingMoreFeed = false;
@@ -2072,6 +2087,8 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
 
     _isFeedRequestInFlight = true;
     _lastFeedRequestKey = requestKey;
+    final feedGen = ++_feedGeneration;
+    final feedSchoolAtStart = school;
 
     if (mounted) {
       setState(() {
@@ -2162,15 +2179,17 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         ..._mapDailyFeedPageToItems(merged),
       ]..sort(_compareActivityItemsByTimeDesc);
 
-      if (!mounted) {
+      if (_isStaleFeedResponse(feedGen, feedSchoolAtStart)) {
         _isFeedRequestInFlight = false;
         return;
       }
       setState(() {
-        _activities = groupMultiStudentFeedItems(
-          items,
-          attendanceRequireDateAndTimeMatch: false,
-        )..sort(_compareActivityItemsByTimeDesc);
+        _activities = dedupeActivitiesByStableId(
+          groupMultiStudentFeedItems(
+            items,
+            attendanceRequireDateAndTimeMatch: false,
+          )..sort(_compareActivityItemsByTimeDesc),
+        );
         _loadingFeed = false;
         _feedError = null;
         _feedHasMore =
@@ -2187,7 +2206,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         (_) => _maybeLoadNextDailyFeedPage(),
       );
     } catch (e) {
-      if (!mounted) {
+      if (_isStaleFeedResponse(feedGen, feedSchoolAtStart)) {
         _isFeedRequestInFlight = false;
         return;
       }
@@ -2232,6 +2251,8 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
 
     _loadingMoreFeed = true;
     if (mounted) setState(() {});
+    final feedGen = _feedGeneration;
+    final feedSchoolAtStart = school;
 
     try {
       StudentAttendanceDailyPage? attendancePage;
@@ -2313,13 +2334,15 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         ..._mapDailyFeedPageToItems(merged),
       ]..sort(_compareActivityItemsByTimeDesc);
 
-      if (!mounted) return;
+      if (_isStaleFeedResponse(feedGen, feedSchoolAtStart)) return;
       setState(() {
         _activities.addAll(items);
-        _activities = groupMultiStudentFeedItems(
-          _activities,
-          attendanceRequireDateAndTimeMatch: false,
-        )..sort(_compareActivityItemsByTimeDesc);
+        _activities = dedupeActivitiesByStableId(
+          groupMultiStudentFeedItems(
+            _activities,
+            attendanceRequireDateAndTimeMatch: false,
+          )..sort(_compareActivityItemsByTimeDesc),
+        );
         _feedHasMore =
             (attendancePage?.hasMore ?? false) ||
             (absentPage?.hasMore ?? false) ||
@@ -2333,7 +2356,9 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
           showOnScreen: true,
           context: context,
         );
-        setState(() => _feedHasMore = false);
+        if (!_isStaleFeedResponse(feedGen, feedSchoolAtStart)) {
+          setState(() => _feedHasMore = false);
+        }
       }
     } finally {
       _loadingMoreFeed = false;
@@ -2420,6 +2445,8 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
 
     _isFeedRequestInFlight = true;
     _lastFeedRequestKey = requestKey;
+    final feedGen = ++_feedGeneration;
+    final feedSchoolAtStart = school;
 
     if (mounted) {
       setState(() {
@@ -2509,15 +2536,17 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         ..._mapDailyFeedPageToItems(activityFeedPage),
       ]..sort(_compareActivityItemsByTimeDesc);
 
-      if (!mounted) {
+      if (_isStaleFeedResponse(feedGen, feedSchoolAtStart)) {
         _isFeedRequestInFlight = false;
         return;
       }
       setState(() {
-        _activities = groupMultiStudentFeedItems(
-          items,
-          attendanceRequireDateAndTimeMatch: false,
-        )..sort(_compareActivityItemsByTimeDesc);
+        _activities = dedupeActivitiesByStableId(
+          groupMultiStudentFeedItems(
+            items,
+            attendanceRequireDateAndTimeMatch: false,
+          )..sort(_compareActivityItemsByTimeDesc),
+        );
         _loadingFeed = false;
         _feedError = null;
         _feedHasMore =
@@ -2534,7 +2563,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         (_) => _maybeLoadNextDailyFeedPage(),
       );
     } catch (e) {
-      if (!mounted) {
+      if (_isStaleFeedResponse(feedGen, feedSchoolAtStart)) {
         _isFeedRequestInFlight = false;
         return;
       }
@@ -6370,6 +6399,25 @@ List<ActivityItem> groupMultiStudentFeedItems(
     out[existingIndex] = mergeTwoActivityItemsForFeed(out[existingIndex], item);
   }
 
+  return out;
+}
+
+/// Removes duplicate feed rows that overlapping backend pages can produce.
+/// Keyed by (activityCode, studentCode) so a genuine multi-student activity
+/// whose per-student rows share an activityCode is NOT collapsed. Rows without
+/// a stable activityCode (e.g. attendance/absent-derived rows, which are merged
+/// separately by their own group key) are never deduped by code. Order-preserving.
+List<ActivityItem> dedupeActivitiesByStableId(List<ActivityItem> items) {
+  final seen = <String>{};
+  final out = <ActivityItem>[];
+  for (final it in items) {
+    final code = (it.activityCode ?? '').trim();
+    if (code.isEmpty) {
+      out.add(it);
+      continue;
+    }
+    if (seen.add('$code|${(it.studentCode ?? '').trim()}')) out.add(it);
+  }
   return out;
 }
 
