@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:mime/mime.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
@@ -40,6 +41,7 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
   /// complete call, before the batched ready-poll — lets callers show
   /// granular "N/M uploaded" progress text alongside the overall percent.
   void Function(int completedCount, int totalCount)? onFileCompleted,
+  CancelToken? cancelToken,
 }) async {
   if (files.isEmpty) return const [];
 
@@ -79,6 +81,7 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
         activityTypeCode: activityTypeCode,
         bindingMode: bindingMode,
         studentCodes: studentCodes,
+        cancelToken: cancelToken,
       );
 
       final sessionAssetCodes = <String>[];
@@ -121,6 +124,7 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
           mediaType: 'IMAGE',
           ownerType: ownerType,
           ownerCode: ownerCode,
+          cancelToken: cancelToken,
         );
         await uploadService.uploadFileToPresignedUrl(
           file: photo,
@@ -136,11 +140,13 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
               setState(() => onOverallProgressPercent?.call(overallPercent));
             }
           },
+          cancelToken: cancelToken,
         );
         await uploadService.completeAssetUpload(
           sessionCode: uploadSession.sessionCode,
           assetCode: presign.assetCode,
           documentApiBasePath: uploadSession.documentApiBasePath,
+          cancelToken: cancelToken,
         );
         pendingAssetCodeByPath[photo.path] = presign.assetCode;
         sessionAssetCodes.add(presign.assetCode);

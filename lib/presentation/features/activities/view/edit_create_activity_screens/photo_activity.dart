@@ -3,6 +3,7 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
@@ -154,6 +155,10 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
 
   ActivityEditorCubit get _editor => context.read<ActivityEditorCubit>();
   late final ImageUploadService _uploadService;
+
+  /// Cancels any in-flight activity media upload when this screen is disposed,
+  /// so a large video PUT doesn't keep burning bandwidth after the user leaves.
+  final CancelToken _uploadCancelToken = CancelToken();
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   bool _isAdminApprovalRequired(ActivityItem activity) {
@@ -596,12 +601,16 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
         isSuccess: true,
       );
     } catch (error) {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ApiErrorHandler.extractErrorMessage(error),
-        isError: true,
-      );
+      // A cancellation (the screen was disposed mid-upload) is expected — don't
+      // surface it as an error. Non-cancel failures still show as before.
+      if (!(error is DioException && CancelToken.isCancel(error))) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ApiErrorHandler.extractErrorMessage(error),
+          isError: true,
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isUploadingMedia = false);
@@ -641,6 +650,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
       activityTypeCode: activityTypeCode,
       bindingMode: bindingMode,
       studentCodes: studentCodes,
+      cancelToken: _uploadCancelToken,
     );
     final uploadedCodes = <String>[];
     for (var i = 0; i < media.length; i++) {
@@ -683,6 +693,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
         mediaType: isVideo ? 'VIDEO' : 'IMAGE',
         ownerType: ownerType,
         ownerCode: ownerCode,
+        cancelToken: _uploadCancelToken,
       );
       await _uploadService.uploadFileToPresignedUrl(
         file: file,
@@ -696,11 +707,13 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
           final overallPercent = (overallFraction * 100).clamp(0, 100).round();
           setState(() => _uploadProgressPercent = overallPercent);
         },
+        cancelToken: _uploadCancelToken,
       );
       await _uploadService.completeAssetUpload(
         sessionCode: uploadSession.sessionCode,
         assetCode: presign.assetCode,
         documentApiBasePath: uploadSession.documentApiBasePath,
+        cancelToken: _uploadCancelToken,
       );
       if (mounted) {
         setState(() => _uploadCompletedCount = fileIndex);
@@ -1391,6 +1404,11 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
   @override
   void dispose() {
     _mediaProcessingPollTimer?.cancel();
+    // Abort any in-flight media upload so a large video PUT doesn't keep
+    // running (and burning bandwidth) after the user leaves this screen.
+    if (!_uploadCancelToken.isCancelled) {
+      _uploadCancelToken.cancel('activity screen disposed');
+    }
     _descriptionController.dispose();
     super.dispose();
   }

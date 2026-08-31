@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
@@ -174,6 +175,10 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
   List<File> _newPhotos = [];
   final _attachmentState = ActivityPhotoAttachmentState();
   List<String> _remainingExistingPhotoUrls = [];
+
+  /// Cancels any in-flight incident media upload when this screen is disposed,
+  /// so a large upload doesn't keep running after the user leaves the screen.
+  final CancelToken _incidentUploadCancelToken = CancelToken();
 
   bool? _pickFirstAidGivenFromActivityDetail(dynamic detail) {
     bool? parseBool(dynamic raw) {
@@ -2316,6 +2321,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
           _uploadProgressPercent = percent,
       onFileCompleted: (completed, total) =>
           _uploadCompletedCount = completed,
+      cancelToken: _incidentUploadCancelToken,
     );
   }
 
@@ -2413,12 +2419,16 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         isSuccess: true,
       );
     } catch (error) {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ApiErrorHandler.extractErrorMessage(error),
-        isError: true,
-      );
+      // A cancellation (the screen was disposed mid-upload) is expected — don't
+      // surface it as an error. Non-cancel failures still show as before.
+      if (!(error is DioException && CancelToken.isCancel(error))) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ApiErrorHandler.extractErrorMessage(error),
+          isError: true,
+        );
+      }
     }
   }
 
@@ -2436,6 +2446,11 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
 
   @override
   void dispose() {
+    // Abort any in-flight incident media upload so it doesn't keep running
+    // after the user leaves this screen.
+    if (!_incidentUploadCancelToken.isCancelled) {
+      _incidentUploadCancelToken.cancel('incident screen disposed');
+    }
     _descriptionController.dispose();
     _addNotesController.dispose();
     super.dispose();

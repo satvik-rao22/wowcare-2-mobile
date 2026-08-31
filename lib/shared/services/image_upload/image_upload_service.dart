@@ -77,6 +77,7 @@ class ImageUploadService {
     required String activityTypeCode,
     required String bindingMode,
     required List<String> studentCodes,
+    CancelToken? cancelToken,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.activitiesUploadSessions,
@@ -94,6 +95,7 @@ class ImageUploadService {
         'studentCodes': studentCodes,
       },
       options: _noReplayOptions,
+      cancelToken: cancelToken,
     );
 
     final body = response.data;
@@ -137,6 +139,7 @@ class ImageUploadService {
     required String mediaType,
     required String ownerType,
     required String ownerCode,
+    CancelToken? cancelToken,
   }) async {
     final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
     final path = ApiPaths.documentAssetPresignPath(
@@ -163,6 +166,7 @@ class ImageUploadService {
             ],
           },
           options: _noReplayOptions,
+          cancelToken: cancelToken,
         )
         .catchError((error) {
           if (error is DioException) {
@@ -231,6 +235,7 @@ class ImageUploadService {
     required String sessionCode,
     required String documentApiBasePath,
     required List<AssetPresignRequest> assets,
+    CancelToken? cancelToken,
   }) async {
     if (assets.isEmpty) return const [];
 
@@ -261,6 +266,7 @@ class ImageUploadService {
                 .toList(),
           },
           options: _noReplayOptions,
+          cancelToken: cancelToken,
         )
         .catchError((error) {
           if (error is DioException) {
@@ -343,6 +349,7 @@ class ImageUploadService {
     required String sessionCode,
     required String assetCode,
     required String documentApiBasePath,
+    CancelToken? cancelToken,
   }) async {
     final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
     final path = ApiPaths.documentAssetCompletePath(
@@ -352,7 +359,11 @@ class ImageUploadService {
     );
     final endpoint = '$origin$path';
 
-    await _apiClient.client.post<dynamic>(endpoint, options: _noReplayOptions);
+    await _apiClient.client.post<dynamic>(
+      endpoint,
+      options: _noReplayOptions,
+      cancelToken: cancelToken,
+    );
   }
 
   Future<void> uploadFileToPresignedUrl({
@@ -362,6 +373,7 @@ class ImageUploadService {
     String fallbackContentType = 'image/jpeg',
     void Function(int sent, int total)? onSendProgress,
     void Function(int sentBytes, int totalBytes, int percent)? onProgress,
+    CancelToken? cancelToken,
   }) async {
     final uploadClient = Dio();
     // Stream the file instead of reading it fully into memory: a large video
@@ -415,6 +427,7 @@ class ImageUploadService {
             final percent = (fraction * 100).clamp(0, 100).round();
             onProgress?.call(sent, effectiveTotal, percent);
           },
+          cancelToken: cancelToken,
         );
         ApiLogger.logResponse(
           url: logUrl,
