@@ -270,7 +270,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
     if (!_isAdminDesignation) return false;
     return canAdminApproveOrRejectActivityItem(
       _effectiveActivity,
-      isAdminPersona: true,
+      isAdminPersona: activeAdminPersona(context),
     );
   }
 

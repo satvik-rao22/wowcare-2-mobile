@@ -65,12 +65,12 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
       state.liveActivity ?? _activityData ?? ActivityItem.empty;
 
   /// Whether the admin approve/reject bar should show for this shift.
-  bool get showAdminApproveRejectActions {
+  bool showAdminApproveRejectActions({required bool isAdminPersona}) {
     if (!_isEdit || _readOnly) return false;
     if (!state.isAdminDesignation) return false;
     return canAdminApproveOrRejectActivityItem(
       effectiveActivity,
-      isAdminPersona: true,
+      isAdminPersona: isAdminPersona,
     );
   }
 

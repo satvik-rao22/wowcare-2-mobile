@@ -207,6 +207,7 @@ class _MedicationActivityViewState extends State<_MedicationActivityView> {
           final cubit = context.read<MedicationActivityCubit>();
           final selectedStudents = state.selectedStudents;
           final effectiveActivity = cubit.effectiveActivity;
+          final isAdminPersona = activeAdminPersona(context);
 
           return StaffFormLayout(
             title: 'Medication',
@@ -383,7 +384,9 @@ class _MedicationActivityViewState extends State<_MedicationActivityView> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           ActivityAdminApproveRejectBar(
-                            visible: cubit.showAdminApproveRejectActions,
+                            visible: cubit.showAdminApproveRejectActions(
+                              isAdminPersona: isAdminPersona,
+                            ),
                             isLoading:
                                 state.isApprovingOrRejecting ||
                                 state.isSubmitting ||
@@ -391,7 +394,9 @@ class _MedicationActivityViewState extends State<_MedicationActivityView> {
                             onApprove: _approve,
                             onReject: _reject,
                           ),
-                          if (!cubit.showAdminApproveRejectActions)
+                          if (!cubit.showAdminApproveRejectActions(
+                            isAdminPersona: isAdminPersona,
+                          ))
                             CustomButtonLayout(
                               confirmButtonLabel: widget.isEdit
                                   ? 'Save'

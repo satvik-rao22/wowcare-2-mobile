@@ -59,12 +59,12 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
   ActivityItem get effectiveActivity =>
       state.liveActivity ?? _activityData ?? ActivityItem.empty;
 
-  bool get showAdminApproveRejectActions {
+  bool showAdminApproveRejectActions({required bool isAdminPersona}) {
     if (!_isEdit || _readOnly) return false;
     if (!state.isAdminDesignation) return false;
     return canAdminApproveOrRejectActivityItem(
       effectiveActivity,
-      isAdminPersona: true,
+      isAdminPersona: isAdminPersona,
     );
   }
 

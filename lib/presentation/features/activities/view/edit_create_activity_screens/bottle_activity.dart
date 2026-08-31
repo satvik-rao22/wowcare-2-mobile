@@ -237,6 +237,7 @@ class _BottleActivityViewState extends State<_BottleActivityView> {
           final cubit = context.read<BottleActivityCubit>();
           final selectedStudents = state.selectedStudents;
           final effectiveActivity = cubit.effectiveActivity;
+          final isAdminPersona = activeAdminPersona(context);
 
           return StaffFormLayout(
             title: 'Bottle',
@@ -435,7 +436,9 @@ class _BottleActivityViewState extends State<_BottleActivityView> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           ActivityAdminApproveRejectBar(
-                            visible: cubit.showAdminApproveRejectActions,
+                            visible: cubit.showAdminApproveRejectActions(
+                              isAdminPersona: isAdminPersona,
+                            ),
                             isLoading:
                                 state.isApprovingOrRejecting ||
                                 state.isSubmitting ||
@@ -443,7 +446,9 @@ class _BottleActivityViewState extends State<_BottleActivityView> {
                             onApprove: _approve,
                             onReject: _reject,
                           ),
-                          if (!cubit.showAdminApproveRejectActions)
+                          if (!cubit.showAdminApproveRejectActions(
+                            isAdminPersona: isAdminPersona,
+                          ))
                             CustomButtonLayout(
                               confirmButtonLabel: widget.isEdit
                                   ? 'Save'
