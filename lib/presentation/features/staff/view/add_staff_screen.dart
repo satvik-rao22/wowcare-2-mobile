@@ -11,7 +11,6 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/staff/cubit/create_school_user_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
@@ -173,7 +172,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
 
       // Fetch the full staff list and match client-side (mirrors the Add Student
       // duplicate check). Avoids relying on the search param / first-page window.
-      final allStaff = await serviceLocator<StaffRepository>().getAllStaff(
+      final allStaff = await _createSchoolUserCubit.fetchAllStaff(
         organizationCode: org,
         schoolCode: school,
         size: 500,

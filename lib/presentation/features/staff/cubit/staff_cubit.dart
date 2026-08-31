@@ -10,6 +10,12 @@ import '../../../../domain/features/staff/entities/staff_count.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../../../domain/features/staff/usecases/get_staff_count_usecase.dart';
+import '../../../../domain/features/staff/usecases/get_staff_profile_usecase.dart';
+import '../../../../domain/features/staff/usecases/activate_school_user_usecase.dart';
+import '../../../../domain/features/staff/usecases/deactivate_school_user_usecase.dart';
+import '../../../../domain/features/staff/usecases/activate_organization_admin_usecase.dart';
+import '../../../../domain/features/staff/usecases/deactivate_organization_admin_usecase.dart';
+import '../../../../domain/features/staff/usecases/delete_school_user_usecase.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../scheduling/utils/scheduling_cache_gate.dart';
 
@@ -19,16 +25,35 @@ class StaffCubit extends Cubit<StaffState> {
   StaffCubit({
     required GetStaffPageUseCase getStaffPageUseCase,
     required GetStaffCountUseCase getStaffCountUseCase,
+    required GetStaffProfileUseCase getStaffProfileUseCase,
+    required ActivateSchoolUserUseCase activateSchoolUserUseCase,
+    required DeactivateSchoolUserUseCase deactivateSchoolUserUseCase,
+    required ActivateOrganizationAdminUseCase activateOrganizationAdminUseCase,
+    required DeactivateOrganizationAdminUseCase
+    deactivateOrganizationAdminUseCase,
+    required DeleteSchoolUserUseCase deleteSchoolUserUseCase,
     required StaffRepository repository,
     required StorageService storageService,
   }) : _getStaffPageUseCase = getStaffPageUseCase,
        _getStaffCountUseCase = getStaffCountUseCase,
+       _getStaffProfileUseCase = getStaffProfileUseCase,
+       _activateSchoolUserUseCase = activateSchoolUserUseCase,
+       _deactivateSchoolUserUseCase = deactivateSchoolUserUseCase,
+       _activateOrganizationAdminUseCase = activateOrganizationAdminUseCase,
+       _deactivateOrganizationAdminUseCase = deactivateOrganizationAdminUseCase,
+       _deleteSchoolUserUseCase = deleteSchoolUserUseCase,
        _repository = repository,
        _storageService = storageService,
        super(const StaffState.initial());
 
   final GetStaffPageUseCase _getStaffPageUseCase;
   final GetStaffCountUseCase _getStaffCountUseCase;
+  final GetStaffProfileUseCase _getStaffProfileUseCase;
+  final ActivateSchoolUserUseCase _activateSchoolUserUseCase;
+  final DeactivateSchoolUserUseCase _deactivateSchoolUserUseCase;
+  final ActivateOrganizationAdminUseCase _activateOrganizationAdminUseCase;
+  final DeactivateOrganizationAdminUseCase _deactivateOrganizationAdminUseCase;
+  final DeleteSchoolUserUseCase _deleteSchoolUserUseCase;
   final StaffRepository _repository;
   final StorageService _storageService;
   String? _schoolCode;
@@ -368,7 +393,7 @@ class StaffCubit extends Cubit<StaffState> {
   Future<String> deactivateStaff(String staffCode) {
     return _singleFlightMutation('deactivate:$staffCode', () async {
       // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
-      final profile = await _repository.getStaffProfile(
+      final profile = await _getStaffProfileUseCase(
         staffCode: staffCode,
         forEditStaff: true,
       );
@@ -383,7 +408,7 @@ class StaffCubit extends Cubit<StaffState> {
       // Organization admins are deactivated via a different endpoint that
       // does not take `schoolCode` or `role`.
       if (isOrganizationAdmin || schoolCodeMissing) {
-        final message = await _repository.deactivateOrganizationAdmin(
+        final message = await _deactivateOrganizationAdminUseCase(
           userCode: profile.userCode,
           organizationCode: profile.organizationCode,
         );
@@ -398,7 +423,7 @@ class StaffCubit extends Cubit<StaffState> {
               ? 'SCHOOL_ADMIN'
               : 'STAFF';
 
-      final message = await _repository.deactivateSchoolUser(
+      final message = await _deactivateSchoolUserUseCase(
         userCode: profile.userCode,
         organizationCode: profile.organizationCode,
         schoolCode: schoolCode,
@@ -417,7 +442,7 @@ class StaffCubit extends Cubit<StaffState> {
   Future<String> activateStaff(String staffCode) {
     return _singleFlightMutation('activate:$staffCode', () async {
       // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
-      final profile = await _repository.getStaffProfile(
+      final profile = await _getStaffProfileUseCase(
         staffCode: staffCode,
         forEditStaff: true,
       );
@@ -430,7 +455,7 @@ class StaffCubit extends Cubit<StaffState> {
           staffTypeUpper.contains('ADMIN');
 
       if (isOrganizationAdmin || schoolCodeMissing) {
-        final message = await _repository.activateOrganizationAdmin(
+        final message = await _activateOrganizationAdminUseCase(
           userCode: profile.userCode,
           organizationCode: profile.organizationCode,
         );
@@ -444,7 +469,7 @@ class StaffCubit extends Cubit<StaffState> {
               ? 'SCHOOL_ADMIN'
               : 'STAFF';
 
-      final message = await _repository.activateSchoolUser(
+      final message = await _activateSchoolUserUseCase(
         userCode: profile.userCode,
         organizationCode: profile.organizationCode,
         schoolCode: schoolCode,
@@ -464,7 +489,7 @@ class StaffCubit extends Cubit<StaffState> {
   Future<String> deleteStaff(String staffCode) {
     return _singleFlightMutation('delete:$staffCode', () async {
       // Resolve userCode, organizationCode, schoolCode and role from the profile.
-      final profile = await _repository.getStaffProfile(
+      final profile = await _getStaffProfileUseCase(
         staffCode: staffCode,
         forEditStaff: true,
       );
@@ -475,7 +500,7 @@ class StaffCubit extends Cubit<StaffState> {
               ? 'SCHOOL_ADMIN'
               : 'STAFF';
 
-      final message = await _repository.deleteSchoolUser(
+      final message = await _deleteSchoolUserUseCase(
         userCode: profile.userCode,
         organizationCode: profile.organizationCode,
         schoolCode: profile.schoolCode.trim(),

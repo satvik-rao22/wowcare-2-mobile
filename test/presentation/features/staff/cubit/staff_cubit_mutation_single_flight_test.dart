@@ -9,6 +9,12 @@ import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_count_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_page_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/activate_school_user_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/deactivate_school_user_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/activate_organization_admin_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/deactivate_organization_admin_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/delete_school_user_usecase.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 
 StaffProfile _profile() => const StaffProfile(
@@ -44,6 +50,8 @@ StaffPage _emptyPage() => const StaffPage(
 /// the (gated) underlying deactivate call.
 class _CountingRepo implements StaffRepository {
   int deactivateCalls = 0;
+  int activateCalls = 0;
+  int deleteCalls = 0;
   final Completer<String> gate = Completer<String>();
 
   @override
@@ -62,6 +70,28 @@ class _CountingRepo implements StaffRepository {
   }) {
     deactivateCalls++;
     return gate.future;
+  }
+
+  @override
+  Future<String> activateSchoolUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+    required String role,
+  }) async {
+    activateCalls++;
+    return 'activated';
+  }
+
+  @override
+  Future<String> deleteSchoolUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+    required String role,
+  }) async {
+    deleteCalls++;
+    return 'deleted';
   }
 
   @override
@@ -110,18 +140,29 @@ class _FakeStorage implements StorageService {
       throw UnimplementedError('${invocation.memberName} was not expected');
 }
 
+/// Builds a StaffCubit whose mutation paths route through REAL use cases that
+/// wrap the SAME counting repo, so assertions on the underlying repo call
+/// counts prove the mutations flow cubit -> use case -> repository.
+StaffCubit _buildCubit(_CountingRepo repo) => StaffCubit(
+  getStaffPageUseCase: _PageUseCase(),
+  getStaffCountUseCase: _CountUseCase(),
+  getStaffProfileUseCase: GetStaffProfileUseCase(repo),
+  activateSchoolUserUseCase: ActivateSchoolUserUseCase(repo),
+  deactivateSchoolUserUseCase: DeactivateSchoolUserUseCase(repo),
+  activateOrganizationAdminUseCase: ActivateOrganizationAdminUseCase(repo),
+  deactivateOrganizationAdminUseCase: DeactivateOrganizationAdminUseCase(repo),
+  deleteSchoolUserUseCase: DeleteSchoolUserUseCase(repo),
+  repository: repo,
+  storageService: _FakeStorage(),
+);
+
 void main() {
   test(
     'double deactivate of the same staff issues exactly ONE underlying repo call '
     '(cubit single-flight, independent of any UI disabling)',
     () async {
       final repo = _CountingRepo();
-      final cubit = StaffCubit(
-        getStaffPageUseCase: _PageUseCase(),
-        getStaffCountUseCase: _CountUseCase(),
-        repository: repo,
-        storageService: _FakeStorage(),
-      );
+      final cubit = _buildCubit(repo);
 
       // Two rapid taps on the same staff member's deactivate.
       final f1 = cubit.deactivateStaff('S1');
@@ -144,4 +185,28 @@ void main() {
       await cubit.close();
     },
   );
+
+  test('activateStaff routes through the activate use case to the repository',
+      () async {
+    final repo = _CountingRepo();
+    final cubit = _buildCubit(repo);
+
+    final message = await cubit.activateStaff('S1');
+
+    expect(repo.activateCalls, 1);
+    expect(message, 'activated');
+    await cubit.close();
+  });
+
+  test('deleteStaff routes through the delete use case to the repository',
+      () async {
+    final repo = _CountingRepo();
+    final cubit = _buildCubit(repo);
+
+    final message = await cubit.deleteStaff('S1');
+
+    expect(repo.deleteCalls, 1);
+    expect(message, 'deleted');
+    await cubit.close();
+  });
 }

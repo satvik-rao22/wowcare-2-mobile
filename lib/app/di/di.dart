@@ -168,6 +168,7 @@ import '../../domain/features/staff/usecases/activate_organization_admin_usecase
 import '../../domain/features/staff/usecases/deactivate_organization_admin_usecase.dart';
 import '../../domain/features/staff/usecases/activate_school_user_usecase.dart';
 import '../../domain/features/staff/usecases/deactivate_school_user_usecase.dart';
+import '../../domain/features/staff/usecases/delete_school_user_usecase.dart';
 import '../../domain/features/staff/usecases/create_school_user_usecase.dart';
 import '../../domain/features/student/repositories/student_repository.dart';
 import '../../domain/features/student/usecases/get_student_page_usecase.dart';
@@ -1011,6 +1012,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<DeactivateSchoolUserUseCase>(
     () => DeactivateSchoolUserUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteSchoolUserUseCase>(
+    () => DeleteSchoolUserUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<CreateSchoolUserUseCase>(
     () => CreateSchoolUserUseCase(serviceLocator()),
@@ -1919,6 +1923,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StaffCubit(
       getStaffPageUseCase: serviceLocator(),
       getStaffCountUseCase: serviceLocator(),
+      getStaffProfileUseCase: serviceLocator(),
+      activateSchoolUserUseCase: serviceLocator(),
+      deactivateSchoolUserUseCase: serviceLocator(),
+      activateOrganizationAdminUseCase: serviceLocator(),
+      deactivateOrganizationAdminUseCase: serviceLocator(),
+      deleteSchoolUserUseCase: serviceLocator(),
       repository: serviceLocator(),
       storageService: serviceLocator(),
     ),
@@ -1971,6 +1981,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<CreateSchoolUserCubit>(
     () => CreateSchoolUserCubit(
       createSchoolUserUseCase: serviceLocator(),
+      getAllStaffUseCase: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );

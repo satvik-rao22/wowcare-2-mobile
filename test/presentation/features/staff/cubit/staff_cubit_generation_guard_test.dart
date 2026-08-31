@@ -8,6 +8,12 @@ import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_count_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_page_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/activate_school_user_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/deactivate_school_user_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/activate_organization_admin_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/deactivate_organization_admin_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/delete_school_user_usecase.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 
 StaffMember _staff(String code) => StaffMember(
@@ -94,6 +100,16 @@ void main() {
     cubit = StaffCubit(
       getStaffPageUseCase: page,
       getStaffCountUseCase: _ZeroCountUseCase(),
+      // Mutation use cases are not exercised by these generation-guard tests;
+      // wrap the unused repo so they are never invoked.
+      getStaffProfileUseCase: GetStaffProfileUseCase(_UnusedRepo()),
+      activateSchoolUserUseCase: ActivateSchoolUserUseCase(_UnusedRepo()),
+      deactivateSchoolUserUseCase: DeactivateSchoolUserUseCase(_UnusedRepo()),
+      activateOrganizationAdminUseCase:
+          ActivateOrganizationAdminUseCase(_UnusedRepo()),
+      deactivateOrganizationAdminUseCase:
+          DeactivateOrganizationAdminUseCase(_UnusedRepo()),
+      deleteSchoolUserUseCase: DeleteSchoolUserUseCase(_UnusedRepo()),
       repository: _UnusedRepo(),
       storageService: storage,
     );

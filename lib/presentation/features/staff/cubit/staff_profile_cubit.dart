@@ -17,6 +17,22 @@ class StaffProfileCubit extends Cubit<StaffProfileState> {
   final GetStaffProfileUseCase _getStaffProfileUseCase;
   final StaffRepository _repository;
 
+  /// Thin one-shot fetch of a staff profile ENTITY via the use case, for view
+  /// call sites that previously read `StaffRepository.getStaffProfile(...)`
+  /// directly. Does NOT emit state — it returns the entity for the caller to
+  /// consume, preserving the original repository-read behavior exactly.
+  /// [forEditStaff] mirrors the repository parameter (default `false`, matching
+  /// `StaffRepository.getStaffProfile`).
+  Future<StaffProfile> fetchProfile({
+    required String staffCode,
+    bool forEditStaff = false,
+  }) {
+    return _getStaffProfileUseCase(
+      staffCode: staffCode,
+      forEditStaff: forEditStaff,
+    );
+  }
+
   Future<void> loadInitial(String staffCode) async {
     // Try cache first
     final cached = await (_repository is StaffRepositoryWithCache

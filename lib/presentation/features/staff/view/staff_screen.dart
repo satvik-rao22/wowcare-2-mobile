@@ -31,7 +31,7 @@ import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_transfer_form_list_usecase.dart';
@@ -73,6 +73,9 @@ class StaffScreen extends StatefulWidget {
 class _StaffScreenState extends State<StaffScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  // Held instance for one-shot profile reads (serviceLocator is a factory);
+  // closed in dispose.
+  final StaffProfileCubit _staffProfileCubit = serviceLocator<StaffProfileCubit>();
   bool _showInactive = false;
   final Set<String> _selectedStaffCodes = <String>{};
   bool _selectAll = false;
@@ -156,7 +159,7 @@ class _StaffScreenState extends State<StaffScreen> {
       // forEditStaff:true hits `/staff/{code}/profile`, which includes the
       // enrollment `status` (ACTIVE/INACTIVE). The default my-profile/{code}
       // payload omits status, so the toggle never flipped.
-      final profile = await serviceLocator<StaffRepository>().getStaffProfile(
+      final profile = await _staffProfileCubit.fetchProfile(
         staffCode: code,
         forEditStaff: true,
       );
@@ -259,6 +262,7 @@ class _StaffScreenState extends State<StaffScreen> {
     _scrollController.removeListener(_onScroll);
     _searchController.dispose();
     _scrollController.dispose();
+    _staffProfileCubit.close();
     super.dispose();
   }
 

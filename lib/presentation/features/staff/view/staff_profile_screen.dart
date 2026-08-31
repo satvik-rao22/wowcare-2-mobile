@@ -26,7 +26,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_documents_tab.
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 
 class StaffProfileScreen extends StatefulWidget {
@@ -82,6 +82,10 @@ class StaffProfileScreen extends StatefulWidget {
 class _StaffProfileScreenState extends State<StaffProfileScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
+
+  // Held instance for one-shot profile reads (serviceLocator is a factory);
+  // closed in dispose.
+  final StaffProfileCubit _staffProfileCubit = serviceLocator<StaffProfileCubit>();
 
   late String _displayName;
   late String _displayDesignation;
@@ -158,7 +162,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
     final code = widget.staffCode.trim();
     if (code.isEmpty || _displayName.trim().isNotEmpty) return;
     try {
-      final profile = await serviceLocator<StaffRepository>().getStaffProfile(
+      final profile = await _staffProfileCubit.fetchProfile(
         staffCode: code,
       );
       if (!mounted) return;
@@ -335,6 +339,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _staffProfileCubit.close();
     super.dispose();
   }
 
@@ -435,8 +440,9 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       }
 
       DocumentImageWidget.clearProfilePhotoCache(staffCode: staffCode);
-      final repo = serviceLocator<StaffRepository>();
-      final refreshed = await repo.getStaffProfile(staffCode: staffCode);
+      final refreshed = await _staffProfileCubit.fetchProfile(
+        staffCode: staffCode,
+      );
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Profile photo updated successfully',

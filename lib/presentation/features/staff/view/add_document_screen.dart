@@ -19,7 +19,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_document_cubit.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_document.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'dart:io';
@@ -60,6 +60,9 @@ class AddDocumentScreen extends StatefulWidget {
 class _AddDocumentScreenState extends State<AddDocumentScreen> {
   final TextEditingController _documentNameController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
+  // Held instance for one-shot profile reads (serviceLocator is a factory);
+  // closed in dispose.
+  final StaffProfileCubit _staffProfileCubit = serviceLocator<StaffProfileCubit>();
   String? _selectedDocumentType;
   DateTime? _selectedExpiryDate;
   String? _selectedFilePath;
@@ -102,6 +105,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
   void dispose() {
     _documentNameController.dispose();
     _notesController.dispose();
+    _staffProfileCubit.close();
     super.dispose();
   }
 
@@ -296,7 +300,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       String schoolCode = '';
       String organizationCode = '';
       try {
-        final profile = await serviceLocator<StaffRepository>().getStaffProfile(
+        final profile = await _staffProfileCubit.fetchProfile(
           staffCode: widget.staffCode,
         );
         schoolCode = profile.schoolCode.trim();
