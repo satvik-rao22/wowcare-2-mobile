@@ -162,7 +162,8 @@ class _StaffScreenState extends State<StaffScreen> {
       );
       if (!mounted) return;
       final status = profile.status.trim().toUpperCase();
-      AppLogger.d('[StaffHighlight] code=$code resolved status="$status"');
+      // Do NOT log the staff code (identifier); status alone is non-sensitive.
+      AppLogger.d('[StaffHighlight] resolved status="$status"');
       if (status.isEmpty || status == 'ACTIVE' || status == 'A') return;
       final label = (status == 'INACTIVE' || status == 'I')
           ? 'INACTIVE'

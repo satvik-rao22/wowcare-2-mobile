@@ -569,8 +569,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     // Debug logging to diagnose email validation issues
     final raw = value ?? '';
     final trimmed = raw.trim().toLowerCase();
-    AppLogger.d('[Email Validation] raw: "$raw"');
-    AppLogger.d('[Email Validation] trimmed: "$trimmed"');
+    // Do NOT log the raw/trimmed email value (PII).
     AppLogger.d(
       '[Email Validation] strict regex: ${_emailRegexStrict.pattern}',
     );
@@ -617,8 +616,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   String? _validatePhoneNumber(String? value) {
     final raw = (value ?? '').trim();
     final digits = raw.replaceAll(RegExp(r'\D'), '');
-    AppLogger.d('[Phone Validation] raw: "$raw"');
-    AppLogger.d('[Phone Validation] digitsOnly: "$digits"');
+    // Do NOT log the raw phone value / digits (PII).
     AppLogger.d('[Phone Validation] regex: ${_phoneRegex.pattern}');
 
     if (raw.isEmpty) {

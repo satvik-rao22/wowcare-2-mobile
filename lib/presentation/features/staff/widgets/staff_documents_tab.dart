@@ -235,10 +235,11 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
     setState(() => _isResolvingViewUrl = true);
     try {
       final url = await _resolveDocumentUrl(doc);
+      // Do NOT log the resolved URL (a pre-signed document-access link) or the
+      // document name (PII); only non-sensitive metadata + whether it resolved.
       AppLogger.d(
-        '[StaffDocumentsTab] _handleView doc=${doc.documentName} '
-        'assetCode=${doc.assetCode} mimeType=${doc.mimeType} '
-        'resolvedUrl=$url',
+        '[StaffDocumentsTab] _handleView mimeType=${doc.mimeType} '
+        'resolved=${url.isNotEmpty}',
       );
       if (!mounted) return;
       if (url.isEmpty || Uri.tryParse(url) == null) {
