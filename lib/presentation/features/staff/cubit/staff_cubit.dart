@@ -34,8 +34,29 @@ class StaffCubit extends Cubit<StaffState> {
   String? _schoolCode;
   String? _organizationCode;
 
+  /// Monotonic query generation. Bumped whenever the logical query changes
+  /// (a new refresh, a search/filter change, or a detected school switch) so a
+  /// slower in-flight response for an older query/school is discarded instead
+  /// of clobbering the current one.
+  int _generation = 0;
+
   // How many staff records to load per page from the API
   static const int _pageSize = 10;
+
+  /// Appends [incoming] onto [existing], skipping any staff whose code is
+  /// already present (stable-identity dedup), so overlapping backend pages can't
+  /// show the same staff member twice. Original order is preserved.
+  static List<StaffMember> _appendDedupedByCode(
+    List<StaffMember> existing,
+    List<StaffMember> incoming,
+  ) {
+    final seen = existing.map((s) => s.code).toSet();
+    final result = List<StaffMember>.from(existing);
+    for (final s in incoming) {
+      if (seen.add(s.code)) result.add(s);
+    }
+    return result;
+  }
 
   String? _effectiveStatusFilter() {
     final raw = state.statusFilter;
@@ -44,10 +65,28 @@ class StaffCubit extends Cubit<StaffState> {
   }
 
   Future<String> _resolveSchoolCode() async {
-    if (_schoolCode != null) return _schoolCode!;
-    // Take school from login-context API (saved in storage) only.
-    _schoolCode = await _storageService.getString(StorageKeys.schoolCode) ?? '';
-    return _schoolCode!;
+    // Always read the live school from storage (never a stale memoized value):
+    // the cubit can outlive an in-place school switch (e.g. an FCM-driven switch
+    // on a still-mounted screen).
+    final fresh = await _storageService.getString(StorageKeys.schoolCode) ?? '';
+    if (_schoolCode != null && _schoolCode != fresh) {
+      // School switched under a live cubit: drop the memoized org code so it
+      // re-resolves for the new school, and supersede any in-flight response.
+      _organizationCode = null;
+      _generation++;
+    }
+    _schoolCode = fresh;
+    return fresh;
+  }
+
+  /// True when a response captured at [gen] under [schoolAtStart] is no longer
+  /// the active one — the cubit closed, a newer query superseded it, or the
+  /// active school changed while it was in flight. Callers must return without
+  /// emitting when this is true.
+  Future<bool> _isStaleResponse(int gen, String schoolAtStart) async {
+    if (isClosed || gen != _generation) return true;
+    final current = await _storageService.getString(StorageKeys.schoolCode) ?? '';
+    return current != schoolAtStart;
   }
 
   Future<String> _resolveOrganizationCode() async {
@@ -119,6 +158,10 @@ class StaffCubit extends Cubit<StaffState> {
     // we drop it before emitting instead.
     final requestedStatus = _effectiveStatusFilter();
     final requestedSearch = state.searchQuery;
+    // This refresh owns a fresh generation; capture the school it runs under so
+    // a later school switch (or newer query) discards this response.
+    final gen = ++_generation;
+    final schoolAtStart = schoolCode;
 
     try {
       final organizationCode = await _resolveOrganizationCode();
@@ -176,14 +219,15 @@ class StaffCubit extends Cubit<StaffState> {
           attendanceStatuses: state.attendanceStatuses,
         );
 
-        items.addAll(secondPage.items);
+        items = _appendDedupedByCode(items, secondPage.items);
         currentPage = secondPage.page;
         hasMore = secondPage.hasMore;
       }
 
-      if (isClosed) return;
-      // Drop a stale result: the filter changed while this load was in flight,
-      // so a newer refresh owns the list now.
+      // Drop a stale result: a newer query/refresh or a school switch happened
+      // while this load was in flight. The legacy status/search checks are
+      // subsumed by the generation guard, which also covers the active school.
+      if (await _isStaleResponse(gen, schoolAtStart)) return;
       if (_effectiveStatusFilter() != requestedStatus) return;
       if (state.searchQuery != requestedSearch) return;
       emit(
@@ -200,7 +244,7 @@ class StaffCubit extends Cubit<StaffState> {
         ),
       );
     } catch (e) {
-      if (isClosed) return;
+      if (await _isStaleResponse(gen, schoolAtStart)) return;
       CoreUtils.logApiError(e.toString());
       emit(
         state.copyWith(
@@ -246,6 +290,11 @@ class StaffCubit extends Cubit<StaffState> {
 
     final schoolCode = await _resolveSchoolCode();
     final organizationCode = await _resolveOrganizationCode();
+    // load-more continues the CURRENT query — capture its generation (do not
+    // bump) and school so a refresh/filter/school change mid-flight discards
+    // this page instead of appending it into a now-different list.
+    final gen = _generation;
+    final schoolAtStart = schoolCode;
 
     emit(state.copyWith(isLoadingMore: true, errorMessage: null));
 
@@ -269,7 +318,7 @@ class StaffCubit extends Cubit<StaffState> {
         attendanceStatuses: state.attendanceStatuses,
       );
 
-      if (isClosed) return;
+      if (await _isStaleResponse(gen, schoolAtStart)) return;
 
       // ignore: avoid_print
       AppLogger.d(
@@ -279,14 +328,14 @@ class StaffCubit extends Cubit<StaffState> {
       );
       emit(
         state.copyWith(
-          items: [...state.items, ...page.items],
+          items: _appendDedupedByCode(state.items, page.items),
           currentPage: page.page,
           hasMore: page.hasMore,
           isLoadingMore: false,
         ),
       );
     } catch (e) {
-      if (isClosed) return;
+      if (await _isStaleResponse(gen, schoolAtStart)) return;
       emit(
         state.copyWith(
           isLoadingMore: false,
@@ -421,6 +470,8 @@ class StaffCubit extends Cubit<StaffState> {
   }
 
   void updateSearch(String query) {
+    // A new search is a new logical query: supersede any in-flight response.
+    _generation++;
     emit(state.copyWith(searchQuery: query));
   }
 
@@ -438,6 +489,9 @@ class StaffCubit extends Cubit<StaffState> {
     final normalizedDesignation = (designation ?? '').trim();
     final normalizedSortBy = (sortBy ?? '').trim().toLowerCase();
 
+    // Filter changes reset the logical query: supersede any in-flight response
+    // so an older page/list can't append into or overwrite the new results.
+    _generation++;
     emit(
       state.copyWith(
         statusFilter: normalizedStatus.isEmpty ? '' : normalizedStatus,
