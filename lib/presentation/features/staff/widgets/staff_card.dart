@@ -519,14 +519,18 @@ class _StaffCardState extends State<StaffCard> {
                                     height: 16 / 13,
                                   ),
                                 ),
-                                Text(
-                                  _formatEnumLabel(widget.designation),
-                                  style: const TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xff573353),
-                                    height: 19 / 14,
+                                Flexible(
+                                  child: Text(
+                                    _formatEnumLabel(widget.designation),
+                                    style: const TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Color(0xff573353),
+                                      height: 19 / 14,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.right,
                                   ),
                                 ),
                               ],
@@ -577,7 +581,8 @@ class _StaffCardState extends State<StaffCard> {
                                     height: 16 / 13,
                                   ),
                                 ),
-                                SelectableText(
+                                Flexible(
+                                  child: SelectableText(
                                   _formatUsPhone(widget.phoneNumber),
                                   contextMenuBuilder: (BuildContext context, dynamic editableState) {
                                     final List<ContextMenuButtonItem> items = List<ContextMenuButtonItem>.from(
@@ -603,6 +608,9 @@ class _StaffCardState extends State<StaffCard> {
                                     fontWeight: FontWeight.w500,
                                     color: Color(0xff573353),
                                     height: 19 / 14,
+                                  ),
+                                  textAlign: TextAlign.right,
+                                  maxLines: 1,
                                   ),
                                 ),
                               ],

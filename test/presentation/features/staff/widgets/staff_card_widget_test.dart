@@ -12,10 +12,11 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_card.dart';
 // a school-open-days load via the service locator — but that load returns early
 // once the (empty) school code is read, and the card falls back to its default
 // day labels. These smoke + responsive tests pin that the card lays out without
-// RenderFlex overflow across widths, in the collapsed layout the roster
-// actually renders (the roster builds every card with initiallyExpanded=false;
-// a RoleCubit is still provided because the card reads it to gate the
-// expand-only action row).
+// RenderFlex overflow across widths, in BOTH the collapsed layout the roster
+// renders by default AND the expanded layout (tapped open) — the expanded
+// detail rows (Designation / Phone Number) previously overflowed at narrow
+// widths until their value widgets were wrapped in Flexible. A RoleCubit is
+// provided because the card reads it to gate the expand-only action row.
 
 class _FakeStorage implements StorageService {
   @override
@@ -40,18 +41,21 @@ class _MockRoleCubit extends Cubit<RoleState> implements RoleCubit {
       super.noSuchMethod(invocation);
 }
 
-StaffCard _card() => const StaffCard(
+StaffCard _card({bool expanded = false}) => StaffCard(
   staffCode: 'STF-1',
   name: 'Alice Johnson',
   classroom: 'Sunflower Room',
-  allowedClassrooms: <String>['Sunflower Room', 'Rose Room'],
-  schedule: <String>['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+  allowedClassrooms: const <String>['Sunflower Room', 'Rose Room'],
+  schedule: const <String>['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
   designation: 'ASSOCIATE_TEACHER',
+  // A long value + email exercise the expanded detail rows that used to overflow.
+  email: 'alice.johnson.longlocalpart@childcarewow.example.com',
   phoneNumber: '+1 555 010 2020',
   isActive: true,
   status: 'ACTIVE',
-  availableClassrooms: <String>['Sunflower Room', 'Rose Room', 'Tulip Room'],
-  classroomCodeByName: <String, String>{
+  initiallyExpanded: expanded,
+  availableClassrooms: const <String>['Sunflower Room', 'Rose Room', 'Tulip Room'],
+  classroomCodeByName: const <String, String>{
     'Sunflower Room': 'CLS-1',
     'Rose Room': 'CLS-2',
     'Tulip Room': 'CLS-3',
@@ -88,7 +92,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  group('StaffCard — responsive (no overflow at 320/768/1024)', () {
+  group('StaffCard collapsed — responsive (no overflow at 320/375/768/1024)', () {
     for (final width in <double>[320, 375, 768, 1024]) {
       testWidgets('lays out with no RenderFlex overflow at ${width.toInt()}px', (
         tester,
@@ -97,7 +101,28 @@ void main() {
         expect(
           tester.takeException(),
           isNull,
-          reason: 'StaffCard overflowed at ${width.toInt()}px',
+          reason: 'StaffCard (collapsed) overflowed at ${width.toInt()}px',
+        );
+      });
+    }
+  });
+
+  group('StaffCard expanded — responsive (no overflow at 320/375/768/1024)', () {
+    // The expanded Designation / Email / Phone-Number detail rows put a fixed
+    // label beside a value; before the fix the Designation + Phone values were
+    // unconstrained and overflowed narrow widths. Their values are now Flexible,
+    // so even a long email/designation ellipsizes/wraps instead of overflowing.
+    for (final width in <double>[320, 375, 768, 1024]) {
+      testWidgets('lays out with no RenderFlex overflow at ${width.toInt()}px', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          _host(width: width, child: _card(expanded: true)),
+        );
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'StaffCard (expanded) overflowed at ${width.toInt()}px',
         );
       });
     }
