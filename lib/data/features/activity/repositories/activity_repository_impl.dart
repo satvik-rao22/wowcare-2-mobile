@@ -305,6 +305,9 @@ class ActivityRepositoryImpl implements ActivityRepository {
     required String description,
     bool? napStart,
     bool? napEnd,
+    bool? napReminderEnabled,
+    String? napReminderUserCode,
+    String? napReminderRole,
     bool? requireAdminApproval,
     List<Map<String, dynamic>> parameterValues = const [],
     List<Map<String, dynamic>> attachments = const [],
@@ -320,6 +323,9 @@ class ActivityRepositoryImpl implements ActivityRepository {
       description: description,
       napStart: napStart,
       napEnd: napEnd,
+      napReminderEnabled: napReminderEnabled,
+      napReminderUserCode: napReminderUserCode,
+      napReminderRole: napReminderRole,
       requireAdminApproval: requireAdminApproval,
       // v2 binding mode enum: PER_STUDENT (single), SHARED (multiple).
       bindingMode: studentCodes.length > 1 ? 'SHARED' : 'PER_STUDENT',
@@ -355,7 +361,10 @@ class ActivityRepositoryImpl implements ActivityRepository {
       'organizationCode': organizationCode,
       'activityDate': activityDate,
       'description': description,
-      'bindingMode': 'SHARED',
+      // v2 binding mode enum: PER_STUDENT (single), SHARED (multiple) — must
+      // match the asset owner the photo screen presigned (STUDENT vs CLASSROOM).
+      // Previously hardcoded 'SHARED', which mismatched a single-student asset.
+      'bindingMode': studentCodes.length > 1 ? 'SHARED' : 'PER_STUDENT',
       if (requireAdminApproval != null)
         'requireAdminApproval': requireAdminApproval,
       if (parameterValues.isNotEmpty) 'parameterValues': parameterValues,

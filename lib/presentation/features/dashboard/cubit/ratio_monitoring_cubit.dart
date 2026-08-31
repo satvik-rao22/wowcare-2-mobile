@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
@@ -15,29 +16,32 @@ part 'ratio_monitoring_state.dart';
 
 class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
   RatioMonitoringCubit({
-    required GetRatioMonitoringClassroomsUseCase getRatioMonitoringClassroomsUseCase,
+    required GetRatioMonitoringClassroomsUseCase
+    getRatioMonitoringClassroomsUseCase,
     required GetStudentAttendanceSummaryByClassroomsUseCase
-        getStudentAttendanceSummaryByClassroomsUseCase,
+    getStudentAttendanceSummaryByClassroomsUseCase,
     required GetStaffAttendanceSummaryByClassroomsUseCase
-        getStaffAttendanceSummaryByClassroomsUseCase,
+    getStaffAttendanceSummaryByClassroomsUseCase,
     required CacheManager cacheManager,
     required StorageService storageService,
     required GetStaffShiftsUseCase getStaffShiftsUseCase,
-  })  : _getRatioMonitoringClassroomsUseCase = getRatioMonitoringClassroomsUseCase,
-        _getStudentAttendanceSummaryByClassroomsUseCase =
-            getStudentAttendanceSummaryByClassroomsUseCase,
-        _getStaffAttendanceSummaryByClassroomsUseCase =
-            getStaffAttendanceSummaryByClassroomsUseCase,
-        _cacheManager = cacheManager,
-        _storage = storageService,
-        _getStaffShiftsUseCase = getStaffShiftsUseCase,
-        super(const RatioMonitoringState.initial());
+  }) : _getRatioMonitoringClassroomsUseCase =
+           getRatioMonitoringClassroomsUseCase,
+       _getStudentAttendanceSummaryByClassroomsUseCase =
+           getStudentAttendanceSummaryByClassroomsUseCase,
+       _getStaffAttendanceSummaryByClassroomsUseCase =
+           getStaffAttendanceSummaryByClassroomsUseCase,
+       _cacheManager = cacheManager,
+       _storage = storageService,
+       _getStaffShiftsUseCase = getStaffShiftsUseCase,
+       super(const RatioMonitoringState.initial());
 
-  final GetRatioMonitoringClassroomsUseCase _getRatioMonitoringClassroomsUseCase;
+  final GetRatioMonitoringClassroomsUseCase
+  _getRatioMonitoringClassroomsUseCase;
   final GetStudentAttendanceSummaryByClassroomsUseCase
-      _getStudentAttendanceSummaryByClassroomsUseCase;
+  _getStudentAttendanceSummaryByClassroomsUseCase;
   final GetStaffAttendanceSummaryByClassroomsUseCase
-      _getStaffAttendanceSummaryByClassroomsUseCase;
+  _getStaffAttendanceSummaryByClassroomsUseCase;
   final CacheManager _cacheManager;
   final StorageService _storage;
   final GetStaffShiftsUseCase _getStaffShiftsUseCase;
@@ -61,7 +65,7 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
   bool _isShiftCacheValid() {
     final cached = _shiftCacheWeekStart;
     if (cached == null) return false;
-    final currentWeekStart = _mondayOf(DateTime.now());
+    final currentWeekStart = _mondayOf(AppTime.now());
     // Invalidate if the Monday has changed or TTL has expired.
     if (cached.year != currentWeekStart.year ||
         cached.month != currentWeekStart.month ||
@@ -70,7 +74,7 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
     }
     // TTL guard: re-fetch after 30 min to pick up shift changes.
     if (_lastFetchAt != null &&
-        DateTime.now().difference(_lastFetchAt!) > _shiftCacheTtl) {
+        AppTime.nowUtc().difference(_lastFetchAt!) > _shiftCacheTtl) {
       return false;
     }
     return true;
@@ -120,12 +124,14 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
 
     // Show shimmer only when: not silent AND (no data yet OR force-refresh).
     if (!isSilent && (!state.isLoaded || forceRefresh)) {
-      emit(state.copyWith(
-        status: RatioMonitoringStatus.loading,
-        classrooms: forceRefresh ? const [] : state.classrooms,
-        schoolCode: forceRefresh ? '' : state.schoolCode,
-        errorMessage: null,
-      ));
+      emit(
+        state.copyWith(
+          status: RatioMonitoringStatus.loading,
+          classrooms: forceRefresh ? const [] : state.classrooms,
+          schoolCode: forceRefresh ? '' : state.schoolCode,
+          errorMessage: null,
+        ),
+      );
     }
 
     // Invalidate classroom cache on explicit force-refresh.
@@ -154,18 +160,17 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
       // Apply scope filter for staff users.
       final classrooms = scope.isScoped
           ? allClassrooms
-              .where((c) => scope.contains(c.code))
-              .toList(growable: false)
+                .where((c) => scope.contains(c.code))
+                .toList(growable: false)
           : allClassrooms;
 
       if (classrooms.isEmpty) {
         if (!isClosed) {
-          emit(RatioMonitoringState.loaded(
-            schoolCode: code,
-            classrooms: const [],
-          ));
+          emit(
+            RatioMonitoringState.loaded(schoolCode: code, classrooms: const []),
+          );
         }
-        _lastFetchAt = DateTime.now();
+        _lastFetchAt = AppTime.nowUtc();
         return;
       }
 
@@ -174,21 +179,23 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
       // Skip this intermediate emit on silent refresh to avoid visible flicker.
       final hasExistingData = state.isLoaded && state.classrooms.isNotEmpty;
       if (!hasExistingData && !isClosed) {
-        emit(RatioMonitoringState.loaded(
-          schoolCode: code,
-          classrooms: classrooms
-              .map(
-                (c) => RatioMonitoringClassroom(
-                  code: c.code,
-                  name: c.name,
-                  capacity: c.capacity,
-                  allowedRatio: c.allowedRatio,
-                  studentPresent: 0,
-                  staffPresent: 0,
-                ),
-              )
-              .toList(),
-        ));
+        emit(
+          RatioMonitoringState.loaded(
+            schoolCode: code,
+            classrooms: classrooms
+                .map(
+                  (c) => RatioMonitoringClassroom(
+                    code: c.code,
+                    name: c.name,
+                    capacity: c.capacity,
+                    allowedRatio: c.allowedRatio,
+                    studentPresent: 0,
+                    staffPresent: 0,
+                  ),
+                )
+                .toList(),
+          ),
+        );
       }
 
       // ── Phase 2: Fetch attendance for the (scoped) classroom list ─────────
@@ -223,26 +230,25 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
       }).toList();
 
       if (!isClosed) {
-        emit(RatioMonitoringState.loaded(
-          schoolCode: code,
-          classrooms: merged,
-        ));
+        emit(RatioMonitoringState.loaded(schoolCode: code, classrooms: merged));
       }
 
-      _lastFetchAt = DateTime.now();
+      _lastFetchAt = AppTime.nowUtc();
     } catch (e) {
       if (!isClosed) {
         // On error: if Phase 1 already populated the state with classrooms,
         // keep those rows visible. Only switch to error if we have no data.
         final shouldShowError = !state.isLoaded || state.classrooms.isEmpty;
-        emit(state.copyWith(
-          status: shouldShowError
-              ? RatioMonitoringStatus.error
-              : RatioMonitoringStatus.loaded,
-          errorMessage: shouldShowError
-              ? ApiErrorHandler.extractErrorMessage(e)
-              : null,
-        ));
+        emit(
+          state.copyWith(
+            status: shouldShowError
+                ? RatioMonitoringStatus.error
+                : RatioMonitoringStatus.loaded,
+            errorMessage: shouldShowError
+                ? ApiErrorHandler.extractErrorMessage(e)
+                : null,
+          ),
+        );
       }
     } finally {
       _isFetching = false;
@@ -272,13 +278,12 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
     final allowedCodes = await _resolveAllowedCodesFromStorage();
 
     // ── Shift classrooms (memory-cached per week) ──────────────────────────
-    final shiftCodes = await _resolveShiftClassroomCodes(schoolCode: schoolCode);
+    final shiftCodes = await _resolveShiftClassroomCodes(
+      schoolCode: schoolCode,
+    );
 
     // ── Union ──────────────────────────────────────────────────────────────
-    final union = <String>{
-      ...allowedCodes,
-      ...shiftCodes,
-    };
+    final union = <String>{...allowedCodes, ...shiftCodes};
 
     AppLogger.d(
       '[RatioMonitoringCubit] staff scope — '
@@ -305,10 +310,9 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
     }
 
     // Admins (SCHOOL_ADMIN, ORGANIZATION_ADMIN) see all classrooms.
-    final staffType =
-        (await _storage.getString(StorageKeys.staffType) ?? '')
-            .trim()
-            .toUpperCase();
+    final staffType = (await _storage.getString(StorageKeys.staffType) ?? '')
+        .trim()
+        .toUpperCase();
     if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
       return false;
     }
@@ -329,14 +333,19 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is List) {
-        final codes = decoded.map((e) {
-          if (e is Map) return (e['code'] ?? '').toString().trim();
-          return e.toString().trim();
-        }).where((c) => c.isNotEmpty).toSet();
+        final codes = decoded
+            .map((e) {
+              if (e is Map) return (e['code'] ?? '').toString().trim();
+              return e.toString().trim();
+            })
+            .where((c) => c.isNotEmpty)
+            .toSet();
         return codes;
       }
     } catch (e) {
-      AppLogger.w('[RatioMonitoringCubit] failed to decode allowedClassroomCodes: $e');
+      AppLogger.w(
+        '[RatioMonitoringCubit] failed to decode allowedClassroomCodes: $e',
+      );
     }
     return const {};
   }
@@ -350,18 +359,18 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
       return _cachedShiftClassroomCodes;
     }
 
-    final staffCode =
-        (await _storage.getString(StorageKeys.staffCode) ?? '').trim();
+    final staffCode = (await _storage.getString(StorageKeys.staffCode) ?? '')
+        .trim();
     final organizationCode =
         (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
 
     if (staffCode.isEmpty || organizationCode.isEmpty) {
       _cachedShiftClassroomCodes = const {};
-      _shiftCacheWeekStart = _mondayOf(DateTime.now());
+      _shiftCacheWeekStart = _mondayOf(AppTime.now());
       return const {};
     }
 
-    final weekStart = _mondayOf(DateTime.now());
+    final weekStart = _mondayOf(AppTime.now());
     final weekEnd = weekStart.add(const Duration(days: 6));
 
     try {

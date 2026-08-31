@@ -1,17 +1,23 @@
-import 'dart:async';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/students_and_family_report_params.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
-import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+
+import '../../../../core/util/logger_service.dart';
+import '../../../../core/util/school_context_helper.dart';
+import '../../../../core/util/storage_keys.dart' as storage_keys;
 
 class StudentsAndFamilyReportScreen extends StatefulWidget {
   const StudentsAndFamilyReportScreen({
@@ -87,7 +93,7 @@ class _StudentsAndFamilyReportScreenState
     <String>[],
   );
   final ValueNotifier<String> _status = ValueNotifier<String>('Active');
-  final ValueNotifier<String> _format = ValueNotifier<String>('PDF');
+  final ValueNotifier<String> _format = ValueNotifier<String>('XLSX');
 
   @override
   void dispose() {
@@ -118,7 +124,12 @@ class _StudentsAndFamilyReportScreenState
     _selectedParentFields.value = next;
   }
 
-  void _onGenerate() {
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  void _onGenerate() async {
     if (_selectedStudentFields.value.isEmpty &&
         _selectedParentFields.value.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -130,18 +141,79 @@ class _StudentsAndFamilyReportScreenState
     }
 
     final cubit = context.read<ReportsCubit>();
+    final classroomNameToCode = cubit.state.classroomNameToCode;
+    final classroomCodes = _selectedClassrooms.value.isEmpty
+        ? <String>[]
+        : resolveReportCodes(
+            context: context,
+            names: _selectedClassrooms.value,
+            nameToCode: classroomNameToCode,
+            labelPlural: 'classrooms',
+          );
+    if (classroomCodes == null) return;
+
+    final selectedTagNames = _selectedTags.value;
+    List<String>? tagCodes;
+    if (selectedTagNames.isNotEmpty) {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          await storage.getString(storage_keys.StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) {
+        if (!mounted) return;
+
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Unable to resolve school code for tag lookup',
+          isError: true,
+        );
+        return;
+      }
+
+      final tagNameToCode =
+          await serviceLocator<GetTagNameCodeMapForSchoolUseCase>()(
+            schoolCode: schoolCode,
+          );
+      final unresolved = selectedTagNames.where(
+        (name) => tagNameToCode[name] == null || tagNameToCode[name]!.isEmpty,
+      );
+      if (unresolved.isNotEmpty) {
+        if (!mounted) return;
+
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'Could not resolve tags: ${unresolved.join(', ')}. Please refresh and reselect them.',
+          isError: true,
+        );
+        return;
+      }
+      tagCodes = selectedTagNames.map((name) => tagNameToCode[name]!).toList();
+    }
+
+    // Retrieve the school name from storage
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
+
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
+        isError: true,
+      );
+      return;
+    }
     final params = StudentsAndFamilyReportParams(
       reportType: ReportType.studentsAndFamily,
-      startDate: DateTime.now(),
-      endDate: DateTime.now(),
+      startDate: AppTime.now(),
+      endDate: AppTime.now(),
       studentFieldsSelected: _selectedStudentFields.value,
       parentFieldsSelected: _selectedParentFields.value,
       statusFilter: _status.value,
-      classroomCodes: _selectedClassrooms.value.isEmpty
-          ? null
-          : _selectedClassrooms.value,
-      tagCodes: _selectedTags.value.isEmpty ? null : _selectedTags.value,
+      classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+      tagCodes: tagCodes,
       format: _format.value,
+      schoolName: schoolName,
     );
     cubit.generateReport(params);
   }
@@ -190,8 +262,12 @@ class _StudentsAndFamilyReportScreenState
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
 
-                  context.go('/dashboard/reports?tab=0');
+                  // Pop (not context.go) — this screen was pushed via plain
+                  // Navigator.push, so only popping actually dismisses it;
+                  // the hub's own .then((success) => tab 0) callback reacts
+                  // to the pop(true) result.
                   context.read<ReportsCubit>().clearGeneratedReport();
+                  Navigator.of(context).pop(true);
                 });
               }
             }
@@ -263,8 +339,9 @@ class _StudentsAndFamilyReportScreenState
                     hintText: 'Select Classroom',
                     items: widget.classrooms,
                     selectedItems: selected,
+                    isRequired: true,
                     onChanged: (s) => _selectedClassrooms.value = s,
-                  showSelectAll: true,
+                    showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(
@@ -277,9 +354,10 @@ class _StudentsAndFamilyReportScreenState
                     label: 'Tag',
                     hintText: 'Select Tag',
                     items: widget.tags,
+                    isRequired: true,
                     selectedItems: selected,
                     onChanged: (s) => _selectedTags.value = s,
-                  showSelectAll: true,
+                    showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(
@@ -296,7 +374,6 @@ class _StudentsAndFamilyReportScreenState
                     labelStyle: _labelStyle(responsive),
                     showAsterisk: true,
                     labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                    prependHintAsSelectableItem: false,
                     onSelect: (val) => _status.value = val ?? _status.value,
                   ),
                 ),

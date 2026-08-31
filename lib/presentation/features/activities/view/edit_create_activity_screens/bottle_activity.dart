@@ -77,10 +77,10 @@ class _BottleActivityView extends StatefulWidget {
 class _BottleActivityViewState extends State<_BottleActivityView> {
   late final TextEditingController _descriptionController =
       TextEditingController(
-    text: (widget.isEdit || widget.readOnly)
-        ? (widget.activityData?.description ?? '')
-        : '',
-  );
+        text: (widget.isEdit || widget.readOnly)
+            ? (widget.activityData?.description ?? '')
+            : '',
+      );
   late final TextEditingController _amountController = TextEditingController(
     text: (widget.isEdit || widget.readOnly)
         ? _ounceFieldTextFromAmountRaw(widget.activityData?.amountConsumed)
@@ -124,6 +124,28 @@ class _BottleActivityViewState extends State<_BottleActivityView> {
 
   Future<void> _onSaveOrAddPressed() async {
     if (_cubit.state.isSubmitting || widget.readOnly) return;
+
+    // Admin picked a staff member other than themselves on create: verify
+    // that staff is signed in right now, same use case + true/false check the
+    // staff persona's own + button is gated on. Admins are never gated on
+    // their OWN sign-in — only on who they're attributing the activity to.
+    if (!await _cubit.verifyPickedStaffSignedIn(
+      isEdit: widget.isEdit,
+      isAdminDesignation: _cubit.state.isAdminDesignation,
+      pickedStaffCode: _cubit.staffPresentCode,
+      ownStaffCode: _cubit.state.staffCode,
+    )) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Staff is not signed in. You can only add an activity for '
+            'staff who are signed in.',
+        isWarning: true,
+      );
+      return;
+    }
+
     final outcome = widget.isEdit
         ? await _cubit.submitUpdate(
             description: _descriptionController.text,
@@ -203,8 +225,9 @@ class _BottleActivityViewState extends State<_BottleActivityView> {
         if (_descriptionController.text != desc) {
           _descriptionController.text = desc;
         }
-        final amount =
-            _ounceFieldTextFromAmountRaw(state.liveActivity?.amountConsumed);
+        final amount = _ounceFieldTextFromAmountRaw(
+          state.liveActivity?.amountConsumed,
+        );
         if (_amountController.text != amount) {
           _amountController.text = amount;
         }
@@ -219,179 +242,188 @@ class _BottleActivityViewState extends State<_BottleActivityView> {
             title: 'Bottle',
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 10),
-                  if (_layoutAsEdit &&
-                      !(widget.isEdit &&
-                          !widget.readOnly &&
-                          selectedStudents.length > 1))
-                    GridView.builder(
-                      physics: const NeverScrollableScrollPhysics(),
-                      shrinkWrap: true,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: responsive.isTablet ? 3 : 2,
-                        crossAxisSpacing: responsive.isTablet ? 16 : 12,
-                        mainAxisSpacing: responsive.isTablet ? 16 : 12,
-                        mainAxisExtent: 64,
+              child: AbsorbPointer(
+                absorbing:
+                    state.isSubmitting ||
+                    state.isApprovingOrRejecting ||
+                    state.loadingActivityDetail,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 10),
+                    if (_layoutAsEdit &&
+                        !(widget.isEdit &&
+                            !widget.readOnly &&
+                            selectedStudents.length > 1))
+                      GridView.builder(
+                        physics: const NeverScrollableScrollPhysics(),
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: responsive.isTablet ? 3 : 2,
+                          crossAxisSpacing: responsive.isTablet ? 16 : 12,
+                          mainAxisSpacing: responsive.isTablet ? 16 : 12,
+                          mainAxisExtent: 64,
+                        ),
+                        itemCount: selectedStudents.length,
+                        itemBuilder: (context, index) {
+                          return ActivityStudentDisplayTile(
+                            name: selectedStudents[index],
+                            studentCode:
+                                index < state.selectedStudentsData.length
+                                ? state.selectedStudentsData[index]['studentCode']
+                                      as String?
+                                : null,
+                          );
+                        },
+                      )
+                    else if (!_layoutAsEdit)
+                      GridView.builder(
+                        physics: const NeverScrollableScrollPhysics(),
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.all(10),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: responsive.isTablet ? 3 : 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          mainAxisExtent: 64,
+                        ),
+                        itemCount: selectedStudents.length,
+                        itemBuilder: (context, index) {
+                          final String name = selectedStudents[index];
+                          return ActivityStudentDisplayTile(
+                            name: name,
+                            studentCode:
+                                index < state.selectedStudentsData.length
+                                ? state.selectedStudentsData[index]['studentCode']
+                                      as String?
+                                : null,
+                            onRemove: () => _removeStudent(name),
+                          );
+                        },
                       ),
-                      itemCount: selectedStudents.length,
-                      itemBuilder: (context, index) {
-                        return ActivityStudentDisplayTile(
-                          name: selectedStudents[index],
-                          studentCode: index < state.selectedStudentsData.length
-                              ? state.selectedStudentsData[index]['studentCode']
-                                  as String?
-                              : null,
-                        );
-                      },
-                    )
-                  else if (!_layoutAsEdit)
-                    GridView.builder(
-                      physics: const NeverScrollableScrollPhysics(),
-                      shrinkWrap: true,
-                      padding: const EdgeInsets.all(10),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: responsive.isTablet ? 3 : 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        mainAxisExtent: 64,
-                      ),
-                      itemCount: selectedStudents.length,
-                      itemBuilder: (context, index) {
-                        final String name = selectedStudents[index];
-                        return ActivityStudentDisplayTile(
-                          name: name,
-                          studentCode: index < state.selectedStudentsData.length
-                              ? state.selectedStudentsData[index]['studentCode']
-                                  as String?
-                              : null,
-                          onRemove: () => _removeStudent(name),
-                        );
-                      },
-                    ),
-                  if (widget.isEdit &&
-                      !widget.readOnly &&
-                      selectedStudents.length > 1) ...[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: ActivityEditStudentScopeCheckboxes(
-                        studentNames: selectedStudents,
-                        checkedIndices: state.scopedEditStudentIndices,
-                        onChanged: cubit.setScopedEditStudentIndices,
-                      ),
-                    ),
-                  ],
-                  SizedBox(height: responsive.verticalSpacing),
-                  Row(
-                    children: [
-                      Flexible(
-                        child: _layoutAsEdit
-                            ? DateWidget(
-                                isEditable: false,
-                                isRequired: true,
-                                initialDate: effectiveActivity.date,
-                                onDateChanged: cubit.setActivityDate,
-                              )
-                            : DateWidget(
-                                isEditable: false,
-                                isRequired: true,
-                                initialDate: formatSelectedDateForDateWidget(
-                                  cubit.activityDate,
-                                ),
-                                onDateChanged: cubit.setActivityDate,
-                              ),
-                      ),
-                      const SizedBox(width: 10),
-                      Flexible(
-                        child: _layoutAsEdit
-                            ? TimeWidget(
-                                isEditable: _canInteract,
-                                isRequired: true,
-                                prefilledTime: effectiveActivity.time,
-                                onTimeChanged: cubit.setActivityTime,
-                              )
-                            : TimeWidget(
-                                isRequired: true,
-                                isEditable: true,
-                                onTimeChanged: cubit.setActivityTime,
-                              ),
+                    if (widget.isEdit &&
+                        !widget.readOnly &&
+                        selectedStudents.length > 1) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: ActivityEditStudentScopeCheckboxes(
+                          studentNames: selectedStudents,
+                          checkedIndices: state.scopedEditStudentIndices,
+                          onChanged: cubit.setScopedEditStudentIndices,
+                        ),
                       ),
                     ],
-                  ),
-                  SizedBox(height: responsive.verticalSpacing),
-                  if (_layoutAsEdit)
-                    OunceInputWidget(
-                      key: _ounceFiledKey,
-                      label: 'Amount(OZ)',
-                      isRequired: true,
-                      min: 0.5,
-                      max: 20.0,
-                      controller: _amountController,
-                      readOnly: !_canInteract,
-                    )
-                  else
-                    OunceInputWidget(
-                      key: _ounceFiledKey,
-                      label: 'Amount(OZ)',
-                      isRequired: true,
-                      min: 0.5,
-                      max: 20.0,
+                    SizedBox(height: responsive.verticalSpacing),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: _layoutAsEdit
+                              ? DateWidget(
+                                  isEditable: false,
+                                  isRequired: true,
+                                  initialDate: effectiveActivity.date,
+                                  onDateChanged: cubit.setActivityDate,
+                                )
+                              : DateWidget(
+                                  isEditable: false,
+                                  isRequired: true,
+                                  initialDate: formatSelectedDateForDateWidget(
+                                    cubit.activityDate,
+                                  ),
+                                  onDateChanged: cubit.setActivityDate,
+                                ),
+                        ),
+                        const SizedBox(width: 10),
+                        Flexible(
+                          child: _layoutAsEdit
+                              ? TimeWidget(
+                                  isEditable: _canInteract,
+                                  isRequired: true,
+                                  prefilledTime: effectiveActivity.time,
+                                  onTimeChanged: cubit.setActivityTime,
+                                )
+                              : TimeWidget(
+                                  isRequired: true,
+                                  isEditable: true,
+                                  onTimeChanged: cubit.setActivityTime,
+                                ),
+                        ),
+                      ],
                     ),
-                  SizedBox(height: responsive.verticalSpacing),
-                  Builder(
-                    builder: (context) {
-                      final isAdminPersona = state.isAdminDesignation;
-                      final lockToLoggedInStaff =
-                          _canInteract && !isAdminPersona;
-                      return StaffPresentWidget(
-                        staffName: staffPresentLabelForActivity(
-                          layoutAsEdit: _layoutAsEdit,
-                          activityCreatedBy: '',
-                          loggedInDisplayName: state.staffName,
-                          staffLabelFromParameters: _layoutAsEdit
-                              ? (((cubit.staffPresentCode ?? '')
+                    SizedBox(height: responsive.verticalSpacing),
+                    if (_layoutAsEdit)
+                      OunceInputWidget(
+                        key: _ounceFiledKey,
+                        label: 'Amount(OZ)',
+                        isRequired: true,
+                        min: 0.5,
+                        max: 20.0,
+                        controller: _amountController,
+                        readOnly: !_canInteract,
+                      )
+                    else
+                      OunceInputWidget(
+                        key: _ounceFiledKey,
+                        label: 'Amount(OZ)',
+                        isRequired: true,
+                        min: 0.5,
+                        max: 20.0,
+                      ),
+                    SizedBox(height: responsive.verticalSpacing),
+                    Builder(
+                      builder: (context) {
+                        final isAdminPersona = state.isAdminDesignation;
+                        final lockToLoggedInStaff =
+                            _canInteract && !isAdminPersona;
+                        return StaffPresentWidget(
+                          staffName: staffPresentLabelForActivity(
+                            layoutAsEdit: _layoutAsEdit,
+                            activityCreatedBy: '',
+                            loggedInDisplayName: state.staffName,
+                            staffLabelFromParameters: _layoutAsEdit
+                                ? (((cubit.staffPresentCode ?? '')
                                           .trim()
                                           .isNotEmpty)
                                       ? cubit.staffPresentCode
                                       : (((state.staffPresentLabelForEdit ?? '')
-                                                  .trim()
-                                                  .isNotEmpty)
-                                              ? state.staffPresentLabelForEdit
-                                              : effectiveActivity.staffPresent))
-                              : null,
-                        ),
-                        isEditable:
-                            lockToLoggedInStaff ? false : _canInteract,
-                        onStaffChanged: (_, selectedCode) {
-                          cubit.setStaffPresentCode(selectedCode);
-                        },
-                      );
-                    },
-                  ),
-                  SizedBox(height: responsive.verticalSpacing),
-                  InputWidget(
-                    controller: _descriptionController,
-                    height: 100,
-                    hint: 'Enter Description (optional)',
-                    isRequired: false,
-                    readOnly: !_canInteract,
-                    maxLength: ActivityDescriptionLimits.maxLength,
-                  ),
-                  if (state.showRequireAdminApprovalToggle)
-                    const SizedBox(height: 4),
-                  if (state.showRequireAdminApprovalToggle)
-                    CustomToggle(
-                      label: 'Requires Admin Approval',
-                      isToggled: state.requireAdminApproval,
-                      labelOnLeftSide: true,
-                      enabled: !_layoutAsEdit,
-                      onToggle: cubit.setRequireAdminApproval,
+                                                .trim()
+                                                .isNotEmpty)
+                                            ? state.staffPresentLabelForEdit
+                                            : effectiveActivity.staffPresent))
+                                : null,
+                          ),
+                          isEditable: lockToLoggedInStaff
+                              ? false
+                              : _canInteract,
+                          onStaffChanged: (_, selectedCode) {
+                            cubit.setStaffPresentCode(selectedCode);
+                          },
+                        );
+                      },
                     ),
-                  SizedBox(height: responsive.verticalSpacing),
-                ],
+                    SizedBox(height: responsive.verticalSpacing),
+                    InputWidget(
+                      controller: _descriptionController,
+                      height: 100,
+                      hint: 'Enter Description (optional)',
+                      isRequired: false,
+                      readOnly: !_canInteract,
+                      maxLength: ActivityDescriptionLimits.maxLength,
+                    ),
+                    if (state.showRequireAdminApprovalToggle)
+                      const SizedBox(height: 4),
+                    if (state.showRequireAdminApprovalToggle)
+                      CustomToggle(
+                        label: 'Requires Admin Approval',
+                        isToggled: state.requireAdminApproval,
+                        labelOnLeftSide: true,
+                        enabled: !_layoutAsEdit,
+                        onToggle: cubit.setRequireAdminApproval,
+                      ),
+                    SizedBox(height: responsive.verticalSpacing),
+                  ],
+                ),
               ),
             ),
             bottomBar: widget.readOnly
@@ -404,7 +436,8 @@ class _BottleActivityViewState extends State<_BottleActivityView> {
                         children: [
                           ActivityAdminApproveRejectBar(
                             visible: cubit.showAdminApproveRejectActions,
-                            isLoading: state.isApprovingOrRejecting ||
+                            isLoading:
+                                state.isApprovingOrRejecting ||
                                 state.isSubmitting ||
                                 state.loadingActivityDetail,
                             onApprove: _approve,
@@ -412,12 +445,14 @@ class _BottleActivityViewState extends State<_BottleActivityView> {
                           ),
                           if (!cubit.showAdminApproveRejectActions)
                             CustomButtonLayout(
-                              confirmButtonLabel:
-                                  widget.isEdit ? 'Save' : 'Add',
+                              confirmButtonLabel: widget.isEdit
+                                  ? 'Save'
+                                  : 'Add',
                               onPressedConfirm: _onSaveOrAddPressed,
                               showCancelButton: false,
                               isForm: false,
-                              isLoading: state.isSubmitting ||
+                              isLoading:
+                                  state.isSubmitting ||
                                   state.isApprovingOrRejecting ||
                                   state.loadingActivityDetail,
                             ),

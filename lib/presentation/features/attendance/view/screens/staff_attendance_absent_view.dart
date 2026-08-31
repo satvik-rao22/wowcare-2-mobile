@@ -9,6 +9,7 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_absent_card.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_shimmer.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -120,6 +121,27 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadAbsentStaff(reset: true);
     });
+    // Resolve the school timezone, then re-seed the default range if it differs.
+    _initSchoolTimezone();
+  }
+
+  Future<void> _initSchoolTimezone() async {
+    final beforeStart = _rangeStart;
+    final beforeEnd = _rangeEnd;
+    await bootstrapAttendanceSchoolTimezone();
+    if (!mounted) return;
+    final now = attendanceSchoolToday();
+    final schoolStart = DateTime(now.year, now.month, 1);
+    final schoolEnd = DateTime(now.year, now.month + 1, 0);
+    if (beforeStart == _rangeStart &&
+        beforeEnd == _rangeEnd &&
+        (_rangeStart != schoolStart || _rangeEnd != schoolEnd)) {
+      setState(() {
+        _rangeStart = schoolStart;
+        _rangeEnd = schoolEnd;
+      });
+      _loadAbsentStaff(reset: true);
+    }
   }
 
   @override
@@ -249,7 +271,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
   }
 
   void _initializeDefaultRange() {
-    final now = DateTime.now();
+    final now = attendanceSchoolToday();
     _rangeStart = DateTime(now.year, now.month, 1);
     _rangeEnd = DateTime(now.year, now.month + 1, 0);
   }
@@ -346,8 +368,8 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
             ..addAll(
               state.items.map((it) {
                 final date = it.absenceDate.isNotEmpty
-                    ? DateTime.tryParse(it.absenceDate) ?? DateTime.now()
-                    : DateTime.now();
+                    ? DateTime.tryParse(it.absenceDate) ?? attendanceSchoolToday()
+                    : attendanceSchoolToday();
 
                 final absentTime = it.markedAbsentTime?.formatted12h ?? '';
 
@@ -486,7 +508,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
                                   _searchController.clear();
                                   _selectedClassroomNames = <String>[];
                                   _selectedClassroomCodes = null;
-                                  final now = DateTime.now();
+                                  final now = attendanceSchoolToday();
                                   _rangeStart = DateTime(now.year, now.month, 1);
                                   _rangeEnd = DateTime(now.year, now.month + 1, 0);
                                 });
@@ -591,6 +613,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
       staff: cardData,
       index: index,
       isExpanded: isExpanded,
+      disableAttendanceStatusLookup: true,
       onTap: () {
         setState(() {
           if (_expandedStaffIndex == index) {

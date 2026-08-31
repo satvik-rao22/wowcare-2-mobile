@@ -1,20 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_content_processor.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/conversation_display.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
 
 class MessagingListTile extends StatelessWidget {
   final Conversation conversation;
   final VoidCallback onTap;
 
+  /// The logged-in user's code — used to resolve the OTHER participant's name
+  /// for 1:1 (STAFF_DIRECT) chats instead of the frozen stored title. See
+  /// [ConversationDisplay].
+  final String? currentUserCode;
+
   const MessagingListTile({
     super.key,
     required this.conversation,
     required this.onTap,
+    this.currentUserCode,
   });
 
   /// The backend's conversation-list summary only carries a plain-text
@@ -24,74 +30,35 @@ class MessagingListTile extends StatelessWidget {
   /// list-level summary). `lastMessageAt` is what actually distinguishes
   /// "no messages yet" from "the last message just had no text", so use
   /// that instead of treating both cases as the empty-preview case.
+  ///
+  /// Prefixed with the sender's name (`SenderName: message`) to match the
+  /// web app's chat list — this was previously dropped entirely on mobile.
+  /// The backend doesn't actually send a dedicated sender-name field, so
+  /// `Conversation.lastMessageSenderDisplayName` derives it from
+  /// `lastMessageBy` + `participants` instead. Only the "no messages yet"
+  /// placeholder stays sender-less.
   String _lastMessagePreviewText(Conversation conversation) {
-    if (conversation.lastMessagePreview.isNotEmpty) {
-      return MessageContentProcessor.previewText(
-        conversation.lastMessagePreview,
-      );
-    }
-    if (conversation.lastMessageAt != null) {
-      return '📎 Attachment';
-    }
-    return 'Start a new conversation';
+    final body = conversation.lastMessagePreview.isNotEmpty
+        ? MessageContentProcessor.previewText(conversation.lastMessagePreview)
+        : (conversation.lastMessageAt != null ? '📎 Attachment' : null);
+    if (body == null) return 'Start a new conversation';
+    final senderName = conversation.lastMessageSenderDisplayName?.trim();
+    if (senderName == null || senderName.isEmpty) return body;
+    return '$senderName: $body';
   }
 
-  String _formatMessageTime(DateTime? dateTime) {
-    if (dateTime == null) return '—';
-
-    final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-    final schoolDateTime = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-      dateTime,
-      schoolTz,
-    );
-    final schoolNow = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-      DateTime.now().toUtc(),
-      schoolTz,
-    );
-
-    final today = DateTime(schoolNow.year, schoolNow.month, schoolNow.day);
-    final messageDate = DateTime(
-      schoolDateTime.year,
-      schoolDateTime.month,
-      schoolDateTime.day,
-    );
-    final difference = today.difference(messageDate).inDays;
-    final timeStr =
-        "${schoolDateTime.hour.toString().padLeft(2, '0')}:${schoolDateTime.minute.toString().padLeft(2, '0')}";
-
-    if (difference == 0) return "Today | $timeStr";
-    if (difference == 1) return "Yesterday | $timeStr";
-    if (difference < 7) {
-      final days = [
-        'Monday',
-        'Tuesday',
-        'Wednesday',
-        'Thursday',
-        'Friday',
-        'Saturday',
-        'Sunday',
-      ];
-      return "${days[schoolDateTime.weekday - 1]} | $timeStr";
-    }
-    final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return "${schoolDateTime.day} ${months[schoolDateTime.month - 1]} ${schoolDateTime.year} | $timeStr";
-  }
+  String _formatMessageTime(DateTime? dateTime) =>
+      MessagingTimeFormatter.conversationTime(dateTime);
 
   @override
   Widget build(BuildContext context) {
+    // For 1:1 chats show the OTHER participant relative to the viewer, not the
+    // frozen stored title (which is the creator's counterpart name).
+    final displayName = ConversationDisplay.name(conversation, currentUserCode);
+    final displayAvatar = ConversationDisplay.avatar(
+      conversation,
+      currentUserCode,
+    );
     return InkWell(
       onTap: onTap,
       splashColor: const Color(0x1A6C5CE7), // Subtle theme splash
@@ -128,8 +95,15 @@ class MessagingListTile extends StatelessWidget {
               ],
             ),
             child: DocumentImageWidget(
-              fileUuid: conversation.avatarUrl,
-              name: conversation.title,
+              disableAttendanceStatusLookup: true,
+              fileUuid: '',
+              // `avatarUrl` is either a resolved URL or a raw media-asset
+              // code depending on which screen started the conversation.
+              imageUrl: displayAvatar.startsWith('http') ? displayAvatar : null,
+              mediaAssetCode: displayAvatar.startsWith('http')
+                  ? null
+                  : displayAvatar,
+              name: displayName,
               size: 52,
             ),
           ),
@@ -140,9 +114,7 @@ class MessagingListTile extends StatelessWidget {
               children: [
                 Expanded(
                   child: CustomTextWidget(
-                    text: conversation.title.isNotEmpty
-                        ? conversation.title
-                        : 'Unnamed Conversation',
+                    text: displayName,
                     fontWeight: FontWeight.w700,
                     fontSize: 17,
                     fontColor: AppColors.primaryColor,
@@ -161,7 +133,15 @@ class MessagingListTile extends StatelessWidget {
           ),
           subtitle: Row(
             children: [
-              Expanded(
+              // Lock icon when the conversation is in private mode — the preview
+              // still shows the real last message (for those allowed to see it).
+              if (conversation.privateModeActive)
+                const Padding(
+                  padding: EdgeInsets.only(right: 4),
+                  child: Icon(Icons.lock, size: 13, color: Color(0xFF636E72)),
+                ),
+              Flexible(
+                fit: FlexFit.tight,
                 child: Text(
                   _lastMessagePreviewText(conversation),
                   maxLines: 1,
@@ -174,31 +154,35 @@ class MessagingListTile extends StatelessWidget {
                 ),
               ),
               if (conversation.unreadCount > 0)
-                Container(
-                  margin: const EdgeInsets.only(left: 12),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF00B894),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF00B894).withValues(alpha: 0.35),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00B894),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(
+                            0xFF00B894,
+                          ).withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      conversation.unreadCount > 99
+                          ? '99+'
+                          : '${conversation.unreadCount}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
                       ),
-                    ],
-                  ),
-                  child: Text(
-                    conversation.unreadCount > 99
-                        ? '99+'
-                        : '${conversation.unreadCount}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ),

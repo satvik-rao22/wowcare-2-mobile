@@ -99,85 +99,90 @@ const MessageEntityCollectionSchema = CollectionSchema(
       name: r'pendingDelete',
       type: IsarType.bool,
     ),
-    r'reactions': PropertySchema(
+    r'privateParentUserCode': PropertySchema(
       id: 16,
+      name: r'privateParentUserCode',
+      type: IsarType.string,
+    ),
+    r'reactions': PropertySchema(
+      id: 17,
       name: r'reactions',
       type: IsarType.objectList,
       target: r'MessageReactionEntityCollection',
     ),
     r'readReceipts': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'readReceipts',
       type: IsarType.objectList,
       target: r'ReadReceiptEntityCollection',
     ),
     r'schoolCode': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'schoolCode',
       type: IsarType.string,
     ),
     r'senderAvatarUrl': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'senderAvatarUrl',
       type: IsarType.string,
     ),
     r'senderCode': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'senderCode',
       type: IsarType.string,
     ),
     r'senderName': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'senderName',
       type: IsarType.string,
     ),
     r'senderRole': PropertySchema(
-      id: 22,
+      id: 23,
       name: r'senderRole',
       type: IsarType.string,
     ),
     r'sentAt': PropertySchema(
-      id: 23,
+      id: 24,
       name: r'sentAt',
       type: IsarType.dateTime,
     ),
     r'status': PropertySchema(
-      id: 24,
+      id: 25,
       name: r'status',
       type: IsarType.string,
     ),
     r'syncAttempts': PropertySchema(
-      id: 25,
+      id: 26,
       name: r'syncAttempts',
       type: IsarType.long,
     ),
     r'text': PropertySchema(
-      id: 26,
+      id: 27,
       name: r'text',
       type: IsarType.string,
     ),
     r'textPlain': PropertySchema(
-      id: 27,
+      id: 28,
       name: r'textPlain',
       type: IsarType.string,
     ),
     r'threadParentCode': PropertySchema(
-      id: 28,
+      id: 29,
       name: r'threadParentCode',
       type: IsarType.string,
     ),
     r'threadParentSenderCode': PropertySchema(
-      id: 29,
+      id: 30,
       name: r'threadParentSenderCode',
       type: IsarType.string,
     ),
     r'threadParentSenderName': PropertySchema(
-      id: 30,
+      id: 31,
       name: r'threadParentSenderName',
       type: IsarType.string,
     ),
     r'threadParentText': PropertySchema(
-      id: 31,
+      id: 32,
       name: r'threadParentText',
       type: IsarType.string,
     )
@@ -316,6 +321,12 @@ int _messageEntityCollectionEstimateSize(
   bytesCount += 3 + object.messageType.length * 3;
   bytesCount += 3 + object.organizationCode.length * 3;
   {
+    final value = object.privateParentUserCode;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final list = object.reactions;
     if (list != null) {
       bytesCount += 3 + list.length * 3;
@@ -410,32 +421,33 @@ void _messageEntityCollectionSerialize(
   writer.writeString(offsets[13], object.messageType);
   writer.writeString(offsets[14], object.organizationCode);
   writer.writeBool(offsets[15], object.pendingDelete);
+  writer.writeString(offsets[16], object.privateParentUserCode);
   writer.writeObjectList<MessageReactionEntityCollection>(
-    offsets[16],
+    offsets[17],
     allOffsets,
     MessageReactionEntityCollectionSchema.serialize,
     object.reactions,
   );
   writer.writeObjectList<ReadReceiptEntityCollection>(
-    offsets[17],
+    offsets[18],
     allOffsets,
     ReadReceiptEntityCollectionSchema.serialize,
     object.readReceipts,
   );
-  writer.writeString(offsets[18], object.schoolCode);
-  writer.writeString(offsets[19], object.senderAvatarUrl);
-  writer.writeString(offsets[20], object.senderCode);
-  writer.writeString(offsets[21], object.senderName);
-  writer.writeString(offsets[22], object.senderRole);
-  writer.writeDateTime(offsets[23], object.sentAt);
-  writer.writeString(offsets[24], object.status);
-  writer.writeLong(offsets[25], object.syncAttempts);
-  writer.writeString(offsets[26], object.text);
-  writer.writeString(offsets[27], object.textPlain);
-  writer.writeString(offsets[28], object.threadParentCode);
-  writer.writeString(offsets[29], object.threadParentSenderCode);
-  writer.writeString(offsets[30], object.threadParentSenderName);
-  writer.writeString(offsets[31], object.threadParentText);
+  writer.writeString(offsets[19], object.schoolCode);
+  writer.writeString(offsets[20], object.senderAvatarUrl);
+  writer.writeString(offsets[21], object.senderCode);
+  writer.writeString(offsets[22], object.senderName);
+  writer.writeString(offsets[23], object.senderRole);
+  writer.writeDateTime(offsets[24], object.sentAt);
+  writer.writeString(offsets[25], object.status);
+  writer.writeLong(offsets[26], object.syncAttempts);
+  writer.writeString(offsets[27], object.text);
+  writer.writeString(offsets[28], object.textPlain);
+  writer.writeString(offsets[29], object.threadParentCode);
+  writer.writeString(offsets[30], object.threadParentSenderCode);
+  writer.writeString(offsets[31], object.threadParentSenderName);
+  writer.writeString(offsets[32], object.threadParentText);
 }
 
 MessageEntityCollection _messageEntityCollectionDeserialize(
@@ -466,32 +478,33 @@ MessageEntityCollection _messageEntityCollectionDeserialize(
   object.messageType = reader.readString(offsets[13]);
   object.organizationCode = reader.readString(offsets[14]);
   object.pendingDelete = reader.readBool(offsets[15]);
+  object.privateParentUserCode = reader.readStringOrNull(offsets[16]);
   object.reactions = reader.readObjectList<MessageReactionEntityCollection>(
-    offsets[16],
+    offsets[17],
     MessageReactionEntityCollectionSchema.deserialize,
     allOffsets,
     MessageReactionEntityCollection(),
   );
   object.readReceipts = reader.readObjectList<ReadReceiptEntityCollection>(
-    offsets[17],
+    offsets[18],
     ReadReceiptEntityCollectionSchema.deserialize,
     allOffsets,
     ReadReceiptEntityCollection(),
   );
-  object.schoolCode = reader.readString(offsets[18]);
-  object.senderAvatarUrl = reader.readStringOrNull(offsets[19]);
-  object.senderCode = reader.readString(offsets[20]);
-  object.senderName = reader.readString(offsets[21]);
-  object.senderRole = reader.readString(offsets[22]);
-  object.sentAt = reader.readDateTime(offsets[23]);
-  object.status = reader.readString(offsets[24]);
-  object.syncAttempts = reader.readLong(offsets[25]);
-  object.text = reader.readString(offsets[26]);
-  object.textPlain = reader.readString(offsets[27]);
-  object.threadParentCode = reader.readStringOrNull(offsets[28]);
-  object.threadParentSenderCode = reader.readStringOrNull(offsets[29]);
-  object.threadParentSenderName = reader.readStringOrNull(offsets[30]);
-  object.threadParentText = reader.readStringOrNull(offsets[31]);
+  object.schoolCode = reader.readString(offsets[19]);
+  object.senderAvatarUrl = reader.readStringOrNull(offsets[20]);
+  object.senderCode = reader.readString(offsets[21]);
+  object.senderName = reader.readString(offsets[22]);
+  object.senderRole = reader.readString(offsets[23]);
+  object.sentAt = reader.readDateTime(offsets[24]);
+  object.status = reader.readString(offsets[25]);
+  object.syncAttempts = reader.readLong(offsets[26]);
+  object.text = reader.readString(offsets[27]);
+  object.textPlain = reader.readString(offsets[28]);
+  object.threadParentCode = reader.readStringOrNull(offsets[29]);
+  object.threadParentSenderCode = reader.readStringOrNull(offsets[30]);
+  object.threadParentSenderName = reader.readStringOrNull(offsets[31]);
+  object.threadParentText = reader.readStringOrNull(offsets[32]);
   return object;
 }
 
@@ -540,46 +553,48 @@ P _messageEntityCollectionDeserializeProp<P>(
     case 15:
       return (reader.readBool(offset)) as P;
     case 16:
+      return (reader.readStringOrNull(offset)) as P;
+    case 17:
       return (reader.readObjectList<MessageReactionEntityCollection>(
         offset,
         MessageReactionEntityCollectionSchema.deserialize,
         allOffsets,
         MessageReactionEntityCollection(),
       )) as P;
-    case 17:
+    case 18:
       return (reader.readObjectList<ReadReceiptEntityCollection>(
         offset,
         ReadReceiptEntityCollectionSchema.deserialize,
         allOffsets,
         ReadReceiptEntityCollection(),
       )) as P;
-    case 18:
-      return (reader.readString(offset)) as P;
     case 19:
-      return (reader.readStringOrNull(offset)) as P;
-    case 20:
       return (reader.readString(offset)) as P;
+    case 20:
+      return (reader.readStringOrNull(offset)) as P;
     case 21:
       return (reader.readString(offset)) as P;
     case 22:
       return (reader.readString(offset)) as P;
     case 23:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 24:
-      return (reader.readString(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 25:
-      return (reader.readLong(offset)) as P;
-    case 26:
       return (reader.readString(offset)) as P;
+    case 26:
+      return (reader.readLong(offset)) as P;
     case 27:
       return (reader.readString(offset)) as P;
     case 28:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 29:
       return (reader.readStringOrNull(offset)) as P;
     case 30:
       return (reader.readStringOrNull(offset)) as P;
     case 31:
+      return (reader.readStringOrNull(offset)) as P;
+    case 32:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -2415,6 +2430,163 @@ extension MessageEntityCollectionQueryFilter on QueryBuilder<
       return query.addFilterCondition(FilterCondition.equalTo(
         property: r'pendingDelete',
         value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageEntityCollection, MessageEntityCollection,
+      QAfterFilterCondition> privateParentUserCodeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'privateParentUserCode',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageEntityCollection, MessageEntityCollection,
+      QAfterFilterCondition> privateParentUserCodeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'privateParentUserCode',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageEntityCollection, MessageEntityCollection,
+      QAfterFilterCondition> privateParentUserCodeEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'privateParentUserCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageEntityCollection, MessageEntityCollection,
+      QAfterFilterCondition> privateParentUserCodeGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'privateParentUserCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageEntityCollection, MessageEntityCollection,
+      QAfterFilterCondition> privateParentUserCodeLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'privateParentUserCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageEntityCollection, MessageEntityCollection,
+      QAfterFilterCondition> privateParentUserCodeBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'privateParentUserCode',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageEntityCollection, MessageEntityCollection,
+      QAfterFilterCondition> privateParentUserCodeStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'privateParentUserCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageEntityCollection, MessageEntityCollection,
+      QAfterFilterCondition> privateParentUserCodeEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'privateParentUserCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageEntityCollection, MessageEntityCollection,
+          QAfterFilterCondition>
+      privateParentUserCodeContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'privateParentUserCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageEntityCollection, MessageEntityCollection,
+          QAfterFilterCondition>
+      privateParentUserCodeMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'privateParentUserCode',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageEntityCollection, MessageEntityCollection,
+      QAfterFilterCondition> privateParentUserCodeIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'privateParentUserCode',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageEntityCollection, MessageEntityCollection,
+      QAfterFilterCondition> privateParentUserCodeIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'privateParentUserCode',
+        value: '',
       ));
     });
   }
@@ -4739,6 +4911,20 @@ extension MessageEntityCollectionQuerySortBy
   }
 
   QueryBuilder<MessageEntityCollection, MessageEntityCollection, QAfterSortBy>
+      sortByPrivateParentUserCode() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateParentUserCode', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageEntityCollection, MessageEntityCollection, QAfterSortBy>
+      sortByPrivateParentUserCodeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateParentUserCode', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageEntityCollection, MessageEntityCollection, QAfterSortBy>
       sortBySchoolCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'schoolCode', Sort.asc);
@@ -5162,6 +5348,20 @@ extension MessageEntityCollectionQuerySortThenBy on QueryBuilder<
   }
 
   QueryBuilder<MessageEntityCollection, MessageEntityCollection, QAfterSortBy>
+      thenByPrivateParentUserCode() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateParentUserCode', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageEntityCollection, MessageEntityCollection, QAfterSortBy>
+      thenByPrivateParentUserCodeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateParentUserCode', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageEntityCollection, MessageEntityCollection, QAfterSortBy>
       thenBySchoolCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'schoolCode', Sort.asc);
@@ -5470,6 +5670,14 @@ extension MessageEntityCollectionQueryWhereDistinct on QueryBuilder<
   }
 
   QueryBuilder<MessageEntityCollection, MessageEntityCollection, QDistinct>
+      distinctByPrivateParentUserCode({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'privateParentUserCode',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<MessageEntityCollection, MessageEntityCollection, QDistinct>
       distinctBySchoolCode({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'schoolCode', caseSensitive: caseSensitive);
@@ -5690,6 +5898,13 @@ extension MessageEntityCollectionQueryProperty on QueryBuilder<
       pendingDeleteProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'pendingDelete');
+    });
+  }
+
+  QueryBuilder<MessageEntityCollection, String?, QQueryOperations>
+      privateParentUserCodeProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'privateParentUserCode');
     });
   }
 
@@ -7630,13 +7845,18 @@ const ReadReceiptEntityCollectionSchema = Schema(
       name: r'readAt',
       type: IsarType.dateTime,
     ),
-    r'userCode': PropertySchema(
+    r'role': PropertySchema(
       id: 3,
+      name: r'role',
+      type: IsarType.string,
+    ),
+    r'userCode': PropertySchema(
+      id: 4,
       name: r'userCode',
       type: IsarType.string,
     ),
     r'userName': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'userName',
       type: IsarType.string,
     )
@@ -7654,6 +7874,12 @@ int _readReceiptEntityCollectionEstimateSize(
 ) {
   var bytesCount = offsets.last;
   bytesCount += 3 + object.messageCode.length * 3;
+  {
+    final value = object.role;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.userCode.length * 3;
   bytesCount += 3 + object.userName.length * 3;
   return bytesCount;
@@ -7668,8 +7894,9 @@ void _readReceiptEntityCollectionSerialize(
   writer.writeDateTime(offsets[0], object.deliveredAt);
   writer.writeString(offsets[1], object.messageCode);
   writer.writeDateTime(offsets[2], object.readAt);
-  writer.writeString(offsets[3], object.userCode);
-  writer.writeString(offsets[4], object.userName);
+  writer.writeString(offsets[3], object.role);
+  writer.writeString(offsets[4], object.userCode);
+  writer.writeString(offsets[5], object.userName);
 }
 
 ReadReceiptEntityCollection _readReceiptEntityCollectionDeserialize(
@@ -7682,8 +7909,9 @@ ReadReceiptEntityCollection _readReceiptEntityCollectionDeserialize(
   object.deliveredAt = reader.readDateTimeOrNull(offsets[0]);
   object.messageCode = reader.readString(offsets[1]);
   object.readAt = reader.readDateTimeOrNull(offsets[2]);
-  object.userCode = reader.readString(offsets[3]);
-  object.userName = reader.readString(offsets[4]);
+  object.role = reader.readStringOrNull(offsets[3]);
+  object.userCode = reader.readString(offsets[4]);
+  object.userName = reader.readString(offsets[5]);
   return object;
 }
 
@@ -7701,8 +7929,10 @@ P _readReceiptEntityCollectionDeserializeProp<P>(
     case 2:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 3:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 4:
+      return (reader.readString(offset)) as P;
+    case 5:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -7995,6 +8225,162 @@ extension ReadReceiptEntityCollectionQueryFilter on QueryBuilder<
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<ReadReceiptEntityCollection, ReadReceiptEntityCollection,
+      QAfterFilterCondition> roleIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'role',
+      ));
+    });
+  }
+
+  QueryBuilder<ReadReceiptEntityCollection, ReadReceiptEntityCollection,
+      QAfterFilterCondition> roleIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'role',
+      ));
+    });
+  }
+
+  QueryBuilder<ReadReceiptEntityCollection, ReadReceiptEntityCollection,
+      QAfterFilterCondition> roleEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ReadReceiptEntityCollection, ReadReceiptEntityCollection,
+      QAfterFilterCondition> roleGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ReadReceiptEntityCollection, ReadReceiptEntityCollection,
+      QAfterFilterCondition> roleLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ReadReceiptEntityCollection, ReadReceiptEntityCollection,
+      QAfterFilterCondition> roleBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'role',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ReadReceiptEntityCollection, ReadReceiptEntityCollection,
+      QAfterFilterCondition> roleStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ReadReceiptEntityCollection, ReadReceiptEntityCollection,
+      QAfterFilterCondition> roleEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ReadReceiptEntityCollection, ReadReceiptEntityCollection,
+          QAfterFilterCondition>
+      roleContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ReadReceiptEntityCollection, ReadReceiptEntityCollection,
+          QAfterFilterCondition>
+      roleMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'role',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ReadReceiptEntityCollection, ReadReceiptEntityCollection,
+      QAfterFilterCondition> roleIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'role',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ReadReceiptEntityCollection, ReadReceiptEntityCollection,
+      QAfterFilterCondition> roleIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'role',
+        value: '',
       ));
     });
   }
@@ -8293,9 +8679,19 @@ const MessageReactionEntityCollectionSchema = Schema(
       name: r'emoji',
       type: IsarType.string,
     ),
-    r'userCode': PropertySchema(
+    r'role': PropertySchema(
       id: 1,
+      name: r'role',
+      type: IsarType.string,
+    ),
+    r'userCode': PropertySchema(
+      id: 2,
       name: r'userCode',
+      type: IsarType.string,
+    ),
+    r'userName': PropertySchema(
+      id: 3,
+      name: r'userName',
       type: IsarType.string,
     )
   },
@@ -8312,7 +8708,19 @@ int _messageReactionEntityCollectionEstimateSize(
 ) {
   var bytesCount = offsets.last;
   bytesCount += 3 + object.emoji.length * 3;
+  {
+    final value = object.role;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.userCode.length * 3;
+  {
+    final value = object.userName;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -8323,7 +8731,9 @@ void _messageReactionEntityCollectionSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeString(offsets[0], object.emoji);
-  writer.writeString(offsets[1], object.userCode);
+  writer.writeString(offsets[1], object.role);
+  writer.writeString(offsets[2], object.userCode);
+  writer.writeString(offsets[3], object.userName);
 }
 
 MessageReactionEntityCollection _messageReactionEntityCollectionDeserialize(
@@ -8334,7 +8744,9 @@ MessageReactionEntityCollection _messageReactionEntityCollectionDeserialize(
 ) {
   final object = MessageReactionEntityCollection();
   object.emoji = reader.readString(offsets[0]);
-  object.userCode = reader.readString(offsets[1]);
+  object.role = reader.readStringOrNull(offsets[1]);
+  object.userCode = reader.readString(offsets[2]);
+  object.userName = reader.readStringOrNull(offsets[3]);
   return object;
 }
 
@@ -8348,7 +8760,11 @@ P _messageReactionEntityCollectionDeserializeProp<P>(
     case 0:
       return (reader.readString(offset)) as P;
     case 1:
+      return (reader.readStringOrNull(offset)) as P;
+    case 2:
       return (reader.readString(offset)) as P;
+    case 3:
+      return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -8497,6 +8913,162 @@ extension MessageReactionEntityCollectionQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> roleIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'role',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> roleIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'role',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> roleEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> roleGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> roleLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> roleBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'role',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> roleStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> roleEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+          QAfterFilterCondition>
+      roleContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+          QAfterFilterCondition>
+      roleMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'role',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> roleIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'role',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> roleIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'role',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
       QAfterFilterCondition> userCodeEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -8629,6 +9201,162 @@ extension MessageReactionEntityCollectionQueryFilter on QueryBuilder<
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'userCode',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> userNameIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'userName',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> userNameIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'userName',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> userNameEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'userName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> userNameGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'userName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> userNameLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'userName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> userNameBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'userName',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> userNameStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'userName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> userNameEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'userName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+          QAfterFilterCondition>
+      userNameContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'userName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+          QAfterFilterCondition>
+      userNameMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'userName',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> userNameIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'userName',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionEntityCollection, MessageReactionEntityCollection,
+      QAfterFilterCondition> userNameIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'userName',
         value: '',
       ));
     });

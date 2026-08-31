@@ -33,6 +33,7 @@ class HighlightableCard extends StatefulWidget {
     this.highlightColor,
     this.duration = const Duration(milliseconds: 2200),
     this.scrollOnHighlight = false,
+    this.foreground = false,
   });
 
   /// The card content.
@@ -55,6 +56,15 @@ class HighlightableCard extends StatefulWidget {
   /// When true, the card scrolls itself into view (via its own context) on
   /// highlight — no external [GlobalKey] needed. Use for deeply-nested cards.
   final bool scrollOnHighlight;
+
+  /// Paints the flash IN FRONT of [child] instead of behind it.
+  ///
+  /// The default (behind) is invisible when the child paints its own opaque,
+  /// full-bleed background — e.g. `StaffStyleCard`, an opaque white `Container`
+  /// with no margin — because the child covers the exact same rect and hides
+  /// both the border and the tint. Set this for such cards; the tint is
+  /// translucent, so the content still reads through.
+  final bool foreground;
 
   bool get _matches {
     final a = (code ?? '').trim();
@@ -103,16 +113,25 @@ class _HighlightableCardState extends State<HighlightableCard>
     _flashedKey = _matchKey;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (widget.scrollOnHighlight) {
-        Scrollable.ensureVisible(
-          context,
-          duration: const Duration(milliseconds: 400),
-          alignment: 0.1,
-          curve: Curves.easeOut,
-        );
-      }
-      widget.onHighlighted?.call();
-      _controller.forward(from: 0);
+      // When the data is cached, the target card mounts synchronously DURING
+      // the route/tab push transition — a flash started right now plays
+      // off-screen and is missed, and the _flashedKey guard then blocks a
+      // re-flash. Delay the start so it lands after the transition settles.
+      // (On the uncached path the data arrives ~1s later anyway, so this small
+      // delay is imperceptible there.)
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (!mounted) return;
+        if (widget.scrollOnHighlight) {
+          Scrollable.ensureVisible(
+            context,
+            duration: const Duration(milliseconds: 400),
+            alignment: 0.1,
+            curve: Curves.easeOut,
+          );
+        }
+        widget.onHighlighted?.call();
+        _controller.forward(from: 0);
+      });
     });
   }
 
@@ -133,6 +152,9 @@ class _HighlightableCardState extends State<HighlightableCard>
         // Overlay starts strong (t=1) and fades to nothing (t=0).
         final t = 1 - _controller.value;
         return DecoratedBox(
+          position: widget.foreground
+              ? DecorationPosition.foreground
+              : DecorationPosition.background,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(widget.borderRadius),
             border: Border.all(

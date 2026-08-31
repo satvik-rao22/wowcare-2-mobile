@@ -2,9 +2,9 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/domain/features/kiosk/usecases/sign_in_staff_usecase.dart';
 import 'package:wowcare/domain/features/kiosk/usecases/sign_out_staff_usecase.dart';
 
@@ -34,12 +34,14 @@ class KioskAttendanceCubitV2 extends Cubit<KioskAttendanceStateV2> {
     required SignOutStaffUseCase signOutStaffUseCase,
     required StorageService storageService,
     required ApiClient apiClient,
-  })  : _signInStaffUseCase = signInStaffUseCase,
-        _signOutStaffUseCase = signOutStaffUseCase,
-        _storage = storageService,
-        _apiClient = apiClient,
-        super(const KioskAttendanceInitialV2()) {
-    AppLogger.d('[Kiosk] KioskAttendanceCubitV2 initialized: CubitInitialized=true');
+  }) : _signInStaffUseCase = signInStaffUseCase,
+       _signOutStaffUseCase = signOutStaffUseCase,
+       _storage = storageService,
+       _apiClient = apiClient,
+       super(const KioskAttendanceInitialV2()) {
+    AppLogger.d(
+      '[Kiosk] KioskAttendanceCubitV2 initialized: CubitInitialized=true',
+    );
   }
 
   final SignInStaffUseCase _signInStaffUseCase;
@@ -73,12 +75,15 @@ class KioskAttendanceCubitV2 extends Cubit<KioskAttendanceStateV2> {
 
       final schoolTimeZone =
           await SchoolTimezoneResolver.resolveForCurrentSchool(
-        storage: _storage,
-        apiClient: _apiClient,
-      );
+            storage: _storage,
+            apiClient: _apiClient,
+          );
+      final schoolCode =
+          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
 
       final result = await _signInStaffUseCase(
         staffCode: staffCode,
+        schoolCode: schoolCode,
         timeZone: schoolTimeZone,
         latitude: latitude,
         longitude: longitude,
@@ -89,13 +94,15 @@ class KioskAttendanceCubitV2 extends Cubit<KioskAttendanceStateV2> {
       AppLogger.d('[KIOSK] AttendanceSuccess=true');
       AppLogger.d('[KIOSK] RedirectingTo=/kiosk');
 
-      emit(KioskAttendanceSuccessV2(
-        message: 'Signed in successfully',
-        action: 'SIGN_IN',
-        role: 'STAFF',
-        staffCode: staffCode,
-        status: result.status,
-      ));
+      emit(
+        KioskAttendanceSuccessV2(
+          message: 'Signed in successfully',
+          action: 'SIGN_IN',
+          role: 'STAFF',
+          staffCode: staffCode,
+          status: result.status,
+        ),
+      );
     } catch (e) {
       AppLogger.e('[KIOSK] AttendanceSuccess=false, error=$e');
       emit(KioskAttendanceErrorV2('Failed to sign in: $e'));
@@ -121,12 +128,15 @@ class KioskAttendanceCubitV2 extends Cubit<KioskAttendanceStateV2> {
 
       final schoolTimeZone =
           await SchoolTimezoneResolver.resolveForCurrentSchool(
-        storage: _storage,
-        apiClient: _apiClient,
-      );
+            storage: _storage,
+            apiClient: _apiClient,
+          );
+      final schoolCode =
+          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
 
       final result = await _signOutStaffUseCase(
         staffCode: staffCode,
+        schoolCode: schoolCode,
         timeZone: schoolTimeZone,
         latitude: latitude,
         longitude: longitude,
@@ -137,13 +147,15 @@ class KioskAttendanceCubitV2 extends Cubit<KioskAttendanceStateV2> {
       AppLogger.d('[KIOSK] AttendanceSuccess=true');
       AppLogger.d('[KIOSK] RedirectingTo=/kiosk');
 
-      emit(KioskAttendanceSuccessV2(
-        message: 'Signed out successfully',
-        action: 'SIGN_OUT',
-        role: 'STAFF',
-        staffCode: staffCode,
-        status: result.status,
-      ));
+      emit(
+        KioskAttendanceSuccessV2(
+          message: 'Signed out successfully',
+          action: 'SIGN_OUT',
+          role: 'STAFF',
+          staffCode: staffCode,
+          status: result.status,
+        ),
+      );
     } catch (e) {
       AppLogger.e('[KIOSK] AttendanceSuccess=false, error=$e');
       emit(KioskAttendanceErrorV2('Failed to sign out: $e'));

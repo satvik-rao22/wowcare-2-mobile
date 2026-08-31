@@ -1,6 +1,8 @@
 import 'package:isar/isar.dart';
+import 'package:wowcare/core/util/isar_utils.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
+import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 
 part 'message_entity_collection.g.dart';
 
@@ -12,14 +14,21 @@ part 'message_entity_collection.g.dart';
 /// IMPORTANT: Do NOT touch [MessageCollection].
 @collection
 class MessageEntityCollection {
-  Id get isarId => id;
+  // Hashed from `code` (mirrors the legacy MessageCollection's
+  // `fastHash(code...)`), not derived from `id`. A local-only/optimistic
+  // message's `entity.id` is a non-numeric temp string ("temp-...."), which
+  // `_parseIntId` falls back to `0` for — every such message would then
+  // collide on the SAME Isar primary key (isarId=0), and having more than
+  // one pending at once threw "Unique index violated" on `code`'s unique
+  // index once the second one's put() tried to claim it. `code` is unique
+  // and always set (temp or real), so hashing it can never collide this way.
+  Id get isarId => fastHash(code);
 
   @Index(unique: true)
   late String code;
 
-  // Isar requires a non-computed int Id field.
-  // We store the server-assigned int id; for local-only messages
-  // this is set to Isar.autoIncrement via the factory constructor.
+  // Server-assigned int id where available; `0` for local-only messages
+  // (no longer the Isar primary key, so that's no longer a collision risk).
   late int id;
 
   @Index()
@@ -58,6 +67,9 @@ class MessageEntityCollection {
   String? threadParentSenderCode;
   String? threadParentSenderName;
   String? threadParentText;
+
+  // Private mode — guardian this message is scoped to, when private.
+  String? privateParentUserCode;
 
   // Timestamps
   @Index()
@@ -113,6 +125,7 @@ class MessageEntityCollection {
       ..threadParentSenderCode = entity.threadParentSenderCode
       ..threadParentSenderName = entity.threadParentSenderName
       ..threadParentText = entity.threadParentText
+      ..privateParentUserCode = entity.privateParentUserCode
       ..sentAt = entity.sentAt
       ..editedAt = entity.editedAt
       ..deletedAt = entity.deletedAt
@@ -122,11 +135,13 @@ class MessageEntityCollection {
       ..readReceipts = entity.readReceipts
           .map(ReadReceiptEntityCollection.fromEntity)
           .toList()
-      ..reactions = entity.reactions.entries
+      ..reactions = entity.reactions
           .map(
-            (e) => MessageReactionEntityCollection()
-              ..userCode = e.key
-              ..emoji = e.value,
+            (r) => MessageReactionEntityCollection()
+              ..userCode = r.userCode
+              ..emoji = r.emoji
+              ..role = r.role
+              ..userName = r.userName,
           )
           .toList()
       ..organizationCode = entity.organizationCode
@@ -154,12 +169,22 @@ class MessageEntityCollection {
       threadParentSenderCode: threadParentSenderCode,
       threadParentSenderName: threadParentSenderName,
       threadParentText: threadParentText,
+      privateParentUserCode: privateParentUserCode,
       sentAt: sentAt,
       editedAt: editedAt,
       deletedAt: deletedAt,
       attachments: attachments?.map((e) => e.toEntity()).toList() ?? [],
       readReceipts: readReceipts?.map((e) => e.toEntity()).toList() ?? [],
-      reactions: {for (final r in reactions ?? []) r.userCode: r.emoji},
+      reactions: (reactions ?? [])
+          .map(
+            (r) => ReactionEntry(
+              userCode: r.userCode,
+              emoji: r.emoji,
+              role: r.role,
+              userName: r.userName,
+            ),
+          )
+          .toList(),
       organizationCode: organizationCode,
       schoolCode: schoolCode,
       localTempCode: localTempCode,
@@ -241,6 +266,10 @@ class ReadReceiptEntityCollection {
   DateTime? deliveredAt;
   DateTime? readAt;
 
+  /// Raw backend role string (e.g. "STAFF") the recipient was acting AS —
+  /// see [ReadReceiptEntity.role].
+  String? role;
+
   ReadReceiptEntityCollection();
 
   factory ReadReceiptEntityCollection.fromEntity(ReadReceiptEntity entity) {
@@ -249,7 +278,8 @@ class ReadReceiptEntityCollection {
       ..userCode = entity.userCode
       ..userName = entity.userName
       ..deliveredAt = entity.deliveredAt
-      ..readAt = entity.readAt;
+      ..readAt = entity.readAt
+      ..role = entity.role;
   }
 
   ReadReceiptEntity toEntity() {
@@ -259,6 +289,7 @@ class ReadReceiptEntityCollection {
       userName: userName,
       deliveredAt: deliveredAt,
       readAt: readAt,
+      role: role,
     );
   }
 }
@@ -267,4 +298,11 @@ class ReadReceiptEntityCollection {
 class MessageReactionEntityCollection {
   late String userCode;
   late String emoji;
+
+  /// Raw backend role string (e.g. "STAFF") the reactor was acting AS —
+  /// see [ReactionEntry.role].
+  String? role;
+
+  /// The reactor's display name — see [ReactionEntry.userName].
+  String? userName;
 }

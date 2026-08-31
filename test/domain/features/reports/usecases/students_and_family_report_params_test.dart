@@ -16,6 +16,7 @@ void main() {
       final params = StudentsAndFamilyReportParams(
         reportType: ReportType.studentsAndFamily,
         startDate: startDate,
+        schoolName: 'Test School',
         endDate: endDate,
         studentFieldsSelected: studentFields,
         parentFieldsSelected: parentFields,
@@ -41,6 +42,7 @@ void main() {
         statusFilter: statusFilter,
         classroomCodes: classrooms,
         tagCodes: tags,
+        schoolName: 'Test School',
         format: 'PDF',
       );
 
@@ -57,6 +59,7 @@ void main() {
         parentFieldsSelected: const {'First name'},
         statusFilter: statusFilter,
         format: 'PDF',
+        schoolName: 'Test School',
       );
 
       final body = params.toRequestBody();
@@ -76,6 +79,7 @@ void main() {
         endDate: endDate,
         studentFieldsSelected: studentFields,
         parentFieldsSelected: parentFields,
+        schoolName: 'Test School',
         statusFilter: statusFilter,
         format: 'PDF',
       );
@@ -96,6 +100,7 @@ void main() {
         statusFilter: statusFilter,
         classroomCodes: classrooms,
         tagCodes: tags,
+        schoolName: 'Test School',
         format: 'PDF',
       );
 
@@ -105,10 +110,11 @@ void main() {
       expect(body['tagCodes'], tags);
     });
 
-    test('toRequestBody includes status filter', () {
+    test('toRequestBody includes status filter as a single-element array', () {
       final params = StudentsAndFamilyReportParams(
         reportType: ReportType.studentsAndFamily,
         startDate: startDate,
+        schoolName: 'Test School',
         endDate: endDate,
         studentFieldsSelected: studentFields,
         parentFieldsSelected: parentFields,
@@ -118,7 +124,9 @@ void main() {
 
       final body = params.toRequestBody();
 
-      expect(body['statusFilter'], 'Inactive');
+      // Backend expects an array even for the single-select UI value
+      // (confirmed against the web client's verified payload).
+      expect(body['statusFilter'], ['Inactive']);
     });
 
     test('toCacheIdentifier includes field selections', () {
@@ -129,6 +137,7 @@ void main() {
         studentFieldsSelected: const {'Full Name', 'DOB'},
         parentFieldsSelected: const {'First name'},
         statusFilter: statusFilter,
+        schoolName: 'Test School',
         format: 'PDF',
       );
 
@@ -148,6 +157,7 @@ void main() {
         studentFieldsSelected: studentFields,
         parentFieldsSelected: parentFields,
         statusFilter: statusFilter,
+        schoolName: 'Test School',
         format: 'PDF',
       );
 
@@ -158,6 +168,7 @@ void main() {
         studentFieldsSelected: studentFields,
         parentFieldsSelected: parentFields,
         statusFilter: statusFilter,
+        schoolName: 'Test School',
         format: 'PDF',
       );
 
@@ -169,6 +180,7 @@ void main() {
         reportType: ReportType.studentsAndFamily,
         startDate: startDate,
         endDate: endDate,
+        schoolName: 'Test School',
         studentFieldsSelected: const {'Full Name', 'DOB'},
         parentFieldsSelected: parentFields,
         statusFilter: statusFilter,
@@ -182,6 +194,7 @@ void main() {
         studentFieldsSelected: const {'Full Name'},
         parentFieldsSelected: parentFields,
         statusFilter: statusFilter,
+        schoolName: 'Test School',
         format: 'PDF',
       );
 
@@ -192,6 +205,7 @@ void main() {
       final params = StudentsAndFamilyReportParams(
         reportType: ReportType.studentsAndFamily,
         startDate: startDate,
+        schoolName: 'Test School',
         endDate: endDate,
         studentFieldsSelected: studentFields,
         parentFieldsSelected: parentFields,

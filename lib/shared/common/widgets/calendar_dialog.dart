@@ -2,8 +2,13 @@ import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/shared/common/widgets/calendar_responsive_helper.dart';
 import 'package:intl/intl.dart';
 
@@ -41,13 +46,25 @@ class _CalendarDialogState extends State<CalendarDialog> {
   late TextEditingController _hourController;
   late TextEditingController _minuteController;
 
+  /// "Today" in the school's timezone — drives the calendar's current-day ring
+  /// and the default start date, so the picker opens on the school's calendar
+  /// day (e.g. IST) rather than the device's.
+  late DateTime _schoolToday;
+
   @override
   void initState() {
     super.initState();
+    // Default "now"/"today" to the SCHOOL timezone, not the device. Use the
+    // last-known zone synchronously for the first frame, then refine from the
+    // resolver. An explicit initialDate/initialTime is always respected.
+    final nowParts = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(
+      SchoolTimezoneResolver.lastKnownTimeZone,
+    );
+    _schoolToday = nowParts.$1;
     _selectedDate = widget.initialDate;
-    _rangeStartDate = widget.initialDate ?? DateTime.now();
+    _rangeStartDate = widget.initialDate ?? nowParts.$1;
     _rangeEndDate = widget.initialEndDate;
-    _selectedTime = widget.initialTime ?? TimeOfDay.now();
+    _selectedTime = widget.initialTime ?? nowParts.$2;
 
     _hourController = TextEditingController(
       text: _selectedTime.hourOfPeriod == 0
@@ -57,6 +74,36 @@ class _CalendarDialogState extends State<CalendarDialog> {
     _minuteController = TextEditingController(
       text: _selectedTime.minute.toString().padLeft(2, '0'),
     );
+
+    _refreshSchoolNow();
+  }
+
+  /// Resolves the current school's timezone (cache/API) and updates the
+  /// school-today marker + any defaults the caller didn't pin.
+  Future<void> _refreshSchoolNow() async {
+    try {
+      // resolveForCurrentSchool refreshes the server clock as part of resolving,
+      // so "today"/"now" defaults below are authoritative at open time.
+      final tzName = await SchoolTimezoneResolver.resolveForCurrentSchool(
+        storage: serviceLocator<StorageService>(),
+        apiClient: serviceLocator<ApiClient>(),
+      );
+      if (!mounted) return;
+      final parts = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(tzName);
+      setState(() {
+        _schoolToday = parts.$1;
+        if (widget.initialDate == null) _rangeStartDate = parts.$1;
+        if (widget.initialTime == null) {
+          _selectedTime = parts.$2;
+          _hourController.text = parts.$2.hourOfPeriod == 0
+              ? '12'
+              : parts.$2.hourOfPeriod.toString();
+          _minuteController.text = parts.$2.minute.toString().padLeft(2, '0');
+        }
+      });
+    } catch (_) {
+      // Keep the last-known-zone defaults.
+    }
   }
 
   @override
@@ -199,7 +246,9 @@ class _CalendarDialogState extends State<CalendarDialog> {
                           fontSize: yearFontSize,
                           fontWeight: FontWeight.w400,
                         ),
-                        currentDate: widget.isRangePicker ? null : null,
+                        // School-timezone "today" so the current-day ring isn't
+                        // the device's day when they differ (e.g. IST vs UTC).
+                        currentDate: _schoolToday,
                       ),
                       value: widget.isRangePicker
                           ? (_rangeEndDate != null

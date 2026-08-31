@@ -16,6 +16,7 @@ class ParentChildRef {
     required this.code,
     required this.name,
     required this.classroom,
+    this.classroomCode = '',
     this.status = 'Active',
     this.tags = const <String>[],
     this.schedule = const <String>[],
@@ -26,6 +27,11 @@ class ParentChildRef {
   final String code;
   final String name;
   final String classroom;
+
+  /// The classroom's actual CODE — see [Student.classroomCode]. Empty until
+  /// enriched from the student-page fetch below (the raw guardian-children
+  /// API response this class is first built from doesn't carry it).
+  final String classroomCode;
   final String status;
   final List<String> tags;
   final List<String> schedule;
@@ -42,6 +48,7 @@ class ParentChildRef {
           ? student.fullName.trim()
           : student.code,
       classroom: student.classroom,
+      classroomCode: student.classroomCode,
       status: student.status.trim().isNotEmpty
           ? student.status.trim()
           : 'Active',
@@ -77,8 +84,9 @@ class ParentChildState extends Equatable {
     int? refreshNonce,
   }) {
     return ParentChildState(
-      selectedChild:
-          clearSelectedChild ? null : (selectedChild ?? this.selectedChild),
+      selectedChild: clearSelectedChild
+          ? null
+          : (selectedChild ?? this.selectedChild),
       children: children ?? this.children,
       isLoading: isLoading ?? this.isLoading,
       isLoaded: isLoaded ?? this.isLoaded,
@@ -88,12 +96,12 @@ class ParentChildState extends Equatable {
 
   @override
   List<Object?> get props => <Object?>[
-        selectedChild?.code,
-        children.map((c) => c.code).toList(),
-        isLoading,
-        isLoaded,
-        refreshNonce,
-      ];
+    selectedChild?.code,
+    children.map((c) => c.code).toList(),
+    isLoading,
+    isLoaded,
+    refreshNonce,
+  ];
 }
 
 /// Bloc replacement for the old `ParentChildCubit` (a `ChangeNotifier`).
@@ -146,10 +154,10 @@ class ParentChildCubit extends Cubit<ParentChildState> {
     if (state.isLoading) return;
 
     final storage = serviceLocator<StorageService>();
-    final userCode =
-        (await storage.getString(StorageKeys.userCode) ?? '').trim();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final userCode = (await storage.getString(StorageKeys.userCode) ?? '')
+        .trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final orgCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
@@ -219,8 +227,9 @@ class ParentChildCubit extends Cubit<ParentChildState> {
       );
       final byCode = <String, ParentChildRef>{};
       for (final row in rawChildren) {
-        final code =
-            (row['code'] ?? row['studentCode'] ?? '').toString().trim();
+        final code = (row['code'] ?? row['studentCode'] ?? '')
+            .toString()
+            .trim();
         if (code.isEmpty) continue;
         final firstName = (row['firstName'] ?? '').toString().trim();
         final lastName = (row['lastName'] ?? '').toString().trim();

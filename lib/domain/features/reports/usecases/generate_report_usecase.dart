@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/util/api_error_handler.dart';
 import '../entities/report_entity.dart';
 import '../repositories/reports_repository.dart';
 import 'report_params.dart';
@@ -42,6 +43,6 @@ class GenerateReportUseCase implements UseCase<ReportEntity, ReportParams> {
       return e;
     }
 
-    return ServerFailure('Failed to generate report: ${e.toString()}');
+    return ServerFailure(ApiErrorHandler.extractErrorMessage(e));
   }
 }

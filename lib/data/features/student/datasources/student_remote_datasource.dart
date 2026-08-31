@@ -2,10 +2,13 @@ import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/domain/features/student/entities/student_settings.dart';
 import '../models/student_models.dart';
 import '../models/student_document_models.dart';
 import '../models/student_pickup_models.dart';
 import '../models/student_physician_models.dart';
+import '../models/vaccine_model.dart';
+import '../../../../core/util/logger_service.dart';
 
 abstract class StudentRemoteDataSource {
   Future<StudentPageModel> getStudentPage({
@@ -17,9 +20,11 @@ abstract class StudentRemoteDataSource {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     int page = 0,
     int size = 10,
+    List<String>? allowedClassroomCodes,
   });
 
   Future<StudentProfileModel> getStudentProfile(String code);
@@ -176,6 +181,16 @@ abstract class StudentRemoteDataSource {
     required List<String> siblingCodes,
   });
 
+  /// Links siblings onto a newly created student via
+  /// `POST /api/v1/student/{newStudentCode}/add-sibling`.
+  ///
+  /// Used by the add-student dialog flow; edit-profile keeps using
+  /// [updateStudentSiblings].
+  Future<String> addStudentSibling({
+    required String studentCode,
+    required List<String> siblingCodes,
+  });
+
   /// Updates the student's tags via `POST /api/v1/student-tags`.
   ///
   /// Query params: studentCode, schoolCode
@@ -235,6 +250,15 @@ abstract class StudentRemoteDataSource {
     required String userCode,
   });
 
+  /// School-level student settings via `GET /api/v1/student-settings`.
+  Future<StudentSettings> getStudentSettings({required String schoolCode});
+
+  /// Immunization settings (available vaccines) via
+  /// `GET /api/v1/student/settings/immunization?schoolCode={schoolCode}`.
+  Future<List<VaccineModel>> getImmunizationSettings({
+    required String schoolCode,
+  });
+
   /// Fetches children linked to a guardian via
   /// `GET /api/v1/guardian/children`.
   ///
@@ -260,6 +284,13 @@ abstract class StudentRemoteDataSource {
   /// Updates a guardian via `PATCH /api/v1/guardian/{code}`.
   Future<String> updateGuardian({
     required String code,
+    required Map<String, dynamic> body,
+  });
+
+  /// Updates the logged-in guardian's own profile via
+  /// `PATCH /api/v1/guardian/my-profile`. The guardian is identified by the
+  /// `code` field inside [body].
+  Future<String> updateGuardianMyProfile({
     required Map<String, dynamic> body,
   });
 
@@ -401,9 +432,11 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     int page = 0,
     int size = 10,
+    List<String>? allowedClassroomCodes,
   }) async {
     final queryParameters = <String, dynamic>{
       'schoolCode': schoolCode,
@@ -411,6 +444,17 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       'size': size,
       'sort': 'firstName,asc',
     };
+
+    // Hard security scope for a restricted staff/teacher persona — sent as
+    // its own param (distinct from classroomCodes, the optional user-chosen
+    // filter) so the backend enforces it regardless of what's selected.
+    // Mirrors the attendance module's proven allowedClassroomCodes contract.
+    final allowedCodes = allowedClassroomCodes
+        ?.where((c) => c.trim().isNotEmpty)
+        .toList();
+    if (allowedCodes != null && allowedCodes.isNotEmpty) {
+      queryParameters['allowedClassroomCodes'] = allowedCodes;
+    }
 
     if (code != null && code.isNotEmpty) {
       queryParameters['code'] = code;
@@ -432,6 +476,15 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     }
     if (guardianCodes != null && guardianCodes.isNotEmpty) {
       queryParameters['guardianCodes'] = guardianCodes;
+    }
+    // API expects underscored codes, e.g. attendanceStatus=SIGNED_IN&attendanceStatus=ABSENT.
+    final normalizedAttendanceStatuses = attendanceStatuses
+        ?.map((s) => s.trim().toUpperCase())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (normalizedAttendanceStatuses != null &&
+        normalizedAttendanceStatuses.isNotEmpty) {
+      queryParameters['attendanceStatus'] = normalizedAttendanceStatuses;
     }
     if (search != null && search.isNotEmpty) {
       queryParameters['search'] = search;
@@ -1023,6 +1076,29 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }
 
   @override
+  Future<String> addStudentSibling({
+    required String studentCode,
+    required List<String> siblingCodes,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentAddSibling(studentCode),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: <String, dynamic>{'siblingCodes': siblingCodes},
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected add-sibling API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Sibling added successfully';
+  }
+
+  @override
   Future<String> updateStudentTags({
     required String studentCode,
     required String schoolCode,
@@ -1292,6 +1368,96 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }
 
   @override
+  Future<StudentSettings> getStudentSettings({
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentSettings,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{'schoolCode': schoolCode},
+    );
+
+    final root = response.data;
+    final data = root is Map<String, dynamic> ? root['data'] : null;
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student settings API response format');
+    }
+    bool asBool(dynamic v) => v == true;
+    return StudentSettings(
+      code: (data['code'] ?? '').toString(),
+      schoolCode: (data['schoolCode'] ?? '').toString(),
+      organizationCode: (data['organizationCode'] ?? '').toString(),
+      canParentEditChildHealthRecords:
+          asBool(data['canParentEditChildHealthRecords']),
+      canStaffEditTheirOwnHealthRecords:
+          asBool(data['canStaffEditTheirOwnHealthRecords']),
+    );
+  }
+
+  @override
+  Future<List<VaccineModel>> getImmunizationSettings({
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentImmunizationSettings,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{'schoolCode': schoolCode},
+    );
+
+    AppLogger.d(
+      '[IMMUNIZATION_API] Raw immunization API response: ${response.data}',
+    );
+
+    final root = response.data;
+    List<dynamic> list = const [];
+    if (root is List) {
+      list = root;
+    } else if (root is Map<String, dynamic>) {
+      final data = root['data'];
+      if (data is List) {
+        list = data;
+      } else if (data is Map<String, dynamic>) {
+        final inner =
+            data['items'] ??
+            data['vaccines'] ??
+            data['immunizations'] ??
+            data['list'] ??
+            data['settings'];
+        if (inner is List) {
+          list = inner;
+        }
+      } else if (root['items'] is List) {
+        list = root['items'] as List;
+      } else if (root['vaccines'] is List) {
+        list = root['vaccines'] as List;
+      } else if (root['immunizations'] is List) {
+        list = root['immunizations'] as List;
+      }
+    }
+
+    final vaccines = <VaccineModel>[];
+    for (final item in list) {
+      if (item is Map<String, dynamic>) {
+        final model = VaccineModel.fromJson(item);
+        if (model.name.isNotEmpty || model.code.isNotEmpty) {
+          vaccines.add(model);
+        }
+      }
+    }
+
+    AppLogger.d('[IMMUNIZATION_API] Parsed vaccine models: $vaccines');
+    return vaccines;
+  }
+
+  @override
   Future<List<Map<String, dynamic>>> getGuardianChildren({
     required String guardianCode,
     required String schoolCode,
@@ -1380,6 +1546,25 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }
 
   @override
+  Future<String> updateGuardianMyProfile({
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.guardianMyProfile,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(endpoint, data: body);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected guardian my-profile update API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Profile updated successfully';
+  }
+
+  @override
   Future<String> deleteGuardian({
     required String code,
     required String studentCode,
@@ -1406,34 +1591,54 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   Future<List<Map<String, dynamic>>> getTagsBySchool({
     required String schoolCode,
   }) async {
-    // Full [Uri] so Dio does not merge with [BaseOptions.baseUrl]
-    // (which would incorrectly yield …/api/v1/user/tags on the user host).
-    final uri = Uri.parse(ApiPaths.url(ApiPaths.tags)).replace(
-      queryParameters: <String, String>{
-        'schoolCode': schoolCode,
-        'page': '0',
-        'size': '100',
-      },
-    );
+    // Page through the FULL tag list. This was previously capped at a single
+    // page (page 0, size 100), so a school with more than 100 tags silently
+    // lost every tag past the first 100 in the filter — hence "all tags not
+    // showing". Loop until the server reports the last page.
+    const pageSize = 200;
+    final all = <Map<String, dynamic>>[];
+    var page = 0;
+    while (true) {
+      // Full [Uri] so Dio does not merge with [BaseOptions.baseUrl]
+      // (which would incorrectly yield …/api/v1/user/tags on the user host).
+      final uri = Uri.parse(ApiPaths.url(ApiPaths.tags)).replace(
+        queryParameters: <String, String>{
+          'schoolCode': schoolCode,
+          'page': '$page',
+          'size': '$pageSize',
+        },
+      );
 
-    final response = await _client.getUri<dynamic>(uri);
+      final response = await _client.getUri<dynamic>(uri);
 
-    if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected tags API response format');
+      if (response.data is! Map<String, dynamic>) {
+        throw Exception('Unexpected tags API response format');
+      }
+
+      final root = response.data! as Map<String, dynamic>;
+      final data = root['data'];
+      if (data is! Map<String, dynamic>) break;
+
+      final content = data['content'];
+      if (content is! List) break;
+
+      final pageItems = content.whereType<Map<String, dynamic>>().toList();
+      all.addAll(pageItems);
+
+      // Stop at the last page. Prefer the server's paging flags; fall back to
+      // "a short page means no more".
+      final last = data['last'];
+      final totalPages = data['totalPages'];
+      final isLast = (last is bool && last) ||
+          (totalPages is int && page >= totalPages - 1) ||
+          pageItems.length < pageSize;
+      if (isLast) break;
+
+      page++;
+      if (page > 50) break; // safety cap (>10k tags) — never loop unbounded
     }
 
-    final root = response.data! as Map<String, dynamic>;
-    final data = root['data'];
-    if (data is! Map<String, dynamic>) {
-      return const <Map<String, dynamic>>[];
-    }
-
-    final content = data['content'];
-    if (content is! List) {
-      return const <Map<String, dynamic>>[];
-    }
-
-    return content.whereType<Map<String, dynamic>>().toList(growable: false);
+    return all.toList(growable: false);
   }
 
   @override

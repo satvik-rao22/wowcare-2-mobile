@@ -11,19 +11,23 @@ class AttendancePermissionService {
 
   /// Checks if the current context has permission to manage student attendance.
   ///
-  /// Under Clean Architecture:
   /// - Admin, Org Admin, Director, and School Admin personas have unrestricted access.
-  /// - STAFF role requires:
-  ///   1. Being inside geofence (GeofenceCubit.state.isWithinGeofence == true)
-  ///   2. Completed self clock-in (GeofenceCubit.state.isStaffSignedIn == true)
+  /// - STAFF role is allowed only once they have completed their own clock-in
+  ///   (GeofenceCubit.state.isStaffSignedIn == true) — always, regardless of
+  ///   the school's `allowTeacherCrossClassAttendance` setting. That flag only
+  ///   controls which classrooms a signed-in teacher can act across; it must
+  ///   NOT waive the self sign-in requirement itself.
+  ///   Once signed in, GPS/geofence status is irrelevant — a denied location
+  ///   permission or an out-of-range position must NOT block them. (Geofence
+  ///   is enforced separately for the staff's own sign-in, not for student
+  ///   actions.)
   static bool hasPermissionToManageStudentAttendance(BuildContext context) {
     final roleProvider = context.read<RoleCubit>();
     if (!roleProvider.isStaff) {
       return true; // Unrestricted access for admin roles
     }
-    
 
     final geofenceState = context.read<GeofenceCubit>().state;
-    return geofenceState.isWithinGeofence && geofenceState.isStaffSignedIn;
+    return geofenceState.isStaffSignedIn;
   }
 }

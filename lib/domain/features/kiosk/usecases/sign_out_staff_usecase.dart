@@ -9,6 +9,7 @@ class SignOutStaffUseCase {
 
   Future<KioskStaffAttendanceEntity> call({
     required String staffCode,
+    required String schoolCode,
     required String timeZone,
     required double latitude,
     required double longitude,
@@ -17,6 +18,7 @@ class SignOutStaffUseCase {
   }) {
     return _repository.signOutStaff(
       staffCode: staffCode,
+      schoolCode: schoolCode,
       timeZone: timeZone,
       latitude: latitude,
       longitude: longitude,

@@ -108,7 +108,7 @@ class ChooseActivityCubit extends Cubit<ChooseActivityState> {
       await _detailsUseCase(code: code);
       return null;
     } catch (e) {
-      return e.toString();
+      return ApiErrorHandler.extractErrorMessage(e);
     }
   }
 }

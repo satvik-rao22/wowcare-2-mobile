@@ -6,7 +6,9 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_analytics_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/analytics_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
 class AnalyticsSection extends StatelessWidget {
   const AnalyticsSection({super.key, this.onRegisterRefresh});
@@ -33,13 +35,33 @@ class _AnalyticsSectionBody extends StatefulWidget {
 
 class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
   static const List<String> _months = <String>[
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   static const List<String> _monthNames = [
-    'jan', 'feb', 'mar', 'apr', 'may', 'jun',
-    'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+    'jan',
+    'feb',
+    'mar',
+    'apr',
+    'may',
+    'jun',
+    'jul',
+    'aug',
+    'sep',
+    'oct',
+    'nov',
+    'dec',
   ];
 
   @override
@@ -58,7 +80,7 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
       builder: (context, state) {
         final bool isTablet = ResponsiveSizing.isTablet(context);
         final double sectionGap = isTablet ? 16 : 12;
-        final int currentYear = DateTime.now().year;
+        final int currentYear = billingSchoolCurrentYear();
 
         if (state.isLoading) {
           return const _AnalyticsShimmer();
@@ -77,13 +99,12 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
                     style: TextStyle(
                       fontFamily: 'Manrope',
                       fontSize: isTablet ? 14 : 13,
-                      color: AppColors.billingTextColor.withOpacity(0.7),
+                      color: AppColors.billingTextColor.withValues(alpha: 0.7),
                     ),
                   ),
                   const SizedBox(height: 12),
                   TextButton(
-                    onPressed: () =>
-                        context.read<AnalyticsCubit>().load(),
+                    onPressed: () => context.read<AnalyticsCubit>().load(),
                     child: const Text('Retry'),
                   ),
                 ],
@@ -93,12 +114,11 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
         }
 
         final analytics = state.analytics;
-        final List<double> revenue =
-            _toMonthlyValues(analytics?.revenue ?? []);
-        final List<double> invoiced =
-            _toMonthlyValues(analytics?.invoiced ?? []);
-        final List<double> refunds =
-            _toMonthlyValues(analytics?.refunds ?? []);
+        final List<double> revenue = _toMonthlyValues(analytics?.revenue ?? []);
+        final List<double> invoiced = _toMonthlyValues(
+          analytics?.invoiced ?? [],
+        );
+        final List<double> refunds = _toMonthlyValues(analytics?.refunds ?? []);
 
         final double revenueYtd = revenue.fold(0, (a, b) => a + b);
         final double invoicedYtd = invoiced.fold(0, (a, b) => a + b);
@@ -106,15 +126,23 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
 
         final List<AnalyticsSubsidyEntity> subsidyData =
             analytics?.subsidies ?? [];
-        final double subsidiesInvoicedYtd =
-            subsidyData.fold(0.0, (a, b) => a + b.invoiced);
+        final double subsidiesInvoicedYtd = subsidyData.fold(
+          0.0,
+          (a, b) => a + b.invoiced,
+        );
 
-        final List<double> subsidyBalance =
-            _toMonthlySubsidyValues(subsidyData, (e) => e.balance);
-        final List<double> subsidyInvoiced =
-            _toMonthlySubsidyValues(subsidyData, (e) => e.invoiced);
-        final List<double> subsidyReceived =
-            _toMonthlySubsidyValues(subsidyData, (e) => e.received);
+        final List<double> subsidyBalance = _toMonthlySubsidyValues(
+          subsidyData,
+          (e) => e.balance,
+        );
+        final List<double> subsidyInvoiced = _toMonthlySubsidyValues(
+          subsidyData,
+          (e) => e.invoiced,
+        );
+        final List<double> subsidyReceived = _toMonthlySubsidyValues(
+          subsidyData,
+          (e) => e.received,
+        );
 
         final double maxSubsidyAbs = _maxAbsValue([
           ...subsidyBalance,
@@ -128,13 +156,12 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
             // Year filter — right-aligned
             _YearSelector(
               selectedYear: state.selectedYear ?? currentYear,
-              onYearChanged: (y) =>
-                  context.read<AnalyticsCubit>().setYear(y),
+              onYearChanged: (y) => context.read<AnalyticsCubit>().setYear(y),
             ),
             SizedBox(height: sectionGap),
             _AnalyticsBarCard(
               title: 'Revenue (Net Paid)',
-              ytdLabel: 'Revenue YTD',
+              ytdLabel: 'Total Revenue',
               ytdAmount: revenueYtd,
               data: revenue,
               months: _months,
@@ -146,7 +173,7 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
             SizedBox(height: sectionGap),
             _AnalyticsBarCard(
               title: 'Amount Invoiced',
-              ytdLabel: 'Invoiced YTD',
+              ytdLabel: 'Total Invoiced',
               ytdAmount: invoicedYtd,
               data: invoiced,
               months: _months,
@@ -158,7 +185,7 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
             SizedBox(height: sectionGap),
             _AnalyticsBarCard(
               title: 'Refunds',
-              ytdLabel: 'Refunds YTD',
+              ytdLabel: 'Total Refunds',
               ytdAmount: refundsYtd,
               data: refunds,
               months: _months,
@@ -281,7 +308,7 @@ class _AnalyticsCardShimmer extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -367,41 +394,31 @@ class _YearSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isTablet = ResponsiveSizing.isTablet(context);
-    final int currentYear = DateTime.now().year;
-    final List<int> years = List.generate(5, (i) => currentYear - i);
+    final int currentYear = billingSchoolCurrentYear();
+    // Years from 10 years ago through 2 years in the future (inclusive)
+    final List<int> yearList = List.generate(13, (i) => currentYear - 10 + i);
+    final List<String> yearStrings = yearList.map((y) => y.toString()).toList();
+    final String selectedYearStr = selectedYear.toString();
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Text(
-          'Year',
-          style: TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: isTablet ? 14 : 13,
-            fontWeight: FontWeight.w600,
-            color: AppColors.billingTextColor,
-          ),
+    return Align(
+      alignment: Alignment.centerRight,
+      child: SizedBox(
+        width: 140,
+        child: CustomDropdown(
+          label: null,
+          hintText: 'Select Year',
+          items: yearStrings,
+          selectedItem: selectedYearStr,
+          isRequired: false,
+          showAsterisk: false,
+          onSelect: (selected) {
+            if (selected != null && selected.isNotEmpty) {
+              final year = int.tryParse(selected);
+              onYearChanged(year);
+            }
+          },
         ),
-        const SizedBox(width: 12),
-        DropdownButton<int>(
-          value: selectedYear,
-          underline: const SizedBox.shrink(),
-          style: TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: isTablet ? 14 : 13,
-            fontWeight: FontWeight.w600,
-            color: AppColors.billingTextColor,
-          ),
-          items: years
-              .map((y) => DropdownMenuItem<int>(
-                    value: y,
-                    child: Text('$y'),
-                  ))
-              .toList(),
-          onChanged: onYearChanged,
-        ),
-      ],
+      ),
     );
   }
 }
@@ -461,7 +478,7 @@ class _AnalyticsBarCard extends StatelessWidget {
                       fontFamily: 'Manrope',
                       fontSize: isTablet ? 13 : 12,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.billingTextColor.withOpacity(0.8),
+                      color: AppColors.billingTextColor.withValues(alpha: 0.8),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -503,7 +520,7 @@ class _AnalyticsBarCard extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: isTablet ? 13 : 12,
-                  color: AppColors.billingTextColor.withOpacity(0.8),
+                  color: AppColors.billingTextColor.withValues(alpha: 0.8),
                 ),
               ),
             ],
@@ -561,12 +578,12 @@ class _SubsidiesOverviewCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    'Subsidies Invoiced YTD',
+                    'Total Subsidies Invoiced',
                     style: TextStyle(
                       fontFamily: 'Manrope',
                       fontSize: isTablet ? 13 : 12,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.billingTextColor.withOpacity(0.8),
+                      color: AppColors.billingTextColor.withValues(alpha: 0.8),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -664,14 +681,14 @@ class _SimpleBarChart extends StatelessWidget {
                   chartHeight: chartHeight,
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
-                    children:
-                        List<Widget>.generate(data.length, (int index) {
+                    children: List<Widget>.generate(data.length, (int index) {
                       return Expanded(
                         child: Padding(
                           padding: EdgeInsets.symmetric(
                             horizontal: isTablet ? 6 : 4,
                           ),
                           child: _SingleBar(
+                            month: months[index],
                             value: data[index],
                             maxY: maxY,
                             gradient: gradient,
@@ -738,31 +755,35 @@ class _GroupedBarChart extends StatelessWidget {
                       negativeMin: -maxAbsY * 0.4,
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children:
-                            List<Widget>.generate(months.length, (int mi) {
+                        children: List<Widget>.generate(months.length, (
+                          int mi,
+                        ) {
                           return Expanded(
                             child: Padding(
                               padding: EdgeInsets.symmetric(
                                 horizontal: isTablet ? 4 : 2,
                               ),
                               child: Row(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.stretch,
-                                children: List<Widget>.generate(
-                                    series.length, (int si) {
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: List<Widget>.generate(series.length, (
+                                  int si,
+                                ) {
                                   final s = series[si];
                                   return Expanded(
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 1.8),
+                                        horizontal: 1.8,
+                                      ),
                                       child: _SignedBar(
+                                        month: months[mi],
+                                        seriesName: s.label,
                                         value: s.data[mi],
                                         maxY: maxAbsY,
                                         negativeMin: -maxAbsY * 0.4,
                                         gradient:
                                             AppColors.buildPrimaryGradient(
-                                          colors: s.gradientColors,
-                                        ),
+                                              colors: s.gradientColors,
+                                            ),
                                       ),
                                     ),
                                   );
@@ -785,11 +806,14 @@ class _GroupedBarChart extends StatelessWidget {
           spacing: 12,
           runSpacing: 8,
           children: series
-              .map((item) => _LegendDot(
-                    label: item.label,
-                    gradient: AppColors.buildPrimaryGradient(
-                        colors: item.gradientColors),
-                  ))
+              .map(
+                (item) => _LegendDot(
+                  label: item.label,
+                  gradient: AppColors.buildPrimaryGradient(
+                    colors: item.gradientColors,
+                  ),
+                ),
+              )
               .toList(),
         ),
       ],
@@ -816,8 +840,7 @@ class _PlotArea extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool isTablet = ResponsiveSizing.isTablet(context);
     final double totalRange = maxY - negativeMin;
-    final double zeroRatio =
-        totalRange == 0 ? 1 : (maxY / totalRange);
+    final double zeroRatio = totalRange == 0 ? 1 : (maxY / totalRange);
 
     return Column(
       children: [
@@ -832,8 +855,7 @@ class _PlotArea extends StatelessWidget {
                     child: Container(
                       decoration: const BoxDecoration(
                         border: Border(
-                          top: BorderSide(
-                              color: Color(0xFFE9E8EF), width: 1),
+                          top: BorderSide(color: Color(0xFFE9E8EF), width: 1),
                         ),
                       ),
                     ),
@@ -845,10 +867,7 @@ class _PlotArea extends StatelessWidget {
                   left: 0,
                   right: 0,
                   top: chartHeight * (1 - zeroRatio),
-                  child: Container(
-                    height: 1.2,
-                    color: const Color(0xFFCFCAD8),
-                  ),
+                  child: Container(height: 1.2, color: const Color(0xFFCFCAD8)),
                 ),
               child,
             ],
@@ -864,7 +883,7 @@ class _PlotArea extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: isTablet ? 12 : 10.5,
-                  color: AppColors.billingTextColor.withOpacity(0.75),
+                  color: AppColors.billingTextColor.withValues(alpha: 0.75),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -878,29 +897,37 @@ class _PlotArea extends StatelessWidget {
 
 class _SingleBar extends StatelessWidget {
   const _SingleBar({
+    required this.month,
     required this.value,
     required this.maxY,
     required this.gradient,
   });
 
+  final String month;
   final double value;
   final double maxY;
   final Gradient gradient;
 
   @override
   Widget build(BuildContext context) {
-    final double barRatio =
-        maxY == 0 ? 0 : (value / maxY).clamp(0.0, 1.0);
+    final double barRatio = maxY == 0 ? 0 : (value / maxY).clamp(0.0, 1.0);
+    final NumberFormatHelper formatter = NumberFormatHelper();
     return LayoutBuilder(
       builder: (context, constraints) {
         final double h = constraints.maxHeight * barRatio;
-        return Align(
-          alignment: Alignment.bottomCenter,
-          child: Container(
-            height: h < 2 && value > 0 ? 2 : h,
-            decoration: BoxDecoration(
-              gradient: gradient,
-              borderRadius: BorderRadius.circular(4),
+        return Tooltip(
+          message: '$month: ${formatter.currency(value)}',
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                height: h < 2 && value > 0 ? 2 : h,
+                decoration: BoxDecoration(
+                  gradient: gradient,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
             ),
           ),
         );
@@ -911,12 +938,16 @@ class _SingleBar extends StatelessWidget {
 
 class _SignedBar extends StatelessWidget {
   const _SignedBar({
+    required this.month,
+    required this.seriesName,
     required this.value,
     required this.maxY,
     required this.negativeMin,
     required this.gradient,
   });
 
+  final String month;
+  final String seriesName;
   final double value;
   final double maxY;
   final double negativeMin;
@@ -925,8 +956,8 @@ class _SignedBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double totalRange = maxY - negativeMin;
-    final double zeroRatio =
-        totalRange == 0 ? 1 : (maxY / totalRange);
+    final double zeroRatio = totalRange == 0 ? 1 : (maxY / totalRange);
+    final NumberFormatHelper formatter = NumberFormatHelper();
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -934,34 +965,46 @@ class _SignedBar extends StatelessWidget {
         final double topArea = zeroY;
         final double bottomArea = constraints.maxHeight - zeroY;
 
+        final Widget barContent;
         if (value >= 0) {
-          final double ratio =
-              maxY == 0 ? 0 : (value / maxY).clamp(0.0, 1.0);
+          final double ratio = maxY == 0 ? 0 : (value / maxY).clamp(0.0, 1.0);
           final double height = topArea * ratio;
-          return Stack(children: [
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: bottomArea,
-              height: height < 2 && value > 0 ? 2 : height,
-              child: _GradientBar(gradient: gradient),
-            ),
-          ]);
+          barContent = Stack(
+            children: [
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: bottomArea,
+                height: height < 2 && value > 0 ? 2 : height,
+                child: _GradientBar(gradient: gradient),
+              ),
+            ],
+          );
+        } else {
+          final double ratio = negativeMin == 0
+              ? 0
+              : (value.abs() / negativeMin.abs()).clamp(0.0, 1.0);
+          final double height = bottomArea * ratio;
+          barContent = Stack(
+            children: [
+              Positioned(
+                left: 0,
+                right: 0,
+                top: topArea,
+                height: height < 2 && value.abs() > 0 ? 2 : height,
+                child: _GradientBar(gradient: gradient),
+              ),
+            ],
+          );
         }
 
-        final double ratio = negativeMin == 0
-            ? 0
-            : (value.abs() / negativeMin.abs()).clamp(0.0, 1.0);
-        final double height = bottomArea * ratio;
-        return Stack(children: [
-          Positioned(
-            left: 0,
-            right: 0,
-            top: topArea,
-            height: height < 2 && value.abs() > 0 ? 2 : height,
-            child: _GradientBar(gradient: gradient),
+        return Tooltip(
+          message: '$month - $seriesName: ${formatter.currency(value)}',
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: barContent,
           ),
-        ]);
+        );
       },
     );
   }
@@ -1007,13 +1050,11 @@ class _YAxisLabels extends StatelessWidget {
       children: List<Widget>.generate(steps + 1, (int index) {
         final double v = maxY - (range * (index / steps));
         return Text(
-          formatCompact
-              ? formatter.currencyCompact(v)
-              : formatter.currency(v),
+          formatCompact ? formatter.currencyCompact(v) : formatter.currency(v),
           style: TextStyle(
             fontFamily: 'Manrope',
             fontSize: isTablet ? 11 : 10,
-            color: AppColors.billingTextColor.withOpacity(0.6),
+            color: AppColors.billingTextColor.withValues(alpha: 0.6),
             fontWeight: FontWeight.w500,
           ),
           textAlign: TextAlign.right,
@@ -1050,7 +1091,7 @@ class _LegendDot extends StatelessWidget {
             fontFamily: 'Manrope',
             fontSize: isTablet ? 12 : 11,
             fontWeight: FontWeight.w500,
-            color: AppColors.billingTextColor.withOpacity(0.8),
+            color: AppColors.billingTextColor.withValues(alpha: 0.8),
           ),
         ),
       ],

@@ -38,9 +38,10 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
 
   final List<String> _reasonOptions = const <String>[
     'Extra Payment',
-    'Overpayment',
-    'Goodwill Adjustment',
-    'Discount Adjustment',
+    'Additional Subsidy',
+    // 'Overpayment',
+    // 'Goodwill Adjustment',
+    // 'Discount Adjustment',
     'Other',
   ];
   String? _selectedReason;

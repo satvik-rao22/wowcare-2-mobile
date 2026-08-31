@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/unread_badge_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
@@ -55,6 +57,24 @@ class _StudentAttendanceTabbedViewState
   // Hide the floating add button while the drawer is open so it isn't painted
   // on top of (and brighter than) the drawer's dim scrim.
   bool _isDrawerOpen = false;
+
+  // Show/hide the bottom nav bar on scroll, mirroring GlobalScaffold (this view
+  // uses its own Scaffold for the tabbed app bar, so it replicates that here).
+  bool _showBars = true;
+
+  /// Hide the bottom nav while scrolling down (reverse), reveal it scrolling up.
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification is UserScrollNotification &&
+        notification.metrics.axis == Axis.vertical) {
+      final direction = notification.direction;
+      if (direction == ScrollDirection.reverse && _showBars) {
+        setState(() => _showBars = false);
+      } else if (direction == ScrollDirection.forward && !_showBars) {
+        setState(() => _showBars = true);
+      }
+    }
+    return false;
+  }
 
   // Notifier incremented after any attendance mutation so Custom and Absent
   // tabs refresh without needing GlobalKeys on the TabBarView children.
@@ -184,68 +204,74 @@ class _StudentAttendanceTabbedViewState
               onDrawerChanged: (isOpen) {
                 if (mounted) setState(() => _isDrawerOpen = isOpen);
               },
-              body: SafeArea(
-                bottom: false,
-                child: GradientBackground(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      contentPadding.left,
-                      contentPadding.top,
-                      contentPadding.right,
-                      // Add extra bottom padding so tab content can scroll
-                      // fully above the bottom navigation bar.
-                      mediaQuery.padding.bottom + 80,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4, bottom: 8),
-                          child: Text(
-                            'Student Attendance',
-                            style: TextStyle(
-                              fontFamily: Fonts.manrope,
-                              fontSize: responsive.isTablet ? 22 : 18,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primaryColor,
+              body: NotificationListener<ScrollNotification>(
+                onNotification: _handleScrollNotification,
+                child: SafeArea(
+                  // Inset for the home indicator so the last card clears it once
+                  // the bottom bar hides on scroll (matches GlobalScaffold).
+                  bottom: true,
+                  child: GradientBackground(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        contentPadding.left,
+                        contentPadding.top,
+                        contentPadding.right,
+                        // No nav-height reservation: the bar hides on scroll, so
+                        // nothing is permanently occluded (no dead space).
+                        contentPadding.bottom,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4, bottom: 8),
+                            child: Text(
+                              'Student Attendance',
+                              style: TextStyle(
+                                fontFamily: Fonts.manrope,
+                                fontSize: responsive.isTablet ? 22 : 18,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primaryColor,
+                              ),
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: TabBarView(
-                            controller: _tabController,
-                            children: [
-                              StudentAttendanceDailyViewScreen(
-                                incomingFilter: widget.dailyIncomingFilter,
-                                contentOnly: true,
-                                classroomFilter: widget.classroomFilter,
-                                staffAllowedClassrooms:
-                                    widget.staffAllowedClassrooms,
-                                staffAllowedClassroomIds:
-                                    widget.staffAllowedClassroomIds,
-                                highlightCode: widget.highlightCode,
-                                onAttendanceMutated: _refreshSecondaryTabs,
-                              ),
-                              StudentAttendanceCustomView(
-                                contentOnly: true,
-                                staffAllowedClassrooms:
-                                    widget.staffAllowedClassrooms,
-                                staffAllowedClassroomIds:
-                                    widget.staffAllowedClassroomIds,
-                                refreshNotifier: _refreshNotifier,
-                              ),
-                              StudentAttendanceAbsentView(
-                                contentOnly: true,
-                                staffAllowedClassrooms:
-                                    widget.staffAllowedClassrooms,
-                                staffAllowedClassroomIds:
-                                    widget.staffAllowedClassroomIds,
-                                refreshNotifier: _refreshNotifier,
-                              ),
-                            ],
+                          Expanded(
+                            child: TabBarView(
+                              controller: _tabController,
+                              children: [
+                                StudentAttendanceDailyViewScreen(
+                                  incomingFilter: widget.dailyIncomingFilter,
+                                  contentOnly: true,
+                                  classroomFilter: widget.classroomFilter,
+                                  staffAllowedClassrooms:
+                                      widget.staffAllowedClassrooms,
+                                  staffAllowedClassroomIds:
+                                      widget.staffAllowedClassroomIds,
+                                  highlightCode: widget.highlightCode,
+                                  onAttendanceMutated: _refreshSecondaryTabs,
+                                  refreshNotifier: _refreshNotifier,
+                                ),
+                                StudentAttendanceCustomView(
+                                  contentOnly: true,
+                                  staffAllowedClassrooms:
+                                      widget.staffAllowedClassrooms,
+                                  staffAllowedClassroomIds:
+                                      widget.staffAllowedClassroomIds,
+                                  refreshNotifier: _refreshNotifier,
+                                ),
+                                StudentAttendanceAbsentView(
+                                  contentOnly: true,
+                                  staffAllowedClassrooms:
+                                      widget.staffAllowedClassrooms,
+                                  staffAllowedClassroomIds:
+                                      widget.staffAllowedClassroomIds,
+                                  refreshNotifier: _refreshNotifier,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -253,8 +279,15 @@ class _StudentAttendanceTabbedViewState
               extendBody: true,
               // Attendance is the bottom-nav slot at index 1 (a popup slot with
               // no branch), so highlight it explicitly while on this view.
-              bottomNavigationBar: const CustomNavigationBar(
-                activeTabIndexOverride: 1,
+              // Animate the bar away while scrolling down, like GlobalScaffold.
+              bottomNavigationBar: AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                child: _showBars
+                    ? const CustomNavigationBar(
+                        activeItemOverride: BottomNavigationItem.attendance,
+                      )
+                    : const SizedBox.shrink(),
               ),
             ),
           ),

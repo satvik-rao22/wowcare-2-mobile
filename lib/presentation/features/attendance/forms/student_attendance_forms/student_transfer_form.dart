@@ -16,11 +16,13 @@ import 'package:wowcare/core/util/classroom_visibility.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
@@ -72,11 +74,25 @@ class StudentTransferForm extends StatefulWidget {
     this.refreshCallback,
     this.classroomNameToCode = const <String, String>{},
     this.popOnSuccess = false,
+    this.currentClassroomCode,
+    this.currentClassroomName,
   });
 
   final List<StudentEntity> students;
   final VoidCallback? refreshCallback;
   final Map<String, String> classroomNameToCode;
+
+  /// The classroom the user is currently VIEWING the student in, when the caller
+  /// knows it (e.g. the Classroom → Students tab).
+  ///
+  /// This is authoritative for "where is the student right now" and must win
+  /// over [StudentEntity.classroomCode]: a transfer moves the student for
+  /// attendance purposes, but the student record keeps pointing at their
+  /// enrolled room. Without it, transferring A→B and then opening Transfer from
+  /// classroom B excluded A (the stale value) and left B — the student's actual
+  /// current room — selectable as a destination.
+  final String? currentClassroomCode;
+  final String? currentClassroomName;
   // When true, pops back to the caller after a successful submission instead of
   // pushAndRemoveUntil → StudentAttendanceTabbedView. Set by callers that live
   // outside the Attendance tab (e.g. the Classroom Students card).
@@ -89,10 +105,10 @@ class StudentTransferForm extends StatefulWidget {
 }
 
 class _StudentTransferFormState extends State<StudentTransferForm> {
-  DateTime _selectedTransferDate = DateTime.now();
-  TimeOfDay _selectedTransferTime = TimeOfDay.now();
+  DateTime _selectedTransferDate = ServerTimeService.instance.now();
+  TimeOfDay _selectedTransferTime = ServerTimeService.instance.timeOfDayNow();
   String? _schoolIana;
-  bool? _isStaffAdminPersona;
+  bool? _isStaffPersona;
   String? selectedClassroom;
   String currentClassroom = '';
   List<String> availableClassrooms = [];
@@ -127,11 +143,11 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
 
       final storage = serviceLocator<StorageService>();
       final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-          .trim()
-          .toUpperCase();
-      bool isAdmin =
-          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
-      if (!isAdmin) {
+          .trim();
+      // True for any staff-side login (school/org admin or regular staff);
+      // false for guardian/parent and kiosk-PIN access. Gates date/time editing.
+      bool isStaff = staffType.isNotEmpty;
+      if (!isStaff) {
         final rolesJson = await storage.getString(StorageKeys.roles);
         if (rolesJson != null && rolesJson.trim().isNotEmpty) {
           final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
@@ -139,28 +155,23 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
             final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
                 .toString()
                 .toUpperCase();
-            if (roleCode == 'SCHOOL_ADMIN' ||
-                roleCode == 'ORGANIZATION_ADMIN') {
-              isAdmin = true;
-              break;
+            if (roleCode.contains('GUARDIAN') ||
+                roleCode.contains('PARENT') ||
+                roleCode.contains('KIOSK')) {
+              continue;
             }
+            isStaff = true;
+            break;
           }
         }
       }
       if (!mounted) return;
       setState(() {
         _schoolIana = schoolIana;
-        _isStaffAdminPersona = isAdmin;
-        if (schoolIana != null && schoolIana.isNotEmpty) {
-          final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(
-            schoolIana,
-          );
-          _selectedTransferDate = dt.$1;
-          _selectedTransferTime = dt.$2;
-        } else {
-          _selectedTransferDate = DateTime.now();
-          _selectedTransferTime = TimeOfDay.now();
-        }
+        _isStaffPersona = isStaff;
+        final now = ServerTimeService.instance.now();
+        _selectedTransferDate = now;
+        _selectedTransferTime = TimeOfDay(hour: now.hour, minute: now.minute);
       });
     } catch (_) {}
   }
@@ -180,6 +191,12 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
         .where((name) => name.isNotEmpty)
         .toSet();
 
+    // Also exclude the room the user is VIEWING the student in. The student
+    // record above can be stale after a transfer (it still points at their
+    // enrolled room), which is what left the current classroom selectable.
+    final viewing = _viewingClassroomName();
+    if (viewing.isNotEmpty) currentRoomNames.add(viewing);
+
     return classroomNameToCode.entries
         .where((entry) => entry.key.trim().isNotEmpty)
         .where((entry) => isSelectableClassroomName(entry.key))
@@ -188,17 +205,31 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
         .toList(growable: false);
   }
 
+  /// Name of the classroom the caller says we're viewing, resolved from its code
+  /// where possible. Empty when the caller didn't supply one.
+  String _viewingClassroomName() {
+    final code = (widget.currentClassroomCode ?? '').trim();
+    if (code.isNotEmpty) {
+      final resolved = (_codeToNameMap()[code] ?? '').trim();
+      if (resolved.isNotEmpty) return resolved;
+    }
+    final name = (widget.currentClassroomName ?? '').trim();
+    // Guard against a code being passed as the name (matches the daily-view rule).
+    if (name.isNotEmpty && !name.startsWith('CLS_')) return name;
+    return '';
+  }
+
   Future<void> _loadAvailableClassroomsFromApi() async {
     try {
       final storageService = serviceLocator<StorageService>();
       final schoolCode =
           (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
       if (schoolCode.isEmpty) return;
-      final isScopedStaff = await isAttendanceScopedStaffPersona(
+      final isScopedStaff = await isStudentAttendanceScopedStaffPersona(
         storage: storageService,
       );
       final allowedCodes = isScopedStaff
-          ? (await resolveAttendanceAllowedClassroomCodes(
+          ? (await resolveStudentAttendanceAllowedClassroomCodes(
               storage: storageService,
             )).map((e) => e.trim()).where((e) => e.isNotEmpty).toSet()
           : const <String>{};
@@ -250,6 +281,11 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
   }
 
   String _deriveCurrentClassroomName() {
+    // The viewing room wins: after a transfer the student record still points at
+    // their enrolled room, so trusting it would both mislabel this field and
+    // leave the real current room selectable as a destination.
+    final viewing = _viewingClassroomName();
+    if (viewing.isNotEmpty) return viewing;
     if (currentStudents.isEmpty) return 'N/A';
     final first = currentStudents.firstWhere(
       (s) => s.classroomCode.trim().isNotEmpty || s.roomName.trim().isNotEmpty,
@@ -334,27 +370,41 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     final schoolToday = SchoolZoneDateTime.schoolCalendarTodayOnly(
       schoolTimeZone,
     );
-    final isAdmin = _isStaffAdminPersona ?? false;
+    final isStaffPersona = _isStaffPersona ?? false;
 
     final DateTime transferredAt;
-    if (isAdmin) {
+    if (isStaffPersona) {
       final pickedDay = DateTime(
         _selectedTransferDate.year,
         _selectedTransferDate.month,
         _selectedTransferDate.day,
       );
       final safeDay = pickedDay.isAfter(schoolToday) ? schoolToday : pickedDay;
-      transferredAt = SchoolZoneDateTime.utcFromSchoolWallClock(
+      transferredAt = SchoolZoneDateTime.resolvePickedInstantUtc(
         schoolTimeZone,
-        year: safeDay.year,
-        month: safeDay.month,
-        day: safeDay.day,
-        hour: _selectedTransferTime.hour,
-        minute: _selectedTransferTime.minute,
+        selectedDate: safeDay,
+        selectedTime: _selectedTransferTime,
       );
     } else {
       transferredAt = SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
     }
+
+    if (isStaffPersona &&
+        transferredAt.isAfter(ServerTimeService.instance.nowUtc())) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
+          content: Text('You cannot transfer for a future date/time.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      setState(() {
+        _isSubmitting = false;
+      });
+      return;
+    }
+
     final transferDate = SchoolZoneDateTime.yyyyMmDdFromUtcInstant(
       transferredAt,
       schoolTimeZone,
@@ -468,6 +518,27 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
 
   @override
   Widget build(BuildContext context) {
+    if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
+      context,
+    )) {
+      return const Scaffold(
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Text(
+              'Access Denied: You must be inside geofence and signed in to manage student attendance.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return StaffFormLayout(
       title: 'Transfer',
       child: SingleChildScrollView(
@@ -506,7 +577,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: _selectedTransferDate,
-                        isDisabled: !(_isStaffAdminPersona ?? false),
+                        isDisabled: !(_isStaffPersona ?? false),
                         onDateSelected: (date) {
                           setState(() {
                             final iana = _schoolIana;
@@ -515,9 +586,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                                     iana,
                                   )
                                 : DateTime(
-                                    DateTime.now().year,
-                                    DateTime.now().month,
-                                    DateTime.now().day,
+                                    ServerTimeService.instance.now().year,
+                                    ServerTimeService.instance.now().month,
+                                    ServerTimeService.instance.now().day,
                                   );
                             final pickedDay = DateTime(
                               date.year,
@@ -541,7 +612,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                       const AppText.label('Time'),
                       const SizedBox(height: 8),
                       IgnorePointer(
-                        ignoring: !(_isStaffAdminPersona ?? false),
+                        ignoring: !(_isStaffPersona ?? false),
                         child: GradientTimePickerField(
                           time: _selectedTransferTime,
                           onTimeSelected: (t) {

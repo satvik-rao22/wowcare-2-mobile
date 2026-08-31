@@ -24,12 +24,45 @@ class SessionExpiredCoordinator {
 
   bool _busy = false;
 
+  /// True when the app is already on an auth-entry route — the sign-in screen or
+  /// the splash (`/`, which runs its own auth check and routes) — or there is no
+  /// navigator yet. Used to avoid a redirect/snackbar loop when a burst of 401s
+  /// lands after we've already bounced the user out, and to avoid interrupting
+  /// the boot/login flow that splash drives.
+  bool _isOnSignInRoute() {
+    final ctx = CoreUtils.rootNavigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) return true;
+    try {
+      final location = GoRouter.of(
+        ctx,
+      ).routerDelegate.currentConfiguration.uri.path;
+      return location == SignInScreen.routeName || location == '/';
+    } catch (_) {
+      // Router not ready — treat as "can't navigate" so we don't thrash.
+      return true;
+    }
+  }
+
   /// Best-effort backend logout (plain Dio — no auth interceptors), then clear cache
   /// and return user to sign-in.
+  ///
+  /// [fromEntryRoute] must be true for DELIBERATE callers that run on an
+  /// auth-entry route — notably the splash, which detects an expired session at
+  /// route `/` and calls this to log out + route to sign-in. Without it the
+  /// route guard below (meant to absorb a burst of background 401s once we've
+  /// already bounced) would treat the splash's own call as a no-op and leave the
+  /// app stuck on the splash.
   Future<void> performLogoutDueToExpiredSession({
     String userMessage = 'Your session has expired. Please sign in again.',
+    bool fromEntryRoute = false,
   }) async {
     if (_busy) return;
+    // Already on the sign-in screen (or no navigator yet): nothing to bounce.
+    // This guard makes the coordinator safe to call on EVERY 401 — including the
+    // case where the session was already cleared underneath a stuck authenticated
+    // screen — without re-clearing/re-navigating and spamming the snackbar on
+    // each subsequent 401. Deliberate entry-route callers (splash) opt out.
+    if (!fromEntryRoute && _isOnSignInRoute()) return;
     _busy = true;
     try {
       final authLocal = serviceLocator<AuthLocalDataSource>();
@@ -82,11 +115,21 @@ class SessionExpiredCoordinator {
         try {
           ctx.read<AuthCubit>().logout();
         } catch (_) {}
-        CoreUtils.showTopSnackBar(
-          context: ctx,
-          message: userMessage,
-          isError: true,
-        );
+        // An entry-route caller (the splash's own silent "is my cached token
+        // still valid" probe) fires before the user has done anything in
+        // this session — showing "session expired" here reads as an error
+        // on a blank Login screen instead of what it actually is (a stale
+        // cached session quietly cleared). Only a genuine mid-session 401
+        // via SessionExpiredInterceptor (fromEntryRoute defaults to false)
+        // is worth surfacing — the user was actively using the app and got
+        // logged out, which IS actionable feedback.
+        if (!fromEntryRoute) {
+          CoreUtils.showTopSnackBar(
+            context: ctx,
+            message: userMessage,
+            isError: true,
+          );
+        }
         // Navigate via go_router (the app's router). An imperative
         // Navigator.pushAndRemoveUntil doesn't stick here because go_router
         // re-syncs to its configured location, leaving the user on the

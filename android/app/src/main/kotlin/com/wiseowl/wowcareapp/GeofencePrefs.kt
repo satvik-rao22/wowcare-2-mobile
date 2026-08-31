@@ -12,6 +12,8 @@ object GeofencePrefs {
     private const val KEY_LAST_INSIDE = "geofence_last_notified_inside"
     private const val KEY_LAST_STATUS = "geofence_last_status"
     private const val KEY_SCHOOL_CODE = "geofence_school_code"
+    private const val KEY_NOTHING_TO_DO = "geofence_nothing_to_do"
+    private const val KEY_NOTHING_TO_DO_TIMESTAMP = "geofence_nothing_to_do_timestamp"
 
     fun persistConfig(
         context: Context,
@@ -69,6 +71,45 @@ object GeofencePrefs {
     fun getLastInside(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         return prefs.getBoolean(KEY_LAST_INSIDE, false)
+    }
+
+    fun clearLastInside(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .remove(KEY_LAST_INSIDE)
+            .remove(KEY_LAST_STATUS)
+            .apply()
+    }
+
+    /// Set by Flutter (GeofenceCubit) whenever staff/admin/guardian sign-in
+    /// status changes, so the background/killed-app notification path — which
+    /// has no other visibility into sign-in state — can skip notifying when
+    /// there is nothing left to sign in/out.
+    fun setNothingToDo(context: Context, nothingToDo: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_NOTHING_TO_DO, nothingToDo)
+            .putLong(KEY_NOTHING_TO_DO_TIMESTAMP, System.currentTimeMillis())
+            .apply()
+    }
+
+    fun getNothingToDo(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val nothingToDo = prefs.getBoolean(KEY_NOTHING_TO_DO, false)
+        if (!nothingToDo) return false
+
+        // If it was set to true, verify it was set today. A stale true value
+        // from a previous day (e.g. app killed after sign-out failed to sync)
+        // must not permanently suppress notifications.
+        val timestamp = prefs.getLong(KEY_NOTHING_TO_DO_TIMESTAMP, 0)
+        val calSet = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
+        val calNow = java.util.Calendar.getInstance()
+        
+        val isSameDay = calSet.get(java.util.Calendar.YEAR) == calNow.get(java.util.Calendar.YEAR) &&
+                        calSet.get(java.util.Calendar.DAY_OF_YEAR) == calNow.get(java.util.Calendar.DAY_OF_YEAR)
+                        
+        if (!isSameDay) {
+            return false // Expired, assume we need to notify
+        }
+        return true
     }
 
     data class Config(

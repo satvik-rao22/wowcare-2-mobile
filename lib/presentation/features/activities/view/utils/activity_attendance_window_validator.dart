@@ -6,38 +6,20 @@ import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 
-Future<DateTime?> _selectedInstantUtc({
-  required DateTime date,
-  required TimeOfDay time,
-}) async {
-  try {
-    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
-    );
-    return SchoolZoneDateTime.utcFromSchoolWallClock(
-      schoolTimeZone,
-      year: date.year,
-      month: date.month,
-      day: date.day,
-      hour: time.hour,
-      minute: time.minute,
-    );
-  } catch (_) {
-    return DateTime.utc(
-      date.year,
-      date.month,
-      date.day,
-      time.hour,
-      time.minute,
-    );
-  }
-}
+/// A transferred student's classroom-scoped "at time" sign-in record can
+/// still be keyed to the classroom they were transferred OUT of, so the
+/// scoped check below can return "not signed in" for a student who is
+/// genuinely present. This window bounds a classroom-agnostic fallback
+/// (today's sign-in status, no classroom filter) to only kick in for
+/// effectively-"now" submissions, so a real backdated/future check still
+/// gets the stricter classroom-scoped answer.
+const Duration _fallbackSignInCheckTolerance = Duration(minutes: 10);
 
 Future<Map<String, bool>> _fetchStudentSignedInStatusAtTime({
   required ApiClient apiClient,
@@ -118,6 +100,17 @@ Future<bool> _shouldRunStaffAtTimeValidation(StorageService storage) async {
       (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
   if (staffType.isNotEmpty) return allowedStaffPersonas.contains(staffType);
 
+  // ACTIVE persona (single value), not a scan of the account's full cached
+  // roles list below — that list always contains every role the account has
+  // across every school, so a dual-role user (e.g. GUARDIAN + STAFF in a
+  // different school) would be misdetected as staff regardless of which
+  // persona is actually active right now.
+  final activeRole =
+      (await storage.getString(StorageKeys.activeSchoolRole) ?? '')
+          .trim()
+          .toUpperCase();
+  if (activeRole.isNotEmpty) return allowedStaffPersonas.contains(activeRole);
+
   final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
   if (rolesRaw.isEmpty) return false;
   try {
@@ -152,11 +145,11 @@ Future<bool> validateStudentsWithinAttendanceWindow({
   if (selectedDate == null || selectedTime == null) return true;
   final storage = serviceLocator<StorageService>();
   final apiClient = serviceLocator<ApiClient>();
-  final instantUtc = await _selectedInstantUtc(
-    date: selectedDate,
-    time: selectedTime,
+  final instantUtc = SchoolZoneDateTime.resolvePickedInstantUtc(
+    ServerTimeService.instance.schoolTimeZone,
+    selectedDate: selectedDate,
+    selectedTime: selectedTime,
   );
-  if (instantUtc == null) return true;
   // Always validate attendance against API, including "current minute"/today.
   // This guarantees latest sign-in state is checked on every submit attempt.
   final classroomCode = _resolveClassroomCodeFromSelectedStudents(students);
@@ -202,6 +195,11 @@ Future<bool> validateStudentsWithinAttendanceWindow({
       (s['studentCode'] ?? '').toString().trim():
           (s['name'] ?? 'Selected student').toString().trim(),
   };
+  final ambiguousClassroomStudentCodes = <String>{
+    for (final s in students)
+      if (s['classroomCodeAmbiguousForDate'] == true)
+        (s['studentCode'] ?? '').toString().trim(),
+  };
 
   if (studentCodes.isNotEmpty) {
     try {
@@ -211,18 +209,58 @@ Future<bool> validateStudentsWithinAttendanceWindow({
         classroomCode: classroomCode,
         instantUtc: instantUtc,
       );
-      final notSignedInNames = <String>[
+      var notSignedInCodes = <String>[
         for (final code in studentCodes)
-          if (studentStatus[code] != true)
-            (studentNameByCode[code] == null || studentNameByCode[code]!.isEmpty)
-                ? 'Selected student'
-                : studentNameByCode[code]!,
+          if (studentStatus[code] != true) code,
+      ];
+
+      // The classroom-scoped check above can false-positive for a student who
+      // was transferred to another classroom but never signed out: their
+      // active sign-in record may still be keyed to the OLD classroom, so a
+      // query scoped to the (new) classroomCode finds nothing. For
+      // effectively-"now" submissions, re-check those specific students with
+      // a classroom-agnostic "today" status before blocking them.
+      //
+      // This fallback only proves the student is signed in SOMEWHERE, not in
+      // `classroomCode` specifically — safe only when `classroomCode` was the
+      // student's sole classroom that day. When the student had more than one
+      // classroom stint that day (a same-day transfer), applying it would
+      // wrongly clear a student who is legitimately no longer in the OLD
+      // classroom being posted to, defeating the very check this validator
+      // exists for. Those students stay excluded from the fallback and are
+      // left to the stricter scoped result.
+      final fallbackEligibleCodes = notSignedInCodes
+          .where((code) => !ambiguousClassroomStudentCodes.contains(code))
+          .toList(growable: false);
+      if (fallbackEligibleCodes.isNotEmpty &&
+          instantUtc
+                  .difference(ServerTimeService.instance.nowUtc())
+                  .abs() <=
+              _fallbackSignInCheckTolerance) {
+        try {
+          final fallbackStatus = await serviceLocator<AttendanceRepository>()
+              .getStudentTodaySignInStatusMap(fallbackEligibleCodes);
+          notSignedInCodes = notSignedInCodes
+              .where((code) =>
+                  !fallbackEligibleCodes.contains(code) ||
+                  fallbackStatus[code]?.toUpperCase() != 'SIGNED_IN')
+              .toList(growable: false);
+        } catch (_) {
+          // Fallback is best-effort; keep the scoped result on failure.
+        }
+      }
+
+      final notSignedInNames = <String>[
+        for (final code in notSignedInCodes)
+          (studentNameByCode[code] == null || studentNameByCode[code]!.isEmpty)
+              ? 'Selected student'
+              : studentNameByCode[code]!,
       ];
       if (notSignedInNames.isNotEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
           message:
-              'The following students must be signed in before creating the activity:\n${notSignedInNames.join(', ')}',
+              'Student(s) must be signed in at the time of posting the activity in this classroom:\n${notSignedInNames.join(', ')}',
           isWarning: true,
         );
         return false;
@@ -231,7 +269,7 @@ Future<bool> validateStudentsWithinAttendanceWindow({
       CoreUtils.showTopSnackBar(
         context: context,
         message:
-            'The following students must be signed in before creating the activity.',
+            'Student(s) must be signed in at the time of posting the activity in this classroom.',
         isWarning: true,
       );
       return false;

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/generated_reports_list.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class GeneratedReportsScreen extends StatefulWidget {
@@ -23,7 +25,7 @@ class GeneratedReportsScreen extends StatefulWidget {
 }
 
 class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   final ValueNotifier<String?> _selectedTag = ValueNotifier<String?>(null);
 
   @override
@@ -32,8 +34,33 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     AppLogger.d('[REPORTS-UI] GeneratedReportsScreen: initState - starting initial load');
     _loadData();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // After returning from an externally-launched file viewer (PDF/XLSX),
+    // Android/iOS can resume Flutter without repainting its surface,
+    // leaving a black screen. Force a rebuild on resume to guarantee a
+    // fresh frame is drawn.
+    if (state == AppLifecycleState.resumed && mounted) {
+      setState(() {});
+    }
+  }
+
+  /// Dismiss a dialog shown via [showDialog] (which defaults to the root
+  /// navigator). Popping through the ambient [context] instead would hit
+  /// go_router's branch navigator and pop the screen itself off the page
+  /// stack, which crashes with `currentConfiguration.isNotEmpty` once no
+  /// pages remain — always target the same (root) navigator the dialog was
+  /// pushed on, and never pop when there's nothing left to pop.
+  void _dismissDialog(BuildContext context) {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (navigator.canPop()) {
+      navigator.pop();
+    }
   }
 
   void _loadData({bool isRefresh = false}) {
@@ -75,7 +102,7 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
         report = ReportMetadataEntity(
           reportId: assetCode,
           reportType: ReportType.studentDailyAttendance,
-          generatedAt: DateTime.now(),
+          generatedAt: AppTime.now(),
           assetCode: assetCode,
           fileName: 'report.pdf',
         );
@@ -89,6 +116,7 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
     if (mounted) {
       showDialog(
         context: context,
+        useRootNavigator: true,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
           content: Column(
@@ -109,7 +137,7 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
       final fileData = await cubit.downloadReport(assetCode);
 
       if (!mounted) return;
-      Navigator.pop(context); // Close download dialog
+      _dismissDialog(context); // Close download dialog
 
       if (fileData == null || fileData.isEmpty) {
         AppLogger.e('[REPORTS-UI-DOWN] Bytes empty - assetCode: $assetCode');
@@ -127,6 +155,7 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
       if (mounted) {
         showDialog(
           context: context,
+          useRootNavigator: true,
           barrierDismissible: false,
           builder: (context) => AlertDialog(
             content: Column(
@@ -151,7 +180,7 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
       );
 
       if (!mounted) return;
-      Navigator.pop(context); // Close save dialog
+      _dismissDialog(context); // Close save dialog
 
       if (filePath == null) {
         AppLogger.e('[REPORTS-UI-DOWN] Save failed - assetCode: $assetCode');
@@ -201,9 +230,7 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
       );
 
       if (mounted) {
-        try {
-          Navigator.pop(context);
-        } catch (_) {}
+        _dismissDialog(context);
 
         CoreUtils.showTopSnackBar(
           context: context,
@@ -216,6 +243,7 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _selectedTag.dispose();
     super.dispose();
   }
@@ -413,33 +441,12 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
         builder: (context, state) {
           AppLogger.d('[REPORTS-UI] Build: state=${state.generatedReportsState}, count=${state.recentReports.length}');
 
-          // Show spinner while loading initial data
+          // Show shimmer placeholders while loading initial data
           if (state.generatedReportsState == GeneratedReportsLoadingState.initial ||
               state.generatedReportsState == GeneratedReportsLoadingState.loading) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text(
-                      'Loading reports from:\n'
-                      '• Student Attendance\n'
-                      '• Staff Attendance\n'
-                      '• Staff Reports\n'
-                      '• Student Management',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 12,
-                        color: Color(0xff573353),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            return const Padding(
+              padding: EdgeInsets.all(16),
+              child: GeneratedReportsListShimmer(),
             );
           }
 

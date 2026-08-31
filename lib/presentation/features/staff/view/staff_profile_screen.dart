@@ -1,19 +1,24 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
+import 'package:wowcare/presentation/features/students/module_access.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 // import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab.dart';
@@ -22,6 +27,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 
 class StaffProfileScreen extends StatefulWidget {
   static const String routeName = '/dashboard/staff-profile';
@@ -33,6 +39,7 @@ class StaffProfileScreen extends StatefulWidget {
     required this.classroom,
     required this.designation,
     required this.phoneNumber,
+    this.userCode = '',
     this.employmentStatus,
     this.classroomNames,
     this.classroomNameByCode,
@@ -50,6 +57,11 @@ class StaffProfileScreen extends StatefulWidget {
 
   final String staffCode;
   final String name;
+
+  /// USR_* user code pre-supplied by the caller. Avoids sending STF_* as a
+  /// participant code when the Message button is tapped before the async
+  /// profile fetch completes.
+  final String userCode;
 
   /// API employment status (e.g. ACTIVE, UPCOMING) for avatar status dot.
   final String? employmentStatus;
@@ -75,12 +87,17 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   late String _displayDesignation;
   late String _displayClassroom;
   String? _profilePhotoUrl;
+  String _profileUserCode = '';
   String? _schoolCode;
   String? _organizationCode;
   bool _isUploadingProfilePhoto = false;
   double _profilePhotoUploadPercent = 0;
 
   bool _isResolvingClassroom = false;
+
+  /// Logged-in user's own staffCode (resolved lazily, staff persona only) —
+  /// used to scope document edit/upload to a staff member's own profile.
+  String? _ownStaffCode;
 
   /// Formats enum-style strings from the API into human readable labels.
   /// Examples:
@@ -117,7 +134,9 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
     _displayName = widget.name;
     _displayDesignation = _formatEnumLabel(widget.designation);
     _displayClassroom = widget.classroom;
+    _profileUserCode = widget.userCode.trim();
     _loadUploadContext();
+    _loadOwnStaffCodeIfStaff();
     // Deep-link case: opened by code straight to a non-Profile tab. The summary
     // (name/designation/classroom) is normally pushed up by the Profile tab,
     // which TabBarView builds lazily — so it never runs when we land on Dates or
@@ -152,6 +171,18 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         }
         final photo = profile.profilePhotoUrl.trim();
         if (photo.isNotEmpty) _profilePhotoUrl = photo;
+        final uc = profile.userCode.trim();
+        if (uc.isNotEmpty) _profileUserCode = uc;
+        // Prefer the staff member's own school/organization over the
+        // device's active-school context: an admin/staff may be viewing a
+        // staff member whose home school differs from the active one, and
+        // uploads scoped to the wrong school 500 on the backend.
+        final ownerSchoolCode = profile.schoolCode.trim();
+        if (ownerSchoolCode.isNotEmpty) _schoolCode = ownerSchoolCode;
+        final ownerOrganizationCode = profile.organizationCode.trim();
+        if (ownerOrganizationCode.isNotEmpty) {
+          _organizationCode = ownerOrganizationCode;
+        }
       });
       // Prefer the human-readable name the API already returns; fall back to the
       // code (which _applyHeaderClassroomFromProfile then resolves to a name).
@@ -175,6 +206,37 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       _schoolCode = schoolCode.isEmpty ? null : schoolCode;
       _organizationCode = organizationCode.isEmpty ? null : organizationCode;
     });
+  }
+
+  /// Resolves the logged-in user's own staffCode so [_canEditDocuments] can
+  /// scope staff document edit/upload to their own profile only. Best-effort:
+  /// on failure editing stays disabled for staff.
+  Future<void> _loadOwnStaffCodeIfStaff() async {
+    try {
+      final code = await resolveStaffCodeForLoggedInUser();
+      if (!mounted) return;
+      setState(() => _ownStaffCode = code);
+    } catch (_) {
+      // Keep editing disabled for staff on failure.
+    }
+  }
+
+  /// Whether the current persona may add/edit/delete this staff member's
+  /// Documents: Admin always; staff only on their own profile; parents never.
+  bool _canEditDocuments(RoleCubit role) {
+    if (role.isParent) return false;
+    if (role.isStaff) {
+      final own = (_ownStaffCode ?? '').trim();
+      return own.isNotEmpty && own == widget.staffCode.trim();
+    }
+    return ModuleAccess.mayWrite(role, AppAccessModules.staff);
+  }
+
+  bool _canMessageStaff() {
+    final own = (_ownStaffCode ?? '').trim();
+    // Keep the action hidden until the identity lookup finishes. This avoids
+    // briefly offering a self-message action while the profile initializes.
+    return own.isNotEmpty && own != widget.staffCode.trim();
   }
 
   bool _looksLikeClassroomCode(String value) {
@@ -331,7 +393,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         documentApiBasePath: '/api/v1',
         fileName: fileName.isNotEmpty
             ? fileName
-            : 'staff-profile-photo-${DateTime.now().millisecondsSinceEpoch}.jpg',
+            : 'staff-profile-photo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
         contentType: contentType,
         contentLengthBytes: await file.length(),
         mediaType: 'IMAGE',
@@ -385,6 +447,8 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         _profilePhotoUrl = (refreshed.profilePhotoUrl).trim().isNotEmpty
             ? refreshed.profilePhotoUrl.trim()
             : finalizedUrl;
+        final uc = refreshed.userCode.trim();
+        if (uc.isNotEmpty) _profileUserCode = uc;
       });
     } catch (e) {
       CoreUtils.showTopSnackBar(
@@ -404,6 +468,8 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
 
   @override
   Widget build(BuildContext context) {
+    final role = context.watch<RoleCubit>();
+    final canEditDocuments = _canEditDocuments(role);
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: true,
@@ -465,6 +531,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                 StaffDatesTab(staffCode: widget.staffCode),
                 StaffDocumentsTab(
                   staffCode: widget.staffCode,
+                  canEdit: canEditDocuments,
                   highlightCode: widget.highlightCode,
                 ),
               ],
@@ -684,6 +751,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   }
 
   Widget _buildStaffActionButtons(BuildContext context) {
+    final canMessageStaff = _canMessageStaff();
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -696,15 +764,28 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
           _buildActionIcon(
             MediaRes.calenderClockIcon,
             onTap: () {
+              final code = widget.staffCode.trim();
+              if (code.isEmpty) {
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Staff code is required for attendance.',
+                  isError: true,
+                );
+                return;
+              }
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => StudentAttendanceProfile(
-                    studentCode: '',
-                    studentId: 0, // Staff profile - using placeholder ID
-                    studentName: widget.name,
-                    studentPhotoUuid: null,
-                    roomName: widget.classroom,
+                  settings: const RouteSettings(
+                    name: StaffAttendanceProfile.routeName,
+                  ),
+                  builder: (_) => StaffAttendanceProfile(
+                    staffCode: code,
+                    staffId: 0,
+                    staffName: _displayName,
+                    staffPhotoUuid: null,
+                    designationName: widget.designation,
+                    roomName: _displayClassroom,
                     isSignedIn: false,
                     isAbsent: false,
                     isExpectedToday: true,
@@ -729,7 +810,26 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
               );
             },
           ),
-          _buildActionIcon(MediaRes.communicationIcon, onTap: () {}),
+          if (canMessageStaff)
+            _buildActionIcon(
+              MediaRes.communicationIcon,
+              onTap: () {
+                final code = widget.staffCode.trim();
+                if (code.isEmpty) return;
+                openMessagingShortcut(
+                  context,
+                  recipients: [
+                    SelectedRecipient(
+                      code: code,
+                      name: widget.name,
+                      isStaff: true,
+                      userCode: _profileUserCode,
+                      designation: widget.designation,
+                    ),
+                  ],
+                );
+              },
+            ),
         ],
       ),
     );

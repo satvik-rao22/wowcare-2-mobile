@@ -14,6 +14,8 @@ class InvoiceTransactionModel {
     required this.status,
     required this.method,
     required this.amount,
+    required this.paidAmount,
+    required this.refundedAmount,
     required this.invoiceCode,
   });
 
@@ -28,6 +30,14 @@ class InvoiceTransactionModel {
   final String status;
   final String? method;
   final double amount;
+
+  /// Amount already paid against this invoice. Drives whether a Cancel action is
+  /// offered — a partially/fully paid invoice can no longer be cancelled.
+  final double paidAmount;
+
+  /// Amount already refunded against this invoice (max refundable = amount −
+  /// refundedAmount).
+  final double refundedAmount;
   final String invoiceCode;
 
   factory InvoiceTransactionModel.fromJson(Map<String, dynamic> json) {
@@ -41,8 +51,10 @@ class InvoiceTransactionModel {
       studentName: (json['studentName'] ?? '').toString(),
       description: (json['description'] ?? '').toString(),
       status: (json['status'] ?? '').toString(),
-      method: (json['method'])?.toString(),
+      method: ((json['method'] ?? json['paymentMode'] ?? json['paymentMethod']) as Object?)?.toString(),
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      paidAmount: (json['paidAmount'] as num?)?.toDouble() ?? 0.0,
+      refundedAmount: (json['refundedAmount'] as num?)?.toDouble() ?? 0.0,
       invoiceCode: (json['invoiceCode'] ?? json['id'] ?? '').toString(),
     );
   }
@@ -59,6 +71,8 @@ class InvoiceTransactionModel {
         status: status,
         method: method,
         amount: amount,
+        paidAmount: paidAmount,
+        refundedAmount: refundedAmount,
         invoiceCode: invoiceCode,
       );
 }

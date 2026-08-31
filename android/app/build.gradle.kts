@@ -1,11 +1,13 @@
 import java.util.Base64
 import java.util.Properties
 
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
     id("com.google.gms.google-services")
     // END: FlutterFire Configuration
+    id("com.google.firebase.crashlytics")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
@@ -24,6 +26,18 @@ val flutterProguardRules: java.io.File =
         val sdk = props.getProperty("flutter.sdk") ?: error("flutter.sdk not set in local.properties")
         rootProject.file("$sdk/packages/flutter_tools/gradle/flutter_proguard_rules.pro")
     }
+
+    // ---------------------------------------------------------------------------
+// Android Release Signing
+// ---------------------------------------------------------------------------
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.inputStream().use {
+        keystoreProperties.load(it)
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Firebase multi-environment: decode --dart-define=ENVIRONMENT passed by Flutter.
@@ -57,12 +71,19 @@ val dartEnvironment: String by lazy {
 // reports implicit-dependency validation errors for every task that reads from
 // android/app (mergeAssets, mergeShaders, compileFlutterBuild, ...).
 val copyGoogleServices by tasks.registering {
-    val srcPath = "firebase/$dartEnvironment/google-services.json"
+    // Firebase is intentionally pinned to the UAT project (wowcare2-uat) for ALL
+    // build environments. `dartEnvironment` still drives the rest of the build;
+    // only the google-services.json is forced to the uat folder. To restore
+    // per-environment Firebase projects, change this back to
+    // "firebase/$dartEnvironment/google-services.json".
+    val firebaseConfigEnvironment = "uat"
+    println("[firebase] build env=$dartEnvironment → using firebase/$firebaseConfigEnvironment config (wowcare2-uat)")
+    val srcPath = "firebase/$firebaseConfigEnvironment/google-services.json"
     doLast {
         val src = file(srcPath)
         require(src.exists()) {
             "Missing android/app/$srcPath\n" +
-                "Download it from the Firebase console for the '$dartEnvironment' project and place it there."
+                "Download it from the Firebase console for the '$firebaseConfigEnvironment' project and place it there."
         }
         copy {
             from(src)
@@ -114,11 +135,31 @@ android {
         // }
     }
 
+     // -----------------------------------------------------------------------
+    // Release Signing
+    // -----------------------------------------------------------------------
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storePassword = keystoreProperties.getProperty("storePassword")
+
+                val keystorePath =
+                    keystoreProperties.getProperty("storeFile")
+
+                if (!keystorePath.isNullOrBlank()) {
+                    storeFile = file(keystorePath)
+                }
+            }
+        }
+    }
+
+
     buildTypes {
         release {
             // ⚠️ Replace with your release keystore later
-            signingConfig = signingConfigs.getByName("debug")
-
+            signingConfig = signingConfigs.getByName("release")
             // ✅ Enable shrinking
             isMinifyEnabled = true
             isShrinkResources = true

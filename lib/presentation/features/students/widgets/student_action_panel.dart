@@ -3,11 +3,16 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
 import 'package:wowcare/domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
@@ -95,6 +100,7 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
   late final GetClassroomActivitySettingsUseCase
   _getClassroomActivitySettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
+  late final GetStudentAttendanceDailyUseCase _getStudentAttendanceDailyUseCase;
 
   bool _activitiesLoading = false;
   List<String> _visibleActivityKeys = [];
@@ -125,6 +131,8 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
         serviceLocator<GetClassroomActivitySettingsUseCase>();
     _getActivityTypeDetailsUseCase =
         serviceLocator<GetActivityTypeDetailsUseCase>();
+    _getStudentAttendanceDailyUseCase =
+        serviceLocator<GetStudentAttendanceDailyUseCase>();
     if (_currentPanel == StudentPanelType.activities) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _ensureActivitySettingsLoaded();
@@ -324,6 +332,63 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
     return 'This activity is currently disabled';
   }
 
+  /// Re-fetches each selected student's LIVE current classroom from the
+  /// ATTENDANCE service right before an activity is created from this panel.
+  ///
+  /// [widget.activityStudentMaps] carries whatever `classroomCode` the host
+  /// screen's student list last loaded, which comes from the student
+  /// directory service — a denormalized read model that can lag behind a
+  /// transfer for a while (a transfer is an attendance-system write; the
+  /// directory record syncs asynchronously). Querying the attendance
+  /// service's own "today" view instead — the same system a transfer writes
+  /// to — reflects the move immediately, so the activity gets filed under
+  /// the classroom the student is ACTUALLY in right now, not the one they
+  /// were transferred out of. Falls back to the original entry (best-effort)
+  /// if the lookup fails or returns nothing for a given student.
+  Future<List<Map<String, dynamic>>> _mapsWithFreshClassroomCodes(
+    List<Map<String, dynamic>> maps,
+  ) async {
+    final studentCodes = maps
+        .map((m) => (m['studentCode'] as String?)?.trim() ?? '')
+        .where((c) => c.isNotEmpty)
+        .toSet()
+        .toList();
+    if (studentCodes.isEmpty) return maps;
+
+    try {
+      final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+        storage: serviceLocator<StorageService>(),
+        apiClient: serviceLocator<ApiClient>(),
+      );
+      final today = SchoolZoneDateTime.schoolCalendarTodayOnly(schoolTimeZone);
+      final attendanceDate =
+          '${today.year.toString().padLeft(4, '0')}-'
+          '${today.month.toString().padLeft(2, '0')}-'
+          '${today.day.toString().padLeft(2, '0')}';
+
+      final page = await _getStudentAttendanceDailyUseCase(
+        attendanceDate: attendanceDate,
+        studentCodes: studentCodes,
+        page: 0,
+        size: studentCodes.length,
+      );
+      final classroomByStudentCode = <String, String>{
+        for (final item in page.items)
+          if ((item.studentCode ?? '').trim().isNotEmpty)
+            item.studentCode!.trim(): item.classroomCode.trim(),
+      };
+      if (classroomByStudentCode.isEmpty) return maps;
+
+      return maps.map((m) {
+        final studentCode = (m['studentCode'] as String?)?.trim() ?? '';
+        final freshCode = classroomByStudentCode[studentCode] ?? '';
+        return freshCode.isEmpty ? m : {...m, 'classroomCode': freshCode};
+      }).toList();
+    } catch (_) {
+      return maps;
+    }
+  }
+
   Future<void> _onActivityItemTapped(String activityKey) async {
     final maps = widget.activityStudentMaps;
     if (maps == null || maps.isEmpty) return;
@@ -350,8 +415,13 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
     }
 
     setState(() => _pendingNavigationKey = activityKey);
+    List<Map<String, dynamic>> freshMaps;
     try {
-      await _getActivityTypeDetailsUseCase(code: code);
+      final results = await Future.wait([
+        _getActivityTypeDetailsUseCase(code: code),
+        _mapsWithFreshClassroomCodes(maps),
+      ]);
+      freshMaps = results[1] as List<Map<String, dynamic>>;
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -365,7 +435,7 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
     setState(() => _pendingNavigationKey = null);
     final destinationBuilder = ChooseActivity.activityRoutes[activityKey];
     if (destinationBuilder != null) {
-      final nextScreen = destinationBuilder(maps);
+      final nextScreen = destinationBuilder(freshMaps);
       final recorded = await Navigator.of(
         context,
       ).push<dynamic>(MaterialPageRoute(builder: (_) => nextScreen));
@@ -653,7 +723,7 @@ class _StudentSidePanel extends StatelessWidget {
       case 'Transfer':
         return 'Transfer can only be done for Students/Staff already signed in.';
       case 'Absent':
-        return 'Absent can only be done for Students/Staff not yet signed in.';
+        return 'Absent can only be marked for Students/Staff not yet signed in';
     }
     return '';
   }

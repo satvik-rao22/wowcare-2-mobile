@@ -1,119 +1,128 @@
 import 'package:fl_chart/fl_chart.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/domain/features/billing/entities/invoice_analytics_entity.dart';
+import 'package:wowcare/domain/features/billing/entities/invoice_entity.dart';
+import 'package:wowcare/presentation/features/billing/cubit/analytics_cubit.dart';
+import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
 // ---------------------------------------------------------------------------
-// Local mock data models (UI-only — no entity imports)
+// BillingCard widget (admin dashboard)
+//
+// Monthly totals (Amount Invoiced / Net Paid / In-Process / Outstanding) come
+// from the invoice overview API via [TransactionsCubit.loadOverview] scoped to
+// the selected month's date range. The yearly revenue chart comes from the
+// invoice analytics API via [AnalyticsCubit].
 // ---------------------------------------------------------------------------
 
-/// Snapshot of monthly billing totals for a selected period.
-class _TotalTransactions {
-  const _TotalTransactions({
-    required this.totalAmountInvoiced,
-    required this.netAmountPaid,
-    required this.amountInProcess,
-    required this.amountUnpaid,
-  });
-
-  final double totalAmountInvoiced;
-  final double netAmountPaid;
-  final double amountInProcess;
-  final double amountUnpaid;
-}
-
-/// Year-to-date revenue with per-month breakdown.
-class _YearlyRevenue {
-  const _YearlyRevenue({
-    required this.totalRevenue,
-    required this.monthlyRevenue,
-  });
-
-  final double totalRevenue;
-
-  /// Keys are month names (Jan–Dec order); values are revenue amounts.
-  final Map<String, double> monthlyRevenue;
-}
-
-// ---------------------------------------------------------------------------
-// Hardcoded mock data
-// ---------------------------------------------------------------------------
-
-/// Realistic per-month transaction mock for any selected month.
-const _mockTransaction = _TotalTransactions(
-  totalAmountInvoiced: 48750.00,
-  netAmountPaid: 31200.00,
-  amountInProcess: 9850.00,
-  amountUnpaid: 7700.00,
-);
-
-/// Realistic YTD revenue mock (calendar year).
-const _mockYearlyRevenue = _YearlyRevenue(
-  totalRevenue: 312400.00,
-  monthlyRevenue: {
-    'Jan': 22400,
-    'Feb': 18900,
-    'Mar': 24700,
-    'Apr': 27300,
-    'May': 31200,
-    'Jun': 29800,
-    'Jul': 26500,
-    'Aug': 30100,
-    'Sep': 28400,
-    'Oct': 33600,
-    'Nov': 21500,
-    'Dec': 18000,
-  },
-);
-
-// ---------------------------------------------------------------------------
-// BillingCard widget
-// ---------------------------------------------------------------------------
-
-class BillingCard extends StatefulWidget {
+class BillingCard extends StatelessWidget {
   const BillingCard({super.key});
 
   @override
-  State<BillingCard> createState() => _BillingCardState();
+  Widget build(BuildContext context) {
+    final now = AppTime.now();
+    final monthStart = DateTime(now.year, now.month, 1);
+    final monthEnd = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<TransactionsCubit>(
+          create: (_) => serviceLocator<TransactionsCubit>()
+            ..loadOverview(dateFrom: monthStart, dateTo: monthEnd),
+        ),
+        BlocProvider<AnalyticsCubit>(
+          create: (_) => serviceLocator<AnalyticsCubit>()..load(),
+        ),
+      ],
+      child: const _BillingCardBody(),
+    );
+  }
 }
 
-class _BillingCardState extends State<BillingCard> {
-  static const _monthsList = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
+class _BillingCardBody extends StatefulWidget {
+  const _BillingCardBody();
+
+  @override
+  State<_BillingCardBody> createState() => _BillingCardBodyState();
+}
+
+class _BillingCardBodyState extends State<_BillingCardBody> {
+  static const _monthAbbr = [
+    'jan',
+    'feb',
+    'mar',
+    'apr',
+    'may',
+    'jun',
+    'jul',
+    'aug',
+    'sep',
+    'oct',
+    'nov',
+    'dec',
   ];
 
   bool _minimized = false;
-  int _selectedYear = DateTime.now().year;
-  String _selectedMonth = _monthsList[DateTime.now().month - 1];
+  int _selectedYear = AppTime.now().year;
+
+  /// The monthly section's active date range — defaults to the current
+  /// month, but can be narrowed to any custom range via
+  /// [AccountingDateRangeSelector] (matching web's custom-range support).
+  late DateTime _rangeStart;
+  late DateTime _rangeEnd;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = AppTime.now();
+    _rangeStart = DateTime(now.year, now.month, 1);
+    _rangeEnd = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+  }
+
+  Future<void> _reloadOverviewForRange(DateTime start, DateTime end) {
+    setState(() {
+      _rangeStart = start;
+      _rangeEnd = end;
+    });
+    return context.read<TransactionsCubit>().loadOverview(
+          dateFrom: start,
+          dateTo: DateTime(end.year, end.month, end.day, 23, 59, 59),
+        );
+  }
 
   // ---------------------------------------------------------------------------
-  // Helper calculations (mirror original logic, operate on local mock)
+  // Helper calculations
   // ---------------------------------------------------------------------------
-
-  double _getTotalRevenue(_TotalTransactions transaction) =>
-      transaction.totalAmountInvoiced;
 
   /// Denominator shared by the three percentage columns.
-  double _getTotalAllAmounts(_TotalTransactions transaction) =>
-      transaction.netAmountPaid +
-      transaction.amountInProcess +
-      transaction.amountUnpaid;
+  double _getTotalAllAmounts(InvoiceOverviewEntity o) =>
+      o.netPaid + o.inProcess + o.outstanding;
 
   String _getPercentage(double count, double total) {
     if (total == 0.0) return '0 %';
     return '${(count * 100 / total).toStringAsFixed(0)}%';
+  }
+
+  /// Maps the analytics month-value list (keyed by month name) to a dense
+  /// 12-slot Jan→Dec list, defaulting missing months to 0.
+  List<double> _toMonthlyValues(List<AnalyticsMonthValueEntity> data) {
+    final byMonth = <String, double>{};
+    for (final e in data) {
+      final key = e.name.trim().toLowerCase();
+      if (key.length >= 3) byMonth[key.substring(0, 3)] = e.value;
+    }
+    return List<double>.generate(
+      12,
+      (i) => byMonth[_monthAbbr[i]] ?? 0.0,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -136,7 +145,7 @@ class _BillingCardState extends State<BillingCard> {
           DashboardCardHeader(
             title: 'Billing',
             showRedirect: true,
-            onRedirect: () {},
+            onRedirect: () => context.go(BillingScreen.routeName),
             minimized: _minimized,
             onToggle: () {
               setState(() {
@@ -147,30 +156,19 @@ class _BillingCardState extends State<BillingCard> {
 
           const SizedBox(height: 16),
 
-          // ── Month picker ────────────────────────────────────────────────────
+          // ── Custom date range (primary) ───────────────────────────────────────
           AnimatedSize(
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeInOut,
             child: _minimized
                 ? const SizedBox.shrink()
-                : Row(
-                    children: [
-                      Expanded(
-                        child: CustomDropdown(
-                          hintText: 'Month',
-                          items: _monthsList,
-                          selectedItem: _selectedMonth,
-                          isField: false,
-                          prependHintAsSelectableItem: false,
-                          onSelect: (value) {
-                            if (value != null) {
-                              setState(() => _selectedMonth = value);
-                            }
-                          },
-                        ),
-                      ),
-                      const Expanded(flex: 2, child: SizedBox()),
-                    ],
+                : AccountingDateRangeSelector(
+                    initialStartDate: _rangeStart,
+                    initialEndDate: _rangeEnd,
+                    onRangeChanged: (start, end) {
+                      if (start == null || end == null) return;
+                      _reloadOverviewForRange(start, end);
+                    },
                   ),
           ),
 
@@ -182,7 +180,18 @@ class _BillingCardState extends State<BillingCard> {
             curve: Curves.easeInOut,
             child: _minimized
                 ? const SizedBox.shrink()
-                : _buildMonthlySection(_mockTransaction),
+                : BlocBuilder<TransactionsCubit, TransactionsState>(
+                    builder: (context, state) {
+                      final overview = state.overview;
+                      if (overview == null) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: ShimmerLoader(height: 96),
+                        );
+                      }
+                      return _buildMonthlySection(overview);
+                    },
+                  ),
           ),
 
           const SizedBox(height: 10),
@@ -208,17 +217,16 @@ class _BillingCardState extends State<BillingCard> {
                           hintText: 'Year',
                           items: List.generate(
                             30,
-                            (index) =>
-                                (_selectedYear + index - 15).toString(),
+                            (index) => (_selectedYear + index - 15).toString(),
                           ),
                           selectedItem: '$_selectedYear',
                           isField: false,
-                          prependHintAsSelectableItem: false,
                           onSelect: (value) {
                             if (value != null) {
-                              setState(
-                                () => _selectedYear = int.parse(value),
-                              );
+                              setState(() => _selectedYear = int.parse(value));
+                              context
+                                  .read<AnalyticsCubit>()
+                                  .setYear(_selectedYear);
                             }
                           },
                         ),
@@ -236,7 +244,19 @@ class _BillingCardState extends State<BillingCard> {
             curve: Curves.easeInOut,
             child: _minimized
                 ? const SizedBox.shrink()
-                : _buildYearlySection(_mockYearlyRevenue),
+                : BlocBuilder<AnalyticsCubit, AnalyticsState>(
+                    builder: (context, state) {
+                      if (state.isLoading && state.analytics == null) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: ShimmerLoader(height: 220),
+                        );
+                      }
+                      final revenue =
+                          _toMonthlyValues(state.analytics?.revenue ?? const []);
+                      return _buildYearlySection(revenue);
+                    },
+                  ),
           ),
         ],
       ),
@@ -247,16 +267,16 @@ class _BillingCardState extends State<BillingCard> {
   // Monthly totals section
   // ---------------------------------------------------------------------------
 
-  Widget _buildMonthlySection(_TotalTransactions transaction) {
-    final totalAllAmounts = _getTotalAllAmounts(transaction);
+  Widget _buildMonthlySection(InvoiceOverviewEntity overview) {
+    final totalAllAmounts = _getTotalAllAmounts(overview);
     return Column(
       children: [
-        // Amount Invoice row
+        // Amount Invoiced row
         Row(
           children: [
             Expanded(
               child: Text(
-                'Amount Invoice',
+                'Amount Invoiced',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w500,
@@ -266,7 +286,7 @@ class _BillingCardState extends State<BillingCard> {
             ),
             Expanded(
               child: Text(
-                '\$ ${_getTotalRevenue(transaction).toStringAsFixed(2)}',
+                '\$ ${overview.amountInvoiced.toStringAsFixed(2)}',
                 style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -278,44 +298,59 @@ class _BillingCardState extends State<BillingCard> {
           ],
         ),
         const SizedBox(height: 18),
-        // Billing status columns
+        // Billing status columns — Net Paid / In Process / Outstanding, plus
+        // Paid / Refund (matches web's five-way breakdown).
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Expanded(
               child: _buildBillingStatus(
-                amount: '\$${transaction.netAmountPaid.toStringAsFixed(2)}',
-                percentage: _getPercentage(
-                  transaction.netAmountPaid,
-                  totalAllAmounts,
-                ),
+                amount: '\$${overview.netPaid.toStringAsFixed(2)}',
+                percentage: _getPercentage(overview.netPaid, totalAllAmounts),
                 label: 'Net Paid',
                 percentageColor: Colors.green,
               ),
             ),
             Expanded(
               child: _buildBillingStatus(
-                amount:
-                    '\$${transaction.amountInProcess.toStringAsFixed(2)}',
-                percentage: _getPercentage(
-                  transaction.amountInProcess,
-                  totalAllAmounts,
-                ),
-                label: 'In-Process',
+                amount: '\$${overview.inProcess.toStringAsFixed(2)}',
+                percentage: _getPercentage(overview.inProcess, totalAllAmounts),
+                label: 'In Process',
                 percentageColor: Colors.yellow,
               ),
             ),
             Expanded(
               child: _buildBillingStatus(
-                amount: '\$${transaction.amountUnpaid.toStringAsFixed(2)}',
-                percentage: _getPercentage(
-                  transaction.amountUnpaid,
-                  totalAllAmounts,
-                ),
+                amount: '\$${overview.outstanding.toStringAsFixed(2)}',
+                percentage:
+                    _getPercentage(overview.outstanding, totalAllAmounts),
                 label: 'Outstanding',
                 percentageColor: Colors.red,
               ),
             ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: _buildBillingStatus(
+                amount: '\$${overview.paid.toStringAsFixed(2)}',
+                percentage: _getPercentage(overview.paid, totalAllAmounts),
+                label: 'Paid',
+                percentageColor: AppColors.paidLegendColor,
+              ),
+            ),
+            Expanded(
+              child: _buildBillingStatus(
+                amount: '\$${overview.refunded.toStringAsFixed(2)}',
+                percentage: _getPercentage(overview.refunded, totalAllAmounts),
+                label: 'Refund',
+                percentageColor: AppColors.refundLegendColor,
+              ),
+            ),
+            const Expanded(child: SizedBox()),
           ],
         ),
       ],
@@ -326,45 +361,33 @@ class _BillingCardState extends State<BillingCard> {
   // Yearly revenue chart section
   // ---------------------------------------------------------------------------
 
-  Widget _buildYearlySection(_YearlyRevenue revenue) {
-    final monthlyValues =
-        revenue.monthlyRevenue.values.map((v) => v.toDouble()).toList();
+  Widget _buildYearlySection(List<double> monthlyValues) {
+    final totalRevenue = monthlyValues.fold<double>(0, (a, b) => a + b);
 
-    if (monthlyValues.isEmpty) return const SizedBox.shrink();
+    if (monthlyValues.every((v) => v == 0)) {
+      return Column(
+        children: [
+          _buildRevenueHeader(totalRevenue),
+          const SizedBox(height: 24),
+          Text(
+            'No revenue data for this year',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.primaryColor.withValues(alpha: 0.6),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      );
+    }
 
-    final maxY =
-        (monthlyValues.reduce((a, b) => a > b ? a : b) * 1.25)
-            .ceilToDouble();
+    final maxY = (monthlyValues.reduce((a, b) => a > b ? a : b) * 1.25)
+        .ceilToDouble();
     const minY = 0.0;
 
     return Column(
       children: [
-        // Revenue (YTD) header row
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Revenue (YTD)',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                '\$ ${revenue.totalRevenue.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.themeColor,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ],
-        ),
+        _buildRevenueHeader(totalRevenue),
         const SizedBox(height: 10),
         // Bar chart
         SizedBox(
@@ -372,7 +395,7 @@ class _BillingCardState extends State<BillingCard> {
           child: BarChart(
             BarChartData(
               alignment: BarChartAlignment.spaceAround,
-              maxY: maxY,
+              maxY: maxY == 0 ? 1 : maxY,
               minY: minY,
               barTouchData: BarTouchData(
                 enabled: true,
@@ -408,8 +431,12 @@ class _BillingCardState extends State<BillingCard> {
                         'Nov',
                         'Dec',
                       ];
+                      final i = value.round();
+                      if (i < 0 || i >= months.length) {
+                        return const SizedBox.shrink();
+                      }
                       return Text(
-                        months[value.round()],
+                        months[i],
                         style: const TextStyle(
                           color: Colors.grey,
                           fontSize: 12,
@@ -482,6 +509,34 @@ class _BillingCardState extends State<BillingCard> {
     );
   }
 
+  Widget _buildRevenueHeader(double totalRevenue) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Revenue (YTD)',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            '\$ ${totalRevenue.toStringAsFixed(2)}',
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: AppColors.themeColor,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // Per-status billing column (Net Paid / In-Process / Outstanding)
   // ---------------------------------------------------------------------------
@@ -525,5 +580,5 @@ class _BillingCardState extends State<BillingCard> {
   }
 }
 
-// Month / year pickers use the shared `CustomDropdown`
+// The year picker uses the shared `CustomDropdown`
 // (lib/shared/common/widgets/custom_dropdown.dart).

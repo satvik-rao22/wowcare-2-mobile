@@ -4,23 +4,24 @@ import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/domain/features/billing/entities/family_summary_entity.dart';
-import 'package:wowcare/domain/features/billing/usecases/get_family_summary_usecase.dart';
+import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
+import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
+import 'package:wowcare/domain/features/billing/usecases/get_guardian_family_ledger_usecase.dart';
 
 part 'pay_now_state.dart';
 
-/// Drives the "Pay Now" amount page: loads the family-summary (per-owner open
-/// balances) and tracks the chosen amount — either the full family balance or a
-/// custom per-owner allocation.
+/// Drives the "Pay Now" amount page: loads the guardian's family ledger (the
+/// family's unpaid total + each child's outstanding) and tracks the chosen
+/// amount — either the family's unpaid balance or a custom per-child allocation.
 class PayNowCubit extends Cubit<PayNowState> {
   PayNowCubit({
-    required GetFamilySummaryUseCase getFamilySummary,
+    required GetGuardianFamilyLedgerUseCase getGuardianFamilyLedger,
     required StorageService storage,
-  })  : _getFamilySummary = getFamilySummary,
+  })  : _getGuardianFamilyLedger = getGuardianFamilyLedger,
         _storage = storage,
         super(const PayNowState());
 
-  final GetFamilySummaryUseCase _getFamilySummary;
+  final GetGuardianFamilyLedgerUseCase _getGuardianFamilyLedger;
   final StorageService _storage;
 
   Future<void> load() async {
@@ -30,17 +31,20 @@ class PayNowCubit extends Cubit<PayNowState> {
           (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
       final school =
           (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      final families = await _getFamilySummary(
+      final guardianCode =
+          (await _storage.getString(StorageKeys.guardianCode) ?? '').trim();
+      final ledger = await _getGuardianFamilyLedger(
         organizationCode: org,
         school: school,
+        guardianCode: guardianCode,
       );
       if (isClosed) return;
-      final total =
-          families.fold<double>(0, (sum, f) => sum + f.openBalance);
       emit(state.copyWith(
         isLoading: false,
-        families: families,
-        currentAmount: total,
+        ledger: () => ledger,
+        guardianCode: guardianCode,
+        // Current Outstanding defaults to the family's unpaid total.
+        currentAmount: ledger.unpaid,
       ));
     } catch (e) {
       if (isClosed) return;
@@ -59,9 +63,9 @@ class PayNowCubit extends Cubit<PayNowState> {
     emit(state.copyWith(currentAmount: double.tryParse(raw.trim()) ?? 0));
   }
 
-  void setCustomAmount(String ownerCode, String raw) {
+  void setCustomAmount(String studentCode, String raw) {
     final next = Map<String, double>.from(state.customAmounts);
-    next[ownerCode] = double.tryParse(raw.trim()) ?? 0;
+    next[studentCode] = double.tryParse(raw.trim()) ?? 0;
     emit(state.copyWith(customAmounts: next));
   }
 }

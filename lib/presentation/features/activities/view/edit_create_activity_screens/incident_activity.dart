@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
@@ -13,17 +14,15 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 
 import '../../../../../app/di/di.dart';
 import '../../../../../app/theme/colors.dart';
-import '../../../../../core/storage/storage_service.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/guardian_code_resolver.dart';
-import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../cubit/activity_editor_cubit.dart';
-import '../../../../../domain/features/activity/repositories/activity_repository.dart';
-import '../../../../../domain/features/staff/repositories/staff_repository.dart';
+import '../../cubit/incident_activity_cubit.dart';
+import '../../../../../shared/common/app/cubit/role_cubit.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/custom_toggle.dart';
@@ -35,6 +34,7 @@ import '../utils/activity_attendance_window_validator.dart';
 import '../../utils/activity_school_time.dart';
 import '../../utils/activity_staff_display.dart';
 import '../../utils/activity_patch_attachments.dart';
+import '../../utils/activity_photo_attachment_upload.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
@@ -58,7 +58,7 @@ bool incidentRolesJsonIndicatesGuardianLogin(String rolesJson) {
   return u.contains('GUARDIAN') || u.contains('PARENT');
 }
 
-class IncidentActivityScreen extends StatefulWidget {
+class IncidentActivityScreen extends StatelessWidget {
   const IncidentActivityScreen({
     super.key,
     this.selectedStudents,
@@ -72,20 +72,53 @@ class IncidentActivityScreen extends StatefulWidget {
   final bool readOnly;
 
   @override
-  State<IncidentActivityScreen> createState() => _IncidentActivityScreenState();
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<ActivityEditorCubit>(
+          create: (_) => serviceLocator<ActivityEditorCubit>(),
+        ),
+        BlocProvider<IncidentActivityCubit>(
+          create: (_) => serviceLocator<IncidentActivityCubit>(),
+        ),
+      ],
+      child: _IncidentActivityView(
+        selectedStudents: selectedStudents,
+        isEdit: isEdit,
+        activityData: activityData,
+        readOnly: readOnly,
+      ),
+    );
+  }
 }
 
-class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
+class _IncidentActivityView extends StatefulWidget {
+  const _IncidentActivityView({
+    this.selectedStudents,
+    this.isEdit = false,
+    this.activityData,
+    this.readOnly = false,
+  });
+  final List<Map<String, dynamic>>? selectedStudents;
+  final bool isEdit;
+  final ActivityItem? activityData;
+  final bool readOnly;
+
+  @override
+  State<_IncidentActivityView> createState() => _IncidentActivityViewState();
+}
+
+class _IncidentActivityViewState extends State<_IncidentActivityView> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
   bool get _isAdminDesignation => const {
-        'SCHOOL_ADMIN',
-        'ORGANIZATION_ADMIN',
-        'DIRECTOR',
-        'ADMIN',
-        'ASSISTANT_DIRECTOR',
-        'OWNER',
-      }.contains(_staffType.trim().toUpperCase());
+    'SCHOOL_ADMIN',
+    'ORGANIZATION_ADMIN',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'OWNER',
+  }.contains(_staffType.trim().toUpperCase());
   bool get _showRequireAdminApprovalToggle =>
       !_isAdminDesignation && !widget.readOnly;
 
@@ -127,6 +160,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   bool _loadingActivityDetail = false;
   bool _isGuardianPersona = false;
   bool _hasGuardianAcknowledgedLocally = false;
+
   /// Logged-in guardian record code + display label for Parent Present when API omits valueText.
   String _loggedInGuardianCode = '';
   String _loggedInParentPresentLabel = '';
@@ -138,8 +172,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   int _uploadCompletedCount = 0;
   int _uploadTotalCount = 0;
   List<File> _newPhotos = [];
-  final Map<String, String> _uploadedAssetCodeByPath = {};
-  String? _lastUploadContextKey;
+  final _attachmentState = ActivityPhotoAttachmentState();
   List<String> _remainingExistingPhotoUrls = [];
 
   bool? _pickFirstAidGivenFromActivityDetail(dynamic detail) {
@@ -148,8 +181,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       if (raw == null) return null;
       final text = raw.toString().trim().toLowerCase();
       if (text.isEmpty) return null;
-      if (text == 'true' || text == 'yes' || text == 'y' || text == '1') return true;
-      if (text == 'false' || text == 'no' || text == 'n' || text == '0') return false;
+      if (text == 'true' || text == 'yes' || text == 'y' || text == '1')
+        return true;
+      if (text == 'false' || text == 'no' || text == 'n' || text == '0')
+        return false;
       return null;
     }
 
@@ -157,7 +192,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       final values = (detail?.parameterValues ?? const <dynamic>[]) as List;
       for (final p in values) {
         if (p is! Map) continue;
-        final pName = (p['parameterName'] ?? '').toString().trim().toLowerCase();
+        final pName = (p['parameterName'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
         if (!(pName.contains('first') && pName.contains('aid'))) continue;
 
         for (final key in const <String>[
@@ -178,11 +216,11 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     return null;
   }
 
-  int get _uploadedPhotoCount => _newPhotos
-      .where((f) => _uploadedAssetCodeByPath.containsKey(f.path))
-      .length;
+  int get _uploadedPhotoCount => _attachmentState.uploadedCount(_newPhotos);
 
-  late final ActivityEditorCubit _editor;
+  ActivityEditorCubit get _editor => context.read<ActivityEditorCubit>();
+  IncidentActivityCubit get _incidentCubit =>
+      context.read<IncidentActivityCubit>();
   late final ImageUploadService _imageUploadService;
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
@@ -190,7 +228,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     final status = (activity.approvalStatus ?? '').trim().toUpperCase();
     return status.isNotEmpty && status != 'NOT_REQUIRED';
   }
-  String get _approvalStatus => (_effectiveActivity.approvalStatus ?? '').trim().toUpperCase();
+
+  String get _approvalStatus =>
+      (_effectiveActivity.approvalStatus ?? '').trim().toUpperCase();
   bool get _isAcknowledged =>
       _hasGuardianAcknowledgedLocally || _approvalStatus == 'ACKNOWLEDGED';
   bool get _hasParentSignedForAction => _isAcknowledged || _isParentSigned;
@@ -199,19 +239,31 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     if (!widget.readOnly || !_isGuardianPersona) return false;
     final code = (_effectiveActivity.activityCode ?? '').trim();
     if (code.isEmpty) return false;
-    return _approvalStatus == 'PARENT_ACKNOWLEDGEMENT_PENDING' || _isAcknowledged;
+    return _approvalStatus == 'PARENT_ACKNOWLEDGEMENT_PENDING' ||
+        _isAcknowledged;
+  }
+
+  /// Whether the CURRENTLY ACTIVE persona is guardian. Once RoleCubit has
+  /// resolved the active persona it is authoritative — a dual-role account
+  /// (e.g. SCHOOL_ADMIN + GUARDIAN) always has 'GUARDIAN' somewhere in the
+  /// raw cached roles list regardless of which persona is active right now,
+  /// so [rolesRaw]'s naive scan (via [incidentRolesJsonIndicatesGuardianLogin])
+  /// is only a best-effort fallback for while RoleCubit is still bootstrapping.
+  bool _resolveIsGuardianPersona(String rolesRaw) {
+    final roleCubit = context.read<RoleCubit>();
+    if (roleCubit.hasResolvedAccess) return roleCubit.isParent;
+    return incidentRolesJsonIndicatesGuardianLogin(rolesRaw);
   }
 
   Future<String> _resolveParentSignerCode() async {
-    final storage = serviceLocator<StorageService>();
-    final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
-    if (!incidentRolesJsonIndicatesGuardianLogin(rolesRaw)) {
+    final rolesRaw = await _incidentCubit.readRoles();
+    if (!_resolveIsGuardianPersona(rolesRaw)) {
       return '';
     }
-    var guardianCode =
-        (await refreshGuardianProfileSnapshotForLoggedInUser()).trim();
+    var guardianCode = (await refreshGuardianProfileSnapshotForLoggedInUser())
+        .trim();
     if (guardianCode.isEmpty) {
-      guardianCode = (await storage.getString(StorageKeys.guardianCode) ?? '').trim();
+      guardianCode = await _incidentCubit.readGuardianCode();
     }
     return guardianCode;
   }
@@ -220,10 +272,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   Future<String> _resolveGuardianCodeForIncidentPayload() async {
     var gc = _loggedInGuardianCode.trim();
     if (gc.isEmpty) {
-      gc = (await serviceLocator<StorageService>()
-                  .getString(StorageKeys.guardianCode) ??
-              '')
-          .trim();
+      gc = await _incidentCubit.readGuardianCode();
     }
     if (gc.isEmpty) {
       gc = (await refreshGuardianProfileSnapshotForLoggedInUser()).trim();
@@ -252,21 +301,21 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   }
 
   /// `GET /api/v2/activities/{code}` for all personas (OpenAPI grouped card by code).
-  Future<ActivityDetail> _getActivityDetailRespectingPersona(String code) async {
-    final storage = serviceLocator<StorageService>();
-    final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
-    final isGuardian = incidentRolesJsonIndicatesGuardianLogin(rolesRaw);
+  Future<ActivityDetail> _getActivityDetailRespectingPersona(
+    String code,
+  ) async {
+    final rolesRaw = await _incidentCubit.readRoles();
+    final isGuardian = _resolveIsGuardianPersona(rolesRaw);
     if (mounted) {
       setState(() => _isGuardianPersona = isGuardian);
     }
-    return serviceLocator<ActivityRepository>().getActivity(code: code);
+    return _editor.getActivity(code: code);
   }
 
   Future<void> _resolveLoggedInGuardianPresentLabel() async {
-    final storage = serviceLocator<StorageService>();
     var school = (_schoolCode ?? '').trim();
     if (school.isEmpty) {
-      school = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      school = await _incidentCubit.readSchoolCode();
     }
     if (school.isEmpty) {
       if (mounted) {
@@ -296,9 +345,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   }
 
   Future<void> _resolveLoggedInGuardianPresentIfNeeded() async {
-    final storage = serviceLocator<StorageService>();
-    final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
-    if (!incidentRolesJsonIndicatesGuardianLogin(rolesRaw)) return;
+    final rolesRaw = await _incidentCubit.readRoles();
+    if (!_resolveIsGuardianPersona(rolesRaw)) return;
     await _resolveLoggedInGuardianPresentLabel();
   }
 
@@ -348,10 +396,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   _IncidentSignaturePayload _parseIncidentSignaturePayload(String raw) {
     final value = raw.trim();
     if (value.isEmpty) {
-      return const _IncidentSignaturePayload(
-        signerName: '',
-        encodedName: '',
-      );
+      return const _IncidentSignaturePayload(signerName: '', encodedName: '');
     }
     final parts = value.split('::');
     if (parts.length >= 2) {
@@ -455,10 +500,11 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     if (code.isEmpty) return '';
     if (_incidentStoredPayloadEncodesRecordCode(raw, code)) return raw;
 
-
-    final display = _displaySignerLabel(raw, fallback: fallbackDisplayName).trim();
-    final prefix =
-        display.isNotEmpty ? display : code;
+    final display = _displaySignerLabel(
+      raw,
+      fallback: fallbackDisplayName,
+    ).trim();
+    final prefix = display.isNotEmpty ? display : code;
 
     return _buildIncidentSignaturePayload(
       prefixForStorage: prefix,
@@ -481,28 +527,22 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     return v.startsWith('STF_') || v.startsWith('STAFF_');
   }
 
-  Future<void> _primeStaffDisplayNamesFromCodes(Iterable<String> rawCodes) async {
+  Future<void> _primeStaffDisplayNamesFromCodes(
+    Iterable<String> rawCodes,
+  ) async {
     final codes = rawCodes
         .map((e) => _parseIncidentSignaturePayload(e).signerName)
-        .where((e) => e.isNotEmpty && _looksLikeStaffCode(e))
+        .where(
+          (e) =>
+              e.isNotEmpty &&
+              _looksLikeStaffCode(e) &&
+              !_staffDisplayNameByCode.containsKey(e),
+        )
         .toSet()
         .toList();
     if (codes.isEmpty) return;
-    final repo = serviceLocator<StaffRepository>();
-    await Future.wait(
-      codes.map((code) async {
-        if (_staffDisplayNameByCode.containsKey(code)) return;
-        try {
-          final profile = await repo.getStaffProfile(staffCode: code);
-          final full = profile.fullName.trim();
-          final composed = '${profile.firstName} ${profile.lastName}'.trim();
-          final resolved = full.isNotEmpty ? full : composed;
-          if (resolved.isNotEmpty) {
-            _staffDisplayNameByCode[code] = resolved;
-          }
-        } catch (_) {}
-      }),
-    );
+    final resolved = await _incidentCubit.resolveStaffDisplayNames(codes);
+    _staffDisplayNameByCode.addAll(resolved);
   }
 
   String _displayNameForSignerRaw(String raw, {String fallback = ''}) {
@@ -551,8 +591,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     // (guardian/staff/admin). Do not gate this by _isGuardianPersona.
     var school = (_schoolCode ?? '').trim();
     if (school.isEmpty) {
-      final storage = serviceLocator<StorageService>();
-      school = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      school = await _incidentCubit.readSchoolCode();
     }
     if (school.isEmpty) return;
     final wanted = codes
@@ -567,8 +606,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         schoolCode: school,
       );
       if (!mounted) return;
-      _guardianNameByCode
-        ..clear();
+      _guardianNameByCode..clear();
       for (final entry in nameToCode.entries) {
         final name = entry.key.trim();
         final code = entry.value.trim();
@@ -613,18 +651,31 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       if (staffPresentParamCode != null &&
           staffPresentParamCode.trim().isNotEmpty &&
           staffPresentCode.trim().isNotEmpty)
-        {'parameterCode': staffPresentParamCode.trim(), 'value': staffPresentCode.trim()},
+        {
+          'parameterCode': staffPresentParamCode.trim(),
+          'value': staffPresentCode.trim(),
+        },
       if (staffSignParamCode != null && staffSignParamCode.trim().isNotEmpty)
-        {'parameterCode': staffSignParamCode.trim(), 'value': (staffSignerCode ?? '').trim()},
+        {
+          'parameterCode': staffSignParamCode.trim(),
+          'value': (staffSignerCode ?? '').trim(),
+        },
       if (adminSignParamCode != null && adminSignParamCode.trim().isNotEmpty)
-        {'parameterCode': adminSignParamCode.trim(), 'value': (adminSignerCode ?? '').trim()},
+        {
+          'parameterCode': adminSignParamCode.trim(),
+          'value': (adminSignerCode ?? '').trim(),
+        },
       if (parentSignParamCode != null && parentSignParamCode.trim().isNotEmpty)
-        {'parameterCode': parentSignParamCode.trim(), 'value': (parentSignerCode ?? '').trim()},
+        {
+          'parameterCode': parentSignParamCode.trim(),
+          'value': (parentSignerCode ?? '').trim(),
+        },
     ];
   }
 
   List<Map<String, dynamic>> _scopedStudentsForCreate() {
-    if (_selectedStudentsData.length <= 1 || _scopedEditStudentIndices.isEmpty) {
+    if (_selectedStudentsData.length <= 1 ||
+        _scopedEditStudentIndices.isEmpty) {
       return List<Map<String, dynamic>>.from(_selectedStudentsData);
     }
     final out = <Map<String, dynamic>>[];
@@ -777,7 +828,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   void initState() {
     super.initState();
     bootstrapActivitySchoolTimezone();
-    _editor = serviceLocator<ActivityEditorCubit>();
     _imageUploadService = serviceLocator<ImageUploadService>();
 
     if (widget.selectedStudents != null) {
@@ -785,7 +835,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       _selectedStudents = _selectedStudentsData
           .map((student) => student['name'] as String)
           .toList();
-      _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
+      _activityDate =
+          resolveSelectedAttendanceDate(_selectedStudentsData) ?? _activityDate;
       _loadActivityContextForCreate();
     } else if (_layoutAsEdit) {
       final activity = widget.activityData!;
@@ -920,7 +971,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
 
     final activityTypeCode = (_activityTypeCode ?? '').trim();
     if (activityTypeCode.isEmpty) return;
-    final details = await _editor.getActivityTypeDetails(code: activityTypeCode);
+    final details = await _editor.getActivityTypeDetails(
+      code: activityTypeCode,
+    );
     var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
     staffCode = (staffCode ?? '').trim();
     if (staffCode.isEmpty) return;
@@ -943,12 +996,11 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       time: t,
     );
 
-    final description =
-        _descriptionController.text.trim().isNotEmpty
+    final description = _descriptionController.text.trim().isNotEmpty
         ? _descriptionController.text.trim()
         : ((_effectiveActivity.whatHappened ??
-              _effectiveActivity.description ??
-              '')
+                  _effectiveActivity.description ??
+                  '')
               .trim());
     if (description.isEmpty) return;
 
@@ -988,12 +1040,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         ? _ensureIncidentSignaturePayload(
             rawValue: _parentSignerRawValue,
             fallbackDisplayName: _parentIncidentSignatureFallbackDisplay(),
-            signingRecordCode:
-                guardianResolved.isNotEmpty
-                    ? guardianResolved
-                    : _inferIncidentSigningRecordCodeFromRaw(
-                        _parentSignerRawValue,
-                      ),
+            signingRecordCode: guardianResolved.isNotEmpty
+                ? guardianResolved
+                : _inferIncidentSigningRecordCodeFromRaw(_parentSignerRawValue),
           )
         : '';
     final parameterValues = _incidentSignerParameterValuesForPatch(
@@ -1009,7 +1058,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         .map(normalizeActivityDeliveryUrl)
         .where((e) => e.isNotEmpty)
         .toSet();
-    for (final u in videoDeliveryUrlsFromAttachmentRows(_detailAttachmentRows)) {
+    for (final u in videoDeliveryUrlsFromAttachmentRows(
+      _detailAttachmentRows,
+    )) {
       final n = normalizeActivityDeliveryUrl(u);
       if (n.isNotEmpty) remainingNorm.add(n);
     }
@@ -1043,12 +1094,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       await _resolveLoggedInGuardianPresentIfNeeded();
       if (!mounted) return;
       final canonGc = await _resolveGuardianCodeForIncidentPayload();
-      final rolesPrefetch =
-          (await serviceLocator<StorageService>().getString(StorageKeys.roles) ??
-                  '')
-              .trim();
-      final guardianViewer =
-          incidentRolesJsonIndicatesGuardianLogin(rolesPrefetch);
+      final rolesPrefetch = await _incidentCubit.readRoles();
+      final guardianViewer = _resolveIsGuardianPersona(rolesPrefetch);
       final detail = await _getActivityDetailRespectingPersona(code);
       if (!mounted) return;
       final firstAidFromApi = _pickFirstAidGivenFromActivityDetail(detail);
@@ -1061,8 +1108,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       var schemaParams = const <ActivityTypeParameter>[];
       if (activityTypeCode.isNotEmpty) {
         try {
-          final typeDetails =
-              await _editor.getActivityTypeDetails(code: activityTypeCode);
+          final typeDetails = await _editor.getActivityTypeDetails(
+            code: activityTypeCode,
+          );
           schemaParams = typeDetails.parameters;
         } catch (_) {}
       }
@@ -1131,6 +1179,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         }
         return '';
       }
+
       String pickSignRawValue(ActivityTypeParameter? schemaParam) {
         for (final p in detail.parameterValues) {
           if (!_parameterValueMatchesIncidentSchema(p, schemaParam)) continue;
@@ -1139,6 +1188,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         }
         return '';
       }
+
       final staffPresentRaw = pickStaffPresentRawValue();
       final staffSignRaw = pickSignRawValue(staffSignSchema);
       final adminSignRaw = pickSignRawValue(adminSignSchema);
@@ -1150,8 +1200,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         if (gc.isNotEmpty && label.isEmpty && !guardianViewer) {
           await _primeGuardianNamesFromCodes([gc]);
           if (mounted) {
-            label =
-                _displaySignerLabel(gc, fallback: gc).trim();
+            label = _displaySignerLabel(gc, fallback: gc).trim();
           }
         }
         if (gc.isNotEmpty) {
@@ -1169,7 +1218,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       if (effectiveParentSignRaw.isNotEmpty &&
           canonGc.isNotEmpty &&
           guardianViewer &&
-          !_incidentStoredPayloadEncodesRecordCode(effectiveParentSignRaw, canonGc)) {
+          !_incidentStoredPayloadEncodesRecordCode(
+            effectiveParentSignRaw,
+            canonGc,
+          )) {
         effectiveParentSignRaw = _canonicalGuardianIncidentSignStorage(
           raw: effectiveParentSignRaw,
           guardianCode: canonGc,
@@ -1180,14 +1232,15 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         staffSignRaw,
         adminSignRaw,
       ]);
-      final itemApprovalNormalized =
-          (item.approvalStatus ?? '').trim().toUpperCase();
+      final itemApprovalNormalized = (item.approvalStatus ?? '')
+          .trim()
+          .toUpperCase();
       // Pending parent acknowledgement must be reaffirmed explicitly each session:
       // API may carry a staged parent sign value/text; still show unchecked "Click to
       // sign" and require check + Acknowledge (do not derive from prefetched booleans).
       final guardianMustReaffirmPendingParentAck =
           guardianViewer &&
-              itemApprovalNormalized == 'PARENT_ACKNOWLEDGEMENT_PENDING';
+          itemApprovalNormalized == 'PARENT_ACKNOWLEDGEMENT_PENDING';
       setState(() {
         _liveActivity = item;
         _requireAdminApproval = _isAdminApprovalRequired(item);
@@ -1236,7 +1289,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         }
       });
       unawaited(
-        _primeGuardianNamesFromCodes([effectiveParentSignRaw]).catchError((_) {}),
+        _primeGuardianNamesFromCodes([
+          effectiveParentSignRaw,
+        ]).catchError((_) {}),
       );
     } catch (e) {
       CoreUtils.logApiError('Prefetch activity for edit: $e');
@@ -1246,24 +1301,23 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   }
 
   Future<void> _loadStaffContext() async {
-    final storage = serviceLocator<StorageService>();
-    final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
-    final staffType =
-        (await storage.getString(StorageKeys.staffType) ?? '').trim();
-    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-        .trim();
-    final organizationCode =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final rolesRaw = await _incidentCubit.readRoles();
+    final staffType = await _incidentCubit.readStaffType();
+    final schoolCode = await _incidentCubit.readSchoolCode();
+    final organizationCode = await _incidentCubit.readOrganizationCode();
     final staffCode = await resolveLoggedInStaffCode();
     final resolvedDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
       staffCode: staffCode,
     );
 
     if (!mounted) return;
+    final isGuardianPersona = _resolveIsGuardianPersona(rolesRaw);
     setState(() {
-      _staffName = resolvedDisplayName.isNotEmpty ? resolvedDisplayName : 'Staff';
+      _staffName = resolvedDisplayName.isNotEmpty
+          ? resolvedDisplayName
+          : 'Staff';
       _staffType = staffType.toUpperCase();
-      _isGuardianPersona = incidentRolesJsonIndicatesGuardianLogin(rolesRaw);
+      _isGuardianPersona = isGuardianPersona;
       _staffCode = staffCode;
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
@@ -1271,7 +1325,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     unawaited(
       _primeGuardianNamesFromCodes([_parentSignerRawValue]).catchError((_) {}),
     );
-    if (incidentRolesJsonIndicatesGuardianLogin(rolesRaw)) {
+    if (isGuardianPersona) {
       unawaited(_resolveLoggedInGuardianPresentLabel().catchError((_) {}));
     } else if (mounted) {
       setState(() {
@@ -1305,7 +1359,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       if (activityTypeCode.isEmpty) {
         throw Exception('Unable to resolve activity type for parent signature');
       }
-      final details = await _editor.getActivityTypeDetails(code: activityTypeCode);
+      final details = await _editor.getActivityTypeDetails(
+        code: activityTypeCode,
+      );
       final parentSignSchema = _findIncidentSchemaParameter(
         details.parameters,
         const ['Click to Sign - Parent'],
@@ -1371,18 +1427,19 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
               signingRecordCode: g,
             );
           } else {
-            _parentSignerRawValue =
-                g.isNotEmpty
-                    ? _buildIncidentSignaturePayload(
-                        prefixForStorage: g,
-                        signingRecordCode: g,
-                      )
-                    : '';
+            _parentSignerRawValue = g.isNotEmpty
+                ? _buildIncidentSignaturePayload(
+                    prefixForStorage: g,
+                    signingRecordCode: g,
+                  )
+                : '';
           }
         }
       });
       unawaited(
-        _primeGuardianNamesFromCodes([_parentSignerRawValue]).catchError((_) {}),
+        _primeGuardianNamesFromCodes([
+          _parentSignerRawValue,
+        ]).catchError((_) {}),
       );
       CoreUtils.showTopSnackBar(
         context: context,
@@ -1417,9 +1474,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     if (classroomCode.isEmpty) return;
 
     try {
-      final List<ActivitySetting> settings = await _editor.getClassroomActivitySettings(
-        classroomCode: classroomCode,
-      );
+      final List<ActivitySetting> settings = await _editor
+          .getClassroomActivitySettings(classroomCode: classroomCode);
       ActivitySetting? incidentSetting;
       for (final s in settings) {
         final name = s.activityTypeName.toLowerCase();
@@ -1443,176 +1499,167 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   Future<void> _submitCreateActivity() async {
     if (_isSubmitting) return;
     if (_layoutAsEdit) return;
-
-    if (_selectedStudents.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select at least one student',
-        isWarning: true,
-      );
-      return;
-    }
-    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
-      context: context,
-      students: _selectedStudentsData,
-      selectedDate: _activityDate,
-      selectedTime: _activityTime,
-    );
-    if (!isWithinAttendanceWindow) return;
-
-
-    final whatHappened = _descriptionController.text.trim();
-    if (whatHappened.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter what happened',
-        isWarning: true,
-      );
-      return;
-    }
-    if (whatHappened.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'What happened must be at least 5 characters',
-        isWarning: true,
-      );
-      return;
-    }
-    if (whatHappened.length > ActivityDescriptionLimits.maxLength) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ActivityDescriptionLimits.maxLengthMessage,
-        isWarning: true,
-      );
-      return;
-    }
-
-    if (_isAdminDesignation) {
-      if (!_isAdminSigned) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Please sign in Admin Present.',
-          isWarning: true,
-        );
-        return;
-      }
-    } else {
-      if (!_isSigned) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Please click to sign',
-          isWarning: true,
-        );
-        return;
-      }
-    }
-    if (_activityDate == null || _activityTime == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select date and time',
-        isWarning: true,
-      );
-      return;
-    }
-
-    if (_uploadedPhotoCount != _newPhotos.length || _isUploadingMedia) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please wait for all photos to finish uploading',
-        isWarning: true,
-      );
-      return;
-    }
-
-    final classroomCodeDynamic =
-        _selectedStudentsData.first['classroomCode'] ??
-        _selectedStudentsData.first['classroomcode'];
-    final classroomCode = classroomCodeDynamic is String
-        ? classroomCodeDynamic.trim()
-        : '';
-
-    if (classroomCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Missing classroom information for activity',
-        isError: true,
-      );
-      return;
-    }
-
-    final scopedStudents = _scopedStudentsForCreate();
-    final studentCodes = scopedStudents
-        .map((s) => (s['studentCode'] as String?)?.trim())
-        .whereType<String>()
-        .where((c) => c.isNotEmpty)
-        .toList();
-
-    if (studentCodes.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Unable to resolve student codes for activity',
-        isError: true,
-      );
-      return;
-    }
-
-    var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
-    final schoolCode = _schoolCode;
-    final organizationCode = _organizationCode;
-
-    if (staffCode == null ||
-        schoolCode == null ||
-        organizationCode == null ||
-        staffCode.isEmpty ||
-        schoolCode.isEmpty ||
-        organizationCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Missing staff or school information. Please re-login and try again.',
-        isError: true,
-      );
-      return;
-    }
-
-    final activityTypeCode = _activityTypeCode;
-    if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Unable to determine activity type for Incident. Please check activity settings.',
-        isError: true,
-      );
-      return;
-    }
-
-    final additionalNotes = _addNotesController.text.trim();
-    if (additionalNotes.length > ActivityDescriptionLimits.maxLength) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ActivityDescriptionLimits.maxLengthMessage,
-        isWarning: true,
-      );
-      return;
-    }
-
-    // Ensure the API payload uses the attendance date chosen on student selection.
-    final prefilled = widget.selectedStudents != null
-        ? resolveSelectedAttendanceDate(_selectedStudentsData)
-        : null;
-    if (prefilled != null) {
-      _activityDate = prefilled;
-    }
-    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
-      date: _activityDate!,
-      time: _activityTime!,
-    );
-
     setState(() {
       _isSubmitting = true;
     });
-
     try {
+      if (_selectedStudents.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select at least one student',
+          isWarning: true,
+        );
+        return;
+      }
+      final isWithinAttendanceWindow =
+          await validateStudentsWithinAttendanceWindow(
+            context: context,
+            students: _selectedStudentsData,
+            selectedDate: _activityDate,
+            selectedTime: _activityTime,
+          );
+      if (!isWithinAttendanceWindow) return;
+
+      final whatHappened = _descriptionController.text.trim();
+      if (whatHappened.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please enter what happened',
+          isWarning: true,
+        );
+        return;
+      }
+      if (whatHappened.length > ActivityDescriptionLimits.maxLength) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ActivityDescriptionLimits.maxLengthMessage,
+          isWarning: true,
+        );
+        return;
+      }
+
+      if (_isAdminDesignation) {
+        if (!_isAdminSigned) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Please sign in Admin Present.',
+            isWarning: true,
+          );
+          return;
+        }
+      } else {
+        if (!_isSigned) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Please click to sign',
+            isWarning: true,
+          );
+          return;
+        }
+      }
+      if (_activityDate == null || _activityTime == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select date and time',
+          isWarning: true,
+        );
+        return;
+      }
+
+      if (_uploadedPhotoCount != _newPhotos.length || _isUploadingMedia) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please wait for all photos to finish uploading',
+          isWarning: true,
+        );
+        return;
+      }
+
+      final classroomCodeDynamic =
+          _selectedStudentsData.first['classroomCode'] ??
+          _selectedStudentsData.first['classroomcode'];
+      final classroomCode = classroomCodeDynamic is String
+          ? classroomCodeDynamic.trim()
+          : '';
+
+      if (classroomCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Missing classroom information for activity',
+          isError: true,
+        );
+        return;
+      }
+
+      final scopedStudents = _scopedStudentsForCreate();
+      final studentCodes = scopedStudents
+          .map((s) => (s['studentCode'] as String?)?.trim())
+          .whereType<String>()
+          .where((c) => c.isNotEmpty)
+          .toList();
+
+      if (studentCodes.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Unable to resolve student codes for activity',
+          isError: true,
+        );
+        return;
+      }
+
+      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      final schoolCode = _schoolCode;
+      final organizationCode = _organizationCode;
+
+      if (staffCode == null ||
+          schoolCode == null ||
+          organizationCode == null ||
+          staffCode.isEmpty ||
+          schoolCode.isEmpty ||
+          organizationCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'Missing staff or school information. Please re-login and try again.',
+          isError: true,
+        );
+        return;
+      }
+
+      final activityTypeCode = _activityTypeCode;
+      if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'Unable to determine activity type for Incident. Please check activity settings.',
+          isError: true,
+        );
+        return;
+      }
+
+      final additionalNotes = _addNotesController.text.trim();
+      if (additionalNotes.length > ActivityDescriptionLimits.maxLength) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ActivityDescriptionLimits.maxLengthMessage,
+          isWarning: true,
+        );
+        return;
+      }
+
+      // Ensure the API payload uses the attendance date chosen on student selection.
+      final prefilled = widget.selectedStudents != null
+          ? resolveSelectedAttendanceDate(_selectedStudentsData)
+          : null;
+      if (prefilled != null) {
+        _activityDate = prefilled;
+      }
+      final resolvedActivityTime = await resolveActivityDateTime(
+        date: _activityDate!,
+        time: _activityTime!,
+      );
+      final activityDateIso = resolvedActivityTime.iso;
+
       final attachments = await _ensureIncidentMediaUploaded(
         classroomCode: classroomCode,
         activityTypeCode: activityTypeCode,
@@ -1678,8 +1725,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       String two(int v) => v.toString().padLeft(2, '0');
       final localDate =
           '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
-      final localTime =
-          '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+      final localTime = resolvedActivityTime.localTimeHms;
 
       final whatValueForParam = sameWhatAndNotes && additionalNotes.isNotEmpty
           ? '$whatHappened\n\n$additionalNotes'
@@ -1726,23 +1772,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             !sameWhatAndNotes)
           {'parameterCode': notesParamCode, 'value': additionalNotes},
         if (staffSignParamCode != null && staffSignParamCode.trim().isNotEmpty)
-          {
-            'parameterCode': staffSignParamCode,
-            'value': staffSignValue,
-          },
+          {'parameterCode': staffSignParamCode, 'value': staffSignValue},
         if (_isAdminDesignation &&
             adminSignParamCode != null &&
             adminSignParamCode.trim().isNotEmpty)
-          {
-            'parameterCode': adminSignParamCode,
-            'value': adminSignValue,
-          },
+          {'parameterCode': adminSignParamCode, 'value': adminSignValue},
         if (parentSignParamCode != null &&
             parentSignParamCode.trim().isNotEmpty)
-          {
-            'parameterCode': parentSignParamCode,
-            'value': parentSignValue,
-          },
+          {'parameterCode': parentSignParamCode, 'value': parentSignValue},
       ];
       _debugIncidentParameterValues('create', parameterValues);
 
@@ -1791,185 +1828,177 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     if (_isSubmitting) return;
     if (widget.readOnly) return;
     _lastUpdateSucceeded = false;
-
-    final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
-
-    if (_selectedStudents.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select at least one student',
-        isWarning: true,
-      );
-      return;
-    }
-    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
-      context: context,
-      students: _selectedStudentsData,
-      selectedDate: _activityDate,
-      selectedTime: _activityTime,
-    );
-    if (!isWithinAttendanceWindow) return;
-
-
-    final whatHappened = _descriptionController.text.trim();
-    if (whatHappened.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter what happened',
-        isWarning: true,
-      );
-      return;
-    }
-    if (whatHappened.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'What happened must be at least 5 characters',
-        isWarning: true,
-      );
-      return;
-    }
-    if (whatHappened.length > ActivityDescriptionLimits.maxLength) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ActivityDescriptionLimits.maxLengthMessage,
-        isWarning: true,
-      );
-      return;
-    }
-
-    if (!_isSigned) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please click to sign',
-        isWarning: true,
-      );
-      return;
-    }
-    if (_isAdminDesignation && !_isAdminSigned) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please sign in Admin Present before saving.',
-        isWarning: true,
-      );
-      return;
-    }
-    if (_isAdminDesignation && !_adminSignedThisSession) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please sign in Admin Present before saving.',
-        isWarning: true,
-      );
-      return;
-    }
-
-    if (_activityDate == null || _activityTime == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select date and time',
-        isWarning: true,
-      );
-      return;
-    }
-
-    if (_newPhotos.isNotEmpty && _uploadedPhotoCount != _newPhotos.length) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please wait for all photos to finish uploading',
-        isWarning: true,
-      );
-      return;
-    }
-    if (_isUploadingMedia) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please wait for media uploads to finish',
-        isWarning: true,
-      );
-      return;
-    }
-
-    final classroomCodeDynamic =
-        _selectedStudentsData.first['classroomCode'] ??
-        _selectedStudentsData.first['classroomcode'];
-    final classroomCode = classroomCodeDynamic is String
-        ? classroomCodeDynamic.trim()
-        : '';
-
-    if (classroomCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Missing classroom information for activity',
-        isError: true,
-      );
-      return;
-    }
-
-    final scopeMapsForUpload = studentMapsForScopedActivityUpdate(
-      allStudentMaps: _selectedStudentsData,
-      checkedIndices: _scopedEditStudentIndices,
-    );
-    final studentCodes = scopeMapsForUpload
-        .map((s) => (s['studentCode'] as String?)?.trim())
-        .whereType<String>()
-        .where((c) => c.isNotEmpty)
-        .toList();
-
-    if (studentCodes.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Unable to resolve student codes for activity',
-        isError: true,
-      );
-      return;
-    }
-
-    var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
-    final schoolCode = _schoolCode;
-    final organizationCode = _organizationCode;
-
-    if (staffCode == null ||
-        schoolCode == null ||
-        organizationCode == null ||
-        staffCode.isEmpty ||
-        schoolCode.isEmpty ||
-        organizationCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Missing staff or school information. Please re-login and try again.',
-        isError: true,
-      );
-      return;
-    }
-
-    final activityTypeCode = _activityTypeCode;
-    if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Unable to determine activity type for Incident. Please check activity settings.',
-        isError: true,
-      );
-      return;
-    }
-
-    final additionalNotes = _addNotesController.text.trim();
-    if (additionalNotes.length > ActivityDescriptionLimits.maxLength) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ActivityDescriptionLimits.maxLengthMessage,
-        isWarning: true,
-      );
-      return;
-    }
-
-    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
-      date: _activityDate!,
-      time: _activityTime!,
-    );
-
     setState(() => _isSubmitting = true);
     try {
+      final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
+
+      if (_selectedStudents.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select at least one student',
+          isWarning: true,
+        );
+        return;
+      }
+      final isWithinAttendanceWindow =
+          await validateStudentsWithinAttendanceWindow(
+            context: context,
+            students: _selectedStudentsData,
+            selectedDate: _activityDate,
+            selectedTime: _activityTime,
+          );
+      if (!isWithinAttendanceWindow) return;
+
+      final whatHappened = _descriptionController.text.trim();
+      if (whatHappened.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please enter what happened',
+          isWarning: true,
+        );
+        return;
+      }
+      if (whatHappened.length > ActivityDescriptionLimits.maxLength) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ActivityDescriptionLimits.maxLengthMessage,
+          isWarning: true,
+        );
+        return;
+      }
+
+      if (!_isSigned) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please click to sign',
+          isWarning: true,
+        );
+        return;
+      }
+      if (_isAdminDesignation && !_isAdminSigned) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please sign in Admin Present before saving.',
+          isWarning: true,
+        );
+        return;
+      }
+      if (_isAdminDesignation && !_adminSignedThisSession) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please sign in Admin Present before saving.',
+          isWarning: true,
+        );
+        return;
+      }
+
+      if (_activityDate == null || _activityTime == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select date and time',
+          isWarning: true,
+        );
+        return;
+      }
+
+      if (_newPhotos.isNotEmpty && _uploadedPhotoCount != _newPhotos.length) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please wait for all photos to finish uploading',
+          isWarning: true,
+        );
+        return;
+      }
+      if (_isUploadingMedia) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please wait for media uploads to finish',
+          isWarning: true,
+        );
+        return;
+      }
+
+      final classroomCodeDynamic =
+          _selectedStudentsData.first['classroomCode'] ??
+          _selectedStudentsData.first['classroomcode'];
+      final classroomCode = classroomCodeDynamic is String
+          ? classroomCodeDynamic.trim()
+          : '';
+
+      if (classroomCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Missing classroom information for activity',
+          isError: true,
+        );
+        return;
+      }
+
+      final scopeMapsForUpload = studentMapsForScopedActivityUpdate(
+        allStudentMaps: _selectedStudentsData,
+        checkedIndices: _scopedEditStudentIndices,
+      );
+      final studentCodes = scopeMapsForUpload
+          .map((s) => (s['studentCode'] as String?)?.trim())
+          .whereType<String>()
+          .where((c) => c.isNotEmpty)
+          .toList();
+
+      if (studentCodes.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Unable to resolve student codes for activity',
+          isError: true,
+        );
+        return;
+      }
+
+      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      final schoolCode = _schoolCode;
+      final organizationCode = _organizationCode;
+
+      if (staffCode == null ||
+          schoolCode == null ||
+          organizationCode == null ||
+          staffCode.isEmpty ||
+          schoolCode.isEmpty ||
+          organizationCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'Missing staff or school information. Please re-login and try again.',
+          isError: true,
+        );
+        return;
+      }
+
+      final activityTypeCode = _activityTypeCode;
+      if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'Unable to determine activity type for Incident. Please check activity settings.',
+          isError: true,
+        );
+        return;
+      }
+
+      final additionalNotes = _addNotesController.text.trim();
+      if (additionalNotes.length > ActivityDescriptionLimits.maxLength) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ActivityDescriptionLimits.maxLengthMessage,
+          isWarning: true,
+        );
+        return;
+      }
+
+      final resolvedActivityTime = await resolveActivityDateTime(
+        date: _activityDate!,
+        time: _activityTime!,
+      );
+      final activityDateIso = resolvedActivityTime.iso;
+
       final newAttachments = await _ensureIncidentMediaUploaded(
         classroomCode: classroomCode,
         activityTypeCode: activityTypeCode,
@@ -1982,7 +2011,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           .map(normalizeActivityDeliveryUrl)
           .where((e) => e.isNotEmpty)
           .toSet();
-      for (final u in videoDeliveryUrlsFromAttachmentRows(_detailAttachmentRows)) {
+      for (final u in videoDeliveryUrlsFromAttachmentRows(
+        _detailAttachmentRows,
+      )) {
         final n = normalizeActivityDeliveryUrl(u);
         if (n.isNotEmpty) remainingNorm.add(n);
       }
@@ -1997,8 +2028,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         newUploadRows: newAttachments,
         remainingNormalizedDeliveryUrls: remainingNorm,
       );
-      final patchAttachments =
-          attachmentsForActivityPatchRequest(mergedRows);
+      final patchAttachments = attachmentsForActivityPatchRequest(mergedRows);
 
       final details = await _editor.getActivityTypeDetails(
         code: activityTypeCode,
@@ -2057,8 +2087,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       String two(int v) => v.toString().padLeft(2, '0');
       final localDate =
           '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
-      final localTime =
-          '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+      final localTime = resolvedActivityTime.localTimeHms;
 
       final whatValueForParam = sameWhatAndNotes && additionalNotes.isNotEmpty
           ? '$whatHappened\n\n$additionalNotes'
@@ -2081,7 +2110,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       final resolvedStaffSignerValue = _isSigned
           ? (() {
               final raw = _staffSignerRawValue.trim();
-              if (_incidentStoredPayloadEncodesRecordCode(raw, updateStaffCode)) {
+              if (_incidentStoredPayloadEncodesRecordCode(
+                raw,
+                updateStaffCode,
+              )) {
                 return raw;
               }
               return _buildIncidentSignaturePayload(
@@ -2096,7 +2128,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       final resolvedAdminSignerValue = resolvedAdminSignerCode.trim().isNotEmpty
           ? (() {
               final raw = _adminSignerRawValue.trim();
-              if (_incidentStoredPayloadEncodesRecordCode(raw, updateStaffCode)) {
+              if (_incidentStoredPayloadEncodesRecordCode(
+                raw,
+                updateStaffCode,
+              )) {
                 return raw;
               }
               return _buildIncidentSignaturePayload(
@@ -2116,10 +2151,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                 return raw;
               }
               return _buildIncidentSignaturePayload(
-                prefixForStorage: _displaySignerLabel(
-                  raw,
-                  fallback: pvc,
-                ),
+                prefixForStorage: _displaySignerLabel(raw, fallback: pvc),
                 signingRecordCode: pvc,
               );
             })()
@@ -2132,7 +2164,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             creatorStaffCodeForIncident.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': creatorStaffCodeForIncident},
+          {
+            'parameterCode': staffParamCode,
+            'value': creatorStaffCodeForIncident,
+          },
         if (whatParamCode != null && whatParamCode.trim().isNotEmpty)
           {'parameterCode': whatParamCode, 'value': whatValueForParam},
         if (firstAidEntry != null) firstAidEntry,
@@ -2165,8 +2200,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       );
       String? lastMessage;
       for (final m in targets) {
-        final code = (m['activityCode'] as String?)?.trim() ??
-            fallbackActivityCode;
+        final code =
+            (m['activityCode'] as String?)?.trim() ?? fallbackActivityCode;
         if (code == null || code.isEmpty) {
           if (!mounted) return;
           CoreUtils.showTopSnackBar(
@@ -2244,118 +2279,35 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   }) async {
     if (_newPhotos.isEmpty) return const [];
 
-    final normalizedStudentCodes =
-        studentCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
-          ..sort();
-    final uploadContextKey = [
-      organizationCode.trim(),
-      schoolCode.trim(),
-      classroomCode.trim(),
-      normalizedStudentCodes.join(','),
-    ].join('|');
-    if (_lastUploadContextKey != uploadContextKey) {
-      _uploadedAssetCodeByPath.clear();
-      _lastUploadContextKey = uploadContextKey;
-    }
-
     // Incident activity backend can reject SHARED attachments for some activity
     // type configs, so always upload as PER_STUDENT.
     const bindingMode = 'PER_STUDENT';
-    const ownerType = 'STUDENT';
-    final ownerCode = studentCodes.first;
-    final missingPhotos = _newPhotos
-        .where((f) => !_uploadedAssetCodeByPath.containsKey(f.path))
-        .toList();
 
-    if (missingPhotos.isNotEmpty) {
-      setState(() {
-        _isUploadingMedia = true;
-        _uploadProgressPercent = 0;
-        _uploadCompletedCount = 0;
-        _uploadTotalCount = missingPhotos.length;
-      });
-      try {
-        final uploadSession = await _imageUploadService
-            .createActivityUploadSession(
-              organizationCode: organizationCode,
-              schoolCode: schoolCode,
-              classroomCode: classroomCode,
-              activityTypeCode: activityTypeCode,
-              bindingMode: bindingMode,
-              studentCodes: studentCodes,
-            );
-
-        final sessionAssetCodes = <String>[];
-        for (var i = 0; i < missingPhotos.length; i++) {
-          final photo = missingPhotos[i];
-          final fileIndex = i + 1;
-          final totalFiles = missingPhotos.length;
-          final fileName = photo.uri.pathSegments.isNotEmpty
-              ? photo.uri.pathSegments.last
-              : 'photo.jpg';
-          final contentLengthBytes = await photo.length();
-          final checksumSha256 =
-              await _imageUploadService.computeFileChecksumSha256(photo);
-          final presign = await _imageUploadService.createAssetPresign(
-            sessionCode: uploadSession.sessionCode,
-            documentApiBasePath: uploadSession.documentApiBasePath,
-            fileName: fileName,
-            contentType: 'image/jpeg',
-            contentLengthBytes: contentLengthBytes,
-            checksumSha256: checksumSha256,
-            mediaType: 'IMAGE',
-            ownerType: ownerType,
-            ownerCode: ownerCode,
-          );
-          await _imageUploadService.uploadFileToPresignedUrl(
-            file: photo,
-            presignedPutUrl: presign.presignedPutUrl,
-            requiredHeaders: presign.requiredHeaders,
-            fallbackContentType: 'image/jpeg',
-            onProgress: (_, __, percent) {
-              if (!mounted) return;
-              final overallFraction =
-                  ((fileIndex - 1) + (percent / 100)) / totalFiles;
-              final overallPercent =
-                  (overallFraction * 100).clamp(0, 100).round();
-              setState(() => _uploadProgressPercent = overallPercent);
-            },
-          );
-          await _imageUploadService.completeAssetUpload(
-            sessionCode: uploadSession.sessionCode,
-            assetCode: presign.assetCode,
-            documentApiBasePath: uploadSession.documentApiBasePath,
-          );
-          if (mounted) {
-            setState(() => _uploadCompletedCount = fileIndex);
-          }
-          _uploadedAssetCodeByPath[photo.path] = presign.assetCode;
-          sessionAssetCodes.add(presign.assetCode);
+    return uploadActivityPhotoAttachments(
+      uploadService: _imageUploadService,
+      state: _attachmentState,
+      files: _newPhotos,
+      classroomCode: classroomCode,
+      activityTypeCode: activityTypeCode,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+      studentCodes: studentCodes,
+      bindingMode: bindingMode,
+      setState: setState,
+      mounted: () => mounted,
+      setUploading: (uploading) {
+        _isUploadingMedia = uploading;
+        if (uploading) {
+          _uploadProgressPercent = 0;
+          _uploadCompletedCount = 0;
+          _uploadTotalCount = _newPhotos.length;
         }
-        await _imageUploadService.waitUntilAssetsReady(
-          sessionCode: uploadSession.sessionCode,
-          expectedAssetCodes: sessionAssetCodes,
-        );
-        if (mounted) {
-          setState(() => _uploadProgressPercent = 100);
-        }
-      } finally {
-        if (mounted) setState(() => _isUploadingMedia = false);
-      }
-    }
-
-    final attachments = <Map<String, dynamic>>[];
-    for (final photo in _newPhotos) {
-      final assetCode = _uploadedAssetCodeByPath[photo.path];
-      if (assetCode != null && assetCode.isNotEmpty) {
-        attachments.add({
-          'assetCode': assetCode,
-          'studentCode': ownerCode,
-          'bindingMode': bindingMode,
-        });
-      }
-    }
-    return attachments;
+      },
+      onOverallProgressPercent: (percent) =>
+          _uploadProgressPercent = percent,
+      onFileCompleted: (completed, total) =>
+          _uploadCompletedCount = completed,
+    );
   }
 
   void _onMediaChanged(
@@ -2396,14 +2348,11 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     }
     setState(() {
       _newPhotos = normalizedPhotos;
-      _remainingExistingPhotoUrls = (widget.isEdit &&
-              normalizedPhotos.isNotEmpty)
+      _remainingExistingPhotoUrls =
+          (widget.isEdit && normalizedPhotos.isNotEmpty)
           ? const []
           : List<String>.from(remainingExistingPhotoUrls);
-      _uploadedAssetCodeByPath.removeWhere((path, _) {
-        final stillPhoto = _newPhotos.any((f) => f.path == path);
-        return !stillPhoto;
-      });
+      _attachmentState.onSelectedFilesChanged(_newPhotos);
     });
     _uploadMediaOnSelection();
   }
@@ -2480,7 +2429,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   void dispose() {
     _descriptionController.dispose();
     _addNotesController.dispose();
-    _editor.close();
     super.dispose();
   }
 
@@ -2491,485 +2439,503 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       title: 'Incident',
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 10),
-            if (_layoutAsEdit)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: RichText(
-                  text: TextSpan(
+        child: AbsorbPointer(
+          absorbing:
+              _isSubmitting ||
+              _isApprovingOrRejecting ||
+              _isUploadingMedia ||
+              _loadingActivityDetail,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 10),
+              if (_layoutAsEdit)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: RichText(
+                    text: TextSpan(
+                      style: TextStyle(
+                        color: AppColors.primaryColor.withValues(alpha: 0.6),
+                        fontWeight: FontWeight.w500,
+                      ),
+                      children: [
+                        const TextSpan(text: 'Students involved'),
+                        TextSpan(
+                          text: ' *',
+                          style: TextStyle(
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.6,
+                            ),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (_layoutAsEdit) const SizedBox(height: 12),
+              if (_layoutAsEdit &&
+                  !(widget.isEdit &&
+                      !widget.readOnly &&
+                      _selectedStudents.length > 1))
+                GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: responsive.isTablet ? 3 : 2,
+                    crossAxisSpacing: responsive.isTablet ? 16 : 12,
+                    mainAxisSpacing: responsive.isTablet ? 16 : 12,
+                    mainAxisExtent: 64,
+                  ),
+                  itemCount: _selectedStudents.length,
+                  itemBuilder: (context, index) {
+                    return ActivityStudentDisplayTile(
+                      name: _selectedStudents[index],
+                      studentCode: index < _selectedStudentsData.length
+                          ? _selectedStudentsData[index]['studentCode']
+                                as String?
+                          : null,
+                    );
+                  },
+                )
+              else if (!_layoutAsEdit)
+                GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.all(10),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: responsive.isTablet ? 3 : 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    mainAxisExtent: 64,
+                  ),
+                  itemCount: _selectedStudents.length,
+                  itemBuilder: (context, index) {
+                    final String name = _selectedStudents[index];
+                    return ActivityStudentDisplayTile(
+                      name: name,
+                      studentCode: index < _selectedStudentsData.length
+                          ? _selectedStudentsData[index]['studentCode']
+                                as String?
+                          : null,
+                      onRemove: () => _removeStudent(name),
+                    );
+                  },
+                ),
+              if (!widget.readOnly && _selectedStudents.length > 1) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: ActivityEditStudentScopeCheckboxes(
+                    studentNames: _selectedStudents,
+                    checkedIndices: _scopedEditStudentIndices,
+                    onChanged: (next) => setState(() {
+                      _scopedEditStudentIndices
+                        ..clear()
+                        ..addAll(next);
+                    }),
+                  ),
+                ),
+              ],
+              SizedBox(height: responsive.verticalSpacing),
+              Row(
+                children: [
+                  Flexible(
+                    child: _layoutAsEdit
+                        ? DateWidget(
+                            isEditable: false,
+                            isRequired: true,
+                            initialDate: _effectiveActivity.date,
+                            onDateChanged: (d) => _activityDate = d,
+                          )
+                        : DateWidget(
+                            isEditable: false,
+                            isRequired: true,
+                            initialDate: formatSelectedDateForDateWidget(
+                              _activityDate,
+                            ),
+                            onDateChanged: (d) => _activityDate = d,
+                          ),
+                  ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: _layoutAsEdit
+                        ? TimeWidget(
+                            isEditable: _canInteract,
+                            isRequired: true,
+                            prefilledTime: _effectiveActivity.time,
+                            onTimeChanged: (t) => _activityTime = t,
+                          )
+                        : TimeWidget(
+                            isRequired: true,
+                            isEditable: true,
+                            onTimeChanged: (t) => _activityTime = t,
+                          ),
+                  ),
+                ],
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              InputWidget(
+                controller: _descriptionController,
+                label: 'What happened?',
+                isRequired: true,
+                height: 100,
+                readOnly: !_canInteract,
+                maxLength: ActivityDescriptionLimits.maxLength,
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'First Aid Administered',
                     style: TextStyle(
                       color: AppColors.primaryColor.withValues(alpha: 0.6),
                       fontWeight: FontWeight.w500,
                     ),
-                    children: [
-                      const TextSpan(text: 'Students involved'),
-                      TextSpan(
-                        text: ' *',
-                        style: TextStyle(
-                          color: AppColors.primaryColor.withValues(alpha: 0.6),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
                   ),
-                ),
-              ),
-            if (_layoutAsEdit) const SizedBox(height: 12),
-            if (_layoutAsEdit &&
-                !(widget.isEdit &&
-                    !widget.readOnly &&
-                    _selectedStudents.length > 1))
-              GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: responsive.isTablet ? 3 : 2,
-                  crossAxisSpacing: responsive.isTablet ? 16 : 12,
-                  mainAxisSpacing: responsive.isTablet ? 16 : 12,
-                  mainAxisExtent: 64,
-                ),
-                itemCount: _selectedStudents.length,
-                itemBuilder: (context, index) {
-                  return ActivityStudentDisplayTile(
-                    name: _selectedStudents[index],
-                    studentCode: index < _selectedStudentsData.length
-                        ? _selectedStudentsData[index]['studentCode'] as String?
-                        : null,
-                  );
-                },
-              )
-            else if (!_layoutAsEdit)
-              GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                padding: const EdgeInsets.all(10),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: responsive.isTablet ? 3 : 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  mainAxisExtent: 64,
-                ),
-                itemCount: _selectedStudents.length,
-                itemBuilder: (context, index) {
-                  final String name = _selectedStudents[index];
-                  return ActivityStudentDisplayTile(
-                    name: name,
-                    studentCode: index < _selectedStudentsData.length
-                        ? _selectedStudentsData[index]['studentCode'] as String?
-                        : null,
-                    onRemove: () => _removeStudent(name),
-                  );
-                },
-              ),
-            if (!widget.readOnly && _selectedStudents.length > 1) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: ActivityEditStudentScopeCheckboxes(
-                  studentNames: _selectedStudents,
-                  checkedIndices: _scopedEditStudentIndices,
-                  onChanged: (next) => setState(() {
-                    _scopedEditStudentIndices
-                      ..clear()
-                      ..addAll(next);
-                  }),
-                ),
-              ),
-            ],
-            SizedBox(height: responsive.verticalSpacing,),
-            Row(
-              children: [
-                Flexible(
-                  child: _layoutAsEdit
-                      ? DateWidget(
-                          isEditable: false,
-                          isRequired: true,
-                          initialDate: _effectiveActivity.date,
-                          onDateChanged: (d) => _activityDate = d,
-                        )
-                      : DateWidget(
-                          isEditable: false,
-                          isRequired: true,
-                          initialDate: formatSelectedDateForDateWidget(_activityDate),
-                          onDateChanged: (d) => _activityDate = d,
-                        ),
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: _layoutAsEdit
-                      ? TimeWidget(
-                          isEditable: _canInteract,
-                          isRequired: true,
-                          prefilledTime: _effectiveActivity.time,
-                          onTimeChanged: (t) => _activityTime = t,
-                        )
-                      : TimeWidget(
-                          isRequired: true,
-                          isEditable: true,
-                          onTimeChanged: (t) => _activityTime = t,
-                        ),
-                ),
-              ],
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            InputWidget(
-              controller: _descriptionController,
-              label: 'What happened?',
-              isRequired: true,
-              height: 100,
-              readOnly: !_canInteract,
-              maxLength: ActivityDescriptionLimits.maxLength,
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'First Aid Administered',
-                  style: TextStyle(
-                    color: AppColors.primaryColor.withValues(alpha: 0.6),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                SizedBox(height: responsive.isTablet ? 10.0 : 8.0),
-                IgnorePointer(
-                  ignoring: !_canInteract,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'No',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      CustomToggle(
-                        label: '',
-                        isToggled: _firstAidGiven,
-                        onToggle: (v) => setState(() => _firstAidGiven = v),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Yes',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            Builder(
-              builder: (context) {
-                // View-only layout: show the same signer blocks for all personas
-                // (guardian/staff/admin) with interactions disabled.
-                final isReadOnlyView = widget.readOnly;
-                if (isReadOnlyView) {
-                  final staffSignerCode = _staffSignerRawValue.trim();
-                  final adminSignerCode = _adminSignerRawValue.trim();
-                  final parentSignerCode = _parentSignerRawValue.trim();
-                  final staffPresentReadLabel =
-                      _displaySignerLabel(staffSignerCode, fallback: '');
-                  final adminPresentReadLabel =
-                      _displaySignerLabel(adminSignerCode, fallback: '');
-                  final profileGuardianLine = _loggedInParentPresentLabel.trim();
-                  final parentPresentReadLabel =
-                      (_isGuardianPersona && profileGuardianLine.isNotEmpty)
-                          ? profileGuardianLine
-                          : _displaySignerLabel(
-                              parentSignerCode,
-                              fallback: profileGuardianLine,
-                            );
-                  final showStaffSignedBlock = staffSignerCode.isNotEmpty;
-                  final showAdminSignedBlock = adminSignerCode.isNotEmpty;
-                  final showParentSignedBlock = parentSignerCode.isNotEmpty ||
-                      (_isGuardianPersona &&
-                          _approvalStatus == 'PARENT_ACKNOWLEDGEMENT_PENDING');
-                  return Column(
-                    children: [
-                      if (showStaffSignedBlock)
-                        StaffPresentWidget(
-                          key: const ValueKey('incident_parent_view_staff_present'),
-                          fieldLabel: 'Staff Present',
-                          staffName: staffPresentReadLabel,
-                          isEditable: false,
-                          isAlreadySigned: true,
-                          clickToSignEditable: false,
-                          showSignCheckbox: true,
-                          showStaffDropdown: false,
-                          incidentActivity: true,
-                          signatureEncodedValue:
-                              _incidentSignatureEncodedFingerprint(
-                            rawStoredValue: staffSignerCode,
-                            signingRecordCode:
-                                _inferIncidentSigningRecordCodeFromRaw(
-                              staffSignerCode,
-                            ),
+                  SizedBox(height: responsive.isTablet ? 10.0 : 8.0),
+                  IgnorePointer(
+                    ignoring: !_canInteract,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'No',
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xff573353),
                           ),
                         ),
-                      if (showStaffSignedBlock && showAdminSignedBlock)
-                        const SizedBox(height: 16),
-                      if (showAdminSignedBlock)
-                        StaffPresentWidget(
-                          key: const ValueKey('incident_parent_view_admin_present'),
-                          fieldLabel: 'Admin Present',
-                          staffName: adminPresentReadLabel,
-                          isEditable: false,
-                          isAlreadySigned: true,
-                          clickToSignEditable: false,
-                          showSignCheckbox: true,
-                          showStaffDropdown: false,
-                          incidentActivity: true,
-                          signatureEncodedValue:
-                              _incidentSignatureEncodedFingerprint(
-                            rawStoredValue: adminSignerCode,
-                            signingRecordCode:
-                                _inferIncidentSigningRecordCodeFromRaw(
-                              adminSignerCode,
-                            ),
+                        const SizedBox(width: 8),
+                        CustomToggle(
+                          label: '',
+                          isToggled: _firstAidGiven,
+                          onToggle: (v) => setState(() => _firstAidGiven = v),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Yes',
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xff573353),
                           ),
                         ),
-                      if ((showStaffSignedBlock || showAdminSignedBlock) &&
-                          showParentSignedBlock)
-                        const SizedBox(height: 16),
-                      if (showParentSignedBlock)
-                        StaffPresentWidget(
-                          key: const ValueKey('incident_parent_sign_only'),
-                          fieldLabel: 'Parent Present',
-                          // Never show logged-in staff/admin name here.
-                          staffName: parentPresentReadLabel,
-                          isEditable: false,
-                          isAlreadySigned: _hasParentSignedForAction,
-                          clickToSignEditable: !_isAcknowledged,
-                          matchStaffDirectoryForDisplay: false,
-                          showStaffDropdown: false,
-                          showSignCheckbox: true,
-                          incidentActivity: true,
-                          onSigned: (value) {
-                            setState(() {
-                              _isParentSigned = value;
-                              if (!value) {
-                                _parentSignerRawValue = '';
-                              }
-                            });
-                            if (!value || !mounted) return;
-                            () async {
-                              var gc = _loggedInGuardianCode.trim();
-                              if (gc.isEmpty) {
-                                gc = (await serviceLocator<StorageService>()
-                                            .getString(StorageKeys.guardianCode) ??
-                                        '')
-                                    .trim();
-                              }
-                              if (!mounted || !_isParentSigned) return;
-                              final label = _loggedInParentPresentLabel.trim();
-                              final prefix = label.isNotEmpty ? label : gc;
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              Builder(
+                builder: (context) {
+                  // View-only layout: show the same signer blocks for all personas
+                  // (guardian/staff/admin) with interactions disabled.
+                  final isReadOnlyView = widget.readOnly;
+                  if (isReadOnlyView) {
+                    final staffSignerCode = _staffSignerRawValue.trim();
+                    final adminSignerCode = _adminSignerRawValue.trim();
+                    final parentSignerCode = _parentSignerRawValue.trim();
+                    final staffPresentReadLabel = _displaySignerLabel(
+                      staffSignerCode,
+                      fallback: '',
+                    );
+                    final adminPresentReadLabel = _displaySignerLabel(
+                      adminSignerCode,
+                      fallback: '',
+                    );
+                    final profileGuardianLine = _loggedInParentPresentLabel
+                        .trim();
+                    final parentPresentReadLabel =
+                        (_isGuardianPersona && profileGuardianLine.isNotEmpty)
+                        ? profileGuardianLine
+                        : _displaySignerLabel(
+                            parentSignerCode,
+                            fallback: profileGuardianLine,
+                          );
+                    final showStaffSignedBlock = staffSignerCode.isNotEmpty;
+                    final showAdminSignedBlock = adminSignerCode.isNotEmpty;
+                    final showParentSignedBlock =
+                        parentSignerCode.isNotEmpty ||
+                        (_isGuardianPersona &&
+                            _approvalStatus ==
+                                'PARENT_ACKNOWLEDGEMENT_PENDING');
+                    return Column(
+                      children: [
+                        if (showStaffSignedBlock)
+                          StaffPresentWidget(
+                            key: const ValueKey(
+                              'incident_parent_view_staff_present',
+                            ),
+                            fieldLabel: 'Staff Present',
+                            staffName: staffPresentReadLabel,
+                            isEditable: false,
+                            isAlreadySigned: true,
+                            clickToSignEditable: false,
+                            showSignCheckbox: true,
+                            showStaffDropdown: false,
+                            incidentActivity: true,
+                            signatureEncodedValue:
+                                _incidentSignatureEncodedFingerprint(
+                                  rawStoredValue: staffSignerCode,
+                                  signingRecordCode:
+                                      _inferIncidentSigningRecordCodeFromRaw(
+                                        staffSignerCode,
+                                      ),
+                                ),
+                          ),
+                        if (showStaffSignedBlock && showAdminSignedBlock)
+                          const SizedBox(height: 16),
+                        if (showAdminSignedBlock)
+                          StaffPresentWidget(
+                            key: const ValueKey(
+                              'incident_parent_view_admin_present',
+                            ),
+                            fieldLabel: 'Admin Present',
+                            staffName: adminPresentReadLabel,
+                            isEditable: false,
+                            isAlreadySigned: true,
+                            clickToSignEditable: false,
+                            showSignCheckbox: true,
+                            showStaffDropdown: false,
+                            incidentActivity: true,
+                            signatureEncodedValue:
+                                _incidentSignatureEncodedFingerprint(
+                                  rawStoredValue: adminSignerCode,
+                                  signingRecordCode:
+                                      _inferIncidentSigningRecordCodeFromRaw(
+                                        adminSignerCode,
+                                      ),
+                                ),
+                          ),
+                        if ((showStaffSignedBlock || showAdminSignedBlock) &&
+                            showParentSignedBlock)
+                          const SizedBox(height: 16),
+                        if (showParentSignedBlock)
+                          StaffPresentWidget(
+                            key: const ValueKey('incident_parent_sign_only'),
+                            fieldLabel: 'Parent Present',
+                            // Never show logged-in staff/admin name here.
+                            staffName: parentPresentReadLabel,
+                            isEditable: false,
+                            isAlreadySigned: _hasParentSignedForAction,
+                            clickToSignEditable: !_isAcknowledged,
+                            matchStaffDirectoryForDisplay: false,
+                            showStaffDropdown: false,
+                            showSignCheckbox: true,
+                            incidentActivity: true,
+                            onSigned: (value) {
                               setState(() {
-                                _parentSignerRawValue = gc.isNotEmpty
-                                    ? _buildIncidentSignaturePayload(
-                                        prefixForStorage:
-                                            prefix.isNotEmpty ? prefix : gc,
-                                        signingRecordCode: gc,
-                                      )
-                                    : '';
+                                _isParentSigned = value;
+                                if (!value) {
+                                  _parentSignerRawValue = '';
+                                }
                               });
-                            }();
-                          },
-                          signatureEncodedValue:
-                              _incidentSignatureEncodedFingerprint(
-                            rawStoredValue: parentSignerCode,
-                            signingRecordCode:
-                                _inferIncidentSigningRecordCodeFromRaw(
-                              parentSignerCode,
-                            ),
+                              if (!value || !mounted) return;
+                              () async {
+                                var gc = _loggedInGuardianCode.trim();
+                                if (gc.isEmpty) {
+                                  gc = await _incidentCubit.readGuardianCode();
+                                }
+                                if (!mounted || !_isParentSigned) return;
+                                final label = _loggedInParentPresentLabel
+                                    .trim();
+                                final prefix = label.isNotEmpty ? label : gc;
+                                setState(() {
+                                  _parentSignerRawValue = gc.isNotEmpty
+                                      ? _buildIncidentSignaturePayload(
+                                          prefixForStorage: prefix.isNotEmpty
+                                              ? prefix
+                                              : gc,
+                                          signingRecordCode: gc,
+                                        )
+                                      : '';
+                                });
+                              }();
+                            },
+                            signatureEncodedValue:
+                                _incidentSignatureEncodedFingerprint(
+                                  rawStoredValue: parentSignerCode,
+                                  signingRecordCode:
+                                      _inferIncidentSigningRecordCodeFromRaw(
+                                        parentSignerCode,
+                                      ),
+                                ),
                           ),
-                        ),
-                    ],
+                      ],
+                    );
+                  }
+                  final isAdminPersona = _isAdminDesignation;
+                  final lockToLoggedInStaff = _canInteract && !isAdminPersona;
+                  final showStaffPresentBlock =
+                      !(_layoutAsEdit &&
+                          _isAdminDesignation &&
+                          _staffSignerRawValue.trim().isEmpty);
+                  if (!showStaffPresentBlock) {
+                    return const SizedBox.shrink();
+                  }
+                  final staffPresentEditLabel = _layoutAsEdit
+                      ? _displaySignerLabel(_staffPresentRawValue, fallback: '')
+                      : (lockToLoggedInStaff
+                            ? _staffName
+                            : staffPresentLabelForActivity(
+                                layoutAsEdit: _layoutAsEdit,
+                                activityCreatedBy: _layoutAsEdit
+                                    ? (_effectiveActivity.staffPresent ??
+                                          _effectiveActivity.createdBy)
+                                    : '',
+                                loggedInDisplayName: _staffName,
+                              ));
+                  return StaffPresentWidget(
+                    key: const ValueKey('incident_staff_present'),
+                    staffName: staffPresentEditLabel,
+                    isEditable: lockToLoggedInStaff ? false : _canInteract,
+                    isAlreadySigned: _mergeAdminSignatureIntoStaffPresent
+                        ? _isAdminSigned
+                        : _isSigned,
+                    clickToSignEditable: _canInteract,
+                    showSignCheckbox:
+                        !_isGuardianPersona &&
+                        (!_isAdminDesignation ||
+                            _mergeAdminSignatureIntoStaffPresent),
+                    showStaffDropdown: !_isAdminDesignation,
+                    prefillWithStaffName: !_layoutAsEdit && _isAdminDesignation,
+                    incidentActivity: true,
+                    onSigned: (value) {
+                      setState(() {
+                        final sc = (_staffCode ?? '').trim();
+                        if (_mergeAdminSignatureIntoStaffPresent) {
+                          _isAdminSigned = value;
+                          _adminSignedThisSession = value;
+                          final prefix = _staffName.trim().isEmpty
+                              ? 'Admin'
+                              : _staffName.trim();
+                          _adminSignerRawValue = value
+                              ? _buildIncidentSignaturePayload(
+                                  prefixForStorage: prefix,
+                                  signingRecordCode: sc,
+                                )
+                              : '';
+                        } else {
+                          _isSigned = value;
+                          _staffSignerRawValue = value
+                              ? _buildIncidentSignaturePayload(
+                                  prefixForStorage: _staffName,
+                                  signingRecordCode: sc,
+                                )
+                              : '';
+                        }
+                      });
+                    },
+                    signatureEncodedValue: _incidentSignatureEncodedFingerprint(
+                      rawStoredValue: _mergeAdminSignatureIntoStaffPresent
+                          ? _adminSignerRawValue
+                          : _staffSignerRawValue,
+                      signingRecordCode: (_staffCode ?? '').trim(),
+                    ),
                   );
-                }
-                final isAdminPersona =
-                    _isAdminDesignation;
-                final lockToLoggedInStaff = _canInteract && !isAdminPersona;
-                final showStaffPresentBlock = !(_layoutAsEdit &&
-                    _isAdminDesignation &&
-                    _staffSignerRawValue.trim().isEmpty);
-                if (!showStaffPresentBlock) {
-                  return const SizedBox.shrink();
-                }
-                final staffPresentEditLabel = _layoutAsEdit
-                    ? _displaySignerLabel(
-                        _staffPresentRawValue,
-                        fallback: '',
-                      )
-                    : (lockToLoggedInStaff
-                          ? _staffName
-                          : staffPresentLabelForActivity(
-                              layoutAsEdit: _layoutAsEdit,
-                              activityCreatedBy: _layoutAsEdit
-                                  ? (_effectiveActivity.staffPresent ??
-                                      _effectiveActivity.createdBy)
-                                  : '',
-                              loggedInDisplayName: _staffName,
-                            ));
-                return StaffPresentWidget(
-                  key: const ValueKey('incident_staff_present'),
-                  staffName: staffPresentEditLabel,
-                  isEditable:
-                      lockToLoggedInStaff ? false : _canInteract,
-                  isAlreadySigned: _mergeAdminSignatureIntoStaffPresent
-                      ? _isAdminSigned
-                      : _isSigned,
+                },
+              ),
+              if (_layoutAsEdit && _isAdminDesignation && !widget.readOnly)
+                const SizedBox(height: 16),
+              if (_layoutAsEdit && _isAdminDesignation && !widget.readOnly)
+                StaffPresentWidget(
+                  key: const ValueKey('incident_admin_present'),
+                  fieldLabel: 'Admin Present',
+                  staffName: _staffName.trim().isEmpty ? 'Admin' : _staffName,
+                  isEditable: false,
+                  isAlreadySigned: _isAdminSigned,
                   clickToSignEditable: _canInteract,
-                  showSignCheckbox: !_isGuardianPersona &&
-                      (!_isAdminDesignation ||
-                          _mergeAdminSignatureIntoStaffPresent),
-                  showStaffDropdown: !_isAdminDesignation,
-                  prefillWithStaffName: !_layoutAsEdit && _isAdminDesignation,
+                  showSignCheckbox: !_isGuardianPersona,
                   incidentActivity: true,
                   onSigned: (value) {
                     setState(() {
+                      _isAdminSigned = value;
+                      _adminSignedThisSession = value;
                       final sc = (_staffCode ?? '').trim();
-                      if (_mergeAdminSignatureIntoStaffPresent) {
-                        _isAdminSigned = value;
-                        _adminSignedThisSession = value;
-                        final prefix =
-                            _staffName.trim().isEmpty ? 'Admin' : _staffName.trim();
-                        _adminSignerRawValue = value
-                            ? _buildIncidentSignaturePayload(
-                                prefixForStorage: prefix,
-                                signingRecordCode: sc,
-                              )
-                            : '';
-                      } else {
-                        _isSigned = value;
-                        _staffSignerRawValue = value
-                            ? _buildIncidentSignaturePayload(
-                                prefixForStorage: _staffName,
-                                signingRecordCode: sc,
-                              )
-                            : '';
-                      }
+                      _adminSignerRawValue = value
+                          ? _buildIncidentSignaturePayload(
+                              prefixForStorage: _staffName.trim().isEmpty
+                                  ? 'Admin'
+                                  : _staffName.trim(),
+                              signingRecordCode: sc,
+                            )
+                          : '';
                     });
                   },
-                  signatureEncodedValue:
-                      _incidentSignatureEncodedFingerprint(
-                    rawStoredValue: _mergeAdminSignatureIntoStaffPresent
-                        ? _adminSignerRawValue
-                        : _staffSignerRawValue,
+                  signatureEncodedValue: _incidentSignatureEncodedFingerprint(
+                    rawStoredValue: _adminSignerRawValue,
                     signingRecordCode: (_staffCode ?? '').trim(),
                   ),
-                );
-              },
-            ),
-            if (_layoutAsEdit && _isAdminDesignation && !widget.readOnly)
-              const SizedBox(height: 16),
-            if (_layoutAsEdit && _isAdminDesignation && !widget.readOnly)
-              StaffPresentWidget(
-                key: const ValueKey('incident_admin_present'),
-                fieldLabel: 'Admin Present',
-                staffName: _staffName.trim().isEmpty ? 'Admin' : _staffName,
-                isEditable: false,
-                isAlreadySigned: _isAdminSigned,
-                clickToSignEditable: _canInteract,
-                showSignCheckbox: !_isGuardianPersona,
-                incidentActivity: true,
-                onSigned: (value) {
-                  setState(() {
-                    _isAdminSigned = value;
-                    _adminSignedThisSession = value;
-                    final sc = (_staffCode ?? '').trim();
-                    _adminSignerRawValue = value
-                        ? _buildIncidentSignaturePayload(
-                            prefixForStorage: _staffName.trim().isEmpty
-                                ? 'Admin'
-                                : _staffName.trim(),
-                            signingRecordCode: sc,
-                          )
-                        : '';
-                  });
-                },
-                signatureEncodedValue:
-                    _incidentSignatureEncodedFingerprint(
-                  rawStoredValue: _adminSignerRawValue,
-                  signingRecordCode: (_staffCode ?? '').trim(),
                 ),
+              SizedBox(height: responsive.verticalSpacing),
+              InputWidget(
+                controller: _addNotesController,
+                hint: 'Enter note',
+                label: 'Additional Notes',
+                height: 100,
+                readOnly: !_canInteract,
+                maxLength: ActivityDescriptionLimits.maxLength,
               ),
-            SizedBox(height: responsive.verticalSpacing),
-            InputWidget(
-              controller: _addNotesController,
-              hint: 'Enter note',
-              label: 'Additional Notes',
-              height: 100,
-              readOnly: !_canInteract,
-              maxLength: ActivityDescriptionLimits.maxLength,
-            ),
-            if (_showRequireAdminApprovalToggle)
-              const SizedBox(height: 4),
-            if (_showRequireAdminApprovalToggle)
-              AbsorbPointer(
-                absorbing: true,
-                child: CustomToggle(
-                  label: 'Requires Admin Approval',
-                  isToggled: _requireAdminApproval,
-                  labelOnLeftSide: true,
-                  onToggle: (value) {
-                    setState(() {
-                      _requireAdminApproval = value;
-                    });
-                  },
+              if (_showRequireAdminApprovalToggle) const SizedBox(height: 4),
+              if (_showRequireAdminApprovalToggle)
+                AbsorbPointer(
+                  absorbing: true,
+                  child: CustomToggle(
+                    label: 'Requires Admin Approval',
+                    isToggled: _requireAdminApproval,
+                    labelOnLeftSide: true,
+                    onToggle: (value) {
+                      setState(() {
+                        _requireAdminApproval = value;
+                      });
+                    },
+                  ),
                 ),
-              ),
-            SizedBox(height: responsive.verticalSpacing),
-            if (_layoutAsEdit)
-              MediaUploader(
-                isRequired: false,
-                allowVideo: false,
-                allowPhoto: true,
-                readOnly: widget.readOnly,
-                isPictureBox: false,
-                limit: 1,
-                autoReplaceFirstPhotoWhenMaxReached: widget.isEdit,
-                photoSizeLimit: 20,
-                initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
-                    ? List<String>.from(_remainingExistingPhotoUrls)
-                    : (_effectiveActivity.photoUrl != null &&
-                            _effectiveActivity.photoUrl!.trim().isNotEmpty
-                        ? [_effectiveActivity.photoUrl!.trim()]
-                        : const []),
-                label: 'Photos',
-                onMediaChanged: _onMediaChanged,
-              )
-            else
-              MediaUploader(
-                isRequired: false,
-                allowVideo: false,
-                allowPhoto: true,
-                readOnly: widget.readOnly,
-                isPictureBox: false,
-                limit: 1,
-                photoSizeLimit: 20,
-                label: 'Photos',
-                onMediaChanged: _onMediaChanged,
-              ),
-            if (_newPhotos.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              _buildUploadStatus(),
+              SizedBox(height: responsive.verticalSpacing),
+              if (_layoutAsEdit)
+                MediaUploader(
+                  isRequired: false,
+                  allowVideo: false,
+                  allowPhoto: true,
+                  readOnly: widget.readOnly,
+                  isPictureBox: false,
+                  limit: 1,
+                  autoReplaceFirstPhotoWhenMaxReached: widget.isEdit,
+                  photoSizeLimit: 20,
+                  initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
+                      ? List<String>.from(_remainingExistingPhotoUrls)
+                      : (_effectiveActivity.photoUrl != null &&
+                                _effectiveActivity.photoUrl!.trim().isNotEmpty
+                            ? [_effectiveActivity.photoUrl!.trim()]
+                            : const []),
+                  label: 'Photos',
+                  onMediaChanged: _onMediaChanged,
+                )
+              else
+                MediaUploader(
+                  isRequired: false,
+                  allowVideo: false,
+                  allowPhoto: true,
+                  readOnly: widget.readOnly,
+                  isPictureBox: false,
+                  limit: 1,
+                  photoSizeLimit: 20,
+                  label: 'Photos',
+                  onMediaChanged: _onMediaChanged,
+                ),
+              if (_newPhotos.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _buildUploadStatus(),
+              ],
+              SizedBox(height: responsive.verticalSpacing),
             ],
-            SizedBox(height: responsive.verticalSpacing),
-          ],
+          ),
         ),
       ),
       bottomBar: widget.readOnly
@@ -2978,7 +2944,9 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                   ? Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                       child: CustomButtonLayout(
-                        confirmButtonLabel: _isAcknowledged ? 'Acknowledged' : 'Acknowledge',
+                        confirmButtonLabel: _isAcknowledged
+                            ? 'Acknowledged'
+                            : 'Acknowledge',
                         onPressedConfirm: _isAcknowledged
                             ? null
                             : _onAcknowledgePressed,
@@ -2997,7 +2965,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                   children: [
                     ActivityAdminApproveRejectBar(
                       visible: _showAdminApproveRejectActions,
-                      isLoading: _isApprovingOrRejecting ||
+                      isLoading:
+                          _isApprovingOrRejecting ||
                           _isSubmitting ||
                           _isUploadingMedia ||
                           _loadingActivityDetail,
@@ -3006,15 +2975,16 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                     ),
                     if (!_showAdminApproveRejectActions)
                       CustomButtonLayout(
-                      confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                      onPressedConfirm: _onSaveOrAddPressed,
-                      showCancelButton: false,
-                      isForm: false,
-                      isLoading: _isSubmitting ||
-                          _isApprovingOrRejecting ||
-                          _isUploadingMedia ||
-                          _loadingActivityDetail,
-                    ),
+                        confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                        onPressedConfirm: _onSaveOrAddPressed,
+                        showCancelButton: false,
+                        isForm: false,
+                        isLoading:
+                            _isSubmitting ||
+                            _isApprovingOrRejecting ||
+                            _isUploadingMedia ||
+                            _loadingActivityDetail,
+                      ),
                   ],
                 ),
               ),
@@ -3068,8 +3038,8 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       );
     }
 
-    final uploadsSynced = _newPhotos.isEmpty ||
-        _uploadedPhotoCount == _newPhotos.length;
+    final uploadsSynced =
+        _newPhotos.isEmpty || _uploadedPhotoCount == _newPhotos.length;
     final createSatisfied = true;
 
     if (uploadsSynced && createSatisfied) {
@@ -3097,9 +3067,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     }
 
     final buf = StringBuffer()
-      ..write(
-        'Photos $_uploadedPhotoCount/${_newPhotos.length}',
-      );
+      ..write('Photos $_uploadedPhotoCount/${_newPhotos.length}');
     return Row(
       children: [
         const Icon(Icons.error_outline, size: 16, color: Colors.orange),
@@ -3128,6 +3096,3 @@ class _IncidentSignaturePayload {
   final String signerName;
   final String encodedName;
 }
-
-
-

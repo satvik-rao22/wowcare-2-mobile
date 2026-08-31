@@ -36,6 +36,7 @@ class StudentAttendanceDailyItemModel extends Equatable {
     this.nextActionTime,
     this.transferredBy,
     this.transferReason,
+    this.notExpectedComment,
   });
 
   final String studentName;
@@ -70,6 +71,7 @@ class StudentAttendanceDailyItemModel extends Equatable {
   final StudentAttendanceTimeModel? nextActionTime;
   final String? transferredBy;
   final String? transferReason;
+  final String? notExpectedComment;
 
   factory StudentAttendanceDailyItemModel.fromJson(Map<String, dynamic> json) {
     return StudentAttendanceDailyItemModel(
@@ -124,6 +126,7 @@ class StudentAttendanceDailyItemModel extends Equatable {
           : null,
       transferredBy: json['transferredBy'] as String?,
       transferReason: json['transferReason'] as String?,
+      notExpectedComment: json['notExpectedComment'] as String?,
     );
   }
 
@@ -161,6 +164,7 @@ class StudentAttendanceDailyItemModel extends Equatable {
       'nextActionTime': nextActionTime?.toJson(),
       'transferredBy': transferredBy,
       'transferReason': transferReason,
+      'notExpectedComment': notExpectedComment,
     };
   }
 
@@ -198,6 +202,7 @@ class StudentAttendanceDailyItemModel extends Equatable {
     nextActionTime,
     transferredBy,
     transferReason,
+    notExpectedComment,
   ];
 }
 
@@ -605,6 +610,7 @@ class StaffAttendanceDailyItemModel extends Equatable {
     this.nextActionTime,
     this.transferredBy,
     this.transferReason,
+    this.notExpectedComment,
   });
 
   final String? attendanceRecordCode;
@@ -641,6 +647,7 @@ class StaffAttendanceDailyItemModel extends Equatable {
   final StudentAttendanceTimeModel? nextActionTime;
   final String? transferredBy;
   final String? transferReason;
+  final String? notExpectedComment;
 
   factory StaffAttendanceDailyItemModel.fromJson(Map<String, dynamic> json) {
     return StaffAttendanceDailyItemModel(
@@ -686,6 +693,7 @@ class StaffAttendanceDailyItemModel extends Equatable {
           : null,
       transferredBy: json['transferredBy'] as String?,
       transferReason: json['transferReason'] as String?,
+      notExpectedComment: json['notExpectedComment'] as String?,
     );
   }
 
@@ -721,6 +729,7 @@ class StaffAttendanceDailyItemModel extends Equatable {
       'nextActionTime': nextActionTime?.toJson(),
       'transferredBy': transferredBy,
       'transferReason': transferReason,
+      'notExpectedComment': notExpectedComment,
     };
   }
 
@@ -756,6 +765,7 @@ class StaffAttendanceDailyItemModel extends Equatable {
     nextActionTime,
     transferredBy,
     transferReason,
+    notExpectedComment,
   ];
 }
 
@@ -868,6 +878,7 @@ class StaffAttendanceAbsentItemModel extends Equatable {
     this.absenceNote,
     this.markAbsentMethod,
     required this.absentDays,
+    this.absenceRecordCode,
   });
 
   final String staffCode;
@@ -880,6 +891,23 @@ class StaffAttendanceAbsentItemModel extends Equatable {
   final String? absenceNote;
   final String? markAbsentMethod;
   final int absentDays;
+
+  /// Server identifier for DELETE `/api/v1/staff-absence-records/{code}`.
+  final String? absenceRecordCode;
+
+  static String? _parseAbsenceRecordCode(Map<String, dynamic> json) {
+    for (final key in ['absenceRecordCode', 'recordCode', 'absenceCode']) {
+      final v = json[key];
+      if (v != null && v.toString().trim().isNotEmpty) {
+        return v.toString().trim();
+      }
+    }
+    final code = json['code']?.toString().trim();
+    if (code != null && code.isNotEmpty) {
+      return code;
+    }
+    return null;
+  }
 
   factory StaffAttendanceAbsentItemModel.fromJson(Map<String, dynamic> json) {
     return StaffAttendanceAbsentItemModel(
@@ -895,6 +923,7 @@ class StaffAttendanceAbsentItemModel extends Equatable {
       absenceNote: json['absenceNote'] as String?,
       markAbsentMethod: json['markAbsentMethod'] as String?,
       absentDays: json['absentDays'] as int? ?? 0,
+      absenceRecordCode: _parseAbsenceRecordCode(json),
     );
   }
 
@@ -910,6 +939,7 @@ class StaffAttendanceAbsentItemModel extends Equatable {
       'absenceNote': absenceNote,
       'markAbsentMethod': markAbsentMethod,
       'absentDays': absentDays,
+      if (absenceRecordCode != null) 'absenceRecordCode': absenceRecordCode,
     };
   }
 
@@ -925,6 +955,7 @@ class StaffAttendanceAbsentItemModel extends Equatable {
     absenceNote,
     markAbsentMethod,
     absentDays,
+    absenceRecordCode,
   ];
 }
 

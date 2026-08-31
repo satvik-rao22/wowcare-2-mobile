@@ -18,7 +18,7 @@ class ReusableActionButtons extends StatelessWidget {
           children: [
             Expanded(
               child: CustomCancelButton(
-                cancelButtonLabel: 'Cancle',
+                cancelButtonLabel: 'Cancel',
                 onPressedCancel: () {},
               ),
             ),

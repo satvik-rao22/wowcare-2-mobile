@@ -1,16 +1,18 @@
 import 'dart:async';
-
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import '../../../../core/util/logger_service.dart';
+import '../../../../core/util/school_context_helper.dart';
 
 class StudentAbsentReportScreen extends StatefulWidget {
   const StudentAbsentReportScreen({super.key, required this.classrooms});
@@ -27,16 +29,16 @@ class StudentAbsentReportScreen extends StatefulWidget {
 class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
   late final ValueNotifier<DateTime> _fromDate;
   late final ValueNotifier<DateTime> _toDate;
-  final ValueNotifier<List<String>> _selectedClassrooms =
-      ValueNotifier<List<String>>(<String>[]);
-  final ValueNotifier<String> _format = ValueNotifier<String>('PDF');
+  late final ValueNotifier<List<String>> _selectedClassrooms;
+  final ValueNotifier<String> _format = ValueNotifier<String>('XLSX');
 
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
+    final now = AppTime.now();
     _fromDate = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
     _toDate = ValueNotifier<DateTime>(DateTime(now.year, now.month + 1, 0));
+    _selectedClassrooms = ValueNotifier<List<String>>([]);
   }
 
   @override
@@ -48,7 +50,7 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
     super.dispose();
   }
 
-  void _onGenerate() {
+  Future<void> _onGenerate() async {
     if (_toDate.value.isBefore(_fromDate.value)) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -59,13 +61,36 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
     }
 
     final cubit = context.read<ReportsCubit>();
+    final classroomNameToCode = cubit.state.classroomNameToCode;
+    final classroomCodes = resolveReportCodes(
+      context: context,
+      names: _selectedClassrooms.value.isEmpty
+          ? widget.classrooms
+          : _selectedClassrooms.value,
+      nameToCode: classroomNameToCode,
+      labelPlural: 'classrooms',
+    );
+    if (classroomCodes == null) return;
+    // Retrieve the school name from storage
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
+
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
+        isError: true,
+      );
+      return;
+    }
     final params = ReportRequestParams(
       reportType: ReportType.studentAbsent,
       startDate: _fromDate.value,
       endDate: _toDate.value,
-      classroomCodes: _selectedClassrooms.value.isEmpty
-          ? null
-          : _selectedClassrooms.value,
+      format: _format.value,
+      schoolName: schoolName.isNotEmpty ? schoolName : null,
+      roomCodes: classroomCodes.isEmpty ? null : classroomCodes,
     );
 
     unawaited(cubit.generateReport(params));
@@ -107,8 +132,12 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
 
-                  context.go('/dashboard/reports?tab=0');
+                  // Pop (not context.go) — this screen was pushed via plain
+                  // Navigator.push, so only popping actually dismisses it;
+                  // the hub's own .then((success) => tab 0) callback reacts
+                  // to the pop(true) result.
                   context.read<ReportsCubit>().clearGeneratedReport();
+                  Navigator.of(context).pop(true);
                 });
               }
             }
@@ -131,6 +160,7 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
                   builder: (_, date, __) => CustomDateTimeField(
                     hasLabel: false,
                     fetchInitialTime: false,
+                    dateFormat: 'MM/dd/yyyy',
                     initialDate: date,
                     onDateSelected: (d) => _fromDate.value = d,
                   ),
@@ -141,6 +171,7 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
                   valueListenable: _toDate,
                   builder: (_, date, __) => CustomDateTimeField(
                     hasLabel: false,
+                    dateFormat: 'MM/dd/yyyy',
                     fetchInitialTime: false,
                     initialDate: date,
                     onDateSelected: (d) => _toDate.value = d,
@@ -154,8 +185,9 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
                     hintText: 'Select Classroom',
                     items: widget.classrooms,
                     selectedItems: selected,
+                    isRequired: true,
                     onChanged: (s) => _selectedClassrooms.value = s,
-                  showSelectAll: true,
+                    showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(

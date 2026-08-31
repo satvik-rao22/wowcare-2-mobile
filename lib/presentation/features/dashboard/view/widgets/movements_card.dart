@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +9,7 @@ import 'package:wowcare/domain/features/availability/entities/individual_movemen
 import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -21,12 +23,14 @@ class _MovementStudent {
     required this.name,
     required this.avatarInitials,
     this.profilePhotoAssetCode,
+    this.studentCode,
   });
 
   final int id;
   final String name;
   final String avatarInitials;
   final String? profilePhotoAssetCode;
+  final String? studentCode;
 }
 
 // ---------------------------------------------------------------------------
@@ -61,7 +65,7 @@ class _GroupedMovement {
 
 /// Check if a movement is within the last 30 days from today.
 bool _isWithinLastMonth(DateTime movementDate) {
-  final now = DateTime.now();
+  final now = AppTime.now();
   final thirtyDaysAgo = now.subtract(const Duration(days: 30));
   return movementDate.isAfter(thirtyDaysAgo);
 }
@@ -75,7 +79,8 @@ IndividualMovementBoard _filterBoardForClassroom(
   if (code.isEmpty) return board;
 
   bool involves(IndividualMovement m) {
-    return m.fromClassroomCode.trim() == code || m.toClassroomCode.trim() == code;
+    return m.fromClassroomCode.trim() == code ||
+        m.toClassroomCode.trim() == code;
   }
 
   return IndividualMovementBoard(
@@ -123,7 +128,9 @@ List<_GroupedMovement> _filterPriorityMovements(
 
   // Priority: Overdue > Upcoming > Confirmed
   // Step 1: Check for overdue within last 1 month
-  final recentOverdue = board.overdue.where((m) => _isWithinLastMonth(m.movementDate)).toList();
+  final recentOverdue = board.overdue
+      .where((m) => _isWithinLastMonth(m.movementDate))
+      .toList();
   if (recentOverdue.isNotEmpty) {
     addBucket(recentOverdue, 'Overdue');
     final rows = map.values.toList(growable: false);
@@ -160,6 +167,7 @@ _MovementStudent _studentFrom(IndividualMovement m) => _MovementStudent(
   profilePhotoAssetCode: (m.profilePhotoAssetCode?.trim().isEmpty ?? true)
       ? null
       : m.profilePhotoAssetCode,
+  studentCode: m.studentCode,
 );
 
 String _dateKey(DateTime d) =>
@@ -190,11 +198,7 @@ String _monthAbbr(int month) {
 // ---------------------------------------------------------------------------
 
 class MovementsCard extends StatefulWidget {
-  const MovementsCard({
-    super.key,
-    this.classroomCode,
-    this.onRedirect,
-  });
+  const MovementsCard({super.key, this.classroomCode, this.onRedirect});
 
   /// When set, only movements involving this classroom (from or to) are shown.
   final String? classroomCode;
@@ -271,6 +275,14 @@ class _MovementsCardState extends State<MovementsCard> {
                       disableAttendanceStatusLookup: true,
                     ),
                     title: Text(s.name),
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      if (s.studentCode != null && s.studentCode!.isNotEmpty) {
+                        context.go(
+                          '/dashboard/individual-movement?studentCode=${s.studentCode}',
+                        );
+                      }
+                    },
                   );
                 },
               ),
@@ -306,6 +318,7 @@ class _MovementsCardState extends State<MovementsCard> {
                 final isOverflowSlot = index == 4 && students.length > 5;
                 final s = students[index];
                 return Positioned(
+                  key: ValueKey('student_${s.id}'),
                   right: index * 5.0,
                   child: isOverflowSlot
                       ? Container(
@@ -426,13 +439,23 @@ class _MovementsCardState extends State<MovementsCard> {
                     children: [
                       if (students.length == 1)
                         Flexible(
-                          child: Text(
-                            students.first.name,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                          child: InkWell(
+                            onTap: () {
+                              final code = students.first.studentCode;
+                              if (code != null && code.isNotEmpty) {
+                                context.go(
+                                  '/dashboard/individual-movement?studentCode=$code',
+                                );
+                              }
+                            },
+                            child: Text(
+                              students.first.name,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            overflow: TextOverflow.ellipsis,
                           ),
                         )
                       else
@@ -506,33 +529,45 @@ class _MovementsCardState extends State<MovementsCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DashboardCardHeader(
-            title: 'Movements',
-            showRedirect: true,
-            onRedirect: widget.onRedirect ??
-                () => context.go(IndividualMovementScreen.routeName),
-            minimized: _minimized,
-            onToggle: () => setState(() => _minimized = !_minimized),
+    return BlocBuilder<IndividualMovementsCubit, IndividualMovementsState>(
+      buildWhen: (prev, curr) =>
+          prev.board != curr.board || prev.errorMessage != curr.errorMessage,
+      builder: (context, state) {
+        final isError = state.board == null && state.errorMessage != null;
+        return DashboardCardErrorOverlay(
+          show: isError,
+          onRetry: () => context.read<IndividualMovementsCubit>().refresh(),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.cardBorderColor),
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.white,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DashboardCardHeader(
+                  title: 'Movements',
+                  showRedirect: true,
+                  onRedirect:
+                      widget.onRedirect ??
+                      () => context.go(IndividualMovementScreen.routeName),
+                  minimized: _minimized,
+                  onToggle: () => setState(() => _minimized = !_minimized),
+                ),
+                const SizedBox(height: 24),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  child: _minimized ? const SizedBox.shrink() : _buildBody(),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeInOut,
-            child: _minimized ? const SizedBox.shrink() : _buildBody(),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

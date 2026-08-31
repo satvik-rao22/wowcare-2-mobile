@@ -232,6 +232,9 @@ class StaffShiftRemoteDataSourceImpl implements StaffShiftRemoteDataSource {
           'X-School-Code': schoolCode,
           'X-Organization-Code': organizationCode,
         },
+        // Backend computes forecast blocks for every requested classroom in
+        // one pass; schools with many classrooms can exceed the default 30s.
+        receiveTimeout: const Duration(seconds: 60),
       ),
     );
 
@@ -351,9 +354,7 @@ class StaffShiftRemoteDataSourceImpl implements StaffShiftRemoteDataSource {
   }
 
   @override
-  Future<void> publishStaffShifts({
-    required Map<String, dynamic> body,
-  }) async {
+  Future<void> publishStaffShifts({required Map<String, dynamic> body}) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffShiftsPublish,
       ApiConstants.staffBaseUrl,
@@ -392,7 +393,9 @@ class StaffShiftRemoteDataSourceImpl implements StaffShiftRemoteDataSource {
     final response = await _client.put<dynamic>(endpoint, data: body);
 
     if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected staff-shift series update API response format');
+      throw Exception(
+        'Unexpected staff-shift series update API response format',
+      );
     }
     final map = response.data! as Map<String, dynamic>;
     final data = map['data'];
@@ -498,9 +501,11 @@ class StaffShiftRemoteDataSourceImpl implements StaffShiftRemoteDataSource {
         .whereType<Map<String, dynamic>>()
         // Cancelled shifts shouldn't show up in the schedule grid — the
         // backend keeps them in the same list, so filter at the boundary.
-        .where((json) =>
-            (json['shiftStatus']?.toString().toUpperCase() ?? '') !=
-            'CANCELLED')
+        .where(
+          (json) =>
+              (json['shiftStatus']?.toString().toUpperCase() ?? '') !=
+              'CANCELLED',
+        )
         .map((json) {
           try {
             return StaffShiftModel.fromJson(json);

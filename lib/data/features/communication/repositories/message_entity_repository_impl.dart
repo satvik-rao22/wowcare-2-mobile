@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dartz/dartz.dart';
 import 'package:uuid/uuid.dart';
 import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/communication/datasources/message_entity_local_data_source.dart';
@@ -11,6 +12,7 @@ import 'package:wowcare/data/features/communication/realtime/message_realtime_da
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/sync_queue_entity.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/domain/features/communication/repositories/message_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/repositories/reaction_repository.dart';
 
@@ -29,11 +31,11 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
     required MessageRealtimeDataSource realtimeDataSource,
     required StorageService storageService,
     required ReactionRepository reactionRepository,
-  })  : _remote = remoteDataSource,
-        _local = localDataSource,
-        _realtime = realtimeDataSource,
-        _storage = storageService,
-        _reactionRepository = reactionRepository;
+  }) : _remote = remoteDataSource,
+       _local = localDataSource,
+       _realtime = realtimeDataSource,
+       _storage = storageService,
+       _reactionRepository = reactionRepository;
 
   // ─── Tenancy helpers ────────────────────────────────────────────────────────
 
@@ -68,7 +70,34 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
         conversationCode: conversationCode,
       );
 
-      return Right(entities);
+      // The backend's list endpoint omits truly-deleted messages, so a
+      // plain replace would drop the "This message has been deleted."
+      // placeholder every time the thread is reopened or refreshed —
+      // mirrors CommunicationRepositoryImpl.getMessages' preservedDeleted
+      // merge for the legacy stack. Only applies to the latest-window fetch
+      // (no cursor); an older-history page must not re-inject rows outside
+      // that window.
+      if (beforeMessageCode != null) {
+        return Right(entities);
+      }
+      final org = await _orgCode;
+      final school = await _schoolCode;
+      final currentUser = await _currentUserCode;
+      final apiCodes = entities.map((e) => e.code).toSet();
+      final cachedRows = await _local.getMessages(
+        conversationCode: conversationCode,
+        organizationCode: org,
+        schoolCode: school,
+        // High enough to return the full local cache for this conversation.
+        limit: 100000,
+        currentUserCode: currentUser,
+      );
+      final preservedDeleted = cachedRows
+          .where((c) => c.isDeleted && !apiCodes.contains(c.code))
+          .map((c) => c.toEntity())
+          .toList();
+
+      return Right([...entities, ...preservedDeleted]);
     } catch (e) {
       // Network failed — return Isar cache
       final org = await _orgCode;
@@ -85,7 +114,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       if (cached.isNotEmpty) {
         return Right(cached.map((c) => c.toEntity()).toList());
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -117,13 +146,19 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
     required String conversationCode,
     required String text,
     List<int> attachmentIds = const [],
+    List<AttachmentEntity> attachments = const [],
+    String? localTempCode,
     bool isPrivate = false,
+    String? privateParentUserCode,
     String? threadParentCode,
   }) async {
     final org = await _orgCode;
     final school = await _schoolCode;
     final currentUser = await _currentUserCode;
-    final tempCode = _uuid.v4();
+    // Reuse the caller's own temp code (already cached via
+    // [cacheDraftMessage]) when given, so this updates that SAME Isar row
+    // instead of leaving it behind as an orphaned duplicate draft.
+    final tempCode = localTempCode ?? _uuid.v4();
 
     // Optimistic local entity
     final optimistic = MessageEntity(
@@ -136,14 +171,18 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       text: text,
       messageType: MessageType.text,
       status: MessageStatus.pending,
-      sentAt: DateTime.now(),
+      sentAt: AppTime.nowUtc(),
       organizationCode: org,
       schoolCode: school,
       isPrivate: isPrivate,
+      privateParentUserCode: privateParentUserCode,
       localTempCode: tempCode,
+      attachments: attachments,
     );
 
-    // Persist optimistically so the UI shows immediately
+    // Persist optimistically so the UI shows immediately (idempotent — a
+    // no-op re-write when the caller already cached this exact row via
+    // [cacheDraftMessage]).
     await _local.saveMessage(optimistic);
 
     try {
@@ -152,6 +191,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
         text: text,
         attachmentIds: attachmentIds,
         isPrivate: isPrivate,
+        privateParentUserCode: privateParentUserCode,
         threadParentCode: threadParentCode,
       );
       final confirmed = dto.toEntity();
@@ -183,14 +223,28 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
           'text': text,
           'attachmentIds': attachmentIds,
           'isPrivate': isPrivate,
+          if (privateParentUserCode != null)
+            'privateParentUserCode': privateParentUserCode,
           if (threadParentCode != null) 'threadParentCode': threadParentCode,
           'localTempCode': tempCode,
         },
       );
 
-      return Left(NetworkFailure(e.toString()));
+      return Left(NetworkFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
+
+  @override
+  Future<void> cacheDraftMessage(MessageEntity message) =>
+      _local.saveMessage(message);
+
+  @override
+  Future<void> markDraftMessageFailed(String localTempCode) =>
+      _local.updateMessageStatus(
+        localTempCode: localTempCode,
+        confirmedCode: localTempCode,
+        status: MessageStatus.failed.toApiString(),
+      );
 
   @override
   Future<Either<Failure, MessageEntity>> retryFailedMessage(
@@ -206,6 +260,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       conversationCode: entity.conversationCode,
       text: entity.text,
       isPrivate: entity.isPrivate,
+      privateParentUserCode: entity.privateParentUserCode,
       threadParentCode: entity.threadParentCode,
     );
   }
@@ -222,10 +277,10 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
 
     if (cached != null) {
       final updatedLocal = cached.toEntity().copyWith(
-            text: newText,
-            isEdited: true,
-            editedAt: DateTime.now(),
-          );
+        text: newText,
+        isEdited: true,
+        editedAt: AppTime.nowUtc(),
+      );
       await _local.saveMessage(updatedLocal);
     }
 
@@ -251,7 +306,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
         schoolCode: school,
         payload: {'messageCode': messageCode, 'newText': newText},
       );
-      return Left(NetworkFailure(e.toString()));
+      return Left(NetworkFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -260,8 +315,16 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
     final cached = await _local.getMessage(messageCode);
     final originalEntity = cached?.toEntity();
 
-    if (cached != null) {
-      await _local.deleteMessage(messageCode);
+    if (originalEntity != null) {
+      // Soft-delete locally (matches the legacy stack's deletedAt
+      // preservation — see getMessages()) instead of dropping the row: the
+      // backend's list endpoint omits truly-deleted messages, so a hard
+      // local delete meant the "This message has been deleted." placeholder
+      // vanished from the thread entirely on the next reopen/refresh
+      // instead of staying in place like Room Chat.
+      await _local.saveMessage(
+        originalEntity.copyWith(isDeleted: true, deletedAt: AppTime.nowUtc()),
+      );
     }
 
     try {
@@ -280,7 +343,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
         schoolCode: school,
         payload: {'messageCode': messageCode},
       );
-      return Left(NetworkFailure(e.toString()));
+      return Left(NetworkFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -312,7 +375,19 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       if (originalEntity != null) {
         await _local.saveMessage(originalEntity);
       }
-      return Left(NetworkFailure(e.toString()));
+      return Left(NetworkFailure(ApiErrorHandler.extractErrorMessage(e)));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<ReadReceiptEntity>>> getMessageReceipts(
+    String messageCode,
+  ) async {
+    try {
+      final dtos = await _remote.getMessageReceipts(messageCode);
+      return Right(dtos.map((d) => d.toEntity()).toList());
+    } catch (e) {
+      return Left(NetworkFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -380,8 +455,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       final results = all
           .where(
             (m) =>
-                !m.isDeleted &&
-                m.textPlain.toLowerCase().contains(lowerQuery),
+                !m.isDeleted && m.textPlain.toLowerCase().contains(lowerQuery),
           )
           .take(limit)
           .map((m) => m.toEntity())
@@ -396,7 +470,8 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
   // ─── Sync queue ──────────────────────────────────────────────────────────────
 
   @override
-  Future<Either<Failure, List<SyncQueueEntity>>> getPendingSyncOperations() async {
+  Future<Either<Failure, List<SyncQueueEntity>>>
+  getPendingSyncOperations() async {
     try {
       final org = await _orgCode;
       final school = await _schoolCode;
@@ -411,9 +486,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
   }
 
   @override
-  Future<Either<Failure, int>> cleanupSyncQueue({
-    int olderThanDays = 7,
-  }) async {
+  Future<Either<Failure, int>> cleanupSyncQueue({int olderThanDays = 7}) async {
     try {
       final org = await _orgCode;
       final school = await _schoolCode;
@@ -461,7 +534,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       entityCode: entityCode,
       status: SyncOperationStatus.pending,
       payload: jsonEncode(payload),
-      createdAt: DateTime.now(),
+      createdAt: AppTime.nowUtc(),
       organizationCode: organizationCode,
       schoolCode: schoolCode,
     );
@@ -474,13 +547,40 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
   Stream<List<MessageEntity>> watchMessages({
     required String conversationCode,
     int limit = 100,
+    String? organizationCode,
+    String? schoolCode,
   }) async* {
-    final org = await _orgCode;
-    final school = await _schoolCode;
+    final org = (organizationCode?.trim().isNotEmpty ?? false)
+        ? organizationCode!.trim()
+        : await _orgCode;
+    final school = (schoolCode?.trim().isNotEmpty ?? false)
+        ? schoolCode!.trim()
+        : await _schoolCode;
+    final user = await _currentUserCode;
+
+    final roleJson = (await _storage.getString(StorageKeys.roles) ?? '')
+        .toUpperCase();
+    final activeRole =
+        (await _storage.getString(StorageKeys.activeSchoolRole) ?? '')
+            .toUpperCase();
+
+    final isStaff =
+        activeRole == 'STAFF' ||
+        activeRole == 'TEACHER' ||
+        (activeRole.isEmpty &&
+            (roleJson.contains('STAFF') || roleJson.contains('TEACHER')));
+    final isAdmin =
+        activeRole.contains('ADMIN') ||
+        activeRole.contains('DIRECTOR') ||
+        (activeRole.isEmpty &&
+            (roleJson.contains('ADMIN') || roleJson.contains('DIRECTOR')));
 
     yield* _realtime.watchMessages(
       organizationCode: org,
       schoolCode: school,
+      currentUserCode: user,
+      isStaff: isStaff,
+      isAdmin: isAdmin,
       conversationCode: conversationCode,
       limit: limit,
     );

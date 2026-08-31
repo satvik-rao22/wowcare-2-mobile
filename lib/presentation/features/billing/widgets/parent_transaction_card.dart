@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/view_receipt_screen.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/date_utils.dart';
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
 /// Demo statement data model for UI-only display
 class DemoStatement {
@@ -48,24 +53,53 @@ final List<DemoStatement> demoStatements = [
 class ParentTransactionCard extends StatelessWidget {
   final FamilyLedgerTransactionEntity transaction;
 
+  /// Family name, used as the row label for guardian-level rows (e.g. a card
+  /// payment) that carry no student.
+  final String familyName;
+
   const ParentTransactionCard({
     super.key,
     required this.transaction,
+    this.familyName = '',
   });
 
   String get _type => transaction.transactionType.toLowerCase();
 
+  /// Header label: the student when present, otherwise the family name (for
+  /// guardian-level rows such as a card payment). The status is shown on the
+  /// right, not appended here.
+  String get _displayName {
+    if (transaction.studentName.trim().isNotEmpty) {
+      return transaction.studentName;
+    }
+    return familyName.trim().isNotEmpty
+        ? familyName.trim()
+        : transaction.studentName;
+  }
+
+  /// Title-cases a raw backend status, treating underscores as word breaks so
+  /// `IN_PROCESS` renders as `In Process` rather than `In_process`.
+  String _formatStatus(String status) {
+    if (status.isEmpty) return status;
+    return status
+        .split(RegExp(r'[_\s]+'))
+        .where((word) => word.isNotEmpty)
+        .map((word) => word[0].toUpperCase() + word.substring(1).toLowerCase())
+        .join(' ');
+  }
+
   String _dateLabel() {
     if (transaction.date == null) return '';
-    final date = DateUtilsNew.formatToReadableDate(transaction.date!);
-    switch (_type) {
-      case 'invoice':
-        return 'Due Date: $date';
-      case 'refund':
-        return 'Refunded On: $date';
-      default:
-        return 'Paid On: $date';
-    }
+    // Labels (Due Date / Paid On / Refunded On) are dropped to save horizontal
+    // space; the badge already conveys the transaction type.
+    return DateUtilsNew.formatToReadableDate(transaction.date!);
+  }
+
+  /// Badge text: the transaction type with the status in brackets, e.g.
+  /// `Payment (In Process)` / `Invoice (Sent)`.
+  String _badgeLabel(String type) {
+    final status = _formatStatus(transaction.status);
+    return status.isEmpty ? type : '$type ($status)';
   }
 
   ({String label, Color color, Color textColor}) _badge() {
@@ -91,6 +125,30 @@ class ParentTransactionCard extends StatelessWidget {
     }
   }
 
+  /// Adapts the family-ledger row into the [TransactionItem] the shared
+  /// View Receipt / View Invoice screens expect. `id` is display-only (those
+  /// screens address invoices by [TransactionItem.invoiceCode]), so a numeric
+  /// id isn't required — we derive one from the ledger id's digits.
+  TransactionItem _toTransactionItem() {
+    return TransactionItem(
+      id: int.tryParse(transaction.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0,
+      transactionType: transaction.transactionType,
+      date: transaction.date ?? billingSchoolNow(),
+      amount: transaction.amount,
+      status: transaction.status,
+      description: transaction.description,
+      studentName: transaction.studentName,
+      classroom: '',
+      studentCode:
+          transaction.studentCode.isNotEmpty ? transaction.studentCode : null,
+      paidAmount: transaction.paidAmount,
+      refundedAmount: transaction.refundedAmount,
+      invoiceCode: transaction.invoiceCode,
+      balance: transaction.balance,
+      paymentMode: transaction.method,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.width > 600;
@@ -107,7 +165,7 @@ class ParentTransactionCard extends StatelessWidget {
     }
     expanded.add(StaffCardDetailRow(
       label: 'Status',
-      value: transaction.status,
+      value: _formatStatus(transaction.status),
     ));
     expanded.add(const SizedBox(height: 10));
     if (transaction.description.isNotEmpty) {
@@ -133,21 +191,34 @@ class ParentTransactionCard extends StatelessWidget {
         ..add(const SizedBox(height: 16))
         ..add(StaffCardActions(
           primaryLabel: 'View Receipt',
-          onPrimary: () {/* TODO: receipt */},
+          onPrimary: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => ViewReceiptScreen(
+                transaction: _toTransactionItem(),
+                viewType: 'receipt',
+              ),
+            ),
+          ),
         ));
     } else if (_type == 'invoice') {
       expanded
         ..add(const SizedBox(height: 16))
         ..add(StaffCardActions(
           primaryLabel: 'View Invoice',
-          onPrimary: () {/* TODO: invoice */},
+          onPrimary: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => ViewInvoiceScreen(
+                transaction: _toTransactionItem(),
+              ),
+            ),
+          ),
         ));
     }
 
     return StaffStyleCard(
       leading: DocumentImageWidget(
         fileUuid: '',
-        name: transaction.studentName,
+        name: _displayName,
         size: 50,
       ),
       header: Row(
@@ -159,14 +230,14 @@ class ParentTransactionCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  transaction.studentName,
+                  _displayName,
                   style: BillingCardText.name(isTablet),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                 ),
                 const SizedBox(height: 4),
                 _Badge(
-                  label: badge.label,
+                  label: _badgeLabel(badge.label),
                   color: badge.color,
                   textColor: badge.textColor,
                 ),
@@ -198,22 +269,45 @@ class ParentTransactionCard extends StatelessWidget {
   }
 }
 
-/// Statement card — styled to match the staff card.
+/// Statement card — styled to match the staff card. Backed by a real
+/// [BillingStatementEntity]; Download (and View) fetch the statement PDF and
+/// open it on the device.
 class ParentStatementCard extends StatelessWidget {
-  final DemoStatement statement;
+  final BillingStatementEntity statement;
+
+  /// Names of the children this statement covers (shown as the card title).
+  final String studentNames;
+
+  /// Whether this statement's PDF is currently downloading.
+  final bool isDownloading;
+
+  final VoidCallback onDownload;
+  final VoidCallback? onView;
 
   const ParentStatementCard({
     super.key,
     required this.statement,
+    required this.studentNames,
+    required this.isDownloading,
+    required this.onDownload,
+    this.onView,
   });
+
+  String get _title => studentNames.isNotEmpty ? studentNames : 'Statement';
+
+  String get _formattedType => statement.statementType.isEmpty
+      ? '—'
+      : statement.statementType[0].toUpperCase() +
+          statement.statementType.substring(1).toLowerCase();
 
   @override
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.width > 600;
+    final generatedAt = statement.generatedAt;
     return StaffStyleCard(
       leading: DocumentImageWidget(
         fileUuid: '',
-        name: statement.studentName,
+        name: _title,
         size: 50,
       ),
       header: Row(
@@ -221,7 +315,7 @@ class ParentStatementCard extends StatelessWidget {
         children: [
           Flexible(
             child: Text(
-              statement.studentName,
+              _title,
               style: BillingCardText.name(isTablet),
               overflow: TextOverflow.ellipsis,
             ),
@@ -237,25 +331,30 @@ class ParentStatementCard extends StatelessWidget {
       expandedChildren: [
         StaffCardDetailRow(
           label: 'Statement Type',
-          value: statement.statementType,
+          value: _formattedType,
         ),
         const SizedBox(height: 10),
         StaffCardDetailRow(
           label: 'Generated On',
-          value: DateUtilsNew.formatToReadableDate(statement.generatedOn),
+          value: generatedAt != null
+              ? DateUtilsNew.formatToReadableDate(generatedAt)
+              : '—',
         ),
         const SizedBox(height: 10),
         StaffCardDetailRow(
           label: 'Statement Period',
           value:
-              '${DateUtilsNew.formatToReadableDate(statement.periodFrom)} - ${DateUtilsNew.formatToReadableDate(statement.periodTo)}',
+              '${DateUtilsNew.formatToReadableDate(statement.periodStart)} - ${DateUtilsNew.formatToReadableDate(statement.periodEnd)}',
         ),
         const SizedBox(height: 16),
         StaffCardActions(
-          secondaryLabel: 'View',
-          onSecondary: () {/* TODO: view */},
-          primaryLabel: 'Download',
-          onPrimary: () {/* TODO: download */},
+          // Both actions share the same fetch-in-flight flag, so the label
+          // stays generic rather than claiming "Downloading…" while a View
+          // fetch is actually what's in flight.
+          secondaryLabel: isDownloading ? 'Loading…' : 'View',
+          onSecondary: isDownloading ? null : onView,
+          primaryLabel: isDownloading ? 'Loading…' : 'Download',
+          onPrimary: isDownloading ? null : onDownload,
         ),
       ],
     );

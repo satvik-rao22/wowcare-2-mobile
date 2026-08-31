@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/billing_events.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/transaction_details_cubit.dart';
@@ -26,6 +27,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/gradient_circular_progress.dart';
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
 class TransactionDetailsScreen extends StatefulWidget {
   /// Optional source transaction (when opened from a transaction card).
@@ -119,10 +121,20 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
     } else {
       _cubit.initialize();
     }
+    // Reload this family's ledger after any billing mutation (payment / refund /
+    // credit / invoice change) triggered here or in a pushed sub-screen.
+    BillingEvents.tick.addListener(_onBillingChanged);
+  }
+
+  void _onBillingChanged() {
+    if (!mounted) return;
+    if ((widget.ownerCode?.trim() ?? '').isEmpty) return;
+    _cubit.refresh();
   }
 
   @override
   void dispose() {
+    BillingEvents.tick.removeListener(_onBillingChanged);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _tabController.dispose();
@@ -333,7 +345,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
     return TransactionItem(
       id: 0,
       transactionType: 'Payment',
-      date: DateTime.now(),
+      date: billingSchoolNow(),
       amount: outstanding,
       status: '',
       description: 'Receive Payment',

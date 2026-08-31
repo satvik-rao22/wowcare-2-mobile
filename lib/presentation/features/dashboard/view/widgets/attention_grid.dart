@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
+import 'package:wowcare/presentation/features/classroom/views/screens/classroom_overview_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
@@ -98,8 +98,19 @@ class AttentionCardModel {
 ///   and [DashboardAttentionCubit].
 /// - Hides cards whose count is 0; hides the entire section when all counts are 0.
 /// - Shows first 4 cards; "Show More / Show Less" expands/collapses the rest.
+/// - [onRatioCardTap] / [onShiftsCardTap]: when provided, the card scrolls to the
+///   target widget instead of navigating to a separate screen.
 class AttentionGrid extends StatefulWidget {
-  const AttentionGrid({super.key});
+  const AttentionGrid({
+    super.key,
+    this.onRatioCardTap,
+    this.onShiftsCardTap,
+    this.onIncidentCardTap,
+  });
+
+  final VoidCallback? onRatioCardTap;
+  final VoidCallback? onShiftsCardTap;
+  final VoidCallback? onIncidentCardTap;
 
   @override
   State<AttentionGrid> createState() => _AttentionGridState();
@@ -173,13 +184,25 @@ class _AttentionGridState extends State<AttentionGrid> {
   void _handleCardTap(_AttentionCardRoute route) {
     switch (route) {
       case _AttentionCardRoute.incidentApproval:
-        context.go('/activityFeed');
+        if (widget.onIncidentCardTap != null) {
+          widget.onIncidentCardTap!();
+        } else {
+          context.go('/activityFeed');
+        }
 
       case _AttentionCardRoute.classroomRatio:
-        context.go(ClassroomOverviewScreen.routeName);
+        if (widget.onRatioCardTap != null) {
+          widget.onRatioCardTap!();
+        } else {
+          context.go(ClassroomOverviewScreen.routeName);
+        }
 
       case _AttentionCardRoute.classroomShifts:
-        context.go('/dashboard/scheduling');
+        if (widget.onShiftsCardTap != null) {
+          widget.onShiftsCardTap!();
+        } else {
+          context.go('/dashboard/scheduling');
+        }
 
       case _AttentionCardRoute.pendingMovements:
       case _AttentionCardRoute.overdueMovements:
@@ -460,7 +483,6 @@ class _ShimmerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 90,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -471,6 +493,7 @@ class _ShimmerCard extends StatelessWidget {
         baseColor: Colors.grey[300]!,
         highlightColor: Colors.grey[100]!,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -552,10 +575,8 @@ class _AttentionCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: model.labelTag != null
-                      ? RichText(
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          text: TextSpan(
+                      ? Text.rich(
+                          TextSpan(
                             children: [
                               TextSpan(
                                 text: model.label,
@@ -577,6 +598,8 @@ class _AttentionCard extends StatelessWidget {
                               ),
                             ],
                           ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         )
                       : Text(
                           model.label,

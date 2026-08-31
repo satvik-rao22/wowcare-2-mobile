@@ -10,11 +10,13 @@ class KioskPinPadWidget extends StatefulWidget {
   const KioskPinPadWidget({
     required this.onPinSubmit,
     this.maxPinLength = 4,
+    this.isLogout = false,
     super.key,
   });
 
-  final Function(String pin) onPinSubmit;
+  final Function(String pin, {bool isLogout}) onPinSubmit;
   final int maxPinLength;
+  final bool isLogout;
 
   @override
   State<KioskPinPadWidget> createState() => _KioskPinPadWidgetState();
@@ -35,6 +37,17 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
       setState(() {
         _pin += digit;
       });
+
+      // TODO: Temporarily disabled auto-trigger for Next button.
+      // User must explicitly tap the Next button.
+      // Auto-submit when max PIN length is reached
+      // if (_pin.length == widget.maxPinLength) {
+      //   Future.delayed(const Duration(milliseconds: 300), () {
+      //     if (mounted && !_isSubmitting) {
+      //       _submitPinInternal();
+      //     }
+      //   });
+      // }
     }
   }
 
@@ -53,6 +66,15 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
     });
   }
 
+  void _submitPinInternal() {
+    if (_pin.length == widget.maxPinLength) {
+      setState(() {
+        _isSubmitting = true;
+      });
+      widget.onPinSubmit(_pin, isLogout: widget.isLogout);
+    }
+  }
+
   void _validate(BuildContext context) {
     if (_pin.length != widget.maxPinLength) {
       CoreUtils.showTopSnackBar(
@@ -67,18 +89,23 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
       _isSubmitting = true;
     });
 
-    // Call parent callback
-    widget.onPinSubmit(_pin);
+    // Call parent callback with isLogout flag
+    widget.onPinSubmit(_pin, isLogout: widget.isLogout);
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocListener<KioskDashboardCubit, KioskDashboardState>(
       listener: (context, state) {
-        if (state is KioskDashboardError) {
+        if (state is KioskDashboardPinSuccess) {
+          // Clear PIN and reset submitting flag on successful verification
           _reset();
-        } else if (state is KioskDashboardPinSuccess) {
-          _reset();
+        } else if (state is KioskDashboardQrLoaded) {
+          // Reset PIN and re-enable button when PIN verification fails
+          // This clears the entered digits and allows user to retry with a new PIN
+          if (_isSubmitting) {
+            _reset();
+          }
         }
       },
       child: SingleChildScrollView(
@@ -222,14 +249,16 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
             ),
             padding: const EdgeInsets.all(1),
             child: TextButton(
-              onPressed: _isSubmitting ? null : () {
-                _reset();
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: 'PIN entry cancelled',
-                  isWarning: true,
-                );
-              },
+              onPressed: _isSubmitting
+                  ? null
+                  : () {
+                      _reset();
+                      CoreUtils.showTopSnackBar(
+                        context: context,
+                        message: 'PIN entry cancelled',
+                        isWarning: true,
+                      );
+                    },
               style: TextButton.styleFrom(
                 backgroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 10),
@@ -269,9 +298,11 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              onPressed: _isSubmitting ? null : () {
-                _validate(context);
-              },
+              onPressed: _isSubmitting
+                  ? null
+                  : () {
+                      _validate(context);
+                    },
               child: _isSubmitting
                   ? const SizedBox(
                       height: 20,

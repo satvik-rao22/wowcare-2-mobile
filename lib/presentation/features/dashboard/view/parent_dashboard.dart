@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -10,8 +9,10 @@ import 'package:wowcare/presentation/features/dashboard/cubit/parent_dashboard_c
 import 'package:wowcare/presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
+import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_childs_day_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/student_attendance_card.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/student_billing_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/student_newsletters_card.dart';
 import 'package:wowcare/presentation/features/dashboard/viewmodels/parent_dashboard_viewmodel.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
@@ -49,6 +50,8 @@ class _ParentDashboardState extends State<ParentDashboard> {
         return const MyChildsDayCard();
       case ParentDashboardCard.studentAttendance:
         return const StudentAttendanceCard();
+      case ParentDashboardCard.studentBilling:
+        return const StudentBillingCard();
       case ParentDashboardCard.studentNewsletters:
         return const StudentNewslettersCard();
     }
@@ -63,16 +66,27 @@ class _ParentDashboardState extends State<ParentDashboard> {
           final coordinator = context.read<ParentDashboardCoordinatorCubit>();
           return MultiBlocProvider(
             providers: [
-              BlocProvider<ParentDashboardCubit>.value(value: coordinator.dashboardCubit),
-              BlocProvider<MyChildsDayCubit>.value(value: coordinator.myChildsDayCubit),
+              BlocProvider<ParentDashboardCubit>.value(
+                value: coordinator.dashboardCubit,
+              ),
+              BlocProvider<MyChildsDayCubit>.value(
+                value: coordinator.myChildsDayCubit,
+              ),
               BlocProvider<StudentAttendanceProfileCubit>.value(
                 value: coordinator.studentAttendanceProfileCubit,
               ),
-              BlocProvider<CommunicationCubit>.value(value: coordinator.communicationCubit),
+              BlocProvider<CommunicationCubit>.value(
+                value: coordinator.communicationCubit,
+              ),
               BlocProvider<StudentNewslettersCubit>.value(
                 value: coordinator.studentNewslettersCubit,
               ),
-              BlocProvider<GeofenceCubit>.value(value: coordinator.geofenceCubit),
+              BlocProvider<ParentBillingCubit>.value(
+                value: coordinator.parentBillingCubit,
+              ),
+              BlocProvider<GeofenceCubit>.value(
+                value: coordinator.geofenceCubit,
+              ),
             ],
             child: _buildScaffold(context),
           );
@@ -94,16 +108,20 @@ class _ParentDashboardState extends State<ParentDashboard> {
         if (state.isFailure) {
           CoreUtils.showTopSnackBar(
             context: context,
-            message: state.errorMessage ?? 'Unable to load dashboard data. Please try again.',
+            message:
+                state.errorMessage ??
+                'Unable to load dashboard data. Please try again.',
             isError: true,
           );
-        } else if (state.isPartialError) {
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'Some sections could not be loaded. Pull down to retry.',
-            isWarning: true,
-          );
-        } else if (state.isReady) {
+        }
+        // else if (state.isPartialError) {
+        //   CoreUtils.showTopSnackBar(
+        //     context: context,
+        //     message: 'Some sections could not be loaded. Pull down to retry.',
+        //     isWarning: true,
+        //   );
+        // }
+        else if (state.isReady) {
           CoreUtils.showTopSnackBar(
             context: context,
             message: 'Dashboard refreshed successfully.',
@@ -126,7 +144,6 @@ class _ParentDashboardState extends State<ParentDashboard> {
     );
   }
 }
-
 
 /// Isolated widget for the reorderable card list.
 ///

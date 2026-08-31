@@ -1,9 +1,12 @@
 package com.wiseowl.wowcareapp
 
+import android.Manifest
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
+import androidx.core.content.ContextCompat
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingRequest
@@ -43,8 +46,24 @@ class GeofencePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         when (call.method) {
             "updateSchoolLocation" -> handleUpdateSchoolLocation(call, result)
             "getGeofenceStatus" -> handleGetGeofenceStatus(result)
+            "updateSignInStatus" -> handleUpdateSignInStatus(call, result)
+            "clearGeofenceState" -> handleClearGeofenceState(result)
+            "triggerNotification" -> handleTriggerNotification(call, result)
             else -> result.notImplemented()
         }
+    }
+
+    private fun handleClearGeofenceState(result: MethodChannel.Result) {
+        GeofencePrefs.clearLastInside(appContext)
+        result.success(true)
+    }
+
+    private fun handleTriggerNotification(call: MethodCall, result: MethodChannel.Result) {
+        val args = call.arguments as? Map<*, *>
+        val isInside = args?.get("isInside") as? Boolean ?: true
+        GeofenceNotifications.ensureChannel(appContext)
+        GeofenceNotifications.show(appContext, isInside)
+        result.success(true)
     }
 
     private fun handleGetGeofenceStatus(result: MethodChannel.Result) {
@@ -58,6 +77,19 @@ class GeofencePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             "radiusMeters" to (config?.radiusMeters ?: 0.0),
             "gpsSignInEnabled" to (config?.gpsSignInEnabled ?: false),
         ))
+    }
+
+    private fun handleUpdateSignInStatus(call: MethodCall, result: MethodChannel.Result) {
+        val args = call.arguments as? Map<*, *> ?: run {
+            result.error("bad_args", "Missing args", null)
+            return
+        }
+        val nothingToDo = (args["nothingToDo"] as? Boolean) ?: false
+        GeofencePrefs.setNothingToDo(appContext, nothingToDo)
+        if (nothingToDo) {
+            GeofenceNotifications.cancel(appContext)
+        }
+        result.success(true)
     }
 
     private fun handleUpdateSchoolLocation(call: MethodCall, result: MethodChannel.Result) {
@@ -92,7 +124,17 @@ class GeofencePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             return
         }
 
-        GeofenceForegroundService.start(appContext)
+        // The foreground service exists solely to keep the process alive for
+        // background/terminated geofence delivery — only start it when the user
+        // has actually granted background location ("Allow All the Time"). For
+        // "While Using the App" only, GeofencingClient registration below still
+        // proceeds (delivers events while foregrounded/recently backgrounded),
+        // but the persistent keep-alive service and its notification stay off.
+        if (hasBackgroundLocationPermission()) {
+            GeofenceForegroundService.start(appContext)
+        } else {
+            GeofenceForegroundService.stop(appContext)
+        }
 
         GeofenceRegistrar.register(
             context = appContext,
@@ -105,6 +147,20 @@ class GeofencePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             onSuccess = { result.success(true) },
             onError = { code, message -> result.error(code, message, null) },
         )
+    }
+
+    /**
+     * True only when the user granted "Allow All the Time" (background
+     * location). Pre-Android 10 has no separate background permission —
+     * foreground grant implies background access, so checkSelfPermission
+     * against the declared ACCESS_BACKGROUND_LOCATION already returns
+     * granted there without any extra branching.
+     */
+    private fun hasBackgroundLocationPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            appContext,
+            Manifest.permission.ACCESS_BACKGROUND_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun geofencePendingIntent(context: Context): PendingIntent {

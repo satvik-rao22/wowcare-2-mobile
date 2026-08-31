@@ -7,12 +7,15 @@ class ReportRequestParams extends Equatable implements ReportParams {
     required this.reportType,
     required this.startDate,
     this.endDate,
-    this.format = 'PDF',
-    this.classroomCodes,
+    this.date,
+    this.format = '',
+    this.roomCodes,
     this.studentCodes,
     this.staffCodes,
     this.tagCodes,
+    required this.schoolName,
     this.search,
+    this.folderClassGrouping,
   });
 
   @override
@@ -21,76 +24,113 @@ class ReportRequestParams extends Equatable implements ReportParams {
   @override
   final DateTime startDate;
 
+  final DateTime? date;
+
   @override
   final String format;
 
   final DateTime? endDate;
-  final List<String>? classroomCodes;
+
+  final List<String>? roomCodes;
   final List<String>? studentCodes;
   final List<String>? staffCodes;
   final List<String>? tagCodes;
+  final String? schoolName;
   final String? search;
+  final String? folderClassGrouping;
 
   ReportRequestParams copyWith({
     ReportType? reportType,
     DateTime? startDate,
     DateTime? endDate,
+    DateTime? date,
     String? format,
-    List<String>? classroomCodes,
+    List<String>? roomCodes,
     List<String>? studentCodes,
     List<String>? staffCodes,
     List<String>? tagCodes,
+    String? schoolName,
     String? search,
+    String? folderClassGrouping,
   }) {
     return ReportRequestParams(
       reportType: reportType ?? this.reportType,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
+      date: date ?? this.date,
       format: format ?? this.format,
-      classroomCodes: classroomCodes ?? this.classroomCodes,
+      roomCodes: roomCodes ?? this.roomCodes,
       studentCodes: studentCodes ?? this.studentCodes,
       staffCodes: staffCodes ?? this.staffCodes,
       tagCodes: tagCodes ?? this.tagCodes,
+      schoolName: schoolName ?? this.schoolName,
       search: search ?? this.search,
+      folderClassGrouping: folderClassGrouping ?? this.folderClassGrouping,
     );
   }
 
   /// Convert params to request body format for API.
+  // Map<String, dynamic> toRequestBody() {
+  //   final Map<String, dynamic> body = {
+  //     'reportType': reportType.backendValue,
+  //     'startDate': startDate.toIso8601String().split('T')[0],
+  //     if (endDate != null) 'endDate': endDate!.toIso8601String().split('T')[0],
+  //     if (schoolName != null && schoolName!.trim().isNotEmpty)
+  //       'schoolName': schoolName,
+  //     'format': format,
+  //   };
   Map<String, dynamic> toRequestBody() {
     final Map<String, dynamic> body = {
       'reportType': reportType.backendValue,
-      'startDate': startDate.toIso8601String().split('T')[0],
-      if (endDate != null) 'endDate': endDate!.toIso8601String().split('T')[0],
       'format': format,
+      if (schoolName != null && schoolName!.trim().isNotEmpty)
+        'schoolName': schoolName,
     };
 
-    // Map field names based on report type for API compatibility
-    if (reportType == ReportType.studentAbsent ||
-        reportType == ReportType.studentAttendancePerStudent ||
-        reportType == ReportType.staffAttendancePerStaff) {
-      // These reports use roomCodes instead of classroomCodes
-      if (classroomCodes != null && classroomCodes!.isNotEmpty) {
-        body['roomCodes'] = classroomCodes;
-      }
+    if (reportType == ReportType.studentDailyAttendance) {
+      body['date'] = (date ?? startDate).toIso8601String().split('T')[0];
     } else {
-      // Other reports use classroomCodes
-      if (classroomCodes != null && classroomCodes!.isNotEmpty) {
-        body['classroomCodes'] = classroomCodes;
+      body['startDate'] = startDate.toIso8601String().split('T')[0];
+      if (endDate != null) {
+        body['endDate'] = endDate!.toIso8601String().split('T')[0];
       }
     }
 
-    // Add optional fields
-    if (studentCodes != null && studentCodes!.isNotEmpty) {
+    // Existing room/classroom mapping...
+
+    // Map field names based on report type for API compatibility.
+    // Confirmed against the web client's verified payloads per report type.
+    if (reportType == ReportType.studentAbsent ||
+        reportType == ReportType.studentAttendancePerStudent ||
+        reportType == ReportType.staffAttendancePerStaff ||
+        reportType == ReportType.emergencyContacts ||
+        reportType == ReportType.studentIncident) {
+      // These reports use roomCodes instead of classroomCodes.
+      if (roomCodes != null) {
+        body['roomCodes'] = roomCodes;
+      }
+    } else {
+      // Other reports use classroomCodes.
+      if (roomCodes != null) {
+        body['roomCodes'] = roomCodes;
+      }
+    }
+
+    // Add optional fields.
+    if (studentCodes != null) {
       body['studentCodes'] = studentCodes;
     }
-    if (staffCodes != null && staffCodes!.isNotEmpty) {
+    if (staffCodes != null) {
       body['staffCodes'] = staffCodes;
     }
-    if (tagCodes != null && tagCodes!.isNotEmpty) {
+    if (tagCodes != null) {
       body['tagCodes'] = tagCodes;
     }
     if (search != null && search!.trim().isNotEmpty) {
       body['search'] = search!.trim();
+    }
+    if (folderClassGrouping != null && folderClassGrouping!.isNotEmpty) {
+      body['grouping'] = folderClassGrouping;
     }
 
     return body;
@@ -102,15 +142,22 @@ class ReportRequestParams extends Equatable implements ReportParams {
       reportType.backendValue,
       startDate.toIso8601String().split('T')[0],
       if (endDate != null) endDate!.toIso8601String().split('T')[0],
-      if (classroomCodes != null && classroomCodes!.isNotEmpty)
-        'classrooms=${classroomCodes!.join(',')}',
+      if (roomCodes != null && roomCodes!.isNotEmpty)
+        'classrooms=${roomCodes!.join(',')}',
       if (studentCodes != null && studentCodes!.isNotEmpty)
         'students=${studentCodes!.join(',')}',
       if (staffCodes != null && staffCodes!.isNotEmpty)
         'staff=${staffCodes!.join(',')}',
-      if (tagCodes != null && tagCodes!.isNotEmpty) 'tags=${tagCodes!.join(',')}',
+      if (tagCodes != null && tagCodes!.isNotEmpty)
+        'tags=${tagCodes!.join(',')}',
       if (search != null && search!.trim().isNotEmpty)
         'search=${search!.trim().toLowerCase()}',
+      if (schoolName != null && schoolName!.trim().isNotEmpty)
+        'school=${schoolName!.trim().toLowerCase()}',
+      if (format.isNotEmpty) 'format=$format',
+      if (date != null) 'date=${date!.toIso8601String().split('T')[0]}',
+      if (folderClassGrouping != null && folderClassGrouping!.isNotEmpty)
+        'grouping=$folderClassGrouping',
     ];
     return parts.join('|');
   }
@@ -120,11 +167,14 @@ class ReportRequestParams extends Equatable implements ReportParams {
     reportType,
     startDate,
     endDate,
+    date,
     format,
-    classroomCodes,
+    roomCodes,
     studentCodes,
     staffCodes,
     tagCodes,
+    schoolName,
     search,
+    folderClassGrouping,
   ];
 }

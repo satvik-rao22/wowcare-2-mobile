@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:isar/isar.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
@@ -27,6 +29,7 @@ class ConversationEntityCollection {
   // Student / classroom context (null for STAFF_DIRECT)
   @Index()
   String? studentCode;
+  String? studentStatus;
   String? classroomCode;
 
   // Core metadata
@@ -45,6 +48,9 @@ class ConversationEntityCollection {
   String? lastMessageBy;
   String? lastMessageSenderName;
   late String lastMessagePreview;
+  bool privateModeActive = false;
+  String? privateModeActivatedBy;
+  DateTime? privateModeActivatedAt;
 
   late int participantCount;
   late int unreadCount;
@@ -82,6 +88,7 @@ class ConversationEntityCollection {
       ..code = entity.code
       ..type = entity.type.toApiString()
       ..studentCode = entity.studentCode
+      ..studentStatus = entity.studentStatus
       ..classroomCode = entity.classroomCode
       ..title = entity.title
       ..description = entity.description
@@ -95,13 +102,45 @@ class ConversationEntityCollection {
       ..lastMessageBy = entity.lastMessageBy
       ..lastMessageSenderName = entity.lastMessageSenderName
       ..lastMessagePreview = entity.lastMessagePreview
+      ..privateModeActive = entity.privateModeActive
+      ..privateModeActivatedBy = entity.privateModeActivatedBy
+      ..privateModeActivatedAt = entity.privateModeActivatedAt
       ..participantCount = entity.participantCount
       ..unreadCount = entity.unreadCount
       ..participants = entity.participants
           .map(ParticipantEntityCollection.fromEntity)
           .toList()
       ..organizationCode = entity.organizationCode
-      ..schoolCode = entity.schoolCode;
+      ..schoolCode = entity.schoolCode
+      ..privateModeStatesJson = entity.privateModeStates.isEmpty
+          ? null
+          : jsonEncode(
+              entity.privateModeStates.map(
+                (parentCode, s) => MapEntry(parentCode, {
+                  'parentCode': s.parentCode,
+                  'enabled': s.enabled,
+                  'owner': s.owner,
+                  'enabledAt': s.enabledAt.toIso8601String(),
+                }),
+              ),
+            );
+  }
+
+  static Map<String, PrivateModeState> _decodePrivateModeStates(String? json) {
+    if (json == null || json.isEmpty) return const {};
+    final decoded = jsonDecode(json) as Map<String, dynamic>;
+    return decoded.map((parentCode, value) {
+      final v = value as Map<String, dynamic>;
+      return MapEntry(
+        parentCode,
+        PrivateModeState(
+          parentCode: v['parentCode'] as String,
+          enabled: v['enabled'] as bool,
+          owner: v['owner'] as String,
+          enabledAt: DateTime.parse(v['enabledAt'] as String),
+        ),
+      );
+    });
   }
 
   ConversationEntity toEntity() {
@@ -110,6 +149,7 @@ class ConversationEntityCollection {
       code: code,
       type: ConversationType.fromApiString(type),
       studentCode: studentCode,
+      studentStatus: studentStatus,
       classroomCode: classroomCode,
       title: title,
       description: description,
@@ -123,13 +163,15 @@ class ConversationEntityCollection {
       lastMessageBy: lastMessageBy,
       lastMessageSenderName: lastMessageSenderName,
       lastMessagePreview: lastMessagePreview,
+      privateModeActive: privateModeActive,
+      privateModeActivatedBy: privateModeActivatedBy,
+      privateModeActivatedAt: privateModeActivatedAt,
       participantCount: participantCount,
       unreadCount: unreadCount,
       participants: participants?.map((e) => e.toEntity()).toList() ?? [],
       organizationCode: organizationCode,
       schoolCode: schoolCode,
-      // privateModeStates decoded separately by the repository
-      privateModeStates: const {},
+      privateModeStates: _decodePrivateModeStates(privateModeStatesJson),
     );
   }
 }
@@ -144,6 +186,7 @@ class ParticipantEntityCollection {
   /// Raw string; convert via [ParticipantRole.fromApiString].
   late String role;
   String? avatarUrl;
+  String? staffCode;
   late DateTime joinedAt;
   DateTime? leftAt;
   DateTime? lastReadAt;
@@ -151,6 +194,8 @@ class ParticipantEntityCollection {
   bool? notificationsEnabled;
   late DateTime createdAt;
   late DateTime updatedAt;
+  bool? active;
+  String? staffStatus;
 
   ParticipantEntityCollection();
 
@@ -162,13 +207,16 @@ class ParticipantEntityCollection {
       ..userName = entity.userName
       ..role = entity.role.toApiString()
       ..avatarUrl = entity.avatarUrl
+      ..staffCode = entity.staffCode
       ..joinedAt = entity.joinedAt
       ..leftAt = entity.leftAt
       ..lastReadAt = entity.lastReadAt
       ..muted = entity.muted
       ..notificationsEnabled = entity.notificationsEnabled
       ..createdAt = entity.createdAt
-      ..updatedAt = entity.updatedAt;
+      ..updatedAt = entity.updatedAt
+      ..active = entity.active
+      ..staffStatus = entity.staffStatus;
   }
 
   ParticipantEntity toEntity() {
@@ -179,6 +227,7 @@ class ParticipantEntityCollection {
       userName: userName,
       role: ParticipantRole.fromApiString(role),
       avatarUrl: avatarUrl,
+      staffCode: staffCode,
       joinedAt: joinedAt,
       leftAt: leftAt,
       lastReadAt: lastReadAt,
@@ -186,6 +235,8 @@ class ParticipantEntityCollection {
       notificationsEnabled: notificationsEnabled ?? true,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      active: active ?? true,
+      staffStatus: staffStatus,
     );
   }
 }

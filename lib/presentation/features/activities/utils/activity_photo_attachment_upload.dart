@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:mime/mime.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 /// Holds upload session asset codes keyed by local file path (one coordinator per screen).
@@ -34,6 +36,10 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
   required bool Function() mounted,
   required void Function(bool uploading) setUploading,
   void Function(int percent)? onOverallProgressPercent,
+  /// Fired with (completedCount, totalCount) after each file's upload+
+  /// complete call, before the batched ready-poll — lets callers show
+  /// granular "N/M uploaded" progress text alongside the overall percent.
+  void Function(int completedCount, int totalCount)? onFileCompleted,
 }) async {
   if (files.isEmpty) return const [];
 
@@ -76,6 +82,16 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
       );
 
       final sessionAssetCodes = <String>[];
+      // Keyed separately from state.assetCodeByPath so a photo is only
+      // considered "done" (and eligible for Save/attach) once
+      // waitUntilAssetsReady below actually confirms it — completing the
+      // S3 PUT/complete call is not the same as the backend reporting the
+      // asset ready to link, and writing straight into
+      // state.assetCodeByPath here let a subsequent ready-poll timeout pass
+      // through silently: the map already held the assetCode, so the caller
+      // believed upload had finished and let Save submit an asset the
+      // backend then rejected with 409 "not ready for linking".
+      final pendingAssetCodeByPath = <String, String>{};
       for (var i = 0; i < missing.length; i++) {
         final photo = missing[i];
         final fileIndex = i + 1;
@@ -83,6 +99,15 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
         final fileName = photo.uri.pathSegments.isNotEmpty
             ? photo.uri.pathSegments.last
             : 'photo.jpg';
+        // Declaring every picked photo as image/jpeg regardless of its real
+        // format (HEIC/PNG/WEBP/etc. are all pickable) tells S3/the backend
+        // the wrong content type for anything that isn't literally already a
+        // JPEG — a plausible reason a HEIC upload sits stuck at PROCESSING
+        // and never reaches READY, since the backend's decoder is told to
+        // parse non-JPEG bytes as JPEG.
+        final contentType =
+            lookupMimeType(photo.path) ??
+            FilePickerUtils.getMimeType(fileName.split('.').last);
         final contentLengthBytes = await photo.length();
         final checksumSha256 =
             await uploadService.computeFileChecksumSha256(photo);
@@ -90,7 +115,7 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
           sessionCode: uploadSession.sessionCode,
           documentApiBasePath: uploadSession.documentApiBasePath,
           fileName: fileName,
-          contentType: 'image/jpeg',
+          contentType: contentType,
           contentLengthBytes: contentLengthBytes,
           checksumSha256: checksumSha256,
           mediaType: 'IMAGE',
@@ -101,7 +126,7 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
           file: photo,
           presignedPutUrl: presign.presignedPutUrl,
           requiredHeaders: presign.requiredHeaders,
-          fallbackContentType: 'image/jpeg',
+          fallbackContentType: contentType,
           onProgress: (_, __, percent) {
             final overallFraction =
                 ((fileIndex - 1) + (percent / 100)) / totalFiles;
@@ -117,13 +142,17 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
           assetCode: presign.assetCode,
           documentApiBasePath: uploadSession.documentApiBasePath,
         );
-        state.assetCodeByPath[photo.path] = presign.assetCode;
+        pendingAssetCodeByPath[photo.path] = presign.assetCode;
         sessionAssetCodes.add(presign.assetCode);
+        if (mounted()) {
+          setState(() => onFileCompleted?.call(fileIndex, totalFiles));
+        }
       }
       await uploadService.waitUntilAssetsReady(
         sessionCode: uploadSession.sessionCode,
         expectedAssetCodes: sessionAssetCodes,
       );
+      state.assetCodeByPath.addAll(pendingAssetCodeByPath);
       onOverallProgressPercent?.call(100);
     } finally {
       if (mounted()) {

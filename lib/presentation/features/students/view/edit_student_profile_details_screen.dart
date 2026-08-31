@@ -1,4 +1,5 @@
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
@@ -19,11 +20,16 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:wowcare/presentation/features/classroom/utils/classroom_age_range.dart';
+import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
+import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class EditStudentProfileDetailsScreen extends StatefulWidget {
   const EditStudentProfileDetailsScreen({
@@ -35,7 +41,6 @@ class EditStudentProfileDetailsScreen extends StatefulWidget {
     this.initialClassroom,
     this.initialBirthDate,
     this.initialNotes,
-    this.initialFTE,
     this.initialStreet,
     this.initialCity,
     this.initialState,
@@ -56,7 +61,6 @@ class EditStudentProfileDetailsScreen extends StatefulWidget {
   final String? initialNotes;
   final String? initialClassroom;
   final DateTime? initialBirthDate;
-  final String? initialFTE;
   final String? initialStreet;
   final String? initialCity;
   final String? initialState;
@@ -81,7 +85,6 @@ class _EditStudentProfileDetailsScreenState
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
-  final TextEditingController _FTEController = TextEditingController();
   final TextEditingController _streetController = TextEditingController();
   final TextEditingController _street2Controller = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
@@ -98,6 +101,12 @@ class _EditStudentProfileDetailsScreenState
   String? _selectedCountry;
   bool _isSubmitting = false;
 
+  // Today's sign-in status — drives disabling the Classroom dropdown while
+  // the student is currently signed in. Fails closed (disabled) on error or
+  // while loading, matching the convention in student_attendance_profile.dart.
+  bool _isTodayStatusLoading = true;
+  bool _isSignedInToday = false;
+
   // API-backed options and mappings
   List<String> _availableTagNames = [];
   Map<String, String> _tagNameToCode = {};
@@ -106,13 +115,15 @@ class _EditStudentProfileDetailsScreenState
   Map<String, String> _studentNameToCode = {};
 
   List<String> _availableGuardianNames = [];
-  final List<String> _statusOptions = [
-    'Active',
-    'Inactive',
-    'Upcoming',
-    'Waitlist',
-    'Graduated',
-  ];
+  Map<String, String> _guardianNameToCode = {};
+  Map<String, bool> _guardianInitialCustody = {};
+  // Waitlist and Graduated removed: no mobile workflow exists for either
+  // status, so offering them here just let a student get stuck in a status
+  // nothing on mobile can act on. A student already carrying one of these
+  // (set elsewhere, e.g. web) still displays it correctly — CustomDropdown
+  // shows selectedItem as plain text and doesn't require it to be a member
+  // of items — this only removes them as something to select going forward.
+  final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming'];
   final List<String> _stateSubsidyOptions = ['Yes', 'No'];
   final List<String> _genderOptions = const ['Male', 'Female', 'Other'];
   String? _selectedGender;
@@ -124,7 +135,6 @@ class _EditStudentProfileDetailsScreenState
   // Simple validators (align with Add Staff)
   // First character A-Z, then up to 49 letters/space/hyphen/apostrophe.
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
-  static final RegExp _fteRegex = RegExp(r"^(?:100|[1-9]?[0-9])$");
   static final RegExp _zipDigitsRegex = RegExp(
     r'^\d{5}(\d{4})?$',
   ); // 5 or 9 digits (ZIP / ZIP+4)
@@ -171,7 +181,6 @@ class _EditStudentProfileDetailsScreenState
     _firstNameController.text = widget.initialFirstName ?? '';
     _lastNameController.text = widget.initialLastName ?? '';
     _notesController.text = widget.initialNotes ?? '';
-    _FTEController.text = widget.initialFTE ?? '';
     _selectedStatus = widget.initialStatus;
     _selectedStateSubsidyOption = widget.initialSubsidy ? 'Yes' : 'No';
     _selectedClassroom = widget.initialClassroom;
@@ -209,6 +218,40 @@ class _EditStudentProfileDetailsScreenState
     _loadTags();
     _loadStudentsForSiblings();
     _loadGuardiansForCustody();
+    _loadTodayStatus();
+  }
+
+  /// Mirrors student_attendance_profile.dart's `_loadTodayStatus()` — reuses
+  /// the same use case so "currently signed in" is determined identically
+  /// everywhere in the app.
+  Future<void> _loadTodayStatus() async {
+    final code = widget.studentCode.trim();
+    if (code.isEmpty) {
+      if (!mounted) return;
+      setState(() => _isTodayStatusLoading = false);
+      return;
+    }
+    try {
+      final useCase = serviceLocator<GetStudentTodaySignInStatusUseCase>();
+      final status = await useCase(studentCode: code);
+      if (!mounted) return;
+      final gate = studentAttendanceGateFromTodayStatus(
+        isActiveProfile: true,
+        todayStatusRaw: status,
+      );
+      setState(() {
+        _isSignedInToday = gate.isSignedInToday;
+        _isTodayStatusLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      // Fail closed: keep the Classroom field disabled if the status can't
+      // be determined, same convention as student_attendance_profile.dart.
+      setState(() {
+        _isSignedInToday = true;
+        _isTodayStatusLoading = false;
+      });
+    }
   }
 
   Future<void> _loadTags() async {
@@ -345,24 +388,34 @@ class _EditStudentProfileDetailsScreenState
         return '';
       }
 
-      final rawRows = <Map<String, String>>[];
+      final rawRows = <Map<String, dynamic>>[];
       for (final g in guardians) {
         final base = _guardianDisplayName(g);
         final code = (g['guardianCode'] ?? g['code'] ?? '').toString().trim();
-        if (base.isEmpty) continue;
-        rawRows.add(<String, String>{'name': base, 'code': code});
+        final legalCustody = g['legalCustody'] == true;
+        if (base.isEmpty || code.isEmpty) continue;
+        rawRows.add(<String, dynamic>{
+          'name': base,
+          'code': code,
+          'legalCustody': legalCustody,
+        });
       }
 
       final names = <String>[];
+      final nameToCode = <String, String>{};
+      final initialCustody = <String, bool>{};
       for (final row in rawRows) {
-        final base = row['name']!;
-        final displayLabel = base;
-        names.add(displayLabel);
+        final base = row['name'] as String;
+        names.add(base);
+        nameToCode[base] = row['code'] as String;
+        initialCustody[base] = row['legalCustody'] as bool;
       }
       if (!mounted) return;
 
       setState(() {
         _availableGuardianNames = names;
+        _guardianNameToCode = nameToCode;
+        _guardianInitialCustody = initialCustody;
         _selectedChildCustody.removeWhere(
           (g) => !_availableGuardianNames.contains(g),
         );
@@ -377,7 +430,6 @@ class _EditStudentProfileDetailsScreenState
     _firstNameController.dispose();
     _lastNameController.dispose();
     _notesController.dispose();
-    _FTEController.dispose();
     _street2Controller.dispose();
     _streetController.dispose();
     _cityController.dispose();
@@ -388,7 +440,6 @@ class _EditStudentProfileDetailsScreenState
   Future<void> _saveProfileDetails() async {
     final first = _firstNameController.text.trim();
     final last = _lastNameController.text.trim();
-    final fte = _FTEController.text.trim();
 
     if (first.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -447,7 +498,7 @@ class _EditStudentProfileDetailsScreenState
       );
       return;
     } else {
-      final now = DateTime.now();
+      final now = AppTime.now();
       final today = DateTime(now.year, now.month, now.day);
       if (_selectedBirthDate!.isAfter(
         today.subtract(const Duration(days: 1)),
@@ -469,15 +520,6 @@ class _EditStudentProfileDetailsScreenState
       );
       return;
     }
-    if (fte.isNotEmpty && !_fteRegex.hasMatch(fte)) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'FTE must be a number between 0 and 100.',
-        isError: true,
-      );
-      return;
-    }
-
     final street = _streetController.text.trim();
     final city = _cityController.text.trim();
     final zipDigits = _digitsOnly(_zipCodeController.text);
@@ -546,6 +588,33 @@ class _EditStudentProfileDetailsScreenState
       );
       return;
     }
+
+    // WARN (never block) when the DOB is outside the selected classroom's age
+    // range. An out-of-range placement is a legitimate staff decision, so we
+    // surface it and let them proceed — matching the web "warn but allow".
+    ClassroomCubit? classroomCubitForWarning;
+    try {
+      classroomCubitForWarning = context.read<ClassroomCubit>();
+    } catch (_) {
+      classroomCubitForWarning = null;
+    }
+    final classroomsForWarning =
+        classroomCubitForWarning?.state.classrooms ?? const <Classroom>[];
+    final matchingClassrooms = classroomsForWarning.where(
+      (c) => c.name == _selectedClassroom || c.code == _selectedClassroom,
+    );
+    if (matchingClassrooms.isNotEmpty) {
+      final ageWarning = classroomAgeRangeWarning(
+        classroom: matchingClassrooms.first,
+        birthDate: _selectedBirthDate,
+        studentName: first,
+      );
+      if (ageWarning != null) {
+        final proceedAnyway = await _confirmAgeOutsideRange(ageWarning);
+        if (!proceedAnyway || !mounted) return;
+      }
+    }
+
     setState(() {
       _isSubmitting = true;
     });
@@ -610,12 +679,6 @@ class _EditStudentProfileDetailsScreenState
       // Map subsidy
       final subsidy = _selectedStateSubsidyOption == 'Yes';
 
-      // Map FTE to number
-      int? fteNumber;
-      if (fte.isNotEmpty) {
-        fteNumber = int.tryParse(fte);
-      }
-
       final repository = serviceLocator<StudentRepository>();
 
       // 1) Core profile PATCH /api/v1/student/{code}/profile
@@ -627,7 +690,6 @@ class _EditStudentProfileDetailsScreenState
         'status': statusApi,
         if (dobFormatted != null) 'dob': dobFormatted,
         'notes': _notesController.text.trim(),
-        if (fteNumber != null) 'fte': fteNumber,
         'subsidy': subsidy,
         if (genderApi != null) 'gender': genderApi.toUpperCase(),
         'classroom': <String, dynamic>{
@@ -689,6 +751,22 @@ class _EditStudentProfileDetailsScreenState
         );
       }
 
+      // 5) Child custody PATCH /api/v1/guardian/{code} — only for guardians
+      // whose custody selection actually changed, so unrelated guardians
+      // aren't touched.
+      for (final entry in _guardianNameToCode.entries) {
+        final name = entry.key;
+        final code = entry.value;
+        final desiredCustody = _selectedChildCustody.contains(name);
+        final currentCustody = _guardianInitialCustody[name] ?? false;
+        if (desiredCustody == currentCustody) continue;
+        await repository.updateGuardian(
+          code: code,
+          studentCode: widget.studentCode,
+          fields: <String, dynamic>{'legalCustody': desiredCustody},
+        );
+      }
+
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
@@ -714,6 +792,24 @@ class _EditStudentProfileDetailsScreenState
     }
   }
 
+  /// Amber confirm for an out-of-range DOB. Returns true to proceed anyway.
+  Future<bool> _confirmAgeOutsideRange(String message) async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => ConfirmationBottomSheet(
+        icon: Icons.warning_amber_rounded,
+        title: message,
+        confirmText: 'Continue anyway',
+        cancelText: 'Cancel',
+        onConfirm: () => Navigator.of(ctx).pop(true),
+        onCancel: () => Navigator.of(ctx).pop(false),
+      ),
+    );
+    return result == true;
+  }
+
   Future<void> _selectBirthDate() async {
     try {
       final result = await showDialog<Map<String, dynamic>>(
@@ -727,7 +823,7 @@ class _EditStudentProfileDetailsScreenState
 
       if (result != null && result['date'] != null) {
         final selectedDate = result['date'] as DateTime;
-        final now = DateTime.now();
+        final now = AppTime.now();
         final today = DateTime(now.year, now.month, now.day);
 
         // Birthdate must be a past date (not today or future)
@@ -862,6 +958,36 @@ class _EditStudentProfileDetailsScreenState
                     child: ListView(
                       padding: EdgeInsets.zero,
                       children: [
+                        // Same green/red "signed in today" indicator used in
+                        // the Student Attendance module — gives a visible
+                        // reason alongside the disabled Classroom field.
+                        Row(
+                          children: [
+                            DocumentImageWidget(
+                              fileUuid: '',
+                              studentCode: widget.studentCode,
+                              name:
+                                  '${widget.initialFirstName ?? ''} ${widget.initialLastName ?? ''}',
+                              size: 40,
+                              fontSize: 14,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                '${widget.initialFirstName ?? ''} ${widget.initialLastName ?? ''}'
+                                    .trim(),
+                                style: const TextStyle(
+                                  fontFamily: 'Manrope',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xff573353),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: responsive.verticalSpacing),
                         Row(
                           children: [
                             Expanded(
@@ -908,6 +1034,11 @@ class _EditStudentProfileDetailsScreenState
                           selectedClassroomName,
                           (v) => setState(() => _selectedClassroom = v),
                           isRequired: true,
+                          isEnabled:
+                              !_isTodayStatusLoading && !_isSignedInToday,
+                          disabledTooltip: _isTodayStatusLoading
+                              ? null
+                              : "Classroom can't be changed while the student is signed in.",
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         CustomMultiSelectDropdown(
@@ -1160,15 +1291,18 @@ class _EditStudentProfileDetailsScreenState
     String? selectedItem,
     ValueChanged<String?> onSelect, {
     bool isRequired = false,
+    bool isEnabled = true,
+    String? disabledTooltip,
   }) {
     final responsive = ResponsiveHelper(context);
-    return CustomDropdown(
+    final dropdown = CustomDropdown(
       label: label,
       hintText: hintText,
       items: items,
       selectedItem: selectedItem,
       onSelect: onSelect,
       showAsterisk: isRequired,
+      isEnabled: isEnabled,
       labelStyle: TextStyle(
         fontSize: responsive.labelFontSize,
         fontFamily: "Manrope",
@@ -1195,6 +1329,11 @@ class _EditStudentProfileDetailsScreenState
         vertical: responsive.isTablet ? 16.0 : 12.0,
       ),
     );
+
+    if (!isEnabled && disabledTooltip != null) {
+      return Tooltip(message: disabledTooltip, child: dropdown);
+    }
+    return dropdown;
   }
 
   Widget _buildDateField(String label, DateTime? selectedDate) {

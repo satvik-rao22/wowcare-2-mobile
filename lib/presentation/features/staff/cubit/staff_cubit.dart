@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
@@ -20,11 +21,11 @@ class StaffCubit extends Cubit<StaffState> {
     required GetStaffCountUseCase getStaffCountUseCase,
     required StaffRepository repository,
     required StorageService storageService,
-  })  : _getStaffPageUseCase = getStaffPageUseCase,
-        _getStaffCountUseCase = getStaffCountUseCase,
-        _repository = repository,
-        _storageService = storageService,
-        super(const StaffState.initial());
+  }) : _getStaffPageUseCase = getStaffPageUseCase,
+       _getStaffCountUseCase = getStaffCountUseCase,
+       _repository = repository,
+       _storageService = storageService,
+       super(const StaffState.initial());
 
   final GetStaffPageUseCase _getStaffPageUseCase;
   final GetStaffCountUseCase _getStaffCountUseCase;
@@ -69,6 +70,7 @@ class StaffCubit extends Cubit<StaffState> {
             primaryClassroomCodes: state.primaryClassroomCodes,
             classCodes: state.classCodes,
             sortBy: state.sortBy,
+            attendanceStatuses: state.attendanceStatuses,
           )
         : Future.value(null));
 
@@ -108,11 +110,15 @@ class StaffCubit extends Cubit<StaffState> {
       ),
     );
 
-    // Snapshot the status this refresh is fetching. If the filter changes while
-    // we're in flight (e.g. a deep-link resolves a deactivated staff and flips
-    // to INACTIVE while the route's default ACTIVE load is still running), the
-    // older result must NOT clobber the newer one — we drop it before emitting.
+    // Snapshot the status and search query this refresh is fetching. If
+    // either changes while we're in flight (e.g. a deep-link resolves a
+    // deactivated staff and flips to INACTIVE while the route's default
+    // ACTIVE load is still running — or [searchStaff]'s rapid-fire
+    // per-keystroke calls let requests race), an older, slower response
+    // must NOT clobber a newer one just because it happened to land last —
+    // we drop it before emitting instead.
     final requestedStatus = _effectiveStatusFilter();
+    final requestedSearch = state.searchQuery;
 
     try {
       final organizationCode = await _resolveOrganizationCode();
@@ -132,17 +138,21 @@ class StaffCubit extends Cubit<StaffState> {
         primaryClassroomCodes: state.primaryClassroomCodes,
         classCodes: state.classCodes,
         sortBy: state.sortBy,
+        attendanceStatuses: state.attendanceStatuses,
       );
 
       if (isClosed) return;
 
       // Staff count is non-fatal: if it fails, use defaults so list still shows.
       // Error is already logged by API interceptor -> CoreUtils.
-      StaffCount staffCount = const StaffCount(total: 0, active: 0, upcoming: 0);
+      StaffCount staffCount = const StaffCount(
+        total: 0,
+        active: 0,
+        upcoming: 0,
+      );
       try {
         staffCount = await staffCountFuture;
       } catch (_) {}
-
 
       final firstPage = await firstPageFuture;
 
@@ -163,6 +173,7 @@ class StaffCubit extends Cubit<StaffState> {
           primaryClassroomCodes: state.primaryClassroomCodes,
           classCodes: state.classCodes,
           sortBy: state.sortBy,
+          attendanceStatuses: state.attendanceStatuses,
         );
 
         items.addAll(secondPage.items);
@@ -174,6 +185,7 @@ class StaffCubit extends Cubit<StaffState> {
       // Drop a stale result: the filter changed while this load was in flight,
       // so a newer refresh owns the list now.
       if (_effectiveStatusFilter() != requestedStatus) return;
+      if (state.searchQuery != requestedSearch) return;
       emit(
         state.copyWith(
           items: items,
@@ -194,7 +206,7 @@ class StaffCubit extends Cubit<StaffState> {
         state.copyWith(
           isLoading: false,
           isRefreshing: false,
-          errorMessage: e.toString(),
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
         ),
       );
     }
@@ -211,6 +223,7 @@ class StaffCubit extends Cubit<StaffState> {
         primaryClassroomCodes: state.primaryClassroomCodes,
         classCodes: state.classCodes,
         sortBy: state.sortBy,
+        attendanceStatuses: state.attendanceStatuses,
       );
     }
     await refresh(ignoreRefreshingGuard: true);
@@ -218,11 +231,13 @@ class StaffCubit extends Cubit<StaffState> {
 
   Future<void> loadNextPage() async {
     // ignore: avoid_print
-    AppLogger.d('[StaffCubit] loadNextPage called: '
-        'isLoadingMore=${state.isLoadingMore}, '
-        'hasMore=${state.hasMore}, '
-        'currentPage=${state.currentPage}, '
-        'items=${state.items.length}');
+    AppLogger.d(
+      '[StaffCubit] loadNextPage called: '
+      'isLoadingMore=${state.isLoadingMore}, '
+      'hasMore=${state.hasMore}, '
+      'currentPage=${state.currentPage}, '
+      'items=${state.items.length}',
+    );
     if (state.isLoadingMore || !state.hasMore) {
       // ignore: avoid_print
       AppLogger.d('[StaffCubit] loadNextPage aborted due to guard.');
@@ -237,7 +252,9 @@ class StaffCubit extends Cubit<StaffState> {
     try {
       final nextPageIndex = state.currentPage + 1;
       // ignore: avoid_print
-      AppLogger.d('[StaffCubit] requesting page=$nextPageIndex, size=$_pageSize');
+      AppLogger.d(
+        '[StaffCubit] requesting page=$nextPageIndex, size=$_pageSize',
+      );
       final page = await _getStaffPageUseCase(
         organizationCode: organizationCode,
         schoolCode: schoolCode,
@@ -249,14 +266,17 @@ class StaffCubit extends Cubit<StaffState> {
         primaryClassroomCodes: state.primaryClassroomCodes,
         classCodes: state.classCodes,
         sortBy: state.sortBy,
+        attendanceStatuses: state.attendanceStatuses,
       );
 
       if (isClosed) return;
 
       // ignore: avoid_print
-      AppLogger.d('[StaffCubit] loaded page=${page.page}, '
-          'itemsAdded=${page.items.length}, '
-          'hasMore=${page.hasMore}');
+      AppLogger.d(
+        '[StaffCubit] loaded page=${page.page}, '
+        'itemsAdded=${page.items.length}, '
+        'hasMore=${page.hasMore}',
+      );
       emit(
         state.copyWith(
           items: [...state.items, ...page.items],
@@ -270,7 +290,7 @@ class StaffCubit extends Cubit<StaffState> {
       emit(
         state.copyWith(
           isLoadingMore: false,
-          errorMessage: e.toString(),
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
         ),
       );
     }
@@ -288,7 +308,8 @@ class StaffCubit extends Cubit<StaffState> {
     final staffTypeUpper = profile.staffType.toUpperCase().trim();
     final schoolCode = profile.schoolCode.trim();
     final bool schoolCodeMissing = schoolCode.isEmpty || schoolCode == '-';
-    final bool isOrganizationAdmin = staffTypeUpper.contains('ORGANIZATION') &&
+    final bool isOrganizationAdmin =
+        staffTypeUpper.contains('ORGANIZATION') &&
         staffTypeUpper.contains('ADMIN');
 
     // Organization admins are deactivated via a different endpoint that
@@ -321,8 +342,8 @@ class StaffCubit extends Cubit<StaffState> {
     return message;
   }
 
-   /// Activates a staff member (via school user activate API) and refreshes the list.
-   /// Returns the success message from the backend. Errors are rethrown for UI to handle.
+  /// Activates a staff member (via school user activate API) and refreshes the list.
+  /// Returns the success message from the backend. Errors are rethrown for UI to handle.
   Future<String> activateStaff(String staffCode) async {
     // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
     final profile = await _repository.getStaffProfile(
@@ -333,7 +354,8 @@ class StaffCubit extends Cubit<StaffState> {
     final staffTypeUpper = profile.staffType.toUpperCase().trim();
     final schoolCode = profile.schoolCode.trim();
     final bool schoolCodeMissing = schoolCode.isEmpty || schoolCode == '-';
-    final bool isOrganizationAdmin = staffTypeUpper.contains('ORGANIZATION') &&
+    final bool isOrganizationAdmin =
+        staffTypeUpper.contains('ORGANIZATION') &&
         staffTypeUpper.contains('ADMIN');
 
     if (isOrganizationAdmin || schoolCodeMissing) {
@@ -394,20 +416,12 @@ class StaffCubit extends Cubit<StaffState> {
   /// Performs a lightweight search that only calls the staff list API (no count
   /// refresh or automatic second-page preloading). Intended for rapid typing.
   Future<void> searchStaff(String query) async {
-    emit(
-      state.copyWith(
-        searchQuery: query,
-      ),
-    );
+    emit(state.copyWith(searchQuery: query));
     await refresh(ignoreRefreshingGuard: true);
   }
 
   void updateSearch(String query) {
-    emit(
-      state.copyWith(
-        searchQuery: query,
-      ),
-    );
+    emit(state.copyWith(searchQuery: query));
   }
 
   void updateFilters({
@@ -416,6 +430,7 @@ class StaffCubit extends Cubit<StaffState> {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
   }) {
     // Normalize empty / null to empty-string so that copyWith can
     // clear filters instead of keeping the previous non-null value.
@@ -426,11 +441,16 @@ class StaffCubit extends Cubit<StaffState> {
     emit(
       state.copyWith(
         statusFilter: normalizedStatus.isEmpty ? '' : normalizedStatus,
-        designationFilter:
-            normalizedDesignation.isEmpty ? '' : normalizedDesignation,
-        primaryClassroomCodes: primaryClassroomCodes ?? state.primaryClassroomCodes,
+        designationFilter: normalizedDesignation.isEmpty
+            ? ''
+            : normalizedDesignation,
+        primaryClassroomCodes:
+            primaryClassroomCodes ?? state.primaryClassroomCodes,
         classCodes: classCodes ?? state.classCodes,
-        sortBy: normalizedSortBy.isEmpty ? state.sortBy : (normalizedSortBy == 'asc' ? 'asc' : 'desc'),
+        sortBy: normalizedSortBy.isEmpty
+            ? state.sortBy
+            : (normalizedSortBy == 'asc' ? 'asc' : 'desc'),
+        attendanceStatuses: attendanceStatuses ?? state.attendanceStatuses,
       ),
     );
   }
@@ -446,6 +466,7 @@ class StaffCubit extends Cubit<StaffState> {
         primaryClassroomCodes: const [],
         classCodes: const [],
         sortBy: 'desc',
+        attendanceStatuses: const [],
         isRefreshing: true,
         errorMessage: null,
       ),
@@ -467,10 +488,9 @@ class StaffCubit extends Cubit<StaffState> {
   }
 
   void removeStaffMember(String code) {
-    final updated =
-        state.items.where((element) => element.code != code).toList();
+    final updated = state.items
+        .where((element) => element.code != code)
+        .toList();
     emit(state.copyWith(items: updated));
   }
 }
-
-

@@ -13,7 +13,12 @@
 enum ConversationType {
   roomChat,
   adminChat,
-  staffDirect;
+  staffDirect,
+
+  /// CLASSROOM_CHAT: Staff group conversation for a specific classroom.
+  ///   Participants: staff assigned to the classroom (primary/allowed) + Admins/Directors.
+  ///   Excluded: Parents. Scoped to a classroom (not a student).
+  classroomChat;
 
   /// Serialise to the string sent by the backend API.
   String toApiString() {
@@ -24,6 +29,8 @@ enum ConversationType {
         return 'ADMIN_CHAT';
       case ConversationType.staffDirect:
         return 'STAFF_DIRECT';
+      case ConversationType.classroomChat:
+        return 'CLASSROOM_CHAT';
     }
   }
 
@@ -36,6 +43,8 @@ enum ConversationType {
         return ConversationType.adminChat;
       case 'STAFF_DIRECT':
         return ConversationType.staffDirect;
+      case 'CLASSROOM_CHAT':
+        return ConversationType.classroomChat;
       default:
         throw ArgumentError('Unknown ConversationType: $value');
     }
@@ -82,8 +91,17 @@ enum ParticipantRole {
     // Exact matches (preferred — sent by conversations API)
     if (v == 'PARENT' || v == 'GUARDIAN') return ParticipantRole.parent;
     if (v == 'TEACHER') return ParticipantRole.teacher;
-    if (v == 'DIRECTOR' || v == 'ASSISTANT_DIRECTOR') return ParticipantRole.director;
-    if (v == 'ADMIN' || v == 'SCHOOL_ADMIN' || v == 'ORGANIZATION_ADMIN') {
+    if (v == 'DIRECTOR' || v == 'ASSISTANT_DIRECTOR')
+      return ParticipantRole.director;
+    // OWNER is the highest org-level role (above Admin) per the Staff
+    // module's real designation list (staff_filter_screen.dart's
+    // _designationCodes) — was previously falling through to the generic
+    // `staff` default below, which incorrectly failed `canJoinAdminChat`
+    // and any other "is this an admin" check for an Owner-designated user.
+    if (v == 'ADMIN' ||
+        v == 'SCHOOL_ADMIN' ||
+        v == 'ORGANIZATION_ADMIN' ||
+        v == 'OWNER') {
       return ParticipantRole.admin;
     }
     if (v == 'STAFF') return ParticipantRole.staff;
@@ -94,7 +112,8 @@ enum ParticipantRole {
     if (v == 'admin'.toUpperCase()) return ParticipantRole.admin;
 
     // Substring fallbacks for multi-word roles (e.g. 'HEAD_TEACHER')
-    if (v.contains('GUARDIAN') || v.contains('PARENT')) return ParticipantRole.parent;
+    if (v.contains('GUARDIAN') || v.contains('PARENT'))
+      return ParticipantRole.parent;
     if (v.contains('DIRECTOR')) return ParticipantRole.director;
     if (v.contains('ADMIN')) return ParticipantRole.admin;
     if (v.contains('TEACHER')) return ParticipantRole.teacher;

@@ -54,60 +54,85 @@ const MessageCollectionSchema = CollectionSchema(
       name: r'id',
       type: IsarType.string,
     ),
-    r'isSentByMe': PropertySchema(
+    r'isFailed': PropertySchema(
       id: 7,
+      name: r'isFailed',
+      type: IsarType.bool,
+    ),
+    r'isPrivate': PropertySchema(
+      id: 8,
+      name: r'isPrivate',
+      type: IsarType.bool,
+    ),
+    r'isSending': PropertySchema(
+      id: 9,
+      name: r'isSending',
+      type: IsarType.bool,
+    ),
+    r'isSentByMe': PropertySchema(
+      id: 10,
       name: r'isSentByMe',
       type: IsarType.bool,
     ),
+    r'privateParentUserCode': PropertySchema(
+      id: 11,
+      name: r'privateParentUserCode',
+      type: IsarType.string,
+    ),
     r'quotedMessageId': PropertySchema(
-      id: 8,
+      id: 12,
       name: r'quotedMessageId',
       type: IsarType.string,
     ),
     r'reactions': PropertySchema(
-      id: 9,
+      id: 13,
       name: r'reactions',
       type: IsarType.objectList,
       target: r'MessageReactionCollection',
     ),
     r'readAt': PropertySchema(
-      id: 10,
+      id: 14,
       name: r'readAt',
       type: IsarType.dateTime,
     ),
     r'readBy': PropertySchema(
-      id: 11,
+      id: 15,
       name: r'readBy',
       type: IsarType.objectList,
       target: r'RecipientStatusCollection',
     ),
     r'receivers': PropertySchema(
-      id: 12,
+      id: 16,
       name: r'receivers',
       type: IsarType.stringList,
     ),
     r'senderName': PropertySchema(
-      id: 13,
+      id: 17,
       name: r'senderName',
       type: IsarType.string,
     ),
+    r'senderRole': PropertySchema(
+      id: 18,
+      name: r'senderRole',
+      type: IsarType.string,
+    ),
     r'senderUserCode': PropertySchema(
-      id: 14,
+      id: 19,
       name: r'senderUserCode',
       type: IsarType.string,
     ),
     r'text': PropertySchema(
-      id: 15,
+      id: 20,
       name: r'text',
       type: IsarType.string,
     ),
     r'threadId': PropertySchema(
-      id: 16,
+      id: 21,
       name: r'threadId',
       type: IsarType.string,
     ),
     r'time': PropertySchema(
-      id: 17,
+      id: 22,
       name: r'time',
       type: IsarType.dateTime,
     )
@@ -181,6 +206,12 @@ int _messageCollectionEstimateSize(
   }
   bytesCount += 3 + object.id.length * 3;
   {
+    final value = object.privateParentUserCode;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.quotedMessageId;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -233,6 +264,12 @@ int _messageCollectionEstimateSize(
     }
   }
   {
+    final value = object.senderRole;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.senderUserCode;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -266,27 +303,32 @@ void _messageCollectionSerialize(
   );
   writer.writeDateTime(offsets[5], object.editedAt);
   writer.writeString(offsets[6], object.id);
-  writer.writeBool(offsets[7], object.isSentByMe);
-  writer.writeString(offsets[8], object.quotedMessageId);
+  writer.writeBool(offsets[7], object.isFailed);
+  writer.writeBool(offsets[8], object.isPrivate);
+  writer.writeBool(offsets[9], object.isSending);
+  writer.writeBool(offsets[10], object.isSentByMe);
+  writer.writeString(offsets[11], object.privateParentUserCode);
+  writer.writeString(offsets[12], object.quotedMessageId);
   writer.writeObjectList<MessageReactionCollection>(
-    offsets[9],
+    offsets[13],
     allOffsets,
     MessageReactionCollectionSchema.serialize,
     object.reactions,
   );
-  writer.writeDateTime(offsets[10], object.readAt);
+  writer.writeDateTime(offsets[14], object.readAt);
   writer.writeObjectList<RecipientStatusCollection>(
-    offsets[11],
+    offsets[15],
     allOffsets,
     RecipientStatusCollectionSchema.serialize,
     object.readBy,
   );
-  writer.writeStringList(offsets[12], object.receivers);
-  writer.writeString(offsets[13], object.senderName);
-  writer.writeString(offsets[14], object.senderUserCode);
-  writer.writeString(offsets[15], object.text);
-  writer.writeString(offsets[16], object.threadId);
-  writer.writeDateTime(offsets[17], object.time);
+  writer.writeStringList(offsets[16], object.receivers);
+  writer.writeString(offsets[17], object.senderName);
+  writer.writeString(offsets[18], object.senderRole);
+  writer.writeString(offsets[19], object.senderUserCode);
+  writer.writeString(offsets[20], object.text);
+  writer.writeString(offsets[21], object.threadId);
+  writer.writeDateTime(offsets[22], object.time);
 }
 
 MessageCollection _messageCollectionDeserialize(
@@ -313,27 +355,32 @@ MessageCollection _messageCollectionDeserialize(
   );
   object.editedAt = reader.readDateTimeOrNull(offsets[5]);
   object.id = reader.readString(offsets[6]);
-  object.isSentByMe = reader.readBoolOrNull(offsets[7]);
-  object.quotedMessageId = reader.readStringOrNull(offsets[8]);
+  object.isFailed = reader.readBoolOrNull(offsets[7]);
+  object.isPrivate = reader.readBoolOrNull(offsets[8]);
+  object.isSending = reader.readBoolOrNull(offsets[9]);
+  object.isSentByMe = reader.readBoolOrNull(offsets[10]);
+  object.privateParentUserCode = reader.readStringOrNull(offsets[11]);
+  object.quotedMessageId = reader.readStringOrNull(offsets[12]);
   object.reactions = reader.readObjectList<MessageReactionCollection>(
-    offsets[9],
+    offsets[13],
     MessageReactionCollectionSchema.deserialize,
     allOffsets,
     MessageReactionCollection(),
   );
-  object.readAt = reader.readDateTimeOrNull(offsets[10]);
+  object.readAt = reader.readDateTimeOrNull(offsets[14]);
   object.readBy = reader.readObjectList<RecipientStatusCollection>(
-    offsets[11],
+    offsets[15],
     RecipientStatusCollectionSchema.deserialize,
     allOffsets,
     RecipientStatusCollection(),
   );
-  object.receivers = reader.readStringList(offsets[12]);
-  object.senderName = reader.readStringOrNull(offsets[13]);
-  object.senderUserCode = reader.readStringOrNull(offsets[14]);
-  object.text = reader.readString(offsets[15]);
-  object.threadId = reader.readString(offsets[16]);
-  object.time = reader.readDateTime(offsets[17]);
+  object.receivers = reader.readStringList(offsets[16]);
+  object.senderName = reader.readStringOrNull(offsets[17]);
+  object.senderRole = reader.readStringOrNull(offsets[18]);
+  object.senderUserCode = reader.readStringOrNull(offsets[19]);
+  object.text = reader.readString(offsets[20]);
+  object.threadId = reader.readString(offsets[21]);
+  object.time = reader.readDateTime(offsets[22]);
   return object;
 }
 
@@ -371,34 +418,44 @@ P _messageCollectionDeserializeProp<P>(
     case 7:
       return (reader.readBoolOrNull(offset)) as P;
     case 8:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBoolOrNull(offset)) as P;
     case 9:
+      return (reader.readBoolOrNull(offset)) as P;
+    case 10:
+      return (reader.readBoolOrNull(offset)) as P;
+    case 11:
+      return (reader.readStringOrNull(offset)) as P;
+    case 12:
+      return (reader.readStringOrNull(offset)) as P;
+    case 13:
       return (reader.readObjectList<MessageReactionCollection>(
         offset,
         MessageReactionCollectionSchema.deserialize,
         allOffsets,
         MessageReactionCollection(),
       )) as P;
-    case 10:
+    case 14:
       return (reader.readDateTimeOrNull(offset)) as P;
-    case 11:
+    case 15:
       return (reader.readObjectList<RecipientStatusCollection>(
         offset,
         RecipientStatusCollectionSchema.deserialize,
         allOffsets,
         RecipientStatusCollection(),
       )) as P;
-    case 12:
-      return (reader.readStringList(offset)) as P;
-    case 13:
-      return (reader.readStringOrNull(offset)) as P;
-    case 14:
-      return (reader.readStringOrNull(offset)) as P;
-    case 15:
-      return (reader.readString(offset)) as P;
     case 16:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringList(offset)) as P;
     case 17:
+      return (reader.readStringOrNull(offset)) as P;
+    case 18:
+      return (reader.readStringOrNull(offset)) as P;
+    case 19:
+      return (reader.readStringOrNull(offset)) as P;
+    case 20:
+      return (reader.readString(offset)) as P;
+    case 21:
+      return (reader.readString(offset)) as P;
+    case 22:
       return (reader.readDateTime(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1253,6 +1310,90 @@ extension MessageCollectionQueryFilter
   }
 
   QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      isFailedIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'isFailed',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      isFailedIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'isFailed',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      isFailedEqualTo(bool? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isFailed',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      isPrivateIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'isPrivate',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      isPrivateIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'isPrivate',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      isPrivateEqualTo(bool? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isPrivate',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      isSendingIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'isSending',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      isSendingIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'isSending',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      isSendingEqualTo(bool? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isSending',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
       isSentByMeIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -1332,6 +1473,161 @@ extension MessageCollectionQueryFilter
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      privateParentUserCodeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'privateParentUserCode',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      privateParentUserCodeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'privateParentUserCode',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      privateParentUserCodeEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'privateParentUserCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      privateParentUserCodeGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'privateParentUserCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      privateParentUserCodeLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'privateParentUserCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      privateParentUserCodeBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'privateParentUserCode',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      privateParentUserCodeStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'privateParentUserCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      privateParentUserCodeEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'privateParentUserCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      privateParentUserCodeContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'privateParentUserCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      privateParentUserCodeMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'privateParentUserCode',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      privateParentUserCodeIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'privateParentUserCode',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      privateParentUserCodeIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'privateParentUserCode',
+        value: '',
       ));
     });
   }
@@ -2176,6 +2472,160 @@ extension MessageCollectionQueryFilter
   }
 
   QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'senderRole',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'senderRole',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'senderRole',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'senderRole',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'senderRole',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'senderRole',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'senderRole',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'senderRole',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'senderRole',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'senderRole',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'senderRole',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'senderRole',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
       senderUserCodeIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -2764,6 +3214,48 @@ extension MessageCollectionQuerySortBy
   }
 
   QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      sortByIsFailed() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isFailed', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      sortByIsFailedDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isFailed', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      sortByIsPrivate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isPrivate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      sortByIsPrivateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isPrivate', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      sortByIsSending() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSending', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      sortByIsSendingDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSending', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
       sortByIsSentByMe() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSentByMe', Sort.asc);
@@ -2774,6 +3266,20 @@ extension MessageCollectionQuerySortBy
       sortByIsSentByMeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSentByMe', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      sortByPrivateParentUserCode() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateParentUserCode', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      sortByPrivateParentUserCodeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateParentUserCode', Sort.desc);
     });
   }
 
@@ -2816,6 +3322,20 @@ extension MessageCollectionQuerySortBy
       sortBySenderNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'senderName', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      sortBySenderRole() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'senderRole', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      sortBySenderRoleDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'senderRole', Sort.desc);
     });
   }
 
@@ -2948,6 +3468,48 @@ extension MessageCollectionQuerySortThenBy
   }
 
   QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      thenByIsFailed() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isFailed', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      thenByIsFailedDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isFailed', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      thenByIsPrivate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isPrivate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      thenByIsPrivateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isPrivate', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      thenByIsSending() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSending', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      thenByIsSendingDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSending', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
       thenByIsSentByMe() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isSentByMe', Sort.asc);
@@ -2972,6 +3534,20 @@ extension MessageCollectionQuerySortThenBy
       thenByIsarIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isarId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      thenByPrivateParentUserCode() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateParentUserCode', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      thenByPrivateParentUserCodeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateParentUserCode', Sort.desc);
     });
   }
 
@@ -3014,6 +3590,20 @@ extension MessageCollectionQuerySortThenBy
       thenBySenderNameDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'senderName', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      thenBySenderRole() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'senderRole', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      thenBySenderRoleDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'senderRole', Sort.desc);
     });
   }
 
@@ -3112,9 +3702,38 @@ extension MessageCollectionQueryWhereDistinct
   }
 
   QueryBuilder<MessageCollection, MessageCollection, QDistinct>
+      distinctByIsFailed() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isFailed');
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QDistinct>
+      distinctByIsPrivate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isPrivate');
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QDistinct>
+      distinctByIsSending() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isSending');
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QDistinct>
       distinctByIsSentByMe() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isSentByMe');
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QDistinct>
+      distinctByPrivateParentUserCode({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'privateParentUserCode',
+          caseSensitive: caseSensitive);
     });
   }
 
@@ -3144,6 +3763,13 @@ extension MessageCollectionQueryWhereDistinct
       distinctBySenderName({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'senderName', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QDistinct>
+      distinctBySenderRole({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'senderRole', caseSensitive: caseSensitive);
     });
   }
 
@@ -3232,10 +3858,35 @@ extension MessageCollectionQueryProperty
     });
   }
 
+  QueryBuilder<MessageCollection, bool?, QQueryOperations> isFailedProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isFailed');
+    });
+  }
+
+  QueryBuilder<MessageCollection, bool?, QQueryOperations> isPrivateProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isPrivate');
+    });
+  }
+
+  QueryBuilder<MessageCollection, bool?, QQueryOperations> isSendingProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isSending');
+    });
+  }
+
   QueryBuilder<MessageCollection, bool?, QQueryOperations>
       isSentByMeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'isSentByMe');
+    });
+  }
+
+  QueryBuilder<MessageCollection, String?, QQueryOperations>
+      privateParentUserCodeProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'privateParentUserCode');
     });
   }
 
@@ -3282,6 +3933,13 @@ extension MessageCollectionQueryProperty
   }
 
   QueryBuilder<MessageCollection, String?, QQueryOperations>
+      senderRoleProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'senderRole');
+    });
+  }
+
+  QueryBuilder<MessageCollection, String?, QQueryOperations>
       senderUserCodeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'senderUserCode');
@@ -3323,9 +3981,19 @@ const MessageReactionCollectionSchema = Schema(
       name: r'emoji',
       type: IsarType.string,
     ),
-    r'userId': PropertySchema(
+    r'role': PropertySchema(
       id: 1,
+      name: r'role',
+      type: IsarType.string,
+    ),
+    r'userId': PropertySchema(
+      id: 2,
       name: r'userId',
+      type: IsarType.string,
+    ),
+    r'userName': PropertySchema(
+      id: 3,
+      name: r'userName',
       type: IsarType.string,
     )
   },
@@ -3342,7 +4010,19 @@ int _messageReactionCollectionEstimateSize(
 ) {
   var bytesCount = offsets.last;
   bytesCount += 3 + object.emoji.length * 3;
+  {
+    final value = object.role;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.userId.length * 3;
+  {
+    final value = object.userName;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -3353,7 +4033,9 @@ void _messageReactionCollectionSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeString(offsets[0], object.emoji);
-  writer.writeString(offsets[1], object.userId);
+  writer.writeString(offsets[1], object.role);
+  writer.writeString(offsets[2], object.userId);
+  writer.writeString(offsets[3], object.userName);
 }
 
 MessageReactionCollection _messageReactionCollectionDeserialize(
@@ -3364,7 +4046,9 @@ MessageReactionCollection _messageReactionCollectionDeserialize(
 ) {
   final object = MessageReactionCollection();
   object.emoji = reader.readString(offsets[0]);
-  object.userId = reader.readString(offsets[1]);
+  object.role = reader.readStringOrNull(offsets[1]);
+  object.userId = reader.readString(offsets[2]);
+  object.userName = reader.readStringOrNull(offsets[3]);
   return object;
 }
 
@@ -3378,7 +4062,11 @@ P _messageReactionCollectionDeserializeProp<P>(
     case 0:
       return (reader.readString(offset)) as P;
     case 1:
+      return (reader.readStringOrNull(offset)) as P;
+    case 2:
       return (reader.readString(offset)) as P;
+    case 3:
+      return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -3525,6 +4213,162 @@ extension MessageReactionCollectionQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> roleIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'role',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> roleIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'role',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> roleEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> roleGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> roleLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> roleBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'role',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> roleStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> roleEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+          QAfterFilterCondition>
+      roleContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+          QAfterFilterCondition>
+      roleMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'role',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> roleIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'role',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> roleIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'role',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
       QAfterFilterCondition> userIdEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -3661,6 +4505,162 @@ extension MessageReactionCollectionQueryFilter on QueryBuilder<
       ));
     });
   }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> userNameIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'userName',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> userNameIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'userName',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> userNameEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'userName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> userNameGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'userName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> userNameLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'userName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> userNameBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'userName',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> userNameStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'userName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> userNameEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'userName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+          QAfterFilterCondition>
+      userNameContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'userName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+          QAfterFilterCondition>
+      userNameMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'userName',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> userNameIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'userName',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageReactionCollection, MessageReactionCollection,
+      QAfterFilterCondition> userNameIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'userName',
+        value: '',
+      ));
+    });
+  }
 }
 
 extension MessageReactionCollectionQueryObject on QueryBuilder<
@@ -3678,13 +4678,18 @@ const RecipientStatusCollectionSchema = Schema(
       name: r'name',
       type: IsarType.string,
     ),
-    r'timestamp': PropertySchema(
+    r'role': PropertySchema(
       id: 1,
+      name: r'role',
+      type: IsarType.string,
+    ),
+    r'timestamp': PropertySchema(
+      id: 2,
       name: r'timestamp',
       type: IsarType.dateTime,
     ),
     r'userId': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'userId',
       type: IsarType.string,
     )
@@ -3703,6 +4708,12 @@ int _recipientStatusCollectionEstimateSize(
   var bytesCount = offsets.last;
   bytesCount += 3 + object.name.length * 3;
   {
+    final value = object.role;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.userId;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -3718,8 +4729,9 @@ void _recipientStatusCollectionSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeString(offsets[0], object.name);
-  writer.writeDateTime(offsets[1], object.timestamp);
-  writer.writeString(offsets[2], object.userId);
+  writer.writeString(offsets[1], object.role);
+  writer.writeDateTime(offsets[2], object.timestamp);
+  writer.writeString(offsets[3], object.userId);
 }
 
 RecipientStatusCollection _recipientStatusCollectionDeserialize(
@@ -3730,8 +4742,9 @@ RecipientStatusCollection _recipientStatusCollectionDeserialize(
 ) {
   final object = RecipientStatusCollection();
   object.name = reader.readString(offsets[0]);
-  object.timestamp = reader.readDateTimeOrNull(offsets[1]);
-  object.userId = reader.readStringOrNull(offsets[2]);
+  object.role = reader.readStringOrNull(offsets[1]);
+  object.timestamp = reader.readDateTimeOrNull(offsets[2]);
+  object.userId = reader.readStringOrNull(offsets[3]);
   return object;
 }
 
@@ -3745,8 +4758,10 @@ P _recipientStatusCollectionDeserializeProp<P>(
     case 0:
       return (reader.readString(offset)) as P;
     case 1:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 2:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 3:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -3888,6 +4903,162 @@ extension RecipientStatusCollectionQueryFilter on QueryBuilder<
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'name',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<RecipientStatusCollection, RecipientStatusCollection,
+      QAfterFilterCondition> roleIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'role',
+      ));
+    });
+  }
+
+  QueryBuilder<RecipientStatusCollection, RecipientStatusCollection,
+      QAfterFilterCondition> roleIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'role',
+      ));
+    });
+  }
+
+  QueryBuilder<RecipientStatusCollection, RecipientStatusCollection,
+      QAfterFilterCondition> roleEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RecipientStatusCollection, RecipientStatusCollection,
+      QAfterFilterCondition> roleGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RecipientStatusCollection, RecipientStatusCollection,
+      QAfterFilterCondition> roleLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RecipientStatusCollection, RecipientStatusCollection,
+      QAfterFilterCondition> roleBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'role',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RecipientStatusCollection, RecipientStatusCollection,
+      QAfterFilterCondition> roleStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RecipientStatusCollection, RecipientStatusCollection,
+      QAfterFilterCondition> roleEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RecipientStatusCollection, RecipientStatusCollection,
+          QAfterFilterCondition>
+      roleContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'role',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RecipientStatusCollection, RecipientStatusCollection,
+          QAfterFilterCondition>
+      roleMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'role',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RecipientStatusCollection, RecipientStatusCollection,
+      QAfterFilterCondition> roleIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'role',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<RecipientStatusCollection, RecipientStatusCollection,
+      QAfterFilterCondition> roleIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'role',
         value: '',
       ));
     });

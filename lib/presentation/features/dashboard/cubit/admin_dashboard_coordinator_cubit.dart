@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -29,8 +30,16 @@ extension _DashboardAttentionStateX on DashboardAttentionState {
   bool get isError =>
       status == DashboardAttentionStatus.error ||
       status == DashboardAttentionStatus.partialFailure;
-}
 
+  /// Whether this cubit should stop blocking the aggregate dashboard status.
+  /// Unlike [DashboardAttentionState.isLoaded], this also counts
+  /// `awaitingSchoolContext` (no school selected yet, e.g. an org-level
+  /// admin) — otherwise the overall dashboard would never leave `initial`/
+  /// `loading` while `isLoaded` intentionally stays false so a later [load]
+  /// call can still retry once a school code appears.
+  bool get countsTowardReady =>
+      isLoaded || status == DashboardAttentionStatus.awaitingSchoolContext;
+}
 
 class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
   final AdminDashboardCubit dashboardCubit;
@@ -58,10 +67,14 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
   }) : super(const DashboardState(status: DashboardStatus.initial)) {
     // Subscribe to child cubits to aggregate their states reactively
     _subscriptions.add(schoolStatusCubit.stream.listen((_) => _updateState()));
-    _subscriptions.add(ratioMonitoringCubit.stream.listen((_) => _updateState()));
+    _subscriptions.add(
+      ratioMonitoringCubit.stream.listen((_) => _updateState()),
+    );
     _subscriptions.add(movementsCubit.stream.listen((_) => _updateState()));
     _subscriptions.add(availabilityCubit.stream.listen((_) => _updateState()));
-    _subscriptions.add(classroomShiftsCubit.stream.listen((_) => _updateState()));
+    _subscriptions.add(
+      classroomShiftsCubit.stream.listen((_) => _updateState()),
+    );
     _subscriptions.add(attentionCubit.stream.listen((_) => _updateState()));
     _subscriptions.add(myDayCubit.stream.listen((_) => _updateState()));
 
@@ -74,8 +87,7 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
 
     await Future.wait([
       dashboardCubit.loadUserName(),
-      classroomShiftsCubit.load(DateTime.now()),
-      attentionCubit.load(),
+      classroomShiftsCubit.load(AppTime.now()),
       myDayCubit.load(),
       _initSchoolDependentCubits(),
     ]);
@@ -87,12 +99,22 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
     final schoolCode = await _resolveSchoolCode();
     await Future.wait([
       movementsCubit.loadInitial(),
-      availabilityCubit.load(date: DateTime.now(), isTwoShifts: true),
+      availabilityCubit.load(date: AppTime.now(), isTwoShifts: true),
+      // Sequenced after `_resolveSchoolCode()` (rather than fired
+      // concurrently from `initialize()`) so it never races the school code
+      // being persisted right after login — see `DashboardAttentionCubit`.
+      attentionCubit.load(),
       if (schoolCode != null && schoolCode.isNotEmpty) ...[
-        schoolStatusCubit.loadSchoolStatus(schoolCode: schoolCode, isSilent: true),
-        ratioMonitoringCubit.loadRatioMonitoring(schoolCode: schoolCode, isSilent: true),
+        schoolStatusCubit.loadSchoolStatus(
+          schoolCode: schoolCode,
+          isSilent: true,
+        ),
+        ratioMonitoringCubit.loadRatioMonitoring(
+          schoolCode: schoolCode,
+          isSilent: true,
+        ),
         geofenceCubit.initForSchool(schoolCode: schoolCode),
-      ]
+      ],
     ]);
   }
 
@@ -129,27 +151,63 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
     final movementsLoaded = movementsCubit.state.isLoaded;
     final availabilityLoaded = availabilityCubit.state.isLoaded;
     final shiftsLoaded = classroomShiftsCubit.state.isLoaded;
-    final attentionLoaded = attentionCubit.state.isLoaded;
+    final attentionLoaded = attentionCubit.state.countsTowardReady;
     final myDayLoaded = myDayCubit.state.isLoaded;
 
-    final isAnyLoading = statusLoading || ratioLoading || movementsLoading || availabilityLoading || shiftsLoading || attentionLoading || myDayLoading;
-    final isAnyError = statusError || ratioError || movementsError || availabilityError || shiftsError || attentionError || myDayError;
-    final isAllLoaded = statusLoaded && ratioLoaded && movementsLoaded && availabilityLoaded && shiftsLoaded && attentionLoaded && myDayLoaded;
-    final isAllError = statusError && ratioError && movementsError && availabilityError && shiftsError && attentionError && myDayError;
+    final isAnyLoading =
+        statusLoading ||
+        ratioLoading ||
+        movementsLoading ||
+        availabilityLoading ||
+        shiftsLoading ||
+        attentionLoading ||
+        myDayLoading;
+    final isAnyError =
+        statusError ||
+        ratioError ||
+        movementsError ||
+        availabilityError ||
+        shiftsError ||
+        attentionError ||
+        myDayError;
+    final isAllLoaded =
+        statusLoaded &&
+        ratioLoaded &&
+        movementsLoaded &&
+        availabilityLoaded &&
+        shiftsLoaded &&
+        attentionLoaded &&
+        myDayLoaded;
+    final isAllError =
+        statusError &&
+        ratioError &&
+        movementsError &&
+        availabilityError &&
+        shiftsError &&
+        attentionError &&
+        myDayError;
 
     if (isAnyLoading) {
-      if (state.status == DashboardStatus.ready || state.status == DashboardStatus.partialError) {
+      if (state.status == DashboardStatus.ready ||
+          state.status == DashboardStatus.partialError) {
         emit(state.copyWith(status: DashboardStatus.refreshing));
       } else {
         emit(state.copyWith(status: DashboardStatus.loading));
       }
     } else if (isAllError) {
-      emit(state.copyWith(status: DashboardStatus.failure, errorMessage: 'Unable to load dashboard data. Please try again.'));
+      emit(
+        state.copyWith(
+          status: DashboardStatus.failure,
+          errorMessage: 'Unable to load dashboard data. Please try again.',
+        ),
+      );
     } else if (isAnyError) {
       emit(state.copyWith(status: DashboardStatus.partialError));
     } else if (isAllLoaded) {
       // Clear any stale error from a previous failed load cycle.
-      emit(state.copyWith(status: DashboardStatus.ready, clearErrorMessage: true));
+      emit(
+        state.copyWith(status: DashboardStatus.ready, clearErrorMessage: true),
+      );
     } else {
       emit(state.copyWith(status: DashboardStatus.initial));
     }
@@ -158,18 +216,25 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
   Future<void> refresh() async {
     emit(state.copyWith(status: DashboardStatus.refreshing));
 
-    // Re-validate GPS position immediately on refresh
+    // Re-validate GPS position and staff sign-in status immediately on refresh
     unawaited(geofenceCubit.refreshSettings());
+    unawaited(geofenceCubit.checkStaffSignInStatus());
 
     final schoolCode = await _resolveSchoolCode();
     if (schoolCode != null && schoolCode.isNotEmpty) {
       await Future.wait([
-        schoolStatusCubit.loadSchoolStatus(schoolCode: schoolCode, forceRefresh: true),
-        ratioMonitoringCubit.loadRatioMonitoring(schoolCode: schoolCode, forceRefresh: true),
-        classroomShiftsCubit.load(DateTime.now()),
+        schoolStatusCubit.loadSchoolStatus(
+          schoolCode: schoolCode,
+          forceRefresh: true,
+        ),
+        ratioMonitoringCubit.loadRatioMonitoring(
+          schoolCode: schoolCode,
+          forceRefresh: true,
+        ),
+        classroomShiftsCubit.load(AppTime.now()),
         movementsCubit.refresh(),
         availabilityCubit.refresh(
-          date: availabilityCubit.state.selectedDate ?? DateTime.now(),
+          date: availabilityCubit.state.selectedDate ?? AppTime.now(),
           isTwoShifts: true,
         ),
         attentionCubit.refresh(),
@@ -177,10 +242,10 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
       ]);
     } else {
       await Future.wait([
-        classroomShiftsCubit.load(DateTime.now()),
+        classroomShiftsCubit.load(AppTime.now()),
         movementsCubit.refresh(),
         availabilityCubit.refresh(
-          date: availabilityCubit.state.selectedDate ?? DateTime.now(),
+          date: availabilityCubit.state.selectedDate ?? AppTime.now(),
           isTwoShifts: true,
         ),
         attentionCubit.refresh(),

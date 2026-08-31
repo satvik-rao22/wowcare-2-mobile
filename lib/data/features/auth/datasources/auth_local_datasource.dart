@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:wowcare/core/cache/session_local_cache_wiper.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/jwt_utils.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/models/login_response_model.dart';
 
@@ -12,7 +15,11 @@ abstract class AuthLocalDataSource {
   Future<void> clearCache();
   Future<void> saveLoginContext(Map<String, dynamic> context);
   Future<Map<String, dynamic>?> getLoginContext();
-  Future<void> saveCredentials(String username, String password, bool rememberMe);
+  Future<void> saveCredentials(
+    String username,
+    String password,
+    bool rememberMe,
+  );
   Future<Map<String, String?>> getSavedCredentials();
   Future<void> clearCredentials();
   Future<void> saveOrgAndSchoolSelection({
@@ -20,6 +27,7 @@ abstract class AuthLocalDataSource {
     required String schoolName,
     String? schoolCode,
   });
+
   /// Saves org/school from login-context API (last school) and marks login completed.
   /// Returns true if context had valid org/school, false otherwise.
   Future<bool> saveOrgAndSchoolFromContext(Map<String, dynamic> context);
@@ -65,14 +73,39 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     await _storage.saveJson(StorageKeys.loginCacheKey, response.toJson());
     await _storage.saveInt(
       StorageKeys.loginCacheTimestamp,
-      DateTime.now().millisecondsSinceEpoch,
+      AppTime.nowUtc().millisecondsSinceEpoch,
     );
 
     // Save individual fields for quick access
     await _storage.saveString(StorageKeys.accessToken, response.accessToken);
     await _storage.saveString(StorageKeys.refreshToken, response.refreshToken);
+    if (response.refreshToken.trim().isEmpty) {
+      // Silent time bomb otherwise: the access token keeps working until its
+      // own TTL elapses, then TokenRefreshService has nothing to refresh
+      // with and forces a full logout that looks random and unrelated to
+      // login, minutes or hours later. Logging it HERE, at the point the
+      // login response is known to be missing it, is the only way to tell
+      // "backend didn't send one" apart from "something later cleared it".
+      AppLogger.d(
+        '[TokenRefresh] login response carried NO refreshToken for '
+        'user="${response.userCode}" — session will force-logout instead of '
+        'silently refreshing once the access token (expiresIn='
+        '${response.expiresIn}s) expires',
+      );
+    }
     await _storage.saveInt(StorageKeys.tokenExpiresIn, response.expiresIn);
-    await _storage.saveInt(StorageKeys.refreshExpiresIn, response.refreshExpiresIn);
+    // Mirror the refresh token into the Keychain / EncryptedSharedPreferences
+    // (SharedPreferences is plaintext) and record an ABSOLUTE deadline —
+    // `expiresIn` is only a duration and can't answer "is it still valid?",
+    // which proactive refresh-on-resume needs.
+    await TokenRefreshService.instance.saveRefreshToken(response.refreshToken);
+    await TokenRefreshService.instance.saveAccessTokenExpiry(
+      response.expiresIn,
+    );
+    await _storage.saveInt(
+      StorageKeys.refreshExpiresIn,
+      response.refreshExpiresIn,
+    );
     await _storage.saveString(StorageKeys.tokenType, response.tokenType);
     await _storage.saveString(StorageKeys.userCode, response.userCode);
 
@@ -99,8 +132,8 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     for (final r in response.roles) {
       if (r.organizationCode.isEmpty) continue;
       final schoolCode = r.schoolCode.trim();
-      final isOrgAdmin =
-          r.role.toUpperCase() == 'ORGANIZATION_ADMIN';
+      final schoolName = r.schoolName.trim();
+      final isOrgAdmin = r.role.toUpperCase() == 'ORGANIZATION_ADMIN';
       if (isOrgAdmin) {
         orgSchoolList.add({
           'organizationCode': r.organizationCode,
@@ -111,7 +144,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
         orgSchoolList.add({
           'organizationCode': r.organizationCode,
           'schoolCode': schoolCode,
-          'schoolName': schoolCode,
+          'schoolName': schoolName,
         });
       }
     }
@@ -141,7 +174,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     if (timestamp == null) return false;
 
     final cacheTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
-    final now = DateTime.now();
+    final now = AppTime.nowUtc();
     final difference = now.difference(cacheTime);
 
     return difference < StorageKeys.cacheValidDuration;
@@ -158,11 +191,28 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     final seenOnboarding =
         await _storage.getBool(StorageKeys.onboardingSeen) ?? false;
     final rememberMe = await _storage.getBool(StorageKeys.rememberMe) ?? false;
-    final savedUsername =
-        rememberMe ? await _storage.getString(StorageKeys.username) : null;
+    final savedUsername = rememberMe
+        ? await _storage.getString(StorageKeys.username)
+        : null;
+    // CRITICAL: the fresh-install marker must survive logout. It lives in
+    // SharedPreferences and is what tells main() this is NOT a fresh install.
+    // If it were wiped here, the next cold start would think the app was newly
+    // installed and WIPE the Keychain "Remember me" password — which silently
+    // broke the whole feature after any logout / session-expiry.
+    final installedMarker =
+        await _storage.getBool(StorageKeys.appInstalledMarker) ?? false;
+    // Preserved so the NEXT fresh login (of the same account — validated by
+    // userCode at read time) can reopen the persona this user was last
+    // active as instead of always defaulting to admin/staff.
+    final lastUsedPersonaRole = await _storage.getString(
+      StorageKeys.lastUsedPersonaRole,
+    );
     await _storage.clear();
     if (seenOnboarding) {
       await _storage.saveBool(StorageKeys.onboardingSeen, true);
+    }
+    if (installedMarker) {
+      await _storage.saveBool(StorageKeys.appInstalledMarker, true);
     }
     if (rememberMe) {
       await _storage.saveBool(StorageKeys.rememberMe, true);
@@ -170,6 +220,23 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
         await _storage.saveString(StorageKeys.username, savedUsername);
       }
     }
+    if (lastUsedPersonaRole != null && lastUsedPersonaRole.isNotEmpty) {
+      await _storage.saveString(
+        StorageKeys.lastUsedPersonaRole,
+        lastUsedPersonaRole,
+      );
+    }
+    AppLogger.d(
+      '[RememberMe] clearCache → preserved rememberMe=$rememberMe '
+      'user="${savedUsername ?? ''}" installMarker=$installedMarker '
+      '(password in Keychain is untouched)',
+    );
+    // The refresh token also lives in the secure store, which `_storage.clear()`
+    // does not touch — without this it would survive logout and could renew the
+    // previous user's session on a shared device.
+    try {
+      await TokenRefreshService.instance.clear();
+    } catch (_) {}
     try {
       await _sessionLocalCacheWiper?.wipe();
     } catch (_) {}
@@ -183,8 +250,8 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   }) async {
     final prevOrg =
         (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final prevSchool =
-        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final prevSchool = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final orgChanged = prevOrg != orgCode.trim();
     await _storage.saveString(StorageKeys.organizationCode, orgCode);
     await _storage.saveString(StorageKeys.selectedSchoolName, schoolName);
@@ -213,8 +280,11 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     final orgCode = _str(context['LastLoginOrganizationCode']);
     final schoolCode = _str(context['LastLoginSchoolCode']);
     final schoolName = _str(context['schoolName']);
-    final displayName =
-        schoolName.isNotEmpty ? schoolName : schoolCode;
+    // Do NOT substitute the schoolCode for the display name here. Store an
+    // empty display name when the context provides none so later cache
+    // merges can distinguish "no pretty name known" from a name equal to
+    // the code.
+    final displayName = schoolName.isNotEmpty ? schoolName : '';
 
     if (orgCode.isEmpty || schoolCode.isEmpty) {
       return false;
@@ -222,8 +292,8 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
 
     final prevOrg =
         (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final prevSchool =
-        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final prevSchool = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final schoolChanged = prevSchool != schoolCode;
     final orgChanged = prevOrg != orgCode;
     if (schoolChanged) {
@@ -232,15 +302,21 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     }
     if (schoolChanged || orgChanged) {
       await _storage.remove(StorageKeys.activeSchoolRole);
+      // See the matching comment in setSelectedOrgAndSchool — a stale
+      // staffCode/guardianCode from the PREVIOUS org/school must not
+      // survive into this one, or requests carry a code the backend never
+      // granted membership for at the new org/school and 403 with "No
+      // active '<ROLE>' membership ... in organization=X school=Y". This
+      // path runs at app-launch/session-restore time (login-context
+      // resolving a different last-login org/school than what was locally
+      // cached), so it needs the same guard as the manual-switch path.
+      await clearPersonaVolatileCaches();
     }
 
     // Save selected
     await _storage.saveString(StorageKeys.organizationCode, orgCode);
     await _storage.saveString(StorageKeys.schoolCode, schoolCode);
-    await _storage.saveString(
-      StorageKeys.selectedSchoolName,
-      displayName,
-    );
+    await _storage.saveString(StorageKeys.selectedSchoolName, displayName);
 
     // Merge into organizationsAndSchools list (dedupe by org+school)
     final list = await _getOrganizationsAndSchoolsRaw();
@@ -249,8 +325,9 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       'schoolCode': schoolCode,
       'schoolName': displayName,
     };
-    list.removeWhere((e) =>
-        e['organizationCode'] == orgCode && e['schoolCode'] == schoolCode);
+    list.removeWhere(
+      (e) => e['organizationCode'] == orgCode && e['schoolCode'] == schoolCode,
+    );
     list.insert(0, entry); // put current first
     await _storage.saveString(
       StorageKeys.organizationsAndSchools,
@@ -265,12 +342,20 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     if (raw == null) return [];
     if (raw is List) {
       return raw
-          .map((e) => (e is Map ? Map<String, dynamic>.from(e) : <String, dynamic>{}))
-          .map((m) => {
-                'organizationCode': (m['organizationCode'] ?? '').toString(),
-                'schoolCode': (m['schoolCode'] ?? '').toString(),
-                'schoolName': (m['schoolName'] ?? m['schoolCode'] ?? '').toString(),
-              })
+          .map(
+            (e) =>
+                (e is Map ? Map<String, dynamic>.from(e) : <String, dynamic>{}),
+          )
+          .map(
+            (m) => {
+              'organizationCode': (m['organizationCode'] ?? '').toString(),
+              'schoolCode': (m['schoolCode'] ?? '').toString(),
+              // Preserve the stored schoolName exactly. Do NOT auto-fill with
+              // schoolCode here — that makes it impossible to distinguish a
+              // missing display name from an actual name equal to the code.
+              'schoolName': (m['schoolName'] ?? '').toString(),
+            },
+          )
           .where((m) => m['organizationCode']!.isNotEmpty)
           .toList();
     }
@@ -302,7 +387,8 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
 
   @override
   Future<void> saveOrganizationsAndSchools(
-      List<Map<String, String>> list) async {
+    List<Map<String, String>> list,
+  ) async {
     await _storage.saveString(
       StorageKeys.organizationsAndSchools,
       jsonEncode(list),
@@ -318,8 +404,8 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     final prevOrg =
         (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final newOrg = organizationCode.trim();
-    final prev =
-        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final prev = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final next = schoolCode.trim();
     if (prev != next) {
       await _storage.remove(StorageKeys.schoolTimeZone);
@@ -327,13 +413,21 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     }
     if (prev != next || prevOrg != newOrg) {
       await _storage.remove(StorageKeys.activeSchoolRole);
+      // staffCode/guardianCode (and the cached role-snapshot they're
+      // resolved against) are scoped to a specific org+school — surviving
+      // an org/school change here left a PREVIOUS school's guardianCode
+      // attached to requests for the NEW one, which the backend rejects
+      // ("No active 'GUARDIAN' membership ... in organization=X
+      // school=Y") since that code was never valid there. Clearing
+      // activeSchoolRole alone wasn't enough: interceptor's fallback role
+      // resolution re-derives the role correctly, but a stale
+      // staffCode/guardianCode already answers "which code" before that
+      // matters.
+      await clearPersonaVolatileCaches();
     }
     await _storage.saveString(StorageKeys.organizationCode, organizationCode);
     await _storage.saveString(StorageKeys.schoolCode, next);
-    await _storage.saveString(
-      StorageKeys.selectedSchoolName,
-      schoolName ?? next,
-    );
+    await _storage.saveString(StorageKeys.selectedSchoolName, schoolName ?? '');
     if (newOrg.isNotEmpty && next.isNotEmpty) {
       await _storage.saveBool(StorageKeys.loginCompleted, true);
     }
@@ -365,14 +459,26 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
 
   @override
   Future<void> persistActiveSchoolPersonaRole(String backendRole) async {
-    final org =
-        (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final school =
-        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final org = (await _storage.getString(StorageKeys.organizationCode) ?? '')
+        .trim();
+    final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final normalizedRole = backendRole.trim();
     if (normalizedRole.isEmpty || org.isEmpty || school.isEmpty) return;
 
     await _storage.saveString(StorageKeys.activeSchoolRole, normalizedRole);
+
+    // Durable across logout (unlike activeSchoolRole, which is cleared on
+    // logout and on every org/school change) so the next fresh login can
+    // reopen the persona this account was last active as.
+    final userCode = (await _storage.getString(StorageKeys.userCode) ?? '')
+        .trim();
+    if (userCode.isNotEmpty) {
+      await _storage.saveString(
+        StorageKeys.lastUsedPersonaRole,
+        jsonEncode({'userCode': userCode, 'role': normalizedRole}),
+      );
+    }
 
     final raw = await _storage.getString(StorageKeys.roles);
     List<dynamic> list;
@@ -412,8 +518,8 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   }) async {
     final organizationCode =
         (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final schoolCode =
-        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
 
     await _storage.saveString(StorageKeys.staffCode, staffCode);
     await _storage.saveString(StorageKeys.staffCodeUser, userCode);
@@ -421,10 +527,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       StorageKeys.staffCodeOrganization,
       organizationCode,
     );
-    await _storage.saveString(
-      StorageKeys.staffCodeSchool,
-      schoolCode,
-    );
+    await _storage.saveString(StorageKeys.staffCodeSchool, schoolCode);
   }
 
   @override
@@ -438,7 +541,11 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   }
 
   @override
-  Future<void> saveCredentials(String username, String password, bool rememberMe) async {
+  Future<void> saveCredentials(
+    String username,
+    String password,
+    bool rememberMe,
+  ) async {
     // SECURITY: the password is never persisted. "Remember me" only stores the
     // username for convenience; the session is restored from the cached
     // access/refresh token, never from saved credentials. Any password value
@@ -457,10 +564,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     final username = await _storage.getString(StorageKeys.username);
     // SECURITY: passwords are never read back. Purge any legacy stored value.
     await _storage.remove(StorageKeys.legacyPasswordPurgeKey);
-    return {
-      'username': username,
-      'password': null,
-    };
+    return {'username': username, 'password': null};
   }
 
   @override

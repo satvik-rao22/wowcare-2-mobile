@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_out_form.dart';
-
-import '../../../../app/theme/colors.dart';
+import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_scaffold.dart';
+import '../../../../shared/common/widgets/custom_button_layout.dart';
 
 /// Unified kiosk page for guardian student sign-in/sign-out flows.
 ///
@@ -77,11 +76,7 @@ class _KioskStudentSignInAndSignOutPageState
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      onPopInvokedWithResult: _onPopInvokedWithResult,
-      canPop: false,
-      child: _buildScreen(),
-    );
+    return _buildScreen();
   }
 
   /// Build the appropriate screen based on current action
@@ -102,8 +97,12 @@ class _KioskStudentSignInAndSignOutPageState
   /// Selection screen: Show when students have mixed sign-in/sign-out states
   /// Allows guardian to choose whether to sign in or sign out
   Widget _buildSelectionScreen() {
-    return StaffFormLayout(
+    // Use KioskScaffold to get consistent back button behavior
+    return KioskScaffold(
       title: 'Sign In / Sign Out',
+      body: _buildSelectionBody(),
+    );
+    /* return StaffFormLayout(
       isKiosk: true,
       bottomBar: const SizedBox.shrink(),
       child: Center(
@@ -199,6 +198,50 @@ class _KioskStudentSignInAndSignOutPageState
           ],
         ),
       ),
+    ); */
+  }
+
+  Widget _buildSelectionBody() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildGradientButton(
+              label: 'Sign In',
+              onPressed: () {
+                AppLogger.d('[Kiosk] Sign In button tapped');
+                setState(() {
+                  _currentAction = 'sign-in';
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildGradientButton(
+              label: 'Sign Out',
+              onPressed: () {
+                AppLogger.d('[Kiosk] Sign Out button tapped');
+                setState(() {
+                  _currentAction = 'sign-out';
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGradientButton({
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return CustomButtonLayout(
+      confirmButtonLabel: label,
+      onPressedConfirm: onPressed,
+      showCancelButton: false,
     );
   }
 

@@ -9,6 +9,8 @@ import '../entities/student_physician.dart';
 import '../entities/student_pickup.dart';
 import '../entities/student_profile.dart';
 import '../entities/student_regular_schedule.dart';
+import '../entities/student_settings.dart';
+import '../entities/vaccine_item.dart';
 
 abstract class StudentRepository {
   /// Fetches a single student profile via `GET /api/v1/student/student/{code}`.
@@ -28,9 +30,11 @@ abstract class StudentRepository {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     int page,
     int size,
+    List<String>? allowedClassroomCodes,
   });
 
   Future<String> deactivateStudent({
@@ -76,6 +80,13 @@ abstract class StudentRepository {
 
   /// Updates the student's siblings via `PUT /api/v1/student/student/{studentCode}/siblings`.
   Future<String> updateStudentSiblings({
+    required String studentCode,
+    required List<String> siblingCodes,
+  });
+
+  /// Links siblings onto a newly created student via
+  /// `POST /api/v1/student/{newStudentCode}/add-sibling` (add-student flow only).
+  Future<String> addStudentSibling({
     required String studentCode,
     required List<String> siblingCodes,
   });
@@ -200,6 +211,21 @@ abstract class StudentRepository {
   Future<Map<String, dynamic>> getGuardianProfile({
     required String schoolCode,
     required String userCode,
+  });
+
+  /// School-level student settings from `GET /api/v1/student-settings`.
+  Future<StudentSettings> getStudentSettings({required String schoolCode});
+
+  /// Immunization settings (available vaccines) via
+  /// `GET /api/v1/student/settings/immunization?schoolCode={schoolCode}`.
+  Future<List<VaccineItem>> getImmunizationSettings({
+    required String schoolCode,
+  });
+
+  /// Returns a mapping of vaccine display names to backend vaccine codes (`VCC_*`)
+  /// for a given school.
+  Future<Map<String, String>> getVaccineNameToCodeMapForSchool({
+    required String schoolCode,
   });
 
   /// Fetches student counts (active, upcoming, enrolled) for a school.
@@ -410,6 +436,7 @@ abstract class StudentRepositoryWithCache {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     String? code,
     String? firstName,
@@ -426,6 +453,7 @@ abstract class StudentRepositoryWithCache {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     String? code,
     String? firstName,

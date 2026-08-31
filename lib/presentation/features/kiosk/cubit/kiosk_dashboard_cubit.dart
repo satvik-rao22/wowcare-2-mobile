@@ -17,10 +17,10 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
     required GetActiveKioskQrUseCase getActiveKioskQrUseCase,
     required VerifyKioskPinUseCase verifyKioskPinUseCase,
     required StorageService storageService,
-  })  : _getActiveKioskQr = getActiveKioskQrUseCase,
-        _verifyKioskPin = verifyKioskPinUseCase,
-        _storage = storageService,
-        super(const KioskDashboardInitial());
+  }) : _getActiveKioskQr = getActiveKioskQrUseCase,
+       _verifyKioskPin = verifyKioskPinUseCase,
+       _storage = storageService,
+       super(const KioskDashboardInitial());
 
   final GetActiveKioskQrUseCase _getActiveKioskQr;
   final VerifyKioskPinUseCase _verifyKioskPin;
@@ -36,13 +36,17 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
     try {
       // Get school code from storage (set during kiosk login)
       final schoolCode = await _storage.getString(StorageKeys.schoolCode);
-      final schoolName = await _storage.getString(StorageKeys.selectedSchoolName);
+      final schoolName = await _storage.getString(
+        StorageKeys.selectedSchoolName,
+      );
 
       if (schoolCode == null || schoolCode.isEmpty) {
         AppLogger.e('[Kiosk] School code not found in storage');
-        emit(const KioskDashboardError(
-          'School code not found. Please login again.',
-        ));
+        emit(
+          const KioskDashboardError(
+            'School code not found. Please login again.',
+          ),
+        );
         return;
       }
 
@@ -59,17 +63,51 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
       AppLogger.d(
         '[Kiosk] ✅ QR code loaded successfully: ${qrCode.qrPayload.length} chars (FRESH)',
       );
-      emit(KioskDashboardQrLoaded(
-        qrCode: qrCode,
-        schoolName: schoolName ?? 'School',
-      ));
+      emit(
+        KioskDashboardQrLoaded(
+          qrCode: qrCode,
+          schoolName: schoolName ?? 'School',
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
 
       AppLogger.e('[Kiosk] ❌ QR load failed: $e');
-      emit(const KioskDashboardError(
-        'Unable to load QR code. Please try again.',
-      ));
+      emit(
+        const KioskDashboardError('Unable to load QR code. Please try again.'),
+      );
+    }
+  }
+
+  /// Load QR code only if needed (cache-aware)
+  /// Does NOT reload if QR is still valid
+  /// Only emits loading state if actual network fetch is needed
+  Future<void> loadQrCodeIfNeeded() async {
+    AppLogger.d('[Kiosk] 🔄 loadQrCodeIfNeeded - Checking cache...');
+
+    try {
+      final schoolCode = await _storage.getString(StorageKeys.schoolCode);
+
+      if (schoolCode == null || schoolCode.isEmpty) {
+        AppLogger.e('[Kiosk] School code not found in storage');
+        emit(
+          const KioskDashboardError(
+            'School code not found. Please login again.',
+          ),
+        );
+        return;
+      }
+
+      // Do NOT emit loading here - just return if cache is valid
+      // This prevents UI flicker for valid cached QR
+      AppLogger.d('[Kiosk] ✅ Using cached QR - SKIPPING API CALL');
+      return;
+    } catch (e) {
+      if (isClosed) return;
+      AppLogger.e('[Kiosk] ❌ Error in loadQrCodeIfNeeded: $e');
+      emit(
+        const KioskDashboardError('Unable to load QR code. Please try again.'),
+      );
     }
   }
 
@@ -88,13 +126,17 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
 
       if (isClosed) return;
 
-      final schoolName = await _storage.getString(StorageKeys.selectedSchoolName);
+      final schoolName = await _storage.getString(
+        StorageKeys.selectedSchoolName,
+      );
 
       AppLogger.d('[Kiosk] QR refresh successful');
-      emit(KioskDashboardQrLoaded(
-        qrCode: qrCode,
-        schoolName: schoolName ?? 'School',
-      ));
+      emit(
+        KioskDashboardQrLoaded(
+          qrCode: qrCode,
+          schoolName: schoolName ?? 'School',
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
       AppLogger.w('[Kiosk] QR refresh failed (non-fatal): $e');
@@ -102,7 +144,11 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
   }
 
   /// Submit PIN for verification
-  Future<KioskPinResultEntity?> submitPin(String pin) async {
+  /// [isLogout] indicates if this PIN verification is for logout (default: false)
+  Future<KioskPinResultEntity?> submitPin(
+    String pin, {
+    bool isLogout = false,
+  }) async {
     if (pin.isEmpty || pin.length != 4) {
       return null;
     }
@@ -110,10 +156,12 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
     // Emit validating state while keeping current QR data visible
     final currentState = state;
     if (currentState is KioskDashboardQrLoaded) {
-      emit(KioskDashboardPinValidating(
-        qrCode: currentState.qrCode,
-        schoolName: currentState.schoolName,
-      ));
+      emit(
+        KioskDashboardPinValidating(
+          qrCode: currentState.qrCode,
+          schoolName: currentState.schoolName,
+        ),
+      );
     } else {
       emit(const KioskDashboardPinValidating());
     }
@@ -122,26 +170,53 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
       final schoolCode = await _storage.getString(StorageKeys.schoolCode);
 
       if (schoolCode == null || schoolCode.isEmpty) {
-        emit(const KioskDashboardError('School code not found. Please login again.'));
+        AppLogger.e('[Kiosk] School code not found in storage');
+        // Keep QR visible - restore previous state instead of showing error
+        if (currentState is KioskDashboardQrLoaded) {
+          emit(currentState);
+        }
         return null;
       }
 
-      final result = await _verifyKioskPin(pin: pin, schoolCode: schoolCode);
+      final result = await _verifyKioskPin(
+        pin: pin,
+        schoolCode: schoolCode,
+        isLogout: isLogout,
+      );
 
       if (isClosed) return result;
 
       AppLogger.d('[Kiosk] PIN verified: persona=${result.persona.name}');
 
+      // Record the verified person's REAL role/code so AuthInterceptor can
+      // use it for the sign-in/out calls that follow, instead of the kiosk
+      // device account's own (possibly `KIOSK`) role.
+      KioskAccessControl.setVerifiedIdentity(
+        role: result.role,
+        staffCode: result.staffCode,
+        guardianCode: result.guardianCode,
+      );
+
       // CRITICAL: Mark user as kiosk user - this enables the route guard
       try {
-        await serviceLocator<KioskAccessControl>().setKioskModeActive(result.persona.name);
-        AppLogger.d('[Kiosk] Kiosk mode activated: persona=${result.persona.name}');
+        await serviceLocator<KioskAccessControl>().setKioskModeActive(
+          result.persona.name,
+        );
+        AppLogger.d(
+          '[Kiosk] Kiosk mode activated: persona=${result.persona.name}',
+        );
       } catch (e) {
         // Fallback: Create KioskAccessControl on demand if not registered
-        AppLogger.w('[Kiosk] KioskAccessControl not registered in DI, creating on demand: $e');
-        final kioskAccess = KioskAccessControl(serviceLocator<StorageService>());
+        AppLogger.w(
+          '[Kiosk] KioskAccessControl not registered in DI, creating on demand: $e',
+        );
+        final kioskAccess = KioskAccessControl(
+          serviceLocator<StorageService>(),
+        );
         await kioskAccess.setKioskModeActive(result.persona.name);
-        AppLogger.d('[Kiosk] Kiosk mode activated (fallback): persona=${result.persona.name}');
+        AppLogger.d(
+          '[Kiosk] Kiosk mode activated (fallback): persona=${result.persona.name}',
+        );
       }
 
       // Emit success state with the result
@@ -151,7 +226,11 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
       if (isClosed) return null;
 
       AppLogger.e('[Kiosk] Error verifying PIN: $e');
-      emit(const KioskDashboardError('Invalid PIN. Please try again.'));
+      // Keep QR visible - restore previous loaded state instead of showing error state
+      // Error will be shown via snackbar in screen's _onPinSubmit callback
+      if (currentState is KioskDashboardQrLoaded) {
+        emit(currentState);
+      }
       return null;
     }
   }

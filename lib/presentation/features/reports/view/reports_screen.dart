@@ -4,16 +4,15 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'dart:async';
 import 'dart:typed_data';
-import 'dart:io';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:wowcare/domain/features/reports/entities/report_metadata_entity.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/view/annual_state_immunization_report_screen.dart';
-import 'package:wowcare/presentation/features/reports/view/billing_plan_report_screen.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
+import 'package:wowcare/presentation/features/reports/view/billing_report_form_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/billing_transaction_report_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/report_file_viewer_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/staff_absent_report_screen.dart';
@@ -30,8 +29,9 @@ import 'package:wowcare/presentation/features/reports/view/students_and_family_r
 import 'package:wowcare/presentation/features/reports/widgets/generated_reports_list.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_card.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
-import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 
 class ReportsScreen extends StatefulWidget {
@@ -44,7 +44,31 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // After returning from an externally-launched file viewer (PDF/XLSX),
+    // Android/iOS can resume Flutter without repainting its surface,
+    // leaving a black screen. Force a rebuild on resume to guarantee a
+    // fresh frame is drawn.
+    if (state == AppLifecycleState.resumed && mounted) {
+      setState(() {});
+    }
+  }
+
+  /// Dismiss a dialog shown via [showDialog] (which defaults to the root
+  /// navigator). Popping through the ambient [context] instead would hit
+  /// go_router's branch navigator and pop the screen itself off the page
+  /// stack, which crashes with `currentConfiguration.isNotEmpty` once no
+  /// pages remain — always target the same (root) navigator the dialog was
+  /// pushed on, and never pop when there's nothing left to pop.
+  void _dismissDialog(BuildContext context) {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (navigator.canPop()) {
+      navigator.pop();
+    }
+  }
+
   void _openStudentReportForm(BuildContext context, String name) {
     final reports = context.read<ReportsCubit>().state;
     final cubit = context.read<ReportsCubit>();
@@ -82,7 +106,10 @@ class _ReportsScreenState extends State<ReportsScreen>
         );
         break;
       case 'School Incident Report':
-        screen = StudentIncidentReportScreen(students: reports.studentNames);
+        screen = StudentIncidentReportScreen(
+          students: reports.studentNames,
+          classrooms: reports.classroomNames,
+        );
         break;
     }
 
@@ -196,8 +223,45 @@ class _ReportsScreenState extends State<ReportsScreen>
       case 'Transaction Report':
         screen = const BillingTransactionReportScreen();
         break;
-      case 'Billing Plan':
-        screen = BillingPlanReportScreen(classrooms: reports.classroomNames);
+      case 'Invoice Report':
+        screen = BillingReportFormScreen(
+          reportType: ReportType.billingInvoice,
+          title: 'Invoice Report',
+          classrooms: reports.classroomNames,
+          students: reports.studentNames,
+        );
+        break;
+      case 'Payment Summary':
+        screen = BillingReportFormScreen(
+          reportType: ReportType.billingPaymentSummary,
+          title: 'Payment Summary',
+          classrooms: reports.classroomNames,
+          students: reports.studentNames,
+        );
+        break;
+      case 'Outstanding Report':
+        screen = BillingReportFormScreen(
+          reportType: ReportType.billingOutstanding,
+          title: 'Outstanding Report',
+          classrooms: reports.classroomNames,
+          students: reports.studentNames,
+        );
+        break;
+      case 'Refund Report':
+        screen = BillingReportFormScreen(
+          reportType: ReportType.billingRefund,
+          title: 'Refund Report',
+          classrooms: reports.classroomNames,
+          students: reports.studentNames,
+        );
+        break;
+      case 'Students & Billing Mapping':
+        screen = BillingReportFormScreen(
+          reportType: ReportType.billingStudentMapping,
+          title: 'Students & Billing Mapping',
+          classrooms: reports.classroomNames,
+          students: reports.studentNames,
+        );
         break;
     }
 
@@ -294,20 +358,37 @@ class _ReportsScreenState extends State<ReportsScreen>
   static const List<ReportItem> _billingReports = <ReportItem>[
     ReportItem(
       name: 'Transaction Report',
-      description: 'All transactions in the selected date range.',
+      description: 'Payments, invoices, refunds and credits for a date range.',
     ),
     ReportItem(
-      name: 'Billing Plan',
-      description: 'Billing plan grouped by selected frequency.',
+      name: 'Invoice Report',
+      description: 'Issued invoices with total, paid and balance due.',
+    ),
+    ReportItem(
+      name: 'Payment Summary',
+      description: 'Total payments and transaction count over the period.',
+    ),
+    ReportItem(
+      name: 'Outstanding Report',
+      description: 'Open invoice balances by student / family.',
+    ),
+    ReportItem(
+      name: 'Refund Report',
+      description: 'Refunds issued over the period.',
+    ),
+    ReportItem(
+      name: 'Students & Billing Mapping',
+      description:
+          'Each student mapped to their invoices (total, paid, balance).',
     ),
   ];
 
   late final TabController _tabController;
-  String? _lastProcessedTabParam;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: _tabs.length, vsync: this);
     // Load recent reports when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -321,14 +402,11 @@ class _ReportsScreenState extends State<ReportsScreen>
   void didChangeDependencies() {
     super.didChangeDependencies();
     final tabParam = GoRouterState.of(context).uri.queryParameters['tab'];
-    if (tabParam != _lastProcessedTabParam) {
-      _lastProcessedTabParam = tabParam;
-      if (tabParam != null) {
-        final tabIndex = int.tryParse(tabParam) ?? 0;
-        if (tabIndex >= 0 && tabIndex < _tabs.length) {
-          if (_tabController.index != tabIndex) {
-            _tabController.animateTo(tabIndex);
-          }
+    if (tabParam != null) {
+      final tabIndex = int.tryParse(tabParam) ?? 0;
+      if (tabIndex >= 0 && tabIndex < _tabs.length) {
+        if (_tabController.index != tabIndex) {
+          _tabController.animateTo(tabIndex);
         }
       }
     }
@@ -336,6 +414,7 @@ class _ReportsScreenState extends State<ReportsScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     super.dispose();
   }
@@ -351,7 +430,7 @@ class _ReportsScreenState extends State<ReportsScreen>
         BlocProvider<ClassroomCubit>(
           create: (_) =>
               serviceLocator<ClassroomCubit>()
-                ..loadActiveClassrooms(onlyTypeClassroom: true),
+                ..loadActiveClassrooms(force: true, onlyTypeClassroom: true),
         ),
         BlocProvider<StudentCubit>(
           create: (_) => serviceLocator<StudentCubit>()..loadInitial(),
@@ -381,11 +460,17 @@ class _ReportsScreenState extends State<ReportsScreen>
           BlocListener<StudentCubit, StudentState>(
             listenWhen: (prev, curr) => prev.items != curr.items,
             listener: (context, state) {
+              final nameToCodeMap = <String, String>{};
+              final studentNames = <String>[];
+              for (final student in state.items) {
+                if (student.fullName.isNotEmpty) {
+                  studentNames.add(student.fullName);
+                  nameToCodeMap[student.fullName] = student.code;
+                }
+              }
               context.read<ReportsCubit>().setStudentNames(
-                state.items
-                    .map((s) => s.fullName)
-                    .where((n) => n.isNotEmpty)
-                    .toList(growable: false),
+                studentNames,
+                nameToCodeMap: nameToCodeMap,
               );
             },
           ),
@@ -420,180 +505,177 @@ class _ReportsScreenState extends State<ReportsScreen>
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                    // Header and TabBar
-                    SingleChildScrollView(
-                      physics: const ClampingScrollPhysics(),
-                      child: Padding(
-                        padding: contentPadding,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+              // Header and TabBar
+              SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                child: Padding(
+                  padding: contentPadding,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Reports',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: titleFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff573353),
+                          height: titleLineHeight,
+                        ),
+                        textAlign: TextAlign.left,
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
                           children: [
-                            Text(
-                              'Reports',
-                              style: TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: titleFontSize,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xff573353),
-                                height: titleLineHeight,
+                            IconButton(
+                              tooltip: 'Scroll tabs',
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 26,
+                                height: 32,
                               ),
-                              textAlign: TextAlign.left,
+                              splashRadius: 14,
+                              icon: const Icon(
+                                Icons.chevron_left,
+                                color: Color(0xff573353),
+                                size: 25,
+                              ),
+                              onPressed: () {
+                                final int current = _tabController.index;
+                                if (current > 0) {
+                                  _tabController.animateTo(current - 1);
+                                }
+                              },
                             ),
-                            const SizedBox(height: 12),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.transparent,
-                                borderRadius: BorderRadius.circular(12),
+                            Expanded(
+                              child: TabBar(
+                                controller: _tabController,
+                                isScrollable: true,
+                                padding: EdgeInsets.zero,
+                                labelPadding: EdgeInsets.zero,
+                                tabAlignment: TabAlignment.start,
+                                labelColor: AppColors.themeColor,
+                                unselectedLabelColor: const Color(0xff573353),
+                                dividerColor: Colors.transparent,
+                                indicatorSize: TabBarIndicatorSize.label,
+                                indicator: UnderlineTabIndicator(
+                                  borderSide: BorderSide(
+                                    color: AppColors.themeColor,
+                                    width: 2,
+                                  ),
+                                ),
+                                tabs: List<Widget>.generate(
+                                  _tabs.length,
+                                  (int index) => Padding(
+                                    padding: EdgeInsets.fromLTRB(
+                                      index == 0 ? 4 : 12,
+                                      6,
+                                      12,
+                                      6,
+                                    ),
+                                    child: Text(
+                                      _tabs[index],
+                                      style: const TextStyle(
+                                        fontFamily: 'Manrope',
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Row(
-                                children: [
-                                  IconButton(
-                                    tooltip: 'Scroll tabs',
-                                    padding: EdgeInsets.zero,
-                                    visualDensity: VisualDensity.compact,
-                                    constraints: const BoxConstraints.tightFor(
-                                      width: 26,
-                                      height: 32,
-                                    ),
-                                    splashRadius: 14,
-                                    icon: const Icon(
-                                      Icons.chevron_left,
-                                      color: Color(0xff573353),
-                                      size: 25,
-                                    ),
-                                    onPressed: () {
-                                      final int current = _tabController.index;
-                                      if (current > 0) {
-                                        _tabController.animateTo(current - 1);
-                                      }
-                                    },
-                                  ),
-                                  Expanded(
-                                    child: TabBar(
-                                      controller: _tabController,
-                                      isScrollable: true,
-                                      padding: EdgeInsets.zero,
-                                      labelPadding: EdgeInsets.zero,
-                                      tabAlignment: TabAlignment.start,
-                                      labelColor: AppColors.themeColor,
-                                      unselectedLabelColor: const Color(
-                                        0xff573353,
-                                      ),
-                                      dividerColor: Colors.transparent,
-                                      indicatorSize: TabBarIndicatorSize.label,
-                                      indicator: UnderlineTabIndicator(
-                                        borderSide: BorderSide(
-                                          color: AppColors.themeColor,
-                                          width: 2,
-                                        ),
-                                      ),
-                                      tabs: List<Widget>.generate(
-                                        _tabs.length,
-                                        (int index) => Padding(
-                                          padding: EdgeInsets.fromLTRB(
-                                            index == 0 ? 4 : 12,
-                                            6,
-                                            12,
-                                            6,
-                                          ),
-                                          child: Text(
-                                            _tabs[index],
-                                            style: const TextStyle(
-                                              fontFamily: 'Manrope',
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    tooltip: 'Scroll tabs',
-                                    padding: EdgeInsets.zero,
-                                    visualDensity: VisualDensity.compact,
-                                    constraints: const BoxConstraints.tightFor(
-                                      width: 26,
-                                      height: 32,
-                                    ),
-                                    splashRadius: 14,
-                                    icon: const Icon(
-                                      Icons.chevron_right,
-                                      color: Color(0xff573353),
-                                      size: 25,
-                                    ),
-                                    onPressed: () {
-                                      final int current = _tabController.index;
-                                      if (current < _tabs.length - 1) {
-                                        _tabController.animateTo(current + 1);
-                                      }
-                                    },
-                                  ),
-                                ],
+                            ),
+                            IconButton(
+                              tooltip: 'Scroll tabs',
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 26,
+                                height: 32,
                               ),
+                              splashRadius: 14,
+                              icon: const Icon(
+                                Icons.chevron_right,
+                                color: Color(0xff573353),
+                                size: 25,
+                              ),
+                              onPressed: () {
+                                final int current = _tabController.index;
+                                if (current < _tabs.length - 1) {
+                                  _tabController.animateTo(current + 1);
+                                }
+                              },
                             ),
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Tab Content - Swipeable
-                    Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: contentPadding.left,
-                          vertical: contentPadding.top,
-                        ),
-                        child: TabBarView(
-                          controller: _tabController,
-                          physics: const BouncingScrollPhysics(),
-                          children: [
-                            // Tab 0: Generated Reports
-                            _GeneratedReportsTab(context: context),
-                            // Tab 1: Student Reports
-                            _ReportsTab(
-                              tabIndex: 1,
-                              reports: _studentReports,
-                              formats: const [ReportExportFormat.excel],
-                              onGenerate: _openStudentReportForm,
-                            ),
-                            // Tab 2: Staff Reports
-                            _ReportsTab(
-                              tabIndex: 2,
-                              reports: _staffReports,
-                              formats: const [ReportExportFormat.excel],
-                              onGenerate: _openStaffReportForm,
-                            ),
-                            // Tab 3: Compliance Reports
-                            _ReportsTab(
-                              tabIndex: 3,
-                              reports: _complianceReports,
-                              formats: const [
-                                ReportExportFormat.pdf,
-                                ReportExportFormat.excel,
-                              ],
-                              onGenerate: _openComplianceReportForm,
-                            ),
-                            // Tab 4: Billing Reports
-                            _ReportsTab(
-                              tabIndex: 4,
-                              reports: _billingReports,
-                              formats: const [ReportExportFormat.excel],
-                              onGenerate: _openBillingReportForm,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+              ),
+              const SizedBox(height: 12),
+              // Tab Content - Swipeable
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: contentPadding.left,
+                    vertical: contentPadding.top,
+                  ),
+                  child: TabBarView(
+                    controller: _tabController,
+                    physics: const BouncingScrollPhysics(),
+                    children: [
+                      // Tab 0: Generated Reports
+                      _GeneratedReportsTab(context: context),
+                      // Tab 1: Student Reports
+                      _ReportsTab(
+                        tabIndex: 1,
+                        reports: _studentReports,
+                        formats: const [ReportExportFormat.excel],
+                        onGenerate: _openStudentReportForm,
+                      ),
+                      // Tab 2: Staff Reports
+                      _ReportsTab(
+                        tabIndex: 2,
+                        reports: _staffReports,
+                        formats: const [ReportExportFormat.excel],
+                        onGenerate: _openStaffReportForm,
+                      ),
+                      // Tab 3: Compliance Reports
+                      _ReportsTab(
+                        tabIndex: 3,
+                        reports: _complianceReports,
+                        formats: const [
+                          // ReportExportFormat.pdf,
+                          ReportExportFormat.excel,
+                        ],
+                        onGenerate: _openComplianceReportForm,
+                      ),
+                      // Tab 4: Billing Reports
+                      _ReportsTab(
+                        tabIndex: 4,
+                        reports: _billingReports,
+                        formats: const [ReportExportFormat.excel],
+                        onGenerate: _openBillingReportForm,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
           showCustomNavigationBar: true,
         ),
       ),
     );
   }
-
 
   void _showComingSoon(BuildContext context, String action) {
     CoreUtils.showTopSnackBar(
@@ -603,68 +685,14 @@ class _ReportsScreenState extends State<ReportsScreen>
     );
   }
 
-  Future<bool> _requestStoragePermission() async {
-    if (Platform.isAndroid) {
-      final androidInfo = await DeviceInfoPlugin().androidInfo;
-      final sdkInt = androidInfo.version.sdkInt;
-
-      if (sdkInt >= 33) {
-        // Android 13+: Request specific file permissions
-        final status = await Permission.photos.request();
-        return status.isGranted;
-      } else {
-        // Android 12 and below: Request storage permission
-        final status = await Permission.storage.request();
-        return status.isGranted;
-      }
-    }
-    // iOS: No explicit permission needed for app documents
-    return true;
-  }
-
   Future<void> _downloadAndViewReport(
     BuildContext context,
     String assetCode,
     String fileName,
   ) async {
-    // Request storage permission first
-    final hasPermission = await _requestStoragePermission();
-
-    if (!hasPermission) {
-      if (!mounted) return;
-
-      final shouldOpenSettings =
-          await showDialog<bool>(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => AlertDialog(
-              title: const Text('Storage Permission Required'),
-              content: const Text(
-                'To download and save PDF and Excel files, this app needs storage permission.\n\n'
-                'Please grant storage permission in the next screen.',
-              ),
-              actions: [
-                TextButton(
-                  child: const Text('Cancel'),
-                  onPressed: () => Navigator.of(context).pop(false),
-                ),
-                TextButton(
-                  child: const Text('Open Settings'),
-                  onPressed: () => Navigator.of(context).pop(true),
-                ),
-              ],
-            ),
-          ) ??
-          false;
-
-      if (shouldOpenSettings) {
-        await openAppSettings();
-      }
-      return;
-    }
-
-    if (!mounted) return;
-
+    // Viewing renders the file bytes in memory (PDFView/Excel preview);
+    // no storage permission is needed since nothing is written to shared
+    // storage here.
     CoreUtils.showTopSnackBar(
       context: context,
       message: 'Downloading report...',
@@ -701,6 +729,121 @@ class _ReportsScreenState extends State<ReportsScreen>
         ),
       ),
     );
+  }
+
+  /// Downloads the report bytes, saves them to device storage, and opens
+  /// the saved file with the OS's default handler — unlike
+  /// [_downloadAndViewReport], which only renders bytes in-memory and never
+  /// persists anything, this is what makes "Download" actually download.
+  Future<void> _downloadAndSaveReport(
+    BuildContext context,
+    String assetCode,
+    String fileName,
+  ) async {
+    final cubit = context.read<ReportsCubit>();
+
+    showDialog(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text('Downloading $fileName...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final fileData = await cubit.downloadReport(assetCode);
+
+      if (!mounted) return;
+      _dismissDialog(context); // close downloading dialog
+
+      if (fileData == null || fileData.isEmpty) {
+        AppLogger.e('[REPORTS-UI-DOWN] Bytes empty for assetCode=$assetCode');
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Failed to download report',
+          isError: true,
+        );
+        return;
+      }
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          useRootNavigator: true,
+          barrierDismissible: false,
+          builder: (_) => const AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Saving file...'),
+              ],
+            ),
+          ),
+        );
+      }
+
+      final filePath = await cubit.saveReportFile(
+        fileData: Uint8List.fromList(fileData),
+        fileName: fileName,
+        assetCode: assetCode,
+      );
+
+      if (!mounted) return;
+      _dismissDialog(context); // close saving dialog
+
+      if (filePath == null) {
+        AppLogger.e('[REPORTS-UI-DOWN] Save failed for assetCode=$assetCode');
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Failed to save file',
+          isError: true,
+        );
+        return;
+      }
+
+      AppLogger.i('[REPORTS-UI-DOWN] Saved: $filePath');
+      if (mounted) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: '$fileName saved successfully',
+          isSuccess: true,
+        );
+      }
+
+      final opened = await cubit.openReportFile(
+        filePath: filePath,
+        fileName: fileName,
+        assetCode: assetCode,
+      );
+
+      if (!opened && mounted) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Saved. Open from file manager to view',
+          isSuccess: true,
+        );
+      }
+    } catch (e) {
+      AppLogger.e('[REPORTS-UI-DOWN] Exception for assetCode=$assetCode: $e');
+      if (mounted) {
+        _dismissDialog(context);
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Error: $e',
+          isError: true,
+        );
+      }
+    }
   }
 }
 
@@ -763,14 +906,12 @@ class _GeneratedReportsTabState extends State<_GeneratedReportsTab>
               error: state.generatedReportsError,
             ),
             builder: (context, data) {
-              // Initial or loading state - show spinner (NO shimmer)
+              // Initial or loading state - show shimmer placeholders
               if (data.state == GeneratedReportsLoadingState.initial ||
                   data.state == GeneratedReportsLoadingState.loading) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(32),
-                    child: CircularProgressIndicator(),
-                  ),
+                return const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: GeneratedReportsListShimmer(),
                 );
               }
 
@@ -916,14 +1057,22 @@ class _GeneratedReportsTabState extends State<_GeneratedReportsTab>
                 assetCode: report.assetCode,
               );
             }).toList(),
-            onView: (item) => context
-                .findAncestorStateOfType<_ReportsScreenState>()
-                ?._showComingSoon(context, 'View'),
+            onView: (item) {
+              if (item.assetCode != null) {
+                context
+                    .findAncestorStateOfType<_ReportsScreenState>()
+                    ?._downloadAndViewReport(
+                      context,
+                      item.assetCode!,
+                      item.fileName,
+                    );
+              }
+            },
             onDownload: (assetCode) async {
               if (assetCode != null) {
                 await context
                     .findAncestorStateOfType<_ReportsScreenState>()
-                    ?._downloadAndViewReport(
+                    ?._downloadAndSaveReport(
                       context,
                       assetCode,
                       reports
@@ -958,17 +1107,43 @@ class _ReportsTab extends StatelessWidget {
   final List<ReportExportFormat> formats;
   final void Function(BuildContext context, String name) onGenerate;
 
+  /// Whether this tab's report cards depend on classroom/student/staff
+  /// lookup data that's still loading. Compliance and Billing reports use
+  /// only date ranges (no classroom/student/staff selection), so they have
+  /// nothing to wait for and always render immediately.
+  bool _isLoadingLookupData(BuildContext context) {
+    switch (tabIndex) {
+      case 1: // Student
+        return context.select<ClassroomCubit, bool>((c) => c.state.isLoading) ||
+            context.select<StudentCubit, bool>((c) => c.state.isLoading);
+      case 2: // Staff
+        return context.select<ClassroomCubit, bool>((c) => c.state.isLoading) ||
+            context.select<StaffCubit, bool>((c) => c.state.isLoading);
+      default:
+        return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isLoading = _isLoadingLookupData(context);
+
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      child: _ReportsList(
-        reports: reports,
-        formats: formats,
-        onGenerate: (item, _) {
-          onGenerate(context, item.name);
-        },
-      ),
+      child: isLoading
+          ? Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: GeneratedReportsListShimmer(
+                rowCount: reports.isEmpty ? 4 : reports.length,
+              ),
+            )
+          : _ReportsList(
+              reports: reports,
+              formats: formats,
+              onGenerate: (item, _) {
+                onGenerate(context, item.name);
+              },
+            ),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -16,7 +17,7 @@ import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shift_by_c
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_shift.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/presentation/features/classrooom/views/filters/designation_display_utils.dart';
+import 'package:wowcare/presentation/features/classroom/views/filters/designation_display_utils.dart';
 import 'package:wowcare/presentation/features/scheduling/model/shift_models.dart';
 import 'package:wowcare/presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/view/add_shift_screen.dart';
@@ -112,7 +113,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
+    final now = AppTime.now();
     _initialDeviceToday = DateTime(now.year, now.month, now.day);
     SchedulingCacheGate.revision.addListener(_onCacheInvalidated);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -857,13 +858,13 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: StaffSchedulingStaffDropdown(
-                      staffNames: state.staffDropdownNames,
-                      selectedStaffName: state.selectedStaffDropdownLabel,
+                      staff: state.staffList,
+                      selectedStaffCode: state.selectedStaffCode,
                       // Keep the dropdown visible during loads — the body shimmer
                       // is the loading indicator; a circular loader here is
                       // redundant (and hides the dropdown).
                       isLoading: false,
-                      onSelected: cubit.selectStaffByName,
+                      onSelected: cubit.selectStaffByCode,
                     ),
                   ),
                   const SizedBox(height: 16),

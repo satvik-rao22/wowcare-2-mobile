@@ -22,10 +22,16 @@ class ConversationCollection {
   late String updatedBy;
   DateTime? lastMessageAt;
   String? lastMessageBy;
+  String? lastMessageSenderName;
+  bool privateModeActive = false;
+  String? privateModeActivatedBy;
+  DateTime? privateModeActivatedAt;
   late int participantCount;
   late int unreadCount;
   late String lastMessagePreview;
   List<ConversationParticipantCollection>? participants;
+  String? studentStatus;
+  String? classroomCode;
 
   ConversationCollection();
 
@@ -46,12 +52,18 @@ class ConversationCollection {
       ..updatedBy = entity.updatedBy
       ..lastMessageAt = entity.lastMessageAt
       ..lastMessageBy = entity.lastMessageBy
+      ..lastMessageSenderName = entity.lastMessageSenderName
+      ..privateModeActive = entity.privateModeActive
+      ..privateModeActivatedBy = entity.privateModeActivatedBy
+      ..privateModeActivatedAt = entity.privateModeActivatedAt
       ..participantCount = entity.participantCount
       ..unreadCount = entity.unreadCount
       ..lastMessagePreview = entity.lastMessagePreview
       ..participants = entity.participants
           .map((e) => ConversationParticipantCollection.fromEntity(e))
-          .toList();
+          .toList()
+      ..studentStatus = entity.studentStatus
+      ..classroomCode = entity.classroomCode;
   }
 
   Conversation toEntity() {
@@ -71,10 +83,16 @@ class ConversationCollection {
       updatedBy: updatedBy,
       lastMessageAt: lastMessageAt,
       lastMessageBy: lastMessageBy,
+      lastMessageSenderName: lastMessageSenderName,
+      privateModeActive: privateModeActive,
+      privateModeActivatedBy: privateModeActivatedBy,
+      privateModeActivatedAt: privateModeActivatedAt,
       participantCount: participantCount,
       unreadCount: unreadCount,
       lastMessagePreview: lastMessagePreview,
       participants: participants?.map((e) => e.toEntity()).toList() ?? [],
+      studentStatus: studentStatus,
+      classroomCode: classroomCode,
     );
   }
 }
@@ -93,6 +111,8 @@ class ConversationParticipantCollection {
   bool? notificationsEnabled;
   late DateTime createdAt;
   late DateTime updatedAt;
+  bool? active;
+  String? staffStatus;
 
   ConversationParticipantCollection();
 
@@ -111,7 +131,9 @@ class ConversationParticipantCollection {
       ..muted = entity.muted
       ..notificationsEnabled = entity.notificationsEnabled
       ..createdAt = entity.createdAt
-      ..updatedAt = entity.updatedAt;
+      ..updatedAt = entity.updatedAt
+      ..active = entity.active
+      ..staffStatus = entity.staffStatus;
   }
 
   ConversationParticipant toEntity() {
@@ -128,6 +150,8 @@ class ConversationParticipantCollection {
       notificationsEnabled: notificationsEnabled ?? true,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      active: active ?? true,
+      staffStatus: staffStatus,
     );
   }
 }

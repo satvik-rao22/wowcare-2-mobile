@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
@@ -6,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/theme/colors.dart';
-import '../../../presentation/features/classrooom/views/classroom_tab_cards/classroom_notes_tab_card.dart';
+import '../../../presentation/features/classroom/views/classroom_tab_cards/classroom_notes_tab_card.dart';
 
 enum FieldType { text, dropdown, datePicker, fileUpload }
 
@@ -115,7 +116,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
   Future<void> _selectDate(BuildContext context, DynamicFormField field) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: selectedDate ?? DateTime.now(),
+      initialDate: selectedDate ?? AppTime.now(),
       firstDate: DateTime(1900),
       lastDate: DateTime(2100),
     );
@@ -508,9 +509,9 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //   Future<void> _selectDate(BuildContext context, DynamicFormField field) async {
 //     final DateTime? picked = await showDatePicker(
 //       context: context,
-//       initialDate: selectedDate ?? DateTime.now(),
+//       initialDate: selectedDate ?? AppTime.now(),
 //       firstDate: DateTime(1900),
-//       // lastDate: DateTime.now(),
+//       // lastDate: AppTime.now(),
 //       lastDate: DateTime(2100),
 //     );
 //     if (picked != null) {
@@ -859,7 +860,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //   Future<void> _selectDate(BuildContext context, DynamicFormField field) async {
 //     final DateTime? picked = await showDatePicker(
 //       context: context,
-//       initialDate: selectedDate ?? DateTime.now(),
+//       initialDate: selectedDate ?? AppTime.now(),
 //       firstDate: DateTime(1900),
 //       lastDate: DateTime(2100),
 //     );

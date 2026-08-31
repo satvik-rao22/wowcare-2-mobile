@@ -11,10 +11,10 @@ class ClassroomShiftsState extends Equatable {
   });
 
   const ClassroomShiftsState.initial()
-      : status = ClassroomShiftsStatus.initial,
-        date = null,
-        entries = const [],
-        errorMessage = null;
+    : status = ClassroomShiftsStatus.initial,
+      date = null,
+      entries = const [],
+      errorMessage = null;
 
   final ClassroomShiftsStatus status;
   final DateTime? date;

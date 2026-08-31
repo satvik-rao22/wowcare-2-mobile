@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +13,7 @@ import 'package:wowcare/presentation/features/billing/widgets/auto_pay_token_web
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -46,6 +48,11 @@ class _AutoPayPaymentMethodsScreenState
   // so the carousel can scroll both directions endlessly.
   PageController? _pageController;
   int _currentPage = 0;
+
+  /// Bumped to force the auto-pay [CustomToggle] to rebuild and resync with the
+  /// committed state — used to undo its optimistic flip when the user backs out
+  /// of the "turn off" confirmation.
+  int _autopayToggleEpoch = 0;
 
   @override
   void initState() {
@@ -105,6 +112,43 @@ class _AutoPayPaymentMethodsScreenState
   }
 
   // ── Header (AutoPay toggle) ────────────────────────────────────────────
+
+  /// Intercepts the auto-pay toggle. Enabling is immediate; disabling asks for
+  /// confirmation first (the change is still only committed by Save). If the
+  /// user backs out, the toggle's optimistic flip is reverted.
+  Future<void> _onToggleAutoPay(bool value) async {
+    if (value) {
+      _cubit.toggleAutoPay(true);
+      return;
+    }
+    var confirmed = false;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => ConfirmationBottomSheet(
+        icon: Icons.autorenew,
+        title: 'Turn off Auto Payment?',
+        subtitle:
+            'Invoices will no longer be paid automatically. You can turn Auto '
+            'Payment back on anytime.',
+        confirmText: 'Turn Off',
+        cancelText: 'Keep On',
+        onConfirm: () {
+          confirmed = true;
+          Navigator.of(ctx).pop();
+        },
+        onCancel: () => Navigator.of(ctx).pop(),
+      ),
+    );
+    if (!mounted) return;
+    if (confirmed) {
+      _cubit.toggleAutoPay(false);
+    } else {
+      // Cancelled or dismissed → undo the toggle's optimistic visual flip.
+      setState(() => _autopayToggleEpoch++);
+    }
+  }
 
   Widget _buildAutoPayHeader(AutoPayMethodsState state) {
     final enabled = state.autopayEnabled;
@@ -184,9 +228,10 @@ class _AutoPayPaymentMethodsScreenState
           ),
           const SizedBox(width: 8),
           CustomToggle(
+            key: ValueKey<int>(_autopayToggleEpoch),
             label: '',
             isToggled: enabled,
-            onToggle: _cubit.toggleAutoPay,
+            onToggle: _onToggleAutoPay,
           ),
         ],
       ),
@@ -285,6 +330,12 @@ class _AutoPayPaymentMethodsScreenState
               PageView.builder(
                 controller: _pageController,
                 itemCount: loop ? null : count,
+                // With exactly two cards a centered viewport would peek the
+                // *same* other card on both sides (3 slots, 2 cards). Aligning
+                // to the start (padEnds:false) shows only the next card peeking
+                // on one side, so the loop stays a→b→a→b but a reads as a and b
+                // as b. 3+ cards keep the centered both-side peek (distinct).
+                padEnds: count != 2,
                 onPageChanged: (i) => setState(() => _currentPage = i % count),
                 itemBuilder: (_, i) => _buildMethodCard(state, methods[i % count]),
               ),
@@ -1144,7 +1195,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
   @override
   Widget build(BuildContext context) {
     final months = List<String>.generate(12, (i) => '${i + 1}'.padLeft(2, '0'));
-    final currentYear = DateTime.now().year;
+    final currentYear = billingSchoolCurrentYear();
     final years = List<String>.generate(20, (i) => '${currentYear + i}');
 
     return Padding(
@@ -1209,7 +1260,6 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                   showAsterisk: false,
                   labelBottomSpacing: 6,
                   fieldHeight: 52,
-                  prependHintAsSelectableItem: false,
                   onSelect: (v) {
                     if (v == null) return;
                     setState(() =>
@@ -1232,7 +1282,6 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                         showAsterisk: false,
                         labelBottomSpacing: 6,
                         fieldHeight: 52,
-                        prependHintAsSelectableItem: false,
                         onSelect: (v) {
                           if (v != null) setState(() => _expMonth = v);
                         },
@@ -1250,7 +1299,6 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                         showAsterisk: false,
                         labelBottomSpacing: 6,
                         fieldHeight: 52,
-                        prependHintAsSelectableItem: false,
                         onSelect: (v) {
                           if (v != null) setState(() => _expYear = v);
                         },

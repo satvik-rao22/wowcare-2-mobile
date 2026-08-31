@@ -1,35 +1,40 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:get_it/get_it.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/features/notifications/datasources/fcm_registration_remote_data_source.dart';
 import '../../data/features/notifications/datasources/fcm_remote_data_source.dart';
 import '../../data/features/notifications/datasources/notification_center_data_source.dart';
 import '../../data/features/notifications/datasources/notification_center_remote_data_source.dart';
-import '../../data/features/notifications/datasources/notification_logs_remote_data_source.dart';
-import '../../data/features/notifications/datasources/notification_preferences_remote_data_source.dart';
+import '../../data/features/notifications/datasources/notification_inbox_remote_data_source.dart';
+import '../../data/features/notifications/datasources/notification_preference_groups_remote_data_source.dart';
 import '../../data/features/notifications/repositories/fcm_registration_repository_impl.dart';
-import '../../data/features/notifications/repositories/notification_preferences_repository_impl.dart';
+import '../../data/features/notifications/repositories/notification_preference_groups_repository_impl.dart';
 import '../../data/features/notifications/repositories/notification_center_repository_impl.dart';
 import '../../data/features/notifications/repositories/push_notification_repository_impl.dart';
 import '../../data/features/notifications/services/fcm_token_registration_service.dart';
 import '../../domain/features/notifications/repositories/fcm_registration_repository.dart';
 import '../../domain/features/notifications/repositories/notification_center_repository.dart';
-import '../../domain/features/notifications/repositories/notification_preferences_repository.dart';
+import '../../domain/features/notifications/repositories/notification_preference_groups_repository.dart';
 import '../../domain/features/notifications/repositories/push_notification_repository.dart';
-import '../../domain/features/notifications/usecases/get_notification_preferences_usecase.dart';
+import '../../domain/features/notifications/usecases/get_notification_preference_groups_usecase.dart';
+import '../../domain/features/notifications/usecases/get_notification_unread_counts_usecase.dart';
 import '../../domain/features/notifications/usecases/get_notifications_usecase.dart';
-import '../../domain/features/notifications/usecases/update_notification_preferences_usecase.dart';
+import '../../domain/features/notifications/usecases/update_notification_preference_groups_usecase.dart';
 import '../../domain/features/notifications/usecases/mark_all_notifications_read_usecase.dart';
 import '../../domain/features/notifications/usecases/mark_notification_read_usecase.dart';
 import '../../domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
 import '../../domain/features/notifications/usecases/unregister_device_fcm_token_usecase.dart';
+import '../../data/features/notifications/realtime/notification_realtime_data_source.dart';
+import '../../presentation/features/notifications/cubit/notification_badge_cubit.dart';
 import '../../presentation/features/notifications/cubit/notification_center_cubit.dart';
 import '../../presentation/features/notifications/cubit/push_notification_cubit.dart';
-import '../../presentation/features/user-profile/view_model/notification_settings_cubit.dart';
+import '../../presentation/features/user-profile/view_model/notification_preference_groups_cubit.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/auth_interceptor.dart';
 import '../../core/network/network_info.dart';
@@ -115,6 +120,7 @@ import '../../presentation/features/dashboard/cubit/my_attendance_cubit.dart';
 import '../../presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
 import '../../presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
 import '../../presentation/features/dashboard/cubit/my_day_cubit.dart';
+import '../../presentation/features/dashboard/cubit/work_break_reminder_cubit.dart';
 import '../../presentation/features/dashboard/cubit/my_shifts_cubit.dart';
 import '../../presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
 import '../../presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
@@ -132,13 +138,13 @@ import '../../data/features/kiosk/repositories/kiosk_repository_impl.dart';
 // REFACTORED KIOSK MODULE - CLEAN ARCHITECTURE
 import '../../data/features/kiosk/datasources/kiosk_attendance_remote_datasource.dart';
 import '../../presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
-import '../../presentation/features/kiosk/cubit/kiosk_attendance_cubit.dart';
 // REFACTORED KIOSK MODULE - CLEAN ARCHITECTURE
 import '../../domain/features/kiosk/repositories/kiosk_attendance_repository.dart';
 import '../../domain/features/kiosk/usecases/sign_in_staff_usecase.dart';
 import '../../domain/features/kiosk/usecases/sign_out_staff_usecase.dart';
 import '../../data/features/kiosk/repositories/kiosk_attendance_repository_impl.dart';
 import '../../presentation/features/kiosk/cubit/kiosk_attendance_cubit_v2.dart';
+import '../../presentation/features/kiosk/cubit/kiosk_logout_cubit.dart';
 import '../../presentation/features/kiosk/utils/kiosk_access_control.dart';
 import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
 import '../../presentation/features/scheduling/cubit/add_shift_cubit.dart';
@@ -212,16 +218,24 @@ import '../../domain/features/student/usecases/get_student_codes_for_activity_ta
 import '../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../presentation/features/billing/cubit/select_students_cubit.dart';
 import '../../domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
+import '../../domain/features/student/usecases/get_immunization_settings_usecase.dart';
+import '../../domain/features/student/usecases/get_vaccine_name_to_code_map_for_school_usecase.dart';
 import '../../domain/features/activity/repositories/activity_repository.dart';
 import '../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';
 import '../../presentation/features/activities/cubit/activity_filter_cubit.dart';
 import '../../presentation/features/activities/cubit/activity_student_selection_cubit.dart';
+import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_selection_cubit.dart';
+import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_out_selection_cubit.dart';
+import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_transfer_selection_cubit.dart';
+import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_mark_absent_selection_cubit.dart';
 import '../../presentation/features/activities/cubit/activity_editor_cubit.dart';
 import '../../presentation/features/activities/cubit/activity_moderation_cubit.dart';
-import '../../presentation/features/activities/cubit/activity_daily_feed_cubit.dart';
 import '../../presentation/features/activities/cubit/medication_activity_cubit.dart';
 import '../../presentation/features/activities/cubit/bottle_activity_cubit.dart';
+import '../../presentation/features/activities/cubit/nap_activity_cubit.dart';
+import '../../presentation/features/activities/cubit/incident_activity_cubit.dart';
+import '../../presentation/features/activities/cubit/activity_feed_scope_cubit.dart';
 import '../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../domain/features/activity/usecases/create_shared_activities_usecase.dart';
@@ -241,15 +255,15 @@ import '../../data/features/activity/datasources/activity_remote_datasource.dart
 import '../../data/features/activity/repositories/activity_repository_impl.dart';
 import '../../presentation/features/auth/cubit/auth_cubit.dart';
 import '../../presentation/features/classroom/cubit/classroom_cubit.dart';
-import '../../presentation/features/classrooom/cubit/classroom_students_cubit.dart';
-import '../../presentation/features/classrooom/cubit/classroom_staff_cubit.dart';
+import '../../presentation/features/classroom/cubit/classroom_students_cubit.dart';
+import '../../presentation/features/classroom/cubit/classroom_staff_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_document_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_documents_list_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_profile_cubit.dart';
 import '../../presentation/features/staff/cubit/important_dates_cubit.dart';
 import '../../presentation/features/staff/cubit/create_school_user_cubit.dart';
-import '../../presentation/features/student/cubit/student_cubit.dart';
+import '../../presentation/features/students/cubit/student_cubit.dart';
 import '../../presentation/features/attendance/cubit/student_attendance_daily_cubit.dart';
 import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_mark_absent_cubit.dart';
 import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_edit_attendance_cubit.dart';
@@ -273,6 +287,7 @@ import '../../domain/features/communication/usecases/create_conversation_usecase
 import '../../domain/features/communication/usecases/get_conversations_usecase.dart';
 import '../../domain/features/communication/usecases/get_cached_conversations_usecase.dart';
 import '../../domain/features/communication/usecases/get_cached_messages_usecase.dart';
+import '../../domain/features/communication/usecases/cache_message_usecase.dart';
 import '../../domain/features/communication/usecases/add_reaction_usecase.dart';
 import '../../domain/features/communication/usecases/edit_message_usecase.dart';
 import '../../domain/features/communication/usecases/clear_cache_usecase.dart';
@@ -291,14 +306,21 @@ import '../../domain/features/communication/usecases/get_cached_conversations_en
 import '../../domain/features/communication/usecases/create_conversation_entity_usecase.dart';
 import '../../domain/features/communication/usecases/get_conversations_for_student_usecase.dart';
 import '../../domain/features/communication/usecases/get_conversations_for_classroom_usecase.dart';
+import '../../domain/features/communication/usecases/get_or_create_classroom_chat_usecase.dart';
+import '../../domain/features/communication/usecases/get_classroom_roster_present_user_codes_usecase.dart';
 import '../../domain/features/communication/usecases/toggle_private_mode_usecase.dart';
 import '../../domain/features/communication/usecases/mark_conversation_read_usecase.dart';
-import '../../domain/features/communication/usecases/get_unread_aggregates_usecase.dart';
+import '../../domain/features/communication/usecases/get_unread_counts_per_conversation_usecase.dart';
+import '../../domain/features/communication/usecases/get_message_receipts_usecase.dart';
 import '../../domain/features/communication/usecases/get_messages_entity_usecase.dart';
+import '../../domain/features/communication/usecases/get_cached_messages_entity_usecase.dart';
 import '../../domain/features/communication/usecases/send_message_entity_usecase.dart';
+import '../../domain/features/communication/usecases/cache_draft_message_usecase.dart';
+import '../../domain/features/communication/usecases/mark_draft_message_failed_usecase.dart';
 import '../../domain/features/communication/usecases/edit_message_entity_usecase.dart';
 import '../../domain/features/communication/usecases/delete_message_entity_usecase.dart';
 import '../../domain/features/communication/usecases/delete_attachment_entity_usecase.dart';
+import '../../domain/features/communication/usecases/get_message_entity_receipts_usecase.dart';
 import '../../domain/features/communication/usecases/search_messages_usecase.dart';
 import '../../domain/features/communication/usecases/add_reaction_entity_usecase.dart';
 import '../../domain/features/communication/usecases/remove_reaction_usecase.dart';
@@ -317,30 +339,30 @@ import '../../domain/features/communication/repositories/message_entity_reposito
 import '../../data/features/communication/realtime/conversation_realtime_data_source.dart';
 import '../../data/features/communication/realtime/message_realtime_data_source.dart';
 import '../../data/features/communication/realtime/firebase_token_data_source.dart';
+import '../../core/firebase/firebase_auth_service.dart';
 import '../../domain/features/communication/usecases/watch_conversations_usecase.dart';
 import '../../domain/features/communication/usecases/watch_total_unread_count_usecase.dart';
 import '../../domain/features/communication/usecases/watch_messages_usecase.dart';
 import '../../domain/features/communication/usecases/watch_unread_count_for_type_usecase.dart';
 import '../../domain/features/communication/usecases/register_firebase_token_usecase.dart';
-import '../../presentation/features/communication/v2/cubit/unread_badge_cubit.dart';
-import '../../data/features/newsletters/datasources/student_newsletters_remote_datasource.dart';
-import '../../data/features/newsletters/repositories/student_newsletters_repository_impl.dart';
+import '../../presentation/features/communication/cubit/unread_badge_cubit.dart';
+import '../../data/features/newsletter/datasources/student_newsletters_remote_datasource.dart';
+import '../../data/features/newsletter/repositories/student_newsletters_repository_impl.dart';
 import '../../data/features/newsletter/datasources/newsletter_remote_datasource.dart';
 import '../../data/features/newsletter/repositories/newsletter_repository_impl.dart';
 import '../../domain/features/newsletter/repositories/newsletter_repository.dart';
 import '../../domain/features/newsletter/usecases/get_sent_newsletters_usecase.dart';
 import '../../domain/features/newsletter/usecases/get_newsletter_by_code_usecase.dart';
-import '../../presentation/features/communication/presentation/messaging/cubit/newsletter_list_cubit.dart';
-import '../../presentation/features/communication/presentation/messaging/cubit/preview_newsletter_cubit.dart';
+import '../../presentation/features/newsletter/cubit/newsletter_list_cubit.dart';
+import '../../presentation/features/newsletter/cubit/preview_newsletter_cubit.dart';
 import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
-import '../../presentation/features/communication/presentation/messaging/util/chat_attachment_uploader.dart';
-import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
+import '../../presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
 import '../../presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import '../../shared/services/image_upload/image_upload_service.dart';
 import '../../shared/services/image_upload/profile_photo_uploader.dart';
-import '../../domain/features/newsletters/repositories/student_newsletters_repository.dart';
-import '../../domain/features/newsletters/usecases/get_student_newsletters_usecase.dart';
+import '../../domain/features/newsletter/repositories/student_newsletters_repository.dart';
+import '../../domain/features/newsletter/usecases/get_student_newsletters_usecase.dart';
 import '../../domain/features/student/usecases/get_student_profile_usecase.dart';
 import '../../data/features/geofencing/datasources/geofencing_local_datasource.dart';
 import '../../data/features/geofencing/repositories/geofencing_repository_impl.dart';
@@ -363,6 +385,7 @@ import '../../data/features/billing/repositories/ledger_transaction_repository_i
 import '../../domain/features/billing/repositories/billing_statements_repository.dart';
 import '../../domain/features/billing/usecases/get_billing_statements_usecase.dart';
 import '../../presentation/features/billing/cubit/admin_statements_cubit.dart';
+import '../../presentation/features/billing/cubit/parent_statements_cubit.dart';
 import '../../domain/features/billing/repositories/ledger_repository.dart';
 import '../../domain/features/billing/repositories/ledger_transaction_repository.dart';
 import '../../domain/features/billing/usecases/get_ledgers_usecase.dart';
@@ -414,6 +437,7 @@ import '../../data/features/billing/datasources/auto_pay_remote_datasource.dart'
 import '../../data/features/billing/repositories/auto_pay_repository_impl.dart';
 import '../../domain/features/billing/repositories/auto_pay_repository.dart';
 import '../../domain/features/billing/usecases/get_school_forte_config_usecase.dart';
+import '../../domain/features/billing/usecases/get_payment_settings_usecase.dart';
 import '../../domain/features/billing/usecases/get_autopay_status_usecase.dart';
 import '../../domain/features/billing/usecases/set_autopay_status_usecase.dart';
 import '../../domain/features/billing/usecases/get_payment_methods_usecase.dart';
@@ -422,8 +446,11 @@ import '../../domain/features/billing/usecases/set_primary_payment_method_usecas
 import '../../domain/features/billing/usecases/set_autopay_method_usecase.dart';
 import '../../domain/features/billing/usecases/delete_payment_method_usecase.dart';
 import '../../domain/features/billing/usecases/update_payment_method_usecase.dart';
+import '../../domain/features/billing/usecases/guardian_pay_usecase.dart';
 import '../../presentation/features/billing/cubit/auto_pay_methods_cubit.dart';
+import '../../presentation/features/billing/cubit/payment_settings_cubit.dart';
 import '../../presentation/features/billing/cubit/pay_now_cubit.dart';
+import '../../presentation/features/billing/cubit/pay_now_authorize_cubit.dart';
 import '../../domain/features/billing/usecases/create_discount_usecase.dart';
 import '../../domain/features/billing/usecases/update_discount_usecase.dart';
 import '../../domain/features/billing/usecases/delete_discount_usecase.dart';
@@ -476,12 +503,29 @@ Future<void> configureDependencies({String? baseUrl}) async {
   await isarCacheService.init();
   serviceLocator.registerLazySingleton<CacheService>(() => isarCacheService);
 
+  // Persistent, disk-backed cookie jar — the mobile equivalent of the web
+  // clients' `credentials: 'include'`. The backend's refresh-token cookie
+  // (set on /auth/login, read back on /auth/refresh) is captured and
+  // re-attached here automatically; nothing in app code parses Set-Cookie
+  // or constructs a Cookie header by hand. Stored under Application Support
+  // (not Documents — this is app-internal state, not user-facing) so it
+  // survives app restarts, not just hot reloads.
+  final cookieDir = await getApplicationSupportDirectory();
+  final cookieJar = PersistCookieJar(
+    storage: FileStorage('${cookieDir.path}/.cookies/'),
+  );
+  serviceLocator.registerLazySingleton<CookieJar>(() => cookieJar);
+
   serviceLocator.registerLazySingleton<ApiClient>(
     () => ApiClient(
       baseUrl: apiBaseUrl,
+      cookieJar: cookieJar,
       interceptors: <Interceptor>[
         AuthInterceptor(serviceLocator<StorageService>()),
-        SessionExpiredInterceptor(serviceLocator<StorageService>()),
+      ],
+      // Needs its own Dio so it can replay a request after a token refresh.
+      interceptorsBuilder: (dio) => <Interceptor>[
+        SessionExpiredInterceptor(dio),
       ],
     ),
   );
@@ -656,6 +700,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
 
+  serviceLocator.registerLazySingleton<FirebaseAuthService>(
+    () => FirebaseAuthService(
+      dio: serviceLocator<ApiClient>().client,
+      storage: serviceLocator<StorageService>(),
+    ),
+  );
+
   // ===== COMMUNICATION V2.1 — DATA SOURCES (Phase 1B) =====
   serviceLocator.registerLazySingleton<ConversationEntityRemoteDataSource>(
     () => ConversationEntityRemoteDataSourceImpl(apiClient: serviceLocator()),
@@ -742,8 +793,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<ParentBillingCubit>(
     () => ParentBillingCubit(
-      getGuardianFamilyLedger:
-          serviceLocator<GetGuardianFamilyLedgerUseCase>(),
+      getGuardianFamilyLedger: serviceLocator<GetGuardianFamilyLedgerUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );
@@ -793,7 +843,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<ReportsCubit>(
     () => ReportsCubit(
       storageService: serviceLocator(),
-      getTagNamesForSchoolUseCase: serviceLocator(),
+      getTagNameCodeMapForSchoolUseCase: serviceLocator(),
       generateReportUseCase: serviceLocator(),
       getRecentReportsUseCase: serviceLocator(),
       getStudentTagsUseCase: serviceLocator(),
@@ -805,6 +855,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => EditUserProfileCubit(
       storageService: serviceLocator(),
       staffRepository: serviceLocator(),
+      studentRemoteDataSource: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<UserProfileCubit>(
@@ -1038,6 +1089,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetGuardianNameCodeMapForSchoolUseCase>(
     () => GetGuardianNameCodeMapForSchoolUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetImmunizationSettingsUseCase>(
+    () => GetImmunizationSettingsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetVaccineNameToCodeMapForSchoolUseCase>(
+    () => GetVaccineNameToCodeMapForSchoolUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetStudentCountsUseCase>(
     () => GetStudentCountsUseCase(serviceLocator()),
   );
@@ -1085,15 +1142,56 @@ Future<void> configureDependencies({String? baseUrl}) async {
       staffRepository: serviceLocator<StaffRepository>(),
     ),
   );
+  serviceLocator.registerFactory<StudentSignInSelectionCubit>(
+    () => StudentSignInSelectionCubit(
+      storageService: serviceLocator<StorageService>(),
+      cacheManager: serviceLocator<CacheManager>(),
+      getActiveClassroomsUseCase: serviceLocator<GetActiveClassroomsUseCase>(),
+      getTagNameCodeMapForSchoolUseCase:
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      getStudentSignInFormListUseCase:
+          serviceLocator<GetStudentSignInFormListUseCase>(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentSignOutSelectionCubit>(
+    () => StudentSignOutSelectionCubit(
+      storageService: serviceLocator<StorageService>(),
+      cacheManager: serviceLocator<CacheManager>(),
+      getActiveClassroomsUseCase: serviceLocator<GetActiveClassroomsUseCase>(),
+      getTagNameCodeMapForSchoolUseCase:
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      getStudentSignOutFormListUseCase:
+          serviceLocator<GetStudentSignOutFormListUseCase>(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentTransferSelectionCubit>(
+    () => StudentTransferSelectionCubit(
+      storageService: serviceLocator<StorageService>(),
+      cacheManager: serviceLocator<CacheManager>(),
+      getActiveClassroomsUseCase: serviceLocator<GetActiveClassroomsUseCase>(),
+      getTagNameCodeMapForSchoolUseCase:
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      getStudentTransferFormListUseCase:
+          serviceLocator<GetStudentTransferFormListUseCase>(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentMarkAbsentSelectionCubit>(
+    () => StudentMarkAbsentSelectionCubit(
+      storageService: serviceLocator<StorageService>(),
+      cacheManager: serviceLocator<CacheManager>(),
+      getActiveClassroomsUseCase: serviceLocator<GetActiveClassroomsUseCase>(),
+      getTagNameCodeMapForSchoolUseCase:
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      getStudentAbsentFormListUseCase:
+          serviceLocator<GetStudentAbsentFormListUseCase>(),
+    ),
+  );
   serviceLocator.registerFactory<ActivityModerationCubit>(
     () => ActivityModerationCubit(
       deleteActivityUseCase: serviceLocator<DeleteActivityUseCase>(),
       approveActivityUseCase: serviceLocator<ApproveActivityUseCase>(),
       rejectActivityUseCase: serviceLocator<RejectActivityUseCase>(),
     ),
-  );
-  serviceLocator.registerFactory<ActivityDailyFeedCubit>(
-    () => ActivityDailyFeedCubit(),
   );
   serviceLocator.registerFactory<ActivityEditorCubit>(
     () => ActivityEditorCubit(
@@ -1112,6 +1210,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
           serviceLocator<GuardianParentSignatureUseCase>(),
       getGuardianNameCodeMapForSchoolUseCase:
           serviceLocator<GetGuardianNameCodeMapForSchoolUseCase>(),
+      getStaffTodaySignInStatusUseCase:
+          serviceLocator<GetStaffTodaySignInStatusUseCase>(),
     ),
   );
   // Per-form ViewModel for the Medication activity screen. Factory so each
@@ -1126,6 +1226,39 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => BottleActivityCubit(
       editor: serviceLocator<ActivityEditorCubit>(),
       storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<NapActivityCubit>(
+    () => NapActivityCubit(
+      getNapStartStudentsUseCase: serviceLocator<GetNapStartStudentsUseCase>(),
+    ),
+  );
+  serviceLocator.registerFactory<IncidentActivityCubit>(
+    () => IncidentActivityCubit(
+      storageService: serviceLocator<StorageService>(),
+      staffRepository: serviceLocator<StaffRepository>(),
+    ),
+  );
+  serviceLocator.registerFactory<ActivityFeedScopeCubit>(
+    () => ActivityFeedScopeCubit(
+      getDailyActivityFeedUseCase: serviceLocator<GetDailyActivityFeedUseCase>(),
+      getRangeActivityFeedUseCase: serviceLocator<GetRangeActivityFeedUseCase>(),
+      getActiveClassroomsUseCase: serviceLocator<GetActiveClassroomsUseCase>(),
+      getActiveActivityTypesForSchoolUseCase:
+          serviceLocator<GetActiveActivityTypesForSchoolUseCase>(),
+      getStudentClassroomListUseCase:
+          serviceLocator<GetStudentClassroomListUseCase>(),
+      getTagNameCodeMapForSchoolUseCase:
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      getStudentCodesForActivityTagFilterUseCase:
+          serviceLocator<GetStudentCodesForActivityTagFilterUseCase>(),
+      getStudentPageUseCase: serviceLocator<GetStudentPageUseCase>(),
+      getStudentAttendanceDailyUseCase:
+          serviceLocator<GetStudentAttendanceDailyUseCase>(),
+      getStudentAbsentRecordsActivityUseCase:
+          serviceLocator<GetStudentAbsentRecordsActivityUseCase>(),
+      staffRepository: serviceLocator<StaffRepository>(),
+      storageService: serviceLocator<StorageService>(),
     ),
   );
   serviceLocator.registerFactory<GetActivityTypeDetailsUseCase>(
@@ -1203,6 +1336,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetCachedMessagesUseCase>(
     () => GetCachedMessagesUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<CacheMessageUseCase>(
+    () => CacheMessageUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DiscardCachedMessageUseCase>(
+    () => DiscardCachedMessageUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<AddReactionUseCase>(
     () => AddReactionUseCase(serviceLocator()),
   );
@@ -1257,14 +1396,23 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetConversationsForClassroomUseCase>(
     () => GetConversationsForClassroomUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetOrCreateClassroomChatUseCase>(
+    () => GetOrCreateClassroomChatUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetClassroomRosterPresentUserCodesUseCase>(
+    () => GetClassroomRosterPresentUserCodesUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<TogglePrivateModeUseCase>(
     () => TogglePrivateModeUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<MarkConversationReadUseCase>(
     () => MarkConversationReadUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<GetUnreadAggregatesUseCase>(
-    () => GetUnreadAggregatesUseCase(serviceLocator()),
+  serviceLocator.registerFactory<GetUnreadCountsPerConversationUseCase>(
+    () => GetUnreadCountsPerConversationUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetMessageReceiptsUseCase>(
+    () => GetMessageReceiptsUseCase(serviceLocator()),
   );
   // Single app-session instance — previously each consumer (GlobalScaffold,
   // StaffAttendanceTabbedView, StudentAttendanceTabbedView) constructed its
@@ -1273,7 +1421,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<UnreadBadgeCubit>(
     () => UnreadBadgeCubit(
       watchUnreadCountForTypeUseCase: serviceLocator(),
-      getUnreadAggregatesUseCase: serviceLocator(),
+      watchTotalUnreadCountUseCase: serviceLocator(),
     ),
   );
   // MessageEntityRepository use cases
@@ -1283,6 +1431,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<SendMessageEntityUseCase>(
     () => SendMessageEntityUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<CacheDraftMessageUseCase>(
+    () => CacheDraftMessageUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<MarkDraftMessageFailedUseCase>(
+    () => MarkDraftMessageFailedUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetCachedMessagesEntityUseCase>(
+    () => GetCachedMessagesEntityUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<EditMessageEntityUseCase>(
     () => EditMessageEntityUseCase(serviceLocator()),
   );
@@ -1291,6 +1448,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<DeleteAttachmentEntityUseCase>(
     () => DeleteAttachmentEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetMessageEntityReceiptsUseCase>(
+    () => GetMessageEntityReceiptsUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<SearchMessagesUseCase>(
     () => SearchMessagesUseCase(serviceLocator()),
@@ -1370,7 +1530,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   // Cubits (factory - new instance each time for UI)
   serviceLocator.registerFactory<ClassroomShiftsCubit>(
     () => ClassroomShiftsCubit(
-      getRatioMonitoringClassroomsUseCase: serviceLocator(),
+      getActiveClassroomsUseCase: serviceLocator(),
       getClassroomForecastUseCase: serviceLocator(),
       getSchoolStaffShiftsUseCase: serviceLocator(),
       staffRepository: serviceLocator(),
@@ -1428,6 +1588,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
       apiClient: serviceLocator(),
     ),
   );
+  serviceLocator.registerFactory<WorkBreakReminderCubit>(
+    () => WorkBreakReminderCubit(staffRepository: serviceLocator()),
+  );
   serviceLocator.registerFactory<DashboardAttentionCubit>(
     () => DashboardAttentionCubit(
       activityRepository: serviceLocator(),
@@ -1465,6 +1628,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       remoteDataSource: serviceLocator(),
       registerDeviceFcmToken: serviceLocator(),
       unregisterDeviceFcmToken: serviceLocator(),
+      firebaseAuthService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StaffCubit>(
@@ -1647,7 +1811,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       editMessageUseCase: serviceLocator<EditMessageUseCase>(),
       deleteMessageUseCase: serviceLocator<DeleteMessageUseCase>(),
       deleteAttachmentUseCase: serviceLocator<DeleteAttachmentUseCase>(),
-      removeReactionLegacyUseCase: serviceLocator<RemoveReactionLegacyUseCase>(),
+      removeReactionLegacyUseCase:
+          serviceLocator<RemoveReactionLegacyUseCase>(),
       clearMessagesCacheUseCase: serviceLocator<ClearMessagesCacheUseCase>(),
       clearConversationsCacheUseCase:
           serviceLocator<ClearConversationsCacheUseCase>(),
@@ -1657,11 +1822,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
           serviceLocator<WatchConversationsLegacyUseCase>(),
       markConversationDeliveredUseCase:
           serviceLocator<MarkConversationDeliveredUseCase>(),
+      markConversationReadUseCase:
+          serviceLocator<MarkConversationReadUseCase>(),
       storageService: serviceLocator<StorageService>(),
+      cacheMessageUseCase: serviceLocator<CacheMessageUseCase>(),
+      discardCachedMessageUseCase:
+          serviceLocator<DiscardCachedMessageUseCase>(),
+      getMessageReceiptsUseCase: serviceLocator<GetMessageReceiptsUseCase>(),
     ),
-  );
-  serviceLocator.registerFactory<CreateConversationCubit>(
-    () => CreateConversationCubit(createConversationUseCase: serviceLocator()),
   );
 
   serviceLocator.registerLazySingleton<StudentNewslettersRemoteDataSource>(
@@ -1799,13 +1967,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
 
-  // Notification center (bell-icon inbox) — delivery logs API.
-  serviceLocator.registerLazySingleton<NotificationLogsRemoteDataSource>(
-    () => NotificationLogsRemoteDataSourceImpl(apiClient: serviceLocator()),
+  // Notification center (bell-icon inbox) — /notification/inbox API.
+  serviceLocator.registerLazySingleton<NotificationInboxRemoteDataSource>(
+    () => NotificationInboxRemoteDataSourceImpl(apiClient: serviceLocator()),
   );
   serviceLocator.registerLazySingleton<NotificationCenterDataSource>(
     () => NotificationCenterRemoteDataSource(
-      logsRemote: serviceLocator(),
+      inboxRemote: serviceLocator(),
       storage: serviceLocator(),
     ),
   );
@@ -1821,33 +1989,54 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<MarkAllNotificationsReadUseCase>(
     () => MarkAllNotificationsReadUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetNotificationUnreadCountsUseCase>(
+    () => GetNotificationUnreadCountsUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<NotificationCenterCubit>(
     () => NotificationCenterCubit(
       getNotificationsUseCase: serviceLocator(),
       markNotificationReadUseCase: serviceLocator(),
       markAllNotificationsReadUseCase: serviceLocator(),
+      getUnreadCountsUseCase: serviceLocator(),
+    ),
+  );
+  // Sole source for the bell badge count: a Firestore listener on
+  // userNotifications/{userCode}/notifications, counted client-side per
+  // snapshot — never REST (see NotificationRealtimeDataSource's own doc).
+  serviceLocator.registerLazySingleton<NotificationRealtimeDataSource>(
+    () => FirebaseNotificationRealtimeDataSource(
+      firestore: FirebaseFirestore.instance,
+    ),
+  );
+  // Shared app-session singleton powering the app-bar bell badge (mirrors
+  // UnreadBadgeCubit). Provided at the app root; started on GlobalScaffold mount.
+  serviceLocator.registerLazySingleton<NotificationBadgeCubit>(
+    () => NotificationBadgeCubit(
+      realtime: serviceLocator<NotificationRealtimeDataSource>(),
+      storage: serviceLocator<StorageService>(),
     ),
   );
 
-  // Notification preferences (settings screen) — GET/PATCH /preferences.
-  serviceLocator.registerLazySingleton<NotificationPreferencesRemoteDataSource>(
-    () => NotificationPreferencesRemoteDataSourceImpl(
-      serviceLocator<ApiClient>().client,
-    ),
+  // Notification preferences (settings screen) — GET/PATCH /preferences/groups.
+  serviceLocator
+      .registerLazySingleton<NotificationPreferenceGroupsRemoteDataSource>(
+        () => NotificationPreferenceGroupsRemoteDataSourceImpl(
+          serviceLocator<ApiClient>().client,
+        ),
+      );
+  serviceLocator.registerLazySingleton<NotificationPreferenceGroupsRepository>(
+    () => NotificationPreferenceGroupsRepositoryImpl(serviceLocator()),
   );
-  serviceLocator.registerLazySingleton<NotificationPreferencesRepository>(
-    () => NotificationPreferencesRepositoryImpl(serviceLocator()),
+  serviceLocator.registerFactory<GetNotificationPreferenceGroupsUseCase>(
+    () => GetNotificationPreferenceGroupsUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<GetNotificationPreferencesUseCase>(
-    () => GetNotificationPreferencesUseCase(serviceLocator()),
+  serviceLocator.registerFactory<UpdateNotificationPreferenceGroupsUseCase>(
+    () => UpdateNotificationPreferenceGroupsUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<UpdateNotificationPreferencesUseCase>(
-    () => UpdateNotificationPreferencesUseCase(serviceLocator()),
-  );
-  serviceLocator.registerFactory<NotificationSettingsCubit>(
-    () => NotificationSettingsCubit(
-      getPreferences: serviceLocator(),
-      updatePreferences: serviceLocator(),
+  serviceLocator.registerFactory<NotificationPreferenceGroupsCubit>(
+    () => NotificationPreferenceGroupsCubit(
+      getGroups: serviceLocator(),
+      updateGroups: serviceLocator(),
       storage: serviceLocator(),
     ),
   );
@@ -1942,14 +2131,24 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
 
-  // Legacy cubit (kept for backwards compatibility if needed)
-  serviceLocator.registerFactory<KioskAttendanceCubit>(
-    () => KioskAttendanceCubit(
-      attendanceRepository: serviceLocator(),
-      storageService: serviceLocator(),
-      apiClient: serviceLocator(),
+  // Kiosk logout cubit
+  serviceLocator.registerFactory<KioskLogoutCubit>(
+    () => KioskLogoutCubit(
+      authCubit: serviceLocator<AuthCubit>(),
+      verifyKioskPinUseCase: serviceLocator<VerifyKioskPinUseCase>(),
+      storageService: serviceLocator<StorageService>(),
+      kioskAccessControl: serviceLocator<KioskAccessControl>(),
     ),
   );
+
+  // Legacy cubit (kept for backwards compatibility if needed)
+  // serviceLocator.registerFactory<KioskAttendanceCubit>(
+  //   () => KioskAttendanceCubit(
+  //     attendanceRepository: serviceLocator(),
+  //     storageService: serviceLocator(),
+  //     apiClient: serviceLocator(),
+  //   ),
+  // );
 
   // ── Billing ───────────────────────────────────────────────────────────────
   serviceLocator.registerLazySingleton<LedgerRemoteDataSource>(
@@ -2060,11 +2259,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
 
   // ── Invoice catalog (fee structures / other fees / subsidies) ───────────────
   serviceLocator.registerLazySingleton<InvoiceCatalogRemoteDataSource>(
-    () => InvoiceCatalogRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+    () =>
+        InvoiceCatalogRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
   serviceLocator.registerLazySingleton<InvoiceCatalogRepository>(
     () => InvoiceCatalogRepositoryImpl(
-        serviceLocator<InvoiceCatalogRemoteDataSource>()),
+      serviceLocator<InvoiceCatalogRemoteDataSource>(),
+    ),
   );
   serviceLocator.registerFactory<GetFeeStructuresUseCase>(
     () => GetFeeStructuresUseCase(serviceLocator<InvoiceCatalogRepository>()),
@@ -2079,7 +2280,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => InvoiceRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
   serviceLocator.registerLazySingleton<InvoiceRepository>(
-    () => InvoiceRepositoryImpl(serviceLocator<InvoiceRemoteDataSource>()),
+    () => InvoiceRepositoryImpl(
+      serviceLocator<InvoiceRemoteDataSource>(),
+      serviceLocator<CacheManager>(),
+    ),
   );
   serviceLocator.registerFactory<CreateInvoiceUseCase>(
     () => CreateInvoiceUseCase(serviceLocator<InvoiceRepository>()),
@@ -2126,7 +2330,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
   serviceLocator.registerLazySingleton<BillingStatementsRemoteDataSource>(
-    () => BillingStatementsRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+    () => BillingStatementsRemoteDataSourceImpl(
+      serviceLocator<ApiClient>().client,
+    ),
   );
   serviceLocator.registerLazySingleton<BillingStatementsRepository>(
     () => BillingStatementsRepositoryImpl(
@@ -2140,6 +2346,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<AdminStatementsCubit>(
     () => AdminStatementsCubit(
+      getStatements: serviceLocator<GetBillingStatementsUseCase>(),
+      statementsRepository: serviceLocator<BillingStatementsRepository>(),
+      fileDownloadService: serviceLocator<FileDownloadService>(),
+    ),
+  );
+  serviceLocator.registerFactory<ParentStatementsCubit>(
+    () => ParentStatementsCubit(
       getStatements: serviceLocator<GetBillingStatementsUseCase>(),
       statementsRepository: serviceLocator<BillingStatementsRepository>(),
       fileDownloadService: serviceLocator<FileDownloadService>(),
@@ -2194,6 +2407,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetSchoolForteConfigUseCase>(
     () => GetSchoolForteConfigUseCase(serviceLocator<AutoPayRepository>()),
   );
+  serviceLocator.registerFactory<GetPaymentSettingsUseCase>(
+    () => GetPaymentSettingsUseCase(serviceLocator<AutoPayRepository>()),
+  );
+  serviceLocator.registerFactory<PaymentSettingsCubit>(
+    () => PaymentSettingsCubit(
+      getPaymentSettings: serviceLocator<GetPaymentSettingsUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
+  );
   serviceLocator.registerFactory<GetAutoPayStatusUseCase>(
     () => GetAutoPayStatusUseCase(serviceLocator<AutoPayRepository>()),
   );
@@ -2220,13 +2442,23 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<PayNowCubit>(
     () => PayNowCubit(
-      getFamilySummary: serviceLocator<GetFamilySummaryUseCase>(),
+      getGuardianFamilyLedger: serviceLocator<GetGuardianFamilyLedgerUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<GuardianPayUseCase>(
+    () => GuardianPayUseCase(serviceLocator<AutoPayRepository>()),
+  );
+  serviceLocator.registerFactory<PayNowAuthorizeCubit>(
+    () => PayNowAuthorizeCubit(
+      guardianPay: serviceLocator<GuardianPayUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );
   serviceLocator.registerFactory<AutoPayMethodsCubit>(
     () => AutoPayMethodsCubit(
       getForteConfig: serviceLocator<GetSchoolForteConfigUseCase>(),
+      getPaymentSettings: serviceLocator<GetPaymentSettingsUseCase>(),
       getStatus: serviceLocator<GetAutoPayStatusUseCase>(),
       setStatus: serviceLocator<SetAutoPayStatusUseCase>(),
       getMethods: serviceLocator<GetPaymentMethodsUseCase>(),

@@ -16,6 +16,7 @@ class SchoolImmunizationReportParams extends Equatable implements ReportParams {
     required this.includeParentName,
     required this.includeParentEmail,
     required this.format,
+    required this.schoolName,
     this.classroomCodes,
     this.tagCodes,
   });
@@ -37,6 +38,8 @@ class SchoolImmunizationReportParams extends Equatable implements ReportParams {
   /// Whether to include parent name in the report
   final bool includeParentName;
 
+  final String schoolName;
+
   /// Whether to include parent email in the report
   final bool includeParentEmail;
 
@@ -49,22 +52,48 @@ class SchoolImmunizationReportParams extends Equatable implements ReportParams {
   /// Optional tag codes (empty = all tags)
   final List<String>? tagCodes;
 
+  // @override
+  // Map<String, dynamic> toRequestBody() {
+  //   return {
+  //     'reportType': 'IMMUNIZATION',
+  //     'startDate': startDate.toIso8601String().split('T')[0],
+  //     'endDate': endDate.toIso8601String().split('T')[0],
+  //     'vaccineCodes': vaccineCodes,
+  //     'schoolName': schoolName,
+  //     // Key names confirmed against the web client's verified IMMUNIZATION
+  //     // payload: roomCodes/tagCodes/statusFilter, not classrooms/tags/statuses.
+  //     'statusFilter': statusFilters,
+  //     'includeParentName': includeParentName,
+  //     'includeParentEmail': includeParentEmail,
+  //     if (classroomCodes != null && classroomCodes!.isNotEmpty)
+  //       'roomCodes': classroomCodes,
+  //     if (tagCodes != null && tagCodes!.isNotEmpty) 'tagCodes': tagCodes,
+  //     'format': format,
+  //   };
+  // }
+
   @override
   Map<String, dynamic> toRequestBody() {
-    return {
+    final body = <String, dynamic>{
       'reportType': 'IMMUNIZATION',
       'startDate': startDate.toIso8601String().split('T')[0],
       'endDate': endDate.toIso8601String().split('T')[0],
       'vaccineCodes': vaccineCodes,
-      'statuses': statusFilters,
+      'schoolName': schoolName,
+      'statusFilter': statusFilters,
       'includeParentName': includeParentName,
       'includeParentEmail': includeParentEmail,
-      if (classroomCodes != null && classroomCodes!.isNotEmpty)
-        'classrooms': classroomCodes,
-      if (tagCodes != null && tagCodes!.isNotEmpty)
-        'tags': tagCodes,
       'format': format,
     };
+
+    if (classroomCodes != null && classroomCodes!.isNotEmpty) {
+      body['roomCodes'] = classroomCodes;
+    }
+    if (tagCodes != null && tagCodes!.isNotEmpty) {
+      body['tagCodes'] = tagCodes;
+    }
+
+    return body;
   }
 
   @override
@@ -74,8 +103,10 @@ class SchoolImmunizationReportParams extends Equatable implements ReportParams {
       startDate.toIso8601String().split('T')[0],
       endDate.toIso8601String().split('T')[0],
       'vaccines=${vaccineCodes.join(',')}',
+      'schoolName=$schoolName',
       'statuses=${statusFilters.join(',')}',
       'parentName=$includeParentName',
+
       'parentEmail=$includeParentEmail',
       if (classroomCodes != null && classroomCodes!.isNotEmpty)
         'classrooms=${classroomCodes!.join(',')}',
@@ -93,6 +124,7 @@ class SchoolImmunizationReportParams extends Equatable implements ReportParams {
     vaccineCodes,
     statusFilters,
     includeParentName,
+    schoolName,
     includeParentEmail,
     format,
     classroomCodes,

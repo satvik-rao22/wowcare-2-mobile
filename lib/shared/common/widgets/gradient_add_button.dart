@@ -11,6 +11,10 @@ class GradientAddButton extends StatelessWidget {
   final bool isLargeTablet;
   final bool isRectangle;
 
+  /// Renders the button grey instead of gradient. [onTap] still fires, so the
+  /// caller can explain why it's unavailable (e.g. a tooltip).
+  final bool isDisabled;
+
   const GradientAddButton({
     Key? key,
     this.onTap = null,
@@ -21,6 +25,7 @@ class GradientAddButton extends StatelessWidget {
     this.isRectangle = true,
     this.isLargeTablet = false,
     this.wantedButtonSize,
+    this.isDisabled = false,
   }) : super(key: key);
 
   @override
@@ -76,20 +81,28 @@ class GradientAddButton extends StatelessWidget {
               height: wantedButtonSize ?? buttonSize,
               decoration: BoxDecoration(
                 shape: isRectangle ? BoxShape.rectangle : BoxShape.circle,
-                gradient:
-                    AppColors.buildPrimaryGradient(), // Use your app's gradient
+                color: isDisabled ? Colors.grey.shade300 : null,
+                gradient: isDisabled
+                    ? null
+                    : AppColors.buildPrimaryGradient(), // Use your app's gradient
                 borderRadius: isRectangle
                     ? BorderRadius.circular(buttonBorderRadius)
                     : null,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+                boxShadow: isDisabled
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
               ),
-              child: Icon(Icons.add, color: Colors.white, size: buttonIconSize),
+              child: Icon(
+                Icons.add,
+                color: isDisabled ? Colors.grey.shade600 : Colors.white,
+                size: buttonIconSize,
+              ),
             ),
           );
   }

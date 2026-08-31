@@ -105,13 +105,22 @@ class FcmTokenRegistrationService {
     );
   }
 
-  /// Collapses backend role codes (e.g. SCHOOL_ADMIN, ORGANIZATION_ADMIN,
-  /// TEACHER) into the role enum the notification service expects:
-  /// ADMIN | STAFF | GUARDIAN. Anything unrecognised (incl. empty) → STAFF.
+  /// Collapses backend roles / staff designations into the role enum the
+  /// notification service expects: SCHOOL_ADMIN | STAFF | GUARDIAN.
+  ///
+  /// All admin personas — the admin ROLES (SCHOOL_ADMIN, ORGANIZATION_ADMIN)
+  /// and the admin DESIGNATIONS (Director, Admin, Assistant Director, Owner) —
+  /// map to SCHOOL_ADMIN. Everything else staff-side (Lead/Associate/Assistant
+  /// Teacher, Floater, TEACHER, …) maps to STAFF. Empty → STAFF.
   String _normalizeRole(String raw) {
     final r = raw.trim().toUpperCase();
+    if (r.isEmpty) return 'STAFF';
     if (r.contains('GUARDIAN') || r.contains('PARENT')) return 'GUARDIAN';
-    if (r.contains('ADMIN')) return 'ADMIN';
+    if (r.contains('ADMIN') ||
+        r.contains('DIRECTOR') ||
+        r == 'OWNER') {
+      return 'SCHOOL_ADMIN';
+    }
     return 'STAFF';
   }
 
@@ -123,11 +132,23 @@ class FcmTokenRegistrationService {
     if (raw == null || raw.isEmpty) return '';
     try {
       final list = jsonDecode(raw) as List<dynamic>;
+      // 1) Exact org + school match (school-scoped personas).
       for (final entry in list) {
         if (entry is! Map) continue;
         final org = (entry['organizationCode'] ?? '').toString().trim();
         final school = (entry['schoolCode'] ?? '').toString().trim();
         if (org == organizationCode && school == schoolCode) {
+          return (entry['role'] ?? '').toString().trim();
+        }
+      }
+      // 2) Org-level fallback: ORGANIZATION_ADMIN entries are stored with an
+      //    empty schoolCode (org-scoped), so the exact match above never hits
+      //    them. Without this an org admin resolves to '' → normalized STAFF.
+      for (final entry in list) {
+        if (entry is! Map) continue;
+        final org = (entry['organizationCode'] ?? '').toString().trim();
+        final school = (entry['schoolCode'] ?? '').toString().trim();
+        if (org == organizationCode && school.isEmpty) {
           return (entry['role'] ?? '').toString().trim();
         }
       }

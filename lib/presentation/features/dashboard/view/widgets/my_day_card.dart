@@ -1,31 +1,50 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/staff/entities/school_regular_schedule_day.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/work_break_reminder_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/qr_scan_button.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
+import 'package:wowcare/core/util/attendance_events.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_conversations_entity_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation_entity_display.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
+import 'package:wowcare/src/app_router.dart';
 import '../../../../../core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 // ---------------------------------------------------------------------------
 // MyDayCard
@@ -44,7 +63,10 @@ class MyDayCard extends StatefulWidget {
   State<MyDayCard> createState() => _MyDayCardState();
 }
 
-class _MyDayCardState extends State<MyDayCard> {
+class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
+  // Token / generation counter to invalidate stale async operations on persona switch
+  int _profileGeneration = 0;
+
   // ---- collapse state ----
   bool _minimized = false;
 
@@ -59,12 +81,81 @@ class _MyDayCardState extends State<MyDayCard> {
   // callbacks when ancestor InheritedWidgets rebuild.
   bool _geofenceInitScheduled = false;
 
+  void _resetForProfileSwitch() {
+    _profileGeneration++;
+    setState(() {
+      _signInStatusLoaded = false;
+      _staffIdentityLoaded = false;
+      _todayStatusRaw = null;
+      _isSignedIn = false;
+      _staffCode = '';
+      _userCode = '';
+      _staffDisplayName = '';
+      _staffDesignation = '';
+      _geofencePopupShownThisEntry = false;
+    });
+  }
+
   // ---- sign-in status ----
   bool _isSignedIn = false;
+
+  // True once the async today-sign-in-status fetch in `_loadStaffIdentity`
+  // has resolved (success or failure) at least once. `_isSignedIn` defaults
+  // to false until then, so the geofence-entry popup must not trust it (and
+  // must not decide "show" or "don't show") until this is true — otherwise
+  // an already-signed-in user restarting the app inside the geofence (e.g.
+  // GeofenceCubit reporting `withinRange` from a cached last-known location
+  // before the attendance API call resolves) would incorrectly see the
+  // Sign-In sheet.
+  bool _signInStatusLoaded = false;
+
+  // Raw today-status string from the API (e.g. SIGNED_IN, ABSENT,
+  // SIGNED_OUT). Kept alongside `_isSignedIn` because the boolean alone
+  // can't distinguish "not signed in" from "already marked absent today",
+  // which the attendance gate below needs to disable actions correctly.
+  String? _todayStatusRaw;
+
+  /// Same gate used by the admin attendance pop-up
+  /// ([StaffAttendanceVerticalPopupOnly] via `staff_attendance_profile.dart`)
+  /// so self-service Sign-In/Sign-Out/Transfer/Mark-Absent rules stay
+  /// consistent across both surfaces.
+  StaffAttendanceGate get _todayGate => staffAttendanceGateFromTodayStatus(
+    isActiveProfile: true,
+    todayStatusRaw: _todayStatusRaw,
+  );
+
+  /// Geofencing is the first-class gate for every self-attendance action:
+  /// staff must be within the school's geofence before any of Sign-In,
+  /// Sign-Out, Transfer or Mark-Absent become available. Within range, the
+  /// day's status (via [_todayGate]) decides which of the four apply.
+  StaffAttendanceActionAvailability _availability(
+    GeofenceState geofenceState,
+  ) => _todayGate.availabilityWithGeofence(geofenceState.isWithinGeofence);
+
+  Map<String, String> _disabledReasons(GeofenceState geofenceState) =>
+      staffAttendanceDisabledReasonsWithGeofence(
+        _todayGate,
+        isWithinGeofence: geofenceState.isWithinGeofence,
+      );
+
+  bool _markAbsentDisabled(GeofenceState geofenceState) =>
+      !_staffIdentityLoaded ||
+      _effectiveStaffCode.isEmpty ||
+      !_availability(geofenceState).absentEnabled;
 
   // Cached staff identity — loaded once in initState so button taps never hit
   // a timing window where storage hasn't resolved yet.
   String _staffCode = '';
+  // Pure admins (role == 'admin', not also 'staff') have no staff profile, so
+  // StorageKeys.staffCode is legitimately empty for them — StorageKeys.userCode
+  // is used as their self-attendance identity instead.
+  String _userCode = '';
+
+  /// The identity used for self-attendance actions (Sign-In/Sign-Out/Transfer/
+  /// Mark Absent): the real staffCode when the user has a staff profile,
+  /// falling back to their userCode for staff-less personas (pure admins).
+  String get _effectiveStaffCode =>
+      _staffCode.isNotEmpty ? _staffCode : _userCode;
   String _staffDisplayName = '';
   String _staffDesignation = '';
   bool _staffIdentityLoaded = false;
@@ -211,8 +302,31 @@ class _MyDayCardState extends State<MyDayCard> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    AttendanceEvents.tick.addListener(_handleAttendanceChanged);
     unawaited(_loadClockPin());
     unawaited(_loadStaffIdentity());
+  }
+
+  void _handleAttendanceChanged() {
+    if (!mounted) return;
+    unawaited(_loadClockPin());
+    unawaited(_loadStaffIdentity());
+    try {
+      final myDayCubit = context.read<MyDayCubit>();
+      unawaited(myDayCubit.load());
+    } catch (_) {}
+  }
+
+  // Re-checks sign-in status the moment the app comes back to the
+  // foreground — covers the case where this staff member was signed in/out
+  // from the web (or another device) while the app was backgrounded, so the
+  // Sign-In/Sign-Out button doesn't stay stuck showing the stale state.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted) return;
+    unawaited(_loadStaffIdentity());
+    unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
   }
 
   @override
@@ -257,9 +371,13 @@ class _MyDayCardState extends State<MyDayCard> {
       final storage = serviceLocator<StorageService>();
       final schoolCode =
           (await storage.getString(StorageKeys.schoolCode))?.trim() ?? '';
-      debugPrint('[MyDayCard] _initializeGeofencing — schoolCode="$schoolCode" mounted=$mounted');
+      debugPrint(
+        '[MyDayCard] _initializeGeofencing — schoolCode="$schoolCode" mounted=$mounted',
+      );
       if (schoolCode.isEmpty) {
-        debugPrint('[MyDayCard] ⚠️ schoolCode is empty — geofencing cannot start. Check that StorageKeys.schoolCode is saved after login.');
+        debugPrint(
+          '[MyDayCard] ⚠️ schoolCode is empty — geofencing cannot start. Check that StorageKeys.schoolCode is saved after login.',
+        );
         return;
       }
       if (!mounted) return;
@@ -273,6 +391,8 @@ class _MyDayCardState extends State<MyDayCard> {
 
   @override
   void dispose() {
+    AttendanceEvents.tick.removeListener(_handleAttendanceChanged);
+    WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     super.dispose();
   }
@@ -307,32 +427,96 @@ class _MyDayCardState extends State<MyDayCard> {
   /// Loads staff identity and sign-in status in one pass so button taps
   /// never hit a timing window where storage hasn't resolved yet.
   Future<void> _loadStaffIdentity() async {
+    final generation = ++_profileGeneration;
     final storage = serviceLocator<StorageService>();
-    final code = (await storage.getString(StorageKeys.staffCode))?.trim() ?? '';
+    String code = await resolveStaffCodeForLoggedInUser();
+    if (code.isEmpty) {
+      code = (await storage.getString(StorageKeys.staffCode))?.trim() ?? '';
+    }
+    final userCode =
+        (await storage.getString(StorageKeys.userCode))?.trim() ?? '';
     final name = (await storage.getString(StorageKeys.displayName) ?? '')
         .trim();
     final designation =
         (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
-    if (!mounted) return;
+    if (!mounted || generation != _profileGeneration) return;
     setState(() {
       _staffCode = code;
+      _userCode = userCode;
       _staffDisplayName = name;
       _staffDesignation = designation;
       _staffIdentityLoaded = true;
     });
-    if (code.isEmpty) return;
+    final effectiveCode = _effectiveStaffCode;
+    if (effectiveCode.isEmpty) {
+      if (mounted && generation == _profileGeneration) {
+        setState(() {
+          _todayStatusRaw = null;
+          _isSignedIn = false;
+          _signInStatusLoaded = true;
+        });
+      }
+      return;
+    }
     try {
       final useCase = serviceLocator<GetStaffTodaySignInStatusUseCase>();
-      final status = await useCase(staffCode: code);
-      if (!mounted) return;
-      setState(() => _isSignedIn = status?.toUpperCase() == 'SIGNED_IN');
+      final status = await useCase(staffCode: effectiveCode);
+      if (!mounted || generation != _profileGeneration) return;
+      final signedIn = status?.toUpperCase() == 'SIGNED_IN';
+      setState(() {
+        _todayStatusRaw = status;
+        _isSignedIn = signedIn;
+        _signInStatusLoaded = true;
+      });
+      unawaited(
+        context.read<GeofenceCubit>().updateStaffSignInStatus(signedIn),
+      );
     } catch (_) {
       // sign-in status check is best-effort
+      if (mounted && generation == _profileGeneration) {
+        setState(() => _signInStatusLoaded = true);
+      }
     }
+    if (!mounted || generation != _profileGeneration) return;
+    // Covers the race where the geofence-entry listener fired (and skipped
+    // showing the sheet) while this fetch was still in flight — re-evaluate
+    // now that the real sign-in status is known.
+    _maybeShowSignInPopup();
+  }
+
+  /// Shows the geofence Sign-In sheet only when: the staff/admin is
+  /// currently within the school geofence, their today-sign-in status has
+  /// finished loading and shows them as not signed in, and the popup hasn't
+  /// already been shown for this geofence entry. Called both from the
+  /// [GeofenceCubit] entry-transition listener and right after
+  /// [_loadStaffIdentity]'s async status fetch resolves, so whichever of the
+  /// two finishes last is the one that actually decides whether to show it.
+  void _maybeShowSignInPopup() {
+    if (!mounted) return;
+    if (!_signInStatusLoaded) return;
+    if (!_staffIdentityLoaded) return;
+    if (_effectiveStaffCode.isEmpty) return;
+    if (_isSignedIn) return;
+    if (_todayStatusRaw?.toUpperCase() == 'SIGNED_IN') return;
+    if (_geofencePopupShownThisEntry) return;
+
+    final geofenceState = context.read<GeofenceCubit>().state;
+    if (geofenceState.isSignInStatusLoading) return;
+    if (geofenceState.status != GeofenceCubitStatus.withinRange) return;
+    if (geofenceState.isStaffSignedIn) return;
+
+    _geofencePopupShownThisEntry = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!_signInStatusLoaded || !_staffIdentityLoaded || _isSignedIn) return;
+      unawaited(
+        GeofenceSignInSheet.show(context, role: 'staff', isSignedIn: false),
+      );
+    });
   }
 
   Future<void> _openTransferForSelf() async {
-    if (_staffCode.isEmpty) {
+    if (_effectiveStaffCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Unable to find your staff profile to transfer.',
@@ -351,10 +535,29 @@ class _MyDayCardState extends State<MyDayCard> {
             designation: _staffDesignation.isNotEmpty
                 ? _staffDesignation
                 : 'Staff',
-            staffCode: _staffCode,
+            staffCode: _effectiveStaffCode,
           ),
         ),
       ),
+    );
+    if (mounted) {
+      await _loadStaffIdentity();
+      if (mounted) {
+        unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      }
+    }
+  }
+
+  void _handleMarkAbsentDisabledTap() {
+    final geofenceState = context.read<GeofenceCubit>().state;
+    final message = _todayGate.isAbsentToday
+        ? 'Absent can only be marked for Students/Staff not yet signed in'
+        : (_disabledReasons(geofenceState)['Absent'] ??
+              'Mark Absent is currently unavailable.');
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: message,
+      isWarning: true,
     );
   }
 
@@ -373,19 +576,21 @@ class _MyDayCardState extends State<MyDayCard> {
       MaterialPageRoute(builder: (_) => StaffMarkAbsentForm(staff: staff)),
     );
     if (mounted) {
-      unawaited(_loadStaffIdentity());
-      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      await _loadStaffIdentity();
+      if (mounted) {
+        unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      }
     }
   }
 
   StaffEntity? _buildSelfStaffEntity() {
-    if (_staffCode.isEmpty) return null;
+    if (_effectiveStaffCode.isEmpty) return null;
     return StaffEntity(
       id: 0,
       name: _staffDisplayName.isNotEmpty ? _staffDisplayName : '—',
       primaryRoomId: 0,
       designation: _staffDesignation.isNotEmpty ? _staffDesignation : 'Staff',
-      staffCode: _staffCode,
+      staffCode: _effectiveStaffCode,
     );
   }
 
@@ -406,8 +611,14 @@ class _MyDayCardState extends State<MyDayCard> {
       ),
     );
     if (mounted) {
-      unawaited(_loadStaffIdentity());
-      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      await _loadStaffIdentity();
+      if (mounted) {
+        // Keep GeofenceCubit.isStaffSignedIn in sync immediately after sign-in —
+        // it now also drives suppressing the "you can now Sign In or Sign Out"
+        // notification, so leaving it stale here would let that notification
+        // wrongly fire again right after the user just signed in.
+        unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      }
     }
   }
 
@@ -426,8 +637,10 @@ class _MyDayCardState extends State<MyDayCard> {
       context,
     ).push(MaterialPageRoute(builder: (_) => StaffSignOutForm(staff: staff)));
     if (mounted) {
-      unawaited(_loadStaffIdentity());
-      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      await _loadStaffIdentity();
+      if (mounted) {
+        unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      }
     }
   }
 
@@ -455,10 +668,10 @@ class _MyDayCardState extends State<MyDayCard> {
     // Get current time in SCHOOL TIMEZONE (for accurate countdown)
     final now = schoolTimeZone.isNotEmpty
         ? SchoolZoneDateTime.dateTimeFromInstantInSchool(
-            DateTime.now().toUtc(),
+            ServerTimeService.instance.nowUtc(),
             schoolTimeZone,
           )
-        : DateTime.now();
+        : AppTime.now();
 
     final todayWeekday = now.weekday; // 1 = Monday, 7 = Sunday
 
@@ -805,37 +1018,40 @@ class _MyDayCardState extends State<MyDayCard> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<GeofenceCubit, GeofenceState>(
-      listenWhen: (prev, curr) {
-        // Reset popup guard whenever the user exits the geofence so it shows
-        // again on the next entry (e.g. after signing out and re-entering).
-        if (prev.status == GeofenceCubitStatus.withinRange &&
-            curr.status == GeofenceCubitStatus.outsideRange) {
-          _geofencePopupShownThisEntry = false;
-        }
-        // Fire only on the first transition INTO withinRange per entry.
-        return prev.status != GeofenceCubitStatus.withinRange &&
-            curr.status == GeofenceCubitStatus.withinRange;
-      },
-      listener: (context, _) {
-        if (_geofencePopupShownThisEntry) return;
-        _geofencePopupShownThisEntry = true;
-        // GeofenceCubit already fires the notification via
-        // _triggerNotificationIfNeeded — no need to do it here too.
-        if (!context.mounted) return;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          unawaited(
-            GeofenceSignInSheet.show(
-              context,
-              role: 'staff',
-              isSignedIn: _isSignedIn,
-            ),
-          );
-        });
-      },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<GeofenceCubit, GeofenceState>(
+          listenWhen: (prev, curr) {
+            // Reset popup guard whenever we leave withinRange — covers both
+            // actual zone exit (→ outsideRange) and a dashboard refresh cycle
+            // (→ fetchingSchoolLocation → withinRange). Without this, the guard
+            // would stay true across a refresh and block the sheet from re-showing.
+            if (prev.status == GeofenceCubitStatus.withinRange &&
+                curr.status != GeofenceCubitStatus.withinRange) {
+              _geofencePopupShownThisEntry = false;
+            }
+            // Fire when transitioning into withinRange OR when sign-in status finishes loading while withinRange
+            if (curr.status == GeofenceCubitStatus.withinRange) {
+              if (prev.status != GeofenceCubitStatus.withinRange) return true;
+              if (prev.isSignInStatusLoading && !curr.isSignInStatusLoading)
+                return true;
+            }
+            return false;
+          },
+          listener: (context, _) => _maybeShowSignInPopup(),
+        ),
+        BlocListener<RoleCubit, RoleState>(
+          listenWhen: (prev, curr) =>
+              prev.activeSchoolRoleRaw != curr.activeSchoolRoleRaw,
+          listener: (context, state) {
+            _resetForProfileSwitch();
+            unawaited(_loadStaffIdentity());
+            unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+          },
+        ),
+      ],
       child: BlocConsumer<MyDayCubit, MyDayState>(
-        // Re-compute countdown whenever schedule data changes or first loads.
+        // Re-compute countdown and re-sync identity whenever schedule data changes or first loads.
         listenWhen: (prev, curr) =>
             curr.isLoaded &&
             (!prev.isLoaded ||
@@ -845,7 +1061,8 @@ class _MyDayCardState extends State<MyDayCard> {
                 prev.schoolClosed != curr.schoolClosed ||
                 prev.allWorkSchedules != curr.allWorkSchedules ||
                 prev.allBreakSchedules != curr.allBreakSchedules ||
-                prev.schoolTimeZone != curr.schoolTimeZone),
+                prev.schoolTimeZone != curr.schoolTimeZone ||
+                prev.status != curr.status),
         listener: (context, state) {
           _computeCountdownFromSchedule(
             state.todaySchedule,
@@ -856,343 +1073,355 @@ class _MyDayCardState extends State<MyDayCard> {
             allBreakSchedules: state.allBreakSchedules,
           );
           _startTicker();
+          unawaited(_loadStaffIdentity());
         },
         builder: (context, state) {
-          return Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.cardBorderColor),
-              borderRadius: BorderRadius.circular(12),
-              color: AppColors.cardColor,
-            ),
-            child: Column(
-              children: [
-                // ── Header ──────────────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: DashboardCardHeader(
-                    title: 'My Day',
-                    minimized: _minimized,
-                    onToggle: () => setState(() => _minimized = !_minimized),
+          return DashboardCardErrorOverlay(
+            show: state.status == MyDayStatus.error,
+            onRetry: () => context.read<MyDayCubit>().load(),
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.cardBorderColor),
+                borderRadius: BorderRadius.circular(12),
+                color: AppColors.cardColor,
+              ),
+              child: Column(
+                children: [
+                  // ── Header ──────────────────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: DashboardCardHeader(
+                      title: 'My Day',
+                      minimized: _minimized,
+                      onToggle: () => setState(() => _minimized = !_minimized),
+                    ),
                   ),
-                ),
 
-                // ── Status text ──────────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: state.isLoading
-                      ? _ShimmerLine(width: 180, height: 18)
-                      : Text(
-                          _statusText,
-                          style: const TextStyle(
-                            color: AppColors.primaryColor,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                ),
-
-                // ── Expanded body ────────────────────────────────────────────
-                if (!_minimized) ...[
-                  // Countdown timer / shimmer
-                  if (state.isLoading)
-                    _buildShimmerBody()
-                  else ...[
-                    _buildAlignedTimerDisplay(_duration),
-                    if (_hasShifts) const SizedBox(height: 12),
-
-                    // ── Reminder toggle ──────────────────────────────────────
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {},
-                        borderRadius: BorderRadius.circular(100),
-                        splashColor: AppColors.primaryColor.withValues(
-                          alpha: 0.1,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SvgPicture.asset(
-                                MediaRes.notificationsGradientIcon,
-                              ),
-                              const SizedBox(width: 8),
-                              ShaderMask(
-                                shaderCallback: (bounds) =>
-                                    AppColors.buildPrimaryGradient()
-                                        .createShader(
-                                          Rect.fromLTWH(
-                                            0,
-                                            0,
-                                            bounds.width,
-                                            bounds.height,
-                                          ),
-                                        ),
-                                child: Text(
-                                  'Send reminder',
-                                  style: const TextStyle(
-                                    color: AppColors.cardColor,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // ── Work time chip ───────────────────────────────────────
-                    _CustomChip(
-                      label: 'Work Time : $_workTime',
-                      labelStyle: const TextStyle(
-                        color: AppColors.secondaryColor,
-                      ),
-                      color: const Color.fromRGBO(177, 175, 233, 0.3),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // ── Break time chip ──────────────────────────────────────
-                    _CustomChip(
-                      label: 'Break Time : $_breakTime',
-                      labelStyle: const TextStyle(
-                        color: AppColors.secondaryColor,
-                      ),
-                      color: const Color.fromRGBO(177, 175, 233, 0.3),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // ── Sign-in pin + QR scanner ─────────────────────────────
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ShaderMask(
-                          shaderCallback: (bounds) =>
-                              AppColors.buildPrimaryGradient().createShader(
-                                Rect.fromLTWH(
-                                  0,
-                                  0,
-                                  bounds.width,
-                                  bounds.height,
-                                ),
-                              ),
-                          child: Text(
-                            'Your Sign-In Pin: ${_clockInPin.trim().isNotEmpty ? _clockInPin : '--'}',
+                  // ── Status text ──────────────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: state.isLoading
+                        ? _ShimmerLine(width: 180, height: 18)
+                        : Text(
+                            _statusText,
                             style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 17 * (-3 / 100),
+                              color: AppColors.primaryColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
+                  ),
+
+                  // ── Expanded body ────────────────────────────────────────────
+                  if (!_minimized) ...[
+                    // Countdown timer / shimmer
+                    if (state.isLoading)
+                      _buildShimmerBody()
+                    else ...[
+                      _buildAlignedTimerDisplay(_duration),
+                      if (_hasShifts) const SizedBox(height: 12),
+
+                      // ── Reminder toggle ──────────────────────────────────────
+                      _ReminderToggleButton(staffCode: _staffCode),
+                      const SizedBox(height: 8),
+
+                      // ── Work time chip ───────────────────────────────────────
+                      _CustomChip(
+                        label: 'Work Time : $_workTime',
+                        labelStyle: const TextStyle(
+                          color: AppColors.secondaryColor,
                         ),
-                        const SizedBox(width: 16),
-                        const QrScanButton(),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
+                        color: const Color.fromRGBO(177, 175, 233, 0.3),
+                      ),
+                      const SizedBox(height: 8),
 
-                    // ── GPS-gated attendance button ──────────────────────────
-                    BlocBuilder<GeofenceCubit, GeofenceState>(
-                      builder: (context, geofenceState) {
-                        final roleProvider = context.watch<RoleCubit>();
-                        final bool isStaff = roleProvider.isStaff;
-                        final bool isAdmin = roleProvider.isAdmin;
-                        final bool isWithinGeofence =
-                            geofenceState.isWithinGeofence;
-                        // Both staff and admin: button enabled only when within geofence.
-                        final bool signButtonEnabled =
-                            (isStaff || isAdmin) && isWithinGeofence;
-                        // Show attendance buttons for both staff and admin
-                        final bool showSignButton = isStaff || isAdmin;
-                        // Show Transfer/Mark-Absent for staff and admin equally.
-                        final bool showSecondaryButtons = isStaff || isAdmin;
+                      // ── Break time chip ──────────────────────────────────────
+                      _CustomChip(
+                        label: 'Break Time : $_breakTime',
+                        labelStyle: const TextStyle(
+                          color: AppColors.secondaryColor,
+                        ),
+                        color: const Color.fromRGBO(177, 175, 233, 0.3),
+                      ),
+                      const SizedBox(height: 8),
 
-                        return Column(
-                          children: [
-                            if (showSignButton)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24.0,
+                      // ── Sign-in pin + QR scanner ─────────────────────────────
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ShaderMask(
+                            shaderCallback: (bounds) =>
+                                AppColors.buildPrimaryGradient().createShader(
+                                  Rect.fromLTWH(
+                                    0,
+                                    0,
+                                    bounds.width,
+                                    bounds.height,
+                                  ),
                                 ),
-                                child: Row(
-                                  children: [
-                                    // Transfer (signed-in) or Mark Absent (not signed-in)
-                                    if (showSecondaryButtons && _isSignedIn)
-                                      Expanded(
-                                        child: OutlinedButton.icon(
-                                          onPressed:
-                                              (!_staffIdentityLoaded ||
-                                                  _staffCode.isEmpty)
+                            child: Text(
+                              'Your Sign-In Pin: ${_clockInPin.trim().isNotEmpty ? _clockInPin : '--'}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 17 * (-3 / 100),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          const QrScanButton(),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // ── GPS-gated attendance button ──────────────────────────
+                      BlocBuilder<GeofenceCubit, GeofenceState>(
+                        builder: (context, geofenceState) {
+                          final roleProvider = context.watch<RoleCubit>();
+                          final bool isStaff = roleProvider.isStaff;
+                          final bool isAdmin = roleProvider.isAdmin;
+                          final StaffAttendanceActionAvailability availability =
+                              _availability(geofenceState);
+                          final Map<String, String> disabledReasons =
+                              _disabledReasons(geofenceState);
+                          final bool markAbsentDisabled = _markAbsentDisabled(
+                            geofenceState,
+                          );
+                          // Sign button toggles Sign-In/Sign-Out depending on
+                          // today's status; enable per the action it currently represents.
+                          final bool signButtonEnabled =
+                              (isStaff || isAdmin) &&
+                              (_isSignedIn
+                                  ? availability.signOutEnabled
+                                  : availability.signInEnabled);
+                          // Show attendance buttons for both staff and admin
+                          final bool showSignButton = isStaff || isAdmin;
+                          // Show Transfer/Mark-Absent for staff and admin equally.
+                          final bool showSecondaryButtons = isStaff || isAdmin;
+
+                          return Column(
+                            children: [
+                              if (showSignButton)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24.0,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      // Transfer (signed-in) or Mark Absent (not signed-in)
+                                      if (showSecondaryButtons && _isSignedIn)
+                                        Expanded(
+                                          child: Tooltip(
+                                            message:
+                                                availability.transferEnabled
+                                                ? ''
+                                                : disabledReasons['Transfer'] ??
+                                                      '',
+                                            child: OutlinedButton.icon(
+                                              onPressed:
+                                                  (!_staffIdentityLoaded ||
+                                                      _effectiveStaffCode
+                                                          .isEmpty ||
+                                                      !availability
+                                                          .transferEnabled)
                                                   ? null
                                                   : _openTransferForSelf,
-                                          icon: !_staffIdentityLoaded
-                                              ? const SizedBox(
-                                                  width: 14,
-                                                  height: 14,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                        strokeWidth: 1.5,
-                                                        color: AppColors
-                                                            .themeColor,
-                                                      ),
-                                                )
-                                              : const SizedBox.shrink(),
-                                          label: const Text(
-                                            'Transfer',
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor:
-                                                AppColors.themeColor,
-                                            side: const BorderSide(
-                                              color: AppColors.themeColor,
-                                            ),
-                                            padding:
-                                                const EdgeInsets.symmetric(
-                                                  vertical: 14,
-                                                ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(14),
-                                            ),
-                                            textStyle: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      )
-                                    else if (showSecondaryButtons &&
-                                        !_isSignedIn)
-                                      Expanded(
-                                        child: OutlinedButton.icon(
-                                          onPressed:
-                                              (!_staffIdentityLoaded ||
-                                                  _staffCode.isEmpty)
-                                                  ? null
-                                                  : _openMarkAbsentForSelf,
-                                          icon: !_staffIdentityLoaded
-                                              ? const SizedBox(
-                                                  width: 14,
-                                                  height: 14,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                        strokeWidth: 1.5,
-                                                        color: AppColors
-                                                            .themeColor,
-                                                      ),
-                                                )
-                                              : const SizedBox.shrink(),
-                                          label: const Text(
-                                            'Mark Absent',
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor:
-                                                AppColors.themeColor,
-                                            side: const BorderSide(
-                                              color: AppColors.themeColor,
-                                            ),
-                                            padding:
-                                                const EdgeInsets.symmetric(
-                                                  vertical: 14,
-                                                ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(14),
-                                            ),
-                                            textStyle: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    if (showSecondaryButtons)
-                                      const SizedBox(width: 12),
-                                    Expanded(
-                                      child: CustomButtonLayout(
-                                        isForm: false,
-                                        showCancelButton: false,
-                                        confirmButtonLabel: _isSignedIn
-                                            ? 'Sign-Out'
-                                            : 'Sign-In',
-                                        confirmButtonChild: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.location_on_outlined,
-                                              size: 18,
-                                              color: signButtonEnabled
-                                                  ? AppColors
-                                                        .billingBackgroundColor
-                                                  : Colors.grey[600],
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Flexible(
-                                              child: Text(
-                                                _isSignedIn
-                                                    ? 'Sign-Out'
-                                                    : 'Sign-In',
+                                              icon: !_staffIdentityLoaded
+                                                  ? const SizedBox(
+                                                      width: 14,
+                                                      height: 14,
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            strokeWidth: 1.5,
+                                                            color: AppColors
+                                                                .themeColor,
+                                                          ),
+                                                    )
+                                                  : const SizedBox.shrink(),
+                                              label: const Text(
+                                                'Transfer',
                                                 overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
+                                              ),
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor:
+                                                    AppColors.themeColor,
+                                                side: const BorderSide(
+                                                  color: AppColors.themeColor,
+                                                ),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 14,
+                                                    ),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(14),
+                                                ),
+                                                textStyle: const TextStyle(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.w600,
-                                                  color: signButtonEnabled
-                                                      ? AppColors
-                                                            .billingBackgroundColor
-                                                      : Colors.grey[600],
                                                 ),
                                               ),
                                             ),
-                                          ],
+                                          ),
+                                        )
+                                      else if (showSecondaryButtons &&
+                                          !_isSignedIn)
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: markAbsentDisabled
+                                                ? _handleMarkAbsentDisabledTap
+                                                : null,
+                                            child: Tooltip(
+                                              message:
+                                                  availability.absentEnabled
+                                                  ? ''
+                                                  : disabledReasons['Absent'] ??
+                                                        '',
+                                              child: OutlinedButton.icon(
+                                                onPressed: markAbsentDisabled
+                                                    ? null
+                                                    : _openMarkAbsentForSelf,
+                                                icon: !_staffIdentityLoaded
+                                                    ? const SizedBox(
+                                                        width: 14,
+                                                        height: 14,
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                              strokeWidth: 1.5,
+                                                              color: AppColors
+                                                                  .themeColor,
+                                                            ),
+                                                      )
+                                                    : const SizedBox.shrink(),
+                                                label: const Text(
+                                                  'Mark Absent',
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                                style: OutlinedButton.styleFrom(
+                                                  foregroundColor:
+                                                      markAbsentDisabled
+                                                      ? Colors.grey[600]
+                                                      : AppColors.themeColor,
+                                                  side: BorderSide(
+                                                    color: markAbsentDisabled
+                                                        ? Colors.grey[400]!
+                                                        : AppColors.themeColor,
+                                                  ),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 14,
+                                                      ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          14,
+                                                        ),
+                                                  ),
+                                                  textStyle: const TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
                                         ),
-                                        onPressedConfirm: signButtonEnabled
-                                            ? () {
-                                                if (_isSignedIn) {
-                                                  unawaited(_openSignOutForm());
-                                                } else {
-                                                  unawaited(_openSignInForm());
+                                      if (showSecondaryButtons)
+                                        const SizedBox(width: 12),
+                                      Expanded(
+                                        child: CustomButtonLayout(
+                                          isForm: false,
+                                          showCancelButton: false,
+                                          confirmButtonLabel: _isSignedIn
+                                              ? 'Sign-Out'
+                                              : 'Sign-In',
+                                          confirmButtonChild: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.location_on_outlined,
+                                                size: 18,
+                                                color: signButtonEnabled
+                                                    ? AppColors
+                                                          .billingBackgroundColor
+                                                    : Colors.grey[600],
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Flexible(
+                                                child: Text(
+                                                  _isSignedIn
+                                                      ? 'Sign-Out'
+                                                      : 'Sign-In',
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: signButtonEnabled
+                                                        ? AppColors
+                                                              .billingBackgroundColor
+                                                        : Colors.grey[600],
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          onPressedConfirm: signButtonEnabled
+                                              ? () {
+                                                  if (_isSignedIn) {
+                                                    unawaited(
+                                                      _openSignOutForm(),
+                                                    );
+                                                  } else {
+                                                    unawaited(
+                                                      _openSignInForm(),
+                                                    );
+                                                  }
                                                 }
-                                              }
-                                            : null,
-                                        disabledConfirmTooltip:
-                                            'You are not within geofencing Range',
-                                        onDisabledConfirmTap: () {
-                                          CoreUtils.showTopSnackBar(
-                                            isWarning: true,
-                                            message:
-                                                'You are not within geofencing Range',
-                                            context: context,
-                                          );
-                                        },
+                                              : null,
+                                          disabledConfirmTooltip:
+                                              disabledReasons[_isSignedIn
+                                                  ? 'Sign-Out'
+                                                  : 'Sign-in'] ??
+                                              'You are not within geofencing Range',
+                                          onDisabledConfirmTap: () {
+                                            CoreUtils.showTopSnackBar(
+                                              isWarning: true,
+                                              message:
+                                                  disabledReasons[_isSignedIn
+                                                      ? 'Sign-Out'
+                                                      : 'Sign-in'] ??
+                                                  'You are not within geofencing Range',
+                                              context: context,
+                                            );
+                                          },
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            if (isStaff || isAdmin)
-                              _buildGeofenceStatusLabel(context, geofenceState),
-                          ],
-                        );
-                      },
-                    ),
+                              if (isStaff || isAdmin)
+                                _buildGeofenceStatusLabel(
+                                  context,
+                                  geofenceState,
+                                ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
                   ],
+
+                  const SizedBox(height: 10),
+
+                  // ── Latest chat preview ──────────────────────────────────────
+                  const _CommunicationRowWidget(),
                 ],
-
-                const SizedBox(height: 10),
-
-                // ── Latest chat preview ──────────────────────────────────────
-                const _CommunicationRowWidget(),
-              ],
+              ),
             ),
           );
         },
@@ -1409,6 +1638,9 @@ class _ShimmerLine extends StatelessWidget {
 // placeholder until the real messaging API is integrated.
 // ---------------------------------------------------------------------------
 
+// Shows the logged-in user's latest conversations (up to 2) using the same row representation as
+// the messaging inbox (avatar + title + last message + time + unread). Tapping a row opens that
+// conversation thread. Empty → "No recent chat".
 class _CommunicationRowWidget extends StatefulWidget {
   const _CommunicationRowWidget();
 
@@ -1418,68 +1650,464 @@ class _CommunicationRowWidget extends StatefulWidget {
 }
 
 class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
-  String _displayName = '';
+  StreamSubscription<List<ConversationEntity>>? _sub;
+  List<ConversationEntity> _items = const [];
+  bool _loading = true;
+  String _currentUserCode = '';
+  Timer? _timeout;
+
+  /// The staff member's own primary classroom — its Classroom Notes
+  /// conversation (if any) is always shown as the first row, regardless of
+  /// recency, so a staff member never has to go hunting for their own
+  /// classroom's Notes. Null for admin/unscoped personas or before this
+  /// resolves; see [resolveStaffPrimaryClassroomCode]'s own fail-open
+  /// contract.
+  String? _primaryClassroomCode;
+
+  /// Classroom code → name, resolved once so the primary classroom's Notes
+  /// row can show the classroom's actual name instead of the generic
+  /// "Classroom" fallback `displayTitle` uses for CLASSROOM_CHAT.
+  final Map<String, String> _classroomNames = <String, String>{};
 
   @override
   void initState() {
     super.initState();
-    unawaited(_loadDisplayName());
+    unawaited(_init());
   }
 
-  Future<void> _loadDisplayName() async {
+  @override
+  void dispose() {
+    _sub?.cancel();
+    _timeout?.cancel();
+    super.dispose();
+  }
+
+  /// Mirrors the messaging inbox: seed from the Isar cache for a fast first frame, then watch the
+  /// Firestore inbox in realtime. Uses type: null so all conversation types are fetched — the REST
+  /// `GET /conversations` list can come back empty for staff, but the Firestore inbox does not.
+  /// [_buildDisplayItems] pins the staff member's own primary classroom's Notes (if any) as the
+  /// first row and fills the rest with the most recent other conversation(s).
+  Future<void> _init() async {
     final storage = serviceLocator<StorageService>();
-    final name = (await storage.getString(StorageKeys.displayName) ?? '')
-        .trim();
-    if (!mounted) return;
-    setState(() => _displayName = name);
+    _currentUserCode =
+        (await storage.getString(StorageKeys.userCode))?.trim() ?? '';
+
+    // Fire-and-forget: don't block the fast cache-first-frame path below.
+    // Re-applies _buildDisplayItems once either resolves so already-loaded
+    // items get retroactively re-ranked.
+    unawaited(
+      resolveStaffPrimaryClassroomCode(storage: storage)
+          .then((code) {
+            if (!mounted) return;
+            setState(() {
+              _primaryClassroomCode = code;
+              _items = _buildDisplayItems(_items);
+            });
+          })
+          .catchError((_) {}),
+    );
+    unawaited(
+      storage.getString(StorageKeys.schoolCode).then((schoolCode) async {
+        final trimmed = (schoolCode ?? '').trim();
+        if (trimmed.isEmpty) return;
+        try {
+          final classrooms = await serviceLocator<GetActiveClassroomsUseCase>()(
+            schoolCode: trimmed,
+            onlyTypeClassroom: false,
+          );
+          if (!mounted) return;
+          setState(() {
+            _classroomNames.addAll({
+              for (final c in classrooms) c.code: c.name,
+            });
+          });
+        } catch (_) {
+          // Best-effort — the Notes row falls back to "Classroom".
+        }
+      }),
+    );
+
+    _timeout = Timer(const Duration(seconds: 8), () {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    });
+
+    try {
+      final cached = await serviceLocator<GetCachedConversationsEntityUseCase>()
+          .call();
+      cached.fold((_) {}, (list) {
+        if (mounted) {
+          setState(() {
+            _items = _buildDisplayItems(list);
+            _loading = false;
+          });
+        }
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+
+    // Fallback to REST API concurrently in case Firestore fails or is empty.
+    // includeRestUnreadCounts: false — unread counts are Firestore-only
+    // app-wide; these REST-sourced items would otherwise carry a stale/wrong
+    // unreadCount that _buildDisplayItems' merge (by most-recent timestamp,
+    // not by source) could pick over the live Firestore value.
+    unawaited(
+      serviceLocator<GetConversationsEntityUseCase>()
+          .call(includeRestUnreadCounts: false)
+          .then((result) {
+        if (!mounted) return;
+        result.fold((_) {}, (list) {
+          setState(() {
+            // If REST API found chats, merge them with current items to ensure
+            // we don't miss anything, and take the top 2 most recent.
+            if (list.isNotEmpty) {
+              _items = _buildDisplayItems([..._items, ...list]);
+              _loading = false;
+            }
+          });
+        });
+      }),
+    );
+
+    _sub = serviceLocator<WatchConversationsUseCase>().call().listen(
+      (list) {
+        if (!mounted) return;
+        _timeout?.cancel();
+        setState(() {
+          // If Firestore returns items, use them (merged to preserve names if needed).
+          // If it returns empty, only overwrite if we didn't get any from REST/Cache.
+          if (list.isNotEmpty) {
+            _items = _buildDisplayItems([..._items, ...list]);
+          }
+          _loading = false;
+        });
+      },
+      onError: (_) {
+        if (!mounted) return;
+        _timeout?.cancel();
+        setState(() => _loading = false);
+      },
+      onDone: () {
+        if (!mounted) return;
+        _timeout?.cancel();
+        setState(() => _loading = false);
+      },
+    );
+  }
+
+  /// Ranks a conversation by its own last MESSAGE, never `updatedAt`.
+  /// `updatedAt` is a generic "last modified" stamp that background sync
+  /// (unread-count reconciliation, participant/read-receipt updates, a
+  /// Firestore re-sync of the per-user inbox) can bump with NO new message
+  /// at all — using it as a recency fallback let a conversation nobody had
+  /// actually messaged in briefly jump to the top the moment one of those
+  /// unrelated fields ticked, then fall back once the next snapshot arrived
+  /// — the exact "keeps changing, not actually the most recent chat"
+  /// symptom. A conversation with no messages yet (`lastMessageAt == null`)
+  /// ranks as the oldest possible instant instead, so it can never
+  /// out-rank one with real activity.
+  DateTime _rankTime(ConversationEntity conversation) =>
+      conversation.lastMessageAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Row 1: the staff member's own primary classroom's Notes conversation —
+  /// pinned regardless of recency, so it's always reachable from here
+  /// rather than only when it happens to be the most recently active
+  /// conversation. Row 2: the single most recent OTHER conversation
+  /// (Room Chat/Staff Direct/Admin Chat, or a different classroom's Notes).
+  /// Falls back to the two most recent conversations overall when this
+  /// staff member has no primary classroom (admin/unscoped persona) or its
+  /// Notes conversation isn't in [list] yet.
+  List<ConversationEntity> _buildDisplayItems(List<ConversationEntity> list) {
+    // Callers pass `[..._items, ...freshSnapshot]` — the OLD top-2 selection
+    // first, the fresh cache/REST/Firestore data second. Cache, REST, and
+    // the live Firestore watch all resolve independently and can arrive in
+    // ANY order (a slow REST fallback can land after Firestore already
+    // delivered a newer snapshot) — so dedup can't just trust arrival
+    // position either way: "keep the first copy seen" freezes a
+    // conversation at whatever it was the moment it first entered `_items`
+    // (later messages never surface); "keep the last copy seen" is just as
+    // wrong the moment a stale response resolves AFTER a fresher one,
+    // silently reverting back. Compare each duplicate's own timestamp
+    // instead and keep whichever is actually more recent — the only
+    // ordering that can't be defeated by network/cache timing.
+    final byCode = <String, ConversationEntity>{};
+    for (final item in list) {
+      final code = item.code.trim();
+      if (code.isEmpty) continue;
+      final existing = byCode[code];
+      if (existing == null || !_rankTime(item).isBefore(_rankTime(existing))) {
+        byCode[code] = item;
+      }
+    }
+    final unique = byCode.values.toList();
+    unique.sort((a, b) => _rankTime(b).compareTo(_rankTime(a)));
+
+    final primaryClassroom = _primaryClassroomCode?.trim();
+    ConversationEntity? primaryNotes;
+    if (primaryClassroom != null && primaryClassroom.isNotEmpty) {
+      for (final item in unique) {
+        if (item.type == ConversationType.classroomChat &&
+            item.classroomCode?.trim() == primaryClassroom) {
+          primaryNotes = item;
+          break;
+        }
+      }
+    }
+
+    if (primaryNotes == null) {
+      // No primary classroom, or its Notes conversation hasn't loaded into
+      // [list] yet — degrade to the two most recent conversations overall.
+      return unique.take(2).toList(growable: false);
+    }
+    final mostRecentOther = unique
+        .where((item) => item.code != primaryNotes!.code)
+        .firstOrNull;
+
+    return [
+      primaryNotes,
+      if (mostRecentOther != null) mostRecentOther,
+    ].take(2).toList(growable: false);
+  }
+
+  String _displayTitle(ConversationEntity conversation) {
+    if (conversation.type == ConversationType.classroomChat) {
+      final classroomCode = conversation.classroomCode?.trim() ?? '';
+      if (classroomCode.isNotEmpty) {
+        final classroomName = _classroomNames[classroomCode]?.trim();
+        if (classroomName != null && classroomName.isNotEmpty) {
+          return classroomName;
+        }
+      }
+      // _classroomNames is a separate, fire-and-forget fetch that races the
+      // conversation list — this row could render before it resolves (or if
+      // it fails, never gets it at all). The conversation's OWN stored
+      // title is set to the classroom's name at creation time
+      // (GetOrCreateClassroomChatUseCase) and doesn't depend on that second
+      // fetch succeeding, so try it before giving up to the generic
+      // "Classroom" label — displayTitle already does exactly this for
+      // every other conversation type below, CLASSROOM_CHAT just never
+      // reached it.
+      return conversation.displayTitle(_currentUserCode, fallback: 'Classroom');
+    }
+    return conversation.displayTitle(_currentUserCode);
+  }
+
+  void _openConversation(ConversationEntity conversation) {
+    if (conversation.type == ConversationType.classroomChat &&
+        (conversation.classroomCode ?? '').trim().isNotEmpty) {
+      // Classroom Notes lives on the Classroom screen's own Notes tab (tab
+      // index 2 — see AppRoutes.classroom's route definition), not as a
+      // standalone thread — matches how every other Notes entry point in
+      // the app (notifications, the Classrooms list) opens it.
+      context.go(
+        '${AppRoutes.classroom}?classroomCode=${conversation.classroomCode!.trim()}&tab=2',
+      );
+      return;
+    }
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => ConversationThreadScreen(conversation: conversation),
+      ),
+    );
+  }
+
+  // Compact relative time for the preview row.
+  String _formatTime(DateTime? dt) {
+    if (dt == null) return '';
+    final local = dt.toLocal();
+    final now = AppTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final msgDay = DateTime(local.year, local.month, local.day);
+    final diff = today.difference(msgDay).inDays;
+    final hh = local.hour.toString().padLeft(2, '0');
+    final mm = local.minute.toString().padLeft(2, '0');
+    final time = '$hh:$mm';
+    if (diff == 0) return time;
+    if (diff == 1) return 'Yesterday';
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    if (diff < 7) return days[local.weekday - 1];
+    return '${local.day}/${local.month}/${local.year % 100}';
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      width: double.infinity,
       decoration: const BoxDecoration(
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
         color: Color.fromRGBO(44, 99, 226, 0.05),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          DocumentImageWidget(
-            fileUuid: '',
-            name: _displayName,
-            size: 50,
-            fontSize: 20,
-            disableProfileLookupFallback: true,
-            disableAttendanceStatusLookup: true,
+      child: _buildContent(),
+    );
+  }
+
+  Widget _buildContent() {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _displayName.isNotEmpty ? _displayName : '—',
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  'Chat Not Found',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  ),
-                ),
-              ],
+        ),
+      );
+    }
+    if (_items.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        child: Row(
+          children: [
+            Icon(
+              Icons.forum_outlined,
+              size: 20,
+              color: AppColors.primaryColor.withValues(alpha: 0.4),
             ),
+            const SizedBox(width: 10),
+            Text(
+              'No recent chat',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.primaryColor.withValues(alpha: 0.5),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Column(
+      children: [
+        for (int i = 0; i < _items.length; i++) ...[
+          if (i > 0)
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: AppColors.primaryColor.withValues(alpha: 0.06),
+            ),
+          _RecentChatRow(
+            conversation: _items[i],
+            timeLabel: _formatTime(_items[i].lastMessageAt),
+            onTap: () => _openConversation(_items[i]),
+            currentUserCode: _currentUserCode,
+            displayTitle: _displayTitle(_items[i]),
           ),
-          const SizedBox(width: 8),
-          _ChatActionButton(onPressed: () {}),
         ],
+      ],
+    );
+  }
+}
+
+class _RecentChatRow extends StatelessWidget {
+  const _RecentChatRow({
+    required this.conversation,
+    required this.timeLabel,
+    required this.onTap,
+    required this.currentUserCode,
+    required this.displayTitle,
+  });
+
+  final ConversationEntity conversation;
+  final String timeLabel;
+  final VoidCallback onTap;
+  final String currentUserCode;
+  final String displayTitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final unread = conversation.unreadCount;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            DocumentImageWidget(
+              fileUuid: conversation.avatarUrl,
+              name: displayTitle,
+              size: 50,
+              fontSize: 20,
+              disableProfileLookupFallback: true,
+              disableAttendanceStatusLookup: true,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          displayTitle,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.primaryColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      if (timeLabel.isNotEmpty)
+                        Text(
+                          timeLabel,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          MessageContentProcessor.previewText(
+                            conversation.lastMessagePreview,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (unread > 0)
+                        Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00B894),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            unread > 99 ? '99+' : '$unread',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1488,6 +2116,105 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
 // ---------------------------------------------------------------------------
 // Private helper widgets
 // ---------------------------------------------------------------------------
+
+class _ReminderToggleButton extends StatefulWidget {
+  const _ReminderToggleButton({required this.staffCode});
+
+  final String staffCode;
+
+  @override
+  State<_ReminderToggleButton> createState() => _ReminderToggleButtonState();
+}
+
+class _ReminderToggleButtonState extends State<_ReminderToggleButton> {
+  bool _isLoading = false;
+  bool _reminderEnabled = false;
+
+  Future<void> _toggleReminder() async {
+    if (_isLoading || widget.staffCode.isEmpty) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final cubit = serviceLocator<WorkBreakReminderCubit>();
+      await cubit.toggleReminder(
+        staffCode: widget.staffCode,
+        currentEnabled: _reminderEnabled,
+      );
+
+      if (mounted) {
+        final state = cubit.state;
+        if (state.isSuccess) {
+          setState(() => _reminderEnabled = state.enabled);
+          final message = state.enabled
+              ? 'Turn on Reminder'
+              : 'Turn off Reminder';
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: message,
+            isSuccess: true,
+          );
+        } else if (state.isFailure && state.message != null) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.message!,
+            isWarning: true,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Error: ${e.toString()}',
+          isWarning: true,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _toggleReminder,
+        borderRadius: BorderRadius.circular(100),
+        splashColor: AppColors.primaryColor.withValues(alpha: 0.1),
+        child: Opacity(
+          opacity: _isLoading ? 0.6 : 1.0,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SvgPicture.asset(MediaRes.notificationsGradientIcon),
+                const SizedBox(width: 8),
+                ShaderMask(
+                  shaderCallback: (bounds) =>
+                      AppColors.buildPrimaryGradient().createShader(
+                        Rect.fromLTWH(0, 0, bounds.width, bounds.height),
+                      ),
+                  child: Text(
+                    _reminderEnabled ? 'Turn off Reminder' : 'Send reminder',
+                    style: const TextStyle(
+                      color: AppColors.cardColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _CustomChip extends StatelessWidget {
   const _CustomChip({
@@ -1509,34 +2236,6 @@ class _CustomChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(100),
       ),
       child: Text(label, style: labelStyle, overflow: TextOverflow.ellipsis),
-    );
-  }
-}
-
-class _ChatActionButton extends StatelessWidget {
-  const _ChatActionButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        alignment: Alignment.center,
-        child: SvgPicture.asset(
-          MediaRes.communicationIcon,
-          width: 24,
-          height: 24,
-          colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
-        ),
-      ),
     );
   }
 }

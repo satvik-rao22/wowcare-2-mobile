@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -8,12 +9,14 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/presentation/features/scheduling/model/shift_models.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/classroom_name_resolver.dart';
 import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_day_schedule_calendar.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_schedule_tile.dart';
+import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// "My Shifts" card for dashboard. Shows staff profile, hour summary tiles, and full calendar.
@@ -117,7 +120,7 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => ViewShiftScreen(
-          date: cubitState.selectedDate ?? DateTime.now(),
+          date: cubitState.selectedDate ?? AppTime.now(),
           staff: cubitState.staffName,
           classroom: shift.room,
           shiftStart: startTime,
@@ -162,39 +165,37 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
           state.classroomNames,
         );
         final dailyShifts = _mapToDailyShifts(state, classroomResolver);
-        final selectedDate = state.selectedDate ?? DateTime.now();
+        final selectedDate = state.selectedDate ?? AppTime.now();
         final dayColumnLabel = DateFormat('EEE, MMM d').format(selectedDate);
 
-        return Card(
-          elevation: 0,
-          color: Colors.white,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: AppColors.primaryColor.withValues(alpha: 0.1),
+        return DashboardCardErrorOverlay(
+          show: state.isError,
+          onRetry: () =>
+              context.read<MyShiftsCubit>().load(date: state.selectedDate),
+          child: Card(
+            elevation: 0,
+            color: Colors.white,
+            margin: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: AppColors.primaryColor.withValues(alpha: 0.1),
+              ),
             ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Card Header ────────────────────────────────────────────────
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    DashboardCardHeader(
-                      title: 'My Shifts',
-                      showRedirect: true,
-                      onRedirect: () =>
-                          context.go(StaffSchedulingScreen.routeName),
-                      minimized: _minimized,
-                      onToggle: () => setState(() => _minimized = !_minimized),
-                    ),
-                    const SizedBox(height: 12),
-                    // ── Date Navigation ────────────────────────────────────────
-                    _DateNavigationBar(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Card Header ────────────────────────────────────────────────
+                  DashboardCardHeader(
+                    title: 'My Shifts',
+                    showRedirect: true,
+                    onRedirect: () =>
+                        context.go(StaffSchedulingScreen.routeName),
+                    minimized: _minimized,
+                    onToggle: () => setState(() => _minimized = !_minimized),
+                    trailing: _DateNavRow(
                       selectedDate: selectedDate,
                       onPreviousDay: () => _onDateChanged(
                         selectedDate.subtract(const Duration(days: 1)),
@@ -204,96 +205,96 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
                       ),
                       onDatePicked: _onDateChanged,
                     ),
-                  ],
-                ),
+                  ),
 
-                // ── Collapsible Body ───────────────────────────────────────────
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  child: _minimized
-                      ? const SizedBox.shrink()
-                      : Column(
-                          children: [
-                            const SizedBox(height: 16),
+                  // ── Collapsible Body ───────────────────────────────────────────
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOut,
+                    child: _minimized
+                        ? const SizedBox.shrink()
+                        : Column(
+                            children: [
+                              const SizedBox(height: 16),
 
-                            // ── Staff Profile Header (from scheduling screen) ──
-                            _StaffProfileHeader(
-                              staffCode: state.staffCode,
-                              staffName: state.staffName,
-                              designation: state.designation,
-                              classroom: state.classroomLabel,
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            // ── Hour Summary Tiles (exact match) ──────────────
-                            ShiftHoursTile(
-                              bgColor: const Color.fromRGBO(255, 250, 234, 1),
-                              label: 'Available Hours',
-                              hours: formatSchedulingHours(
-                                state.availableHours.toDouble(),
+                              // ── Staff Profile Header (from scheduling screen) ──
+                              _StaffProfileHeader(
+                                staffCode: state.staffCode,
+                                staffName: state.staffName,
+                                designation: state.designation,
+                                classroom: state.classroomLabel,
                               ),
-                              icon: MediaRes.availableHoursIcon,
-                            ),
-                            const SizedBox(height: 16),
-                            ShiftHoursTile(
-                              bgColor: const Color.fromRGBO(234, 255, 250, 1),
-                              label: 'Scheduled Hours',
-                              hours: formatSchedulingHours(
-                                state.scheduledHours.toDouble(),
-                              ),
-                              icon: MediaRes.scheduledHoursIcon,
-                            ),
-                            const SizedBox(height: 16),
-                            ShiftHoursTile(
-                              bgColor: const Color.fromRGBO(22, 40, 49, 0.01),
-                              label: 'Unscheduled Hours',
-                              hours: formatSchedulingHours(
-                                state.unscheduledHours.toDouble(),
-                              ),
-                              icon: MediaRes.unScheduledHoursIcon,
-                            ),
 
-                            const SizedBox(height: 20),
+                              const SizedBox(height: 16),
 
-                            // ── Shift Calendar (from scheduling screen) ────────
-                            if (state.schoolStartTime.isEmpty ||
-                                state.schoolEndTime.isEmpty)
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 24),
-                                child: Center(
-                                  child: Text(
-                                    'No school hours configured for this day.',
-                                    style: TextStyle(
-                                      fontFamily: 'Manrope',
-                                      color: AppColors.primaryColor,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
+                              // ── Hour Summary Tiles (exact match) ──────────────
+                              ShiftHoursTile(
+                                bgColor: const Color.fromRGBO(255, 250, 234, 1),
+                                label: 'Available Hours',
+                                hours: formatSchedulingHours(
+                                  state.availableHours.toDouble(),
+                                ),
+                                icon: MediaRes.availableHoursIcon,
+                              ),
+                              const SizedBox(height: 16),
+                              ShiftHoursTile(
+                                bgColor: const Color.fromRGBO(234, 255, 250, 1),
+                                label: 'Scheduled Hours',
+                                hours: formatSchedulingHours(
+                                  state.scheduledHours.toDouble(),
+                                ),
+                                icon: MediaRes.scheduledHoursIcon,
+                              ),
+                              const SizedBox(height: 16),
+                              ShiftHoursTile(
+                                bgColor: const Color.fromRGBO(22, 40, 49, 0.01),
+                                label: 'Unscheduled Hours',
+                                hours: formatSchedulingHours(
+                                  state.unscheduledHours.toDouble(),
+                                ),
+                                icon: MediaRes.unScheduledHoursIcon,
+                              ),
+
+                              const SizedBox(height: 20),
+
+                              // ── Shift Calendar (from scheduling screen) ────────
+                              if (state.schoolStartTime.isEmpty ||
+                                  state.schoolEndTime.isEmpty)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 24),
+                                  child: Center(
+                                    child: Text(
+                                      'No school hours configured for this day.',
+                                      style: TextStyle(
+                                        fontFamily: 'Manrope',
+                                        color: AppColors.primaryColor,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      textAlign: TextAlign.center,
                                     ),
-                                    textAlign: TextAlign.center,
                                   ),
+                                )
+                              else
+                                StaffDayScheduleCalendar(
+                                  key: ValueKey(
+                                    'my_shifts_${selectedDate.toString()}_'
+                                    '${state.schoolStartTime}_'
+                                    '${state.schoolEndTime}',
+                                  ),
+                                  dayColumnLabel: dayColumnLabel,
+                                  schoolStartTime: state.schoolStartTime,
+                                  schoolEndTime: state.schoolEndTime,
+                                  classroomResolver: classroomResolver,
+                                  dailyRoomSchedule: dailyShifts,
+                                  highlightShiftCode: null,
+                                  onShiftTap: _onShiftTap,
                                 ),
-                              )
-                            else
-                              StaffDayScheduleCalendar(
-                                key: ValueKey(
-                                  'my_shifts_${selectedDate.toString()}_'
-                                  '${state.schoolStartTime}_'
-                                  '${state.schoolEndTime}',
-                                ),
-                                dayColumnLabel: dayColumnLabel,
-                                schoolStartTime: state.schoolStartTime,
-                                schoolEndTime: state.schoolEndTime,
-                                classroomResolver: classroomResolver,
-                                dailyRoomSchedule: dailyShifts,
-                                highlightShiftCode: null,
-                                onShiftTap: _onShiftTap,
-                              ),
-                          ],
-                        ),
-                ),
-              ],
+                            ],
+                          ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -303,12 +304,14 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// Date Navigation Bar
+// Date Navigation Row (header trailing widget)
 // ════════════════════════════════════════════════════════════════════════════
 
-/// Date navigation with arrows and date picker
-class _DateNavigationBar extends StatelessWidget {
-  const _DateNavigationBar({
+/// Compact date navigation placed in the DashboardCardHeader trailing slot.
+/// Left/right arrows step by one day and re-fetch via [onPreviousDay]/[onNextDay].
+/// Tapping the date label opens the reusable [CalendarDialog].
+class _DateNavRow extends StatelessWidget {
+  const _DateNavRow({
     required this.selectedDate,
     required this.onPreviousDay,
     required this.onNextDay,
@@ -320,67 +323,63 @@ class _DateNavigationBar extends StatelessWidget {
   final VoidCallback onNextDay;
   final ValueChanged<DateTime> onDatePicked;
 
+  Future<void> _openCalendar(BuildContext context) async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => CalendarDialog(
+        isTimePicker: false,
+        isRangePicker: false,
+        initialDate: selectedDate,
+      ),
+    );
+    if (result != null) {
+      final picked = result['date'] as DateTime?;
+      if (picked != null) onDatePicked(picked);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final dateLabel = DateFormat('EEE, MMM d').format(selectedDate);
 
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         // ── Previous Day Arrow ─────────────────────────────────────────────
-        IconButton(
-          onPressed: onPreviousDay,
-          icon: const Icon(Icons.chevron_left),
-          color: AppColors.primaryColor,
-          iconSize: 24,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+        GestureDetector(
+          onTap: onPreviousDay,
+          child: const Icon(
+            Icons.chevron_left,
+            color: AppColors.primaryColor,
+            size: 20,
+          ),
         ),
 
-        // ── Date Display ───────────────────────────────────────────────────
-        Expanded(
-          child: GestureDetector(
-            onTap: () async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: selectedDate,
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2030),
-              );
-              if (picked != null) {
-                onDatePicked(picked);
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.primaryColor.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: AppColors.primaryColor.withValues(alpha: 0.1),
-                ),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                '< $dateLabel >',
-                style: const TextStyle(
-                  fontFamily: 'Manrope',
-                  color: AppColors.primaryColor,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+        // ── Tappable Date Label ────────────────────────────────────────────
+        GestureDetector(
+          onTap: () => _openCalendar(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              dateLabel,
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                color: AppColors.primaryColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
         ),
 
-        // ── Next Day Arrow ────────────────────────────────────────────────
-        IconButton(
-          onPressed: onNextDay,
-          icon: const Icon(Icons.chevron_right),
-          color: AppColors.primaryColor,
-          iconSize: 24,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+        // ── Next Day Arrow ─────────────────────────────────────────────────
+        GestureDetector(
+          onTap: onNextDay,
+          child: const Icon(
+            Icons.chevron_right,
+            color: AppColors.primaryColor,
+            size: 20,
+          ),
         ),
       ],
     );

@@ -196,10 +196,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                     CustomSearchBar(
                       controller: _searchController,
                       hintText: 'Search discounts...',
-                      onChanged: (q) {
-                        _cubit.setSearchQuery(q);
-                        _cubit.applySearch();
-                      },
+                      onChanged: _cubit.setSearchQuery,
                     ),
                     const SizedBox(height: 10),
                     Row(
@@ -235,7 +232,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                 )
 
               // ── Error ─────────────────────────────────────────────
-              else if (state.hasError && state.allDiscounts.isEmpty)
+              else if (state.hasError && state.filteredDiscounts.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 48),
                   child: Column(
@@ -260,7 +257,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                 )
 
               // ── Empty ─────────────────────────────────────────────
-              else if (state.allDiscounts.isEmpty)
+              else if (state.filteredDiscounts.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 48),
                   child: Column(
@@ -290,7 +287,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                     });
                     return const SizedBox.shrink();
                   }),
-                ...state.allDiscounts.map(
+                ...state.filteredDiscounts.map(
                   (d) => Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: DiscountCard(

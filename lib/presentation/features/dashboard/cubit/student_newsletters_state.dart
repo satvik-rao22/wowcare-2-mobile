@@ -84,4 +84,3 @@ class StudentNewslettersState extends Equatable {
     errorMessage,
   ];
 }
-

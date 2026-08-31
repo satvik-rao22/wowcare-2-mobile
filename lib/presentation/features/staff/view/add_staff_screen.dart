@@ -11,6 +11,8 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/staff/cubit/create_school_user_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -18,7 +20,6 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'dart:convert';
 import 'dart:io';
-import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/presentation/features/staff/util/staff_photo_background.dart';
 
 class AddStaffScreen extends StatefulWidget {
@@ -147,6 +148,68 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     _loadCurrentPersonaAdminFlag();
   }
 
+  /// Best-effort duplicate-name check run on Save (like the Add Student flow).
+  /// Returns true to proceed (no duplicate, or the user chose "Add anyway"),
+  /// false to cancel. Never blocks the flow if the lookup fails.
+  Future<bool> _confirmIfDuplicateNameExists({
+    required String firstName,
+    required String lastName,
+  }) async {
+    if (widget.isEdit) return true;
+    if (firstName.isEmpty || lastName.isEmpty) return true;
+
+    try {
+      final storage = serviceLocator<StorageService>();
+      final org =
+          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+      final school =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (org.isEmpty || school.isEmpty) return true;
+
+      String norm(String s) =>
+          s.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+      final full = '$firstName $lastName';
+      final fullNorm = norm(full);
+
+      // Fetch the full staff list and match client-side (mirrors the Add Student
+      // duplicate check). Avoids relying on the search param / first-page window.
+      final allStaff = await serviceLocator<StaffRepository>().getAllStaff(
+        organizationCode: org,
+        schoolCode: school,
+        size: 500,
+      );
+      final exists = allStaff.any((m) => norm(m.name) == fullNorm);
+      if (!exists) return true;
+      if (!mounted) return true;
+
+      // Duplicate found → confirm. "Add" proceeds, close/cancel aborts.
+      return await _showStaffExistsDialog(full);
+    } catch (e) {
+      CoreUtils.logApiError('Staff duplicate check failed: $e');
+      return true;
+    }
+  }
+
+  Future<bool> _showStaffExistsDialog(String name) async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return ConfirmationBottomSheet(
+          icon: Icons.info_outline_rounded,
+          title:
+              'A Staff named $name already exists. Do you still want to add this staff?',
+          confirmText: 'Add',
+          cancelText: 'Cancel',
+          onConfirm: () => Navigator.of(ctx).pop(true),
+          onCancel: () => Navigator.of(ctx).pop(false),
+        );
+      },
+    );
+    return result == true;
+  }
+
   Future<void> _loadCurrentPersonaAdminFlag() async {
     try {
       final storage = serviceLocator<StorageService>();
@@ -202,100 +265,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     super.dispose();
   }
 
-  Future<void> _pickProfileImage() async {
-    try {
-      // Shared file picker → every allowed image format is selectable.
-      final picked = await FilePickerUtils.pickFile(
-        allowedExtensions: FilePickerUtils.allowedImageExtensions,
-        context: context,
-      );
-      final path = picked?.path;
-      if (path == null || path.isEmpty) return;
-      final file = File(path);
-      final fileSizeInMB = await file.length() / (1024 * 1024);
-      if (fileSizeInMB > 10) {
-        if (!mounted) return;
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Image size must be less than 10MB',
-          isError: true,
-        );
-        return;
-      }
-      setState(() => _profilePhoto = file);
-    } catch (e) {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Failed to pick image: $e',
-        isError: true,
-      );
-    }
-  }
-
-  Widget _buildStaffPhotoField(ResponsiveHelper responsive) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Profile Photo',
-          style: TextStyle(
-            fontSize: responsive.labelFontSize,
-            fontFamily: 'Manrope',
-            fontWeight: FontWeight.w400,
-            color: const Color(0xff573353),
-          ),
-        ),
-        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
-        GestureDetector(
-          onTap: _pickProfileImage,
-          child: Container(
-            height: 120,
-            width: 120,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0x66573353)),
-            ),
-            child: _profilePhoto != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.file(_profilePhoto!, fit: BoxFit.cover),
-                  )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.camera_alt,
-                        color: Colors.grey.shade600,
-                        size: 32,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Upload Photo',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'JPG, PNG, max 10MB (Optional)',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-            fontFamily: 'Manrope',
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _addStaff() {
+  Future<void> _addStaff() async {
     _trimAllInputs();
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
@@ -482,6 +452,14 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       );
       return;
     }
+
+    // Duplicate-name check on Save (like Add Student): if a staff with this name
+    // exists, confirm before creating. "Add" proceeds; cancel aborts.
+    final proceed = await _confirmIfDuplicateNameExists(
+      firstName: firstName,
+      lastName: lastName,
+    );
+    if (!proceed || !mounted) return;
 
     _createSchoolUserCubit.create(
       isAdmin: isAdmin,
@@ -1195,9 +1173,6 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                             height: responsive.verticalSpacing,
                                           ),
                                         ],
-                                        // Profile photo at the END of the form.
-                                        _buildStaffPhotoField(responsive),
-                                        const SizedBox(height: 12),
                                       ],
                                     ),
                                   ),
@@ -1304,6 +1279,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     TextEditingController controller, {
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
+    FocusNode? focusNode,
+    ValueChanged<String>? onChanged,
   }) {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
@@ -1340,6 +1317,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
           ),
           child: TextField(
             controller: controller,
+            focusNode: focusNode,
+            onChanged: onChanged,
             keyboardType: keyboardType,
             inputFormatters: inputFormatters,
             style: TextStyle(

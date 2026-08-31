@@ -14,6 +14,8 @@ class InvoiceTransactionEntity extends Equatable {
     required this.status,
     required this.method,
     required this.amount,
+    required this.paidAmount,
+    required this.refundedAmount,
     required this.invoiceCode,
   });
 
@@ -28,6 +30,13 @@ class InvoiceTransactionEntity extends Equatable {
   final String status;
   final String? method;
   final double amount;
+
+  /// Amount already paid against this invoice; `0` means it can still be cancelled.
+  final double paidAmount;
+
+  /// Amount already refunded against this invoice (max refundable = amount −
+  /// refundedAmount).
+  final double refundedAmount;
   final String invoiceCode;
 
   @override
@@ -43,6 +52,8 @@ class InvoiceTransactionEntity extends Equatable {
         status,
         method,
         amount,
+        paidAmount,
+        refundedAmount,
         invoiceCode,
       ];
 }
@@ -121,69 +132,53 @@ class CreateInvoiceParams extends Equatable {
       ];
 }
 
-class UpdateInvoiceItemParams extends Equatable {
-  const UpdateInvoiceItemParams({
-    required this.description,
-    this.quantity,
-    this.unitPrice,
-    this.totalPrice,
-  });
-
-  final String description;
-  final int? quantity;
-  final double? unitPrice;
-  final double? totalPrice;
-
-  @override
-  List<Object?> get props => [description, quantity, unitPrice, totalPrice];
-}
-
-/// Params for `PATCH /api/v1/invoices/{invoiceCode}` (partial update).
+/// Params for `PATCH /api/v1/invoices/{invoiceCode}/draft` (edit draft invoice).
+///
+/// The draft endpoint takes the same body shape as create, so items reuse
+/// [CreateInvoiceItemParams] (each carries `itemType`/`amount`). `schoolCode` is
+/// required by the backend.
 class UpdateInvoiceParams extends Equatable {
   const UpdateInvoiceParams({
-    this.code,
+    this.organizationCode,
+    this.schoolCode,
     this.studentCode,
+    this.ownerType,
+    this.ownerCode,
     this.issueDate,
     this.dueDate,
-    this.status,
-    this.invoiceStatus,
-    this.amount,
-    this.total,
-    this.paidAmount,
-    this.subjectOwnerType,
-    this.subjectOwnerCode,
-    this.subscriptionCode,
+    this.periodStart,
+    this.periodEnd,
+    this.currency,
+    this.notes,
     this.items,
   });
 
-  final String? code;
+  final String? organizationCode;
+  final String? schoolCode;
   final String? studentCode;
+  final String? ownerType;
+  final String? ownerCode;
   final DateTime? issueDate;
   final DateTime? dueDate;
-  final String? status;
-  final String? invoiceStatus;
-  final double? amount;
-  final double? total;
-  final double? paidAmount;
-  final String? subjectOwnerType;
-  final String? subjectOwnerCode;
-  final String? subscriptionCode;
-  final List<UpdateInvoiceItemParams>? items;
+  final DateTime? periodStart;
+  final DateTime? periodEnd;
+  final String? currency;
+  final String? notes;
+  final List<CreateInvoiceItemParams>? items;
 
   @override
   List<Object?> get props => [
-        code,
+        organizationCode,
+        schoolCode,
         studentCode,
+        ownerType,
+        ownerCode,
         issueDate,
         dueDate,
-        status,
-        invoiceStatus,
-        amount,
-        total,
-        paidAmount,
-        subjectOwnerType,
-        subjectOwnerCode,
-        subscriptionCode,
+        periodStart,
+        periodEnd,
+        currency,
+        notes,
         items,
       ];
 }

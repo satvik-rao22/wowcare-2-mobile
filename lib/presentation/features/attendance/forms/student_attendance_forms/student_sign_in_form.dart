@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -14,6 +13,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
@@ -23,9 +23,11 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -118,17 +120,18 @@ class StudentSignInForm extends StatefulWidget {
 }
 
 class _StudentSignInFormState extends State<StudentSignInForm> {
-  DateTime selectedDate = DateTime.now();
-  TimeOfDay selectedTime = TimeOfDay.now();
+  DateTime selectedDate = ServerTimeService.instance.now();
+  TimeOfDay selectedTime = ServerTimeService.instance.timeOfDayNow();
 
   /// School IANA id from API; when set, date/time defaults and [occurredAt] use this zone.
   String? _schoolIana;
   List<StudentEntity> currentStudents = [];
   bool _isSubmitting = false;
-  bool? _isStaffAdminPersona;
+  bool? _isStaffPersona;
   Map<String, bool> _expectedTodayFromApi = {};
   bool _unexpectedGateLoading = true;
   bool _unexpectedSignInAcknowledged = false;
+  String _notExpectedComment = '';
   int _unexpectedGateToken = 0;
 
   @override
@@ -249,6 +252,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     if (result?.confirmed == true) {
       setState(() {
         _unexpectedSignInAcknowledged = true;
+        _notExpectedComment = result?.comment ?? '';
       });
     } else {
       Navigator.of(context).pop();
@@ -256,11 +260,11 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
   }
 
   Future<void> _loadPersonaFlags() async {
-    final isAdmin = await _resolveIsStaffAdminPersona();
+    final isStaff = await _resolveIsStaffPersona();
     if (!mounted) return;
     setState(() {
-      _isStaffAdminPersona = isAdmin;
-      if (!_isStaffAdminPersona!) {
+      _isStaffPersona = isStaff;
+      if (!_isStaffPersona!) {
         setCurrentDateTime();
       }
     });
@@ -269,15 +273,15 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     });
   }
 
-  Future<bool> _resolveIsStaffAdminPersona() async {
+  /// True for any staff-side login (school/org admin or regular staff);
+  /// false for guardian/parent and kiosk-PIN access. Gates date/time editing.
+  Future<bool> _resolveIsStaffPersona() async {
     try {
       final storage = serviceLocator<StorageService>();
       final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-          .trim()
-          .toUpperCase();
-      if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
-        return true;
-      }
+          .trim();
+      if (staffType.isNotEmpty) return true;
+
       final rolesJson = await storage.getString(StorageKeys.roles);
       if (rolesJson == null || rolesJson.trim().isEmpty) return false;
       final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
@@ -285,25 +289,19 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
         final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
             .toString()
             .toUpperCase();
-        if (roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN') {
-          return true;
+        if (roleCode.contains('GUARDIAN') ||
+            roleCode.contains('PARENT') ||
+            roleCode.contains('KIOSK')) {
+          continue;
         }
+        return true;
       }
     } catch (_) {}
     return false;
   }
 
   void setCurrentDateTime() {
-    final iana = _schoolIana;
-    if (iana != null && iana.isNotEmpty) {
-      final (d, t) = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
-      setState(() {
-        selectedDate = d;
-        selectedTime = t;
-      });
-      return;
-    }
-    final dateTime = DateTime.now();
+    final dateTime = ServerTimeService.instance.now();
     setState(() {
       selectedDate = dateTime;
       selectedTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
@@ -321,6 +319,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     if (!_hasUnexpectedAmongSelected()) {
       setState(() {
         _unexpectedSignInAcknowledged = true;
+        _notExpectedComment = '';
       });
     }
   }
@@ -356,19 +355,33 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     final repo = serviceLocator<AttendanceRepository>();
     final allItems = <StudentAttendanceAbsentFormItem>[];
 
-    var page = 0;
-    const pageSize = 200;
-    while (true) {
-      final absentPage = await repo.getStudentAbsentFormList(
-        fromAbsenceDate: attendanceDateYyyyMmDd,
-        toAbsenceDate: attendanceDateYyyyMmDd,
-        page: page,
-        size: pageSize,
+    // The absent-form-list lookup is a best-effort PRE-step: it exists only to
+    // clear a same-day absence record before signing the student in. If it
+    // fails (e.g. the backend 500s on this endpoint), do NOT abort the whole
+    // sign-in — skip the deletion and let the sign-in POST run. Worst case the
+    // backend rejects the sign-in for a still-present absence record, which is a
+    // clear, actionable error; being unable to sign anyone in is worse.
+    try {
+      var page = 0;
+      const pageSize = 200;
+      while (true) {
+        final absentPage = await repo.getStudentAbsentFormList(
+          fromAbsenceDate: attendanceDateYyyyMmDd,
+          toAbsenceDate: attendanceDateYyyyMmDd,
+          page: page,
+          size: pageSize,
+        );
+        allItems.addAll(absentPage.items);
+        if (!absentPage.hasMore) break;
+        page++;
+        if (page > 100) break;
+      }
+    } catch (e) {
+      AppLogger.d(
+        '[StudentSignIn] absent-form-list lookup failed ($e); '
+        'proceeding to sign-in without clearing absence records',
       );
-      allItems.addAll(absentPage.items);
-      if (!absentPage.hasMore) break;
-      page++;
-      if (page > 100) break;
+      return; // skip deletion, caller continues to the sign-in POST
     }
 
     final processedStudentCodes = <String>{};
@@ -416,7 +429,16 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
   }
 
   Future<bool> _resolveIsParentSession() async {
-    if (context.read<RoleCubit>().isParent) return true;
+    final roleCubit = context.read<RoleCubit>();
+    // Once RoleCubit has resolved the ACTIVE persona, it is authoritative —
+    // trust it even when false. A dual-role account (e.g. SCHOOL_ADMIN +
+    // GUARDIAN) has 'GUARDIAN' somewhere in its full roles list regardless of
+    // which persona is currently active, so scanning that list below would
+    // wrongly flip an admin who switched profiles back to a guardian sign-in.
+    // Only fall through to the best-effort scan while RoleCubit is still
+    // bootstrapping (no active persona resolved yet).
+    if (roleCubit.hasResolvedAccess) return roleCubit.isParent;
+    if (roleCubit.isParent) return true;
 
     try {
       final storage = serviceLocator<StorageService>();
@@ -472,18 +494,14 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       apiClient: serviceLocator<ApiClient>(),
     );
 
-    // Admins pick school-local date/time; everyone else uses "now" in the school's zone.
-    final isAdmin = _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
-    final nowUtc = DateTime.now().toUtc();
+    // Staff (admin or regular) pick school-local date/time; parents/kiosk use "now" in the school's zone.
+    final isStaffPersona = _isStaffPersona ?? await _resolveIsStaffPersona();
 
-    final DateTime occurredAt = isAdmin
-        ? SchoolZoneDateTime.utcFromSchoolWallClock(
+    final DateTime occurredAt = isStaffPersona
+        ? SchoolZoneDateTime.resolvePickedInstantUtc(
             schoolTimeZone,
-            year: selectedDate.year,
-            month: selectedDate.month,
-            day: selectedDate.day,
-            hour: selectedTime.hour,
-            minute: selectedTime.minute,
+            selectedDate: selectedDate,
+            selectedTime: selectedTime,
           )
         : SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
 
@@ -512,20 +530,16 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
         );
         return;
       }
-    } else if (isAdmin) {
-      // Admin cannot sign in for a future date/time
-      if (occurredAt.isAfter(nowUtc)) {
-        if (!mounted) return;
-        CoreUtils.showTopSnackBarFromSnackBar(
-          context: context,
-          snackBar: const SnackBar(
-            content: Text('You cannot sign in for future date/time.'),
-            backgroundColor: AppColors.warningColor,
-          ),
-        );
-        return;
-      }
     }
+    // Staff future-date/time was previously blocked here client-side, but
+    // `occurredAt` and `nowUtc` come from two separately-captured "now"
+    // reads a few statements apart — clock drift between them (or just the
+    // wall clock ticking forward between the reads) could make an
+    // unmodified, still-defaulted-to-now pick register as "after now" and
+    // false-positive this warning even though nothing was actually set to
+    // the future. The backend is the source of truth for this and already
+    // rejects an actually-future sign-in; no need to duplicate (and
+    // potentially misfire) that check here.
 
     final studentCodes = currentStudents
         .map((s) => s.studentCode.trim())
@@ -595,6 +609,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     // Include QR token if this is a QR scan
     if (widget.isQrScan && widget.qrToken.isNotEmpty) {
       payload['qrToken'] = widget.qrToken;
+    }
+    if (_notExpectedComment.trim().isNotEmpty) {
+      payload['notExpectedComment'] = _notExpectedComment.trim();
     }
     if (isParent) {
       final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
@@ -684,7 +701,10 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       if (!mounted) return;
 
       // Normalize success messages for better UX
-      if (success && (message.toLowerCase().contains('sign in') || message.toLowerCase().contains('sign-in') || message.toLowerCase().contains('signed in'))) {
+      if (success &&
+          (message.toLowerCase().contains('sign in') ||
+              message.toLowerCase().contains('sign-in') ||
+              message.toLowerCase().contains('signed in'))) {
         message = 'Sign in successfully';
       }
 
@@ -699,6 +719,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       );
 
       if (success) {
+        AttendanceEvents.notifyChanged();
         serviceLocator<ParentChildCubit>().forceRefresh();
         if (widget.popOnSuccess) {
           widget.refreshCallback();
@@ -708,7 +729,15 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
             Navigator.of(context).pop();
           }
         } else if (widget.isKiosk) {
+          // Reload QR code before returning to dashboard
+          AppLogger.d('[Kiosk] Student sign-in success - reloading QR code');
+          unawaited(context.read<KioskDashboardCubit>().loadQrCode());
           context.go('/kiosk');
+        } else if (widget.isQrScan || widget.qrToken.isNotEmpty) {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          }
+          context.go('/dashboard');
         } else if (isParent) {
           final s = currentStudents.first;
           if (context.mounted) {
@@ -728,7 +757,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
           );
         } else {
           redirectToAttendanceDaily(
-              context, StudentAttendanceTabbedView.routeName);
+            context,
+            StudentAttendanceTabbedView.routeName,
+          );
         }
       }
     } catch (e) {
@@ -793,6 +824,8 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     return StaffFormLayout(
       title: 'Sign-In',
       isKiosk: widget.isKiosk,
+      showKioskBackButton: widget.isKiosk,
+      showKioskLogoutMenu: widget.isKiosk,
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -828,7 +861,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: selectedDate,
-                        isDisabled: !(_isStaffAdminPersona ?? false),
+                        isDisabled: !(_isStaffPersona ?? false),
                         onDateSelected: (date) {
                           setState(() {
                             // Prevent future dates (school calendar), not device calendar.
@@ -838,9 +871,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                                     iana,
                                   )
                                 : DateTime(
-                                    DateTime.now().year,
-                                    DateTime.now().month,
-                                    DateTime.now().day,
+                                    ServerTimeService.instance.now().year,
+                                    ServerTimeService.instance.now().month,
+                                    ServerTimeService.instance.now().day,
                                   );
                             final pickedDay = DateTime(
                               date.year,
@@ -865,7 +898,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                       const AppText.label('Time'),
                       const SizedBox(height: 8),
                       IgnorePointer(
-                        ignoring: !(_isStaffAdminPersona ?? false),
+                        ignoring: !(_isStaffPersona ?? false),
                         child: GradientTimePickerField(
                           time: selectedTime,
                           onTimeSelected: (t) {
@@ -892,6 +925,12 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                     !_unexpectedSignInAcknowledged))
             ? null
             : _submitSignIn,
+        showCancelButton: widget.isKiosk,
+        onPressedCancel: widget.isKiosk
+            ? () {
+                context.go('/kiosk');
+              }
+            : null,
       ),
     );
   }

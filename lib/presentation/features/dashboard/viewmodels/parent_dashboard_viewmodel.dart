@@ -2,7 +2,7 @@
 enum ParentDashboardCard {
   myChildsDay,
   studentAttendance,
-  // studentBilling,
+  studentBilling,
   studentNewsletters;
 
   String get title {
@@ -11,6 +11,8 @@ enum ParentDashboardCard {
         return "My Child's Day";
       case ParentDashboardCard.studentAttendance:
         return "Student Attendance";
+      case ParentDashboardCard.studentBilling:
+        return "Student Billing";
       case ParentDashboardCard.studentNewsletters:
         return "Student Newsletters";
     }
@@ -22,6 +24,6 @@ class ParentDashboardViewModel {
 
   static const double maxContentWidth = 640;
 
-  static List<ParentDashboardCard> get defaultCards => ParentDashboardCard.values;
+  static List<ParentDashboardCard> get defaultCards =>
+      ParentDashboardCard.values;
 }
-

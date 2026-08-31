@@ -104,48 +104,68 @@ const ConversationEntityCollectionSchema = CollectionSchema(
       name: r'pendingDelete',
       type: IsarType.bool,
     ),
-    r'privateModeStatesJson': PropertySchema(
+    r'privateModeActivatedAt': PropertySchema(
       id: 17,
+      name: r'privateModeActivatedAt',
+      type: IsarType.dateTime,
+    ),
+    r'privateModeActivatedBy': PropertySchema(
+      id: 18,
+      name: r'privateModeActivatedBy',
+      type: IsarType.string,
+    ),
+    r'privateModeActive': PropertySchema(
+      id: 19,
+      name: r'privateModeActive',
+      type: IsarType.bool,
+    ),
+    r'privateModeStatesJson': PropertySchema(
+      id: 20,
       name: r'privateModeStatesJson',
       type: IsarType.string,
     ),
     r'schoolCode': PropertySchema(
-      id: 18,
+      id: 21,
       name: r'schoolCode',
       type: IsarType.string,
     ),
     r'status': PropertySchema(
-      id: 19,
+      id: 22,
       name: r'status',
       type: IsarType.string,
     ),
     r'studentCode': PropertySchema(
-      id: 20,
+      id: 23,
       name: r'studentCode',
       type: IsarType.string,
     ),
+    r'studentStatus': PropertySchema(
+      id: 24,
+      name: r'studentStatus',
+      type: IsarType.string,
+    ),
     r'title': PropertySchema(
-      id: 21,
+      id: 25,
       name: r'title',
       type: IsarType.string,
     ),
     r'type': PropertySchema(
-      id: 22,
+      id: 26,
       name: r'type',
       type: IsarType.string,
     ),
     r'unreadCount': PropertySchema(
-      id: 23,
+      id: 27,
       name: r'unreadCount',
       type: IsarType.long,
     ),
     r'updatedAt': PropertySchema(
-      id: 24,
+      id: 28,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'updatedBy': PropertySchema(
-      id: 25,
+      id: 29,
       name: r'updatedBy',
       type: IsarType.string,
     )
@@ -290,6 +310,12 @@ int _conversationEntityCollectionEstimateSize(
     }
   }
   {
+    final value = object.privateModeActivatedBy;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.privateModeStatesJson;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -299,6 +325,12 @@ int _conversationEntityCollectionEstimateSize(
   bytesCount += 3 + object.status.length * 3;
   {
     final value = object.studentCode;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.studentStatus;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
     }
@@ -337,15 +369,19 @@ void _conversationEntityCollectionSerialize(
     object.participants,
   );
   writer.writeBool(offsets[16], object.pendingDelete);
-  writer.writeString(offsets[17], object.privateModeStatesJson);
-  writer.writeString(offsets[18], object.schoolCode);
-  writer.writeString(offsets[19], object.status);
-  writer.writeString(offsets[20], object.studentCode);
-  writer.writeString(offsets[21], object.title);
-  writer.writeString(offsets[22], object.type);
-  writer.writeLong(offsets[23], object.unreadCount);
-  writer.writeDateTime(offsets[24], object.updatedAt);
-  writer.writeString(offsets[25], object.updatedBy);
+  writer.writeDateTime(offsets[17], object.privateModeActivatedAt);
+  writer.writeString(offsets[18], object.privateModeActivatedBy);
+  writer.writeBool(offsets[19], object.privateModeActive);
+  writer.writeString(offsets[20], object.privateModeStatesJson);
+  writer.writeString(offsets[21], object.schoolCode);
+  writer.writeString(offsets[22], object.status);
+  writer.writeString(offsets[23], object.studentCode);
+  writer.writeString(offsets[24], object.studentStatus);
+  writer.writeString(offsets[25], object.title);
+  writer.writeString(offsets[26], object.type);
+  writer.writeLong(offsets[27], object.unreadCount);
+  writer.writeDateTime(offsets[28], object.updatedAt);
+  writer.writeString(offsets[29], object.updatedBy);
 }
 
 ConversationEntityCollection _conversationEntityCollectionDeserialize(
@@ -377,15 +413,19 @@ ConversationEntityCollection _conversationEntityCollectionDeserialize(
     ParticipantEntityCollection(),
   );
   object.pendingDelete = reader.readBool(offsets[16]);
-  object.privateModeStatesJson = reader.readStringOrNull(offsets[17]);
-  object.schoolCode = reader.readString(offsets[18]);
-  object.status = reader.readString(offsets[19]);
-  object.studentCode = reader.readStringOrNull(offsets[20]);
-  object.title = reader.readString(offsets[21]);
-  object.type = reader.readString(offsets[22]);
-  object.unreadCount = reader.readLong(offsets[23]);
-  object.updatedAt = reader.readDateTime(offsets[24]);
-  object.updatedBy = reader.readString(offsets[25]);
+  object.privateModeActivatedAt = reader.readDateTimeOrNull(offsets[17]);
+  object.privateModeActivatedBy = reader.readStringOrNull(offsets[18]);
+  object.privateModeActive = reader.readBool(offsets[19]);
+  object.privateModeStatesJson = reader.readStringOrNull(offsets[20]);
+  object.schoolCode = reader.readString(offsets[21]);
+  object.status = reader.readString(offsets[22]);
+  object.studentCode = reader.readStringOrNull(offsets[23]);
+  object.studentStatus = reader.readStringOrNull(offsets[24]);
+  object.title = reader.readString(offsets[25]);
+  object.type = reader.readString(offsets[26]);
+  object.unreadCount = reader.readLong(offsets[27]);
+  object.updatedAt = reader.readDateTime(offsets[28]);
+  object.updatedBy = reader.readString(offsets[29]);
   return object;
 }
 
@@ -436,11 +476,11 @@ P _conversationEntityCollectionDeserializeProp<P>(
     case 16:
       return (reader.readBool(offset)) as P;
     case 17:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 18:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 19:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 20:
       return (reader.readStringOrNull(offset)) as P;
     case 21:
@@ -448,10 +488,18 @@ P _conversationEntityCollectionDeserializeProp<P>(
     case 22:
       return (reader.readString(offset)) as P;
     case 23:
-      return (reader.readLong(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 24:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 25:
+      return (reader.readString(offset)) as P;
+    case 26:
+      return (reader.readString(offset)) as P;
+    case 27:
+      return (reader.readLong(offset)) as P;
+    case 28:
+      return (reader.readDateTime(offset)) as P;
+    case 29:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -2782,6 +2830,248 @@ extension ConversationEntityCollectionQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> privateModeActivatedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'privateModeActivatedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> privateModeActivatedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'privateModeActivatedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> privateModeActivatedAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'privateModeActivatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> privateModeActivatedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'privateModeActivatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> privateModeActivatedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'privateModeActivatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> privateModeActivatedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'privateModeActivatedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> privateModeActivatedByIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'privateModeActivatedBy',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> privateModeActivatedByIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'privateModeActivatedBy',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> privateModeActivatedByEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'privateModeActivatedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> privateModeActivatedByGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'privateModeActivatedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> privateModeActivatedByLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'privateModeActivatedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> privateModeActivatedByBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'privateModeActivatedBy',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> privateModeActivatedByStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'privateModeActivatedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> privateModeActivatedByEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'privateModeActivatedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+          QAfterFilterCondition>
+      privateModeActivatedByContains(String value,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'privateModeActivatedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+          QAfterFilterCondition>
+      privateModeActivatedByMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'privateModeActivatedBy',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> privateModeActivatedByIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'privateModeActivatedBy',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> privateModeActivatedByIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'privateModeActivatedBy',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> privateModeActiveEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'privateModeActive',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
       QAfterFilterCondition> privateModeStatesJsonIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -3365,6 +3655,162 @@ extension ConversationEntityCollectionQueryFilter on QueryBuilder<
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'studentCode',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> studentStatusIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'studentStatus',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> studentStatusIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'studentStatus',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> studentStatusEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'studentStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> studentStatusGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'studentStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> studentStatusLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'studentStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> studentStatusBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'studentStatus',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> studentStatusStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'studentStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> studentStatusEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'studentStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+          QAfterFilterCondition>
+      studentStatusContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'studentStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+          QAfterFilterCondition>
+      studentStatusMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'studentStatus',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> studentStatusIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'studentStatus',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterFilterCondition> studentStatusIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'studentStatus',
         value: '',
       ));
     });
@@ -4142,6 +4588,48 @@ extension ConversationEntityCollectionQuerySortBy on QueryBuilder<
   }
 
   QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterSortBy> sortByPrivateModeActivatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActivatedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterSortBy> sortByPrivateModeActivatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActivatedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterSortBy> sortByPrivateModeActivatedBy() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActivatedBy', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterSortBy> sortByPrivateModeActivatedByDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActivatedBy', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterSortBy> sortByPrivateModeActive() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActive', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterSortBy> sortByPrivateModeActiveDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActive', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
       QAfterSortBy> sortByPrivateModeStatesJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'privateModeStatesJson', Sort.asc);
@@ -4194,6 +4682,20 @@ extension ConversationEntityCollectionQuerySortBy on QueryBuilder<
       QAfterSortBy> sortByStudentCodeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'studentCode', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterSortBy> sortByStudentStatus() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'studentStatus', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterSortBy> sortByStudentStatusDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'studentStatus', Sort.desc);
     });
   }
 
@@ -4509,6 +5011,48 @@ extension ConversationEntityCollectionQuerySortThenBy on QueryBuilder<
   }
 
   QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterSortBy> thenByPrivateModeActivatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActivatedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterSortBy> thenByPrivateModeActivatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActivatedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterSortBy> thenByPrivateModeActivatedBy() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActivatedBy', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterSortBy> thenByPrivateModeActivatedByDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActivatedBy', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterSortBy> thenByPrivateModeActive() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActive', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterSortBy> thenByPrivateModeActiveDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActive', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
       QAfterSortBy> thenByPrivateModeStatesJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'privateModeStatesJson', Sort.asc);
@@ -4561,6 +5105,20 @@ extension ConversationEntityCollectionQuerySortThenBy on QueryBuilder<
       QAfterSortBy> thenByStudentCodeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'studentCode', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterSortBy> thenByStudentStatus() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'studentStatus', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QAfterSortBy> thenByStudentStatusDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'studentStatus', Sort.desc);
     });
   }
 
@@ -4755,6 +5313,28 @@ extension ConversationEntityCollectionQueryWhereDistinct on QueryBuilder<
   }
 
   QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QDistinct> distinctByPrivateModeActivatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'privateModeActivatedAt');
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QDistinct> distinctByPrivateModeActivatedBy({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'privateModeActivatedBy',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QDistinct> distinctByPrivateModeActive() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'privateModeActive');
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
       QDistinct> distinctByPrivateModeStatesJson({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'privateModeStatesJson',
@@ -4780,6 +5360,14 @@ extension ConversationEntityCollectionQueryWhereDistinct on QueryBuilder<
       QDistinct> distinctByStudentCode({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'studentCode', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, ConversationEntityCollection,
+      QDistinct> distinctByStudentStatus({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'studentStatus',
+          caseSensitive: caseSensitive);
     });
   }
 
@@ -4949,6 +5537,27 @@ extension ConversationEntityCollectionQueryProperty on QueryBuilder<
     });
   }
 
+  QueryBuilder<ConversationEntityCollection, DateTime?, QQueryOperations>
+      privateModeActivatedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'privateModeActivatedAt');
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, String?, QQueryOperations>
+      privateModeActivatedByProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'privateModeActivatedBy');
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, bool, QQueryOperations>
+      privateModeActiveProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'privateModeActive');
+    });
+  }
+
   QueryBuilder<ConversationEntityCollection, String?, QQueryOperations>
       privateModeStatesJsonProperty() {
     return QueryBuilder.apply(this, (query) {
@@ -4974,6 +5583,13 @@ extension ConversationEntityCollectionQueryProperty on QueryBuilder<
       studentCodeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'studentCode');
+    });
+  }
+
+  QueryBuilder<ConversationEntityCollection, String?, QQueryOperations>
+      studentStatusProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'studentStatus');
     });
   }
 
@@ -5024,68 +5640,83 @@ const ParticipantEntityCollectionSchema = Schema(
   name: r'ParticipantEntityCollection',
   id: -4408489523209438956,
   properties: {
-    r'avatarUrl': PropertySchema(
+    r'active': PropertySchema(
       id: 0,
+      name: r'active',
+      type: IsarType.bool,
+    ),
+    r'avatarUrl': PropertySchema(
+      id: 1,
       name: r'avatarUrl',
       type: IsarType.string,
     ),
     r'conversationId': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'conversationId',
       type: IsarType.long,
     ),
     r'createdAt': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
     r'id': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'id',
       type: IsarType.long,
     ),
     r'joinedAt': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'joinedAt',
       type: IsarType.dateTime,
     ),
     r'lastReadAt': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'lastReadAt',
       type: IsarType.dateTime,
     ),
     r'leftAt': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'leftAt',
       type: IsarType.dateTime,
     ),
     r'muted': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'muted',
       type: IsarType.bool,
     ),
     r'notificationsEnabled': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'notificationsEnabled',
       type: IsarType.bool,
     ),
     r'role': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'role',
       type: IsarType.string,
     ),
+    r'staffCode': PropertySchema(
+      id: 11,
+      name: r'staffCode',
+      type: IsarType.string,
+    ),
+    r'staffStatus': PropertySchema(
+      id: 12,
+      name: r'staffStatus',
+      type: IsarType.string,
+    ),
     r'updatedAt': PropertySchema(
-      id: 10,
+      id: 13,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'userCode': PropertySchema(
-      id: 11,
+      id: 14,
       name: r'userCode',
       type: IsarType.string,
     ),
     r'userName': PropertySchema(
-      id: 12,
+      id: 15,
       name: r'userName',
       type: IsarType.string,
     )
@@ -5109,6 +5740,18 @@ int _participantEntityCollectionEstimateSize(
     }
   }
   bytesCount += 3 + object.role.length * 3;
+  {
+    final value = object.staffCode;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.staffStatus;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.userCode.length * 3;
   bytesCount += 3 + object.userName.length * 3;
   return bytesCount;
@@ -5120,19 +5763,22 @@ void _participantEntityCollectionSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeString(offsets[0], object.avatarUrl);
-  writer.writeLong(offsets[1], object.conversationId);
-  writer.writeDateTime(offsets[2], object.createdAt);
-  writer.writeLong(offsets[3], object.id);
-  writer.writeDateTime(offsets[4], object.joinedAt);
-  writer.writeDateTime(offsets[5], object.lastReadAt);
-  writer.writeDateTime(offsets[6], object.leftAt);
-  writer.writeBool(offsets[7], object.muted);
-  writer.writeBool(offsets[8], object.notificationsEnabled);
-  writer.writeString(offsets[9], object.role);
-  writer.writeDateTime(offsets[10], object.updatedAt);
-  writer.writeString(offsets[11], object.userCode);
-  writer.writeString(offsets[12], object.userName);
+  writer.writeBool(offsets[0], object.active);
+  writer.writeString(offsets[1], object.avatarUrl);
+  writer.writeLong(offsets[2], object.conversationId);
+  writer.writeDateTime(offsets[3], object.createdAt);
+  writer.writeLong(offsets[4], object.id);
+  writer.writeDateTime(offsets[5], object.joinedAt);
+  writer.writeDateTime(offsets[6], object.lastReadAt);
+  writer.writeDateTime(offsets[7], object.leftAt);
+  writer.writeBool(offsets[8], object.muted);
+  writer.writeBool(offsets[9], object.notificationsEnabled);
+  writer.writeString(offsets[10], object.role);
+  writer.writeString(offsets[11], object.staffCode);
+  writer.writeString(offsets[12], object.staffStatus);
+  writer.writeDateTime(offsets[13], object.updatedAt);
+  writer.writeString(offsets[14], object.userCode);
+  writer.writeString(offsets[15], object.userName);
 }
 
 ParticipantEntityCollection _participantEntityCollectionDeserialize(
@@ -5142,19 +5788,22 @@ ParticipantEntityCollection _participantEntityCollectionDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = ParticipantEntityCollection();
-  object.avatarUrl = reader.readStringOrNull(offsets[0]);
-  object.conversationId = reader.readLong(offsets[1]);
-  object.createdAt = reader.readDateTime(offsets[2]);
-  object.id = reader.readLong(offsets[3]);
-  object.joinedAt = reader.readDateTime(offsets[4]);
-  object.lastReadAt = reader.readDateTimeOrNull(offsets[5]);
-  object.leftAt = reader.readDateTimeOrNull(offsets[6]);
-  object.muted = reader.readBoolOrNull(offsets[7]);
-  object.notificationsEnabled = reader.readBoolOrNull(offsets[8]);
-  object.role = reader.readString(offsets[9]);
-  object.updatedAt = reader.readDateTime(offsets[10]);
-  object.userCode = reader.readString(offsets[11]);
-  object.userName = reader.readString(offsets[12]);
+  object.active = reader.readBoolOrNull(offsets[0]);
+  object.avatarUrl = reader.readStringOrNull(offsets[1]);
+  object.conversationId = reader.readLong(offsets[2]);
+  object.createdAt = reader.readDateTime(offsets[3]);
+  object.id = reader.readLong(offsets[4]);
+  object.joinedAt = reader.readDateTime(offsets[5]);
+  object.lastReadAt = reader.readDateTimeOrNull(offsets[6]);
+  object.leftAt = reader.readDateTimeOrNull(offsets[7]);
+  object.muted = reader.readBoolOrNull(offsets[8]);
+  object.notificationsEnabled = reader.readBoolOrNull(offsets[9]);
+  object.role = reader.readString(offsets[10]);
+  object.staffCode = reader.readStringOrNull(offsets[11]);
+  object.staffStatus = reader.readStringOrNull(offsets[12]);
+  object.updatedAt = reader.readDateTime(offsets[13]);
+  object.userCode = reader.readString(offsets[14]);
+  object.userName = reader.readString(offsets[15]);
   return object;
 }
 
@@ -5166,30 +5815,36 @@ P _participantEntityCollectionDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBoolOrNull(offset)) as P;
     case 1:
-      return (reader.readLong(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 2:
-      return (reader.readDateTime(offset)) as P;
-    case 3:
       return (reader.readLong(offset)) as P;
-    case 4:
+    case 3:
       return (reader.readDateTime(offset)) as P;
+    case 4:
+      return (reader.readLong(offset)) as P;
     case 5:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 6:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 7:
-      return (reader.readBoolOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 8:
       return (reader.readBoolOrNull(offset)) as P;
     case 9:
-      return (reader.readString(offset)) as P;
+      return (reader.readBoolOrNull(offset)) as P;
     case 10:
-      return (reader.readDateTime(offset)) as P;
-    case 11:
       return (reader.readString(offset)) as P;
+    case 11:
+      return (reader.readStringOrNull(offset)) as P;
     case 12:
+      return (reader.readStringOrNull(offset)) as P;
+    case 13:
+      return (reader.readDateTime(offset)) as P;
+    case 14:
+      return (reader.readString(offset)) as P;
+    case 15:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -5200,6 +5855,34 @@ extension ParticipantEntityCollectionQueryFilter on QueryBuilder<
     ParticipantEntityCollection,
     ParticipantEntityCollection,
     QFilterCondition> {
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> activeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'active',
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> activeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'active',
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> activeEqualTo(bool? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'active',
+        value: value,
+      ));
+    });
+  }
+
   QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
       QAfterFilterCondition> avatarUrlIsNull() {
     return QueryBuilder.apply(this, (query) {
@@ -5917,6 +6600,318 @@ extension ParticipantEntityCollectionQueryFilter on QueryBuilder<
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'role',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'staffCode',
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'staffCode',
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'staffCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'staffCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'staffCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'staffCode',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'staffCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'staffCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+          QAfterFilterCondition>
+      staffCodeContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'staffCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+          QAfterFilterCondition>
+      staffCodeMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'staffCode',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'staffCode',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'staffCode',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffStatusIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'staffStatus',
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffStatusIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'staffStatus',
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffStatusEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'staffStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffStatusGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'staffStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffStatusLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'staffStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffStatusBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'staffStatus',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffStatusStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'staffStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffStatusEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'staffStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+          QAfterFilterCondition>
+      staffStatusContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'staffStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+          QAfterFilterCondition>
+      staffStatusMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'staffStatus',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffStatusIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'staffStatus',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffStatusIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'staffStatus',
         value: '',
       ));
     });

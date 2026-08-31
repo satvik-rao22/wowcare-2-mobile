@@ -7,6 +7,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
 import 'package:wowcare/domain/features/billing/usecases/add_payment_method_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/get_payment_settings_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_autopay_status_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/set_autopay_status_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_payment_methods_usecase.dart';
@@ -28,6 +29,7 @@ part 'auto_pay_methods_state.dart';
 class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
   AutoPayMethodsCubit({
     required GetSchoolForteConfigUseCase getForteConfig,
+    required GetPaymentSettingsUseCase getPaymentSettings,
     required GetAutoPayStatusUseCase getStatus,
     required SetAutoPayStatusUseCase setStatus,
     required GetPaymentMethodsUseCase getMethods,
@@ -38,6 +40,7 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
     required UpdatePaymentMethodUseCase updateMethod,
     required StorageService storage,
   })  : _getForteConfig = getForteConfig,
+        _getPaymentSettings = getPaymentSettings,
         _getStatus = getStatus,
         _setStatus = setStatus,
         _getMethods = getMethods,
@@ -50,6 +53,7 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
         super(const AutoPayMethodsState());
 
   final GetSchoolForteConfigUseCase _getForteConfig;
+  final GetPaymentSettingsUseCase _getPaymentSettings;
   final GetAutoPayStatusUseCase _getStatus;
   final SetAutoPayStatusUseCase _setStatus;
   final GetPaymentMethodsUseCase _getMethods;
@@ -92,6 +96,20 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
         schoolCode: _schoolCode,
       );
 
+      // School payment settings drive which method types the add-method webview
+      // offers. A failure here is non-fatal — leave allowedMethods empty so the
+      // webview shows all options rather than blocking the add flow.
+      List<String> allowedMethods = const <String>[];
+      if (_schoolCode.isNotEmpty) {
+        try {
+          final settings =
+              await _getPaymentSettings(schoolCode: _schoolCode);
+          allowedMethods = settings?.allowedMethods ?? const <String>[];
+        } catch (_) {
+          allowedMethods = const <String>[];
+        }
+      }
+
       AutoPayStatusEntity? status;
       List<PaymentMethodEntity> methods = const [];
       if (hasScope) {
@@ -112,6 +130,7 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
         autopayEnabled: enabled,
         initialAutopayEnabled: enabled,
         methods: methods,
+        allowedMethods: allowedMethods,
         selectedMethodCode: () => selectedCode,
       ));
     } catch (e) {
@@ -146,7 +165,16 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
         'apiLoginId': state.apiLoginId,
         'title': title ?? 'Add Payment Method',
         if (defaultMethod != null) 'defaultMethod': defaultMethod,
+        // Restrict the webview's method dropdown to the school's accepted types
+        // (empty → no restriction).
+        if (state.allowedMethods.isNotEmpty)
+          'allowedMethods': state.allowedMethods,
       };
+
+  /// Number of whitespace-separated words in [name] (used to require a first
+  /// and last name before sending a holder name to Forte).
+  int _nameWordCount(String name) =>
+      name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
 
   Future<(String, String)> _guardianNames() async {
     final firstName =
@@ -182,10 +210,14 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
     emit(state.copyWith(isSaving: true, errorMessage: () => null));
     try {
       var holderName = (accountHolder ?? '').trim();
-      if (holderName.isEmpty) {
-        // Fall back to the stored guardian name when the form left it blank.
+      // Forte mandates BOTH a first and last name on the card-holder /
+      // account-holder. If the form left it blank or only captured a single
+      // word, supplement it with the stored guardian name so the request isn't
+      // rejected ("MANDATORY FIELD MISSING: ... name_on_card / account_holder").
+      if (_nameWordCount(holderName) < 2) {
         final (firstName, lastName) = await _guardianNames();
-        holderName = [firstName, lastName]
+        final first = holderName.isNotEmpty ? holderName : firstName;
+        holderName = [first, lastName]
             .where((p) => p.trim().isNotEmpty)
             .join(' ')
             .trim();

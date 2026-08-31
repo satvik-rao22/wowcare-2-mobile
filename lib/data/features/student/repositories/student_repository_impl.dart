@@ -1,9 +1,9 @@
 import 'package:intl/intl.dart';
 
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/student/entities/student.dart';
+import '../../../../domain/features/student/entities/student_settings.dart';
 import '../../../../domain/features/student/entities/student_document.dart';
 import '../../../../domain/features/student/entities/student_documents_page.dart';
 import '../../../../domain/features/student/entities/student_guardian.dart';
@@ -15,6 +15,7 @@ import '../../../../domain/features/student/entities/student_physician.dart';
 import '../../../../domain/features/student/entities/student_pickup.dart';
 import '../../../../domain/features/student/entities/student_profile.dart';
 import '../../../../domain/features/student/entities/student_regular_schedule.dart';
+import '../../../../domain/features/student/entities/vaccine_item.dart';
 import '../../../../domain/features/student/repositories/student_repository.dart';
 import '../datasources/student_remote_datasource.dart';
 import '../mappers/student_guardian_mapper.dart';
@@ -110,17 +111,19 @@ class StudentRepositoryImpl
       return int.tryParse(v.toString()) ?? 0;
     }
 
-    return rawList.map((e) {
-      final startTime = e['startTime'];
-      final endTime = e['endTime'];
-      return StudentRegularScheduleEntry(
-        dayOfWeek: (e['dayOfWeek'] ?? '').toString().toUpperCase(),
-        startHour: _extractInt(startTime, 'hour'),
-        startMinute: _extractInt(startTime, 'minute'),
-        endHour: _extractInt(endTime, 'hour'),
-        endMinute: _extractInt(endTime, 'minute'),
-      );
-    }).toList(growable: false);
+    return rawList
+        .map((e) {
+          final startTime = e['startTime'];
+          final endTime = e['endTime'];
+          return StudentRegularScheduleEntry(
+            dayOfWeek: (e['dayOfWeek'] ?? '').toString().toUpperCase(),
+            startHour: _extractInt(startTime, 'hour'),
+            startMinute: _extractInt(startTime, 'minute'),
+            endHour: _extractInt(endTime, 'hour'),
+            endMinute: _extractInt(endTime, 'minute'),
+          );
+        })
+        .toList(growable: false);
   }
 
   @override
@@ -144,6 +147,7 @@ class StudentRepositoryImpl
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     String? code,
     String? firstName,
@@ -173,6 +177,9 @@ class StudentRepositoryImpl
     final guardianKey = normList(
       guardianCodes,
     ).map((e) => e.toUpperCase()).join(',');
+    final attendanceKey = normList(
+      attendanceStatuses,
+    ).map((e) => e.toUpperCase()).join(',');
 
     final identifier = [
       schoolCode,
@@ -180,6 +187,7 @@ class StudentRepositoryImpl
       if (classroomKey.isNotEmpty) 'classrooms=$classroomKey',
       if (tagKey.isNotEmpty) 'tags=$tagKey',
       if (guardianKey.isNotEmpty) 'guardians=$guardianKey',
+      if (attendanceKey.isNotEmpty) 'attendanceStatus=$attendanceKey',
       if (searchKey.isNotEmpty) 'search=$searchKey',
       if (codeKey.isNotEmpty) 'code=$codeKey',
       if (firstNameKey.isNotEmpty) 'firstName=$firstNameKey',
@@ -339,8 +347,14 @@ class StudentRepositoryImpl
   }
 
   @override
-  Future<({int expiredDocumentCount, int expiringWithinWeekCount, int totalDocumentsWithExpiry})>
-      getStudentDocumentExpiryCount({required String schoolCode}) async {
+  Future<
+    ({
+      int expiredDocumentCount,
+      int expiringWithinWeekCount,
+      int totalDocumentsWithExpiry,
+    })
+  >
+  getStudentDocumentExpiryCount({required String schoolCode}) async {
     return _remoteDataSource.getStudentDocumentExpiryCount(
       schoolCode: schoolCode,
     );
@@ -348,7 +362,7 @@ class StudentRepositoryImpl
 
   @override
   Future<({int overdueExamCount, int studentsWithoutActiveExamCount})>
-      getStudentPhysicalCheckupCount({required String schoolCode}) async {
+  getStudentPhysicalCheckupCount({required String schoolCode}) async {
     return _remoteDataSource.getStudentPhysicalCheckupCount(
       schoolCode: schoolCode,
     );
@@ -378,9 +392,11 @@ class StudentRepositoryImpl
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     int page = 0,
     int size = 10,
+    List<String>? allowedClassroomCodes,
   }) async {
     // Backend expects upper-case enum values for StudentStatus (e.g. ACTIVE).
     final normalizedStatus = status?.trim().toUpperCase();
@@ -394,9 +410,11 @@ class StudentRepositoryImpl
       classroomCodes: classroomCodes,
       tagCodes: tagCodes,
       guardianCodes: guardianCodes,
+      attendanceStatuses: attendanceStatuses,
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowedClassroomCodes,
     );
 
     // Cache only the first page for simplicity, keyed by filters.
@@ -407,6 +425,7 @@ class StudentRepositoryImpl
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
         guardianCodes: guardianCodes,
+        attendanceStatuses: attendanceStatuses,
         search: search,
         code: code,
         firstName: firstName,
@@ -460,10 +479,13 @@ class StudentRepositoryImpl
     StudentDocumentsPageModel model,
   ) {
     final items = model.items.map((m) {
+      // storagePath is just a bare file name (e.g. "IMG_0005.JPG"), not a
+      // link — prepending the API base produced an unservable URL and skipped
+      // resolving the real delivery link via assetCode. Pass it through
+      // as-is (unless it's already an absolute URL) so the Documents tab's
+      // assetCode-based resolution runs, matching the staff-document path.
       final storagePath = m.storagePath;
-      final documentUrl = storagePath.startsWith('http')
-          ? storagePath
-          : '${ApiConstants.studentBaseUrl}${storagePath.startsWith('/') ? '' : '/'}$storagePath';
+      final documentUrl = storagePath;
       return StudentDocument(
         documentUuid: m.code,
         documentType: m.type,
@@ -761,9 +783,7 @@ class StudentRepositoryImpl
   }
 
   @override
-  Future<StudentHealth> getStudentHealth({
-    required String studentCode,
-  }) async {
+  Future<StudentHealth> getStudentHealth({required String studentCode}) async {
     final cached = await _cacheManager.loadCache(
       _studentHealthCacheKey(studentCode),
     );
@@ -1211,6 +1231,35 @@ class StudentRepositoryImpl
   }
 
   @override
+  Future<StudentSettings> getStudentSettings({required String schoolCode}) {
+    return _remoteDataSource.getStudentSettings(schoolCode: schoolCode);
+  }
+
+  @override
+  Future<List<VaccineItem>> getImmunizationSettings({
+    required String schoolCode,
+  }) async {
+    final models = await _remoteDataSource.getImmunizationSettings(
+      schoolCode: schoolCode,
+    );
+    return models.map((m) => m.toEntity()).toList();
+  }
+
+  @override
+  Future<Map<String, String>> getVaccineNameToCodeMapForSchool({
+    required String schoolCode,
+  }) async {
+    final vaccines = await getImmunizationSettings(schoolCode: schoolCode);
+    final map = <String, String>{};
+    for (final v in vaccines) {
+      if (v.name.isNotEmpty && v.code.isNotEmpty) {
+        map[v.name] = v.code;
+      }
+    }
+    return map;
+  }
+
+  @override
   Future<String> linkExistingGuardian({
     required String guardianCode,
     required String studentCode,
@@ -1347,8 +1396,7 @@ class StudentRepositoryImpl
         if (list.isNotEmpty) {
           // Older cached payloads may not include the guardian code. If so,
           // bypass cache so the edit/delete flows can resolve a valid code.
-          final hasMissingCode =
-              list.any((g) => g.guardianCode.trim().isEmpty);
+          final hasMissingCode = list.any((g) => g.guardianCode.trim().isEmpty);
           if (!hasMissingCode) {
             return list.map((m) => m.toEntity()).toList(growable: false);
           }
@@ -1379,6 +1427,7 @@ class StudentRepositoryImpl
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     String? code,
     String? firstName,
@@ -1390,6 +1439,7 @@ class StudentRepositoryImpl
       classroomCodes: classroomCodes,
       tagCodes: tagCodes,
       guardianCodes: guardianCodes,
+      attendanceStatuses: attendanceStatuses,
       search: search,
       code: code,
       firstName: firstName,
@@ -1410,6 +1460,7 @@ class StudentRepositoryImpl
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     String? code,
     String? firstName,
@@ -1422,6 +1473,7 @@ class StudentRepositoryImpl
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
         guardianCodes: guardianCodes,
+        attendanceStatuses: attendanceStatuses,
         search: search,
         code: code,
         firstName: firstName,
@@ -1443,6 +1495,8 @@ class StudentRepositoryImpl
               profileImage: m.profilePhotoUrl,
               profilePhotoAssetCode: m.profilePhotoAssetCode,
               classroom: m.classroom,
+              classroomCode: m.classroomCode,
+              hasGuardian: m.hasGuardian,
               dob: m.dob,
               movementDate: m.movementDate,
               tags: m.tags,
@@ -1574,6 +1628,21 @@ class StudentRepositoryImpl
     required List<String> siblingCodes,
   }) async {
     final message = await _remoteDataSource.updateStudentSiblings(
+      studentCode: studentCode,
+      siblingCodes: siblingCodes,
+    );
+
+    await _invalidateAllStudentListAndSummaryCaches();
+
+    return message;
+  }
+
+  @override
+  Future<String> addStudentSibling({
+    required String studentCode,
+    required List<String> siblingCodes,
+  }) async {
+    final message = await _remoteDataSource.addStudentSibling(
       studentCode: studentCode,
       siblingCodes: siblingCodes,
     );

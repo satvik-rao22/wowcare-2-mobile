@@ -88,7 +88,14 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
       if (schoolCode.isEmpty) return;
       final repo = serviceLocator<StaffRepository>();
       final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
-      final open = <String>{for (final d in days) d.dayOfWeek.toUpperCase()};
+      // Skip days the school is closed on (INACTIVE) or that aren't a
+      // regular weekly schedule (e.g. HOLIDAY) — mirrors the filtering in
+      // EditScheduleScreen so the profile view doesn't offer off days either.
+      final open = <String>{
+        for (final d in days)
+          if (!(d.status != null && !d.isActive) && d.isRegular)
+            d.dayOfWeek.toUpperCase(),
+      };
       final ordered = _weekOrder.where(open.contains).toList(growable: false);
       if (!mounted) return;
       setState(() => _schoolOpenDays = ordered);
@@ -760,9 +767,9 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                                                           ? const Color(
                                                               0x4DB1AFE9,
                                                             )
-                                                          : const Color(
-                                                              0xFFF3F4FB,
-                                                            ),
+                                                          : Colors
+                                                                .grey
+                                                                .shade200,
                                                     ),
                                                     if (workLabel != null &&
                                                         workLabel
@@ -892,11 +899,11 @@ class _ScheduleChip extends StatelessWidget {
         textAlign: TextAlign.center,
         maxLines: isTimeChip ? 2 : 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
+        style: TextStyle(
           fontFamily: 'Manrope',
           fontSize: 15,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF4B5B7A),
+          color: labelColor,
         ),
       ),
     );

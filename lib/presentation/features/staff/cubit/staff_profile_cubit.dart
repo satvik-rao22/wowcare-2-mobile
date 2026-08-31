@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 
 import '../../../../domain/features/staff/entities/staff_profile.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
@@ -55,8 +56,13 @@ class StaffProfileCubit extends Cubit<StaffProfileState> {
     );
 
     try {
+      // forceRefresh: true — without it, getStaffProfile() serves the same
+      // cache entry loadInitial()'s cache-first read just populated (5-minute
+      // TTL), so this "revalidate from API" step silently no-op'd instead of
+      // picking up a value just changed on the backend.
       final profile = await _getStaffProfileUseCase(
         staffCode: staffCode,
+        forceRefresh: true,
       );
 
       if (isClosed) return;
@@ -73,7 +79,7 @@ class StaffProfileCubit extends Cubit<StaffProfileState> {
         state.copyWith(
           isLoading: false,
           isRefreshing: false,
-          errorMessage: e.toString(),
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
         ),
       );
     }

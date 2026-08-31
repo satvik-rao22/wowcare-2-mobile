@@ -6,6 +6,16 @@ class GetNotificationsUseCase {
 
   final NotificationCenterRepository _repository;
 
-  Future<NotificationPage> call({int page = 0, int size = 10}) =>
-      _repository.getNotifications(page: page, size: size);
+  Future<NotificationPage> call({
+    int page = 0,
+    int size = 10,
+    String? module,
+    bool onlyUnread = false,
+  }) =>
+      _repository.getNotifications(
+        page: page,
+        size: size,
+        module: module,
+        onlyUnread: onlyUnread,
+      );
 }

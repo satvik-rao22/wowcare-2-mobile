@@ -11,8 +11,9 @@ import 'package:wowcare/domain/features/communication/entities/messaging_staff_r
 import 'package:wowcare/domain/features/communication/entities/unread_entity.dart';
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/usecases/toggle_private_mode_usecase.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/private_mode_toggle_cubit.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/private_mode_toggle_state.dart';
+import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_state.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/room_chat_privacy_helper.dart';
 
 // ── Minimal fake base (satisfies interface without mockito) ───────────────────
 
@@ -47,18 +48,28 @@ class _FakeRepo implements ConversationEntityRepository {
       const Stream.empty();
 
   @override
+  Stream<int> watchUnreadCountForConversation(String conversationCode) =>
+      const Stream.empty();
+
+  @override
   Stream<int> watchTotalUnreadCount() => const Stream.empty();
 
   @override
   Future<Either<Failure, List<ConversationEntity>>> getConversations({
     ConversationType? type,
-    String status = 'ACTIVE',
+    String? status,
     int page = 0,
     int size = 20,
-    String? designation,
-    String? staffStatus,
-    String? classroom,
-  }) async => const Right([]);
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
+    bool? unreadOnly,
+    bool includeRestUnreadCounts = true,
+  }) async =>
+      const Right([]);
 
   @override
   Future<Either<Failure, List<ConversationEntity>>> getCachedConversations({
@@ -154,6 +165,35 @@ class _FakeRepo implements ConversationEntityRepository {
     // TODO: implement markConversationDelivered
     throw UnimplementedError();
   }
+
+  @override
+  Future<Either<Failure, Unit>> reconcileClassroomChat(
+    String classroomCode, {
+    String? classroomName,
+  }) {
+    // TODO: implement reconcileClassroomChat
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsPerConversation() {
+    // TODO: implement getUnreadCountsPerConversation
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, Set<String>>> getClassroomRosterPresentUserCodes(
+    String classroomCode,
+  ) {
+    // TODO: implement getClassroomRosterPresentUserCodes
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsByType() {
+    // TODO: implement getUnreadCountsByType
+    throw UnimplementedError();
+  }
 }
 
 // ── Helper to build a testable widget tree ────────────────────────────────────
@@ -185,12 +225,17 @@ Widget _subject(PrivateModeToggleCubit cubit) {
   );
 }
 
-PrivateModeToggleCubit _cubit(_FakeRepo repo, {bool initialEnabled = false}) =>
-    PrivateModeToggleCubit(
-      togglePrivateModeUseCase: TogglePrivateModeUseCase(repo),
-      conversationCode: 'CONV-001',
-      initialEnabled: initialEnabled,
-    );
+PrivateModeToggleCubit _cubit(
+  _FakeRepo repo, {
+  bool initialEnabled = false,
+  RoomChatViewerRole viewerRole = RoomChatViewerRole.guardian,
+}) => PrivateModeToggleCubit(
+  togglePrivateModeUseCase: TogglePrivateModeUseCase(repo),
+  conversationCode: 'CONV-001',
+  viewerRole: () => viewerRole,
+  initialEnabled: initialEnabled,
+  currentUserCode: () => 'USER-001',
+);
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -258,8 +303,9 @@ void main() {
 
       await tester.pumpWidget(_subject(cubit));
 
-      // Fire toggle — will hang
-      unawaited(cubit.toggle());
+      // Fire the tap synchronously; the cubit's async toggle() starts but won't
+      // settle until the completer resolves. A single pump reveals loading state.
+      await tester.tap(find.byKey(const Key('pm_switch')));
       await tester.pump();
 
       final sw = tester.widget<Switch>(find.byKey(const Key('pm_switch')));
@@ -271,63 +317,6 @@ void main() {
 
       // Unblock so cubit can close cleanly
       completer.complete(const Right(null));
-    });
-  });
-
-  // ── Child dropdown visibility ───────────────────────────────────────────────
-
-  group('Child dropdown visibility guard', () {
-    testWidgets('dropdown hidden when conversations list has exactly one item', (
-      tester,
-    ) async {
-      // Mirrors the guard in ParentDirectMessagingScreen._buildStudentDropdown
-      const conversations = ['child-a'];
-      bool dropdownShown = false;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (_) {
-                if (conversations.length <= 1) {
-                  return const SizedBox(key: Key('no_dropdown'));
-                }
-                dropdownShown = true;
-                return const Text('dropdown');
-              },
-            ),
-          ),
-        ),
-      );
-
-      expect(find.byKey(const Key('no_dropdown')), findsOneWidget);
-      expect(dropdownShown, isFalse);
-    });
-
-    testWidgets('dropdown visible when conversations list has two items', (
-      tester,
-    ) async {
-      const conversations = ['child-a', 'child-b'];
-      bool dropdownShown = false;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (_) {
-                if (conversations.length <= 1) {
-                  return const SizedBox(key: Key('no_dropdown'));
-                }
-                dropdownShown = true;
-                return const Text('dropdown', key: Key('dropdown'));
-              },
-            ),
-          ),
-        ),
-      );
-
-      expect(dropdownShown, isTrue);
-      expect(find.byKey(const Key('dropdown')), findsOneWidget);
     });
   });
 }

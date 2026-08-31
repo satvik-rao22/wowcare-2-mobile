@@ -1,6 +1,7 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import '../models/staff_models.dart';
 import '../models/staff_count_models.dart';
@@ -27,6 +28,7 @@ abstract class StaffRemoteDataSource {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
   });
 
   /// Fetches the entire staff list in one call — no pagination loop — with
@@ -279,6 +281,15 @@ abstract class StaffRemoteDataSource {
   Future<PhysicalCheckupSummaryModel> getPhysicalCheckupSummary({
     required String schoolCode,
   });
+
+  /// Updates work break reminder preference via
+  /// `PATCH /api/v1/staff/staff/my-profile/{staffCode}/work-break-reminder`.
+  ///
+  /// Body: `{ "setWorkBreakRemainder": true/false }`
+  Future<WorkBreakReminderResponseModel> updateWorkBreakReminder({
+    required String staffCode,
+    required bool enabled,
+  });
 }
 
 class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
@@ -324,6 +335,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
   }) async {
     // UAT contract matches web: `schoolCode`, `page`, `size`, `status` (string),
     // `organizationCode` — no duplicate `pageable.*` keys.
@@ -364,6 +376,15 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     if (allowedCodes != null && allowedCodes.isNotEmpty) {
       queryParameters['classCodes'] = allowedCodes;
     }
+    // API expects underscore codes, e.g. attendanceStatus=SIGNED_IN&attendanceStatus=ABSENT.
+    final normalizedAttendanceStatuses = attendanceStatuses
+        ?.map((s) => s.trim().toUpperCase())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (normalizedAttendanceStatuses != null &&
+        normalizedAttendanceStatuses.isNotEmpty) {
+      queryParameters['attendanceStatus'] = normalizedAttendanceStatuses;
+    }
 
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffList,
@@ -373,6 +394,8 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      // Repeats keys: `attendanceStatus=SIGNED_IN&attendanceStatus=ABSENT`.
+      options: Options(listFormat: ListFormat.multi),
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -821,8 +844,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     required String staffCode,
     required List<ImportantDateRequestModel> dates,
   }) async {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    final today = AppTime.today();
 
     // Absolute safety check at data-source layer.
     // Due/Scheduled must never be past; Completed must never be future.
@@ -1172,6 +1194,30 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     }
     return PhysicalCheckupSummaryModel.fromJson(
         response.data! as Map<String, dynamic>);
+  }
+
+  @override
+  Future<WorkBreakReminderResponseModel> updateWorkBreakReminder({
+    required String staffCode,
+    required bool enabled,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffWorkBreakReminderPath(staffCode),
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: <String, dynamic>{'setWorkBreakRemainder': enabled},
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected work break reminder API response format');
+    }
+
+    return WorkBreakReminderResponseModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
   }
 }
 

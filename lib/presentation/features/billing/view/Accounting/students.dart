@@ -18,10 +18,23 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class StudentsAccountingSection extends StatefulWidget {
-  const StudentsAccountingSection({super.key, this.onRegisterRefresh});
+  const StudentsAccountingSection({
+    super.key,
+    this.onRegisterRefresh,
+    this.initialShowOutstanding = false,
+    this.onNavigateToTransactions,
+  });
 
   /// Lets the parent (Billing page) trigger a pull-to-refresh of this tab.
   final void Function(Future<void> Function())? onRegisterRefresh;
+
+  /// When true, enables the "outstanding only" family filter on first build —
+  /// set when the user taps Outstanding from the Transactions tab.
+  final bool initialShowOutstanding;
+
+  /// Routes a list-filter tap (Net Paid / Paid / In Process / Refund) to the
+  /// Transactions tab with that filter pre-applied.
+  final ValueChanged<BillingSummaryFilter>? onNavigateToTransactions;
 
   @override
   State<StudentsAccountingSection> createState() =>
@@ -40,7 +53,21 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
     super.initState();
     _overviewCubit.loadOverview();
     _familyCubit.load();
+    if (widget.initialShowOutstanding) {
+      _familyCubit.setShowOutstandingOnly(true);
+    }
     widget.onRegisterRefresh?.call(_refresh);
+  }
+
+  /// Handles a summary-card tap. Outstanding toggles the family filter in place
+  /// (we're already on this tab); the four list filters route to Transactions.
+  void _onFilterTap(BillingSummaryFilter filter) {
+    if (filter == BillingSummaryFilter.outstanding) {
+      _familyCubit
+          .setShowOutstandingOnly(!_familyCubit.state.showOutstandingOnly);
+      return;
+    }
+    widget.onNavigateToTransactions?.call(filter);
   }
 
   /// Reloads the overview totals and the family list together.
@@ -97,13 +124,21 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
                     _overviewCubit.setDateRange(start, end),
               ),
               const SizedBox(height: 8),
-              AmountInvoicedStatBar(
-                totalAmount: overview.totalInvoiced,
-                netPaidAmount: overview.netPaidAmount,
-                paidAmount: overview.paidAmount,
-                inProcessAmount: overview.inProcessAmount,
-                outstandingAmount: overview.outstandingAmount,
-                refundedAmount: overview.refundedAmount,
+              BlocBuilder<FamilySummaryCubit, FamilySummaryState>(
+                buildWhen: (p, c) =>
+                    p.showOutstandingOnly != c.showOutstandingOnly,
+                builder: (context, familyState) => AmountInvoicedStatBar(
+                  totalAmount: overview.totalInvoiced,
+                  netPaidAmount: overview.netPaidAmount,
+                  paidAmount: overview.paidAmount,
+                  inProcessAmount: overview.inProcessAmount,
+                  outstandingAmount: overview.outstandingAmount,
+                  refundedAmount: overview.refundedAmount,
+                  selectedFilter: familyState.showOutstandingOnly
+                      ? BillingSummaryFilter.outstanding
+                      : null,
+                  onFilterTap: _onFilterTap,
+                ),
               ),
               const SizedBox(height: 8),
               CustomSectionCard(

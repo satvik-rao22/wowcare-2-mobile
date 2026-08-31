@@ -42,6 +42,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
   String? _selectedSchoolCode;
   bool _hasTriggeredLoad = false;
   bool _isSubmitting = false;
+  Map<String, String> _schoolStatuses = const <String, String>{};
 
   String _formatRole(String role) {
     if (role.isEmpty) return '';
@@ -60,7 +61,19 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
     if (!_hasTriggeredLoad) {
       _hasTriggeredLoad = true;
       context.read<AuthCubit>().loadSchoolsForOrg(widget.selectedOrg);
+      _loadSchoolStatuses();
     }
+  }
+
+  // Live backend statuses (not the post-login `/users/details` cache, which
+  // may not exist yet this early in the login flow) so PENDING schools can
+  // be hidden from this picker. Unknown/missing status is treated as active.
+  Future<void> _loadSchoolStatuses() async {
+    final statuses = await context.read<AuthCubit>().fetchSchoolStatusesForOrg(
+      widget.selectedOrg,
+    );
+    if (!mounted || statuses.isEmpty) return;
+    setState(() => _schoolStatuses = statuses);
   }
 
   @override
@@ -135,12 +148,20 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
             orgDisplayName = orgNames[orgIndex];
           }
 
-          final List<Map<String, String>> schoolEntries =
+          final List<Map<String, String>> allSchoolEntries =
               widget.schoolsForOrg != null
                   ? widget.schoolsForOrg!
                   : (state is AuthLoaded
                       ? (state.schoolsByOrg[widget.selectedOrg] ?? const [])
                       : const <Map<String, String>>[]);
+          // Hide schools that are not yet ACTIVE (e.g. still PENDING
+          // approval) from the picker.
+          final schoolEntries = _schoolStatuses.isEmpty
+              ? allSchoolEntries
+              : allSchoolEntries.where((e) {
+                  final status = _schoolStatuses[(e['schoolCode'] ?? '').trim()];
+                  return status == null || status == 'ACTIVE';
+                }).toList();
           final schools = schoolEntries
               .map((e) => e['schoolName'] ?? e['schoolCode'] ?? '')
               .where((s) => s.isNotEmpty)
@@ -389,6 +410,20 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                 final schoolCode = _selectedSchoolCode ??
                                     _selectedSchool!;
                                 try {
+                                  final blockMessage = await authCubit
+                                      .verifySchoolActiveOrBlockMessage(
+                                    organizationCode: widget.selectedOrg,
+                                    schoolCode: schoolCode,
+                                  );
+                                  if (blockMessage != null) {
+                                    if (!context.mounted) return;
+                                    CoreUtils.showTopSnackBar(
+                                      context: context,
+                                      message: blockMessage,
+                                      isError: true,
+                                    );
+                                    return;
+                                  }
                                   await authCubit.updateLoginContext(
                                     lastLoginOrganizationCode:
                                         widget.selectedOrg,

@@ -12,14 +12,20 @@ class SendMessageEntityUseCase {
     required String conversationCode,
     required String text,
     List<int> attachmentIds = const [],
+    List<AttachmentEntity> attachments = const [],
+    String? localTempCode,
     bool isPrivate = false,
+    String? privateParentUserCode,
     String? threadParentCode,
   }) {
     return _repository.sendMessage(
       conversationCode: conversationCode,
       text: text,
       attachmentIds: attachmentIds,
+      attachments: attachments,
+      localTempCode: localTempCode,
       isPrivate: isPrivate,
+      privateParentUserCode: privateParentUserCode,
       threadParentCode: threadParentCode,
     );
   }

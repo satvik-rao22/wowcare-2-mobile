@@ -1,8 +1,8 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/domain/features/newsletters/entities/newsletter_entity.dart';
-import 'package:wowcare/domain/features/newsletters/usecases/get_student_newsletters_usecase.dart';
+import 'package:wowcare/domain/features/newsletter/entities/newsletter_entity.dart';
+import 'package:wowcare/domain/features/newsletter/usecases/get_student_newsletters_usecase.dart';
 
 part 'student_newsletters_state.dart';
 
@@ -21,6 +21,7 @@ class StudentNewslettersCubit extends Cubit<StudentNewslettersState> {
     int size = 10,
     String status = 'SENT',
     bool forceRefresh = false,
+    bool background = false,
   }) async {
     final code = studentCode.trim();
     if (code.isEmpty) {
@@ -35,17 +36,22 @@ class StudentNewslettersCubit extends Cubit<StudentNewslettersState> {
     }
 
     if (_isFetching) return;
+    // Keep the loaded list visible during a background refresh (no shimmer).
+    final hasData = state.status == StudentNewslettersStatus.loaded &&
+        state.selectedChildCode == code;
     _isFetching = true;
-    emit(
-      state.copyWith(
-        status: StudentNewslettersStatus.loading,
-        selectedChildCode: code,
-        errorMessage: '',
-        currentPage: 0,
-        hasMore: true,
-        isPaginationLoading: false,
-      ),
-    );
+    if (!(background && hasData)) {
+      emit(
+        state.copyWith(
+          status: StudentNewslettersStatus.loading,
+          selectedChildCode: code,
+          errorMessage: '',
+          currentPage: 0,
+          hasMore: true,
+          isPaginationLoading: false,
+        ),
+      );
+    }
 
     try {
       final result = await _getStudentNewslettersUseCase(
@@ -55,12 +61,16 @@ class StudentNewslettersCubit extends Cubit<StudentNewslettersState> {
         status: status,
       );
       result.fold(
-        (failure) => emit(
-          state.copyWith(
-            status: StudentNewslettersStatus.error,
-            errorMessage: failure.message ?? 'Failed to load newsletters',
-          ),
-        ),
+        (failure) {
+          // Keep stale data on a failed background refresh.
+          if (background && hasData) return;
+          emit(
+            state.copyWith(
+              status: StudentNewslettersStatus.error,
+              errorMessage: failure.message ?? 'Failed to load newsletters',
+            ),
+          );
+        },
         (page) => emit(
           state.copyWith(
             status: StudentNewslettersStatus.loaded,
@@ -76,12 +86,15 @@ class StudentNewslettersCubit extends Cubit<StudentNewslettersState> {
         ),
       );
     } catch (e) {
-      emit(
-        state.copyWith(
-          status: StudentNewslettersStatus.error,
-          errorMessage: ApiErrorHandler.extractErrorMessage(e),
-        ),
-      );
+      // Keep stale data on a failed background refresh.
+      if (!(background && hasData)) {
+        emit(
+          state.copyWith(
+            status: StudentNewslettersStatus.error,
+            errorMessage: ApiErrorHandler.extractErrorMessage(e),
+          ),
+        );
+      }
     } finally {
       _isFetching = false;
     }
@@ -137,4 +150,3 @@ class StudentNewslettersCubit extends Cubit<StudentNewslettersState> {
     }
   }
 }
-

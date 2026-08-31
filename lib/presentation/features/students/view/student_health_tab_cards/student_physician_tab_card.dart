@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -23,6 +20,7 @@ class StudentPhysicianTabCard extends StatefulWidget {
     required this.name,
     required this.classroom,
     this.studentCode,
+    this.canEdit = false,
     super.key,
   });
 
@@ -30,6 +28,9 @@ class StudentPhysicianTabCard extends StatefulWidget {
   final String name;
   final String classroom;
   final String? studentCode;
+
+  /// Whether the current persona may edit health records (from student-settings).
+  final bool canEdit;
 
   @override
   State<StudentPhysicianTabCard> createState() =>
@@ -86,11 +87,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleCubit>();
-    final canStudentWrite =
-        ModuleAccess.mayWrite(role, AppAccessModules.student) &&
-        !role.isStaff &&
-        !role.isParent;
+    final canStudentWrite = widget.canEdit;
 
     return CustomRefreshIndicator(
       onRefresh: _handleRefresh,
@@ -295,7 +292,7 @@ class _PhysicianCard extends StatelessWidget {
                       phoneNumber!.trim().isNotEmpty) ...[
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Phone Number',
@@ -307,9 +304,14 @@ class _PhysicianCard extends StatelessWidget {
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
-                        Text(
-                          _formatPhoneNumber(phoneNumber),
-                          style: AppTextStyles.value.copyWith(fontSize: 15),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _formatPhoneNumber(phoneNumber),
+                            textAlign: TextAlign.right,
+                            softWrap: true,
+                            style: AppTextStyles.value.copyWith(fontSize: 15),
+                          ),
                         ),
                       ],
                     ),
@@ -318,7 +320,7 @@ class _PhysicianCard extends StatelessWidget {
                   if (email != null && email!.trim().isNotEmpty) ...[
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Email ID',
@@ -330,9 +332,14 @@ class _PhysicianCard extends StatelessWidget {
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
-                        Text(
-                          email!,
-                          style: AppTextStyles.value.copyWith(fontSize: 15),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            email!,
+                            textAlign: TextAlign.right,
+                            softWrap: true,
+                            style: AppTextStyles.value.copyWith(fontSize: 15),
+                          ),
                         ),
                       ],
                     ),
@@ -341,7 +348,7 @@ class _PhysicianCard extends StatelessWidget {
                   if (address != null && address!.trim().isNotEmpty) ...[
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Address',
@@ -353,9 +360,14 @@ class _PhysicianCard extends StatelessWidget {
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
-                        Text(
-                          address!,
-                          style: AppTextStyles.value.copyWith(fontSize: 15),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            address!,
+                            textAlign: TextAlign.right,
+                            softWrap: true,
+                            style: AppTextStyles.value.copyWith(fontSize: 15),
+                          ),
                         ),
                       ],
                     ),
@@ -364,7 +376,7 @@ class _PhysicianCard extends StatelessWidget {
                   if (specialty != null && specialty!.trim().isNotEmpty) ...[
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Specialty',
@@ -376,9 +388,14 @@ class _PhysicianCard extends StatelessWidget {
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
-                        Text(
-                          specialty!,
-                          style: AppTextStyles.value.copyWith(fontSize: 15),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            specialty!,
+                            textAlign: TextAlign.right,
+                            softWrap: true,
+                            style: AppTextStyles.value.copyWith(fontSize: 15),
+                          ),
                         ),
                       ],
                     ),

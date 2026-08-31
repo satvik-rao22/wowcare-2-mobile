@@ -19,8 +19,6 @@ class GeofenceNotificationService {
   static const String pushChannelId = 'wowcare_alerts_v2';
   static const String pushChannelName = 'WowCare Notifications';
 
-  static const int _enteredId = 1001;
-  static const int _exitedId = 1002;
 
   // Push notifications must each get a UNIQUE id — a fixed id makes every new
   // push replace the previous one in the tray, so firing 5 in a row leaves only
@@ -35,7 +33,9 @@ class GeofenceNotificationService {
     if (_initialized) return;
     _initialized = true;
     try {
-      const androidInit = AndroidInitializationSettings('ic_launcher_foreground');
+      const androidInit = AndroidInitializationSettings(
+        'ic_launcher_foreground',
+      );
       // Request iOS alert/sound permission at init so the system prompt appears
       // as soon as GPS monitoring starts, not silently after the first event.
       const iosInit = DarwinInitializationSettings(
@@ -83,19 +83,6 @@ class GeofenceNotificationService {
     }
   }
 
-  Future<void> showEnteredZoneNotification() => _show(
-    id: _enteredId,
-    title: 'Attendance Available',
-    body: 'You are within the school premises. You can now Sign In or Sign Out.',
-    isCritical: true,
-  );
-
-  Future<void> showExitedZoneNotification() => _show(
-    id: _exitedId,
-    title: 'Outside School Premises',
-    body: 'Attendance actions are currently unavailable.',
-    isCritical: false,
-  );
 
   Future<void> showCustomNotification({
     required String title,

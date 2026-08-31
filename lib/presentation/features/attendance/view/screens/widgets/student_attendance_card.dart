@@ -4,14 +4,9 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
-enum SignMethod {
-  gps,
-  qr,
-  kiosk,
-  direct,
-  web,
-}
+enum SignMethod { gps, qr, pin, kiosk, direct, web, system }
 
 class StudentAttendanceCardData {
   final String id;
@@ -39,8 +34,12 @@ class StudentAttendanceCardData {
   // Flags to indicate the displayed times are transfer-derived
   final bool isTransferSignIn;
   final bool isTransferSignOut;
+
   /// When set, shown as "Attended Time" (computed on the client from sign-in/out).
   final String? attendedTimeDisplay;
+
+  /// Comment captured from the "not expected today" warning at sign-in.
+  final String? notExpectedComment;
 
   StudentAttendanceCardData({
     required this.id,
@@ -67,6 +66,7 @@ class StudentAttendanceCardData {
     this.isTransferSignIn = false,
     this.isTransferSignOut = false,
     this.attendedTimeDisplay,
+    this.notExpectedComment,
   });
 }
 
@@ -218,8 +218,11 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildDetailRow(context, 'Expected Today?',
-                        student.expectedToday ? 'Yes' : 'No'),
+                    _buildDetailRow(
+                      context,
+                      'Expected Today?',
+                      student.expectedToday ? 'Yes' : 'No',
+                    ),
                     const SizedBox(height: 10),
                     _buildDetailRow(context, 'Classroom', student.roomName),
                     const SizedBox(height: 10),
@@ -241,6 +244,16 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                     if (duration.isNotEmpty) ...[
                       const SizedBox(height: 10),
                       _buildDetailRow(context, 'Attended Time', duration),
+                    ],
+                    if ((student.notExpectedComment ?? '')
+                        .trim()
+                        .isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _buildDetailRow(
+                        context,
+                        'Comment',
+                        student.notExpectedComment!.trim(),
+                      ),
                     ],
                     const SizedBox(height: 12),
                     _buildActionButtons(context),
@@ -370,6 +383,10 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
             MediaRes.gpsMethodIcon,
             width: size,
             height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case SignMethod.qr:
@@ -379,15 +396,36 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
             MediaRes.qrAttendanceIcon,
             width: size,
             height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case SignMethod.kiosk:
         return Tooltip(
-          message: 'PIN',
+          message: 'Kiosk',
           child: SvgPicture.asset(
-            MediaRes.pinMethodIcon,
+            MediaRes.kioskAttendenceIcons,
             width: size,
             height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+      case SignMethod.pin:
+        return Tooltip(
+          message: 'PIN',
+          child: SvgPicture.asset(
+            MediaRes.kioskAttendenceIcons,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case SignMethod.direct:
@@ -408,6 +446,21 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
           message: 'WEB',
           child: SvgPicture.asset(
             MediaRes.webMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+      case SignMethod.system:
+        // Auto sign-out performed by the system (no person). Matches web's
+        // gear/"System" indicator.
+        return Tooltip(
+          message: 'System',
+          child: SvgPicture.asset(
+            MediaRes.systemMethodIcon,
             width: size,
             height: size,
             colorFilter: const ColorFilter.mode(
@@ -494,9 +547,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         side: const BorderSide(color: Color(0xFF6C7FD8)),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         padding: EdgeInsets.zero,
         backgroundColor: Colors.white,
       ),
@@ -543,7 +594,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
     try {
       final parts = timeString.split(' ');
       if (parts.length < 2) {
-        return DateTime.now();
+        return ServerTimeService.instance.now();
       }
 
       final timePart = parts[0];
@@ -551,7 +602,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
 
       final timeComponents = timePart.split(':');
       if (timeComponents.length < 2) {
-        return DateTime.now();
+        return ServerTimeService.instance.now();
       }
 
       int hour = int.parse(timeComponents[0]);
@@ -560,9 +611,12 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
       if (period == 'PM' && hour != 12) hour += 12;
       if (period == 'AM' && hour == 12) hour = 0;
 
-      return DateTime.now().copyWith(hour: hour, minute: minute);
+      return ServerTimeService.instance.now().copyWith(
+        hour: hour,
+        minute: minute,
+      );
     } catch (e) {
-      return DateTime.now();
+      return ServerTimeService.instance.now();
     }
   }
 }

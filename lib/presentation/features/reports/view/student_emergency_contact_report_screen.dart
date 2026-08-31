@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -6,11 +7,11 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
-import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
+import '../../../../core/util/school_context_helper.dart';
 
 class StudentEmergencyContactReportScreen extends StatefulWidget {
   const StudentEmergencyContactReportScreen({
@@ -31,7 +32,12 @@ class _StudentEmergencyContactReportScreenState
     extends State<StudentEmergencyContactReportScreen> {
   final ValueNotifier<List<String>> _selectedClassrooms =
       ValueNotifier<List<String>>(<String>[]);
-  final ValueNotifier<String> _format = ValueNotifier<String>('PDF');
+  final ValueNotifier<String> _format = ValueNotifier<String>('XLSX');
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   @override
   void dispose() {
@@ -42,7 +48,7 @@ class _StudentEmergencyContactReportScreenState
 
   bool get _isFormValid => _selectedClassrooms.value.isNotEmpty;
 
-  void _onGenerate() {
+  Future<void> _onGenerate() async {
     if (!_isFormValid) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -53,11 +59,37 @@ class _StudentEmergencyContactReportScreenState
     }
 
     final cubit = context.read<ReportsCubit>();
+    final classroomNameToCode = cubit.state.classroomNameToCode;
+    final classroomCodes = resolveReportCodes(
+      context: context,
+      names: _selectedClassrooms.value.isEmpty
+          ? widget.classrooms
+          : _selectedClassrooms.value,
+      nameToCode: classroomNameToCode,
+      labelPlural: 'classrooms',
+    );
+    if (classroomCodes == null) return;
+
+    // Retrieve the school name from storage
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
+
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
+        isError: true,
+      );
+      return;
+    }
     final params = ReportRequestParams(
       reportType: ReportType.emergencyContacts,
-      startDate: DateTime.now(),
-      endDate: DateTime.now(),
-      classroomCodes: _selectedClassrooms.value,
+      startDate: AppTime.now(),
+      endDate: AppTime.now(),
+      format: _format.value, // PDF or XLSX
+      roomCodes: classroomCodes,
+      schoolName: schoolName,
     );
     cubit.generateReport(params);
   }
@@ -82,12 +114,17 @@ class _StudentEmergencyContactReportScreenState
         ),
         BlocListener<ReportsCubit, ReportsState>(
           listenWhen: (previous, current) {
-            final changed = previous.generationSuccess != current.generationSuccess;
-            AppLogger.d('[LISTENER-WHEN] generationSuccess changed: $changed (prev=${previous.generationSuccess}, curr=${current.generationSuccess})');
+            final changed =
+                previous.generationSuccess != current.generationSuccess;
+            AppLogger.d(
+              '[LISTENER-WHEN] generationSuccess changed: $changed (prev=${previous.generationSuccess}, curr=${current.generationSuccess})',
+            );
             return changed;
           },
           listener: (context, state) {
-            AppLogger.d('[LISTENER-EXEC] generationSuccess=${state.generationSuccess}, generatedReport=${state.generatedReport != null}');
+            AppLogger.d(
+              '[LISTENER-EXEC] generationSuccess=${state.generationSuccess}, generatedReport=${state.generatedReport != null}',
+            );
             if (state.generationSuccess != null &&
                 state.generationSuccess!.isNotEmpty &&
                 state.generatedReport != null) {
@@ -99,7 +136,9 @@ class _StudentEmergencyContactReportScreenState
               );
 
               if (mounted) {
-                AppLogger.d('[LISTENER-NAVIGATE] Adding postFrameCallback for navigation');
+                AppLogger.d(
+                  '[LISTENER-NAVIGATE] Adding postFrameCallback for navigation',
+                );
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) {
                     AppLogger.d('[LISTENER-NAVIGATE-SKIP] Widget not mounted');
@@ -107,8 +146,12 @@ class _StudentEmergencyContactReportScreenState
                   }
 
                   AppLogger.d('[LISTENER-NAVIGATE-EXEC] Executing navigation');
-                  context.go('/dashboard/reports?tab=0');
+                  // Pop (not context.go) — this screen was pushed via plain
+                  // Navigator.push, so only popping actually dismisses it;
+                  // the hub's own .then((success) => tab 0) callback reacts
+                  // to the pop(true) result.
                   context.read<ReportsCubit>().clearGeneratedReport();
+                  Navigator.of(context).pop(true);
                 });
               }
             } else {
@@ -135,6 +178,7 @@ class _StudentEmergencyContactReportScreenState
                     label: 'Classroom',
                     hintText: 'Select Classroom',
                     items: widget.classrooms,
+                    isRequired: true,
                     selectedItems: selected,
                     onChanged: (s) => _selectedClassrooms.value = s,
                     showSelectAll: true,

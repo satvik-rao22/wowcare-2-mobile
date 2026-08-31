@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:dio/dio.dart';
 import 'package:gal/gal.dart';
@@ -16,6 +17,7 @@ import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:wowcare/shared/common/views/document_viewer_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/add_document_screen.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_document_cubit.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_documents_list_cubit.dart';
@@ -24,15 +26,21 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 
 class StaffDocumentsTab extends StatefulWidget {
   const StaffDocumentsTab({
     super.key,
     required this.staffCode,
+    this.canEdit = false,
     this.highlightCode,
   });
 
   final String staffCode;
+
+  /// Whether the current persona may add/edit/delete documents (resolved by
+  /// the parent screen: Admin always, staff only on their own profile).
+  final bool canEdit;
 
   /// Document code (== API `code`/documentUuid) from a notification deep-link;
   /// the matching document card scrolls into view, expands, and flashes.
@@ -126,6 +134,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
             initialMimeType: doc.mimeType,
             initialFileSizeKb: doc.documentSizeKb,
             initialDocumentNotes: doc.documentNotes,
+            initialAssetCode: doc.assetCode,
           ),
         ),
       ),
@@ -203,26 +212,71 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
     );
   }
 
-  Future<void> _handleDownload(BuildContext context, StaffDocument doc) async {
-    if (_isDownloadingDoc) return;
-
-    // `documentUrl` from the API is just a file name (e.g. "photo.webp"), not a
-    // link — resolve the downloadable URL from the asset code.
-    String url = '';
+  /// `documentUrl` from the API is just a file name (e.g. "photo.webp"), not a
+  /// link — resolve the downloadable URL from the asset code.
+  Future<String> _resolveDocumentUrl(StaffDocument doc) async {
     final assetCode = (doc.assetCode ?? '').trim();
     final rawUrl = doc.documentUrl.trim();
     if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
-      url = rawUrl;
+      return rawUrl;
     }
+    if (assetCode.isNotEmpty) {
+      return (await serviceLocator<ImageUploadService>().getMediaAssetUrlByCode(
+        assetCode: assetCode,
+      )).trim();
+    }
+    return '';
+  }
+
+  bool _isResolvingViewUrl = false;
+
+  Future<void> _handleView(BuildContext context, StaffDocument doc) async {
+    if (_isResolvingViewUrl) return;
+    setState(() => _isResolvingViewUrl = true);
+    try {
+      final url = await _resolveDocumentUrl(doc);
+      AppLogger.d(
+        '[StaffDocumentsTab] _handleView doc=${doc.documentName} '
+        'assetCode=${doc.assetCode} mimeType=${doc.mimeType} '
+        'resolvedUrl=$url',
+      );
+      if (!mounted) return;
+      if (url.isEmpty || Uri.tryParse(url) == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Document link not available',
+          isError: true,
+        );
+        return;
+      }
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => DocumentViewerScreen(
+            url: url,
+            documentName: doc.documentName,
+            mimeType: doc.mimeType,
+          ),
+        ),
+      );
+    } catch (e, st) {
+      AppLogger.e('[StaffDocumentsTab] _handleView failed', e, st);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(e),
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _isResolvingViewUrl = false);
+    }
+  }
+
+  Future<void> _handleDownload(BuildContext context, StaffDocument doc) async {
+    if (_isDownloadingDoc) return;
 
     setState(() => _isDownloadingDoc = true);
     try {
-      if (url.isEmpty && assetCode.isNotEmpty) {
-        url =
-            (await serviceLocator<ImageUploadService>().getMediaAssetUrlByCode(
-              assetCode: assetCode,
-            )).trim();
-      }
+      final url = await _resolveDocumentUrl(doc);
       if (!mounted) return;
       if (url.isEmpty || Uri.tryParse(url) == null) {
         CoreUtils.showTopSnackBar(
@@ -256,7 +310,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
         final tempDir = await getTemporaryDirectory();
         var ext = p.extension(Uri.parse(url).path).trim().toLowerCase();
         if (ext.isEmpty) ext = isVideo ? '.mp4' : '.jpg';
-        final stamp = DateTime.now().millisecondsSinceEpoch;
+        final stamp = AppTime.nowUtc().millisecondsSinceEpoch;
         final base = doc.documentName.trim().isNotEmpty
             ? doc.documentName.trim()
             : 'wowcare_document_$stamp';
@@ -568,53 +622,104 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                               value: expiryDisplay,
                                             ),
                                             const SizedBox(height: 16),
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Container(
-                                                    height: 40,
-                                                    decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            8,
+                                            if (widget.canEdit) ...[
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Container(
+                                                      height: 40,
+                                                      decoration: BoxDecoration(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              8,
+                                                            ),
+                                                        gradient:
+                                                            AppColors.buildPrimaryGradient(),
+                                                      ),
+                                                      child: TextButton(
+                                                        onPressed: () =>
+                                                            _handleEdit(
+                                                              context,
+                                                              doc,
+                                                            ),
+                                                        style:
+                                                            TextButton.styleFrom(
+                                                              padding:
+                                                                  EdgeInsets
+                                                                      .zero,
+                                                            ),
+                                                        child: const Text(
+                                                          'Edit',
+                                                          style: TextStyle(
+                                                            fontFamily:
+                                                                'Manrope',
+                                                            fontSize: 16,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                            color: Colors.white,
                                                           ),
-                                                      gradient:
-                                                          AppColors.buildPrimaryGradient(),
-                                                    ),
-                                                    child: TextButton(
-                                                      onPressed: () =>
-                                                          _handleEdit(
-                                                            context,
-                                                            doc,
-                                                          ),
-                                                      style:
-                                                          TextButton.styleFrom(
-                                                            padding:
-                                                                EdgeInsets.zero,
-                                                          ),
-                                                      child: const Text(
-                                                        'Edit',
-                                                        style: TextStyle(
-                                                          fontFamily: 'Manrope',
-                                                          fontSize: 16,
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                          color: Colors.white,
                                                         ),
                                                       ),
                                                     ),
                                                   ),
-                                                ),
-                                                const SizedBox(width: 12),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: SizedBox(
+                                                      height: 40,
+                                                      child: OutlinedButton(
+                                                        onPressed: () =>
+                                                            _handleDelete(
+                                                              context,
+                                                              doc,
+                                                            ),
+                                                        style: OutlinedButton.styleFrom(
+                                                          side: const BorderSide(
+                                                            color: Color(
+                                                              0xFF6C7FD8,
+                                                            ),
+                                                          ),
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  8,
+                                                                ),
+                                                          ),
+                                                          padding:
+                                                              EdgeInsets.zero,
+                                                        ),
+                                                        child: const Text(
+                                                          'Delete',
+                                                          style: TextStyle(
+                                                            fontFamily:
+                                                                'Manrope',
+                                                            fontSize: 16,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                            color: Color(
+                                                              0xFF6C7FD8,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 12),
+                                            ],
+                                            Row(
+                                              children: [
                                                 Expanded(
                                                   child: SizedBox(
                                                     height: 40,
                                                     child: OutlinedButton(
-                                                      onPressed: () =>
-                                                          _handleDelete(
-                                                            context,
-                                                            doc,
-                                                          ),
+                                                      onPressed:
+                                                          _isResolvingViewUrl
+                                                          ? null
+                                                          : () => _handleView(
+                                                              context,
+                                                              doc,
+                                                            ),
                                                       style: OutlinedButton.styleFrom(
                                                         side: const BorderSide(
                                                           color: Color(
@@ -630,18 +735,26 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                                         padding:
                                                             EdgeInsets.zero,
                                                       ),
-                                                      child: const Text(
-                                                        'Delete',
-                                                        style: TextStyle(
-                                                          fontFamily: 'Manrope',
-                                                          fontSize: 16,
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                          color: Color(
-                                                            0xFF6C7FD8,
-                                                          ),
-                                                        ),
-                                                      ),
+                                                      child: _isResolvingViewUrl
+                                                          ? const SizedBox(
+                                                              width: 18,
+                                                              height: 18,
+                                                              child: PrimaryCircularLoader(),
+                                                            )
+                                                          : const Text(
+                                                              'View',
+                                                              style: TextStyle(
+                                                                fontFamily:
+                                                                    'Manrope',
+                                                                fontSize: 16,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                                color: Color(
+                                                                  0xFF6C7FD8,
+                                                                ),
+                                                              ),
+                                                            ),
                                                     ),
                                                   ),
                                                 ),
@@ -704,36 +817,41 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
               );
             },
           ),
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: GradientAddButton(
-              onTap: () {
-                Navigator.of(context)
-                    .push(
-                      MaterialPageRoute(
-                        builder: (context) => BlocProvider<StaffDocumentCubit>(
-                          create: (_) => serviceLocator<StaffDocumentCubit>(),
-                          child: AddDocumentScreen(staffCode: widget.staffCode),
+          if (widget.canEdit)
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: GradientAddButton(
+                onTap: () {
+                  Navigator.of(context)
+                      .push(
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              BlocProvider<StaffDocumentCubit>(
+                                create: (_) =>
+                                    serviceLocator<StaffDocumentCubit>(),
+                                child: AddDocumentScreen(
+                                  staffCode: widget.staffCode,
+                                ),
+                              ),
                         ),
-                      ),
-                    )
-                    .then((result) {
-                      // Refresh documents list after successfully adding a new document
-                      // Cache is already invalidated in repository, so this will fetch fresh data
-                      if (result == true && mounted) {
-                        _documentsListCubit.refresh(
-                          widget.staffCode,
-                          expired: _showExpired ? true : null,
-                        );
-                      }
-                    });
-              },
-              size: 50.0,
-              iconSize: 28.0,
-              borderRadius: 12.0,
+                      )
+                      .then((result) {
+                        // Refresh documents list after successfully adding a new document
+                        // Cache is already invalidated in repository, so this will fetch fresh data
+                        if (result == true && mounted) {
+                          _documentsListCubit.refresh(
+                            widget.staffCode,
+                            expired: _showExpired ? true : null,
+                          );
+                        }
+                      });
+                },
+                size: 50.0,
+                iconSize: 28.0,
+                borderRadius: 12.0,
+              ),
             ),
-          ),
         ],
       ),
     );

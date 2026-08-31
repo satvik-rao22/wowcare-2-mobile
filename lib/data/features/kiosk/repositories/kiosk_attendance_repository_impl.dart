@@ -13,6 +13,7 @@ class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
   @override
   Future<KioskStaffAttendanceEntity> signInStaff({
     required String staffCode,
+    required String schoolCode,
     required String timeZone,
     required double latitude,
     required double longitude,
@@ -23,6 +24,7 @@ class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
     // Do NOT call dashboard attendance APIs (staff lookup, form listing, status checks)
     final model = await _remoteDataSource.signInStaff(
       staffCode: staffCode,
+      schoolCode: schoolCode,
       timeZone: timeZone,
       latitude: latitude,
       longitude: longitude,
@@ -38,6 +40,7 @@ class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
   @override
   Future<KioskStaffAttendanceEntity> signOutStaff({
     required String staffCode,
+    required String schoolCode,
     required String timeZone,
     required double latitude,
     required double longitude,
@@ -48,6 +51,7 @@ class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
     // Do NOT call dashboard attendance APIs
     final model = await _remoteDataSource.signOutStaff(
       staffCode: staffCode,
+      schoolCode: schoolCode,
       timeZone: timeZone,
       latitude: latitude,
       longitude: longitude,
@@ -64,6 +68,7 @@ class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
   Future<List<KioskStudentAttendanceEntity>> signInStudents({
     required List<String> studentCodes,
     required String guardianCode,
+    required String schoolCode,
     required String timeZone,
     required double latitude,
     required double longitude,
@@ -73,6 +78,7 @@ class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
     final models = await _remoteDataSource.signInStudents(
       studentCodes: studentCodes,
       guardianCode: guardianCode,
+      schoolCode: schoolCode,
       timeZone: timeZone,
       latitude: latitude,
       longitude: longitude,
@@ -86,6 +92,7 @@ class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
   Future<List<KioskStudentAttendanceEntity>> signOutStudents({
     required List<String> studentCodes,
     required String guardianCode,
+    required String schoolCode,
     required String timeZone,
     required double latitude,
     required double longitude,
@@ -95,6 +102,7 @@ class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
     final models = await _remoteDataSource.signOutStudents(
       studentCodes: studentCodes,
       guardianCode: guardianCode,
+      schoolCode: schoolCode,
       timeZone: timeZone,
       latitude: latitude,
       longitude: longitude,

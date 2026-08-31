@@ -9,6 +9,11 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 class SiblingCardsWidget extends StatelessWidget {
   final List<FamilyLedgerPersonEntity> students;
   final double currentBalance;
+  final double paid;
+  final double netPaid;
+  final double refunded;
+  final double unpaid;
+  final double inProcess;
   final bool isPaymentLoading;
   final bool isAutoPayLoading;
   final VoidCallback? onPayNow;
@@ -18,11 +23,73 @@ class SiblingCardsWidget extends StatelessWidget {
     super.key,
     required this.students,
     this.currentBalance = 0.0,
+    this.paid = 0.0,
+    this.netPaid = 0.0,
+    this.refunded = 0.0,
+    this.unpaid = 0.0,
+    this.inProcess = 0.0,
     this.isPaymentLoading = false,
     this.isAutoPayLoading = false,
     this.onPayNow,
     this.onAutoPay,
   });
+
+  /// Family billing totals from the ledger (paid / net paid / refunded / …).
+  Widget _statsSection() {
+    final items = <List<dynamic>>[
+      ['Paid', paid, const Color(0xFF2E9E5B)],
+      ['Net Paid', netPaid, AppColors.themeColor],
+      ['Refunded', refunded, const Color(0xFFE08600)],
+      ['Unpaid', unpaid, const Color(0xFFD64545)],
+      ['In Process', inProcess, const Color(0xFF6F8CFF)],
+    ];
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorderColor),
+      ),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: [
+          for (final it in items)
+            _statTile(it[0] as String, it[1] as double, it[2] as Color),
+        ],
+      ),
+    );
+  }
+
+  Widget _statTile(String label, double value, Color color) {
+    return SizedBox(
+      width: 90,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '\$${value.toStringAsFixed(2)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.value.copyWith(
+              color: color,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: AppTextStyles.value.copyWith(
+              color: const Color(0xff573353),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,7 +163,9 @@ class SiblingCardsWidget extends StatelessWidget {
                     );
                   },
                 ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 16),
+              _statsSection(),
+              const SizedBox(height: 16),
               // Balance and payment buttons
               Row(
                 children: [

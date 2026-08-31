@@ -17,11 +17,14 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
+import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_custom_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
@@ -69,6 +72,10 @@ class _StudentAttendanceCustomViewState
   final Map<String, String> _classroomNameByCode = {};
   final Set<String> _classroomFetchInFlight = {};
 
+  /// When the school allows teacher cross-class attendance, teachers see every
+  /// classroom in the filter (like an admin) instead of just their own.
+  bool _allowCrossClass = false;
+
   @override
   void initState() {
     super.initState();
@@ -88,12 +95,36 @@ class _StudentAttendanceCustomViewState
     _customSearchController.addListener(_onSearchChanged);
     widget.refreshNotifier?.addListener(_onRefreshRequested);
     _classroomCubit = serviceLocator<ClassroomCubit>();
+    _resolveCrossClassFlag();
     // Classroom filter must be backed by the classroom(all) API (type=CLASSROOM).
     // We also guard for "data not loaded yet" so name->code resolution is reliable.
     _loadClassroomData();
     _initializeDefaultRange();
     // Initial load should use cached data when available.
     _loadAttendanceData(reset: false);
+    // Resolve the school timezone, then re-seed the default range to the school
+    // month if it differs (handles a device in a different zone on cold start).
+    _initSchoolTimezone();
+  }
+
+  Future<void> _initSchoolTimezone() async {
+    final beforeStart = _customRangeStart;
+    final beforeEnd = _customRangeEnd;
+    await bootstrapAttendanceSchoolTimezone();
+    if (!mounted) return;
+    final now = attendanceSchoolToday();
+    final schoolStart = DateTime(now.year, now.month, 1);
+    final schoolEnd = DateTime(now.year, now.month + 1, 0);
+    // Re-seed only if the range is still the initial month default (untouched).
+    if (beforeStart == _customRangeStart &&
+        beforeEnd == _customRangeEnd &&
+        (_customRangeStart != schoolStart || _customRangeEnd != schoolEnd)) {
+      setState(() {
+        _customRangeStart = schoolStart;
+        _customRangeEnd = schoolEnd;
+      });
+      _loadAttendanceData(reset: true);
+    }
   }
 
   void _onRefreshRequested() => refreshAfterReturningFromAttendanceFlow();
@@ -104,14 +135,33 @@ class _StudentAttendanceCustomViewState
     _loadAttendanceData(reset: true);
   }
 
+  /// Resolves the school's teacher cross-class flag; when enabled, reloads the
+  /// classroom filter unscoped so teachers see every classroom.
+  Future<void> _resolveCrossClassFlag() async {
+    try {
+      final enabled =
+          await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
+        storage: serviceLocator<StorageService>(),
+      );
+      if (!mounted || !enabled || _allowCrossClass) return;
+      setState(() => _allowCrossClass = true);
+      _loadClassroomData();
+    } catch (_) {
+      // Non-critical: default (scoped) behaviour stays in effect.
+    }
+  }
+
   Future<void> _loadClassroomData() async {
     final hadClassroomSelection = _selectedClassroomNames.isNotEmpty;
     _classroomCubit.loadActiveClassrooms(
       force: true,
-      // Transfers / historical attendance can reference non-CLASSROOM locations.
-      // Load all types so classroomCode → name resolution and filters work reliably.
-      onlyTypeClassroom: false,
-      applyAttendanceStaffScope: true,
+      // The classroom filter must list only real classrooms (type=CLASSROOM) —
+      // Office / Admin locations must not appear as filter options. Names for
+      // non-CLASSROOM locations referenced by historical/transfer records are
+      // still resolved on demand via getClassroomByCode (see _fetchClassroomName).
+      onlyTypeClassroom: true,
+      // Cross-class teachers see every classroom in the filter, like an admin.
+      applyAttendanceStaffScope: !_allowCrossClass,
     );
 
     // Mark ready immediately if data already exists.
@@ -299,7 +349,7 @@ class _StudentAttendanceCustomViewState
   }
 
   void _initializeDefaultRange() {
-    final now = DateTime.now();
+    final now = attendanceSchoolToday();
     _customRangeStart ??= DateTime(now.year, now.month, 1);
     _customRangeEnd ??= DateTime(now.year, now.month + 1, 0);
   }
@@ -336,8 +386,8 @@ class _StudentAttendanceCustomViewState
   }
 
   void _loadAttendanceData({bool reset = false}) {
-    final fromDate = _customRangeStart ?? DateTime.now();
-    final toDate = _customRangeEnd ?? DateTime.now();
+    final fromDate = _customRangeStart ?? attendanceSchoolToday();
+    final toDate = _customRangeEnd ?? attendanceSchoolToday();
 
     final classroomCodes = _effectiveClassroomCodes();
     if (_selectedClassroomNames.isNotEmpty && classroomCodes == null) {
@@ -536,7 +586,7 @@ class _StudentAttendanceCustomViewState
                     _searchQuery = '';
                     _selectedClassroomNames = <String>[];
                     _selectedClassroomCodes = null;
-                    final now = DateTime.now();
+                    final now = attendanceSchoolToday();
                     _customRangeStart = DateTime(now.year, now.month, 1);
                     _customRangeEnd = DateTime(now.year, now.month + 1, 0);
                   });
@@ -780,6 +830,7 @@ class _StudentAttendanceCustomViewState
                       size: avatarSize,
                       name: studentName,
                       fontSize: responsive.isTablet ? 18 : 16,
+                      disableAttendanceStatusLookup: true,
                     ),
                   ],
                 ),

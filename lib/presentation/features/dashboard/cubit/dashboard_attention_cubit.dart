@@ -1,4 +1,5 @@
 import 'package:bloc/bloc.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -60,12 +61,20 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
 
     final schoolCode = await _storageService.getString(StorageKeys.schoolCode);
     if (schoolCode == null || schoolCode.trim().isEmpty) {
-      emit(state.copyWith(status: DashboardAttentionStatus.loaded));
+      // Not `loaded` — that would permanently block future silent retries
+      // (see `isLoaded`'s silent-revisit guard above) once the school code
+      // actually becomes available.
+      emit(
+        state.copyWith(status: DashboardAttentionStatus.awaitingSchoolContext),
+      );
       _isFetching = false;
       return;
     }
 
-    if (!isSilent && state.isInitial) {
+    final wasNotYetLoaded =
+        state.isInitial ||
+        state.status == DashboardAttentionStatus.awaitingSchoolContext;
+    if (!isSilent && wasNotYetLoaded) {
       emit(state.copyWith(status: DashboardAttentionStatus.loading));
     }
 
@@ -97,7 +106,7 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
   // ---------------------------------------------------------------------------
 
   Future<void> _fetch(String schoolCode) async {
-    final now = DateTime.now();
+    final now = AppTime.now();
     final fromDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
     // Last day of current month: day-0 of the next month = last day of this month.
     final lastDayOfMonth = DateTime(now.year, now.month + 1, 0).day;
@@ -160,7 +169,8 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
         results[5]
             as ({int overdueExamCount, int studentsWithoutActiveExamCount})?;
 
-    final anyFailed = incidentResult == null ||
+    final anyFailed =
+        incidentResult == null ||
         movementResult == null ||
         staffDocResult == null ||
         staffCheckupResult == null ||

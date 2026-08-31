@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:provider/provider.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/domain/features/student/entities/student_immunization.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -23,6 +21,7 @@ class StudentImmunizationTabCard extends StatefulWidget {
     required this.name,
     required this.classroom,
     this.studentCode,
+    this.canEdit = false,
     super.key,
   });
 
@@ -30,6 +29,9 @@ class StudentImmunizationTabCard extends StatefulWidget {
   final String name;
   final String classroom;
   final String? studentCode;
+
+  /// Whether the current persona may edit health records (from student-settings).
+  final bool canEdit;
 
   @override
   State<StudentImmunizationTabCard> createState() =>
@@ -147,38 +149,92 @@ class _StudentImmunizationTabCardState
                       topRight: Radius.circular(borderRadius),
                     ),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Dose ${model.doseNumber}',
-                              style: TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: titleFontSize,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xff573353),
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            icon: const Icon(
-                              Icons.close,
-                              color: AppColors.primaryColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: verticalPadding),
-                      if (isTablet)
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Row(
                           children: [
                             Expanded(
-                              child: _DialogField(
+                              child: Text(
+                                'Dose ${model.doseNumber}',
+                                style: TextStyle(
+                                  fontFamily: 'Manrope',
+                                  fontSize: titleFontSize,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xff573353),
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              icon: const Icon(
+                                Icons.close,
+                                color: AppColors.primaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: verticalPadding),
+                        if (isTablet)
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _DialogField(
+                                  label: 'Date *',
+                                  value: selectedDate != null
+                                      ? _apiFormatter.format(selectedDate!)
+                                      : '',
+                                  suffix: SvgPicture.asset(
+                                    MediaRes.calender_icon,
+                                    height: 20.0,
+                                    colorFilter: const ColorFilter.mode(
+                                      AppColors.primaryColor,
+                                      BlendMode.srcIn,
+                                    ),
+                                  ),
+                                  onTap: () async {
+                                    final result =
+                                        await showDialog<Map<String, dynamic>>(
+                                          context: context,
+                                          builder: (context) => CalendarDialog(
+                                            isRangePicker: false,
+                                            isTimePicker: false,
+                                            initialDate: selectedDate,
+                                          ),
+                                        );
+                                    if (result == null ||
+                                        result['date'] == null) {
+                                      return;
+                                    }
+                                    final picked = result['date'] as DateTime;
+                                    setLocalState(() => selectedDate = picked);
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: _DialogDropdown(
+                                  label: 'Status *',
+                                  value: statusUi,
+                                  options: const [
+                                    'Due',
+                                    'Overdue',
+                                    'Completed',
+                                    'Missed',
+                                    'Exempt',
+                                  ],
+                                  onChanged: (v) =>
+                                      setLocalState(() => statusUi = v),
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          Column(
+                            children: [
+                              _DialogField(
                                 label: 'Date *',
                                 value: selectedDate != null
                                     ? _apiFormatter.format(selectedDate!)
@@ -209,14 +265,13 @@ class _StudentImmunizationTabCardState
                                   setLocalState(() => selectedDate = picked);
                                 },
                               ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _DialogDropdown(
+                              const SizedBox(height: 16),
+                              _DialogDropdown(
                                 label: 'Status *',
                                 value: statusUi,
                                 options: const [
                                   'Due',
+                                  'Overdue',
                                   'Completed',
                                   'Missed',
                                   'Exempt',
@@ -224,133 +279,87 @@ class _StudentImmunizationTabCardState
                                 onChanged: (v) =>
                                     setLocalState(() => statusUi = v),
                               ),
+                            ],
+                          ),
+                        if (statusUi == 'Exempt') ...[
+                          const SizedBox(height: 16),
+                          TextField(
+                            decoration: const InputDecoration(
+                              labelText: 'Exemption Reason *',
+                              border: OutlineInputBorder(),
                             ),
-                          ],
-                        )
-                      else
-                        Column(
-                          children: [
-                            _DialogField(
-                              label: 'Date *',
-                              value: selectedDate != null
-                                  ? _apiFormatter.format(selectedDate!)
-                                  : '',
-                              suffix: SvgPicture.asset(
-                                MediaRes.calender_icon,
-                                height: 20.0,
-                                colorFilter: const ColorFilter.mode(
-                                  AppColors.primaryColor,
-                                  BlendMode.srcIn,
-                                ),
-                              ),
-                              onTap: () async {
-                                final result =
-                                    await showDialog<Map<String, dynamic>>(
-                                      context: context,
-                                      builder: (context) => CalendarDialog(
-                                        isRangePicker: false,
-                                        isTimePicker: false,
-                                        initialDate: selectedDate,
-                                      ),
+                            controller: TextEditingController(
+                              text: exemptionReason,
+                            ),
+                            minLines: 1,
+                            maxLines: 3,
+                            onChanged: (v) =>
+                                setLocalState(() => exemptionReason = v.trim()),
+                          ),
+                        ],
+                        SizedBox(height: verticalPadding),
+                        CustomButtonLayout(
+                          confirmButtonLabel: 'Save',
+                          cancelButtonLabel: 'Cancel',
+                          isForm: false,
+                          isLoading: isSaving,
+                          onPressedCancel: () => Navigator.of(context).pop(),
+                          onPressedConfirm: canSave
+                              ? () async {
+                                  if (selectedDate == null) return;
+                                  final statusApi = _statusApiFromUi(statusUi);
+                                  setLocalState(() => isSaving = true);
+                                  try {
+                                    final repo =
+                                        serviceLocator<StudentRepository>();
+                                    await repo.updateStudentImmunizationRecord(
+                                      studentCode: model.studentCode,
+                                      record: model,
+                                      date: selectedDate!,
+                                      status: statusApi,
+                                      exemptionReason: statusApi == 'EXEMPT'
+                                          ? exemptionReason
+                                          : null,
                                     );
-                                if (result == null || result['date'] == null) {
-                                  return;
-                                }
-                                final picked = result['date'] as DateTime;
-                                setLocalState(() => selectedDate = picked);
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            _DialogDropdown(
-                              label: 'Status *',
-                              value: statusUi,
-                              options: const [
-                                'Due',
-                                'Completed',
-                                'Missed',
-                                'Exempt',
-                              ],
-                              onChanged: (v) =>
-                                  setLocalState(() => statusUi = v),
-                            ),
-                          ],
-                        ),
-                      if (statusUi == 'Exempt') ...[
-                        const SizedBox(height: 16),
-                        TextField(
-                          decoration: const InputDecoration(
-                            labelText: 'Exemption Reason *',
-                            border: OutlineInputBorder(),
-                          ),
-                          controller: TextEditingController(
-                            text: exemptionReason,
-                          ),
-                          minLines: 1,
-                          maxLines: 3,
-                          onChanged: (v) =>
-                              setLocalState(() => exemptionReason = v.trim()),
-                        ),
-                      ],
-                      SizedBox(height: verticalPadding),
-                      CustomButtonLayout(
-                        confirmButtonLabel: 'Save',
-                        cancelButtonLabel: 'Cancel',
-                        isForm: false,
-                        isLoading: isSaving,
-                        onPressedCancel: () => Navigator.of(context).pop(),
-                        onPressedConfirm: canSave
-                            ? () async {
-                                if (selectedDate == null) return;
-                                final statusApi = _statusApiFromUi(statusUi);
-                                setLocalState(() => isSaving = true);
-                                try {
-                                  final repo =
-                                      serviceLocator<StudentRepository>();
-                                  await repo.updateStudentImmunizationRecord(
-                                    studentCode: model.studentCode,
-                                    record: model,
-                                    date: selectedDate!,
-                                    status: statusApi,
-                                    exemptionReason: statusApi == 'EXEMPT'
-                                        ? exemptionReason
-                                        : null,
-                                  );
-                                  if (!context.mounted) return;
-                                  CoreUtils.showTopSnackBar(
-                                    context: context,
-                                    message:
-                                        'Immunization updated successfully',
-                                    isSuccess: true,
-                                  );
-                                  Navigator.of(context).pop();
-                                  if (!mounted) return;
-                                  setState(() {
-                                    _immunizationFuture =
-                                        serviceLocator<StudentRepository>()
-                                            .getStudentImmunizations(
-                                              studentCode: model.studentCode,
-                                              forceRefresh: true,
-                                            );
-                                    _hasShownErrorSnackBar = false;
-                                  });
-                                } catch (e) {
-                                  if (!context.mounted) return;
-                                  CoreUtils.logApiError(e.toString());
-                                  CoreUtils.showTopSnackBar(
-                                    context: context,
-                                    message:
-                                        ApiErrorHandler.extractErrorMessage(e),
-                                    isError: true,
-                                  );
-                                } finally {
-                                  if (context.mounted) {
-                                    setLocalState(() => isSaving = false);
+                                    if (!context.mounted) return;
+                                    CoreUtils.showTopSnackBar(
+                                      context: context,
+                                      message:
+                                          'Immunization updated successfully',
+                                      isSuccess: true,
+                                    );
+                                    Navigator.of(context).pop();
+                                    if (!mounted) return;
+                                    setState(() {
+                                      _immunizationFuture =
+                                          serviceLocator<StudentRepository>()
+                                              .getStudentImmunizations(
+                                                studentCode: model.studentCode,
+                                                forceRefresh: true,
+                                              );
+                                      _hasShownErrorSnackBar = false;
+                                    });
+                                  } catch (e) {
+                                    if (!context.mounted) return;
+                                    CoreUtils.logApiError(e.toString());
+                                    CoreUtils.showTopSnackBar(
+                                      context: context,
+                                      message:
+                                          ApiErrorHandler.extractErrorMessage(
+                                            e,
+                                          ),
+                                      isError: true,
+                                    );
+                                  } finally {
+                                    if (context.mounted) {
+                                      setLocalState(() => isSaving = false);
+                                    }
                                   }
                                 }
-                              }
-                            : null,
-                      ),
-                    ],
+                              : null,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -376,11 +385,7 @@ class _StudentImmunizationTabCardState
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleCubit>();
-    final canMutateStudent =
-        ModuleAccess.mayWrite(role, AppAccessModules.student) &&
-        !role.isStaff &&
-        !role.isParent;
+    final canMutateStudent = widget.canEdit;
 
     return CustomRefreshIndicator(
       onRefresh: () async {
@@ -624,12 +629,23 @@ class _DoseRow extends StatelessWidget {
     return const Color(0xFFF3F4FB);
   }
 
-  String _doseDateText(StudentImmunization model) {
-    if ((model.administeredDate ?? '').isNotEmpty) {
-      return model.administeredDate!;
+  DateTime? _parseIsoDate(String? iso) {
+    if (iso == null || iso.trim().isEmpty) return null;
+    try {
+      return DateTime.parse(iso.trim());
+    } catch (_) {
+      return null;
     }
-    if ((model.dueDate ?? '').isNotEmpty) {
-      return model.dueDate!;
+  }
+
+  String _doseDateText(StudentImmunization model) {
+    final administered = _parseIsoDate(model.administeredDate);
+    if (administered != null) {
+      return DateUtilsNew.formatToReadableDate(administered);
+    }
+    final due = _parseIsoDate(model.dueDate);
+    if (due != null) {
+      return DateUtilsNew.formatToReadableDate(due);
     }
     return '-';
   }
@@ -711,6 +727,16 @@ class _DialogDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Defensive: DropdownButton crashes unless `value` matches EXACTLY one
+    // item. `options` is a curated list that can drift out of sync with
+    // whatever status string the API actually sends (that's what happened
+    // with "Overdue" — see the caller's comment); deduping guards against
+    // accidental duplicate entries, and appending `value` when it's missing
+    // guards against a not-yet-curated/unexpected status instead of crashing.
+    final dedupedOptions = {...options}.toList();
+    final effectiveOptions = dedupedOptions.contains(value)
+        ? dedupedOptions
+        : [...dedupedOptions, value];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -739,7 +765,7 @@ class _DialogDropdown extends StatelessWidget {
                 Icons.keyboard_arrow_down,
                 color: AppColors.primaryColor,
               ),
-              items: options
+              items: effectiveOptions
                   .map(
                     (o) => DropdownMenuItem<String>(
                       value: o,

@@ -54,6 +54,21 @@ class LoginResponseModel {
     );
   }
 
+  LoginResponseModel copyWith({String? refreshToken}) {
+    return LoginResponseModel(
+      accessToken: accessToken,
+      refreshToken: refreshToken ?? this.refreshToken,
+      expiresIn: expiresIn,
+      refreshExpiresIn: refreshExpiresIn,
+      tokenType: tokenType,
+      userCode: userCode,
+      email: email,
+      displayName: displayName,
+      firstLogin: firstLogin,
+      roles: roles,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'accessToken': accessToken,
@@ -74,11 +89,13 @@ class RoleModel {
   final String role;
   final String organizationCode;
   final String schoolCode;
+  final String schoolName;
 
   RoleModel({
     required this.role,
     required this.organizationCode,
     required this.schoolCode,
+    required this.schoolName,
   });
 
   factory RoleModel.fromJson(Map<String, dynamic> json) {
@@ -86,6 +103,7 @@ class RoleModel {
       role: json['role'] as String? ?? '',
       organizationCode: json['organizationCode'] as String? ?? '',
       schoolCode: json['schoolCode'] as String? ?? '',
+      schoolName: json['schoolName'] as String? ?? '',
     );
   }
 
@@ -94,6 +112,7 @@ class RoleModel {
       'role': role,
       'organizationCode': organizationCode,
       'schoolCode': schoolCode,
+      'schoolName': schoolName,
     };
   }
 }

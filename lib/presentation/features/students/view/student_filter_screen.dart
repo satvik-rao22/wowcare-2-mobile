@@ -16,13 +16,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'dart:convert';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
-enum StudentFilterSection {
-  classroom,
-  status,
-  tags,
-  parents,
-  attendance,
-}
+enum StudentFilterSection { classroom, status, tags, parents, attendance }
 
 class StudentFilterScreen extends StatefulWidget {
   const StudentFilterScreen({
@@ -35,12 +29,23 @@ class StudentFilterScreen extends StatefulWidget {
       StudentFilterSection.parents,
       StudentFilterSection.attendance,
     ],
+    this.allowCrossClassAttendance,
   });
 
   static const String routeName = '/student-filter';
 
   final Map<String, List<String>>? initialFilters;
   final List<StudentFilterSection> sections;
+
+  /// Non-null only when this screen is opened from a STUDENT ATTENDANCE
+  /// context (Daily view). When set, the Classroom section's accessibility
+  /// follows the school's `allowTeacherCrossClassAttendance` setting instead
+  /// of the legacy per-designation restriction below: `true` means the
+  /// classroom list is unrestricted (like an admin), `false` means it's
+  /// scoped to the staff member's allowed classrooms. Left `null` for other
+  /// callers (e.g. the general Students roster), which keep their existing
+  /// designation-based behavior unchanged.
+  final bool? allowCrossClassAttendance;
 
   @override
   State<StudentFilterScreen> createState() => _StudentFilterScreenState();
@@ -69,7 +74,12 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
   final List<String> _statusList = const ['Active', 'Inactive', 'Upcoming'];
   List<String> _tagsList = const [];
   List<String> _parentsList = const [];
-  final List<String> _attendanceList = const ['Expected', 'Present', 'Absent'];
+  final List<String> _attendanceList = const [
+    'Signed-In',
+    'Signed-Out',
+    'Not-Marked',
+    'Absent',
+  ];
 
   // Selected
   List<String> _selectedClassroomList = [];
@@ -103,11 +113,17 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
     _preloadStaffScope();
 
     final initial = widget.initialFilters ?? const {};
-    _selectedClassroomList = List<String>.from(initial['Classroom'] ?? const []);
-    _selectedStatusList = List<String>.from(initial['Status'] ?? const ['Active']);
+    _selectedClassroomList = List<String>.from(
+      initial['Classroom'] ?? const [],
+    );
+    _selectedStatusList = List<String>.from(
+      initial['Status'] ?? const ['Active'],
+    );
     _selectedTagsList = List<String>.from(initial['Tags'] ?? const []);
     _selectedParentsList = List<String>.from(initial['Parents'] ?? const []);
-    _selectedAttendanceList = List<String>.from(initial['Attendance'] ?? const []);
+    _selectedAttendanceList = List<String>.from(
+      initial['Attendance'] ?? const [],
+    );
 
     if (widget.sections.contains(StudentFilterSection.status)) {
       if (_selectedStatusList.isEmpty) {
@@ -136,7 +152,9 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
               .toLowerCase()
               .replaceAll('_', ' ');
       final raw =
-          (await _storageService.getString(StorageKeys.staffAllowedClassroomCodes) ??
+          (await _storageService.getString(
+                    StorageKeys.staffAllowedClassroomCodes,
+                  ) ??
                   '')
               .trim();
       final codes = <String>{};
@@ -150,7 +168,9 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
                 if (c.isNotEmpty) codes.add(c);
               } else if (e is Map) {
                 final m = Map<String, dynamic>.from(e);
-                final c = (m['code'] ?? m['classroomCode'] ?? '').toString().trim();
+                final c = (m['code'] ?? m['classroomCode'] ?? '')
+                    .toString()
+                    .trim();
                 if (c.isNotEmpty) codes.add(c);
               }
             }
@@ -168,9 +188,13 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
   }
 
   void _fetchFilterData() {
+    final crossClass = widget.allowCrossClassAttendance;
     context.read<ClassroomCubit>().loadActiveClassrooms(
       force: true,
-      applyAttendanceStaffScope: true,
+      // Student-attendance context: honor the resolved cross-class flag from
+      // the Daily view instead of always scoping. Other callers (crossClass
+      // == null) keep the original always-scoped behavior.
+      applyAttendanceStaffScope: crossClass == null ? true : !crossClass,
     );
   }
 
@@ -180,16 +204,14 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
           await _storageService.getString(StorageKeys.schoolCode) ?? '';
       if (schoolCode.isEmpty) return;
 
-      final names =
-          await _getTagNamesForSchoolUseCase(schoolCode: schoolCode);
+      final names = await _getTagNamesForSchoolUseCase(schoolCode: schoolCode);
       if (!mounted) return;
 
       // Names list is enough for UI; codes are resolved when applying filters
       // by using the same names and a separate codes lookup if needed.
       setState(() {
         _tagsList = names;
-        _selectedTagsList
-            .removeWhere((tag) => !_tagsList.contains(tag));
+        _selectedTagsList.removeWhere((tag) => !_tagsList.contains(tag));
       });
     } catch (_) {
       // Non-critical for filters; ignore errors.
@@ -202,14 +224,16 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
           await _storageService.getString(StorageKeys.schoolCode) ?? '';
       if (schoolCode.isEmpty) return;
 
-      final names =
-          await _getGuardianNamesForSchoolUseCase(schoolCode: schoolCode);
+      final names = await _getGuardianNamesForSchoolUseCase(
+        schoolCode: schoolCode,
+      );
       if (!mounted) return;
 
       setState(() {
         _parentsList = names;
-        _selectedParentsList
-            .removeWhere((parent) => !_parentsList.contains(parent));
+        _selectedParentsList.removeWhere(
+          (parent) => !_parentsList.contains(parent),
+        );
       });
     } catch (_) {
       // For filter dropdowns this is non-critical; ignore errors silently.
@@ -234,9 +258,7 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
       result['Attendance'] = List<String>.from(_selectedAttendanceList);
     }
 
-    Navigator.pop<Map<String, List<String>>>(context, {
-      ...result,
-    });
+    Navigator.pop<Map<String, List<String>>>(context, {...result});
   }
 
   @override
@@ -273,15 +295,23 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
     return BlocBuilder<ClassroomCubit, ClassroomState>(
       builder: (context, classroomState) {
         final role = context.watch<RoleCubit>();
-        final restrictToAllowed = role.isStaff &&
-            _restrictedDesignationLabelsLower.contains(_staffDesignationLower) &&
+        // In the student-attendance context, the ClassroomCubit state passed
+        // in already reflects the correct scope (allowed-only, or unrestricted
+        // when cross-class attendance is enabled) — the legacy per-designation
+        // restriction below must not re-narrow or bypass that.
+        final restrictToAllowed =
+            widget.allowCrossClassAttendance == null &&
+            role.isStaff &&
+            _restrictedDesignationLabelsLower.contains(
+              _staffDesignationLower,
+            ) &&
             _allowedClassroomCodes.isNotEmpty;
 
         final classroomNames = restrictToAllowed
             ? classroomState.classrooms
-                .where((c) => _allowedClassroomCodes.contains(c.code.trim()))
-                .map((c) => c.name)
-                .toList()
+                  .where((c) => _allowedClassroomCodes.contains(c.code.trim()))
+                  .map((c) => c.name)
+                  .toList()
             : classroomState.classrooms.map((c) => c.name).toList();
 
         // Keep classroom list in sync with the current scope (all vs allowed-only).
@@ -292,8 +322,9 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
             if (!mounted) return;
             setState(() {
               _classroomList = nextClassroomList;
-              _selectedClassroomList
-                  .removeWhere((item) => !_classroomList.contains(item));
+              _selectedClassroomList.removeWhere(
+                (item) => !_classroomList.contains(item),
+              );
             });
           });
         }
@@ -357,23 +388,29 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
               final items = _optionsFor(section);
               final selected = _selectedFor(section);
 
+              // Select All on every multi-select filter (Classroom, Tags,
+              // Parents, Attendance). Status is single-select, so it doesn't
+              // get a Select All row.
+              final showSelectAll = section != StudentFilterSection.status;
+
               return CustomMultiSelectDropdown(
                 label: label,
                 hintText: 'Select',
+                showSelectAll: showSelectAll,
                 items: items,
                 selectedItems: selected,
                 onChanged: (selectedItems) {
                   setState(() {
-                    final isSingleSelect = section == StudentFilterSection.status ||
-                        section == StudentFilterSection.attendance;
+                    final isSingleSelect =
+                        section == StudentFilterSection.status;
 
                     selected
                       ..clear()
                       ..addAll(
                         isSingleSelect
                             ? (selectedItems.isEmpty
-                                ? const <String>[]
-                                : <String>[selectedItems.last])
+                                  ? const <String>[]
+                                  : <String>[selectedItems.last])
                             : selectedItems,
                       );
 
@@ -421,4 +458,3 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
     );
   }
 }
-

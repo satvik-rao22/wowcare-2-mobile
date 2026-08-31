@@ -1,19 +1,23 @@
 import 'dart:async';
 import 'dart:io';
-
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/logger_service.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
+import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
+import 'package:wowcare/domain/features/billing/entities/family_summary_entity.dart';
+import 'package:wowcare/domain/features/billing/usecases/get_family_summary_usecase.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_documents_tab.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_health_tab.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_important_dates_tab.dart';
@@ -25,8 +29,10 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/domain/features/student/entities/student_settings.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 
 import '../../../../app/theme/media_res.dart';
 import '../../../../core/util/core_utils.dart';
@@ -101,8 +107,18 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   late String _displayName;
   late String _displayClassroom;
 
+  /// The classroom's actual CODE — populated once the Profile tab's own
+  /// fetch (or the deep-link header fetch below) returns real API data.
+  /// See [Student.classroomCode] for why this can't be derived from
+  /// [_displayClassroom] (a display name) via a separate name→code lookup.
+  String _displayClassroomCode = '';
+
   /// Upper-case API status; set when profile loads (e.g. UPCOMING for yellow dot).
   String? _profileStatusUpper;
+
+  /// Raw FTE from the API (e.g. "1.0", "0.5"); set when the profile loads.
+  /// Displayed ×100 on the front end only (1.0 → 100, 0.5 → 50).
+  String? _profileFte;
   String? _activeStudentCode;
   late List<String> _profileTags;
   late List<String> _profileSchedule;
@@ -114,6 +130,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   String? _organizationCode;
   bool _isUploadingProfilePhoto = false;
   double _profilePhotoUploadPercent = 0;
+
+  /// School-level student settings; gates Health/Documents editing for the
+  /// guardian and staff personas. Null until loaded (edit stays off meanwhile).
+  StudentSettings? _studentSettings;
 
   @override
   void initState() {
@@ -133,6 +153,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     _displayClassroom = widget.classroom;
     _profileStatusUpper = widget.initialEnrollmentStatus?.trim().toUpperCase();
     _loadUploadContext();
+    _loadStudentSettings();
     // Deep-link case: opened by code straight to a non-Profile tab. The profile
     // fetch that fills the header (name/classroom) lives inside the Profile tab,
     // which TabBarView builds lazily — so it never runs when we land on another
@@ -148,6 +169,72 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         // If no ClassroomCubit is provided above, build() will wrap with one.
       }
     });
+  }
+
+  /// Resolves the active student's classroom NAME ([_displayClassroom]) to its
+  /// classroom CODE via the loaded [ClassroomCubit] list. The activity flow needs
+  /// the code — the feed to pre-filter to this student's room, and the add-flow
+  /// to load per-classroom activity settings — but the profile only carries the
+  /// name. Returns '' when it can't be resolved (list not loaded / no match).
+  String _resolveClassroomCode(BuildContext context) {
+    final name = _displayClassroom.trim();
+    if (name.isEmpty) return '';
+    try {
+      final classrooms = context.read<ClassroomCubit>().state.classrooms;
+      final needle = name.toLowerCase();
+      for (final c in classrooms) {
+        if (c.name.trim().toLowerCase() == needle) return c.code.trim();
+      }
+    } catch (_) {
+      // ClassroomCubit not available / not loaded yet — fall through.
+    }
+    return '';
+  }
+
+  /// Loads school-level student settings so the Health/Documents tabs know
+  /// whether the current persona may edit. Best-effort: on failure editing
+  /// stays disabled for guardian/staff (admins keep their module-access default).
+  Future<void> _loadStudentSettings() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
+      if (school.isEmpty) return;
+      final settings = await serviceLocator<StudentRemoteDataSource>()
+          .getStudentSettings(schoolCode: school);
+      if (!mounted) return;
+      setState(() => _studentSettings = settings);
+    } catch (e) {
+      AppLogger.d('[StudentProfile] student settings load failed: $e');
+    }
+  }
+
+  /// Whether the current persona may edit a student's Health tab: guardian →
+  /// [StudentSettings.canParentEditChildHealthRecords], staff → also
+  /// [StudentSettings.canParentEditChildHealthRecords] (per backend contract,
+  /// this single toggle governs Health-tab edit access for both guardian and
+  /// staff personas — [StudentSettings.canStaffEditTheirOwnHealthRecords] is
+  /// reserved for Documents, see [_canEditDocuments]), admin → module access.
+  bool _canEditHealth(RoleCubit role) {
+    if (role.isParent || role.isStaff) {
+      return _studentSettings?.canParentEditChildHealthRecords ?? false;
+    }
+    return ModuleAccess.mayWrite(role, AppAccessModules.student);
+  }
+
+  /// Whether the current persona may add/edit/delete a student's Documents:
+  /// guardian → [StudentSettings.canParentEditChildHealthRecords], staff →
+  /// [StudentSettings.canStaffEditTheirOwnHealthRecords] (despite its
+  /// health-records name, this field is the backend's toggle for whether
+  /// staff may add/edit student documents), admin → module access.
+  bool _canEditDocuments(RoleCubit role) {
+    if (role.isParent) {
+      return _studentSettings?.canParentEditChildHealthRecords ?? false;
+    }
+    if (role.isStaff) {
+      return _studentSettings?.canStaffEditTheirOwnHealthRecords ?? false;
+    }
+    return ModuleAccess.mayWrite(role, AppAccessModules.student);
   }
 
   /// Loads the student's profile at the screen level so the header (name,
@@ -179,14 +266,34 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       _displayClassroom = nextClassroom.isEmpty
           ? _displayClassroom
           : nextClassroom;
+      final nextClassroomCode = (profile.classroomCode ?? '').trim();
+      if (nextClassroomCode.isNotEmpty) {
+        _displayClassroomCode = nextClassroomCode;
+      }
       final nextStatus = profile.status.trim().toUpperCase();
       if (nextStatus.isNotEmpty) {
         _profileStatusUpper = nextStatus;
       }
+      _profileFte = profile.fte;
       _profilePhotoUrl = (profile.profilePhotoUrl ?? '').trim().isEmpty
           ? null
           : profile.profilePhotoUrl!.trim();
     });
+  }
+
+  /// FTE for display: the API value multiplied by 100 (front end only) and shown
+  /// as a percentage, with a trailing `.0` dropped for whole numbers.
+  /// Null/blank/non-numeric → null so the field is hidden.
+  String? get _fteDisplay {
+    final raw = (_profileFte ?? '').trim();
+    if (raw.isEmpty) return null;
+    final value = double.tryParse(raw);
+    if (value == null) return null;
+    final scaled = value * 100;
+    final number = scaled == scaled.roundToDouble()
+        ? scaled.toStringAsFixed(0)
+        : scaled.toString();
+    return '$number%';
   }
 
   Future<void> _loadUploadContext() async {
@@ -432,7 +539,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         documentApiBasePath: '/api/v1',
         fileName: fileName.isNotEmpty
             ? fileName
-            : 'student-profile-photo-${DateTime.now().millisecondsSinceEpoch}.jpg',
+            : 'student-profile-photo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
         contentType: contentType,
         contentLengthBytes: await file.length(),
         mediaType: 'IMAGE',
@@ -544,6 +651,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       role,
       AppAccessModules.student,
     );
+    final canEditHealth = _canEditHealth(role);
+    final canEditDocuments = _canEditDocuments(role);
 
     return GlobalScaffold(
       hasBackButton: true,
@@ -616,6 +725,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   name: _displayName,
                   classroom: _displayClassroom,
                   studentCode: _activeStudentCode,
+                  canEdit: canEditHealth,
                   onHealthChanged: _refreshHeaderHealth,
                 ),
                 StudentImportantDatesTab(
@@ -635,6 +745,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   name: _displayName,
                   classroom: _displayClassroom,
                   studentCode: _activeStudentCode,
+                  canEdit: canEditDocuments,
                   highlightCode: widget.highlightCode,
                 ),
               ],
@@ -986,6 +1097,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 role,
                 AppAccessModules.dailyActivity,
                 () {
+                  // Resolve the classroom NAME → CODE so the activity feed can
+                  // filter to this student's room and the add-activity flow can
+                  // load per-classroom activity settings (the profile only holds
+                  // the name; without the code the add screen shows "No
+                  // activities available from API").
+                  final classroomCode = _resolveClassroomCode(context);
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => ActivityFeedScreen(
@@ -1000,6 +1117,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                               _activeStudentCode!.trim().isNotEmpty)
                             'studentCode': _activeStudentCode!.trim(),
                           'classroom': _displayClassroom,
+                          if (classroomCode.isNotEmpty)
+                            'classroomCode': classroomCode,
                           'tags': _profileTags,
                           'nappingStatus': false,
                         },
@@ -1023,49 +1142,160 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 AppAccessModules.parentMessaging,
                 AppAccessModules.staffMessaging,
               ]);
-              if (messagingOk) {
+              if (!messagingOk) {
+                ModuleAccess.showFeatureRestricted(context);
+                return;
+              }
+              final code = (_activeStudentCode ?? '').trim();
+              if (code.isEmpty) {
                 CoreUtils.showTopSnackBar(
                   context: context,
-                  message: 'Messaging is available from the Messages section.',
-                  isError: false,
+                  message: 'Student details not loaded yet. Please try again.',
+                  isError: true,
                 );
-              } else {
-                ModuleAccess.showFeatureRestricted(context);
+                return;
               }
+              openMessagingShortcut(
+                context,
+                recipients: [
+                  SelectedRecipient(
+                    code: code,
+                    name: _displayName,
+                    isStaff: false,
+                    classroomCode: _displayClassroomCode,
+                  ),
+                ],
+              );
             },
           ),
-          _buildActionIcon(
-            context,
-            role,
-            MediaRes.billing_drawer_icon,
-            enabled: role.canAccessAny([
-              AppAccessModules.transaction,
-              AppAccessModules.invoices,
-              AppAccessModules.recurringPlans,
-              AppAccessModules.billingSettings,
-            ]),
-            onTap: () {
-              final billingOk = role.canAccessAny([
+          // Billing is hidden for the staff persona; admins open the
+          // student's family billing profile, parents/guardians land on
+          // their family billing tab.
+          if (!role.isStaff)
+            _buildActionIcon(
+              context,
+              role,
+              MediaRes.billing_drawer_icon,
+              enabled: role.canAccessAny([
                 AppAccessModules.transaction,
                 AppAccessModules.invoices,
                 AppAccessModules.recurringPlans,
                 AppAccessModules.billingSettings,
-              ]);
-              if (billingOk) {
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message:
-                      'Billing is available from the Transactions section.',
-                  isError: false,
-                );
-              } else {
+              ]),
+              onTap: () {
+                final billingOk = role.canAccessAny([
+                  AppAccessModules.transaction,
+                  AppAccessModules.invoices,
+                  AppAccessModules.recurringPlans,
+                  AppAccessModules.billingSettings,
+                ]);
+                if (!billingOk) {
+                  ModuleAccess.showFeatureRestricted(context);
+                  return;
+                }
+                // Admin persona (role == 'admin', i.e. isAdmin but not staff):
+                // open this student's family billing profile.
+                if (role.isAdmin && !role.isStaff) {
+                  final code = (_activeStudentCode ?? '').trim();
+                  if (code.isEmpty) {
+                    CoreUtils.showTopSnackBar(
+                      context: context,
+                      message:
+                          'Student details not loaded yet. Please try again.',
+                      isError: true,
+                    );
+                    return;
+                  }
+                  _openStudentFamilyBilling(context, code);
+                  return;
+                }
+                // Parent/guardian persona: land on the bottom-nav Billing
+                // branch, same as the dashboard billing card.
+                if (role.isParent) {
+                  context.go(ParentBillingScreen.routeName);
+                  return;
+                }
+                // Any other persona reaching here (e.g. kiosk with module
+                // access somehow granted) has no billing destination.
                 ModuleAccess.showFeatureRestricted(context);
-              }
-            },
-          ),
+              },
+            ),
         ],
       ),
     );
+  }
+
+  /// Resolves the student's family (`FAM_…`) from the billing family-summary —
+  /// the family-ledger API is keyed by the FAMILY owner code, not the student
+  /// code — then opens that family's billing profile. Mirrors how the admin
+  /// billing screen navigates.
+  Future<void> _openStudentFamilyBilling(
+    BuildContext context,
+    String studentCode,
+  ) async {
+    final storage = serviceLocator<StorageService>();
+    final org = (await storage.getString(StorageKeys.organizationCode) ?? '')
+        .trim();
+    final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
+    if (!context.mounted) return;
+    if (org.isEmpty || school.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Missing school context. Please try again.',
+        isError: true,
+      );
+      return;
+    }
+
+    CoreUtils.showLoadingDialog(context);
+    try {
+      final families = await serviceLocator<GetFamilySummaryUseCase>()(
+        organizationCode: org,
+        school: school,
+      );
+      FamilySummaryEntity? family;
+      for (final f in families) {
+        if (f.studentCodes.contains(studentCode)) {
+          family = f;
+          break;
+        }
+      }
+      if (!context.mounted) return;
+      // showLoadingDialog uses the root navigator, so dismiss it there.
+      Navigator.of(context, rootNavigator: true).pop();
+      if (family == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'No billing profile found for this student.',
+          isError: true,
+        );
+        return;
+      }
+      final resolved = family;
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => TransactionDetailsScreen(
+            ownerType: resolved.ownerType.isNotEmpty
+                ? resolved.ownerType
+                : 'FAMILY',
+            ownerCode: resolved.ownerCode,
+            familyName: resolved.familyName.isNotEmpty
+                ? resolved.familyName
+                : _displayName,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      // showLoadingDialog uses the root navigator, so dismiss it there.
+      Navigator.of(context, rootNavigator: true).pop();
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to open billing. Please try again.',
+        isError: true,
+      );
+    }
   }
 
   Widget _buildActionIcon(

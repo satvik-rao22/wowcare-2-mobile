@@ -5,6 +5,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/app_time.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/login_persona_util.dart';
 import '../../../../core/util/storage_keys.dart';
@@ -331,8 +332,14 @@ class UserProfileCubit extends Cubit<UserProfileState> {
       }
 
       // 2) Prefetch latest profile in the background (no loader shown).
+      // forceRefresh: true — getStaffProfile() otherwise serves the same
+      // cache entry step 1 just read (5-minute TTL), so pull-to-refresh
+      // silently no-op'd instead of reflecting a just-changed API value.
       try {
-        final fresh = await repo.getStaffProfile(staffCode: staffCode);
+        final fresh = await repo.getStaffProfile(
+          staffCode: staffCode,
+          forceRefresh: true,
+        );
         if (isClosed) return;
         if (fresh.staffType.isNotEmpty) {
           await _storage.saveString(StorageKeys.staffType, fresh.staffType);
@@ -595,7 +602,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
         documentApiBasePath: '/api/v1',
         fileName: fileName.isNotEmpty
             ? fileName
-            : 'staff-profile-photo-${DateTime.now().millisecondsSinceEpoch}.jpg',
+            : 'staff-profile-photo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
         contentType: contentType,
         contentLengthBytes: await file.length(),
         mediaType: 'IMAGE',
@@ -737,7 +744,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
         documentApiBasePath: '/api/v1',
         fileName: fileName.isNotEmpty
             ? fileName
-            : 'guardian-profile-photo-${DateTime.now().millisecondsSinceEpoch}.jpg',
+            : 'guardian-profile-photo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
         contentType: contentType,
         contentLengthBytes: await file.length(),
         mediaType: 'IMAGE',

@@ -9,22 +9,27 @@ import 'package:wowcare/domain/features/communication/entities/message_entity.da
 import 'package:wowcare/domain/features/communication/entities/messaging_staff_result.dart';
 import 'package:wowcare/domain/features/communication/entities/sync_queue_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/unread_entity.dart';
+import 'package:wowcare/domain/features/communication/repositories/communication_repository.dart';
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/repositories/message_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/usecases/add_reaction_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/cache_draft_message_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/delete_message_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/delete_attachment_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/edit_message_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_cached_messages_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_message_entity_receipts_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_messages_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/mark_conversation_read_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/mark_draft_message_failed_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/remove_reaction_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/send_message_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_messages_usecase.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/util/chat_attachment_uploader.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_thread_cubit.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
+import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_cubit.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 // ── Fakes ──────────────────────────────────────────────────────────────────────
@@ -34,25 +39,24 @@ class _FakeMessageEntityRepository implements MessageEntityRepository {
 
   @override
   Stream<List<MessageEntity>> watchMessages({
+    String? organizationCode,
+    String? schoolCode,
     required String conversationCode,
     int limit = 100,
-  }) =>
-      _messagesController.stream;
+  }) => _messagesController.stream;
 
   @override
   Future<Either<Failure, List<MessageEntity>>> getMessages({
     required String conversationCode,
     String? beforeMessageCode,
     int size = 50,
-  }) async =>
-      const Right([]);
+  }) async => const Right([]);
 
   @override
   Future<Either<Failure, List<MessageEntity>>> getCachedMessages(
     String conversationCode, {
     String? currentUserCode,
-  }) async =>
-      const Right([]);
+  }) async => const Right([]);
 
   bool sendMessageShouldFail = false;
   List<int>? lastSendAttachmentIds;
@@ -63,8 +67,11 @@ class _FakeMessageEntityRepository implements MessageEntityRepository {
     required String conversationCode,
     required String text,
     List<int> attachmentIds = const [],
+    List<AttachmentEntity> attachments = const [],
     bool isPrivate = false,
+    String? privateParentUserCode,
     String? threadParentCode,
+    String? localTempCode,
   }) async {
     sendMessageCallCount++;
     lastSendAttachmentIds = attachmentIds;
@@ -96,8 +103,7 @@ class _FakeMessageEntityRepository implements MessageEntityRepository {
   Future<Either<Failure, MessageEntity>> editMessage({
     required String messageCode,
     required String newText,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Either<Failure, void>> deleteMessage(String messageCode) async =>
@@ -123,22 +129,19 @@ class _FakeMessageEntityRepository implements MessageEntityRepository {
   @override
   Future<Either<Failure, MessageEntity>> retryFailedMessage(
     String localTempCode,
-  ) async =>
-      throw UnimplementedError();
+  ) async => throw UnimplementedError();
 
   @override
   Future<Either<Failure, void>> addReaction({
     required String messageCode,
     required String emoji,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Either<Failure, void>> removeReaction({
     required String messageCode,
     required String emoji,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Either<Failure, void>> markMessageRead(String messageCode) async =>
@@ -149,30 +152,49 @@ class _FakeMessageEntityRepository implements MessageEntityRepository {
     required String conversationCode,
     required String query,
     int limit = 20,
-  }) async =>
-      const Right([]);
+  }) async => const Right([]);
 
   @override
   Future<Either<Failure, List<SyncQueueEntity>>>
-      getPendingSyncOperations() async => const Right([]);
+  getPendingSyncOperations() async => const Right([]);
 
   @override
-  Future<Either<Failure, int>> cleanupSyncQueue({int olderThanDays = 7}) async =>
-      const Right(0);
+  Future<Either<Failure, int>> cleanupSyncQueue({
+    int olderThanDays = 7,
+  }) async => const Right(0);
 
   @override
   Future<Either<Failure, void>> clearMessagesCache(
     String conversationCode,
-  ) async =>
-      const Right(null);
+  ) async => const Right(null);
 
-  void emit(List<MessageEntity> messages) =>
-      _messagesController.add(messages);
+  void emit(List<MessageEntity> messages) => _messagesController.add(messages);
 
   Future<void> dispose() => _messagesController.close();
+
+  @override
+  Future<void> cacheDraftMessage(MessageEntity message) {
+    // TODO: implement cacheDraftMessage
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> markDraftMessageFailed(String localTempCode) {
+    // TODO: implement markDraftMessageFailed
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, List<ReadReceiptEntity>>> getMessageReceipts(
+    String messageCode,
+  ) {
+    // TODO: implement getMessageReceipts
+    throw UnimplementedError();
+  }
 }
 
-class _FakeConversationEntityRepository implements ConversationEntityRepository {
+class _FakeConversationEntityRepository
+    implements ConversationEntityRepository {
   int markConversationReadCallCount = 0;
 
   @override
@@ -186,11 +208,14 @@ class _FakeConversationEntityRepository implements ConversationEntityRepository 
   @override
   Stream<List<ConversationEntity>> watchConversations({
     ConversationType? type,
-  }) =>
-      const Stream.empty();
+  }) => const Stream.empty();
 
   @override
   Stream<int> watchUnreadCountForType(ConversationType type) =>
+      const Stream.empty();
+
+  @override
+  Stream<int> watchUnreadCountForConversation(String conversationCode) =>
       const Stream.empty();
 
   @override
@@ -199,70 +224,65 @@ class _FakeConversationEntityRepository implements ConversationEntityRepository 
   @override
   Future<Either<Failure, List<ConversationEntity>>> getConversations({
     ConversationType? type,
-    String status = 'ACTIVE',
+    String? status,
     int page = 0,
     int size = 20,
-    String? designation,
-    String? staffStatus,
-    String? classroom,
-  }) async =>
-      const Right([]);
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
+    bool? unreadOnly,
+    bool includeRestUnreadCounts = true,
+  }) async => const Right([]);
 
   @override
   Future<Either<Failure, List<ConversationEntity>>> getCachedConversations({
     ConversationType? type,
-  }) async =>
-      const Right([]);
+  }) async => const Right([]);
 
   @override
   Future<Either<Failure, ConversationEntity>> getConversation(
     String conversationCode,
-  ) async =>
-      throw UnimplementedError();
+  ) async => throw UnimplementedError();
 
   @override
   Future<Either<Failure, ConversationEntity?>> getCachedConversation(
     String conversationCode,
-  ) async =>
-      const Right(null);
+  ) async => const Right(null);
 
   @override
   Future<Either<Failure, ConversationEntity?>> findStaffDirectConversation(
     String recipientUserCode,
-  ) async =>
-      const Right(null);
+  ) async => const Right(null);
 
   @override
   Future<Either<Failure, ConversationEntity?>> findRoomChatConversation({
     required String studentCode,
     String? classroomCode,
-  }) async =>
-      const Right(null);
+  }) async => const Right(null);
 
   @override
   Future<Either<Failure, ConversationEntity?>> findAdminChatConversation({
     required String studentCode,
-  }) async =>
-      const Right(null);
+  }) async => const Right(null);
 
   @override
   Future<Either<Failure, List<MessagingStaffResult>>> searchStaffForMessaging({
     required String query,
     required String organizationCode,
     required String schoolCode,
-  }) async =>
-      const Right([]);
+  }) async => const Right([]);
 
   @override
   Future<Either<Failure, List<ConversationEntity>>> getConversationsForStudent(
     String studentCode,
-  ) async =>
-      const Right([]);
+  ) async => const Right([]);
 
   @override
   Future<Either<Failure, List<ConversationEntity>>>
-      getConversationsForClassroom(String classroomCode) async =>
-          const Right([]);
+  getConversationsForClassroom(String classroomCode) async => const Right([]);
 
   @override
   Future<Either<Failure, ConversationEntity>> createConversation({
@@ -273,29 +293,25 @@ class _FakeConversationEntityRepository implements ConversationEntityRepository 
     String title = '',
     String description = '',
     String avatarUrl = '',
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Either<Failure, List<ParticipantEntity>>> addParticipants({
     required String conversationCode,
     required List<String> userCodes,
-  }) async =>
-      const Right([]);
+  }) async => const Right([]);
 
   @override
   Future<Either<Failure, void>> removeParticipants({
     required String conversationCode,
     required List<String> userCodes,
-  }) async =>
-      const Right(null);
+  }) async => const Right(null);
 
   @override
   Future<Either<Failure, void>> togglePrivateMode({
     required String conversationCode,
     required bool enable,
-  }) async =>
-      const Right(null);
+  }) async => const Right(null);
 
   @override
   Future<Either<Failure, Map<String, int>>> getUnreadAggregates() async =>
@@ -312,8 +328,36 @@ class _FakeConversationEntityRepository implements ConversationEntityRepository 
   @override
   Future<Either<Failure, void>> markConversationDelivered(
     String conversationCode,
-  ) async =>
-      const Right(null);
+  ) async => const Right(null);
+
+  @override
+  Future<Either<Failure, Unit>> reconcileClassroomChat(
+    String classroomCode, {
+    String? classroomName,
+  }) {
+    // TODO: implement reconcileClassroomChat
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsPerConversation() {
+    // TODO: implement getUnreadCountsPerConversation
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, Set<String>>> getClassroomRosterPresentUserCodes(
+    String classroomCode,
+  ) {
+    // TODO: implement getClassroomRosterPresentUserCodes
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsByType() {
+    // TODO: implement getUnreadCountsByType
+    throw UnimplementedError();
+  }
 }
 
 /// Overrides `upload()` entirely, so the real `ImageUploadService`/
@@ -321,10 +365,10 @@ class _FakeConversationEntityRepository implements ConversationEntityRepository 
 /// only exist to satisfy [ChatAttachmentUploader]'s constructor.
 class _FakeChatAttachmentUploader extends ChatAttachmentUploader {
   _FakeChatAttachmentUploader()
-      : super(
-          ImageUploadService(ApiClient(baseUrl: 'http://unused')),
-          _UnusedStorageService(),
-        );
+    : super(
+        ImageUploadService(ApiClient(baseUrl: 'http://unused')),
+        _UnusedStorageService(),
+      );
 
   bool shouldFail = false;
   final List<String> uploadedAttachmentNames = [];
@@ -369,37 +413,41 @@ class _UnusedStorageService implements StorageService {
   Future<Set<String>> getKeys() async => {};
 }
 
-MessageEntity _message(String code, {List<AttachmentEntity> attachments = const []}) =>
-    MessageEntity(
-      id: code,
-      code: code,
-      conversationCode: 'CONV-1',
-      senderCode: 'USR-1',
-      senderName: 'Sender',
-      senderRole: ParticipantRole.staff,
-      text: 'hello',
-      messageType: MessageType.text,
-      status: MessageStatus.sent,
-      sentAt: DateTime(2026, 1, 1),
-      organizationCode: 'ORG-1',
-      schoolCode: 'SCH-1',
-      attachments: attachments,
-    );
+MessageEntity _message(
+  String code, {
+  List<AttachmentEntity> attachments = const [],
+}) => MessageEntity(
+  id: code,
+  code: code,
+  conversationCode: 'CONV-1',
+  senderCode: 'USR-1',
+  senderName: 'Sender',
+  senderRole: ParticipantRole.staff,
+  text: 'hello',
+  messageType: MessageType.text,
+  status: MessageStatus.sent,
+  sentAt: DateTime(2026, 1, 1),
+  organizationCode: 'ORG-1',
+  schoolCode: 'SCH-1',
+  attachments: attachments,
+);
 
-AttachmentEntity _attachment({required String code, required int attachmentId}) =>
-    AttachmentEntity(
-      code: code,
-      messageCode: 'MSG-1',
-      conversationCode: 'CONV-1',
-      fileName: 'file.jpg',
-      fileUrl: 'https://example.com/file.jpg',
-      mimeType: 'image/jpeg',
-      fileSizeBytes: 100,
-      attachmentType: AttachmentType.image,
-      uploadedBy: 'USR-1',
-      uploadedAt: DateTime(2026, 1, 1),
-      attachmentId: attachmentId,
-    );
+AttachmentEntity _attachment({
+  required String code,
+  required int attachmentId,
+}) => AttachmentEntity(
+  code: code,
+  messageCode: 'MSG-1',
+  conversationCode: 'CONV-1',
+  fileName: 'file.jpg',
+  fileUrl: 'https://example.com/file.jpg',
+  mimeType: 'image/jpeg',
+  fileSizeBytes: 100,
+  attachmentType: AttachmentType.image,
+  uploadedBy: 'USR-1',
+  uploadedAt: DateTime(2026, 1, 1),
+  attachmentId: attachmentId,
+);
 
 void main() {
   late _FakeMessageEntityRepository messageRepo;
@@ -422,10 +470,18 @@ void main() {
       deleteAttachmentUseCase: DeleteAttachmentEntityUseCase(messageRepo),
       addReactionUseCase: AddReactionEntityUseCase(messageRepo),
       removeReactionUseCase: RemoveReactionUseCase(messageRepo),
-      markConversationReadUseCase: MarkConversationReadUseCase(conversationRepo),
+      markConversationReadUseCase: MarkConversationReadUseCase(
+        conversationRepo,
+      ),
       attachmentUploader: attachmentUploader,
       // Short duration so the test doesn't wait 2 real seconds.
       markReadDebounceDuration: const Duration(milliseconds: 20),
+      cacheDraftMessageUseCase: CacheDraftMessageUseCase(messageRepo),
+      markDraftMessageFailedUseCase: MarkDraftMessageFailedUseCase(messageRepo),
+      getCachedMessagesEntityUseCase: GetCachedMessagesEntityUseCase(
+        messageRepo,
+      ),
+      getMessageReceiptsUseCase: GetMessageEntityReceiptsUseCase(messageRepo),
     );
   });
 
@@ -435,65 +491,78 @@ void main() {
   });
 
   group('markConversationRead debounce', () {
-    test(
-      'a burst of Firestore snapshot emissions collapses into a single '
-      'markConversationRead call',
-      () async {
-        cubit.startWatchingMessages();
-
-        // Simulate 5 rapid snapshot emissions (e.g. several reactions/edits
-        // landing in quick succession) — all well within the debounce window.
-        for (var i = 0; i < 5; i++) {
-          messageRepo.emit([_message('MSG-$i')]);
-          await Future<void>.delayed(const Duration(milliseconds: 2));
-        }
-
-        expect(conversationRepo.markConversationReadCallCount, 0);
-
-        // Let the debounce window elapse.
-        await Future<void>.delayed(const Duration(milliseconds: 40));
-
-        expect(conversationRepo.markConversationReadCallCount, 1);
-      },
-    );
-
-    test('a second burst after the window elapses triggers a second call',
-        () async {
+    test('a burst of Firestore snapshot emissions collapses into a single '
+        'markConversationRead call', () async {
       cubit.startWatchingMessages();
 
-      messageRepo.emit([_message('MSG-0')]);
-      await Future<void>.delayed(const Duration(milliseconds: 40));
-      expect(conversationRepo.markConversationReadCallCount, 1);
+      // Simulate 5 rapid snapshot emissions (e.g. several reactions/edits
+      // landing in quick succession) — all well within the debounce window.
+      for (var i = 0; i < 5; i++) {
+        messageRepo.emit([_message('MSG-$i')]);
+        await Future<void>.delayed(const Duration(milliseconds: 2));
+      }
 
-      messageRepo.emit([_message('MSG-1')]);
+      expect(conversationRepo.markConversationReadCallCount, 0);
+
+      // Let the debounce window elapse.
       await Future<void>.delayed(const Duration(milliseconds: 40));
-      expect(conversationRepo.markConversationReadCallCount, 2);
+
+      expect(conversationRepo.markConversationReadCallCount, 1);
     });
 
     test(
-      'closing the cubit mid-debounce flushes the pending mark-read instead '
-      'of dropping it',
+      'a second burst after the window elapses triggers a second call',
       () async {
         cubit.startWatchingMessages();
+
         messageRepo.emit([_message('MSG-0')]);
-
-        // Close well before the 20ms debounce window would have elapsed.
-        await Future<void>.delayed(const Duration(milliseconds: 2));
-        await cubit.close();
-
-        // The flush fires the repository call without awaiting it from
-        // inside close(); give the microtask queue a tick to run it.
-        await Future<void>.delayed(const Duration(milliseconds: 5));
-
+        await Future<void>.delayed(const Duration(milliseconds: 40));
         expect(conversationRepo.markConversationReadCallCount, 1);
+
+        messageRepo.emit([_message('MSG-1')]);
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+        expect(conversationRepo.markConversationReadCallCount, 2);
       },
     );
+
+    test('closing the cubit mid-debounce flushes the pending mark-read instead '
+        'of dropping it', () async {
+      cubit.startWatchingMessages();
+      messageRepo.emit([_message('MSG-0')]);
+
+      // Close well before the 20ms debounce window would have elapsed.
+      await Future<void>.delayed(const Duration(milliseconds: 2));
+      await cubit.close();
+
+      // The flush fires the repository call without awaiting it from
+      // inside close(); give the microtask queue a tick to run it.
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+
+      expect(conversationRepo.markConversationReadCallCount, 1);
+    });
   });
 
   group('deleteAttachment', () {
+    test('optimistically removes only the targeted attachment and calls the '
+        'use case with the messageCode/attachmentId pair', () async {
+      cubit.startWatchingMessages();
+      final attachmentA = _attachment(code: 'A', attachmentId: 101);
+      final attachmentB = _attachment(code: 'B', attachmentId: 102);
+      messageRepo.emit([
+        _message('MSG-1', attachments: [attachmentA, attachmentB]),
+      ]);
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+
+      await cubit.deleteAttachment(messageCode: 'MSG-1', attachmentId: 101);
+
+      expect(messageRepo.lastDeleteAttachmentMessageCode, 'MSG-1');
+      expect(messageRepo.lastDeleteAttachmentId, 101);
+      final updated = cubit.state.messages.single;
+      expect(updated.attachments.map((a) => a.code), ['B']);
+    });
+
     test(
-      'optimistically removes only the targeted attachment and calls the '
-      'use case with the messageCode/attachmentId pair',
+      'rolls back to the original attachments list when the use case fails',
       () async {
         cubit.startWatchingMessages();
         final attachmentA = _attachment(code: 'A', attachmentId: 101);
@@ -502,33 +571,15 @@ void main() {
           _message('MSG-1', attachments: [attachmentA, attachmentB]),
         ]);
         await Future<void>.delayed(const Duration(milliseconds: 5));
+        messageRepo.deleteAttachmentShouldFail = true;
 
         await cubit.deleteAttachment(messageCode: 'MSG-1', attachmentId: 101);
 
-        expect(messageRepo.lastDeleteAttachmentMessageCode, 'MSG-1');
-        expect(messageRepo.lastDeleteAttachmentId, 101);
-        final updated = cubit.state.messages.single;
-        expect(updated.attachments.map((a) => a.code), ['B']);
+        final restored = cubit.state.messages.single;
+        expect(restored.attachments.map((a) => a.code), ['A', 'B']);
+        expect(cubit.state.errorMessage, isNotNull);
       },
     );
-
-    test('rolls back to the original attachments list when the use case fails',
-        () async {
-      cubit.startWatchingMessages();
-      final attachmentA = _attachment(code: 'A', attachmentId: 101);
-      final attachmentB = _attachment(code: 'B', attachmentId: 102);
-      messageRepo.emit([
-        _message('MSG-1', attachments: [attachmentA, attachmentB]),
-      ]);
-      await Future<void>.delayed(const Duration(milliseconds: 5));
-      messageRepo.deleteAttachmentShouldFail = true;
-
-      await cubit.deleteAttachment(messageCode: 'MSG-1', attachmentId: 101);
-
-      final restored = cubit.state.messages.single;
-      expect(restored.attachments.map((a) => a.code), ['A', 'B']);
-      expect(cubit.state.errorMessage, isNotNull);
-    });
 
     test('leaves other messages in the thread untouched', () async {
       cubit.startWatchingMessages();
@@ -541,7 +592,9 @@ void main() {
 
       await cubit.deleteAttachment(messageCode: 'MSG-1', attachmentId: 101);
 
-      final untouched = cubit.state.messages.firstWhere((m) => m.code == 'MSG-0');
+      final untouched = cubit.state.messages.firstWhere(
+        (m) => m.code == 'MSG-0',
+      );
       expect(untouched.attachments, isEmpty);
       final edited = cubit.state.messages.firstWhere((m) => m.code == 'MSG-1');
       expect(edited.attachments, isEmpty);
@@ -550,13 +603,13 @@ void main() {
 
   group('sendMessage with attachments', () {
     ChatAttachment pendingAttachment(String name) => ChatAttachment(
-          name: name,
-          type: 'image',
-          sizeBytes: 100,
-          mimeType: 'image/jpeg',
-          remoteUrl: '',
-          localPath: '/tmp/$name',
-        );
+      name: name,
+      type: 'image',
+      sizeBytes: 100,
+      mimeType: 'image/jpeg',
+      remoteUrl: '',
+      localPath: '/tmp/$name',
+    );
 
     test(
       'shows the optimistic message with local attachment previews '
@@ -583,8 +636,32 @@ void main() {
       },
     );
 
-    test('uploads each attachment and sends the resulting attachmentIds',
-        () async {
+    test(
+      'uploads each attachment and sends the resulting attachmentIds',
+      () async {
+        await cubit.sendMessage(
+          text: 'hi',
+          senderCode: 'USR-1',
+          senderName: 'Me',
+          senderRole: ParticipantRole.staff,
+          organizationCode: 'ORG-1',
+          schoolCode: 'SCH-1',
+          attachments: [pendingAttachment('a.jpg'), pendingAttachment('b.pdf')],
+        );
+
+        expect(attachmentUploader.uploadedAttachmentNames, ['a.jpg', 'b.pdf']);
+        expect(messageRepo.sendMessageCallCount, 1);
+        expect(messageRepo.lastSendAttachmentIds, [
+          'a.jpg'.hashCode,
+          'b.pdf'.hashCode,
+        ]);
+      },
+    );
+
+    test('aborts the send entirely when an attachment fails to upload — no '
+        'text-only message is sent', () async {
+      attachmentUploader.shouldFail = true;
+
       await cubit.sendMessage(
         text: 'hi',
         senderCode: 'USR-1',
@@ -592,65 +669,37 @@ void main() {
         senderRole: ParticipantRole.staff,
         organizationCode: 'ORG-1',
         schoolCode: 'SCH-1',
-        attachments: [pendingAttachment('a.jpg'), pendingAttachment('b.pdf')],
+        attachments: [pendingAttachment('a.jpg')],
       );
 
-      expect(attachmentUploader.uploadedAttachmentNames, ['a.jpg', 'b.pdf']);
-      expect(messageRepo.sendMessageCallCount, 1);
-      expect(messageRepo.lastSendAttachmentIds, [
-        'a.jpg'.hashCode,
-        'b.pdf'.hashCode,
-      ]);
+      expect(messageRepo.sendMessageCallCount, 0);
+      expect(cubit.state.sendError, isNotNull);
+      final failed = cubit.state.messages.single;
+      expect(failed.status, MessageStatus.failed);
+      // The local attachment is preserved on the failed bubble.
+      expect(failed.attachments.single.fileName, 'a.jpg');
     });
 
-    test(
-      'aborts the send entirely when an attachment fails to upload — no '
-      'text-only message is sent',
-      () async {
-        attachmentUploader.shouldFail = true;
+    test('keeps the uploaded attachment data on the bubble when the network '
+        'send fails after a successful upload', () async {
+      messageRepo.sendMessageShouldFail = true;
 
-        await cubit.sendMessage(
-          text: 'hi',
-          senderCode: 'USR-1',
-          senderName: 'Me',
-          senderRole: ParticipantRole.staff,
-          organizationCode: 'ORG-1',
-          schoolCode: 'SCH-1',
-          attachments: [pendingAttachment('a.jpg')],
-        );
+      await cubit.sendMessage(
+        text: 'hi',
+        senderCode: 'USR-1',
+        senderName: 'Me',
+        senderRole: ParticipantRole.staff,
+        organizationCode: 'ORG-1',
+        schoolCode: 'SCH-1',
+        attachments: [pendingAttachment('a.jpg')],
+      );
 
-        expect(messageRepo.sendMessageCallCount, 0);
-        expect(cubit.state.sendError, isNotNull);
-        final failed = cubit.state.messages.single;
-        expect(failed.status, MessageStatus.failed);
-        // The local attachment is preserved on the failed bubble.
-        expect(failed.attachments.single.fileName, 'a.jpg');
-      },
-    );
-
-    test(
-      'keeps the uploaded attachment data on the bubble when the network '
-      'send fails after a successful upload',
-      () async {
-        messageRepo.sendMessageShouldFail = true;
-
-        await cubit.sendMessage(
-          text: 'hi',
-          senderCode: 'USR-1',
-          senderName: 'Me',
-          senderRole: ParticipantRole.staff,
-          organizationCode: 'ORG-1',
-          schoolCode: 'SCH-1',
-          attachments: [pendingAttachment('a.jpg')],
-        );
-
-        expect(attachmentUploader.uploadedAttachmentNames, ['a.jpg']);
-        final failed = cubit.state.messages.single;
-        expect(failed.status, MessageStatus.failed);
-        expect(failed.attachments.single.fileName, 'a.jpg');
-        expect(cubit.state.sendError, isNotNull);
-      },
-    );
+      expect(attachmentUploader.uploadedAttachmentNames, ['a.jpg']);
+      final failed = cubit.state.messages.single;
+      expect(failed.status, MessageStatus.failed);
+      expect(failed.attachments.single.fileName, 'a.jpg');
+      expect(cubit.state.sendError, isNotNull);
+    });
 
     test('sends a text-only message without touching the uploader', () async {
       await cubit.sendMessage(

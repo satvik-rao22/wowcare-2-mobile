@@ -7,7 +7,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/presentation/features/classrooom/views/filters/designation_display_utils.dart';
+import 'package:wowcare/presentation/features/classroom/views/filters/designation_display_utils.dart';
 
 enum StaffFilterSection {
   /// Uses the "Allowed Classroom" list as the classroom multi-select.
@@ -82,7 +82,6 @@ class StaffFilterScreen extends StatefulWidget {
       StaffFilterSection.allowedClassroom,
       StaffFilterSection.status,
       StaffFilterSection.designation,
-      StaffFilterSection.sortBy,
       StaffFilterSection.attendanceStatus,
     ],
     super.key,
@@ -105,12 +104,23 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
     'ASSOCIATE_TEACHER',
     'ASSISTANT_TEACHER',
     'FLOATER',
-    'KIOSK_USER',
   ];
 
   Map<String, String> get _labelToDesignationCode => {
     for (final code in _designationCodes)
       formatDesignationForDisplay(code): code,
+  };
+
+  // API expects underscore codes, e.g. attendanceStatus=SIGNED_IN&attendanceStatus=ABSENT.
+  static const Map<String, String> _labelToAttendanceCode = <String, String>{
+    'Signed-In': 'SIGNED_IN',
+    'Signed-Out': 'SIGNED_OUT',
+    'Not-Marked': 'NOT_MARKED',
+    'Absent': 'ABSENT',
+  };
+
+  static final Map<String, String> _attendanceCodeToLabel = <String, String>{
+    for (final entry in _labelToAttendanceCode.entries) entry.value: entry.key,
   };
 
   List<String> get _designationLabels =>
@@ -213,9 +223,12 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
         _selectedStatusList = <String>[_selectedStatusList.first];
       }
       _selectedDesignationList = List.from(widget.initialFilters!.tags);
-      _selectedAttendanceStatusList = List.from(
-        widget.initialFilters!.attendanceStatuses,
-      );
+      // Incoming values are backend codes (e.g. SIGNED_IN); map back to the
+      // display labels shown in the dropdown (e.g. Signed-In).
+      _selectedAttendanceStatusList = widget.initialFilters!.attendanceStatuses
+          .map((code) => _attendanceCodeToLabel[code.trim().toUpperCase()])
+          .whereType<String>()
+          .toList();
       final sb = widget.initialFilters!.sortBy?.trim().toLowerCase();
       if (sb == 'asc' || sb == 'desc') {
         _selectedSortByList = [sb == 'asc' ? 'Ascending' : 'Descending'];
@@ -249,7 +262,7 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
       // Designation options (backend codes; UI shows human-readable labels).
       _designationList = List<String>.from(_designationCodes);
 
-      _attendanceStatusList = ['Expected', 'Present', 'Absent'];
+      _attendanceStatusList = ['Signed-In', 'Signed-Out', 'Not-Marked', 'Absent'];
     });
   }
 
@@ -291,9 +304,15 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
         ? 'asc'
         : 'desc';
 
+    final attendanceStatuses = _selectedAttendanceStatusList
+        .map((label) => _labelToAttendanceCode[label])
+        .whereType<String>()
+        .toList();
+
     Navigator.pop(context, {
       'status': status,
       'designation': designation,
+
       /// All selected designations (backend codes), for screens that support multi-select.
       'designations': widget.sections.contains(StaffFilterSection.designation)
           ? List<String>.from(_selectedDesignationList)
@@ -308,6 +327,10 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
           ? allowedCodes
           : const <String>[],
       'sortBy': sortBy,
+      'attendanceStatuses':
+          widget.sections.contains(StaffFilterSection.attendanceStatus)
+          ? attendanceStatuses
+          : const <String>[],
     });
   }
 
@@ -478,9 +501,20 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
                 ? _designationLabelsSelected()
                 : selected;
 
+            // Select All only for sections that are genuinely multi-select and
+            // sent to the staff-list API as arrays. Status is single-select
+            // (single `status` query param, coupled to the Show-Inactive
+            // toggle) and Sort by is single, so they don't get Select All.
+            final showSelectAll =
+                section == StaffFilterSection.primaryClassroom ||
+                    section == StaffFilterSection.allowedClassroom ||
+                    section == StaffFilterSection.classroom ||
+                    section == StaffFilterSection.attendanceStatus;
+
             return CustomMultiSelectDropdown(
               label: label,
               hintText: 'Select',
+              showSelectAll: showSelectAll,
               items: dropdownItems,
               selectedItems: dropdownSelected,
               onChanged: (selectedItems) {

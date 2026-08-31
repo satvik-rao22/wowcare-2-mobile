@@ -3,8 +3,49 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
+import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
+
+/// The five tappable summary-card filters. Four scope the Transactions list
+/// (see [TransactionFilter]); [outstanding] routes to the Student(s) tab and
+/// filters families with an open balance.
+enum BillingSummaryFilter { netPaid, paid, inProcess, refund, outstanding }
+
+/// Maps a summary-card filter to the Transactions list filter, or null for
+/// [BillingSummaryFilter.outstanding] (which is a Student(s)-tab concern).
+TransactionFilter? transactionFilterOf(BillingSummaryFilter? filter) {
+  switch (filter) {
+    case BillingSummaryFilter.netPaid:
+      return TransactionFilter.netPaid;
+    case BillingSummaryFilter.paid:
+      return TransactionFilter.paid;
+    case BillingSummaryFilter.inProcess:
+      return TransactionFilter.inProcess;
+    case BillingSummaryFilter.refund:
+      return TransactionFilter.refund;
+    case BillingSummaryFilter.outstanding:
+    case null:
+      return null;
+  }
+}
+
+/// The summary-card filter that highlights the given active Transactions
+/// filter, or null when none is active.
+BillingSummaryFilter? billingFilterOf(TransactionFilter? filter) {
+  switch (filter) {
+    case TransactionFilter.netPaid:
+      return BillingSummaryFilter.netPaid;
+    case TransactionFilter.paid:
+      return BillingSummaryFilter.paid;
+    case TransactionFilter.inProcess:
+      return BillingSummaryFilter.inProcess;
+    case TransactionFilter.refund:
+      return BillingSummaryFilter.refund;
+    case null:
+      return null;
+  }
+}
 
 class AmountInvoicedStatBar extends StatefulWidget {
   /// Actual amounts straight from the billing overview API. The label values
@@ -21,6 +62,13 @@ class AmountInvoicedStatBar extends StatefulWidget {
   final double refundedAmount;
   final String title;
 
+  /// Called when a summary card / legend item is tapped. Null disables tapping.
+  final ValueChanged<BillingSummaryFilter>? onFilterTap;
+
+  /// The filter to highlight as currently selected (e.g. the active
+  /// Transactions filter, or Outstanding when the Student(s) toggle is on).
+  final BillingSummaryFilter? selectedFilter;
+
   const AmountInvoicedStatBar({
     super.key,
     required this.totalAmount,
@@ -30,6 +78,8 @@ class AmountInvoicedStatBar extends StatefulWidget {
     required this.outstandingAmount,
     this.refundedAmount = 0,
     this.title = 'Amount Invoiced',
+    this.onFilterTap,
+    this.selectedFilter,
   });
 
   @override
@@ -75,30 +125,35 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
             label: labelFor('Net Paid', widget.netPaidAmount),
             value: barValue(widget.netPaidAmount),
             color: Colors.greenAccent.shade100,
+            filterValue: BillingSummaryFilter.netPaid.name,
           );
 
           final outstandingItem = ProgressItemHelper(
             label: labelFor('Outstanding', widget.outstandingAmount),
             value: barValue(widget.outstandingAmount),
             color: Colors.redAccent.shade100,
+            filterValue: BillingSummaryFilter.outstanding.name,
           );
 
           final inProcessItem = ProgressItemHelper(
             label: labelFor('In Process', widget.inProcessAmount),
             value: barValue(widget.inProcessAmount),
             color: Colors.yellow,
+            filterValue: BillingSummaryFilter.inProcess.name,
           );
 
           final refundItem = ProgressItemHelper(
             label: labelFor('Refund', widget.refundedAmount),
             value: barValue(widget.refundedAmount),
             color: AppColors.refundLegendColor,
+            filterValue: BillingSummaryFilter.refund.name,
           );
 
           final paidItem = ProgressItemHelper(
             label: labelFor('Paid', widget.paidAmount),
             value: barValue(widget.paidAmount),
             color: AppColors.paidLegendColor,
+            filterValue: BillingSummaryFilter.paid.name,
           );
 
           final collapsedItems = <ProgressItemHelper>[
@@ -144,6 +199,17 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
                 items: itemsToShow,
                 progressItems: progressItems,
                 fullWidthBar: true,
+                selectedFilterValue: widget.selectedFilter?.name,
+                onLegendTap: widget.onFilterTap == null
+                    ? null
+                    : (label, filterValue) {
+                        for (final f in BillingSummaryFilter.values) {
+                          if (f.name == filterValue) {
+                            widget.onFilterTap!(f);
+                            return;
+                          }
+                        }
+                      },
                 footer: TextButton.icon(
                   onPressed: _toggleExpanded,
                   style: TextButton.styleFrom(

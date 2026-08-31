@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_tab.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/newsletter_tab.dart';
+import 'package:wowcare/presentation/features/newsletter/view/newsletter_tab.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_direct_messaging_screen.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:wowcare/presentation/features/user-profile/view/notification_settings_screen.dart';
+import 'package:wowcare/shared/common/app/user_persona.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-
 import '../../../../../../app/theme/colors.dart';
 
 class MessagingScreen extends StatefulWidget {
@@ -26,15 +26,41 @@ class MessagingScreen extends StatefulWidget {
   /// Deep-link to the Newsletter top-level tab (Messaging vs Newsletter).
   static const String newsletterRoute = '$routeName?tab=newsletter';
 
+  /// Deep-link straight to the Parent Messaging sub-tab (within the
+  /// Messaging top-level tab), used by the drawer's "Parent Messaging" item
+  /// so it doesn't land on Staff Messaging first.
+  static const String parentMessagingRoute = '$routeName?msgTab=parent';
+
+  /// Deep-link straight to the Staff Messaging sub-tab. Admin/Staff now land on
+  /// Parent Messaging by default (see the sub-tab resolution in build()), so any
+  /// entry that must open Staff Messaging (drawer/launcher "Staff Messaging",
+  /// staff-message notifications) uses this explicit route.
+  static const String staffMessagingRoute = '$routeName?msgTab=staff';
+
   @override
   State<MessagingScreen> createState() => _MessagingScreenState();
 }
 
 class _MessagingScreenState extends State<MessagingScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, SchoolSwitchReloadMixin {
   late TabController _tabController;
   int? _lastAppliedInitialIndex;
   String? _lastRouteTabQuery;
+
+  // Bumped on a school OR persona switch to re-key (recreate) the
+  // CommunicationCubit provider and the Staff/Parent messaging sub-tabs —
+  // this branch screen is kept alive in the shell's IndexedStack across
+  // both switch kinds and never re-inits on its own, so without this the
+  // conversation list/thread state from the previous school/persona kept
+  // showing (now pointing at wiped/empty caches) until the user manually
+  // navigated away and back.
+  int _contextReloadEpoch = 0;
+
+  @override
+  void onSchoolSwitched() {
+    if (!mounted) return;
+    setState(() => _contextReloadEpoch++);
+  }
 
   @override
   void initState() {
@@ -61,8 +87,9 @@ class _MessagingScreenState extends State<MessagingScreen>
     super.didChangeDependencies();
     // Shell branches can keep this widget alive; apply drawer deep-links only
     // when the route `tab` query actually changes (not on every rebuild).
-    final tabQuery =
-        GoRouterState.of(context).uri.queryParameters['tab']?.trim().toLowerCase();
+    final tabQuery = GoRouterState.of(
+      context,
+    ).uri.queryParameters['tab']?.trim().toLowerCase();
     if (tabQuery == _lastRouteTabQuery) return;
     _lastRouteTabQuery = tabQuery;
     _applyDeepLinkTabIndex(tabQuery == 'newsletter' ? 1 : 0);
@@ -87,14 +114,30 @@ class _MessagingScreenState extends State<MessagingScreen>
   Widget build(BuildContext context) {
     final bool isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
-    final bool isParentPersona =
-        widget.userPersona == UserPersona.parent ||
-        context.watch<RoleCubit>().isParent;
+    // Always derived live from RoleCubit — widget.userPersona is only the
+    // value resolved when this branch's route was first built (go_router's
+    // StatefulShellRoute.indexedStack keeps this screen alive across persona
+    // switches without rebuilding that route), so it must never be OR'd in
+    // here or persona switches would get stuck showing the first persona
+    // that ever opened this tab.
+    final bool isParentPersona = context.watch<RoleCubit>().isParent;
+
+    // Drives MessagingTab's Staff/Parent sub-tab from the `msgTab` deep-link
+    // query param, so the drawer's "Parent Messaging" item lands directly on
+    // the Parent Messaging sub-tab instead of always opening Staff Messaging.
+    final msgTabQuery = GoRouterState.of(
+      context,
+    ).uri.queryParameters['msgTab']?.trim().toLowerCase();
+    // Admin/Staff default to the Parent Messaging (Parent Communication) sub-tab; only an explicit
+    // `msgTab=staff` deep link (drawer/launcher "Staff Messaging", staff-message notifications)
+    // opens Staff Messaging. Parents never see these sub-tabs (they get ParentDirectMessagingScreen).
+    final messagingSubTabIndex = msgTabQuery == 'staff' ? 0 : 1;
 
     return BlocProvider<CommunicationCubit>(
+      key: ValueKey('communication_cubit_$_contextReloadEpoch'),
       create: (context) => serviceLocator<CommunicationCubit>(),
       child: GlobalScaffold(
-        hasBackButton: widget.userPersona == UserPersona.parent ? false : true,
+        hasBackButton: !isParentPersona,
         showCustomNavigationBar: !isLandscape,
         body: Column(
           mainAxisSize: MainAxisSize.min,
@@ -135,9 +178,12 @@ class _MessagingScreenState extends State<MessagingScreen>
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
-                  children: const [
-                    MessagingTab(),
-                    NewsLatterTab(),
+                  children: [
+                    MessagingTab(
+                      key: ValueKey('messaging_tab_$messagingSubTabIndex'),
+                      initialTabIndex: messagingSubTabIndex,
+                    ),
+                    const NewsLatterTab(),
                   ],
                 ),
               ),

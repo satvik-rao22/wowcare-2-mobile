@@ -150,9 +150,9 @@ class CustomDropdown extends StatefulWidget {
     this.height = null,
     this.leadingIcon,
 
-    /// When true (default), [hintText] is the first menu item; choosing it clears the selection.
-    /// Set false when a value must always stay chosen (e.g. parent global child picker).
-    this.prependHintAsSelectableItem = true,
+    /// Shows a search box at the top of the popup that filters [items] as you
+    /// type. Off by default — opt in per-usage (e.g. the existing-parent picker).
+    this.enableSearch = false,
   });
 
   final String? label;
@@ -177,7 +177,7 @@ class CustomDropdown extends StatefulWidget {
 
   /// Optional leading widget (e.g. an icon) shown before the text.
   final Widget? leadingIcon;
-  final bool prependHintAsSelectableItem;
+  final bool enableSearch;
 
   @override
   State<CustomDropdown> createState() => _CustomDropdownState();
@@ -185,18 +185,11 @@ class CustomDropdown extends StatefulWidget {
 
 class _CustomDropdownState extends State<CustomDropdown> {
   String? selectedItem; // Local state for the selected item
-  final ScrollController _menuScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     selectedItem = widget.selectedItem; // Initialize with the selected item
-  }
-
-  @override
-  void dispose() {
-    _menuScrollController.dispose();
-    super.dispose();
   }
 
   @override
@@ -212,10 +205,6 @@ class _CustomDropdownState extends State<CustomDropdown> {
 
   @override
   Widget build(BuildContext context) {
-    final List<String> displayItems = widget.prependHintAsSelectableItem
-        ? <String>[widget.hintText, ...widget.items]
-        : List<String>.from(widget.items);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -276,12 +265,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                     ),
                     onSelected: (value) {
                       setState(() {
-                        if (widget.prependHintAsSelectableItem &&
-                            value == widget.hintText) {
-                          selectedItem = null;
-                        } else {
-                          selectedItem = value;
-                        }
+                        selectedItem = value;
                       });
 
                       // Call the onSelect callback if it's provided
@@ -304,51 +288,12 @@ class _CustomDropdownState extends State<CustomDropdown> {
                         PopupMenuItem<String>(
                           enabled: false,
                           padding: EdgeInsets.zero,
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: constraints.maxWidth,
-                              maxHeight: 240,
-                            ),
-                            child: Scrollbar(
-                              controller: _menuScrollController,
-                              thumbVisibility: true,
-                              thickness: 4,
-                              radius: const Radius.circular(4),
-                              child: ListView.builder(
-                                controller: _menuScrollController,
-                                shrinkWrap: true,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                ),
-                                itemCount: displayItems.length,
-                                itemBuilder: (context, index) {
-                                  final item = displayItems[index];
-                                  return InkWell(
-                                    onTap: () =>
-                                        Navigator.of(context).pop(item),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 12,
-                                      ),
-                                      child: Text(
-                                        item,
-                                        style:
-                                            widget.popupItemTextStyle ??
-                                            TextStyle(
-                                              color: AppColors.primaryColor
-                                                  .withValues(alpha: 0.9),
-                                              fontSize: widget.isField
-                                                  ? 17
-                                                  : 15,
-                                              fontWeight: FontWeight.w400,
-                                            ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
+                          child: _DropdownMenuPanel(
+                            items: widget.items,
+                            maxWidth: constraints.maxWidth,
+                            enableSearch: widget.enableSearch,
+                            isField: widget.isField,
+                            itemTextStyle: widget.popupItemTextStyle,
                           ),
                         ),
                       ];
@@ -404,6 +349,166 @@ class _CustomDropdownState extends State<CustomDropdown> {
           },
         ),
       ],
+    );
+  }
+}
+
+/// Scrollable popup body for [CustomDropdown]. When [enableSearch] is on it adds
+/// a live filter box at the top; otherwise it is just the plain item list.
+/// Stateful so the search query can filter the list inside the popup route
+/// (the parent dropdown's State does not rebuild the open popup).
+class _DropdownMenuPanel extends StatefulWidget {
+  const _DropdownMenuPanel({
+    required this.items,
+    required this.maxWidth,
+    required this.enableSearch,
+    required this.isField,
+    this.itemTextStyle,
+  });
+
+  final List<String> items;
+  final double maxWidth;
+  final bool enableSearch;
+  final bool isField;
+  final TextStyle? itemTextStyle;
+
+  @override
+  State<_DropdownMenuPanel> createState() => _DropdownMenuPanelState();
+}
+
+class _DropdownMenuPanelState extends State<_DropdownMenuPanel> {
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+  late List<String> _filtered = widget.items;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onQueryChanged(String value) {
+    final query = value.trim().toLowerCase();
+    setState(() {
+      _filtered = query.isEmpty
+          ? widget.items
+          : widget.items
+                .where((item) => item.toLowerCase().contains(query))
+                .toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: widget.maxWidth,
+        maxHeight: widget.enableSearch ? 320 : 240,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.enableSearch)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+              child: TextField(
+                controller: _searchController,
+                autofocus: false,
+                onChanged: _onQueryChanged,
+                style: const TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 14,
+                  color: Color(0xff573353),
+                ),
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: 'Search',
+                  hintStyle: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    size: 20,
+                    color: AppColors.primaryColor.withValues(alpha: 0.6),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 10,
+                    horizontal: 8,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                      color: AppColors.primaryColor.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                      color: AppColors.primaryColor.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppColors.themeColor),
+                  ),
+                ),
+              ),
+            ),
+          Flexible(
+            child: _filtered.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: Text(
+                      'No matches found',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 14,
+                        color: AppColors.primaryColor.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  )
+                : Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
+                    thickness: 4,
+                    radius: const Radius.circular(4),
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: _filtered.length,
+                      itemBuilder: (context, index) {
+                        final item = _filtered[index];
+                        return InkWell(
+                          onTap: () => Navigator.of(context).pop(item),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            child: Text(
+                              item,
+                              style:
+                                  widget.itemTextStyle ??
+                                  TextStyle(
+                                    color: AppColors.primaryColor.withValues(
+                                      alpha: 0.9,
+                                    ),
+                                    fontSize: widget.isField ? 17 : 15,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

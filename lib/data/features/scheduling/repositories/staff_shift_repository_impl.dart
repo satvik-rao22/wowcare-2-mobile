@@ -77,7 +77,7 @@ class StaffShiftRepositoryImpl
       dateTo: dateTo,
     );
     _inflight[key] = future;
-    future.whenComplete(() => _inflight.remove(key));
+    future.whenComplete(() => _inflight.remove(key)).ignore();
     return future;
   }
 
@@ -217,6 +217,7 @@ class StaffShiftRepositoryImpl
     required String organizationCode,
     required DateTime startDate,
     required DateTime endDate,
+    required bool publishedOnly,
     List<String> staffCodes = const <String>[],
   }) async {
     final models = await _remote.getStaffShiftHoursRange(
@@ -225,6 +226,7 @@ class StaffShiftRepositoryImpl
         endDate: _formatDate(endDate),
         schoolCode: schoolCode,
         organizationCode: organizationCode,
+        publishedOnly: publishedOnly,
         staffCodes: staffCodes,
       ),
     );

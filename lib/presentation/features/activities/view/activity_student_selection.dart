@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -38,7 +39,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   String? _selectedClassroom;
   bool _selectAll = false;
   List<String> _selectedTags = [];
-  DateTime _selectedAttendanceDate = DateTime.now();
+  DateTime _selectedAttendanceDate = AppTime.now();
   bool _filtersAdopted = false;
 
   late final ActivityStudentSelectionCubit _cubit;
@@ -133,6 +134,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
       'signedOutBy': student.signedOutBy,
       'signedOutTime': student.signedOutTime,
       'attendanceDate': _formatAttendanceDate(_selectedAttendanceDate),
+      'classroomCodeAmbiguousForDate': student.attendedMultipleClassroomsOnDate,
     };
   }
 
@@ -327,6 +329,15 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                         for (final student in filtered) {
                           final isNapping = state.nappingStudentCodes
                               .contains(student.studentCode);
+                          // A Set<Map> dedupes by object identity, not by
+                          // content — a student already present (selected
+                          // individually before "Select All" was tapped, or
+                          // appearing twice in `filtered`) would otherwise
+                          // get a second, distinct Map entry added for the
+                          // same studentCode, rendering as a duplicate name.
+                          _selectedStudents.removeWhere(
+                            (s) => s['studentCode'] == student.studentCode,
+                          );
                           _selectedStudents.add(
                             _buildSelectedStudentMap(
                               student,
@@ -438,6 +449,11 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                                   .removeCurrentSnackBar();
                               setState(() {
                                 if (selected == true) {
+                                  // Same dedupe-by-studentCode guard as
+                                  // Select All — see its comment.
+                                  _selectedStudents.removeWhere(
+                                    (s) => s['studentCode'] == studentCode,
+                                  );
                                   _selectedStudents.add(
                                     _buildSelectedStudentMap(
                                       student,

@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/availability/entities/future_availability.dart';
@@ -29,7 +30,7 @@ class FutureAvailabilityCubit extends Cubit<FutureAvailabilityState> {
 
     // Try cache first.
     final shift = isTwoShifts
-        ? FutureAvailabilityShift.morning
+        ? FutureAvailabilityShift.twoShifts
         : FutureAvailabilityShift.fullDay;
 
     final cached = await (_repository is AvailabilityRepositoryWithCache
@@ -62,9 +63,9 @@ class FutureAvailabilityCubit extends Cubit<FutureAvailabilityState> {
     if (state.isRefreshing) return;
 
     final normalizedDate = DateTime(date.year, date.month, date.day);
-    // isTwoShifts=true → MORNING; isTwoShifts=false → FULL_DAY
+    // isTwoShifts=true → TWO_SHIFTS; isTwoShifts=false → FULL_DAY
     final shift = isTwoShifts
-        ? FutureAvailabilityShift.morning
+        ? FutureAvailabilityShift.twoShifts
         : FutureAvailabilityShift.fullDay;
 
     emit(state.copyWith(isLoading: state.grid == null, isRefreshing: true, clearError: true));
@@ -103,7 +104,7 @@ class FutureAvailabilityCubit extends Cubit<FutureAvailabilityState> {
         isRefreshing: false,
         selectedDate: normalizedDate,
         isTwoShifts: isTwoShifts,
-        errorMessage: e.toString(),
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
   }

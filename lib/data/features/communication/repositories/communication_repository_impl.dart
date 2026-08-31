@@ -3,7 +3,11 @@ import 'dart:async';
 import 'package:dartz/dartz.dart';
 import '../../../../core/cache/cache_service.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/util/isar_utils.dart';
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/school_timezone_resolver.dart';
+import '../../../../core/util/school_zone_datetime.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../datasources/communication_remote_data_source.dart';
 import '../models/message_collection.dart';
@@ -14,6 +18,7 @@ import '../../../../domain/features/communication/repositories/communication_rep
 import '../../../../domain/features/communication/entities/conversation.dart';
 import '../models/conversation_collection.dart';
 import '../models/create_conversation_request.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import '../realtime/conversation_realtime_data_source.dart';
 import '../realtime/message_realtime_data_source.dart';
 
@@ -33,11 +38,44 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   });
 
   Future<String> get _organizationCode async =>
-      (await storageService.getString(StorageKeys.organizationCode))?.trim() ?? '';
+      (await storageService.getString(StorageKeys.organizationCode))?.trim() ??
+      '';
   Future<String> get _schoolCode async =>
       (await storageService.getString(StorageKeys.schoolCode))?.trim() ?? '';
   Future<String> get _userCode async =>
       (await storageService.getString(StorageKeys.userCode))?.trim() ?? '';
+
+  /// The REST `/conversations/type/{TYPE}` list's own `unreadCount` field is
+  /// confirmed always empty — the backend doesn't compute it there. This
+  /// used to fall back to a separate REST call
+  /// (`/messages/unread-per-conversation`) to fill it in, but unread counts
+  /// must come from Firestore only — no API call of any kind (see
+  /// [ConversationListCubit]/`UnreadBadgeCubit`'s own "Firestore is the sole
+  /// source of truth" contract, and this endpoint was firing on every
+  /// conversation-list load/refresh across every legacy messaging screen,
+  /// intermittently flashing a stale REST count before Firestore's own
+  /// listener corrected it). Derives only from data already in hand — the
+  /// per-user participant field on each conversation (also currently always
+  /// empty, but read on the chance the backend starts populating it) — no
+  /// network call. Firestore (via the cubit's own watch/reconciliation)
+  /// remains the real source for unread counts.
+  Future<List<Conversation>> _resolveUnreadCounts(
+    List<Conversation> conversations,
+  ) async {
+    final userCode = await _userCode;
+    if (userCode.isEmpty) return conversations;
+    return conversations.map((c) {
+      ConversationParticipant? mine;
+      for (final p in c.participants) {
+        if (p.userCode == userCode) {
+          mine = p;
+          break;
+        }
+      }
+      if (mine == null) return c;
+      return c.copyWith(unreadCount: mine.unreadCount);
+    }).toList();
+  }
 
   @override
   Future<Either<Failure, List<Message>>> getMessages(
@@ -58,6 +96,17 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
           .map((m) => MessageCollection.fromEntity(m, threadId))
           .toList();
 
+      // Codes returned by the API — used to avoid double-counting below.
+      final apiCodes = collections.map((c) => c.code).toSet();
+
+      // Deleted messages that should be preserved across page-0 refreshes.
+      // The backend omits truly-deleted messages from the list endpoint, so a
+      // plain wipe-and-replace would make the "This message has been deleted."
+      // placeholder disappear every time the thread is reopened or refreshed.
+      // We hold on to any Isar-cached row that has a deletedAt timestamp and
+      // isn't already present in the new API window.
+      List<MessageCollection> preservedDeleted = const [];
+
       if (page == 0) {
         // Page 0 is the latest-window refresh: API response is the source
         // of truth for that window, so old rows for the thread are cleared
@@ -65,7 +114,14 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         // would wipe out the newer messages already cached locally.
         final oldCachedCollections = await cacheService
             .getByField<MessageCollection>('threadId', threadId);
+        preservedDeleted = oldCachedCollections
+            .where((c) => c.deletedAt != null && !apiCodes.contains(c.code))
+            .toList();
         for (final collection in oldCachedCollections) {
+          // Skip entries we are intentionally keeping.
+          if (preservedDeleted.any((d) => d.isarId == collection.isarId)) {
+            continue;
+          }
           await cacheService.delete<MessageCollection>(collection.isarId);
         }
       }
@@ -74,7 +130,11 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         await cacheService.putAll(collections);
       }
 
-      return Right(remoteMessages);
+      // Build the final message list: API messages + preserved deleted ones.
+      final deletedMessages = preservedDeleted
+          .map((c) => c.toEntity(currentUserId: currentUserId))
+          .toList();
+      return Right([...remoteMessages, ...deletedMessages]);
     } catch (e) {
       // Fallback to cache if network fails
       final cachedCollections = await cacheService
@@ -88,7 +148,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       if (fallbackMessages.isNotEmpty) {
         return Right(fallbackMessages);
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -110,6 +170,8 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         reactions: message.reactions,
         attachments: message.attachments,
         senderUserCode: '',
+        isPrivate: message.isPrivate,
+        privateParentUserCode: message.privateParentUserCode,
       );
       final sentMessage = await remoteDataSource.sendMessage(
         threadId,
@@ -121,9 +183,19 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         MessageCollection.fromEntity(sentMessage, threadId),
       );
 
+      // The confirmed message is cached under its real server `code`, a
+      // different Isar row (isarId is hashed from code) than the draft row
+      // [cacheMessage] wrote under the client-side temp id passed in via
+      // `message.id`/`message.code` — without this, the draft row lingers
+      // as a stale duplicate every time an attachment message sends
+      // successfully.
+      if (message.id.isNotEmpty && message.id != sentMessage.code) {
+        await cacheService.delete<MessageCollection>(fastHash(message.id));
+      }
+
       return Right(sentMessage);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -142,13 +214,13 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       );
       if (results.isNotEmpty) {
         final message = results.first;
-        message.readAt = DateTime.now();
+        message.readAt = AppTime.nowUtc();
         await cacheService.put(message);
       }
 
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -158,7 +230,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       await remoteDataSource.markAllAsDelivered(threadId);
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -186,7 +258,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       } catch (_) {}
       return Right(conversation);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -196,6 +268,12 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
   }) async {
     try {
       // 1. Try to load from cache first
@@ -214,19 +292,72 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         status: status,
         page: page,
         size: size,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        designations: designations,
+        studentStatuses: studentStatuses,
+        staffStatuses: staffStatuses,
+        search: search,
       );
 
       if (response.success && response.data != null) {
-        final conversations = response.data!.content;
+        // The list response's `unreadCount` is confirmed always empty — null
+        // at the conversation level, 0 on every participant — the backend
+        // doesn't compute it here yet. `_resolveUnreadCounts` reads the
+        // per-user participant value on the chance the backend starts
+        // populating it, but until then this stays a no-op and Firestore
+        // (via the cubit's own reconciliation) remains the real source.
+        final conversations = await _resolveUnreadCounts(
+          response.data!.content,
+        );
 
         // 3. Update cache (for first page)
         if (page == 0) {
-          await cacheService.clear<ConversationCollection>();
-          await cacheService.putAll(
-            conversations
-                .map((e) => ConversationCollection.fromEntity(e))
-                .toList(),
-          );
+          // Firestore is the source of truth for the live fields (unreadCount
+          // + lastMessagePreview). The REST list returns the
+          // conversation-level, shared-across-all-participants preview —
+          // which is the neutral "Private message" placeholder for private
+          // messages, and an always-empty unreadCount — whereas the per-user
+          // Firestore inbox carries the REAL values for the parent/staff who
+          // may see them. So DON'T let this REST refresh clobber those
+          // fields on conversations we already have cached (that would make
+          // a read private message revert from its real text to "Private
+          // message", or an accurate badge revert to 0). Preserve them from
+          // the existing row; refresh everything else from REST. New
+          // conversations take the REST value until the next Firestore
+          // snapshot fills in the real data.
+          final existingByCode = {
+            for (final c in await cacheService.getAll<ConversationCollection>())
+              c.code: c,
+          };
+          final toStore = conversations.map((e) {
+            final col = ConversationCollection.fromEntity(e);
+            final prev = existingByCode[e.code];
+            if (prev != null) {
+              col.lastMessagePreview = prev.lastMessagePreview;
+              col.unreadCount = prev.unreadCount;
+              col.lastMessageAt = prev.lastMessageAt;
+              col.lastMessageBy = prev.lastMessageBy;
+              col.lastMessageSenderName = prev.lastMessageSenderName;
+            }
+            return col;
+          }).toList();
+          // Only wipe the rows for THIS type — a bare `clear()` nukes every
+          // cached conversation of every type/status combination (e.g.
+          // fetching Staff Direct/INACTIVE was silently wiping out the
+          // already-loaded Room Chat list too), which then fed into the
+          // Firestore merge below finding no cached row for those other
+          // conversations and dropping them from the UI entirely.
+          if (type != null) {
+            final staleForType = await cacheService
+                .getByField<ConversationCollection>('type', type);
+            for (final stale in staleForType) {
+              await cacheService.delete<ConversationCollection>(stale.isarId);
+            }
+          } else {
+            await cacheService.clear<ConversationCollection>();
+          }
+          await cacheService.putAll(toStore);
         }
 
         return Right(
@@ -256,7 +387,33 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
           ),
         );
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Conversation>>> searchConversations({
+    required String query,
+    String? type,
+    String status = 'ACTIVE',
+    int page = 0,
+    int size = 50,
+  }) async {
+    try {
+      final response = await remoteDataSource.searchConversations(
+        query: query,
+        type: type,
+        status: status,
+        page: page,
+        size: size,
+      );
+
+      if (response.success && response.data != null) {
+        return Right(response.data!.content);
+      }
+      return Left(ServerFailure(response.message));
+    } catch (e) {
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -290,6 +447,29 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   }
 
   @override
+  Future<Either<Failure, void>> cacheMessage(
+    String threadId,
+    Message message,
+  ) async {
+    try {
+      await cacheService.put(MessageCollection.fromEntity(message, threadId));
+      return const Right(null);
+    } catch (e) {
+      return Left(CacheFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> discardCachedMessage(String messageId) async {
+    try {
+      await cacheService.delete<MessageCollection>(fastHash(messageId));
+      return const Right(null);
+    } catch (e) {
+      return Left(CacheFailure(e.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> addReaction(
     String threadId,
     String messageCode,
@@ -308,11 +488,13 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.reactions ?? [],
       );
 
+      // A user may hold multiple distinct emojis; only append this (me, emoji)
+      // pair if it isn't already present — do NOT replace their other emojis.
       final list = List<MessageReactionCollection>.from(originalReactions);
-      final idx = list.indexWhere((r) => r.userId == 'me');
-      if (idx != -1) {
-        list[idx].emoji = emoji;
-      } else {
+      final alreadyPresent = list.any(
+        (r) => r.userId == 'me' && r.emoji == emoji,
+      );
+      if (!alreadyPresent) {
         list.add(
           MessageReactionCollection()
             ..userId = 'me'
@@ -331,7 +513,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.reactions = originalReactions;
         await cacheService.put(originalCollection);
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -342,9 +524,16 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       messageCode,
     );
     MessageCollection? originalCollection;
+    DateTime? originalDeletedAt;
     if (results.isNotEmpty) {
       originalCollection = results.first;
-      await cacheService.delete<MessageCollection>(originalCollection.isarId);
+      originalDeletedAt = originalCollection.deletedAt;
+      // Soft-delete in Isar so the page-0 wipe preservation logic can find it
+      // on thread reopen, even if Firestore hasn't yet fired the realtime update.
+      originalCollection.deletedAt = SchoolZoneDateTime.utcNowInSchool(
+        SchoolTimezoneResolver.lastKnownTimeZone,
+      );
+      await cacheService.put(originalCollection);
     }
 
     try {
@@ -352,9 +541,10 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       return const Right(null);
     } catch (e) {
       if (originalCollection != null) {
+        originalCollection.deletedAt = originalDeletedAt;
         await cacheService.put(originalCollection);
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -376,8 +566,10 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.reactions ?? [],
       );
 
+      // Remove only the matching (me, emoji) pair, leaving any other emojis
+      // this user placed on the message intact.
       final list = List<MessageReactionCollection>.from(originalReactions)
-        ..removeWhere((r) => r.userId == 'me');
+        ..removeWhere((r) => r.userId == 'me' && r.emoji == emoji);
       originalCollection.reactions = list;
       await cacheService.put(originalCollection);
     }
@@ -390,7 +582,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.reactions = originalReactions;
         await cacheService.put(originalCollection);
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -424,7 +616,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.attachments = originalAttachments;
         await cacheService.put(originalCollection);
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -455,6 +647,33 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   }
 
   @override
+  Future<Either<Failure, Map<String, int>>>
+  getUnreadCountsPerConversation() async {
+    try {
+      final map = await remoteDataSource.getUnreadCountsPerConversation();
+      return Right(map);
+    } catch (e) {
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
+    }
+  }
+
+  @override
+  Future<
+    Either<
+      Failure,
+      ({List<RecipientStatus> deliveredTo, List<RecipientStatus> readBy})
+    >
+  >
+  getMessageReceipts(String messageCode) async {
+    try {
+      final receipts = await remoteDataSource.getMessageReceipts(messageCode);
+      return Right(receipts);
+    } catch (e) {
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
+    }
+  }
+
+  @override
   Future<Either<Failure, Message>> editMessage(
     String messageCode,
     String content,
@@ -473,7 +692,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       originalEditedAt = originalCollection.editedAt;
 
       originalCollection.text = content;
-      originalCollection.editedAt = DateTime.now();
+      originalCollection.editedAt = AppTime.nowUtc();
       await cacheService.put(originalCollection);
     }
 
@@ -486,7 +705,10 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       // Update cache
       if (originalCollection != null) {
         await cacheService.put(
-          MessageCollection.fromEntity(editedMessage, originalCollection.threadId),
+          MessageCollection.fromEntity(
+            editedMessage,
+            originalCollection.threadId,
+          ),
         );
       }
 
@@ -497,7 +719,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.editedAt = originalEditedAt;
         await cacheService.put(originalCollection);
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -509,11 +731,13 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   // straight from Firestore, and a Firestore emission never replaces or
   // deletes Isar history outright.
 
-  /// Tracks conversation types for which we've already triggered a
-  /// best-effort REST refresh after spotting an inbox entry with no local
-  /// Isar match (i.e. a brand new conversation) — avoids refresh storms when
-  /// several unknown codes arrive in the same snapshot/session.
-  final Set<String> _refreshedConversationTypes = {};
+  /// Tracks conversation CODES for which we've already triggered a best-effort
+  /// REST refresh after spotting an inbox entry with no local Isar match (i.e.
+  /// a brand new conversation). Keyed per-code (not per-type) so each new
+  /// conversation is pulled in exactly once — a second new conversation later
+  /// in the session still gets refreshed — while avoiding refresh storms when
+  /// the same unknown code re-arrives on every snapshot.
+  final Set<String> _refreshedConversationCodes = {};
 
   @override
   Stream<List<Conversation>> watchConversations({String? type}) async* {
@@ -530,72 +754,133 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
           filterType: type,
         )
         .asyncMap((items) async {
-      var sawUnknownConversation = false;
-      final merged = <Conversation>[];
+          final unknownCodes = <String>[];
+          final merged = <Conversation>[];
 
-      for (final item in items) {
-        final cached = await cacheService.getByField<ConversationCollection>(
-          'code',
-          item.conversationCode,
-        );
-        if (cached.isEmpty) {
-          // Never seen via the API — Firestore must not fabricate it.
-          sawUnknownConversation = true;
-          continue;
-        }
-        final existing = cached.first;
-        existing.unreadCount = item.unreadCount;
-        existing.lastMessageAt = item.lastMessageAt ?? existing.lastMessageAt;
-        existing.lastMessageBy =
-            item.lastMessageSenderCode ?? existing.lastMessageBy;
-        if (item.lastMessagePreview.isNotEmpty) {
-          existing.lastMessagePreview = item.lastMessagePreview;
-        }
-        await cacheService.put(existing);
-        merged.add(existing.toEntity());
-      }
+          for (final item in items) {
+            final cached = await cacheService
+                .getByField<ConversationCollection>(
+                  'code',
+                  item.conversationCode,
+                );
+            if (cached.isEmpty) {
+              // Not in the local Isar cache yet (e.g. a brand-new conversation
+              // created after the initial REST load). Don't fabricate it from
+              // the denormalized inbox doc (it lacks participants/avatar);
+              // instead trigger a one-time REST backfill (below) so the next
+              // snapshot renders it with full metadata.
+              unknownCodes.add(item.conversationCode);
+              continue;
+            }
+            final existing = cached.first;
+            existing.unreadCount = item.unreadCount;
+            existing.lastMessageAt =
+                item.lastMessageAt ?? existing.lastMessageAt;
+            existing.lastMessageBy =
+                item.lastMessageSenderCode ?? existing.lastMessageBy;
+            existing.lastMessageSenderName =
+                item.lastMessageSenderName ?? existing.lastMessageSenderName;
+            // Take the inbox preview verbatim, including empty. The Firestore snapshot is a
+            // full-document read, so an empty preview means the backend cleared it (every
+            // message in the conversation was deleted) — not a partial update. The previous
+            // isNotEmpty guard skipped that clear, leaving a deleted last message showing as
+            // the list preview after the conversation was fully emptied.
+            existing.lastMessagePreview = item.lastMessagePreview;
+            await cacheService.put(existing);
+            merged.add(existing.toEntity());
+          }
 
-      if (sawUnknownConversation) {
-        final refreshKey = type ?? '__all__';
-        if (!_refreshedConversationTypes.contains(refreshKey)) {
-          _refreshedConversationTypes.add(refreshKey);
-          // Best-effort — pull the new conversation in via the API (source
-          // of truth) and persist it through the normal getConversations path.
-          unawaited(getConversations(type: type));
-        }
-      }
+          // Backfill any conversation codes not in the local cache (e.g. a
+          // brand-new conversation someone else started). AWAIT the REST fetch
+          // (guarded to once per code so a repeating unknown can't storm) and
+          // then INCLUDE the now-cached conversations in THIS emission. A
+          // fire-and-forget refresh would leave them dropped until the next
+          // Firestore snapshot re-runs the merge — which may never fire — so the
+          // new conversation would stay invisible even though the API has it.
+          final toBackfill = unknownCodes
+              .where((c) => !_refreshedConversationCodes.contains(c))
+              .toList();
+          if (toBackfill.isNotEmpty) {
+            _refreshedConversationCodes.addAll(toBackfill);
+            try {
+              await getConversations(
+                type: type,
+              ); // source of truth → persists to Isar
+            } catch (_) {
+              // best-effort; a later snapshot / pull-to-refresh will retry
+            }
+          }
+          // Re-include any unknown conversation now present in the cache (from
+          // this or a prior backfill) so it shows without waiting for the next
+          // realtime event.
+          for (final code in unknownCodes) {
+            final backfilled = await cacheService
+                .getByField<ConversationCollection>('code', code);
+            if (backfilled.isNotEmpty) {
+              merged.add(backfilled.first.toEntity());
+            }
+          }
 
-      return merged;
-    });
+          return merged;
+        });
   }
 
   @override
-  Stream<List<Message>> watchMessages(String threadId) async* {
-    final org = await _organizationCode;
-    final school = await _schoolCode;
-    if (org.isEmpty || school.isEmpty) return;
+  Stream<List<Message>> watchMessages(
+    String threadId, {
+    String? organizationCode,
+    String? schoolCode,
+  }) async* {
+    final org = (organizationCode?.trim().isNotEmpty ?? false)
+        ? organizationCode!.trim()
+        : await _organizationCode;
+    final school = (schoolCode?.trim().isNotEmpty ?? false)
+        ? schoolCode!.trim()
+        : await _schoolCode;
+    final userCode = await _userCode;
+    if (org.isEmpty || school.isEmpty || userCode.isEmpty) return;
+
+    final roleJson = (await storageService.getString(StorageKeys.roles) ?? '')
+        .toUpperCase();
+    final activeRole =
+        (await storageService.getString(StorageKeys.activeSchoolRole) ?? '')
+            .toUpperCase();
+
+    final isStaff =
+        activeRole == 'STAFF' ||
+        activeRole == 'TEACHER' ||
+        (activeRole.isEmpty &&
+            (roleJson.contains('STAFF') || roleJson.contains('TEACHER')));
+    final isAdmin =
+        activeRole.contains('ADMIN') ||
+        activeRole.contains('DIRECTOR') ||
+        (activeRole.isEmpty &&
+            (roleJson.contains('ADMIN') || roleJson.contains('DIRECTOR')));
 
     yield* messageRealtimeDataSource
         .watchMessages(
           organizationCode: org,
           schoolCode: school,
           conversationCode: threadId,
+          currentUserCode: userCode,
+          isStaff: isStaff,
+          isAdmin: isAdmin,
         )
         .asyncMap((entities) async {
-      for (final entity in entities) {
-        await _mergeRealtimeMessage(entity, threadId);
-      }
+          for (final entity in entities) {
+            await _mergeRealtimeMessage(entity, threadId);
+          }
 
-      final currentUser = await _userCode;
-      final cachedCollections = await cacheService
-          .getByField<MessageCollection>('threadId', threadId);
-      final messages =
-          cachedCollections
-              .map((c) => c.toEntity(currentUserId: currentUser))
-              .toList()
-            ..sort((a, b) => a.time.compareTo(b.time));
-      return messages;
-    });
+          final currentUser = await _userCode;
+          final cachedCollections = await cacheService
+              .getByField<MessageCollection>('threadId', threadId);
+          final messages =
+              cachedCollections
+                  .map((c) => c.toEntity(currentUserId: currentUser))
+                  .toList()
+                ..sort((a, b) => a.time.compareTo(b.time));
+          return messages;
+        });
   }
 
   /// Upserts a single realtime [MessageEntity] delta into the legacy Isar
@@ -622,6 +907,22 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       ..senderUserCode = entity.senderCode.isNotEmpty
           ? entity.senderCode
           : existing?.senderUserCode
+      // A message's sender role can never change after the fact — so once
+      // cached (from the initial REST load, pagination, or a prior realtime
+      // merge), always keep it. Firestore is only trusted for a message code
+      // seen here for the first time. This matters because older Firestore
+      // docs (written before the backend started stamping `senderRole` on
+      // writes) parse to a hardcoded 'PARENT' fallback (see
+      // MessageFirestoreItem.fromFirestore) — the realtime listener re-reads
+      // the WHOLE thread's docs on every snapshot event (new message,
+      // reaction, read receipt, anything), so without this guard that bad
+      // default would silently overwrite an already-correct cached value on
+      // the very next unrelated event, long after the message was first
+      // loaded — exactly the "alignment looks right, then breaks again"
+      // symptom this was fixed for.
+      ..senderRole = (existing?.senderRole?.isNotEmpty ?? false)
+          ? existing!.senderRole
+          : entity.senderRole.toApiString()
       ..time = existing?.time ?? entity.sentAt
       ..deliveredAt = existing?.deliveredAt
       ..readAt = existing?.readAt
@@ -632,47 +933,89 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       // `toEntity()` — silently re-enabling Edit/Reply/Delete on a message
       // that visually looks deleted.
       ..deletedAt = entity.isDeleted
-          ? (entity.deletedAt ?? DateTime.now())
+          ? (entity.deletedAt ?? AppTime.nowUtc())
           : existing?.deletedAt
       ..quotedMessageId = existing?.quotedMessageId ?? entity.threadParentCode
-      ..senderName =
-          entity.senderName.isNotEmpty ? entity.senderName : existing?.senderName
+      ..senderName = entity.senderName.isNotEmpty
+          ? entity.senderName
+          : existing?.senderName
       ..receivers = existing?.receivers
+      // Persist private-mode metadata through the realtime cache merge.
+      // Leaving these unset made cached realtime messages default to
+      // isPrivate=false, so private messages wrongly surfaced in the Group
+      // tab instead of the owning parent's private tab. Never downgrade a
+      // message already known to be private from either source.
+      ..isPrivate = entity.isPrivate || (existing?.isPrivate ?? false)
+      ..privateParentUserCode =
+          entity.privateParentUserCode ?? existing?.privateParentUserCode
       ..deliveredTo = entity.readReceipts.isNotEmpty
           ? entity.readReceipts
-              .map(
-                (r) => RecipientStatusCollection()
-                  ..name = r.userName
-                  ..userId = r.userCode
-                  ..timestamp = r.deliveredAt,
-              )
-              .toList()
+                .map(
+                  (r) => RecipientStatusCollection()
+                    ..name = r.userName
+                    ..userId = r.userCode
+                    ..timestamp = r.deliveredAt
+                    ..role = r.role,
+                )
+                .toList()
           : existing?.deliveredTo
       ..readBy = entity.readReceipts.any((r) => r.isRead)
           ? entity.readReceipts
-              .where((r) => r.isRead)
-              .map(
-                (r) => RecipientStatusCollection()
-                  ..name = r.userName
-                  ..userId = r.userCode
-                  ..timestamp = r.readAt,
-              )
-              .toList()
+                .where((r) => r.isRead)
+                .map(
+                  (r) => RecipientStatusCollection()
+                    ..name = r.userName
+                    ..userId = r.userCode
+                    ..timestamp = r.readAt
+                    ..role = r.role,
+                )
+                .toList()
           : existing?.readBy
-      ..attachments = existing?.attachments
+      // Prefer the realtime payload's own attachments over whatever's
+      // cached: for a message never cached under THIS code before (exactly
+      // true for a message this device just sent — it was only ever cached
+      // under its temp code), `existing` is null, so unconditionally
+      // trusting `existing?.attachments` silently wrote `null` into Isar
+      // here on the very first delta for that message — permanently, since
+      // every later delta just copied that same null forward. The bubble
+      // would flash the correct image once (the optimistic/REST-confirmed
+      // emit), then lose it the instant this merge ran, with no way back
+      // short of a REST refetch. `entity.attachments` is trustworthy now —
+      // see MessageFirestoreItem._parseAttachments, which used to drop a
+      // still-processing attachment outright and now keeps it (with an
+      // empty fileUrl) instead. Only fall back to the cached value when
+      // Firestore genuinely has nothing (an unrelated delta for a message
+      // whose attachments were already correctly cached before).
+      ..attachments = entity.attachments.isNotEmpty
+          ? entity.attachments
+                .map(
+                  (a) => ChatAttachmentCollection()
+                    ..name = a.fileName
+                    ..type = a.isImage ? 'image' : 'file'
+                    ..sizeBytes = a.fileSizeBytes
+                    ..mimeType = a.mimeType
+                    ..remoteUrl = a.fileUrl
+                    ..localPath = a.localFilePath
+                    ..code = a.code.isEmpty ? null : a.code
+                    ..attachmentId = a.attachmentId,
+                )
+                .toList()
+          : existing?.attachments
       // Firestore's reactions map can lag behind a just-added local reaction
       // (eventual consistency) — only overwrite the cache when the realtime
       // payload actually carries reactions, otherwise keep what's cached so
       // a reaction doesn't visually vanish the moment any other message
       // arrives via the realtime stream.
       ..reactions = entity.reactions.isNotEmpty
-          ? entity.reactions.entries
-              .map(
-                (r) => MessageReactionCollection()
-                  ..userId = r.key
-                  ..emoji = r.value,
-              )
-              .toList()
+          ? entity.reactions
+                .map(
+                  (r) => MessageReactionCollection()
+                    ..userId = r.userCode
+                    ..emoji = r.emoji
+                    ..role = r.role
+                    ..userName = r.userName,
+                )
+                .toList()
           : existing?.reactions;
 
     await cacheService.put(merged);

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart' show TimeOfDay;
-import 'package:intl/intl.dart';
 
 import '../../../../core/util/school_zone_datetime.dart';
 
@@ -34,17 +33,27 @@ TimeOfDay? parseSchoolTimeOrNull(String? timeString, String schoolIana) {
   final withoutBy = byIndex > 0 ? raw.substring(0, byIndex).trim() : raw;
   final normalized = withoutBy.replaceAll('.', '').trim();
 
-  final ampmMatch =
-      RegExp(r'(\d{1,2}:\d{2}(?::\d{2})?\s*[AaPp][Mm])').firstMatch(normalized);
+  // Parsed by hand rather than via DateFormat.jm()/'h:mm:ss a': intl's parser
+  // rejects a plain single-space separator before the AM/PM marker (throws
+  // FormatException), which silently discarded the period and left times
+  // parsed via the 24h fallback below (always AM for 1-11 o'clock).
+  final ampmMatch = RegExp(r'(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp][Mm])')
+      .firstMatch(normalized);
   if (ampmMatch != null) {
-    final candidate = ampmMatch.group(1)!.replaceAll(RegExp(r'\s+'), ' ');
-    try {
-      final hasSeconds = RegExp(r':\d{2}\s*[AaPp][Mm]$').hasMatch(candidate);
-      final parsed = hasSeconds
-          ? DateFormat('h:mm:ss a').parse(candidate)
-          : DateFormat.jm().parse(candidate);
-      return TimeOfDay(hour: parsed.hour, minute: parsed.minute);
-    } catch (_) {}
+    final hour12 = int.tryParse(ampmMatch.group(1)!);
+    final minute = int.tryParse(ampmMatch.group(2)!);
+    final isPm = ampmMatch.group(3)!.toUpperCase() == 'PM';
+    if (hour12 != null &&
+        minute != null &&
+        hour12 >= 1 &&
+        hour12 <= 12 &&
+        minute >= 0 &&
+        minute < 60) {
+      final hour24 = isPm
+          ? (hour12 == 12 ? 12 : hour12 + 12)
+          : (hour12 == 12 ? 0 : hour12);
+      return TimeOfDay(hour: hour24, minute: minute);
+    }
   }
 
   final hmsMatch =

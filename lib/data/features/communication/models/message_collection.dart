@@ -1,7 +1,7 @@
 import 'package:isar/isar.dart';
 import 'package:wowcare/core/util/isar_utils.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
-
+import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 part 'message_collection.g.dart';
 
 @collection
@@ -15,6 +15,13 @@ class MessageCollection {
   late String text;
   bool? isSentByMe;
   String? senderUserCode;
+
+  /// Raw backend role string the sender was acting AS for this message —
+  /// see [Message.senderRole]. Passed through as-is; the role-aware
+  /// "is this genuinely mine" correction happens at render time (screens
+  /// that can be viewed as more than one persona for the same account
+  /// know which persona is active — this cache layer doesn't).
+  String? senderRole;
   late DateTime time;
   DateTime? deliveredAt;
   DateTime? readAt;
@@ -23,6 +30,20 @@ class MessageCollection {
   String? quotedMessageId;
   String? senderName;
   List<String>? receivers;
+
+  /// Private-thread fields. Without persisting these, a message round-tripped through the Isar
+  /// cache loses its private flag (defaults to isPrivate=false) and wrongly shows in the Group tab
+  /// instead of the target parent's private tab.
+  bool? isPrivate;
+  String? privateParentUserCode;
+
+  /// Draft/in-flight bookkeeping — without these, a message cached while
+  /// still uploading/sending (or one that failed) round-trips back as an
+  /// ordinary confirmed message once reloaded from Isar, silently dropping
+  /// the local preview/retry affordance that made it worth caching in the
+  /// first place. See [Message.isSending]/[Message.isFailed].
+  bool? isSending;
+  bool? isFailed;
 
   List<RecipientStatusCollection>? deliveredTo;
   List<RecipientStatusCollection>? readBy;
@@ -39,6 +60,7 @@ class MessageCollection {
       ..text = message.text
       ..isSentByMe = message.isSentByMe
       ..senderUserCode = message.senderUserCode
+      ..senderRole = message.senderRole
       ..time = message.time
       ..deliveredAt = message.deliveredAt
       ..readAt = message.readAt
@@ -46,6 +68,10 @@ class MessageCollection {
       ..deletedAt = message.deletedAt
       ..quotedMessageId = message.quotedMessageId
       ..senderName = message.senderName
+      ..isPrivate = message.isPrivate
+      ..privateParentUserCode = message.privateParentUserCode
+      ..isSending = message.isSending
+      ..isFailed = message.isFailed
       ..receivers = message.receivers
       ..deliveredTo = message.deliveredTo
           .map((e) => RecipientStatusCollection.fromEntity(e))
@@ -56,11 +82,13 @@ class MessageCollection {
       ..attachments = message.attachments
           .map((e) => ChatAttachmentCollection.fromEntity(e))
           .toList()
-      ..reactions = message.reactions.entries
+      ..reactions = message.reactions
           .map(
-            (e) => MessageReactionCollection()
-              ..userId = e.key
-              ..emoji = e.value,
+            (r) => MessageReactionCollection()
+              ..userId = r.userCode
+              ..emoji = r.emoji
+              ..role = r.role
+              ..userName = r.userName,
           )
           .toList();
   }
@@ -87,6 +115,7 @@ class MessageCollection {
       text: text,
       isSentByMe: resolvedIsSentByMe,
       senderUserCode: normalizedSenderCode,
+      senderRole: senderRole,
       time: time,
       deliveredAt: deliveredAt,
       readAt: readAt,
@@ -94,11 +123,29 @@ class MessageCollection {
       deletedAt: deletedAt,
       quotedMessageId: quotedMessageId,
       senderName: senderName,
+      // Last line of defense: a message with a privateParentUserCode is
+      // private even if the cached isPrivate flag was never set (older rows /
+      // any write path that stored the code but not the flag). Keeps private
+      // messages out of the Group tab.
+      isPrivate:
+          (isPrivate ?? false) || ((privateParentUserCode ?? '').isNotEmpty),
+      privateParentUserCode: privateParentUserCode,
+      isSending: isSending ?? false,
+      isFailed: isFailed ?? false,
       receivers: receivers ?? [],
       deliveredTo: deliveredTo?.map((e) => e.toEntity()).toList() ?? [],
       readBy: readBy?.map((e) => e.toEntity()).toList() ?? [],
       attachments: attachments?.map((e) => e.toEntity()).toList() ?? [],
-      reactions: {for (var r in reactions ?? []) r.userId: r.emoji},
+      reactions: (reactions ?? [])
+          .map(
+            (r) => ReactionEntry(
+              userCode: r.userId,
+              emoji: r.emoji,
+              role: r.role,
+              userName: r.userName,
+            ),
+          )
+          .toList(),
     );
   }
 }
@@ -107,6 +154,13 @@ class MessageCollection {
 class MessageReactionCollection {
   late String userId;
   late String emoji;
+
+  /// Raw backend role string (e.g. "STAFF") the reactor was acting AS —
+  /// see [ReactionEntry.role].
+  String? role;
+
+  /// The reactor's display name — see [ReactionEntry.userName].
+  String? userName;
 }
 
 @embedded
@@ -115,17 +169,27 @@ class RecipientStatusCollection {
   String? userId;
   DateTime? timestamp;
 
+  /// Raw backend role string (e.g. "STAFF") the recipient was acting AS —
+  /// see [RecipientStatus.role].
+  String? role;
+
   RecipientStatusCollection();
 
   factory RecipientStatusCollection.fromEntity(RecipientStatus status) {
     return RecipientStatusCollection()
       ..name = status.name
       ..userId = status.userId
-      ..timestamp = status.timestamp;
+      ..timestamp = status.timestamp
+      ..role = status.role;
   }
 
   RecipientStatus toEntity() {
-    return RecipientStatus(name: name, userId: userId, timestamp: timestamp);
+    return RecipientStatus(
+      name: name,
+      userId: userId,
+      timestamp: timestamp,
+      role: role,
+    );
   }
 }
 

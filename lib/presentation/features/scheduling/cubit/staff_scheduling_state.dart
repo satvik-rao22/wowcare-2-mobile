@@ -56,11 +56,6 @@ class StaffSchedulingState extends Equatable {
     return null;
   }
 
-  List<String> get staffDropdownNames =>
-      staffList.map((s) => s.name).toList(growable: false);
-
-  String? get selectedStaffDropdownLabel => selectedStaff?.name;
-
   ClassroomNameResolver get classroomResolver =>
       ClassroomNameResolver.fromMap(classroomNamesByCode);
 

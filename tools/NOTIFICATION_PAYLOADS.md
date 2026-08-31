@@ -139,6 +139,137 @@ correctly. **Approved & verified modules: Student, Staff, Classroom, Activity, A
 | `CREATE_RULE` | `organizationCode`, `schoolCode` | future-availability |
 | `DEACTIVATE_RULE` | `organizationCode`, `schoolCode` | future-availability |
 
+## Messaging  (`type: MESSAGING`)
+
+> ⚠️ **Proposed contract — pending app support.** Conversation deep-link and
+> WhatsApp-style grouping are **not yet implemented** in the app (today
+> `MESSAGE_TO_STAFF` / `MESSAGE_TO_STUDENT` open the messaging **list** only). Start
+> sending the keys below now; the app will deep-link off `conversationCode` and
+> group by it once the mobile work lands.
+>
+> **Title / body — group vs 1:1** (send `isGroup` + `conversationTitle`). Most chats
+> here are **group** chats (room chat, admin chat, staff group); staff DMs are 1:1.
+> · **1:1** (2-person STAFF_DIRECT) → title `New message from {senderDisplayName}
+>   ({Role})`, body = preview. e.g. *New message from Chess Force (Staff)*.
+> · **Group** (ROOM_CHAT / ADMIN_CHAT / staff group) → title = `{conversationTitle}`,
+>   body = `{senderDisplayName} ({Role}): {preview}` (WhatsApp-group style). e.g.
+>   title *Amy Smith — Blue-D*, body *Chess Force (Staff): Sending to u*.
+> Send a prebuilt `notification.title/body` (killed-app tray) **and** the raw fields
+> in `data`. `senderRole` → label: `PARENT`/`GUARDIAN`→Parent · `STAFF`→Staff ·
+> `TEACHER`→Teacher · `ADMIN`/`SCHOOL_ADMIN`/`ORGANIZATION_ADMIN`→Admin ·
+> `DIRECTOR`/`ASSISTANT_DIRECTOR`→Director. **`conversationTitle` is REQUIRED when
+> `isGroup=true`** (the app can't title a group from the payload otherwise).
+>
+> **Body text:** plain text only — strip HTML (`<p>hi</p>` → `hi`). For
+> `messageType` `IMAGE`/attachments send a placeholder (`📷 Photo` / `📎 Attachment`);
+> the source row may have empty `content` with an attachment.
+>
+> **Deep-link:** **`conversationCode` is sufficient** — the app fetches the full
+> conversation by code (`getConversation(code)`) and opens the thread, then scrolls
+> to `messageId`. Still send `conversationType` (`ROOM_CHAT` | `ADMIN_CHAT` |
+> `STAFF_DIRECT`) — it decides which persona surface/route backs the thread (see
+> *Conversation types* below).
+>
+> **Grouping:** use `conversationCode` as the thread/collapse key — see *Grouping
+> fields* below — so multiple messages in one chat show as **one** notification.
+
+| `action` | Required `data` keys | Optional | Opens |
+|---|---|---|---|
+| `NEW_MESSAGE` | `conversationCode`, `conversationType`, `isGroup`, `senderDisplayName`, `senderRole`, `senderUserCode`, `messageId`, `messageType`, `organizationCode`, `schoolCode` | `conversationTitle` (req. if `isGroup`), `messageCode`, `preview`, `unreadCount`, `messages` (stringified JSON array — multi-line), `studentCode` (req. for ROOM_CHAT), `classroomCode`, `sentAt` | conversation thread (`conversationCode`), scroll to `messageId` |
+| `NEWSLETTER_SENT` | `organizationCode`, `schoolCode` | — | messaging list, `tab=newsletter` |
+
+> Legacy `MESSAGE_TO_STAFF` / `MESSAGE_TO_STUDENT` are still accepted but only open
+> the messaging **list** — prefer `NEW_MESSAGE` with `conversationCode`.
+
+### Conversation types — who, group/1:1, and where each persona lands
+
+The app resolves the full conversation from `conversationCode`, but `conversationType`
+tells it which surface to open (they differ by persona). `studentCode` is needed for
+the **parent** child-scoped screen.
+
+| `conversationType` | Group? | Participants | Staff/Admin lands on | Parent lands on | Extra keys |
+|---|---|---|---|---|---|
+| `ROOM_CHAT` | **Group** | Parents + Teachers + Staff + Admins (per student) | Messaging → *Parent Messaging* tab | Child-scoped screen (picks child by `studentCode`) | `studentCode` **(required)**, `classroomCode` |
+| `ADMIN_CHAT` | Group (usu. 1 parent + admin(s)) | Parents + Admins/Directors (per student) | `/admin-chat` (Admin Chat) | ⚠️ **no parent surface yet** (app gap) | `studentCode` |
+| `STAFF_DIRECT` | **1:1** (group if expanded) | Staff/Teachers/Admins/Directors (no parents) | Messaging → *Staff Messaging* tab | n/a (parents excluded) | — |
+
+> Notes: `ADMIN_CHAT` to a **parent** has no parent screen today (app-side gap) — those
+> won't open a thread for guardians. `STAFF_DIRECT` is never sent to parents.
+> `conversationTitle` for a group = the thread title (e.g. student/room name); for a
+> 1:1 it's the peer's name (the app derives this, so it's optional for 1:1).
+
+### Grouping fields (collapse a conversation's messages into one notification)
+
+> **The `android` / `apns` blocks are OPTIONAL and grouping-only.** They are NOT a
+> new integration: delivery still goes through the same FCM token (FCM forwards to
+> iOS via APNs using the project's configured key — **no APNs tokens/certs for the
+> backend to store**, exactly like every other module here, which omit these blocks).
+> Include them **only** to get the WhatsApp-style collapse + iOS badge. Omit them and
+> messages still deliver — they just won't collapse into one entry and the badge
+> won't auto-set.
+
+Send the conversation as the thread/collapse key so multiple messages stack into a
+single entry (and `unreadCount` lets the app show *"Bhakti (Parent): 3 new messages"*):
+
+- **Android** (`message.android`): `collapse_key = <conversationCode>`,
+  `notification.tag = <conversationCode>`,
+  `notification.notification_priority = PRIORITY_HIGH`,
+  `notification.channel_id = <messaging channel>`.
+- **iOS** (`message.apns`): header `apns-collapse-id: <conversationCode>`;
+  payload `aps.thread-id = <conversationCode>`, `apns-priority: 10`,
+  `aps.badge = <total unread across all conversations>`.
+- Put `unreadCount` (per conversation) in `data`.
+
+**Same ROOM_CHAT push, now WITH the grouping blocks** (compare to the plain version
+under *Messaging* below — only the `android` + `apns` blocks are added):
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Amy Smith — Blue-D", "body": "Chess Force (Staff): Sending to u" },
+  "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_K57JWFS5Z1DY", "conversationType": "ROOM_CHAT", "isGroup": "true", "conversationTitle": "Amy Smith — Blue-D", "senderDisplayName": "Chess Force", "senderRole": "STAFF", "senderUserCode": "USR-01f5b3d1", "messageId": "454", "messageType": "TEXT", "preview": "Sending to u", "unreadCount": "1", "studentCode": "STD_7B1D6DFF-8", "classroomCode": "CLS_72A4628B-8", "sentAt": "2026-06-23T01:57:26Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" },
+  "android": { "collapse_key": "CNV_K57JWFS5Z1DY", "notification": { "tag": "CNV_K57JWFS5Z1DY", "channel_id": "wowcare_messages", "notification_priority": "PRIORITY_HIGH" } },
+  "apns": { "headers": { "apns-collapse-id": "CNV_K57JWFS5Z1DY", "apns-priority": "10" }, "payload": { "aps": { "thread-id": "CNV_K57JWFS5Z1DY", "badge": 3 } } } } }
+```
+
+> **If the `apns` block / headers are NOT included:** the message still arrives on
+> iOS (FCM delivers it via APNs automatically) — you just lose the per-chat collapse
+> and the app-icon unread badge, so multiple messages show as separate notifications.
+>
+> **If the `android` block is NOT included:** the message still arrives on Android —
+> you just lose the per-chat collapse (`tag`/`collapse_key`), so each message is its
+> own notification, and it falls back to the default channel/priority (no forced
+> high-priority heads-up).
+
+> **Open question for backend:** one push **per message** (app merges by
+> `conversationCode`) or one **aggregated** push per conversation (latest preview +
+> `unreadCount`)? This decides the Android grouping strategy.
+
+## Billing  (`type: BILLING`)
+
+> Parent-facing billing pushes. **Invoices are per-student** — when siblings are
+> billed, each child gets its **own** invoice, so send **one push per `invoiceCode`**
+> (a 2-child family = 2 pushes), each deep-linking to that child's invoice. Payments
+> are **family-level** (`familyCode`, no `studentCode`).
+> **Amounts are strings** (`"100.00"`, not a number); send `currency` (e.g. `USD`).
+> The body text carries the human amount + `{Student Name}` (backend-substituted).
+>
+> ⚠️ **Pending app support:** `INVOICE_GENERATED`, `BILLING_PLAN_CHANGED`,
+> `FEE_STRUCTURE_CHANGED` currently open the **admin** billing screen
+> (`/dashboard/billing`); the parent-billing route fix is pending. `PAYMENT_SUCCESS`
+> and `INVOICE_DUE` already open **parent billing**. Per-invoice **highlight** (scroll
+> to / flash the invoice by `invoiceCode`) is not wired yet — send the codes now; the
+> app will use them once that lands.
+
+| `action` | Recipient | Required `data` keys | Optional | Opens |
+|---|---|---|---|---|
+| `PAYMENT_SUCCESS` | Parents | `familyCode`, `organizationCode`, `schoolCode` | `amount`, `currency`, `balance` | parent billing |
+| `INVOICE_GENERATED` | Parents | `invoiceCode`, `studentCode`, `organizationCode`, `schoolCode` | `amount`, `currency`, `familyCode` | billing (→ parent, app fix pending) |
+| `INVOICE_DUE` | Parents | `invoiceCode`, `studentCode`, `organizationCode`, `schoolCode` | `amount`, `currency`, `familyCode` | parent billing |
+| `BILLING_PLAN_CHANGED` | Parents | `studentCode`, `organizationCode`, `schoolCode` | `amount`, `currency`, `familyCode` | billing (→ parent, app fix pending) |
+| `FEE_STRUCTURE_CHANGED` | Parents | `studentCode`, `organizationCode`, `schoolCode` | `amount`, `currency`, `familyCode` | billing (→ parent, app fix pending) |
+
+> **Frequency** (backend scheduling, not part of the payload): `INVOICE_DUE` repeats
+> **every day until paid**; all others fire **once**.
+
 ---
 
 # JSON message bodies (one per action)
@@ -384,4 +515,220 @@ its org/school:
 { "message": { "token": "<device-token>",
   "notification": { "title": "Availability", "body": "A movement rule was deactivated." },
   "data": { "action": "DEACTIVATE_RULE", "type": "AVAILABILITY", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+
+## Messaging
+
+Sample codes: `CNV_K57JWFS5Z1DY` (room chat for student Amy Smith / Blue-D),
+`USR-72442fe9` (Bhakti / parent), `USR-01f5b3d1` (Chess Force / staff), `465` (messageId).
+**Group** chats (room/admin/staff-group): title = `conversationTitle`, body = "Sender (Role): text".
+**1:1** staff DM: title = "New message from Sender (Role)".
+
+> Examples below are `notification` + `data` only — same shape as every other module.
+> The optional `android`/`apns` grouping blocks are described under *Grouping fields*
+> above; add them only if you want WhatsApp-style collapse (no extra integration).
+
+**ROOM_CHAT (group)** — staff posts in the room:
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Amy Smith — Blue-D", "body": "Chess Force (Staff): Sending to u" },
+  "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_K57JWFS5Z1DY", "conversationType": "ROOM_CHAT", "isGroup": "true", "conversationTitle": "Amy Smith — Blue-D", "senderDisplayName": "Chess Force", "senderRole": "STAFF", "senderUserCode": "USR-01f5b3d1", "messageId": "454", "messageCode": "MSG_1IQEVV2Q8IRV", "messageType": "TEXT", "preview": "Sending to u", "unreadCount": "1", "studentCode": "STD_7B1D6DFF-8", "classroomCode": "CLS_72A4628B-8", "sentAt": "2026-06-23T01:57:26Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+
+**ROOM_CHAT (group)** — parent posts; `studentCode` lets a parent recipient land on the right child:
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Amy Smith — Blue-D", "body": "Bhakti (Parent): Good" },
+  "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_K57JWFS5Z1DY", "conversationType": "ROOM_CHAT", "isGroup": "true", "conversationTitle": "Amy Smith — Blue-D", "senderDisplayName": "Bhakti", "senderRole": "PARENT", "senderUserCode": "USR-72442fe9", "messageId": "465", "messageCode": "MSG_NTKV4505VVYK", "messageType": "TEXT", "preview": "Good", "unreadCount": "1", "studentCode": "STD_7B1D6DFF-8", "classroomCode": "CLS_72A4628B-8", "sentAt": "2026-06-23T05:12:03Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+
+**STAFF_DIRECT (1:1 staff DM)** — no `studentCode`, `isGroup:false`, "New message from {sender}" title:
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "New message from Chess Force (Staff)", "body": "Can you cover Blue-D at 3?" },
+  "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_SD_8KQ2MV01", "conversationType": "STAFF_DIRECT", "isGroup": "false", "senderDisplayName": "Chess Force", "senderRole": "STAFF", "senderUserCode": "USR-01f5b3d1", "messageId": "612", "messageType": "TEXT", "preview": "Can you cover Blue-D at 3?", "unreadCount": "1", "sentAt": "2026-06-23T07:10:00Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+
+**ADMIN_CHAT (group)** — opens `/admin-chat` (admin only; ⚠ no parent surface yet):
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Amy Smith (Admin Chat)", "body": "Bhakti (Parent): Please review the invoice" },
+  "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_ADMIN9X2QK1", "conversationType": "ADMIN_CHAT", "isGroup": "true", "conversationTitle": "Amy Smith (Admin Chat)", "senderDisplayName": "Bhakti", "senderRole": "PARENT", "senderUserCode": "USR-72442fe9", "messageId": "501", "messageType": "TEXT", "preview": "Please review the invoice", "unreadCount": "1", "studentCode": "STD_7B1D6DFF-8", "sentAt": "2026-06-23T06:00:00Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+
+**Image / attachment** (empty content → placeholder body):
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Amy Smith — Blue-D", "body": "Bhakti (Parent): 📷 Photo" },
+  "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_K57JWFS5Z1DY", "conversationType": "ROOM_CHAT", "isGroup": "true", "conversationTitle": "Amy Smith — Blue-D", "senderDisplayName": "Bhakti", "senderRole": "PARENT", "senderUserCode": "USR-72442fe9", "messageId": "380", "messageCode": "MSG_TLXYZK40WS16", "messageType": "IMAGE", "preview": "📷 Photo", "unreadCount": "1", "studentCode": "STD_7B1D6DFF-8", "classroomCode": "CLS_72A4628B-8", "sentAt": "2026-06-23T01:33:20Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+
+### Multiple messages — showing each line (WhatsApp-style expand)
+
+Two strategies; the app collapses both into **one** notification per `conversationCode`.
+
+**Option A — one aggregated push carrying all the lines (recommended).** Put the recent
+unread lines in a **`messages`** key as a **stringified JSON array** (all FCM `data`
+values must be strings). The app renders them as a multi-line notification — each line =
+`senderDisplayName (Role): preview`. `unreadCount` = total.
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Amy Smith — Blue-D", "body": "Bhakti (Parent): 3 new messages" },
+  "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_K57JWFS5Z1DY", "conversationType": "ROOM_CHAT", "isGroup": "true", "conversationTitle": "Amy Smith — Blue-D", "senderDisplayName": "Bhakti", "senderRole": "PARENT", "senderUserCode": "USR-72442fe9", "messageId": "465", "messageType": "TEXT", "preview": "Good", "unreadCount": "3", "messages": "[{\"senderDisplayName\":\"Bhakti\",\"senderRole\":\"PARENT\",\"messageId\":\"462\",\"preview\":\"Hi\",\"sentAt\":\"2026-06-23T02:59:24Z\"},{\"senderDisplayName\":\"Bhakti\",\"senderRole\":\"PARENT\",\"messageId\":\"464\",\"preview\":\"How r you ?\",\"sentAt\":\"2026-06-23T02:59:42Z\"},{\"senderDisplayName\":\"Bhakti\",\"senderRole\":\"PARENT\",\"messageId\":\"465\",\"preview\":\"Good\",\"sentAt\":\"2026-06-23T05:12:03Z\"}]", "studentCode": "STD_7B1D6DFF-8", "classroomCode": "CLS_72A4628B-8", "sentAt": "2026-06-23T05:12:03Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+
+**Option B — one push per message; the app merges them.** Send each message as its
+own push with the **same** `conversationCode`; the app appends each into the single
+notification and bumps `unreadCount`. Three messages = the three pushes below:
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Amy Smith — Blue-D", "body": "Bhakti (Parent): Hi" },
+  "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_K57JWFS5Z1DY", "conversationType": "ROOM_CHAT", "isGroup": "true", "conversationTitle": "Amy Smith — Blue-D", "senderDisplayName": "Bhakti", "senderRole": "PARENT", "senderUserCode": "USR-72442fe9", "messageId": "462", "messageType": "TEXT", "preview": "Hi", "unreadCount": "1", "studentCode": "STD_7B1D6DFF-8", "classroomCode": "CLS_72A4628B-8", "sentAt": "2026-06-23T02:59:24Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Amy Smith — Blue-D", "body": "Bhakti (Parent): How r you ?" },
+  "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_K57JWFS5Z1DY", "conversationType": "ROOM_CHAT", "isGroup": "true", "conversationTitle": "Amy Smith — Blue-D", "senderDisplayName": "Bhakti", "senderRole": "PARENT", "senderUserCode": "USR-72442fe9", "messageId": "464", "messageType": "TEXT", "preview": "How r you ?", "unreadCount": "2", "studentCode": "STD_7B1D6DFF-8", "classroomCode": "CLS_72A4628B-8", "sentAt": "2026-06-23T02:59:42Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Amy Smith — Blue-D", "body": "Bhakti (Parent): Good" },
+  "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_K57JWFS5Z1DY", "conversationType": "ROOM_CHAT", "isGroup": "true", "conversationTitle": "Amy Smith — Blue-D", "senderDisplayName": "Bhakti", "senderRole": "PARENT", "senderUserCode": "USR-72442fe9", "messageId": "465", "messageType": "TEXT", "preview": "Good", "unreadCount": "3", "studentCode": "STD_7B1D6DFF-8", "classroomCode": "CLS_72A4628B-8", "sentAt": "2026-06-23T05:12:03Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+
+> Without the `android`/`apns` blocks the messages still deliver (like every other
+> module) — they just won't auto-collapse into one entry / set the iOS badge. Add the
+> optional grouping blocks from *Grouping fields* if/when you want the WhatsApp look.
+
+### Same examples WITH `android` + `apns` (grouping enabled)
+
+Identical to the plain versions above, just with the two grouping blocks appended.
+Pattern is always the same: `collapse_key` / `tag` / `apns-collapse-id` / `thread-id`
+= the `conversationCode`; `aps.badge` = **total unread across all conversations**
+(examples use the single-chat count for simplicity).
+
+**ROOM_CHAT (group)** — staff posts:
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Amy Smith — Blue-D", "body": "Chess Force (Staff): Sending to u" },
+  "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_K57JWFS5Z1DY", "conversationType": "ROOM_CHAT", "isGroup": "true", "conversationTitle": "Amy Smith — Blue-D", "senderDisplayName": "Chess Force", "senderRole": "STAFF", "senderUserCode": "USR-01f5b3d1", "messageId": "454", "messageCode": "MSG_1IQEVV2Q8IRV", "messageType": "TEXT", "preview": "Sending to u", "unreadCount": "1", "studentCode": "STD_7B1D6DFF-8", "classroomCode": "CLS_72A4628B-8", "sentAt": "2026-06-23T01:57:26Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" },
+  "android": { "collapse_key": "CNV_K57JWFS5Z1DY", "notification": { "tag": "CNV_K57JWFS5Z1DY", "channel_id": "wowcare_messages", "notification_priority": "PRIORITY_HIGH" } },
+  "apns": { "headers": { "apns-collapse-id": "CNV_K57JWFS5Z1DY", "apns-priority": "10" }, "payload": { "aps": { "thread-id": "CNV_K57JWFS5Z1DY", "badge": 1 } } } } }
+```
+
+**ROOM_CHAT (group)** — parent posts:
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Amy Smith — Blue-D", "body": "Bhakti (Parent): Good" },
+  "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_K57JWFS5Z1DY", "conversationType": "ROOM_CHAT", "isGroup": "true", "conversationTitle": "Amy Smith — Blue-D", "senderDisplayName": "Bhakti", "senderRole": "PARENT", "senderUserCode": "USR-72442fe9", "messageId": "465", "messageCode": "MSG_NTKV4505VVYK", "messageType": "TEXT", "preview": "Good", "unreadCount": "1", "studentCode": "STD_7B1D6DFF-8", "classroomCode": "CLS_72A4628B-8", "sentAt": "2026-06-23T05:12:03Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" },
+  "android": { "collapse_key": "CNV_K57JWFS5Z1DY", "notification": { "tag": "CNV_K57JWFS5Z1DY", "channel_id": "wowcare_messages", "notification_priority": "PRIORITY_HIGH" } },
+  "apns": { "headers": { "apns-collapse-id": "CNV_K57JWFS5Z1DY", "apns-priority": "10" }, "payload": { "aps": { "thread-id": "CNV_K57JWFS5Z1DY", "badge": 1 } } } } }
+```
+
+**STAFF_DIRECT (1:1 staff DM):**
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "New message from Chess Force (Staff)", "body": "Can you cover Blue-D at 3?" },
+  "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_SD_8KQ2MV01", "conversationType": "STAFF_DIRECT", "isGroup": "false", "senderDisplayName": "Chess Force", "senderRole": "STAFF", "senderUserCode": "USR-01f5b3d1", "messageId": "612", "messageType": "TEXT", "preview": "Can you cover Blue-D at 3?", "unreadCount": "1", "sentAt": "2026-06-23T07:10:00Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" },
+  "android": { "collapse_key": "CNV_SD_8KQ2MV01", "notification": { "tag": "CNV_SD_8KQ2MV01", "channel_id": "wowcare_messages", "notification_priority": "PRIORITY_HIGH" } },
+  "apns": { "headers": { "apns-collapse-id": "CNV_SD_8KQ2MV01", "apns-priority": "10" }, "payload": { "aps": { "thread-id": "CNV_SD_8KQ2MV01", "badge": 1 } } } } }
+```
+
+**ADMIN_CHAT (group):**
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Amy Smith (Admin Chat)", "body": "Bhakti (Parent): Please review the invoice" },
+  "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_ADMIN9X2QK1", "conversationType": "ADMIN_CHAT", "isGroup": "true", "conversationTitle": "Amy Smith (Admin Chat)", "senderDisplayName": "Bhakti", "senderRole": "PARENT", "senderUserCode": "USR-72442fe9", "messageId": "501", "messageType": "TEXT", "preview": "Please review the invoice", "unreadCount": "1", "studentCode": "STD_7B1D6DFF-8", "sentAt": "2026-06-23T06:00:00Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" },
+  "android": { "collapse_key": "CNV_ADMIN9X2QK1", "notification": { "tag": "CNV_ADMIN9X2QK1", "channel_id": "wowcare_messages", "notification_priority": "PRIORITY_HIGH" } },
+  "apns": { "headers": { "apns-collapse-id": "CNV_ADMIN9X2QK1", "apns-priority": "10" }, "payload": { "aps": { "thread-id": "CNV_ADMIN9X2QK1", "badge": 1 } } } } }
+```
+
+**Image / attachment:**
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Amy Smith — Blue-D", "body": "Bhakti (Parent): 📷 Photo" },
+  "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_K57JWFS5Z1DY", "conversationType": "ROOM_CHAT", "isGroup": "true", "conversationTitle": "Amy Smith — Blue-D", "senderDisplayName": "Bhakti", "senderRole": "PARENT", "senderUserCode": "USR-72442fe9", "messageId": "380", "messageCode": "MSG_TLXYZK40WS16", "messageType": "IMAGE", "preview": "📷 Photo", "unreadCount": "1", "studentCode": "STD_7B1D6DFF-8", "classroomCode": "CLS_72A4628B-8", "sentAt": "2026-06-23T01:33:20Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" },
+  "android": { "collapse_key": "CNV_K57JWFS5Z1DY", "notification": { "tag": "CNV_K57JWFS5Z1DY", "channel_id": "wowcare_messages", "notification_priority": "PRIORITY_HIGH" } },
+  "apns": { "headers": { "apns-collapse-id": "CNV_K57JWFS5Z1DY", "apns-priority": "10" }, "payload": { "aps": { "thread-id": "CNV_K57JWFS5Z1DY", "badge": 1 } } } } }
+```
+
+**Multiple messages — Option A (aggregated, `messages` array), WITH blocks:**
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Amy Smith — Blue-D", "body": "Bhakti (Parent): 3 new messages" },
+  "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_K57JWFS5Z1DY", "conversationType": "ROOM_CHAT", "isGroup": "true", "conversationTitle": "Amy Smith — Blue-D", "senderDisplayName": "Bhakti", "senderRole": "PARENT", "senderUserCode": "USR-72442fe9", "messageId": "465", "messageType": "TEXT", "preview": "Good", "unreadCount": "3", "messages": "[{\"senderDisplayName\":\"Bhakti\",\"senderRole\":\"PARENT\",\"messageId\":\"462\",\"preview\":\"Hi\",\"sentAt\":\"2026-06-23T02:59:24Z\"},{\"senderDisplayName\":\"Bhakti\",\"senderRole\":\"PARENT\",\"messageId\":\"464\",\"preview\":\"How r you ?\",\"sentAt\":\"2026-06-23T02:59:42Z\"},{\"senderDisplayName\":\"Bhakti\",\"senderRole\":\"PARENT\",\"messageId\":\"465\",\"preview\":\"Good\",\"sentAt\":\"2026-06-23T05:12:03Z\"}]", "studentCode": "STD_7B1D6DFF-8", "classroomCode": "CLS_72A4628B-8", "sentAt": "2026-06-23T05:12:03Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" },
+  "android": { "collapse_key": "CNV_K57JWFS5Z1DY", "notification": { "tag": "CNV_K57JWFS5Z1DY", "channel_id": "wowcare_messages", "notification_priority": "PRIORITY_HIGH" } },
+  "apns": { "headers": { "apns-collapse-id": "CNV_K57JWFS5Z1DY", "apns-priority": "10" }, "payload": { "aps": { "thread-id": "CNV_K57JWFS5Z1DY", "badge": 3 } } } } }
+```
+
+**Multiple messages — Option B (one push per message), WITH blocks** — same `tag`/`collapse_key`/`thread-id`, badge bumps 1 → 2 → 3:
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Amy Smith — Blue-D", "body": "Bhakti (Parent): Hi" },
+  "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_K57JWFS5Z1DY", "conversationType": "ROOM_CHAT", "isGroup": "true", "conversationTitle": "Amy Smith — Blue-D", "senderDisplayName": "Bhakti", "senderRole": "PARENT", "senderUserCode": "USR-72442fe9", "messageId": "462", "messageType": "TEXT", "preview": "Hi", "unreadCount": "1", "studentCode": "STD_7B1D6DFF-8", "classroomCode": "CLS_72A4628B-8", "sentAt": "2026-06-23T02:59:24Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" },
+  "android": { "collapse_key": "CNV_K57JWFS5Z1DY", "notification": { "tag": "CNV_K57JWFS5Z1DY", "channel_id": "wowcare_messages", "notification_priority": "PRIORITY_HIGH" } },
+  "apns": { "headers": { "apns-collapse-id": "CNV_K57JWFS5Z1DY", "apns-priority": "10" }, "payload": { "aps": { "thread-id": "CNV_K57JWFS5Z1DY", "badge": 1 } } } } }
+```
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Amy Smith — Blue-D", "body": "Bhakti (Parent): How r you ?" },
+  "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_K57JWFS5Z1DY", "conversationType": "ROOM_CHAT", "isGroup": "true", "conversationTitle": "Amy Smith — Blue-D", "senderDisplayName": "Bhakti", "senderRole": "PARENT", "senderUserCode": "USR-72442fe9", "messageId": "464", "messageType": "TEXT", "preview": "How r you ?", "unreadCount": "2", "studentCode": "STD_7B1D6DFF-8", "classroomCode": "CLS_72A4628B-8", "sentAt": "2026-06-23T02:59:42Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" },
+  "android": { "collapse_key": "CNV_K57JWFS5Z1DY", "notification": { "tag": "CNV_K57JWFS5Z1DY", "channel_id": "wowcare_messages", "notification_priority": "PRIORITY_HIGH" } },
+  "apns": { "headers": { "apns-collapse-id": "CNV_K57JWFS5Z1DY", "apns-priority": "10" }, "payload": { "aps": { "thread-id": "CNV_K57JWFS5Z1DY", "badge": 2 } } } } }
+```
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Amy Smith — Blue-D", "body": "Bhakti (Parent): Good" },
+  "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_K57JWFS5Z1DY", "conversationType": "ROOM_CHAT", "isGroup": "true", "conversationTitle": "Amy Smith — Blue-D", "senderDisplayName": "Bhakti", "senderRole": "PARENT", "senderUserCode": "USR-72442fe9", "messageId": "465", "messageType": "TEXT", "preview": "Good", "unreadCount": "3", "studentCode": "STD_7B1D6DFF-8", "classroomCode": "CLS_72A4628B-8", "sentAt": "2026-06-23T05:12:03Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" },
+  "android": { "collapse_key": "CNV_K57JWFS5Z1DY", "notification": { "tag": "CNV_K57JWFS5Z1DY", "channel_id": "wowcare_messages", "notification_priority": "PRIORITY_HIGH" } },
+  "apns": { "headers": { "apns-collapse-id": "CNV_K57JWFS5Z1DY", "apns-priority": "10" }, "payload": { "aps": { "thread-id": "CNV_K57JWFS5Z1DY", "badge": 3 } } } } }
+```
+
+## Billing
+
+Sample codes (Fisher family): `FAM_01760A5A` (family), `STD_5038E682` (Jeremiah),
+`STD_294F34E9` (Conrad / sibling), `INV_B4C76DB7-6` (Jeremiah's invoice),
+`INV_D54D98AC-4` (Conrad's invoice). All `data` values are strings; `amount`/`balance`
+are decimal strings; `currency` is ISO (e.g. `USD`).
+
+**Payment Success** (family-level — no `studentCode`):
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Payment Successful", "body": "Congratulations! Your payment of $25.00 is successful. Thanks" },
+  "data": { "action": "PAYMENT_SUCCESS", "type": "BILLING", "familyCode": "FAM_01760A5A", "amount": "25.00", "balance": "130.00", "currency": "USD", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+
+**New Invoice Generated — child 1 (Jeremiah):**
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "New Invoice", "body": "New Invoice for Jeremiah Fisher — $100.00" },
+  "data": { "action": "INVOICE_GENERATED", "type": "BILLING", "invoiceCode": "INV_B4C76DB7-6", "studentCode": "STD_5038E682", "amount": "100.00", "currency": "USD", "familyCode": "FAM_01760A5A", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+
+**New Invoice Generated — child 2 / sibling (Conrad):** separate push, own `invoiceCode`:
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "New Invoice", "body": "New Invoice for Conrad Fisher — $100.00" },
+  "data": { "action": "INVOICE_GENERATED", "type": "BILLING", "invoiceCode": "INV_D54D98AC-4", "studentCode": "STD_294F34E9", "amount": "100.00", "currency": "USD", "familyCode": "FAM_01760A5A", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+
+**Invoice Due** (`amount` = outstanding; repeat daily until paid):
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Invoice Due", "body": "Invoice for Conrad Fisher is due — $100.00" },
+  "data": { "action": "INVOICE_DUE", "type": "BILLING", "invoiceCode": "INV_D54D98AC-4", "studentCode": "STD_294F34E9", "amount": "100.00", "currency": "USD", "familyCode": "FAM_01760A5A", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+
+**Billing Plan Changed** (per-student; `amount` = new fee if available):
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Billing Plan Changed", "body": "Billing Plan is changed for Jeremiah Fisher" },
+  "data": { "action": "BILLING_PLAN_CHANGED", "type": "BILLING", "studentCode": "STD_5038E682", "amount": "100.00", "currency": "USD", "familyCode": "FAM_01760A5A", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+
+**Fee Structure Changed** (per-student):
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Fee Structure Changed", "body": "Fee structure is changed for Jeremiah Fisher" },
+  "data": { "action": "FEE_STRUCTURE_CHANGED", "type": "BILLING", "studentCode": "STD_5038E682", "amount": "100.00", "currency": "USD", "familyCode": "FAM_01760A5A", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
 ```

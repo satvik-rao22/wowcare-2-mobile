@@ -1,3 +1,4 @@
+import 'api_constants_prod.dart';
 import 'api_constants_uat.dart';
 import 'api_paths.dart';
 
@@ -25,34 +26,31 @@ class ApiConstants {
 
   static const String _environment = String.fromEnvironment(
     'ENVIRONMENT',
-    defaultValue: 'DEV',
+    defaultValue: 'LOCAL',
   );
 
   static bool get isUat => _environment.toUpperCase() == 'UAT';
 
-  /// DEV shared backend (5.78.83.44, plain HTTP). Select with
-  /// `--dart-define=ENVIRONMENT=DEV`. Checked before UAT/LOCAL so those
-  /// environments are completely unchanged.
-  static bool get isDev => _environment.toUpperCase() == 'DEV';
+  static bool get isProd => _environment.toUpperCase() == 'PROD';
 
-  /// DEV host root. Plain HTTP → cleartext must be allowed on Android
-  /// (network-security-config / usesCleartextTraffic) and iOS (ATS).
-  static const String _devHost = 'http://5.78.83.44';
-
-  /// `http://5.78.83.44:{port}[/{path}]`
-  static String _devUrl(int port, [String? path]) {
-    final base = '$_devHost:$port';
-    return path == null ? base : '$base/$path';
-  }
+  /// True for any single-gateway build (UAT or PROD), where the microservice
+  /// segment lives in the URL path rather than the host — as opposed to
+  /// LOCAL, where each microservice has its own devtunnel/ngrok host. UAT's
+  /// path-routing rules ([ApiPathsUat]) apply unchanged to PROD, since both
+  /// point at the same gateway contract, just a different host.
+  static bool get isGatewayEnv => isUat || isProd;
 
   /// Forte tokenization environment passed into the auto-pay webview.
   ///
   /// The Forte JS SDK is loaded from `sandbox.forte.net` for any value other
-  /// than `'prod'`, and from `api.forte.net` for `'prod'`. We use the sandbox
-  /// gateway for both LOCAL and UAT today; flip this to `'prod'` (or branch on
-  /// a future PROD environment) when the production Forte gateway is wired.
-  static String get forteEnv =>
-      isUat ? ApiConstantsUat.forteEnv : 'sandbox';
+  /// than `'prod'`, and from `api.forte.net` for `'prod'`. LOCAL and UAT use
+  /// the sandbox gateway; PROD uses the live Forte gateway (real payment
+  /// processing).
+  static String get forteEnv => isProd
+      ? ApiConstantsProd.forteEnv
+      : isUat
+      ? ApiConstantsUat.forteEnv
+      : 'sandbox';
 
 
   static const _LocalDev _activeDev = _LocalDev.sairam;
@@ -97,91 +95,89 @@ class ApiConstants {
 
   // ─── Service base URLs ─────────────────────────────────────────────────────
 
-  /// User / Auth MS  (DEV server | LOCAL devtunnel | UAT gateway)
-  static String get baseUrl => isDev
-      ? _devUrl(8082)
+  /// User / Auth MS  (LOCAL: devtunnel | UAT/PROD: gateway)
+  static String get baseUrl => isProd
+      ? ApiConstantsProd.baseUrl
       : isUat
-          ? ApiConstantsUat.baseUrl
-          : _dev.url(_dev.userPort);
+      ? ApiConstantsUat.baseUrl
+      : _dev.url(_dev.userPort);
 
-  /// Student MS
-  static String get studentBaseUrl => isDev
-      ? _devUrl(8084)
+  /// Student MS  (LOCAL: devtunnel | UAT/PROD: gateway)
+  static String get studentBaseUrl => isProd
+      ? ApiConstantsProd.studentBaseUrl
       : isUat
-          ? ApiConstantsUat.studentBaseUrl
-          : _dev.url(_dev.studentPort);
+      ? ApiConstantsUat.studentBaseUrl
+      : _dev.url(_dev.studentPort);
 
-  /// Classroom MS
-  static String get classroomBaseUrl => isDev
-      ? _devUrl(8088)
+  /// Classroom MS  (LOCAL: devtunnel | UAT/PROD: gateway)
+  static String get classroomBaseUrl => isProd
+      ? ApiConstantsProd.classroomBaseUrl
       : isUat
-          ? ApiConstantsUat.classroomBaseUrl
-          : _dev.url(_dev.classroomPort);
+      ? ApiConstantsUat.classroomBaseUrl
+      : _dev.url(_dev.classroomPort);
 
-  /// Staff MS
-  static String get staffBaseUrl => isDev
-      ? _devUrl(8083)
+  /// Staff MS  (LOCAL: devtunnel | UAT/PROD: gateway)
+  static String get staffBaseUrl => isProd
+      ? ApiConstantsProd.staffBaseUrl
       : isUat
-          ? ApiConstantsUat.staffBaseUrl
-          : _dev.url(_dev.staffPort);
+      ? ApiConstantsUat.staffBaseUrl
+      : _dev.url(_dev.staffPort);
 
-  /// School / Organization MS
-  static String get schoolMs => isDev
-      ? _devUrl(8081)
+  /// School / Organization MS  (LOCAL: devtunnel | UAT/PROD: gateway)
+  static String get schoolMs => isProd
+      ? ApiConstantsProd.schoolMs
       : isUat
-          ? ApiConstantsUat.schoolMs
-          : _dev.url(_dev.schoolPort);
+      ? ApiConstantsUat.schoolMs
+      : _dev.url(_dev.schoolPort);
 
-  /// Attendance MS
-  static String get attendanceBaseUrl => isDev
-      ? _devUrl(8085, 'attendance-ms')
+  /// Attendance MS  (LOCAL: devtunnel/attendance | UAT/PROD: gateway)
+  static String get attendanceBaseUrl => isProd
+      ? ApiConstantsProd.attendanceBaseUrl
       : isUat
-          ? ApiConstantsUat.attendanceBaseUrl
-          : _dev.url(_dev.attendancePort, 'attendance');
+      ? ApiConstantsUat.attendanceBaseUrl
+      : _dev.url(_dev.attendancePort, 'attendance');
 
-  /// Activity MS
-  static String get activityBaseUrl => isDev
-      ? _devUrl(8086)
+  /// Activity MS  (LOCAL: devtunnel/wowcare-activity-ms | UAT/PROD: gateway)
+  static String get activityBaseUrl => isProd
+      ? ApiConstantsProd.activityBaseUrl
       : isUat
-          ? ApiConstantsUat.activityBaseUrl
-          : _dev.url(_dev.activityPort, 'wowcare-activity-ms');
+      ? ApiConstantsUat.activityBaseUrl
+      : _dev.url(_dev.activityPort, 'wowcare-activity-ms');
 
-  /// Document MS
-  static String get documentMsBaseUrl => isDev
-      ? _devUrl(8087, 'document-ms')
+  /// Document MS  (LOCAL: gateway tunnel/ngrok | UAT/PROD: gateway)
+  static String get documentMsBaseUrl => isProd
+      ? ApiConstantsProd.documentMsBaseUrl
       : isUat
-          ? ApiConstantsUat.documentMsBaseUrl
-          : _dev.gatewayUrl('document-ms');
+      ? ApiConstantsUat.documentMsBaseUrl
+      : _dev.gatewayUrl('document-ms');
 
-  /// Communication / Messaging MS
-  static String get communicationBaseUrl => isDev
-      ? _devUrl(8089)
+  /// Communication / Messaging MS  (LOCAL: gateway tunnel/ngrok | UAT/PROD: gateway)
+  static String get communicationBaseUrl => isProd
+      ? ApiConstantsProd.communicationBaseUrl
       : isUat
-          ? ApiConstantsUat.communicationBaseUrl
-          : (_dev.gatewayPort != null
-                ? _dev.url(_dev.gatewayPort!)
-                : _dev.url(_dev.communicationPort));
+      ? ApiConstantsUat.communicationBaseUrl
+      : _dev.gatewayUrl();
 
-  /// Newsletter MS — DEV server doesn't list one; fall back to the user host.
-  static String get newsLatterBaseUrl => isDev
-      ? _devUrl(8082)
+  /// Newsletter MS  (LOCAL: gateway tunnel/ngrok | UAT/PROD: gateway)
+  static String get newsLatterBaseUrl => isProd
+      ? ApiConstantsProd.newsLatterBaseUrl
       : isUat
-          ? ApiConstantsUat.newsLatterBaseUrl
-          : _dev.gatewayUrl();
+      ? ApiConstantsUat.newsLatterBaseUrl
+      : _dev.gatewayUrl();
 
-  /// Notification MS — DEV server doesn't list one; fall back to the user host.
-  static String get notificationBaseUrl => isDev
-      ? _devUrl(8082)
+  /// Notification MS  (LOCAL: gateway tunnel/ngrok | UAT/PROD: gateway)
+  static String get notificationBaseUrl => isProd
+      ? ApiConstantsProd.notificationBaseUrl
       : isUat
-          ? ApiConstantsUat.notificationBaseUrl
-          : _dev.gatewayUrl();
+      ? ApiConstantsUat.notificationBaseUrl
+      : _dev.gatewayUrl();
 
-  /// Billing MS — DEV server doesn't list one; fall back to the user host.
-  static String get billingBaseUrl => isDev
-      ? _devUrl(8082)
+  /// Billing MS  (LOCAL: gateway tunnel/ngrok | UAT/PROD: gateway)
+  static String get billingBaseUrl => isProd
+      ? ApiConstantsProd.billingBaseUrl
       : isUat
-          ? ApiConstantsUat.billingBaseUrl
-          : _dev.gatewayUrl();
+      ? ApiConstantsUat.billingBaseUrl
+      : _dev.gatewayUrl();
 
   // ─── Endpoint helpers ──────────────────────────────────────────────────────
 
@@ -197,6 +193,9 @@ class ApiConstants {
   // ─── Microservice router ───────────────────────────────────────────────────
 
   static String baseUrlForMicroservice(String microserviceKey) {
+    if (isProd) {
+      return ApiConstantsProd.baseUrlForMicroservice(microserviceKey);
+    }
     if (isUat) return ApiConstantsUat.baseUrlForMicroservice(microserviceKey);
     switch (microserviceKey) {
       case ApiMicroservices.user:
@@ -230,11 +229,8 @@ class ApiConstants {
   }
 
 
-  static String get baseUrl1 => isDev
-      ? _devUrl(8089)
-      : isUat
-          ? ApiConstantsUat.classroomBaseUrl
-          : _dev.url(8089);
+  static String get baseUrl1 =>
+      isUat ? ApiConstantsUat.classroomBaseUrl : _dev.url(8089);
 }
 
 

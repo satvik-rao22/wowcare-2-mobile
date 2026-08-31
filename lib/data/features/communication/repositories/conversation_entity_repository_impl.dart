@@ -1,7 +1,10 @@
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/login_persona_util.dart';
+import 'package:wowcare/core/util/user_details_school_roles.dart';
 import 'package:wowcare/data/features/communication/datasources/conversation_entity_local_data_source.dart';
 import 'package:wowcare/data/features/communication/datasources/conversation_entity_remote_data_source.dart';
 import 'package:wowcare/data/features/communication/realtime/conversation_realtime_data_source.dart';
@@ -17,22 +20,27 @@ import 'package:wowcare/domain/features/communication/repositories/conversation_
 ///   2. Fetch from API in background and update cache.
 ///
 /// Mirrors the pattern used in the existing [CommunicationRepositoryImpl].
-class ConversationEntityRepositoryImpl
-    implements ConversationEntityRepository {
+class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
   final ConversationEntityRemoteDataSource _remote;
   final ConversationEntityLocalDataSource _local;
   final ConversationRealtimeDataSource _realtime;
   final StorageService _storage;
+
+  /// Conversation codes we've already tried to lazy-hydrate (see
+  /// watchConversations). Prevents re-fetching the same missing item on every
+  /// inbox emission. The repository is a singleton, so this is shared across
+  /// all watchers (dashboard, list, unread badge).
+  final Set<String> _hydrationAttempted = {};
 
   ConversationEntityRepositoryImpl({
     required ConversationEntityRemoteDataSource remoteDataSource,
     required ConversationEntityLocalDataSource localDataSource,
     required ConversationRealtimeDataSource realtimeDataSource,
     required StorageService storageService,
-  })  : _remote = remoteDataSource,
-        _local = localDataSource,
-        _realtime = realtimeDataSource,
-        _storage = storageService;
+  }) : _remote = remoteDataSource,
+       _local = localDataSource,
+       _realtime = realtimeDataSource,
+       _storage = storageService;
 
   // ─── Tenancy helpers ────────────────────────────────────────────────────────
 
@@ -42,17 +50,64 @@ class ConversationEntityRepositoryImpl
   Future<String> get _schoolCode async =>
       (await _storage.getString(StorageKeys.schoolCode)) ?? '';
 
+  Future<String> get _userCode async =>
+      (await _storage.getString(StorageKeys.userCode))?.trim() ?? '';
+
+  /// The REST `/conversations/type/{TYPE}` list's own `unreadCount` field
+  /// (top-level, and on every `participants[]` entry) is confirmed always
+  /// empty — the backend doesn't compute it there. `/messages/unread-per-
+  /// conversation` is a separate, sibling endpoint to the aggregate-by-type
+  /// one (`/messages/unread-summary`, already relied on for the top app
+  /// bar's badge) that HAS been confirmed reliable against real traffic,
+  /// but it only ever returns conversations with a NON-ZERO unread count.
+  /// So a successful response that doesn't mention a conversation means
+  /// that conversation has genuinely been read (0 unread) — not "unknown,
+  /// guess from the participant field". The participant-field fallback is
+  /// only appropriate when the endpoint call fails outright and there's no
+  /// authoritative data at all.
+  Future<List<ConversationEntity>> _resolveUnreadCounts(
+    List<ConversationEntity> conversations,
+  ) async {
+    Map<String, int>? perConversation;
+    try {
+      perConversation = await _remote.getUnreadCountsPerConversation();
+    } catch (_) {
+      // Endpoint unreachable — fall through to the participant-field guess.
+    }
+    final userCode = await _userCode;
+    return conversations.map((c) {
+      if (perConversation != null) {
+        return c.copyWith(unreadCount: perConversation[c.code] ?? 0);
+      }
+      if (userCode.isEmpty) return c;
+      ParticipantEntity? mine;
+      for (final p in c.participants) {
+        if (p.userCode == userCode) {
+          mine = p;
+          break;
+        }
+      }
+      if (mine == null) return c;
+      return c.copyWith(unreadCount: mine.unreadCount);
+    }).toList();
+  }
+
   // ─── Queries ────────────────────────────────────────────────────────────────
 
   @override
   Future<Either<Failure, List<ConversationEntity>>> getConversations({
     ConversationType? type,
-    String status = 'ACTIVE',
+    String? status,
     int page = 0,
     int size = 20,
-    String? designation,
-    String? staffStatus,
-    String? classroom,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
+    bool? unreadOnly,
+    bool includeRestUnreadCounts = true,
   }) async {
     try {
       final dtos = await _remote.getConversations(
@@ -60,11 +115,17 @@ class ConversationEntityRepositoryImpl
         status: status,
         page: page,
         size: size,
-        designation: designation,
-        staffStatus: staffStatus,
-        classroom: classroom,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        designations: designations,
+        studentStatuses: studentStatuses,
+        staffStatuses: staffStatuses,
+        search: search,
+        unreadOnly: unreadOnly,
       );
-      final entities = dtos.map((d) => d.toEntity()).toList();
+      final entities = includeRestUnreadCounts
+          ? await _resolveUnreadCounts(dtos.map((d) => d.toEntity()).toList())
+          : dtos.map((d) => d.toEntity()).toList();
 
       // Update Isar — replace page 0 entirely; append subsequent pages.
       // Note: When filters are applied, we always replace at page 0
@@ -74,13 +135,14 @@ class ConversationEntityRepositoryImpl
         await _local.clearConversations(
           organizationCode: org,
           schoolCode: school,
+          type: type,
         );
       }
       await _local.saveConversations(entities);
 
       return Right(entities);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -108,14 +170,14 @@ class ConversationEntityRepositoryImpl
   ) async {
     try {
       final dto = await _remote.getConversation(conversationCode);
-      final entity = dto.toEntity();
+      final entity = (await _resolveUnreadCounts([dto.toEntity()])).first;
       await _local.saveConversation(entity);
       return Right(entity);
     } catch (e) {
       // Network failed — try cache
       final cached = await _local.getConversation(conversationCode);
       if (cached != null) return Right(cached.toEntity());
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -145,7 +207,7 @@ class ConversationEntityRepositoryImpl
       );
       return Right(results);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -160,7 +222,7 @@ class ConversationEntityRepositoryImpl
       await _local.saveConversation(entity);
       return Right(entity);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -179,7 +241,7 @@ class ConversationEntityRepositoryImpl
       await _local.saveConversation(entity);
       return Right(entity);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -196,7 +258,7 @@ class ConversationEntityRepositoryImpl
       await _local.saveConversation(entity);
       return Right(entity);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -220,16 +282,15 @@ class ConversationEntityRepositoryImpl
       if (cached.isNotEmpty) {
         return Right(cached.map((c) => c.toEntity()).toList());
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
   @override
   Future<Either<Failure, List<ConversationEntity>>>
-      getConversationsForClassroom(String classroomCode) async {
+  getConversationsForClassroom(String classroomCode) async {
     try {
-      final dtos =
-          await _remote.getConversationsForClassroom(classroomCode);
+      final dtos = await _remote.getConversationsForClassroom(classroomCode);
       final entities = dtos.map((d) => d.toEntity()).toList();
       await _local.saveConversations(entities);
       return Right(entities);
@@ -244,7 +305,37 @@ class ConversationEntityRepositoryImpl
       if (cached.isNotEmpty) {
         return Right(cached.map((c) => c.toEntity()).toList());
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Unit>> reconcileClassroomChat(
+    String classroomCode, {
+    String? classroomName,
+  }) async {
+    try {
+      await _remote.reconcileClassroomChat(
+        classroomCode: classroomCode,
+        classroomName: classroomName,
+      );
+      return const Right(unit);
+    } catch (e) {
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Set<String>>> getClassroomRosterPresentUserCodes(
+    String classroomCode,
+  ) async {
+    try {
+      final codes = await _remote.getClassroomRosterPresentUserCodes(
+        classroomCode,
+      );
+      return Right(codes);
+    } catch (e) {
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -292,7 +383,7 @@ class ConversationEntityRepositoryImpl
       await _local.saveConversation(entity);
       return Right(entity);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -308,7 +399,7 @@ class ConversationEntityRepositoryImpl
       );
       return Right(dtos.map((d) => d.toEntity()).toList());
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -324,7 +415,7 @@ class ConversationEntityRepositoryImpl
       );
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -340,7 +431,7 @@ class ConversationEntityRepositoryImpl
       );
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -367,8 +458,29 @@ class ConversationEntityRepositoryImpl
         }
         return Right(aggregated);
       } catch (_) {
-        return Left(ServerFailure(e.toString()));
+        return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
       }
+    }
+  }
+
+  @override
+  Future<Either<Failure, Map<String, int>>>
+  getUnreadCountsPerConversation() async {
+    try {
+      final map = await _remote.getUnreadCountsPerConversation();
+      return Right(map);
+    } catch (e) {
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsByType() async {
+    try {
+      final map = await _remote.getUnreadCountsByType();
+      return Right(map);
+    } catch (e) {
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -417,7 +529,7 @@ class ConversationEntityRepositoryImpl
 
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -429,7 +541,7 @@ class ConversationEntityRepositoryImpl
       await _remote.markConversationDelivered(conversationCode);
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -442,7 +554,7 @@ class ConversationEntityRepositoryImpl
       await _remote.getUnreadAggregates();
       return Right([]);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -463,6 +575,27 @@ class ConversationEntityRepositoryImpl
 
   // ─── Realtime streams (Firestore) ────────────────────────────────────────────
 
+  /// Coarse persona bucket ('ADMIN' / 'GUARDIAN') matching the keys on a
+  /// user_inbox doc's `unreadByRole` map — see
+  /// [resolveRoleAwareUnreadCount]'s own doc for why this matters. Sourced
+  /// from [resolveActiveBackendRole], the same single source of truth the
+  /// `x-role` request header uses, so a dual-role account's unread badges
+  /// never disagree with which persona it's actually acting as.
+  ///
+  /// Uses [roleStringIsGuardianPersona] (tolerates both `GUARDIAN` and
+  /// `PARENT` backend role literals) rather than a strict `== 'GUARDIAN'`
+  /// check — every other persona check in the app (RoleCubit._personaFamily,
+  /// AuthInterceptor._bucketFor) already tolerates the `PARENT` alias. A
+  /// strict check here silently mis-bucketed a `PARENT`-labelled guardian
+  /// into 'ADMIN', so their Firestore unread read watched `unreadByRole.
+  /// ADMIN` instead of `.GUARDIAN` — a stale count their own read receipts
+  /// never touch, which for a dual-role (guardian + admin/staff) account
+  /// looked like the badge never decrementing after reading as guardian.
+  Future<String> get _unreadRoleBucket async {
+    final raw = await resolveActiveBackendRole(_storage);
+    return roleStringIsGuardianPersona(raw) ? 'GUARDIAN' : 'ADMIN';
+  }
+
   @override
   Stream<List<ConversationEntity>> watchConversations({
     ConversationType? type,
@@ -470,6 +603,7 @@ class ConversationEntityRepositoryImpl
     final org = await _orgCode;
     final school = await _schoolCode;
     final user = (await _storage.getString(StorageKeys.userCode)) ?? '';
+    final roleBucket = await _unreadRoleBucket;
 
     yield* _realtime
         .watchInbox(
@@ -477,33 +611,68 @@ class ConversationEntityRepositoryImpl
           schoolCode: school,
           userCode: user,
           filterType: type?.toApiString(),
+          roleBucket: roleBucket,
         )
         .asyncMap((inboxItems) async {
-      // For each Firestore inbox item, merge with the Isar-cached entity so
-      // metadata fields (title, avatarUrl, participants) are preserved.
-      final cached = await _local.getConversations(
-        organizationCode: org,
-        schoolCode: school,
-        type: type,
-      );
-      final cacheMap = {for (final c in cached) c.code: c.toEntity()};
+          // For each Firestore inbox item, merge with the Isar-cached entity so
+          // metadata fields (title, avatarUrl, participants) are preserved.
+          var cached = await _local.getConversations(
+            organizationCode: org,
+            schoolCode: school,
+            type: type,
+          );
+          var cacheMap = {for (final c in cached) c.code: c.toEntity()};
 
-      final merged = inboxItems.map((item) {
-        final existing = cacheMap[item.conversationCode];
-        // Firestore wins for unreadCount / lastMessage* fields.
-        // Isar provides metadata (title, avatarUrl, participants).
-        // Do NOT write back to Isar here — that caused a race condition when
-        // both ConversationListCubit and UnreadBadgeCubit ran asyncMap
-        // concurrently on the same records.
-        if (existing != null) return item.mergeWith(existing);
-        return item.toMinimalEntity(
-          organizationCode: org,
-          schoolCode: school,
-        );
-      }).toList();
+          // Lazy-hydrate metadata for inbox items not yet in Isar. The Firestore
+          // inbox doc carries no title/participants, so an un-cached item would
+          // fall to toMinimalEntity (empty title -> "Conversation" placeholder)
+          // until the user opens it (which fetches + persists it). Fetch each
+          // missing conversation once (guarded), persist to Isar, then reload the
+          // cache so the merge below resolves the real title/roster on first load.
+          final missing = <String>[];
+          for (final item in inboxItems) {
+            final code = item.conversationCode;
+            if (!cacheMap.containsKey(code) &&
+                !_hydrationAttempted.contains(code)) {
+              _hydrationAttempted.add(code);
+              missing.add(code);
+            }
+          }
+          if (missing.isNotEmpty) {
+            await Future.wait(
+              missing.map((code) async {
+                try {
+                  final dto = await _remote.getConversation(code);
+                  await _local.saveConversation(dto.toEntity());
+                } catch (_) {
+                  // Best-effort: leave the minimal entity if the fetch fails.
+                }
+              }),
+            );
+            cached = await _local.getConversations(
+              organizationCode: org,
+              schoolCode: school,
+              type: type,
+            );
+            cacheMap = {for (final c in cached) c.code: c.toEntity()};
+          }
 
-      return merged;
-    });
+          final merged = inboxItems.map((item) {
+            final existing = cacheMap[item.conversationCode];
+            // Firestore wins for unreadCount / lastMessage* fields.
+            // Isar provides metadata (title, avatarUrl, participants).
+            // Do NOT write back to Isar here — that caused a race condition when
+            // both ConversationListCubit and UnreadBadgeCubit ran asyncMap
+            // concurrently on the same records.
+            if (existing != null) return item.mergeWith(existing);
+            return item.toMinimalEntity(
+              organizationCode: org,
+              schoolCode: school,
+            );
+          }).toList();
+
+          return merged;
+        });
   }
 
   @override
@@ -511,12 +680,34 @@ class ConversationEntityRepositoryImpl
     final org = await _orgCode;
     final school = await _schoolCode;
     final user = (await _storage.getString(StorageKeys.userCode)) ?? '';
+    final roleBucket = await _unreadRoleBucket;
 
     yield* _realtime.watchUnreadCountForType(
       organizationCode: org,
       schoolCode: school,
       userCode: user,
       conversationType: type.toApiString(),
+      roleBucket: roleBucket,
+    );
+  }
+
+  @override
+  Stream<int> watchUnreadCountForConversation(String conversationCode) async* {
+    if (conversationCode.isEmpty) {
+      yield 0;
+      return;
+    }
+    final org = await _orgCode;
+    final school = await _schoolCode;
+    final user = (await _storage.getString(StorageKeys.userCode)) ?? '';
+    final roleBucket = await _unreadRoleBucket;
+
+    yield* _realtime.watchUnreadCountForConversation(
+      organizationCode: org,
+      schoolCode: school,
+      userCode: user,
+      conversationCode: conversationCode,
+      roleBucket: roleBucket,
     );
   }
 
@@ -525,11 +716,13 @@ class ConversationEntityRepositoryImpl
     final org = await _orgCode;
     final school = await _schoolCode;
     final user = (await _storage.getString(StorageKeys.userCode)) ?? '';
+    final roleBucket = await _unreadRoleBucket;
 
     yield* _realtime.watchTotalUnreadCount(
       organizationCode: org,
       schoolCode: school,
       userCode: user,
+      roleBucket: roleBucket,
     );
   }
 }

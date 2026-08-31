@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -167,10 +168,18 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
       final t = txns[i];
       // Family-level transactions (Payment / Credit / Refund) carry no student.
       final isFamilyLevel = t.studentName.isEmpty && t.studentCode.isEmpty;
-      // Header label: the specific student, else the family name.
+      // Header label: the specific student, else the family name. For nameless
+      // family-level rows (e.g. a guardian card payment), append the payment
+      // status in brackets — e.g. "Fisher Family (In Process)".
+      final familyLabel = (isFamilyLevel && familyName.isNotEmpty)
+          ? () {
+              final status = _formatTxnStatus(t.status);
+              return status.isEmpty ? familyName : '$familyName ($status)';
+            }()
+          : familyName;
       final resolvedName = t.studentName.isNotEmpty
           ? t.studentName
-          : (t.studentCode.isNotEmpty ? t.studentCode : familyName);
+          : (t.studentCode.isNotEmpty ? t.studentCode : familyLabel);
       // "Student Name" row: all family students for family-level transactions,
       // otherwise the single student.
       final studentNames = isFamilyLevel && familyStudentNames.isNotEmpty
@@ -181,8 +190,10 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
         invoiceCode: t.invoiceCode.isNotEmpty ? t.invoiceCode : null,
         transactionType:
             t.transactionType.isNotEmpty ? t.transactionType : 'Invoice',
-        date: t.date ?? DateTime.now(),
+        date: t.date ?? billingSchoolNow(),
         amount: t.amount,
+        paidAmount: t.paidAmount,
+        refundedAmount: t.refundedAmount,
         status: t.status,
         description: t.description.isNotEmpty
             ? t.description
@@ -190,12 +201,25 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
         studentName: resolvedName,
         studentNames: studentNames,
         classroom: '',
+        studentCode: t.studentCode.isNotEmpty ? t.studentCode : null,
         refTable: t.transactionType,
         balance: t.balance,
         paymentMode: t.method.isNotEmpty ? t.method : null,
         studentOpenBalance: t.balance,
       );
     });
+  }
+
+  /// Human-friendly status for the family-row label, e.g. `IN_PROCESS` /
+  /// `In_Process` → `In Process`, `SUCCESS` → `Success`.
+  String _formatTxnStatus(String status) {
+    final trimmed = status.trim();
+    if (trimmed.isEmpty) return '';
+    return trimmed
+        .split(RegExp(r'[_\s]+'))
+        .where((w) => w.isNotEmpty)
+        .map((w) => w[0].toUpperCase() + w.substring(1).toLowerCase())
+        .join(' ');
   }
 
   /// Opened without a family code (e.g. from a single transaction): there is no

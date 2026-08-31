@@ -9,6 +9,7 @@ import 'package:wowcare/data/features/kiosk/models/kiosk_attendance_model.dart';
 abstract class KioskAttendanceRemoteDataSource {
   Future<KioskStaffAttendanceModel> signInStaff({
     required String staffCode,
+    required String schoolCode,
     required String timeZone,
     required double latitude,
     required double longitude,
@@ -18,6 +19,7 @@ abstract class KioskAttendanceRemoteDataSource {
 
   Future<KioskStaffAttendanceModel> signOutStaff({
     required String staffCode,
+    required String schoolCode,
     required String timeZone,
     required double latitude,
     required double longitude,
@@ -28,6 +30,7 @@ abstract class KioskAttendanceRemoteDataSource {
   Future<List<KioskStudentAttendanceModel>> signInStudents({
     required List<String> studentCodes,
     required String guardianCode,
+    required String schoolCode,
     required String timeZone,
     required double latitude,
     required double longitude,
@@ -38,6 +41,7 @@ abstract class KioskAttendanceRemoteDataSource {
   Future<List<KioskStudentAttendanceModel>> signOutStudents({
     required List<String> studentCodes,
     required String guardianCode,
+    required String schoolCode,
     required String timeZone,
     required double latitude,
     required double longitude,
@@ -56,6 +60,7 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
   @override
   Future<KioskStaffAttendanceModel> signInStaff({
     required String staffCode,
+    required String schoolCode,
     required String timeZone,
     required double latitude,
     required double longitude,
@@ -80,6 +85,7 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
       final response = await _client.post<Map<String, dynamic>>(
         '${ApiConstants.attendanceBaseUrl}/api/v1/attendance/staff-attendance-records/sign-in',
         data: payload,
+        options: Options(headers: {'X-School-Code': schoolCode}),
       );
 
       if (response.statusCode != 200 || response.data == null) {
@@ -105,6 +111,7 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
   @override
   Future<KioskStaffAttendanceModel> signOutStaff({
     required String staffCode,
+    required String schoolCode,
     required String timeZone,
     required double latitude,
     required double longitude,
@@ -129,6 +136,7 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
       final response = await _client.post<Map<String, dynamic>>(
         '${ApiConstants.attendanceBaseUrl}/api/v1/attendance/staff-attendance-records/sign-out',
         data: payload,
+        options: Options(headers: {'X-School-Code': schoolCode}),
       );
 
       if (response.statusCode != 200 || response.data == null) {
@@ -155,6 +163,7 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
   Future<List<KioskStudentAttendanceModel>> signInStudents({
     required List<String> studentCodes,
     required String guardianCode,
+    required String schoolCode,
     required String timeZone,
     required double latitude,
     required double longitude,
@@ -180,6 +189,7 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
       final response = await _client.post<Map<String, dynamic>>(
         '${ApiConstants.attendanceBaseUrl}/api/v1/student-attendance-records/parent-sign-in?guardianCode=$guardianCode',
         data: payload,
+        options: Options(headers: {'X-School-Code': schoolCode}),
       );
 
       if (response.statusCode != 200 || response.data == null) {
@@ -202,6 +212,7 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
   Future<List<KioskStudentAttendanceModel>> signOutStudents({
     required List<String> studentCodes,
     required String guardianCode,
+    required String schoolCode,
     required String timeZone,
     required double latitude,
     required double longitude,
@@ -227,6 +238,7 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
       final response = await _client.post<Map<String, dynamic>>(
         '${ApiConstants.attendanceBaseUrl}/api/v1/student-attendance-records/parent-sign-out?guardianCode=$guardianCode',
         data: payload,
+        options: Options(headers: {'X-School-Code': schoolCode}),
       );
 
       if (response.statusCode != 200 || response.data == null) {

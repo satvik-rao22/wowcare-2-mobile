@@ -17,6 +17,7 @@ class StudentAttendanceCustomItem extends Equatable {
     this.signedOutTime,
     required this.tagCodes,
     required this.tagNames,
+    this.attendedMultipleClassroomsOnDate = false,
   });
 
   final String studentCode;
@@ -34,6 +35,13 @@ class StudentAttendanceCustomItem extends Equatable {
   final String? signedOutTime;
   final List<String> tagCodes;
   final List<String> tagNames;
+
+  /// True when the student was associated with more than one classroom on
+  /// the queried date (e.g. transferred mid-day), so [classroomCode] is only
+  /// ONE of possibly several stints rather than the student's sole classroom
+  /// that day. Used to gate the classroom-agnostic "signed in today" fallback
+  /// in the attendance-window validator — see its use site for why.
+  final bool attendedMultipleClassroomsOnDate;
 
   bool get hasSignIn => signedInTime != null && signedInTime!.isNotEmpty;
 
@@ -56,6 +64,7 @@ class StudentAttendanceCustomItem extends Equatable {
         signedOutTime,
         tagCodes,
         tagNames,
+        attendedMultipleClassroomsOnDate,
       ];
 }
 

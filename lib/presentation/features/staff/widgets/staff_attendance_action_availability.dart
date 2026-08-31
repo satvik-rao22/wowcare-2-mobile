@@ -1,13 +1,15 @@
 /// Rules aligned with [StaffAttendanceProfile] / staff attendance pop-up:
-/// - Sign-in: active profile, not currently signed in, not absent, not signed out for today
+/// - Sign-in: active profile, not currently signed in, not absent — repeatable
+///   any number of times per day, including after a prior sign-out
 /// - Sign-out / Transfer: currently signed in (and not absent)
-/// - Mark absent: active profile, not signed in, not already absent
+/// - Mark absent: active profile, not signed in, not already absent, not signed out
 class StaffAttendanceGate {
   const StaffAttendanceGate({
     required this.isActiveProfile,
     required this.isSignedInToday,
     required this.isAbsentToday,
     this.hasSignedOutToday = false,
+    this.allowAbsentSignInOverride = false,
   });
 
   final bool isActiveProfile;
@@ -15,22 +17,40 @@ class StaffAttendanceGate {
   final bool isAbsentToday;
   final bool hasSignedOutToday;
 
+  /// When true, Sign-In stays available even after the staff member has
+  /// been marked absent for the day — this is the ADMIN-only "override
+  /// sign-in" path: performing it deletes that day's absence record (see
+  /// `AttendanceRepository.deleteStaffAbsenceRecord`) before creating the
+  /// sign-in. Self-service staff attendance must never set this — an
+  /// absent staff member cannot recover their own day this way, only an
+  /// admin persona managing their record can.
+  final bool allowAbsentSignInOverride;
+
   /// Enablement rules driven by today's attendance status:
   /// - SIGNED_IN  -> enable Sign-Out + Transfer only
-  /// - SIGNED_OUT -> disable all actions for the day
-  /// - ABSENT     -> enable Sign-In only
+  /// - SIGNED_OUT -> Sign-In is available again (repeated sign-in/sign-out
+  ///   cycles are allowed within the same day); Mark Absent stays locked —
+  ///   attendance for the day has already started.
+  /// - ABSENT     -> disable all actions for the day (no recovery sign-in),
+  ///   unless [allowAbsentSignInOverride] is set, in which case Sign-In
+  ///   stays enabled as an admin override.
   /// - otherwise (e.g. EXPECTED / NOT_MARKED / null)
   ///   -> enable **Sign-In** + **Mark Absent** only
   bool get canSignIn {
     if (!isActiveProfile) return false;
-    if (hasSignedOutToday) return false;
     if (isSignedInToday) return false;
-    // Absent can be "recovered" by signing in.
+    // Once marked absent for the day, self-attendance actions are locked
+    // out for that date — no recovery sign-in — unless an admin is
+    // overriding the absence.
+    if (isAbsentToday && !allowAbsentSignInOverride) return false;
+    // hasSignedOutToday intentionally does NOT block Sign-In — staff can
+    // sign in and out any number of times per day.
     return true;
   }
 
   bool get canSignOut {
     if (hasSignedOutToday) return false;
+    if (isAbsentToday) return false;
     return isSignedInToday;
   }
 
@@ -56,20 +76,20 @@ class StaffAttendanceActionAvailability {
   /// All actions disabled (e.g. loading or no selection).
   static const StaffAttendanceActionAvailability allDisabled =
       StaffAttendanceActionAvailability(
-    signInEnabled: false,
-    signOutEnabled: false,
-    transferEnabled: false,
-    absentEnabled: false,
-  );
+        signInEnabled: false,
+        signOutEnabled: false,
+        transferEnabled: false,
+        absentEnabled: false,
+      );
 
   /// Default when parents do not pass availability (all tappable).
   static const StaffAttendanceActionAvailability allEnabled =
       StaffAttendanceActionAvailability(
-    signInEnabled: true,
-    signOutEnabled: true,
-    transferEnabled: true,
-    absentEnabled: true,
-  );
+        signInEnabled: true,
+        signOutEnabled: true,
+        transferEnabled: true,
+        absentEnabled: true,
+      );
 
   final bool signInEnabled;
   final bool signOutEnabled;
@@ -92,6 +112,29 @@ class StaffAttendanceActionAvailability {
   }
 }
 
+/// Combines a status-based [StaffAttendanceGate] with the self-service
+/// geofencing check. Geofencing only gates the two *entry* actions — Sign-In
+/// and Mark-Absent — since those are the actions that establish where the
+/// staff member is for the day. Once the staff member has signed in, they are
+/// no longer required to stay within range just to Sign-Out or Transfer: the
+/// initial geofence check already proved their presence, and requiring a
+/// live in-range check for every subsequent action would incorrectly lock
+/// out a staff member who has since moved (e.g. transferred rooms, stepped
+/// out). Sign-Out and Transfer therefore depend only on [StaffAttendanceGate]'s
+/// status rules.
+extension StaffAttendanceGateGeofence on StaffAttendanceGate {
+  StaffAttendanceActionAvailability availabilityWithGeofence(
+    bool isWithinGeofence,
+  ) {
+    return StaffAttendanceActionAvailability(
+      signInEnabled: isWithinGeofence && canSignIn,
+      signOutEnabled: canSignOut,
+      transferEnabled: canTransfer,
+      absentEnabled: isWithinGeofence && canMarkAbsent,
+    );
+  }
+}
+
 /// Standard tooltip messages explaining why a staff attendance action is
 /// unavailable for the given [gate] (today's status). Keyed by the action
 /// labels used in the attendance pop-up: 'Sign-in', 'Sign-Out', 'Transfer',
@@ -106,21 +149,40 @@ Map<String, String> staffAttendanceDisabledReasons(StaffAttendanceGate gate) {
     if (!gate.canTransfer)
       'Transfer':
           'Transfer can only be done for Students/Staff already signed in.',
-    if (!gate.canMarkAbsent)
-      'Absent':
-          'Absent can only be done for Students/Staff not yet signed in.',
+    if (!gate.canMarkAbsent) 'Absent': 'Absent can only be marked for Students/Staff not yet signed in',
   };
+}
+
+/// Same as [staffAttendanceDisabledReasons] but also accounts for the
+/// self-service geofencing gate. Geofencing only blocks the two entry
+/// actions — Sign-In and Mark-Absent — so only those report the geofencing
+/// reason when the staff member is outside range; Sign-Out and Transfer keep
+/// reporting their normal status-based reason (see [availabilityWithGeofence]
+/// for why they are exempt from the live range check).
+Map<String, String> staffAttendanceDisabledReasonsWithGeofence(
+  StaffAttendanceGate gate, {
+  required bool isWithinGeofence,
+}) {
+  const geofenceReason = 'You are not within geofencing Range';
+  final reasons = Map<String, String>.from(staffAttendanceDisabledReasons(gate));
+  if (!isWithinGeofence) {
+    reasons['Sign-in'] = geofenceReason;
+    reasons['Absent'] = geofenceReason;
+  }
+  return reasons;
 }
 
 /// Parses today's status string from [GetStaffTodaySignInStatusMapUseCase] / API.
 StaffAttendanceGate staffAttendanceGateFromTodayStatus({
   required bool isActiveProfile,
   required String? todayStatusRaw,
+  bool allowAbsentSignInOverride = false,
 }) {
   final su = (todayStatusRaw ?? '').trim().toUpperCase();
   final isSignedIn = su == 'SIGNED_IN';
   final isAbsent = su == 'ABSENT';
-  final hasSignedOut = su == 'SIGNED_OUT' ||
+  final hasSignedOut =
+      su == 'SIGNED_OUT' ||
       su == 'SIGN_OUT' ||
       su == 'COMPLETED' ||
       su == 'SIGNED_OUT_TODAY' ||
@@ -131,5 +193,6 @@ StaffAttendanceGate staffAttendanceGateFromTodayStatus({
     isSignedInToday: isSignedIn,
     isAbsentToday: isAbsent,
     hasSignedOutToday: hasSignedOut,
+    allowAbsentSignInOverride: allowAbsentSignInOverride,
   );
 }

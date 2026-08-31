@@ -1,3 +1,5 @@
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/src/app_router.dart';
 
 import '../../../../domain/features/notifications/entities/notification_action.dart';
@@ -60,14 +62,148 @@ class NotificationRouteResolver {
 
   /// Resolve a notification to its destination, or null when the action is
   /// unknown / has no in-app target.
-  static NotificationDestination? resolve(PushNotification n) {
+  ///
+  /// [isGuardian] is the **current user's** persona at tap time. Billing actions
+  /// open a different screen per persona (guardians → parent billing; staff /
+  /// admins → the dashboard billing screen), which the action string alone can't
+  /// express — so the caller passes the resolved persona in.
+  ///
+  /// [isAdminPersona] is true only for the `admin` persona bucket (not
+  /// `staff`/`parent`/`kiosk`). For the admin persona, a newsletter or a
+  /// pending-approval activity notification skips the generic list screen and
+  /// deep-links straight to that specific newsletter/activity using the code
+  /// carried in the payload.
+  static NotificationDestination? resolve(
+    PushNotification n, {
+    bool isGuardian = false,
+    bool isAdminPersona = false,
+  }) {
     final action = NotificationAction.canonical(n.action);
+
+    // Billing is persona-routed (see [_billingActions]). Guardians land on the
+    // parent billing screen, everyone else on the admin/dashboard billing
+    // screen. `invoiceCode` rides along as `highlightCode` so the row can be
+    // flashed once per-invoice highlighting is wired on the billing screens.
+    if (_billingActions.contains(action)) {
+      return _dest(
+        isGuardian ? AppRoutes.parentBilling : _billing,
+        n,
+        highlight: _kInvoice,
+      );
+    }
+
+    if (isAdminPersona) {
+      final adminDestination = _adminNewsletterOrApprovalDestination(n, action);
+      if (adminDestination != null) return adminDestination;
+    }
+
     final builder = _table[action];
-    if (builder == null) return null;
-    return builder(n);
+    if (builder != null) return builder(n);
+
+    // Fallback: no exact action match, so land on the notification's MODULE
+    // (category) home screen instead of doing nothing. Keeps every inbox item
+    // tappable even when its precise event type isn't in the table yet.
+    return _moduleFallback(n, isGuardian: isGuardian);
+  }
+
+  /// Routes by the notification's `module`/category to a sensible landing
+  /// screen. Returns null only when the module is unknown (tap stays put).
+  static NotificationDestination? _moduleFallback(
+    PushNotification n, {
+    required bool isGuardian,
+  }) {
+    final module =
+        (n.data['module'] ?? n.data['categoryCode'] ?? n.type ?? '')
+            .trim()
+            .toUpperCase();
+    switch (module) {
+      case 'CLASSROOM':
+      case 'CLASSROOM_SCHEDULE':
+        return _dest(AppRoutes.classroom, n,
+            highlight: _kClassroom, params: _classroomParam(n));
+      case 'STUDENT':
+        return _dest(_students, n, highlight: _kStudent);
+      case 'STAFF':
+        return _dest(_staff, n, highlight: _kStaff);
+      case 'ATTENDANCE':
+      case 'STUDENT_ATTENDANCE':
+      case 'STAFF_ATTENDANCE':
+        if (_firstCode(n, _kStudent) != null) return _studentAttendanceProfile(n);
+        if (_firstCode(n, _kStaff) != null) return _staffAttendanceProfile(n);
+        return const NotificationDestination(path: AppRoutes.dashboard);
+      case 'SCHEDULING':
+      case 'STAFF_SCHEDULING':
+        return _staffShift(n);
+      case 'AVAILABILITY':
+      case 'FUTURE_AVAILABILITY':
+      case 'MOVEMENT_RULE':
+      case 'MOVEMENT_RULES':
+      case 'INDIVIDUAL_MOVEMENT':
+      case 'INDIVISUAL_MOVEMENTS':
+        return _dest(_individualMovement, n, highlight: _kMovement);
+      case 'BILLING':
+      case 'ACCOUNTS':
+      case 'INVOICES':
+      case 'TRANSACTION':
+        return _dest(isGuardian ? AppRoutes.parentBilling : _billing, n,
+            highlight: _kInvoice);
+      case 'ACTIVITY':
+      case 'ACTIVITIES':
+      case 'DAILY_ACTIVITY':
+        return _dest(AppRoutes.activityFeed, n,
+            highlight: _kActivity, params: _activityParams(n));
+      case 'PARENT_MESSAGING':
+        // Room-chat / parent messaging → Parent Messaging (Room Chats) sub-tab.
+        return const NotificationDestination(
+          path: AppRoutes.messaging,
+          queryParameters: {'msgTab': 'parent'},
+        );
+      case 'STAFF_MESSAGING':
+        // A staff-to-staff message → Staff Messaging sub-tab (the module now defaults to Parent).
+        return const NotificationDestination(
+          path: AppRoutes.messaging,
+          queryParameters: {'msgTab': 'staff'},
+        );
+      case 'MESSAGING':
+      case 'NEWSLETTER':
+        return const NotificationDestination(path: AppRoutes.messaging);
+      case 'NEW_MESSAGE':
+      case 'NEW_CONVERSATION':
+        // A real chat push (per new message / new conversation) — deep-link
+        // straight to the conversation thread. conversationCode is required;
+        // the optional conversationType lets the target open the right thread
+        // without an extra lookup. Without a code we can't target anything, so
+        // fall through to the messaging home rather than returning null (which
+        // would make the tap a no-op).
+        final convCode =
+            _firstCode(n, const ['conversationCode', 'conversation_code']);
+        if (convCode == null) {
+          return const NotificationDestination(path: AppRoutes.messaging);
+        }
+        final convType =
+            _firstCode(n, const ['conversationType', 'conversation_type']) ?? '';
+        return NotificationDestination(
+          path: AppRoutes.openConversation,
+          queryParameters: {
+            'conversationCode': convCode,
+            if (convType.isNotEmpty) 'conversationType': convType,
+          },
+        );
+      default:
+        return null;
+    }
   }
 
   // ── helpers ──────────────────────────────────────────────────────────────
+
+  /// The student a notification refers to, if any — same fallbacks as the
+  /// routing table (direct `studentCode`/`student_code`, or embedded in a
+  /// details link's `targetCode` param). Exposed so [NotificationNavigator]
+  /// can keep the parent persona's sibling selector ([ParentChildCubit]) in
+  /// sync with whichever child a tapped notification is about, without
+  /// duplicating the payload-key knowledge that lives here.
+  static String? studentCodeFor(PushNotification n) =>
+      _firstCode(n, _kStudent) ?? _codeFromEmbeddedLink(n, 'targetCode');
 
   /// First non-empty value among [keys] in the payload (handles camelCase /
   /// snake_case variants the backend may send).
@@ -75,6 +211,26 @@ class NotificationRouteResolver {
     for (final k in keys) {
       final v = n.data[k]?.trim();
       if (v != null && v.isNotEmpty) return v;
+    }
+    return null;
+  }
+
+  /// Some payloads (e.g. STUDENT_PHYSICAL_NOT_ADDED/DUE/OVERDUE) never send
+  /// the student code as a direct `studentCode` field — the only place it
+  /// appears is as a `targetCode` query parameter embedded inside a details
+  /// URL (e.g. `physicalExaminationDetailsLink: ".../physical-examination
+  /// ?targetCode=STD_...&type=STUDENT&..."`). Without this, [_firstCode]
+  /// finds nothing, the destination gets built with an empty `code`, and the
+  /// tap silently lands on a blank/errored profile — indistinguishable from
+  /// not navigating at all. Scan every string field for a URL carrying
+  /// [paramName] as a last-resort fallback.
+  static String? _codeFromEmbeddedLink(PushNotification n, String paramName) {
+    for (final value in n.data.values) {
+      if (!value.contains('?')) continue;
+      final uri = Uri.tryParse(value);
+      if (uri == null) continue;
+      final code = uri.queryParameters[paramName]?.trim();
+      if (code != null && code.isNotEmpty) return code;
     }
     return null;
   }
@@ -101,7 +257,71 @@ class NotificationRouteResolver {
   static const _kShift = ['shift_code', 'shiftCode'];
   // Movement cards match by integer id, so prefer `movement_id` for highlight.
   static const _kMovement = ['movement_id', 'movement_code', 'movementCode'];
-  static const _kActivity = ['activityCode', 'activity_code'];
+  /// Activity feed CARDS are keyed by `cardGroupCode` — see
+  /// `ActivityFeedModels`, which resolves a row's code as
+  /// `cardGroupCode ?? code ?? batchGroupCode ?? activityCode`. A card groups
+  /// the per-student activity rows, so the notification's `activityCode`
+  /// (ACT_…) never equals the rendered card's code (ACG_…) and the highlight
+  /// silently no-ops. Prefer the group code and keep `activityCode` as the
+  /// fallback for payloads/rows that only carry it.
+  static const _kActivity = [
+    'cardGroupCode',
+    'card_group_code',
+    'batchGroupCode',
+    'batch_group_code',
+    'activityCode',
+    'activity_code',
+  ];
+  static const _kInvoice = ['invoiceCode', 'invoice_code'];
+  // Backend doesn't send a newsletter-identifying code yet (only
+  // organizationCode/schoolCode) — these are the keys to watch for once it
+  // does. Until then [_adminNewsletterOrApprovalDestination] falls back to the
+  // newsletter list, same as every other persona gets today.
+  static const _kNewsletter = ['newsletterCode', 'newsletter_code'];
+
+  /// Admin-persona deep-links for [NotificationAction.newsletterSent] and the
+  /// two activity "pending approval" actions: straight to that specific
+  /// newsletter/activity screen instead of the shared list/feed everyone else
+  /// lands on. Returns null (caller falls through to [_table]) when the action
+  /// isn't one of these, or the payload doesn't carry the code needed to
+  /// target a specific item.
+  static NotificationDestination? _adminNewsletterOrApprovalDestination(
+    PushNotification n,
+    String action,
+  ) {
+    if (action == NotificationAction.newsletterSent) {
+      final code = _firstCode(n, _kNewsletter);
+      if (code == null) return null;
+      return NotificationDestination(
+        path: AppRoutes.newsletterPreviewByCode,
+        queryParameters: {'code': code},
+      );
+    }
+    if (action == NotificationAction.incidentApprovalPending ||
+        action == NotificationAction.incidentAcknowledgementPending) {
+      final code = _firstCode(n, _kActivity);
+      if (code == null) return null;
+      final query = <String, String>{'code': code};
+      final student = _firstCode(n, _kStudent);
+      if (student != null) query['studentCode'] = student;
+      return NotificationDestination(
+        path: AppRoutes.activityApprovalByCode,
+        queryParameters: query,
+      );
+    }
+    return null;
+  }
+
+  /// Billing actions are routed by the current user's persona in [resolve]
+  /// (guardian → parent billing, staff/admin → dashboard billing) rather than by
+  /// a fixed entry in [_table].
+  static const Set<String> _billingActions = <String>{
+    NotificationAction.invoiceGenerated,
+    NotificationAction.invoiceDue,
+    NotificationAction.paymentSuccess,
+    NotificationAction.billingPlanChanged,
+    NotificationAction.feeStructureChanged,
+  };
 
   /// Classroom routes also pre-select the dropdown via `classroomCode` (the
   /// existing ClassroomScreen contract), in addition to `highlightCode`.
@@ -112,13 +332,50 @@ class NotificationRouteResolver {
 
   /// Activity date (`date`/`activityDate` payload key) → `date=yyyy-MM-dd` so the
   /// Activity Feed opens on the activity's day, where its card can be flashed.
+  /// Payload keys carrying the activity's timestamp. The backend sends
+  /// `activityMarkedDate` for ACTIVITY_RECORDED / nap / incident events — it was
+  /// missing here, so no `date` param was produced and the feed opened on
+  /// *today* instead of the activity's day, leaving no card to highlight.
+  static const _kActivityDate = [
+    'date',
+    'activityDate',
+    'activity_date',
+    'activityMarkedDate',
+    'activity_marked_date',
+    // Last resort: older ACTIVITY notifications carry no date field at all
+    // (they predate `activityMarkedDate`), so fall back to when the inbox item
+    // was created — see AppNotificationModel.fromInboxJson. Without this a tap
+    // on an older notification opens the feed on TODAY instead of the day the
+    // activity happened.
+    'notificationCreatedAt',
+  ];
+
+  /// Query params an activity deep-link needs so the feed actually contains the
+  /// target card: its day AND its classroom. The feed loads a single classroom
+  /// at a time (defaulting to the viewer's primary room), so without the
+  /// classroom an activity in any other room simply isn't in the list and the
+  /// highlight silently no-ops.
+  static Map<String, String> _activityParams(PushNotification n) => {
+        ..._activityDateParam(n),
+        ..._classroomParam(n),
+      };
+
   static Map<String, String> _activityDateParam(PushNotification n) {
-    final raw = (n.data['date'] ?? n.data['activityDate'] ?? '').trim();
+    final raw = _firstCode(n, _kActivityDate) ?? '';
     if (raw.isEmpty) return const {};
     final parsed = DateTime.tryParse(raw);
-    final ymd = parsed != null
-        ? '${parsed.year.toString().padLeft(4, '0')}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')}'
-        : raw;
+    if (parsed == null) return {'date': raw};
+    // The payload carries a UTC instant (e.g. 2026-07-22T14:53:00Z) but the
+    // feed's day selector works in the SCHOOL calendar. Taking the raw UTC
+    // y/m/d can land a day off for schools far from UTC — again opening a feed
+    // that doesn't contain the card. Non-UTC values (a bare `yyyy-MM-dd`) are
+    // already calendar dates, so use them as-is.
+    final ymd = parsed.isUtc
+        ? SchoolZoneDateTime.yyyyMmDdFromUtcInstant(
+            parsed,
+            SchoolTimezoneResolver.lastKnownTimeZone,
+          )
+        : '${parsed.year.toString().padLeft(4, '0')}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')}';
     return {'date': ymd};
   }
 
@@ -174,7 +431,9 @@ class NotificationRouteResolver {
     String? healthSubTab, // 0 Health, 1 Physician, 2 Physical Dates, 3 Immun.
   }) {
     final params = <String, String>{
-      'code': _firstCode(n, _kStudent) ?? '',
+      'code': _firstCode(n, _kStudent) ??
+          _codeFromEmbeddedLink(n, 'targetCode') ??
+          '',
       'tab': tab,
     };
     if (profileSubTab != null) params['profileTab'] = profileSubTab;
@@ -185,7 +444,17 @@ class NotificationRouteResolver {
         path: _studentProfileByCode, queryParameters: params);
   }
 
-  static const _kDocument = ['documentCode', 'document_code', 'documentUuid'];
+  static const _kDocument = [
+    'documentCode',
+    'document_code',
+    'documentUuid',
+    'document_uuid',
+    // Backend payload currently sends this MISSPELLED key (missing the 'n') for
+    // student-document notifications, e.g. {"documetCode":"DOC_…"}. Tolerate it
+    // so the document row still highlights. Remove once the backend fixes it.
+    'documetCode',
+    'documet_code',
+  ];
 
   static const String _staffProfileByCode = '/dashboard/staff-profile-by-code';
 
@@ -326,15 +595,27 @@ class NotificationRouteResolver {
 
     // ── Activities (open the Activity Feed on the activity's date + flash it) ──
     NotificationAction.activityRecorded: (n) => _dest(AppRoutes.activityFeed, n,
-        highlight: _kActivity, params: _activityDateParam(n)),
+        highlight: _kActivity, params: _activityParams(n)),
+    NotificationAction.activityEdited: (n) => _dest(AppRoutes.activityFeed, n,
+        highlight: _kActivity, params: _activityParams(n)),
+    NotificationAction.activityDeleted: (n) => _dest(AppRoutes.activityFeed, n,
+        highlight: _kActivity, params: _activityParams(n)),
+    NotificationAction.incidentRecorded: (n) => _dest(AppRoutes.activityFeed, n,
+        highlight: _kActivity, params: _activityParams(n)),
     NotificationAction.incidentApprovalPending: (n) => _dest(
         AppRoutes.activityFeed, n,
-        highlight: _kActivity, params: _activityDateParam(n)),
+        highlight: _kActivity, params: _activityParams(n)),
+    NotificationAction.incidentApproved: (n) => _dest(
+        AppRoutes.activityFeed, n,
+        highlight: _kActivity, params: _activityParams(n)),
     NotificationAction.incidentAcknowledgementPending: (n) => _dest(
         AppRoutes.activityFeed, n,
-        highlight: _kActivity, params: _activityDateParam(n)),
+        highlight: _kActivity, params: _activityParams(n)),
+    NotificationAction.incidentAcknowledged: (n) => _dest(
+        AppRoutes.activityFeed, n,
+        highlight: _kActivity, params: _activityParams(n)),
     NotificationAction.napAlert: (n) => _dest(AppRoutes.activityFeed, n,
-        highlight: _kActivity, params: _activityDateParam(n)),
+        highlight: _kActivity, params: _activityParams(n)),
 
     // ── Availability (room movements) ────────────────────────────────────────
     NotificationAction.createRule: (n) =>
@@ -354,25 +635,27 @@ class NotificationRouteResolver {
 
     // ── Communication ────────────────────────────────────────────────────────
     NotificationAction.messageToStaff: (n) =>
-        const NotificationDestination(path: AppRoutes.messaging),
+        // A staff-to-staff message → Staff Messaging sub-tab (the module now defaults to Parent).
+        const NotificationDestination(
+          path: AppRoutes.messaging,
+          queryParameters: {'msgTab': 'staff'},
+        ),
     NotificationAction.messageToStudent: (n) =>
-        const NotificationDestination(path: AppRoutes.messaging),
+        // MESSAGE_FROM_PARENT = a room-chat/parent message → open the Parent Messaging
+        // (Room Chats) sub-tab, not Staff Messaging (which is index 0 = the default).
+        const NotificationDestination(
+          path: AppRoutes.messaging,
+          queryParameters: {'msgTab': 'parent'},
+        ),
     NotificationAction.newsletterSent: (n) => const NotificationDestination(
           path: AppRoutes.messaging,
           queryParameters: {'tab': 'newsletter'},
         ),
 
-    // ── Billing (admin → /dashboard/billing, parent → parent billing) ────────
-    NotificationAction.invoiceGenerated: (n) =>
-        const NotificationDestination(path: _billing),
-    NotificationAction.billingPlanChanged: (n) =>
-        const NotificationDestination(path: _billing),
-    NotificationAction.feeStructureChanged: (n) =>
-        const NotificationDestination(path: _billing),
-    NotificationAction.invoiceDue: (n) =>
-        const NotificationDestination(path: AppRoutes.parentBilling),
-    NotificationAction.paymentSuccess: (n) =>
-        const NotificationDestination(path: AppRoutes.parentBilling),
+    // ── Billing ──────────────────────────────────────────────────────────────
+    // Persona-routed in [resolve] (guardian → parent billing, staff/admin →
+    // dashboard billing), so the billing actions are intentionally NOT in this
+    // table. See [_billingActions].
 
     // ── Settings (no settings screen in mobile → stay in notif center) ───────
     NotificationAction.schoolSettingsChanged: (n) =>

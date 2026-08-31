@@ -12,6 +12,16 @@ class KioskAccessControl {
   static bool _kioskModeCached = false;
   static String? _kioskPersonaCached;
 
+  // The PIN-verified persona's REAL backend role/code — distinct from the
+  // device account's own role (which may itself be `KIOSK`). AuthInterceptor
+  // uses this for every kiosk action call (sign-in/out, etc.) so those
+  // requests carry the headers the verified staff/guardian actually owns,
+  // not the kiosk device's own identity. Bootstrap calls (verify-pin,
+  // QR fetch) deliberately don't use this — there's no verified persona yet.
+  static String? _verifiedRoleCached;
+  static String? _verifiedStaffCodeCached;
+  static String? _verifiedGuardianCodeCached;
+
   final StorageService _storage;
 
   KioskAccessControl(this._storage);
@@ -28,6 +38,30 @@ class KioskAccessControl {
 
     AppLogger.d('[KioskAccess] Kiosk mode activated: persona=$persona (cache updated)');
   }
+
+  /// Records the real role/code the backend returned for the person who just
+  /// verified their PIN at the kiosk. In-memory only (mirrors the synchronous
+  /// cache pattern above) — it's re-set on every PIN verification, so there's
+  /// nothing stale to persist to disk across app restarts.
+  static void setVerifiedIdentity({
+    String? role,
+    String? staffCode,
+    String? guardianCode,
+  }) {
+    _verifiedRoleCached = (role ?? '').trim().isEmpty ? null : role!.trim();
+    _verifiedStaffCodeCached =
+        (staffCode ?? '').trim().isEmpty ? null : staffCode!.trim();
+    _verifiedGuardianCodeCached =
+        (guardianCode ?? '').trim().isEmpty ? null : guardianCode!.trim();
+    AppLogger.d(
+      '[KioskAccess] Verified identity set: role=$_verifiedRoleCached '
+      'staffCode=$_verifiedStaffCodeCached guardianCode=$_verifiedGuardianCodeCached',
+    );
+  }
+
+  static String? get verifiedRoleDirect => _verifiedRoleCached;
+  static String? get verifiedStaffCodeDirect => _verifiedStaffCodeCached;
+  static String? get verifiedGuardianCodeDirect => _verifiedGuardianCodeCached;
 
   /// Check if kiosk mode is active (uses cache for speed in GoRouter redirect).
   /// Returns cached value immediately on hot path; only reads storage on first check
@@ -79,6 +113,9 @@ class KioskAccessControl {
     // CLEAR CACHE IMMEDIATELY
     _kioskModeCached = false;
     _kioskPersonaCached = null;
+    _verifiedRoleCached = null;
+    _verifiedStaffCodeCached = null;
+    _verifiedGuardianCodeCached = null;
 
     AppLogger.d('[KioskAccess] Kiosk mode deactivated (cache cleared)');
   }
@@ -98,6 +135,9 @@ class KioskAccessControl {
   static void clearCacheForNonKioskLogin() {
     _kioskModeCached = false;
     _kioskPersonaCached = null;
+    _verifiedRoleCached = null;
+    _verifiedStaffCodeCached = null;
+    _verifiedGuardianCodeCached = null;
     AppLogger.d('[KioskAccess] Static cache force-cleared for non-kiosk login');
   }
 

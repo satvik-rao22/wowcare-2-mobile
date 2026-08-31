@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../../../core/util/app_time.dart';
 import '../../../../domain/features/reports/entities/report_metadata_entity.dart';
 import '../../../../domain/features/reports/entities/report_type.dart';
 
@@ -38,19 +39,22 @@ class RecentReportModel extends Equatable {
   }
 
   /// Convert model to metadata entity.
+  ///
+  /// Throws [FormatException] for an unrecognized `reportType`. The caller
+  /// (`ReportsRepositoryImpl.getRecentReports`) catches this per-item so one
+  /// unparseable entry is skipped and logged instead of either crashing the
+  /// whole list or silently mislabeling the report.
   ReportMetadataEntity toEntity() {
-    ReportType? reportTypeEnum;
-    try {
-      reportTypeEnum =
-          ReportType.values.firstWhere((e) => e.backendValue == reportType);
-    } catch (_) {
-      reportTypeEnum = ReportType.studentDailyAttendance;
-    }
+    final reportTypeEnum = ReportType.values.firstWhere(
+      (e) => e.backendValue == reportType,
+      orElse: () =>
+          throw FormatException('Unknown reportType in response: $reportType'),
+    );
 
     return ReportMetadataEntity(
       reportId: reportId,
       reportType: reportTypeEnum,
-      generatedAt: DateTime.tryParse(generatedAt) ?? DateTime.now(),
+      generatedAt: DateTime.tryParse(generatedAt) ?? AppTime.nowUtc(),
       assetCode: assetCode,
       fileName: fileName,
     );

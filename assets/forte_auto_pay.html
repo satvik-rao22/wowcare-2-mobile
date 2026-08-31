@@ -341,9 +341,20 @@
             type="text"
             maxlength="60"
             class="custom-input uppercase"
-            placeholder="ENTER ACCOUNT HOLDER NAME"
+            placeholder="ENTER FIRST AND LAST NAME"
             autocomplete="off"
           />
+          <div
+            id="accountHolderHint"
+            style="
+              display: none;
+              margin-top: 6px;
+              font-size: 12px;
+              color: #c05621;
+            "
+          >
+            Please enter both a first and last name.
+          </div>
         </div>
 
         <div id="cardFields" style="display: none">
@@ -633,6 +644,13 @@
           return;
         }
         const holder = document.getElementById('accountHolder').value.trim();
+        // Forte requires both a first AND last name on the holder/cardholder,
+        // so the name must contain at least two words.
+        const holderValid = isFullName(holder);
+        const hint = document.getElementById('accountHolderHint');
+        if (hint) {
+          hint.style.display = holder && !holderValid ? 'block' : 'none';
+        }
         const isCard = value !== 'echeck';
         if (isCard) {
           const cardNumber = document.getElementById('cardNumber').value.trim();
@@ -640,7 +658,7 @@
           const expYear = document.getElementById('expYear').value;
           const cvv = document.getElementById('cvv').value.trim();
           btn.disabled =
-            !holder || !cardNumber || !expMonth || !expYear || !cvv;
+            !holderValid || !cardNumber || !expMonth || !expYear || !cvv;
         } else {
           const account = document
             .getElementById('accountNumber')
@@ -649,8 +667,13 @@
             .getElementById('routingNumber')
             .value.trim();
           const type = document.getElementById('accountType').value;
-          btn.disabled = !holder || !account || !routing || !type;
+          btn.disabled = !holderValid || !account || !routing || !type;
         }
+      }
+
+      // True when [name] has at least two non-empty words (first + last).
+      function isFullName(name) {
+        return (name || '').trim().split(/\s+/).filter(Boolean).length >= 2;
       }
 
       // UPPERCASE letters only, max 4 words, single space between, no leading space.
@@ -882,6 +905,32 @@
           });
       }
 
+      // Hides any cardType option whose value isn't in [allowed]. The empty
+      // placeholder is always kept. If every card brand is hidden but ACH
+      // remains (or vice-versa), the single remaining type is auto-selected.
+      function applyAllowedMethods(allowed) {
+        const sel = document.getElementById('cardType');
+        if (!sel) return;
+        const set = new Set(allowed);
+        const remaining = [];
+        Array.from(sel.options).forEach((opt) => {
+          if (opt.value === '') return; // keep placeholder
+          const ok = set.has(opt.value);
+          opt.hidden = !ok;
+          opt.disabled = !ok;
+          if (ok) remaining.push(opt.value);
+        });
+        // If the current selection is no longer allowed, reset it.
+        if (sel.value && !set.has(sel.value)) {
+          sel.value = '';
+          handleCardTypeChange();
+        }
+        if (remaining.length === 1) {
+          sel.value = remaining[0];
+          handleCardTypeChange();
+        }
+      }
+
       window.initializeAutoPay = function (payloadJson) {
         try {
           const payload =
@@ -892,6 +941,9 @@
           config.apiLoginId = payload.apiLoginId || config.apiLoginId;
           if (payload.title) {
             document.getElementById('dialog-title').textContent = payload.title;
+          }
+          if (Array.isArray(payload.allowedMethods)) {
+            applyAllowedMethods(payload.allowedMethods);
           }
           if (payload.defaultMethod) {
             const sel = document.getElementById('cardType');

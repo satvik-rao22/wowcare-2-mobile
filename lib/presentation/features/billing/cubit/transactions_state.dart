@@ -7,6 +7,7 @@ class TransactionsState extends Equatable {
     this.overview,
     this.dateFrom,
     this.dateTo,
+    this.activeFilter,
     this.isLoading = false,
     this.isLoadingMore = false,
     this.hasMore = false,
@@ -21,6 +22,7 @@ class TransactionsState extends Equatable {
         overview = null,
         dateFrom = null,
         dateTo = null,
+        activeFilter = null,
         isLoading = true,
         isLoadingMore = false,
         hasMore = false,
@@ -49,6 +51,10 @@ class TransactionsState extends Equatable {
 
   final DateTime? dateFrom;
   final DateTime? dateTo;
+
+  /// The summary-card filter currently scoping the Transactions list, or null
+  /// when the unfiltered list is shown. Drives the legend highlight.
+  final TransactionFilter? activeFilter;
 
   /// Last load error, surfaced as a top snackbar by the view.
   final String? errorMessage;
@@ -96,6 +102,7 @@ class TransactionsState extends Equatable {
     InvoiceOverviewEntity? Function()? overview,
     DateTime? Function()? dateFrom,
     DateTime? Function()? dateTo,
+    TransactionFilter? Function()? activeFilter,
     bool? isLoading,
     bool? isLoadingMore,
     bool? hasMore,
@@ -109,6 +116,7 @@ class TransactionsState extends Equatable {
       overview: overview != null ? overview() : this.overview,
       dateFrom: dateFrom != null ? dateFrom() : this.dateFrom,
       dateTo: dateTo != null ? dateTo() : this.dateTo,
+      activeFilter: activeFilter != null ? activeFilter() : this.activeFilter,
       isLoading: isLoading ?? this.isLoading,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       hasMore: hasMore ?? this.hasMore,
@@ -125,6 +133,7 @@ class TransactionsState extends Equatable {
         overview,
         dateFrom,
         dateTo,
+        activeFilter,
         isLoading,
         isLoadingMore,
         hasMore,

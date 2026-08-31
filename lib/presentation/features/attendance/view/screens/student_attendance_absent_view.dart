@@ -10,6 +10,7 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_shimmer.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -21,6 +22,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
+import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -121,6 +123,10 @@ class _StudentAttendanceAbsentViewState
   final Map<String, String> _classroomNameByCode = {};
   final Set<String> _classroomFetchInFlight = {};
 
+  /// When the school allows teacher cross-class attendance, teachers see every
+  /// classroom in the filter (like an admin) instead of just their own.
+  bool _allowCrossClass = false;
+
   @override
   void initState() {
     super.initState();
@@ -129,6 +135,7 @@ class _StudentAttendanceAbsentViewState
     _searchController.addListener(_onSearchChanged);
     widget.refreshNotifier?.addListener(_onRefreshRequested);
     _classroomCubit = serviceLocator<ClassroomCubit>();
+    _resolveCrossClassFlag();
     // Classroom filter must be backed by the classroom(all) API (type=CLASSROOM).
     // We also guard for "data not loaded yet" so name->code resolution is reliable.
     _loadClassroomData();
@@ -141,6 +148,8 @@ class _StudentAttendanceAbsentViewState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
     });
+    // Resolve the school timezone, then re-seed the default range if it differs.
+    _initSchoolTimezone();
   }
 
   void _onRefreshRequested() => refreshAfterReturningFromAttendanceFlow();
@@ -151,13 +160,33 @@ class _StudentAttendanceAbsentViewState
     _loadInitialData(reset: true);
   }
 
+  /// Resolves the school's teacher cross-class flag; when enabled, reloads the
+  /// classroom filter unscoped so teachers see every classroom.
+  Future<void> _resolveCrossClassFlag() async {
+    try {
+      final enabled =
+          await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
+        storage: serviceLocator<StorageService>(),
+      );
+      if (!mounted || !enabled || _allowCrossClass) return;
+      setState(() => _allowCrossClass = true);
+      _loadClassroomData();
+    } catch (_) {
+      // Non-critical: default (scoped) behaviour stays in effect.
+    }
+  }
+
   Future<void> _loadClassroomData() async {
     final hadClassroomSelection = _selectedClassroomNames.isNotEmpty;
     _classroomCubit.loadActiveClassrooms(
       force: true,
-      // Match custom/daily: include all location types for reliable name→code mapping.
-      onlyTypeClassroom: false,
-      applyAttendanceStaffScope: true,
+      // The classroom filter must list only real classrooms (type=CLASSROOM) —
+      // Office / Admin locations must not appear as filter options. Names for
+      // non-CLASSROOM location codes are still resolved on demand via
+      // getClassroomByCode (see _fetchClassroomName).
+      onlyTypeClassroom: true,
+      // Cross-class teachers see every classroom in the filter, like an admin.
+      applyAttendanceStaffScope: !_allowCrossClass,
     );
 
     if (!_classroomCubit.state.isLoading &&
@@ -294,9 +323,28 @@ class _StudentAttendanceAbsentViewState
   }
 
   void _initializeDefaultRange() {
-    final now = DateTime.now();
+    final now = attendanceSchoolToday();
     _rangeStart ??= DateTime(now.year, now.month, 1);
     _rangeEnd ??= DateTime(now.year, now.month + 1, 0);
+  }
+
+  Future<void> _initSchoolTimezone() async {
+    final beforeStart = _rangeStart;
+    final beforeEnd = _rangeEnd;
+    await bootstrapAttendanceSchoolTimezone();
+    if (!mounted) return;
+    final now = attendanceSchoolToday();
+    final schoolStart = DateTime(now.year, now.month, 1);
+    final schoolEnd = DateTime(now.year, now.month + 1, 0);
+    if (beforeStart == _rangeStart &&
+        beforeEnd == _rangeEnd &&
+        (_rangeStart != schoolStart || _rangeEnd != schoolEnd)) {
+      setState(() {
+        _rangeStart = schoolStart;
+        _rangeEnd = schoolEnd;
+      });
+      _loadInitialData();
+    }
   }
 
   void _onSearchChanged() {
@@ -371,31 +419,43 @@ class _StudentAttendanceAbsentViewState
     bool reset = false,
     bool fromBackground = false,
   }) async {
-    // Try cache first to mirror cache integration used in student lists.
+    // Try cache first to mirror cache integration used in student lists — but
+    // never for a classroom-scoped staff persona. This cache key isn't keyed
+    // per-user/per-scope, so serving it directly could leak another
+    // classroom's absent students (or a stale unscoped/admin payload from an
+    // earlier session on the same device) straight into a restricted view.
     if (!reset) {
-      final from = _rangeStart ?? DateTime.now();
-      final to = _rangeEnd ?? DateTime.now();
-      final classroomCodes = _effectiveClassroomCodes();
-      final tagCodes = _resolveSelectedTagCodes();
-      final trimmedSearch = _searchQuery.trim();
-      final hasActiveFilters =
-          (classroomCodes != null && classroomCodes.isNotEmpty) ||
-          (tagCodes != null && tagCodes.isNotEmpty) ||
-          trimmedSearch.isNotEmpty;
+      final scoped = await isStudentAttendanceScopedStaffPersona(
+        storage: serviceLocator<StorageService>(),
+      );
+      if (!mounted) return;
 
-      if (!hasActiveFilters) {
-        final cacheKey = _studentAttendanceAbsentCacheKey(
-          from,
-          to,
-          classroomCodes: classroomCodes,
-          tagCodes: tagCodes,
-          search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
-        );
+      if (!scoped) {
+        final from = _rangeStart ?? attendanceSchoolToday();
+        final to = _rangeEnd ?? attendanceSchoolToday();
+        final classroomCodes = _effectiveClassroomCodes();
+        final tagCodes = _resolveSelectedTagCodes();
+        final trimmedSearch = _searchQuery.trim();
+        final hasActiveFilters =
+            (classroomCodes != null && classroomCodes.isNotEmpty) ||
+            (tagCodes != null && tagCodes.isNotEmpty) ||
+            trimmedSearch.isNotEmpty;
 
-        final cachedPayload = await _cacheManager.loadCache(cacheKey);
-        if (cachedPayload != null) {
-          _applyPagePayload(cachedPayload, reset: true);
-          return;
+        if (!hasActiveFilters) {
+          final cacheKey = _studentAttendanceAbsentCacheKey(
+            from,
+            to,
+            classroomCodes: classroomCodes,
+            tagCodes: tagCodes,
+            search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
+          );
+
+          final cachedPayload = await _cacheManager.loadCache(cacheKey);
+          if (!mounted) return;
+          if (cachedPayload != null) {
+            _applyPagePayload(cachedPayload, reset: true);
+            return;
+          }
         }
       }
     }
@@ -481,18 +541,28 @@ class _StudentAttendanceAbsentViewState
 
       final root = data['data'] as Map<String, dynamic>? ?? {};
 
-      // Cache first page keyed by filters so it can be reused on next load.
+      // Cache first page keyed by filters so it can be reused on next load —
+      // but only when this persona is unrestricted. A scoped staff member's
+      // results must never be persisted to the shared cache: another user
+      // (or this same user after their access changes) could otherwise read
+      // back a payload that doesn't reflect their current classroom scope.
       if (_studentsPage == 0) {
-        final from = _rangeStart ?? DateTime.now();
-        final to = _rangeEnd ?? DateTime.now();
-        final cacheKey = _studentAttendanceAbsentCacheKey(
-          from,
-          to,
-          classroomCodes: classroomCodes,
-          tagCodes: tagCodes,
-          search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
+        final scoped = await isStudentAttendanceScopedStaffPersona(
+          storage: serviceLocator<StorageService>(),
         );
-        await _cacheManager.saveCache(cacheKey, root);
+        if (!mounted) return;
+        if (!scoped) {
+          final from = _rangeStart ?? attendanceSchoolToday();
+          final to = _rangeEnd ?? attendanceSchoolToday();
+          final cacheKey = _studentAttendanceAbsentCacheKey(
+            from,
+            to,
+            classroomCodes: classroomCodes,
+            tagCodes: tagCodes,
+            search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
+          );
+          await _cacheManager.saveCache(cacheKey, root);
+        }
       }
 
       _applyPagePayload(root, reset: reset);
@@ -605,8 +675,8 @@ class _StudentAttendanceAbsentViewState
 
       final absenceDateStr = m['absenceDate'] as String? ?? '';
       final absenceDate = absenceDateStr.isNotEmpty
-          ? DateTime.tryParse(absenceDateStr) ?? DateTime.now()
-          : DateTime.now();
+          ? DateTime.tryParse(absenceDateStr) ?? attendanceSchoolToday()
+          : attendanceSchoolToday();
 
       final classroomName = (m['classroomName'] as String?)?.trim() ?? '';
       final classroomCode = (m['classroomCode'] as String?)?.trim() ?? '';
@@ -734,7 +804,7 @@ class _StudentAttendanceAbsentViewState
                                   _selectedClassroomCodes = null;
                                   _selectedTagNames = <String>[];
                                   // Reset to current month
-                                  final now = DateTime.now();
+                                  final now = attendanceSchoolToday();
                                   _rangeStart = DateTime(
                                     now.year,
                                     now.month,
@@ -952,6 +1022,7 @@ class _StudentAttendanceAbsentViewState
                   size: avatarSize,
                   name: student.name,
                   fontSize: responsive.isTablet ? 18 : 16,
+                  disableAttendanceStatusLookup: true,
                 ),
                 SizedBox(width: spacing),
                 // Header matches staff_card.dart: name (left) + classroom (right).

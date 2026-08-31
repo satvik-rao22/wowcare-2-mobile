@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement_board.dart';
 
@@ -245,8 +246,8 @@ String _statusToApi(IndividualMovementWorkflowStatus value) {
 }
 
 DateTime _parseDateOnly(String value) {
-  if (value.trim().isEmpty) return DateTime.now();
-  return DateTime.tryParse(value)?.toLocal() ?? DateTime.now();
+  if (value.trim().isEmpty) return AppTime.today();
+  return DateTime.tryParse(value)?.toLocal() ?? AppTime.today();
 }
 
 DateTime? _parseDateTime(dynamic value) {

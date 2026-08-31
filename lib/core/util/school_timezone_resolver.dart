@@ -2,6 +2,7 @@ import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 /// Loads the school's IANA timezone from the backend for use in attendance payloads.
 ///
@@ -18,6 +19,20 @@ abstract final class SchoolTimezoneResolver {
     required StorageService storage,
     required ApiClient apiClient,
   }) async {
+    // Every date/time FIELD open, screen-init default, and submit resolves the
+    // school zone through here — so this is the single point at which we pull a
+    // FRESH authoritative server clock (per product: "fetch fresh when a date
+    // field opens"). Awaited so the resolved "now" reflects this moment, but
+    // time-boxed so a slow/hung /time call never blocks the field for long; on
+    // timeout the last-synced offset (or device time) stands in.
+    try {
+      await ServerTimeService.instance.sync().timeout(
+        const Duration(seconds: 4),
+      );
+    } catch (_) {
+      // Non-fatal: keep the previous offset.
+    }
+
     final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
     if (schoolCode.isEmpty) return fallbackTimeZone;
 
@@ -30,6 +45,7 @@ abstract final class SchoolTimezoneResolver {
         cachedTz.toUpperCase() != fallbackTimeZone;
     if (hasUsableCachedTz) {
       _lastKnownTimeZone = cachedTz;
+      ServerTimeService.instance.setSchoolTimeZone(cachedTz);
       return cachedTz;
     }
 
@@ -41,15 +57,18 @@ abstract final class SchoolTimezoneResolver {
       await storage.saveString(StorageKeys.schoolTimeZoneSchoolCode, schoolCode);
       await storage.saveString(StorageKeys.schoolTimeZone, tz);
       _lastKnownTimeZone = tz;
+      ServerTimeService.instance.setSchoolTimeZone(tz);
       return tz;
     }
 
     // Preserve a previously resolved non-fallback timezone if network fetch fails.
     if (cachedFor == schoolCode && cachedTz.isNotEmpty) {
       _lastKnownTimeZone = cachedTz;
+      ServerTimeService.instance.setSchoolTimeZone(cachedTz);
       return cachedTz;
     }
     _lastKnownTimeZone = tz;
+    ServerTimeService.instance.setSchoolTimeZone(tz);
     return tz;
   }
 

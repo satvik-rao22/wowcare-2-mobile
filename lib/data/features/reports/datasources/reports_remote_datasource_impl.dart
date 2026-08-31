@@ -1,289 +1,210 @@
 import 'package:dio/dio.dart';
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
 import '../../../../core/util/logger_service.dart';
 import '../../../../core/util/storage_keys.dart' as storage_keys;
+import '../../../../domain/features/reports/entities/report_type.dart';
 import '../models/report_response_model.dart';
 import '../models/recent_report_model.dart';
 import 'reports_remote_datasource.dart';
 
 class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
-  ReportsRemoteDataSourceImpl(
-    this._dio,
-    this._storageService,
-  );
+  ReportsRemoteDataSourceImpl(this._dio, this._storageService);
 
   final Dio _dio;
   final StorageService _storageService;
 
   @override
   Future<ReportResponseModel> generateReport({
-    required String reportType,
+    required ReportType reportType,
     required Map<String, dynamic> requestBody,
   }) async {
-    // Determine endpoint based on report type
-    late String endpoint;
+    final endpoint = _generateEndpointFor(reportType);
+    final headers = Map<String, dynamic>.from(_dio.options.headers);
 
-    if (reportType.startsWith('STUDENT_')) {
-      // Student attendance reports
-      endpoint = ApiPaths.studentAttendanceReportsGenerate;
-    } else if (reportType.startsWith('STAFF_')) {
-      if (reportType == 'STAFF_DETAILS') {
-        // Staff directory
-        endpoint = ApiPaths.staffReportsGenerate;
-      } else {
-        // Staff attendance reports
-        endpoint = ApiPaths.staffAttendanceReportsGenerate;
+    AppLogger.d('========== REPORT REQUEST ==========');
+    AppLogger.d('Endpoint: ${ApiPaths.url(endpoint)}');
+    AppLogger.d('Headers: $headers');
+    AppLogger.d('Payload: $requestBody');
+    AppLogger.d('====================================');
+    _logPayloadFieldTypes(requestBody);
+
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        ApiPaths.url(endpoint),
+        data: requestBody,
+      );
+      final responseData = response.data ?? {};
+
+      AppLogger.d('========== REPORT RESPONSE ==========');
+      AppLogger.d('Endpoint: ${ApiPaths.url(endpoint)}');
+      AppLogger.d('Status Code: ${response.statusCode}');
+      AppLogger.d('Response Body: $responseData');
+      AppLogger.d('=====================================');
+
+      return ReportResponseModel.fromJson(responseData);
+    } catch (error, stackTrace) {
+      AppLogger.e('========== REPORT ERROR ==========', error, stackTrace);
+      AppLogger.e('Endpoint: ${ApiPaths.url(endpoint)}');
+      AppLogger.e('Request Headers: $headers');
+      AppLogger.e('Request Payload: $requestBody');
+      if (error is DioException) {
+        AppLogger.e('DioException type: ${error.type}');
+        AppLogger.e('DioException response: ${error.response?.data}');
+        AppLogger.e('DioException statusCode: ${error.response?.statusCode}');
       }
-    } else if (reportType == 'STUDENTS_AND_FAMILY' ||
-        reportType == 'EMERGENCY_CONTACTS' ||
-        reportType == 'STUDENT_INCIDENT') {
-      // Student management reports
-      endpoint = ApiPaths.studentManagementReportsGenerate;
-    } else if (reportType == 'IMMUNIZATION') {
-      // Immunization report
-      endpoint = ApiPaths.studentImmunizationReport;
-    } else {
-      throw ArgumentError('Unknown report type: $reportType');
+      AppLogger.e('=====================================');
+      rethrow;
     }
+  }
 
-    AppLogger.d('Posting to $endpoint with payload: $requestBody');
-    final response = await _dio.post<Map<String, dynamic>>(
+  /// Logs the runtime type of every collection-shaped field in the outgoing
+  /// payload. Catches exactly the class of bug that caused statusFilter to
+  /// be serialized as a String instead of a List<String> — that mistake is
+  /// invisible in a plain payload dump (both print as a quoted value) but
+  /// immediately obvious once the runtime type is logged alongside it.
+  void _logPayloadFieldTypes(Map<String, dynamic> requestBody) {
+    const collectionFields = [
+      'roomCodes',
+      'classroomCodes',
+      'tagCodes',
+      'statusFilter',
+      'studentCodes',
+      'staffCodes',
+      'vaccineCodes',
+    ];
+    for (final field in collectionFields) {
+      if (!requestBody.containsKey(field)) continue;
+      final value = requestBody[field];
+      final isList = value is List;
+      AppLogger.d(
+        '[REPORTS] payload.$field = $value (runtime type: ${value.runtimeType}'
+        '${isList ? '' : ' — WARNING: expected a List'})',
+      );
+    }
+  }
+
+  /// Exhaustive mapping from [ReportType] to its generate endpoint.
+  ///
+  /// A `switch` over the enum (not string `startsWith`/`contains` matching)
+  /// so the analyzer raises a compile-time error if a new [ReportType] case
+  /// is added without a matching endpoint here — no runtime
+  /// `ArgumentError("Unknown report type")` is reachable.
+  String _generateEndpointFor(ReportType reportType) {
+    switch (reportType) {
+      case ReportType.studentDailyAttendance:
+      case ReportType.studentAbsent:
+      case ReportType.studentAttendancePerStudent:
+        return ApiPaths.studentAttendanceReportsGenerate;
+      case ReportType.staffAbsent:
+      case ReportType.staffAttendance:
+      case ReportType.staffAttendancePerStaff:
+        return ApiPaths.staffAttendanceReportsGenerate;
+      case ReportType.staffScheduling:
+        return ApiPaths.staffSchedulingReportsGenerate;
+      case ReportType.staffDetails:
+        return ApiPaths.staffReportsGenerate;
+      case ReportType.studentsAndFamily:
+      case ReportType.emergencyContacts:
+      case ReportType.annualStateImmunization:
+        return ApiPaths.studentManagementReportsGenerate;
+      case ReportType.studentIncident:
+        return ApiPaths.studentIncidentReportsGenerate;
+      case ReportType.immunization:
+        // TODO(backend-confirm): unverified whether this dedicated route is
+        // still live, or whether immunization now goes through
+        // ApiPaths.studentManagementReportsGenerate with
+        // reportType=IMMUNIZATION. Do not change without a captured
+        // request/response pair from the live backend — flipping this
+        // blind risks breaking a currently-working report.
+        return ApiPaths.studentImmunizationReport;
+      case ReportType.billingTransaction:
+      case ReportType.billingInvoice:
+      case ReportType.billingPaymentSummary:
+      case ReportType.billingOutstanding:
+      case ReportType.billingRefund:
+      case ReportType.billingStudentMapping:
+        return ApiPaths.billingReportGenerate;
+    }
+  }
+
+  @override
+  Future<List<RecentReportModel>> getRecentStudentAttendanceReports() {
+    return _fetchRecentReports(
+      label: 'Student Attendance',
+      endpoint: ApiPaths.studentAttendanceReportsRecent,
+    );
+  }
+
+  @override
+  Future<List<RecentReportModel>> getRecentStaffAttendanceReports() {
+    return _fetchRecentReports(
+      label: 'Staff Attendance',
+      endpoint: ApiPaths.staffAttendanceReportsRecent,
+    );
+  }
+
+  @override
+  Future<List<RecentReportModel>> getRecentStaffReports() {
+    return _fetchRecentReports(
+      label: 'Staff Reports',
+      endpoint: ApiPaths.staffReportsRecent,
+    );
+  }
+
+  @override
+  Future<List<RecentReportModel>> getRecentStudentManagementReports() {
+    return _fetchRecentReports(
+      label: 'Student Management',
+      endpoint: ApiPaths.studentManagementReportsRecent,
+    );
+  }
+
+  /// Shared GET + parse for all "recent reports" endpoints.
+  ///
+  /// Does NOT catch errors — DioException/parse failures propagate to the
+  /// caller so they can be surfaced as a [Failure] instead of being hidden
+  /// behind an empty list (see `ReportsRepositoryImpl.getRecentReports`,
+  /// which wraps each source individually and logs/aggregates failures
+  /// without losing results from sources that did succeed).
+  Future<List<RecentReportModel>> _fetchRecentReports({
+    required String label,
+    required String endpoint,
+  }) async {
+    final schoolCode = await _storageService.getString(
+      storage_keys.StorageKeys.schoolCode,
+    );
+    AppLogger.d('[REPORTS] $label API: Loading with schoolCode=$schoolCode');
+
+    final response = await _dio.get<Map<String, dynamic>>(
       ApiPaths.url(endpoint),
-      data: requestBody,
+      queryParameters: {'schoolCode': schoolCode},
     );
 
-    final responseData = response.data ?? {};
-    AppLogger.d('Response from $endpoint: $responseData');
-    return ReportResponseModel.fromJson(responseData);
-  }
+    final data = response.data ?? {};
+    AppLogger.d(
+      '[REPORTS] $label API: Raw response keys=${data.keys.toList()}',
+    );
 
-  @override
-  Future<List<RecentReportModel>> getRecentStudentAttendanceReports() async {
-    final schoolCode =
-        await _storageService.getString(storage_keys.StorageKeys.schoolCode);
-    final endpoint = ApiPaths.studentAttendanceReportsRecent;
-    AppLogger.d('[REPORTS] Student Attendance API: Loading with schoolCode=$schoolCode');
-
-    try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        ApiPaths.url(endpoint),
-        queryParameters: {'schoolCode': schoolCode},
-      );
-
-      final data = response.data ?? {};
-      AppLogger.d('[REPORTS] Student Attendance API: Raw response keys=${data.keys.toList()}');
-
-      // Try multiple response format possibilities
-      List? reportsList;
-
-      // Try data['reports'] first (original format)
-      reportsList = data['reports'] as List?;
-      if (reportsList != null) {
-        AppLogger.d('[REPORTS] Student Attendance Reports Count: ${reportsList.length}');
-        return reportsList
-            .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-
-      // Try data['data'] (alternative format)
-      final dataField = data['data'];
-      if (dataField is List) {
-        reportsList = dataField;
-        AppLogger.d('[REPORTS] Student Attendance Reports Count: ${reportsList.length}');
-        return reportsList
-            .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-
-      // Try data['data']['reports'] (nested format)
-      if (dataField is Map) {
-        reportsList = dataField['reports'] as List?;
-        if (reportsList != null) {
-          AppLogger.d('[REPORTS] Student Attendance Reports Count: ${reportsList.length}');
-          return reportsList
-              .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-              .toList();
-        }
-      }
-
-      AppLogger.d('[REPORTS] Student Attendance Reports Count: 0 (no reports array found)');
-      return [];
-    } catch (e) {
-      AppLogger.e('[REPORTS] Student Attendance Reports Error: $e');
-      return [];
+    // The backend's envelope shape for this family of endpoints hasn't been
+    // confirmed (see audit), so we still try the three observed shapes
+    // rather than assuming one — but unlike before, finding none of them
+    // returns an empty list normally (not via a swallowed exception).
+    List? reportsList = data['reports'] as List?;
+    final dataField = data['data'];
+    if (reportsList == null && dataField is List) {
+      reportsList = dataField;
+    } else if (reportsList == null && dataField is Map) {
+      reportsList = dataField['reports'] as List?;
     }
-  }
 
-  @override
-  Future<List<RecentReportModel>> getRecentStaffAttendanceReports() async {
-    final schoolCode =
-        await _storageService.getString(storage_keys.StorageKeys.schoolCode);
-    final endpoint = ApiPaths.staffAttendanceReportsRecent;
-    AppLogger.d('[REPORTS] Staff Attendance API: Loading with schoolCode=$schoolCode');
+    AppLogger.d('[REPORTS] $label Reports Count: ${reportsList?.length ?? 0}');
+    if (reportsList == null) return const [];
 
-    try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        ApiPaths.url(endpoint),
-        queryParameters: {'schoolCode': schoolCode},
-      );
-
-      final data = response.data ?? {};
-      AppLogger.d('[REPORTS] Staff Attendance API: Raw response keys=${data.keys.toList()}');
-
-      // Try multiple response format possibilities
-      List? reportsList;
-
-      // Try data['reports'] first (original format)
-      reportsList = data['reports'] as List?;
-      if (reportsList != null) {
-        AppLogger.d('[REPORTS] Staff Attendance Reports Count: ${reportsList.length}');
-        return reportsList
-            .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-
-      // Try data['data'] (alternative format)
-      final dataField = data['data'];
-      if (dataField is List) {
-        reportsList = dataField;
-        AppLogger.d('[REPORTS] Staff Attendance Reports Count: ${reportsList.length}');
-        return reportsList
-            .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-
-      // Try data['data']['reports'] (nested format)
-      if (dataField is Map) {
-        reportsList = dataField['reports'] as List?;
-        if (reportsList != null) {
-          AppLogger.d('[REPORTS] Staff Attendance Reports Count: ${reportsList.length}');
-          return reportsList
-              .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-              .toList();
-        }
-      }
-
-      AppLogger.d('[REPORTS] Staff Attendance Reports Count: 0 (no reports array found)');
-      return [];
-    } catch (e) {
-      AppLogger.e('[REPORTS] Staff Attendance Reports Error: $e');
-      return [];
-    }
-  }
-
-  @override
-  Future<List<RecentReportModel>> getRecentStaffReports() async {
-    final schoolCode =
-        await _storageService.getString(storage_keys.StorageKeys.schoolCode);
-    final endpoint = ApiPaths.staffReportsRecent;
-    AppLogger.d('[REPORTS] Staff Reports API: Loading with schoolCode=$schoolCode');
-
-    try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        ApiPaths.url(endpoint),
-        queryParameters: {'schoolCode': schoolCode},
-      );
-
-      final data = response.data ?? {};
-      AppLogger.d('[REPORTS] Staff Reports API: Raw response keys=${data.keys.toList()}');
-
-      // Try multiple response format possibilities
-      List? reportsList;
-
-      // Try data['reports'] first (original format)
-      reportsList = data['reports'] as List?;
-      if (reportsList != null) {
-        AppLogger.d('[REPORTS] Staff Reports Count: ${reportsList.length}');
-        return reportsList
-            .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-
-      // Try data['data'] (alternative format)
-      final dataField = data['data'];
-      if (dataField is List) {
-        reportsList = dataField;
-        AppLogger.d('[REPORTS] Staff Reports Count: ${reportsList.length}');
-        return reportsList
-            .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-
-      // Try data['data']['reports'] (nested format)
-      if (dataField is Map) {
-        reportsList = dataField['reports'] as List?;
-        if (reportsList != null) {
-          AppLogger.d('[REPORTS] Staff Reports Count: ${reportsList.length}');
-          return reportsList
-              .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-              .toList();
-        }
-      }
-
-      AppLogger.d('[REPORTS] Staff Reports Count: 0 (no reports array found)');
-      return [];
-    } catch (e) {
-      AppLogger.e('[REPORTS] Staff Reports Error: $e');
-      return [];
-    }
-  }
-
-  @override
-  Future<List<RecentReportModel>> getRecentStudentManagementReports() async {
-    final schoolCode =
-        await _storageService.getString(storage_keys.StorageKeys.schoolCode);
-    final endpoint = ApiPaths.studentManagementReportsRecent;
-    AppLogger.d('[REPORTS] Student Management API: Loading with schoolCode=$schoolCode');
-
-    try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        ApiPaths.url(endpoint),
-        queryParameters: {'schoolCode': schoolCode},
-      );
-
-      final data = response.data ?? {};
-      AppLogger.d('[REPORTS] Student Management API: Raw response keys=${data.keys.toList()}');
-
-      // Try multiple response format possibilities
-      List? reportsList;
-
-      // Try data['reports'] first (original format)
-      reportsList = data['reports'] as List?;
-      if (reportsList != null) {
-        AppLogger.d('[REPORTS] Student Management Reports Count: ${reportsList.length}');
-        return reportsList
-            .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-
-      // Try data['data'] (alternative format)
-      final dataField = data['data'];
-      if (dataField is List) {
-        reportsList = dataField;
-        AppLogger.d('[REPORTS] Student Management Reports Count: ${reportsList.length}');
-        return reportsList
-            .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-
-      // Try data['data']['reports'] (nested format)
-      if (dataField is Map) {
-        reportsList = dataField['reports'] as List?;
-        if (reportsList != null) {
-          AppLogger.d('[REPORTS] Student Management Reports Count: ${reportsList.length}');
-          return reportsList
-              .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-              .toList();
-        }
-      }
-
-      AppLogger.d('[REPORTS] Student Management Reports Count: 0 (no reports array found)');
-      return [];
-    } catch (e) {
-      AppLogger.e('[REPORTS] Student Management Reports Error: $e');
-      return [];
-    }
+    return reportsList
+        .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   @override
@@ -294,58 +215,237 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
 
     final data = response.data ?? {};
     final tagsList = (data['tags'] as List?) ?? [];
-
     return tagsList.map((tag) => tag.toString()).toList();
   }
 
+  static const List<Duration> _readyPollDelays = [
+    Duration.zero,
+    Duration(milliseconds: 600),
+    Duration(milliseconds: 1200),
+    Duration(milliseconds: 2000),
+    Duration(milliseconds: 2500),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+  ];
+
+  static const Set<String> _terminalFailureStatuses = {
+    'FAILED',
+    'DELETED',
+    'ABANDONED',
+  };
+
   @override
   Future<String> getReportDownloadUrl(String assetCode) async {
-    AppLogger.d('Resolving asset code to get download URL: $assetCode');
+    final cleanCode = assetCode.trim();
+    AppLogger.d('Resolving asset code to get download URL: $cleanCode');
 
-    final response = await _dio.post<Map<String, dynamic>>(
-      ApiPaths.url(ApiPaths.documentMediaAssetsResolve),
-      data: {
-        'assetCodes': [assetCode],
-      },
+    String? lastCandidateUrl;
+
+    for (final delay in _readyPollDelays) {
+      if (delay > Duration.zero) {
+        await Future.delayed(delay);
+      }
+
+      try {
+        final response = await _dio.post<Map<String, dynamic>>(
+          ApiPaths.url(ApiPaths.documentMediaAssetsResolve),
+          data: {
+            'assetCodes': [cleanCode],
+          },
+        );
+
+        final responseData = response.data ?? {};
+        final assets = responseData['data']?['assets'] as List?;
+
+        if (assets == null || assets.isEmpty) {
+          continue;
+        }
+
+        final asset = assets[0] as Map<String, dynamic>;
+        final status = (asset['status'] ?? '').toString().trim().toUpperCase();
+
+        if (_terminalFailureStatuses.contains(status)) {
+          throw Exception(
+            'Report processing failed on the server. Please try again.',
+          );
+        }
+
+        final downloadUrl = _extractAssetDownloadUrl(asset);
+        if (downloadUrl != null && downloadUrl.isNotEmpty) {
+          lastCandidateUrl = downloadUrl;
+
+          final hasProcessedVariant = _hasProcessedVariant(asset);
+          if (status == 'READY' || hasProcessedVariant) {
+            final normalized = _normalizeDownloadUrl(downloadUrl);
+            AppLogger.d(
+              'Asset resolved successfully (status=$status), download URL obtained: $normalized',
+            );
+            return normalized;
+          }
+        }
+      } catch (e) {
+        if (e is Exception &&
+            e.toString().contains('Report processing failed')) {
+          rethrow;
+        }
+        AppLogger.w('Transient error resolving report asset $cleanCode: $e');
+      }
+    }
+
+    if (lastCandidateUrl != null && lastCandidateUrl.isNotEmpty) {
+      final normalized = _normalizeDownloadUrl(lastCandidateUrl);
+      AppLogger.d(
+        'Asset polling completed, using candidate download URL: $normalized',
+      );
+      return normalized;
+    }
+
+    throw Exception(
+      'Report is still processing. Please try again in a few moments.',
     );
+  }
 
-    final responseData = response.data ?? {};
-    final assets = responseData['data']?['assets'] as List?;
+  bool _hasProcessedVariant(Map<String, dynamic> asset) {
+    final direct = (asset['deliveryUrl'] ?? '').toString().trim();
+    if (direct.isNotEmpty) return true;
 
-    if (assets == null || assets.isEmpty) {
-      throw Exception('Asset not found or resolve failed');
+    final variants = asset['variants'];
+    if (variants is List) {
+      for (final row in variants.whereType<Map>()) {
+        final delivery = (row['deliveryUrl'] ?? '').toString().trim();
+        final artifact = (row['artifactUrl'] ?? '').toString().trim();
+        if (delivery.isNotEmpty || artifact.isNotEmpty) return true;
+      }
+    }
+    return false;
+  }
+
+  /// Pulls the downloadable URL out of a resolved media-asset.
+  ///
+  /// Some assets carry the URL directly (`deliveryUrl`/`originalDownloadUrl`),
+  /// but report assets only get a URL once a processed artifact exists —
+  /// that lives under `variants[]` (e.g. `artifactUrl` on the
+  /// `defaultVariant: true` entry), not on the asset itself.
+  String? _extractAssetDownloadUrl(Map<String, dynamic> asset) {
+    String pickFromMap(Map<dynamic, dynamic> map) {
+      final candidates = <dynamic>[
+        map['deliveryUrl'],
+        map['artifactUrl'],
+        map['url'],
+      ];
+      for (final raw in candidates) {
+        final value = (raw ?? '').toString().trim();
+        if (value.isNotEmpty) return value;
+      }
+      return '';
     }
 
-    final asset = assets[0] as Map<String, dynamic>;
-    // Prefer deliveryUrl (direct CDN) over originalDownloadUrl (template/API endpoint)
-    var downloadUrl = asset['deliveryUrl'] ?? asset['originalDownloadUrl'];
-
-    if (downloadUrl == null) {
-      throw Exception('No download URL found in resolved asset');
+    // 1. Prioritize processed variants
+    final variants = asset['variants'];
+    if (variants is List) {
+      for (final row in variants.whereType<Map>()) {
+        final isDefault =
+            (row['defaultVariant'] ?? false).toString().toLowerCase() == 'true';
+        if (!isDefault) continue;
+        final fromDefault = pickFromMap(row);
+        if (fromDefault.isNotEmpty) return fromDefault;
+      }
+      for (final row in variants.whereType<Map>()) {
+        final any = pickFromMap(row);
+        if (any.isNotEmpty) return any;
+      }
     }
 
-    downloadUrl = downloadUrl as String;
+    // 2. Direct fields on asset
+    final direct = pickFromMap(asset);
+    if (direct.isNotEmpty) return direct;
+
+    // 3. Fallback to original download URL if variants are not available
+    final original = (asset['originalDownloadUrl'] ?? '').toString().trim();
+    if (original.isNotEmpty) return original;
+
+    return null;
+  }
+
+  String _normalizeDownloadUrl(String url) {
+    var downloadUrl = url.trim();
+    if (downloadUrl.isEmpty) return downloadUrl;
 
     // Replace template variable if present (fallback for originalDownloadUrl)
-    if (downloadUrl.contains('\${DOCUMENT_PUBLIC_BASE_URL}')) {
-      final baseUrl = _dio.options.baseUrl;
+    if (downloadUrl.contains(r'${DOCUMENT_PUBLIC_BASE_URL}')) {
+      final baseUrl = _dio.options.baseUrl.isNotEmpty
+          ? _dio.options.baseUrl
+          : ApiConstants.documentMsBaseUrl;
       downloadUrl = downloadUrl.replaceAll(
-        '\${DOCUMENT_PUBLIC_BASE_URL}',
+        r'${DOCUMENT_PUBLIC_BASE_URL}',
         baseUrl,
       );
       AppLogger.d('Replaced DOCUMENT_PUBLIC_BASE_URL template with: $baseUrl');
     }
 
-    AppLogger.d('Asset resolved successfully, download URL obtained: $downloadUrl');
+    // In UAT, ensure /api/v1/media-assets/ has the /document/ prefix
+    if (ApiConstants.isGatewayEnv) {
+      if (downloadUrl.startsWith('/api/v1/media-assets/')) {
+        downloadUrl = downloadUrl.replaceFirst(
+          '/api/v1/media-assets/',
+          '/api/v1/document/media-assets/',
+        );
+      } else if (downloadUrl.contains('://') &&
+          downloadUrl.contains('/api/v1/media-assets/')) {
+        downloadUrl = downloadUrl.replaceAll(
+          '/api/v1/media-assets/',
+          '/api/v1/document/media-assets/',
+        );
+      }
+    }
+
+    // If relative path, turn into full URL using ApiPaths.url
+    if (downloadUrl.startsWith('/')) {
+      downloadUrl = ApiPaths.url(downloadUrl);
+    }
+
+    downloadUrl = _sanitizeDownloadUrlHost(downloadUrl);
     return downloadUrl;
+  }
+
+  /// The document microservice sometimes echoes back its own internal
+  /// `localhost` (or unreachable loopback) host in `deliveryUrl`/
+  /// `originalDownloadUrl` instead of the public-facing one — the device
+  /// can never reach that host, so rewrite scheme/host/port to the
+  /// configured document-MS base URL while keeping the backend's path
+  /// (e.g. `/document-ms/api/v1/media-assets/{code}/artifacts/original`)
+  /// untouched.
+  String _sanitizeDownloadUrlHost(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.hasAuthority) return url;
+
+    final isLoopback =
+        uri.host.isEmpty || uri.host == 'localhost' || uri.host == '127.0.0.1';
+    if (!isLoopback) return url;
+
+    final documentBase = Uri.tryParse(ApiConstants.documentMsBaseUrl);
+    if (documentBase == null || !documentBase.hasAuthority) return url;
+
+    final rewritten = uri.replace(
+      scheme: documentBase.scheme,
+      host: documentBase.host,
+      port: documentBase.hasPort ? documentBase.port : null,
+    );
+    AppLogger.w(
+      '[REPORTS] Backend returned a loopback download URL ($url); '
+      'rewriting host to ${documentBase.host}',
+    );
+    return rewritten.toString();
   }
 
   @override
   Future<List<int>> downloadReportFile(String downloadUrl) async {
     AppLogger.d('Downloading report file from URL');
 
+    final normalizedUrl = _normalizeDownloadUrl(downloadUrl);
+
     final response = await _dio.get<List<int>>(
-      downloadUrl,
+      normalizedUrl,
       options: Options(responseType: ResponseType.bytes),
     );
 
@@ -353,7 +453,9 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       throw Exception('Failed to download report: No data received');
     }
 
-    AppLogger.d('Report file downloaded successfully: ${response.data!.length} bytes');
+    AppLogger.d(
+      'Report file downloaded successfully: ${response.data!.length} bytes',
+    );
     return response.data!;
   }
 }

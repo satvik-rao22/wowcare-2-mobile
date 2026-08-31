@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/unread_badge_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
@@ -26,6 +27,7 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
+import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -67,6 +69,24 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   // on top of (and brighter than) the drawer's dim scrim.
   bool _isDrawerOpen = false;
 
+  // Show/hide the bottom nav bar on scroll, mirroring GlobalScaffold (this view
+  // uses its own Scaffold for the tabbed app bar, so it replicates that here).
+  bool _showBars = true;
+
+  /// Hide the bottom nav while scrolling down (reverse), reveal it scrolling up.
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification is UserScrollNotification &&
+        notification.metrics.axis == Axis.vertical) {
+      final direction = notification.direction;
+      if (direction == ScrollDirection.reverse && _showBars) {
+        setState(() => _showBars = false);
+      } else if (direction == ScrollDirection.forward && !_showBars) {
+        setState(() => _showBars = true);
+      }
+    }
+    return false;
+  }
+
   // Keys to reach each tab's state so an attendance action can reload all
   // three tabs (Daily, Custom, Absent) — see _refreshAllAfterAttendanceFlow.
   final GlobalKey _dailyViewKey = GlobalKey();
@@ -101,7 +121,16 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   }
 
   Future<bool> _resolveIsParentSession() async {
-    if (context.read<RoleCubit>().isParent) return true;
+    final roleCubit = context.read<RoleCubit>();
+    // Once RoleCubit has resolved the ACTIVE persona, it is authoritative —
+    // trust it even when false. A dual-role account (e.g. SCHOOL_ADMIN +
+    // GUARDIAN) has 'GUARDIAN' somewhere in its full roles list regardless of
+    // which persona is currently active, so scanning that list below would
+    // wrongly flip an admin who switched profiles back to the guardian view.
+    // Only fall through to the best-effort scan while RoleCubit is still
+    // bootstrapping (no active persona resolved yet).
+    if (roleCubit.hasResolvedAccess) return roleCubit.isParent;
+    if (roleCubit.isParent) return true;
     try {
       final storage = serviceLocator<StorageService>();
       final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
@@ -136,36 +165,24 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
 
   Future<void> _loadStaffPersonaFlags() async {
     try {
+      // Roles are per-school (a user can be SCHOOL_ADMIN in one school and STAFF
+      // in another), so scanning the global login roles/staffType mis-detects
+      // the persona. RoleCubit resolves the ACTIVE school's role, so key off it:
+      // only the staff (teacher) persona gets the self-scoped view; the admin
+      // persona manages all staff. staffCode is still loaded for self-scoping.
+      final isStaffPersona = context.read<RoleCubit>().isStaff;
+
       final storage = serviceLocator<StorageService>();
       var staffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
           .trim();
       if (staffCode.isEmpty) {
         staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
       }
-      final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-          .trim()
-          .toUpperCase();
-
-      bool isStaffAdmin =
-          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
-
-      if (!isStaffAdmin) {
-        final rolesJson = await storage.getString(StorageKeys.roles);
-        if (rolesJson != null && rolesJson.trim().isNotEmpty) {
-          final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
-          isStaffAdmin = roles.any((r) {
-            if (r is! Map<String, dynamic>) return false;
-            final roleCode = (r['role'] ?? '').toString().toUpperCase();
-            return roleCode == 'SCHOOL_ADMIN' ||
-                roleCode == 'ORGANIZATION_ADMIN';
-          });
-        }
-      }
 
       if (!mounted) return;
       setState(() {
         _loggedInStaffCode = staffCode;
-        _isTeacherStaffPersona = staffCode.isNotEmpty && !isStaffAdmin;
+        _isTeacherStaffPersona = isStaffPersona && staffCode.isNotEmpty;
       });
     } catch (_) {
       if (!mounted) return;
@@ -269,52 +286,55 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
               onDrawerChanged: (isOpen) {
                 if (mounted) setState(() => _isDrawerOpen = isOpen);
               },
-              body: SafeArea(
-                // Allow the tab contents to respect the device's bottom inset
-                // so that the scrollable lists aren't clipped underneath
-                // the bottom navigation bar and can scroll naturally.
-                bottom: true,
-                child: GradientBackground(
-                  child: Padding(
-                    padding: ResponsiveSizing.contentPadding(context),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4, bottom: 8),
-                          child: Text(
-                            'Staff Attendance',
-                            style: TextStyle(
-                              fontFamily: Fonts.manrope,
-                              fontSize: responsive.isTablet ? 22 : 18,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primaryColor,
+              body: NotificationListener<ScrollNotification>(
+                onNotification: _handleScrollNotification,
+                child: SafeArea(
+                  // Allow the tab contents to respect the device's bottom inset
+                  // so that the scrollable lists aren't clipped underneath
+                  // the bottom navigation bar and can scroll naturally.
+                  bottom: true,
+                  child: GradientBackground(
+                    child: Padding(
+                      padding: ResponsiveSizing.contentPadding(context),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4, bottom: 8),
+                            child: Text(
+                              'Staff Attendance',
+                              style: TextStyle(
+                                fontFamily: Fonts.manrope,
+                                fontSize: responsive.isTablet ? 22 : 18,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primaryColor,
+                              ),
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: TabBarView(
-                            controller: _tabController,
-                            children: [
-                              StaffAttendanceDailyViewScreen(
-                                key: _dailyViewKey,
-                                incomingFilter: widget.dailyIncomingFilter,
-                                contentOnly: true,
-                                classroomFilter: widget.classroomFilter,
-                                onAttendanceMutated: _refreshSecondaryTabs,
-                              ),
-                              StaffAttendanceCustomView(
-                                key: _customViewKey,
-                                contentOnly: true,
-                              ),
-                              StaffAttendanceAbsentView(
-                                key: _absentViewKey,
-                                contentOnly: true,
-                              ),
-                            ],
+                          Expanded(
+                            child: TabBarView(
+                              controller: _tabController,
+                              children: [
+                                StaffAttendanceDailyViewScreen(
+                                  key: _dailyViewKey,
+                                  incomingFilter: widget.dailyIncomingFilter,
+                                  contentOnly: true,
+                                  classroomFilter: widget.classroomFilter,
+                                  onAttendanceMutated: _refreshSecondaryTabs,
+                                ),
+                                StaffAttendanceCustomView(
+                                  key: _customViewKey,
+                                  contentOnly: true,
+                                ),
+                                StaffAttendanceAbsentView(
+                                  key: _absentViewKey,
+                                  contentOnly: true,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -322,8 +342,15 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
               extendBody: true,
               // Attendance is the bottom-nav slot at index 1 (a popup slot with
               // no branch), so highlight it explicitly while on this view.
-              bottomNavigationBar: const CustomNavigationBar(
-                activeTabIndexOverride: 1,
+              // Animate the bar away while scrolling down, like GlobalScaffold.
+              bottomNavigationBar: AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                child: _showBars
+                    ? const CustomNavigationBar(
+                        activeItemOverride: BottomNavigationItem.attendance,
+                      )
+                    : const SizedBox.shrink(),
               ),
             ),
           ),

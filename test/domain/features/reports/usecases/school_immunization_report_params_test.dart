@@ -20,7 +20,9 @@ void main() {
         statusFilters: statusFilters,
         includeParentName: true,
         includeParentEmail: true,
+
         format: 'PDF',
+        schoolName: 'Dummy School',
       );
 
       expect(params.reportType, ReportType.immunization);
@@ -44,6 +46,7 @@ void main() {
         classroomCodes: classrooms,
         tagCodes: tags,
         format: 'PDF',
+        schoolName: 'Dummy School',
       );
 
       expect(params.classroomCodes, classrooms);
@@ -58,6 +61,7 @@ void main() {
         vaccineCodes: const ['DTaP', 'Polio'],
         statusFilters: const ['ACTIVE', 'UPCOMING'],
         includeParentName: true,
+        schoolName: 'Dummy School',
         includeParentEmail: false,
         format: 'PDF',
       );
@@ -66,7 +70,7 @@ void main() {
 
       expect(body['reportType'], 'IMMUNIZATION');
       expect(body['vaccineCodes'], const ['DTaP', 'Polio']);
-      expect(body['statuses'], const ['ACTIVE', 'UPCOMING']);
+      expect(body['statusFilter'], const ['ACTIVE', 'UPCOMING']);
     });
 
     test('toRequestBody includes parent info flags', () {
@@ -77,6 +81,7 @@ void main() {
         vaccineCodes: vaccineCodes,
         statusFilters: statusFilters,
         includeParentName: true,
+        schoolName: 'Dummy School',
         includeParentEmail: false,
         format: 'PDF',
       );
@@ -96,13 +101,14 @@ void main() {
         statusFilters: statusFilters,
         includeParentName: true,
         includeParentEmail: true,
+        schoolName: 'Dummy School',
         format: 'PDF',
       );
 
       final body = params.toRequestBody();
 
-      expect(body.containsKey('classrooms'), false);
-      expect(body.containsKey('tags'), false);
+      expect(body.containsKey('roomCodes'), false);
+      expect(body.containsKey('tagCodes'), false);
     });
 
     test('toRequestBody includes non-empty arrays', () {
@@ -112,6 +118,7 @@ void main() {
         endDate: endDate,
         vaccineCodes: vaccineCodes,
         statusFilters: statusFilters,
+        schoolName: 'Dummy School',
         includeParentName: true,
         includeParentEmail: true,
         classroomCodes: classrooms,
@@ -121,8 +128,8 @@ void main() {
 
       final body = params.toRequestBody();
 
-      expect(body['classrooms'], classrooms);
-      expect(body['tags'], tags);
+      expect(body['roomCodes'], classrooms);
+      expect(body['tagCodes'], tags);
     });
 
     test('toCacheIdentifier includes vaccine and status filters', () {
@@ -135,6 +142,7 @@ void main() {
         includeParentName: true,
         includeParentEmail: true,
         format: 'PDF',
+        schoolName: 'Dummy School',
       );
 
       final identifier = params.toCacheIdentifier();
@@ -154,6 +162,7 @@ void main() {
         includeParentName: true,
         includeParentEmail: true,
         format: 'PDF',
+        schoolName: 'Dummy School',
       );
 
       final params2 = SchoolImmunizationReportParams(
@@ -162,6 +171,7 @@ void main() {
         endDate: endDate,
         vaccineCodes: vaccineCodes,
         statusFilters: statusFilters,
+        schoolName: 'Dummy School',
         includeParentName: true,
         includeParentEmail: true,
         format: 'PDF',
@@ -178,6 +188,7 @@ void main() {
         vaccineCodes: vaccineCodes,
         statusFilters: statusFilters,
         includeParentName: true,
+        schoolName: 'Dummy School',
         includeParentEmail: true,
         format: 'PDF',
       );
@@ -189,6 +200,7 @@ void main() {
         vaccineCodes: vaccineCodes,
         statusFilters: statusFilters,
         includeParentName: false,
+        schoolName: 'Dummy School',
         includeParentEmail: true,
         format: 'PDF',
       );
@@ -204,6 +216,7 @@ void main() {
         vaccineCodes: vaccineCodes,
         statusFilters: statusFilters,
         includeParentName: true,
+        schoolName: 'Dummy School',
         includeParentEmail: true,
         format: 'PDF',
       );
@@ -218,6 +231,7 @@ void main() {
         reportType: ReportType.immunization,
         startDate: startDate,
         endDate: endDate,
+        schoolName: 'Dummy School',
         vaccineCodes: vaccineCodes,
         statusFilters: const ['ACTIVE', 'UPCOMING', 'INACTIVE'],
         includeParentName: true,
@@ -227,8 +241,8 @@ void main() {
 
       final body = params.toRequestBody();
 
-      expect(body['statuses'].length, 3);
-      expect(body['statuses'], contains('INACTIVE'));
+      expect(body['statusFilter'].length, 3);
+      expect(body['statusFilter'], contains('INACTIVE'));
     });
 
     test('correctly handles ACTIVE status filter', () {
@@ -240,12 +254,13 @@ void main() {
         statusFilters: const ['ACTIVE'],
         includeParentName: true,
         includeParentEmail: true,
+        schoolName: 'Dummy School',
         format: 'PDF',
       );
 
       final body = params.toRequestBody();
 
-      expect(body['statuses'], ['ACTIVE']);
+      expect(body['statusFilter'], ['ACTIVE']);
     });
 
     test('correctly handles UPCOMING status filter', () {
@@ -256,13 +271,14 @@ void main() {
         vaccineCodes: vaccineCodes,
         statusFilters: const ['UPCOMING'],
         includeParentName: true,
+        schoolName: 'Dummy School',
         includeParentEmail: true,
         format: 'PDF',
       );
 
       final body = params.toRequestBody();
 
-      expect(body['statuses'], ['UPCOMING']);
+      expect(body['statusFilter'], ['UPCOMING']);
     });
 
     test('correctly handles INACTIVE status filter', () {
@@ -274,12 +290,13 @@ void main() {
         statusFilters: const ['INACTIVE'],
         includeParentName: true,
         includeParentEmail: true,
+        schoolName: 'Dummy School',
         format: 'PDF',
       );
 
       final body = params.toRequestBody();
 
-      expect(body['statuses'], ['INACTIVE']);
+      expect(body['statusFilter'], ['INACTIVE']);
     });
   });
 }

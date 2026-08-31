@@ -1,11 +1,8 @@
-import 'dart:async';
-
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
-import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -33,12 +30,12 @@ class _BillingPlanReportScreenState extends State<BillingPlanReportScreen> {
   String _frequency = 'Monthly';
   late DateTime _periodMonth;
   List<String> _selectedClassrooms = <String>[];
-  String _format = 'PDF';
+  String _format = 'XLSX';
 
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
+    final now = AppTime.now();
     _periodMonth = DateTime(now.year, now.month, 1);
   }
 
@@ -92,8 +89,12 @@ class _BillingPlanReportScreenState extends State<BillingPlanReportScreen> {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
 
-                  context.go('/dashboard/reports?tab=0');
+                  // Pop (not context.go) — this screen was pushed via plain
+                  // Navigator.push, so only popping actually dismisses it;
+                  // the hub's own .then((success) => tab 0) callback reacts
+                  // to the pop(true) result.
                   context.read<ReportsCubit>().clearGeneratedReport();
+                  Navigator.of(context).pop(true);
                 });
               }
             }
@@ -118,7 +119,6 @@ class _BillingPlanReportScreenState extends State<BillingPlanReportScreen> {
                     labelStyle: _labelStyle(responsive),
                     showAsterisk: true,
                     labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                    prependHintAsSelectableItem: false,
                     onSelect: (val) {
                       if (val == null) return;
                       setState(() => _frequency = val);

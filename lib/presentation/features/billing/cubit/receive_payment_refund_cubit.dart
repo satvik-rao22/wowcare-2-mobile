@@ -1,4 +1,5 @@
 import 'package:bloc/bloc.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:equatable/equatable.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -145,7 +146,7 @@ class ReceivePaymentRefundCubit extends Cubit<ReceivePaymentRefundState> {
         await _createPayment(InvoicePaymentParams(
           schoolCode: schoolCode,
           amount: entry.value,
-          date: DateTime.now(),
+          date: AppTime.now(),
           ownerType: ownerType,
           ownerCode: ownerCode,
           studentCode: entry.key.isNotEmpty ? entry.key : null,
@@ -208,7 +209,7 @@ class ReceivePaymentRefundCubit extends Cubit<ReceivePaymentRefundState> {
       final params = InvoicePaymentParams(
         schoolCode: schoolCode,
         amount: double.tryParse(amount.trim()) ?? 0,
-        date: DateTime.now(),
+        date: AppTime.now(),
         ownerType: ownerType,
         ownerCode: ownerCode,
         studentCode: studentCode,

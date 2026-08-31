@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/server_time_service.dart';
 part of 'student_mark_absent_cubit.dart';
 
 /// UI-only student entity used by the attendance mark-absent form. Equality is
@@ -53,7 +54,7 @@ class StudentMarkAbsentState extends Equatable {
   });
 
   factory StudentMarkAbsentState.initial() {
-    final now = DateTime.now();
+    final now = ServerTimeService.instance.now();
     final today = DateTime(now.year, now.month, now.day);
     return StudentMarkAbsentState(
       students: const <StudentEntity>[],

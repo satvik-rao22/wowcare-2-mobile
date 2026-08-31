@@ -289,6 +289,19 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     emit(state.copyWith(selectedStudents: next, selectedStudentsData: nextData));
   }
 
+  Future<bool> verifyPickedStaffSignedIn({
+    required bool isEdit,
+    required bool isAdminDesignation,
+    required String? pickedStaffCode,
+    required String? ownStaffCode,
+  }) =>
+      _editor.verifyPickedStaffSignedIn(
+        isEdit: isEdit,
+        isAdminDesignation: isAdminDesignation,
+        pickedStaffCode: pickedStaffCode,
+        ownStaffCode: ownStaffCode,
+      );
+
   // ─── Submit ──────────────────────────────────────────────────────────────
 
   Future<ActivityFormOutcome> submitCreate({
@@ -299,60 +312,70 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     if (state.isSubmitting) return const ActivityFormOutcome.noop();
     if (_layoutAsEdit) return const ActivityFormOutcome.noop();
 
-    final preflight = await _preflight(
-      amountOz: amountOz,
-      description: description,
-      onValidateAttendanceWindow: onValidateAttendanceWindow,
-    );
-    if (preflight != null) return preflight;
-
-    final desc = description.trim();
-    final classroomCode = _classroomCodeFromSelection();
-    if (classroomCode.isEmpty) {
-      return const ActivityFormOutcome.error(
-        'Missing classroom information for activity',
-      );
-    }
-    final studentCodes = _studentCodesFromSelection();
-    if (studentCodes.isEmpty) {
-      return const ActivityFormOutcome.error(
-        'Unable to resolve student codes for activity',
-      );
-    }
-
-    final staffCode = state.staffCode ?? await resolveLoggedInStaffCode();
-    final schoolCode = state.schoolCode;
-    final organizationCode = state.organizationCode;
-    if (staffCode == null ||
-        schoolCode == null ||
-        organizationCode == null ||
-        staffCode.isEmpty ||
-        schoolCode.isEmpty ||
-        organizationCode.isEmpty) {
-      return const ActivityFormOutcome.error(
-        'Missing staff or school information. Please re-login and try again.',
-      );
-    }
-
-    final activityTypeCode = state.activityTypeCode;
-    if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-      return _typeError;
-    }
-
-    if (_createdFromSelection) {
-      final prefilled = resolveSelectedAttendanceDate(state.selectedStudentsData);
-      if (prefilled != null) _activityDate = prefilled;
-    }
-    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
-      date: _activityDate!,
-      time: _activityTime!,
-    );
-
     emit(state.copyWith(isSubmitting: true));
     try {
-      final details = await _editor.getActivityTypeDetails(code: activityTypeCode);
-      final parameterValues =
-          _buildParameterValues(details, desc, staffCode, amountOz!);
+      final preflight = await _preflight(
+        amountOz: amountOz,
+        description: description,
+        onValidateAttendanceWindow: onValidateAttendanceWindow,
+      );
+      if (preflight != null) return preflight;
+
+      final desc = description.trim();
+      final classroomCode = _classroomCodeFromSelection();
+      if (classroomCode.isEmpty) {
+        return const ActivityFormOutcome.error(
+          'Missing classroom information for activity',
+        );
+      }
+      final studentCodes = _studentCodesFromSelection();
+      if (studentCodes.isEmpty) {
+        return const ActivityFormOutcome.error(
+          'Unable to resolve student codes for activity',
+        );
+      }
+
+      final staffCode = state.staffCode ?? await resolveLoggedInStaffCode();
+      final schoolCode = state.schoolCode;
+      final organizationCode = state.organizationCode;
+      if (staffCode == null ||
+          schoolCode == null ||
+          organizationCode == null ||
+          staffCode.isEmpty ||
+          schoolCode.isEmpty ||
+          organizationCode.isEmpty) {
+        return const ActivityFormOutcome.error(
+          'Missing staff or school information. Please re-login and try again.',
+        );
+      }
+
+      final activityTypeCode = state.activityTypeCode;
+      if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
+        return _typeError;
+      }
+
+      if (_createdFromSelection) {
+        final prefilled = resolveSelectedAttendanceDate(
+          state.selectedStudentsData,
+        );
+        if (prefilled != null) _activityDate = prefilled;
+      }
+      final resolvedActivityTime = await resolveActivityDateTime(
+        date: _activityDate!,
+        time: _activityTime!,
+      );
+      final activityDateIso = resolvedActivityTime.iso;
+
+      final details = await _editor.getActivityTypeDetails(
+        code: activityTypeCode,
+      );
+      final parameterValues = _buildParameterValues(
+        details,
+        desc,
+        staffCode,
+        amountOz!,
+        resolvedActivityTime.localTimeHms,
+      );
 
       final message = await _editor.createActivity(
         activityTypeCode: activityTypeCode,
@@ -397,58 +420,66 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     if (state.isSubmitting) return const ActivityFormOutcome.noop();
     if (_readOnly) return const ActivityFormOutcome.noop();
 
-    final fallbackActivityCode = effectiveActivity.activityCode?.trim();
-
-    final preflight = await _preflight(
-      amountOz: amountOz,
-      description: description,
-      onValidateAttendanceWindow: onValidateAttendanceWindow,
-    );
-    if (preflight != null) return preflight;
-
-    final desc = description.trim();
-    final classroomCode = _classroomCodeFromSelection();
-    if (classroomCode.isEmpty) {
-      return const ActivityFormOutcome.error(
-        'Missing classroom information for activity',
-      );
-    }
-    final studentCodes = _studentCodesFromSelection();
-    if (studentCodes.isEmpty) {
-      return const ActivityFormOutcome.error(
-        'Unable to resolve student codes for activity',
-      );
-    }
-
-    final staffCode = state.staffCode ?? await resolveLoggedInStaffCode();
-    final schoolCode = state.schoolCode;
-    final organizationCode = state.organizationCode;
-    if (staffCode == null ||
-        schoolCode == null ||
-        organizationCode == null ||
-        staffCode.isEmpty ||
-        schoolCode.isEmpty ||
-        organizationCode.isEmpty) {
-      return const ActivityFormOutcome.error(
-        'Missing staff or school information. Please re-login and try again.',
-      );
-    }
-
-    final activityTypeCode = state.activityTypeCode;
-    if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-      return _typeError;
-    }
-
-    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
-      date: _activityDate!,
-      time: _activityTime!,
-    );
-
     emit(state.copyWith(isSubmitting: true));
     try {
-      final details = await _editor.getActivityTypeDetails(code: activityTypeCode);
-      final parameterValues =
-          _buildParameterValues(details, desc, staffCode, amountOz!);
+      final fallbackActivityCode = effectiveActivity.activityCode?.trim();
+
+      final preflight = await _preflight(
+        amountOz: amountOz,
+        description: description,
+        onValidateAttendanceWindow: onValidateAttendanceWindow,
+      );
+      if (preflight != null) return preflight;
+
+      final desc = description.trim();
+      final classroomCode = _classroomCodeFromSelection();
+      if (classroomCode.isEmpty) {
+        return const ActivityFormOutcome.error(
+          'Missing classroom information for activity',
+        );
+      }
+      final studentCodes = _studentCodesFromSelection();
+      if (studentCodes.isEmpty) {
+        return const ActivityFormOutcome.error(
+          'Unable to resolve student codes for activity',
+        );
+      }
+
+      final staffCode = state.staffCode ?? await resolveLoggedInStaffCode();
+      final schoolCode = state.schoolCode;
+      final organizationCode = state.organizationCode;
+      if (staffCode == null ||
+          schoolCode == null ||
+          organizationCode == null ||
+          staffCode.isEmpty ||
+          schoolCode.isEmpty ||
+          organizationCode.isEmpty) {
+        return const ActivityFormOutcome.error(
+          'Missing staff or school information. Please re-login and try again.',
+        );
+      }
+
+      final activityTypeCode = state.activityTypeCode;
+      if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
+        return _typeError;
+      }
+
+      final resolvedActivityTime = await resolveActivityDateTime(
+        date: _activityDate!,
+        time: _activityTime!,
+      );
+      final activityDateIso = resolvedActivityTime.iso;
+
+      final details = await _editor.getActivityTypeDetails(
+        code: activityTypeCode,
+      );
+      final parameterValues = _buildParameterValues(
+        details,
+        desc,
+        staffCode,
+        amountOz!,
+        resolvedActivityTime.localTimeHms,
+      );
 
       final remainingNorm = imageDeliveryUrlsFromAttachmentRows(
         state.detailAttachmentRows,
@@ -582,11 +613,6 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
       );
     }
     final desc = description.trim();
-    if (desc.isNotEmpty && desc.length < 5) {
-      return const ActivityFormOutcome.warning(
-        'Description must be at least 5 characters long',
-      );
-    }
     if (desc.isNotEmpty && desc.length > ActivityDescriptionLimits.maxLength) {
       return ActivityFormOutcome.warning(
         ActivityDescriptionLimits.maxLengthMessage,
@@ -617,6 +643,7 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     String description,
     String staffCode,
     double amountOz,
+    String localTimeHms,
   ) {
     String? findParamCode(String contains) {
       final target = contains.toLowerCase();
@@ -638,8 +665,7 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     String two(int v) => v.toString().padLeft(2, '0');
     final localDate =
         '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
-    final localTime =
-        '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+    final localTime = localTimeHms;
     final staffPresentCode = (_staffPresentCode ?? staffCode).trim();
 
     return <Map<String, dynamic>>[

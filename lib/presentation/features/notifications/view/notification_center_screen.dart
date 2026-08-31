@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/active_school_switcher.dart';
+import 'package:wowcare/core/util/notification_events.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
@@ -15,7 +17,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/src/app_router.dart';
 
 import '../../../../domain/features/notifications/entities/app_notification.dart';
-import '../../../../domain/features/notifications/entities/notification_category.dart';
+import '../widgets/notification_category_style.dart';
 import '../../../../domain/features/notifications/entities/push_notification.dart';
 import '../cubit/notification_center_cubit.dart';
 import '../routing/notification_route_resolver.dart';
@@ -34,6 +36,22 @@ class NotificationCenterScreen extends StatelessWidget {
   /// Category labels for the filter dropdown ("All" is the cleared/hint state).
   static const String _allLabel = 'All';
 
+  /// Interim module options for the filter dropdown. The selected value is sent
+  /// as the `module` query param (server-side filter). Replace with the modules
+  /// list from the backend once that endpoint is available.
+  static const List<String> _filterModules = <String>[
+    'ATTENDANCE',
+    'CLASSROOM',
+    'STUDENT',
+    'STAFF',
+    'BILLING',
+    'SCHEDULING',
+    'AVAILABILITY',
+    'ACTIVITY',
+    'MESSAGING',
+    'NEWSLETTER',
+  ];
+
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
@@ -44,7 +62,10 @@ class NotificationCenterScreen extends StatelessWidget {
       // Same app-wide bottom nav as the shell. The bar handles being rendered
       // outside the shell: tapping a tab routes into that branch via
       // `context.go(branchRoot)` (see CustomNavigationBar).
-      bottomNavigationBar: const CustomNavigationBar(),
+      // This route lives OUTSIDE the shell, so the bar can't read a current
+      // branch and would otherwise fall back to highlighting Dashboard (0).
+      // The notification center isn't a tab — force "no active tab".
+      bottomNavigationBar: const CustomNavigationBar(highlightNone: true),
       body: Stack(
         children: [
           Positioned.fill(
@@ -106,31 +127,68 @@ class _Header extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        SizedBox(
-          width: 150,
-          child: BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
-            buildWhen: (p, c) => p.categoryFilter != c.categoryFilter,
-            builder: (context, state) {
-              return CustomDropdown(
-                hintText: NotificationCenterScreen._allLabel,
-                showAsterisk: false,
-                items: NotificationCategory.values
-                    .map((c) => c.label)
-                    .toList(),
-                selectedItem: state.categoryFilter?.label,
-                onSelect: (label) {
-                  // Hint ("All") => null clears the filter.
-                  final category = (label == null)
-                      ? null
-                      : NotificationCategory.values
-                          .firstWhere((c) => c.label == label);
-                  context
-                      .read<NotificationCenterCubit>()
-                      .setCategoryFilter(category);
-                },
-              );
-            },
-          ),
+        BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
+          buildWhen: (p, c) => p.moduleFilter != c.moduleFilter,
+          builder: (context, state) {
+            // Raw module string → display label. Selecting a label maps back
+            // to the raw module sent as the `module` query param.
+            // TODO(notifications): source this list from the modules API
+            // instead of the interim constant below.
+            final modules = NotificationCenterScreen._filterModules;
+            final labelToModule = <String, String>{
+              for (final m in modules)
+                NotificationCategoryStyle.moduleLabel(m): m,
+            };
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 150,
+                  child: CustomDropdown(
+                    hintText: NotificationCenterScreen._allLabel,
+                    showAsterisk: false,
+                    items: labelToModule.keys.toList(),
+                    selectedItem: state.moduleFilter == null
+                        ? null
+                        : NotificationCategoryStyle.moduleLabel(
+                            state.moduleFilter!,
+                          ),
+                    onSelect: (label) {
+                      // Hint ("All") => null clears the filter (server
+                      // returns all).
+                      final module = (label == null)
+                          ? null
+                          : labelToModule[label];
+                      context
+                          .read<NotificationCenterCubit>()
+                          .setModuleFilter(module);
+                    },
+                  ),
+                ),
+                // The dropdown itself has no way back to "All" once a
+                // module is picked — "All" is only its unselectable hint
+                // text, not an item in the list — so this was the only way
+                // to clear a filter short of leaving and reopening the
+                // notification center.
+                if (state.moduleFilter != null)
+                  Tooltip(
+                    message: 'Clear filter',
+                    child: IconButton(
+                      onPressed: () => context
+                          .read<NotificationCenterCubit>()
+                          .setModuleFilter(null),
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                      color: const Color(0xff573353),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -211,10 +269,19 @@ class _NotificationsListState extends State<_NotificationsList> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    // Reload the list live when a new notification arrives while this screen
+    // is open (fired by the FCM foreground handler).
+    NotificationEvents.inboxChanged.addListener(_onInboxChanged);
+  }
+
+  void _onInboxChanged() {
+    if (!mounted) return;
+    context.read<NotificationCenterCubit>().refresh();
   }
 
   @override
   void dispose() {
+    NotificationEvents.inboxChanged.removeListener(_onInboxChanged);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
@@ -242,15 +309,16 @@ class _NotificationsListState extends State<_NotificationsList> {
       type: n.data['module'],
       data: n.data,
     );
-    final destination = NotificationRouteResolver.resolve(message);
-    if (destination == null) return;
-    unawaited(_navigate(message, destination));
+    // Cheap, persona-independent check first so we don't switch school for an
+    // action that has no in-app destination (mirrors [NotificationNavigator]).
+    if (NotificationRouteResolver.resolve(message) == null) return;
+    unawaited(_navigate(message));
   }
 
-  Future<void> _navigate(
-    PushNotification message,
-    NotificationDestination destination,
-  ) async {
+  Future<void> _navigate(PushNotification message) async {
+    // Capture the role cubit before the async gap; reading `.isParent` after the
+    // switch then reflects the TARGET school's persona.
+    final roleCubit = context.read<RoleCubit>();
     // Switch the active org/school first if the notification targets a different
     // school the user belongs to, so the destination loads the right data.
     if (mounted) {
@@ -260,6 +328,14 @@ class _NotificationsListState extends State<_NotificationsList> {
         schoolCode: message.schoolCode,
       );
     }
+    // Resolve with the persona: billing opens the PARENT billing screen for
+    // guardians and the admin billing screen for staff/admins. Without this a
+    // parent landed on the admin billing screen, which shows no data for them.
+    final destination = NotificationRouteResolver.resolve(
+      message,
+      isGuardian: roleCubit.isParent,
+    );
+    if (destination == null) return;
     appRouter.go(destination.location);
   }
 
@@ -279,11 +355,8 @@ class _NotificationsListState extends State<_NotificationsList> {
         }
 
         final items = state.visibleItems;
-        // Show the next-page loader only when paging the full (unfiltered) list:
-        // category/unread filters are client-side over already-loaded items.
-        final bool showFooterLoader = state.isLoadingMore &&
-            state.categoryFilter == null &&
-            !state.onlyUnread;
+        // Filters are applied server-side now, so paging works with any filter.
+        final bool showFooterLoader = state.isLoadingMore;
         return CustomRefreshIndicator(
           onRefresh: () => context.read<NotificationCenterCubit>().refresh(),
           child: items.isEmpty

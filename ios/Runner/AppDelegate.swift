@@ -1,9 +1,38 @@
 import Flutter
 import UIKit
 import UserNotifications
+import AVFoundation
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+
+  // MARK: - UIApplicationDelegate
+
+  // Overriding didFinishLaunchingWithOptions lets us check for a background
+  // location relaunch (UIApplication.LaunchOptionsKey.location). When iOS
+  // terminates the app and the device crosses a CLCircularRegion boundary, iOS
+  // relaunches the process with this key set. CLLocationManager then calls
+  // didEnterRegion / didExitRegion on GeofencePlugin, which shows the local
+  // notification. Checking the key here signals to the OS that we handle this
+  // relaunch scenario intentionally, improving reliability on subsequent kills.
+  override func application(
+    _ application: UIApplication,
+    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+  ) -> Bool {
+    // PiP requires a media-playback audio session in addition to the `audio`
+    // UIBackgroundMode declared in Info.plist. Better Player activates this
+    // session when playback starts; configuring it here makes the capability
+    // available to AVPictureInPictureController on physical iPhones.
+    do {
+      try AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+    } catch {
+      print("[iOS PiP] Failed to configure playback audio session: \(error)")
+    }
+    if launchOptions?[.location] != nil {
+      print("[iOS GEOFENCE] App relaunched by OS for location event — CLLocationManager delegate will handle the pending region transition")
+    }
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
 
   // MARK: - FlutterImplicitEngineDelegate
 
@@ -18,6 +47,29 @@ import UserNotifications
         binaryMessenger: registrar.messenger()
       )
       GeofencePlugin.initializeWithChannel(geofenceChannel)
+    }
+
+    // Wire up the geofence-tap channel so Dart's _readIosGeofenceTap() can
+    // retrieve the action stored by AppDelegate.userNotificationCenter(_:didReceive:)
+    // when the user taps a geofence notification from killed or background state.
+    // Without this handler the channel call returns null silently and the app
+    // opens to its default screen instead of the attendance dashboard.
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "WowCareGeofenceTap") {
+      let tapChannel = FlutterMethodChannel(
+        name: "wowcare/geofence_tap",
+        binaryMessenger: registrar.messenger()
+      )
+      tapChannel.setMethodCallHandler { call, result in
+        guard call.method == "getPendingAction" else {
+          result(FlutterMethodNotImplemented)
+          return
+        }
+        let action = UserDefaults.standard.string(forKey: "geofence_pending_tap_action")
+        // Consume the value so a second call (e.g. hot-restart) does not re-route.
+        UserDefaults.standard.removeObject(forKey: "geofence_pending_tap_action")
+        print("[iOS GEOFENCE] getPendingAction → \(action ?? "nil")")
+        result(action)
+      }
     }
   }
 

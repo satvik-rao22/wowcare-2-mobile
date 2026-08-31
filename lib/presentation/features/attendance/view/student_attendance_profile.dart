@@ -23,11 +23,13 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
@@ -40,8 +42,9 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
     as student_absent;
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
-enum ProfileAbsentMarkMethod { gps, qr, kiosk, app, web }
+enum ProfileAbsentMarkMethod { gps, qr, kiosk, app, web, system }
 
 // Simple field widget for displaying label and text
 class _AttendanceField extends StatelessWidget {
@@ -132,6 +135,10 @@ class _AttendanceField extends StatelessWidget {
             MediaRes.gpsMethodIcon,
             width: size,
             height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case ProfileAbsentMarkMethod.qr:
@@ -141,15 +148,23 @@ class _AttendanceField extends StatelessWidget {
             MediaRes.qrAttendanceIcon,
             width: size,
             height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case ProfileAbsentMarkMethod.kiosk:
         return Tooltip(
-          message: 'PIN',
+          message: 'Kiosk',
           child: SvgPicture.asset(
-            MediaRes.pinMethodIcon,
+            MediaRes.kioskAttendenceIcons,
             width: size,
             height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case ProfileAbsentMarkMethod.app:
@@ -178,6 +193,21 @@ class _AttendanceField extends StatelessWidget {
             ),
           ),
         );
+      case ProfileAbsentMarkMethod.system:
+        // Auto sign-out performed by the system (no person). Matches web's
+        // gear/"System" indicator.
+        return Tooltip(
+          message: 'System',
+          child: SvgPicture.asset(
+            MediaRes.systemMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
     }
   }
 }
@@ -197,6 +227,7 @@ class _AttendanceModel {
   final bool isTransferSignOut;
   final ProfileAbsentMarkMethod? signInMethod;
   final ProfileAbsentMarkMethod? signOutMethod;
+  final String notExpectedComment;
 
   _AttendanceModel({
     required this.date,
@@ -212,6 +243,7 @@ class _AttendanceModel {
     this.isTransferSignOut = false,
     this.signInMethod,
     this.signOutMethod,
+    this.notExpectedComment = '',
   });
 }
 
@@ -222,6 +254,7 @@ class _AbsentDayModel {
   final String absentBy;
   final String note;
   final ProfileAbsentMarkMethod? markAbsentMethod;
+  final String classroomName;
 
   _AbsentDayModel({
     required this.startDate,
@@ -230,6 +263,7 @@ class _AbsentDayModel {
     required this.absentBy,
     required this.note,
     this.markAbsentMethod,
+    this.classroomName = '',
   });
 }
 
@@ -358,6 +392,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         return ProfileAbsentMarkMethod.app;
       case 'WEB':
         return ProfileAbsentMarkMethod.web;
+      case 'SYSTEM':
+        return ProfileAbsentMarkMethod.system;
       default:
         return null;
     }
@@ -460,9 +496,11 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         return DateFormat('hh:mm a').format(dt);
       }
 
-      final iso = DateTime.tryParse(s);
-      if (iso != null) {
-        return DateFormat('hh:mm a').format(iso.toLocal());
+      // Render ISO instants in the school's zone (not the device zone) so
+      // sign-in/out times match the backend regardless of where the user is.
+      final schoolDt = attendanceDisplayDateTimeFromIso(s);
+      if (schoolDt != null) {
+        return DateFormat('hh:mm a').format(schoolDt);
       }
 
       final amPmMatch = RegExp(
@@ -520,7 +558,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     super.initState();
     showAbsentDays = widget.initialShowAbsentDays;
     _activeStudentCode = widget.studentCode.trim();
-    final now = DateTime.now();
+    final now = ServerTimeService.instance.now();
     _startDate = _startOfMonth(now);
     _endDate = _endOfMonth(now);
 
@@ -608,7 +646,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     try {
       final signOutFormList =
           serviceLocator<GetStudentSignOutFormListUseCase>();
-      final now = DateTime.now();
+      final now = ServerTimeService.instance.now();
       final date =
           '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
       final signedInPage = await signOutFormList(
@@ -673,7 +711,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     // Load today's status first so action menu enablement is correct.
     await _loadTodayStatus();
 
-    final from = _startDate ?? DateTime.now();
+    final from = _startDate ?? ServerTimeService.instance.now();
     final to = _endDate ?? from;
 
     final fromStr = DateFormat('yyyy-MM-dd').format(from);
@@ -688,7 +726,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       'sort': <String>['attendanceDate,desc'],
     };
 
-    final allowedClassroomCodes = await resolveAttendanceAllowedClassroomCodes(
+    final allowedClassroomCodes =
+        await resolveStudentAttendanceAllowedClassroomCodes(
       storage: serviceLocator<StorageService>(),
     );
     queryParameters['allowedClassroomCodes'] = List<String>.from(
@@ -716,8 +755,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           final m = e as Map<String, dynamic>;
           final dateStr = m['attendanceDate'] as String? ?? '';
           final date = dateStr.isNotEmpty
-              ? DateTime.tryParse(dateStr) ?? DateTime.now()
-              : DateTime.now();
+              ? DateTime.tryParse(dateStr) ?? ServerTimeService.instance.now()
+              : ServerTimeService.instance.now();
 
           final int sequenceNumber = m['sequenceNumber'] as int? ?? 1;
           final int totalSequenceCount = m['totalSequenceCount'] as int? ?? 1;
@@ -760,14 +799,40 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             fallbackClassroom,
           );
 
+          final signOutMethodEnum = _mapAbsentMethodStringToEnum(
+            m['signedOutMethod'] as String?,
+          );
+          // On a classroom transfer the "sign in/out" for that segment is the
+          // transfer itself, performed by `transferredBy`. The API leaves
+          // signedInBy/signedOutBy empty on transfer records, so fall back to
+          // transferredBy for the person's name.
+          final transferredBy = (m['transferredBy'] as String? ?? '').trim();
+
+          final rawSignedInBy = (m['signedInBy'] as String? ?? '').trim();
+          final signInByText = rawSignedInBy.isNotEmpty
+              ? rawSignedInBy
+              : (isTransferSignIn ? transferredBy : '');
+
+          // Auto sign-out has no person: the API sends signedOutMethod=SYSTEM
+          // with an empty signedOutBy. Show "System" (web parity) so the row
+          // isn't blank; keep the real name / transfer person when present.
+          final rawSignedOutBy = (m['signedOutBy'] as String? ?? '').trim();
+          final signOutByText = rawSignedOutBy.isNotEmpty
+              ? rawSignedOutBy
+              : (isTransferSignOut && transferredBy.isNotEmpty
+                  ? transferredBy
+                  : (signOutMethodEnum == ProfileAbsentMarkMethod.system
+                      ? 'System'
+                      : ''));
+
           loadedAttendances.add(
             _AttendanceModel(
               date: date,
               signInTime: effectiveSignIn,
               signOutTime: effectiveSignOut,
               roomName: resolvedClassroomName,
-              signInBy: m['signedInBy'] as String? ?? '',
-              signOutBy: m['signedOutBy'] as String? ?? 'System Auto Signout',
+              signInBy: signInByText,
+              signOutBy: signOutByText,
               attendedTime: m['attendedTime'] as String? ?? '',
               attendedHours: m['attendedHours'] as int? ?? 0,
               attendedMinutes: m['attendedMinutes'] as int? ?? 0,
@@ -776,9 +841,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
               signInMethod: _mapAbsentMethodStringToEnum(
                 m['signedInMethod'] as String?,
               ),
-              signOutMethod: _mapAbsentMethodStringToEnum(
-                m['signedOutMethod'] as String?,
-              ),
+              signOutMethod: signOutMethodEnum,
+              notExpectedComment: (m['notExpectedComment'] as String? ?? '')
+                  .trim(),
             ),
           );
         }
@@ -837,8 +902,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           final m = e as Map<String, dynamic>;
           final dateStr = m['absenceDate'] as String? ?? '';
           final date = dateStr.isNotEmpty
-              ? DateTime.tryParse(dateStr) ?? DateTime.now()
-              : DateTime.now();
+              ? DateTime.tryParse(dateStr) ?? ServerTimeService.instance.now()
+              : ServerTimeService.instance.now();
 
           loadedAbsentDays.add(
             _AbsentDayModel(
@@ -850,6 +915,12 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
               note: m['absenceNote'] as String? ?? '',
               markAbsentMethod: _mapAbsentMethodStringToEnum(
                 m['markAbsentMethod'] as String?,
+              ),
+              classroomName: _resolveClassroomNameByCode(
+                m['classroomCode'] as String?,
+                codeToNameMap,
+                (m['classroomName'] as String?)?.trim() ?? '',
+                // render-time fallback uses student?.roomName
               ),
             ),
           );
@@ -1091,7 +1162,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       hasBackButton: true,
       showCustomNavigationBar: true,
       // Highlight the Attendance tab while a parent views their child's profile.
-      activeTabIndexOverride: isParentPersona ? 1 : null,
+      activeItemOverride:
+          isParentPersona ? BottomNavigationItem.attendance : null,
       body: CustomRefreshIndicator(
         onRefresh: () async => refreshData(),
         child: SingleChildScrollView(
@@ -1365,17 +1437,20 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
 
   Widget _buildStats() {
     final report = attendanceReport;
+    final isParentPersona = context.read<RoleCubit>().isParent;
 
     if (report == null) {
       return Column(
         children: [
           InkWell(
-            onTap: () {
-              context.push(
-                StudentAttendanceTabbedView.routeName,
-                extra: {'filter': 'Present'},
-              );
-            },
+            onTap: isParentPersona
+                ? null
+                : () {
+                    context.push(
+                      StudentAttendanceTabbedView.routeName,
+                      extra: {'filter': 'Present'},
+                    );
+                  },
             child: _buildStatItem(
               icon: MediaRes.calenderClockIcon,
               iconColor: const Color(0xFF4285F4),
@@ -1388,12 +1463,14 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           _buildAttendedHoursStat(report: null),
           const SizedBox(height: 16),
           InkWell(
-            onTap: () {
-              context.push(
-                StudentAttendanceTabbedView.routeName,
-                extra: {'filter': 'Absent'},
-              );
-            },
+            onTap: isParentPersona
+                ? null
+                : () {
+                    context.push(
+                      StudentAttendanceTabbedView.routeName,
+                      extra: {'filter': 'Absent'},
+                    );
+                  },
             child: _buildStatItem(
               icon: MediaRes.calenderClockIcon,
               iconColor: const Color(0xFF4285F4),
@@ -1409,12 +1486,14 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     return Column(
       children: [
         InkWell(
-          onTap: () {
-            context.push(
-              StudentAttendanceTabbedView.routeName,
-              extra: {'filter': 'Present'},
-            );
-          },
+          onTap: isParentPersona
+              ? null
+              : () {
+                  context.push(
+                    StudentAttendanceTabbedView.routeName,
+                    extra: {'filter': 'Present'},
+                  );
+                },
           child: _buildStatItem(
             icon: MediaRes.calenderClockIcon,
             iconColor: const Color(0xFF4285F4),
@@ -1427,12 +1506,14 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         _buildAttendedHoursStat(report: report),
         const SizedBox(height: 16),
         InkWell(
-          onTap: () {
-            context.push(
-              StudentAttendanceTabbedView.routeName,
-              extra: {'filter': 'Absent'},
-            );
-          },
+          onTap: isParentPersona
+              ? null
+              : () {
+                  context.push(
+                    StudentAttendanceTabbedView.routeName,
+                    extra: {'filter': 'Absent'},
+                  );
+                },
           child: _buildStatItem(
             icon: MediaRes.calenderClockIcon,
             iconColor: const Color(0xFF4285F4),
@@ -1662,6 +1743,24 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     return _formatTime12h(time);
   }
 
+  bool _isKioskOrPinMethodEnum(ProfileAbsentMarkMethod? method) {
+    return method == ProfileAbsentMarkMethod.kiosk;
+  }
+
+  String _resolveSignInByDisplay(String signInBy, ProfileAbsentMarkMethod? method) {
+    final name = signInBy.trim();
+    if (name.isNotEmpty) return name;
+    if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
+    return '';
+  }
+
+  String _resolveSignOutByDisplay(String signOutBy, ProfileAbsentMarkMethod? method) {
+    final name = signOutBy.trim();
+    if (name.isNotEmpty) return name;
+    if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
+    return '';
+  }
+
   Widget _buildAttendanceItem(int index) {
     final attendance = attendances[index];
     final collapsedText = _formatAttendedTimeForCard(attendance);
@@ -1711,7 +1810,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Sign In By',
-            text: getFirstName(attendance.signInBy),
+            text: _resolveSignInByDisplay(attendance.signInBy, attendance.signInMethod),
           ),
           const SizedBox(height: 16),
           _AttendanceField(
@@ -1723,13 +1822,20 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Sign Out By',
-            text: getFirstName(attendance.signOutBy),
+            text: _resolveSignOutByDisplay(attendance.signOutBy, attendance.signOutMethod),
           ),
           if (_formatAttendedTimeForCard(attendance).trim().isNotEmpty) ...[
             const SizedBox(height: 16),
             _AttendanceField(
               label: 'Attended Time',
               text: _formatAttendedTimeForCard(attendance),
+            ),
+          ],
+          if (attendance.notExpectedComment.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _AttendanceField(
+              label: 'Comment',
+              text: attendance.notExpectedComment,
             ),
           ],
         ],
@@ -1770,7 +1876,20 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         children: [
           Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: 16),
-          _AttendanceField(label: 'Classroom', text: student?.roomName ?? ''),
+          _AttendanceField(
+            label: 'Classroom',
+            text: () {
+              if (absentDay.classroomName.isNotEmpty) {
+                return absentDay.classroomName;
+              }
+              final fallback = student?.roomName ?? widget.roomName;
+              return (fallback.trim().isNotEmpty &&
+                      fallback != '-' &&
+                      fallback != '—')
+                  ? fallback
+                  : '';
+            }(),
+          ),
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Date',

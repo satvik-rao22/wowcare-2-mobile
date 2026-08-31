@@ -1,10 +1,11 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -32,22 +33,13 @@ import '../../../../core/util/school_zone_datetime.dart';
 import '../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';
+import '../cubit/activity_feed_scope_cubit.dart';
 import '../cubit/activity_moderation_cubit.dart';
-import '../../../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
-import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_codes_for_activity_tag_filter_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
-import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
+import '../../../../shared/common/app/cubit/role_cubit.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_absent_form.dart'
     hide StudentAttendanceTime;
-import '../../../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
-import '../../../../domain/features/attendance/usecases/get_student_absent_records_activity_usecase.dart';
-import '../../../../domain/features/staff/repositories/staff_repository.dart';
-import '../util/activity_filter_metadata_cache.dart';
 import '../widgets/activity_feed_student_avatar.dart';
 import 'activity_filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
@@ -64,7 +56,7 @@ import 'edit_create_activity_screens/medication_activity.dart';
 import 'edit_create_activity_screens/notes_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
-import '../util/activity_parent_feed_merge.dart';
+import '../utils/activity_parent_feed_merge.dart';
 import '../utils/activity_staff_display.dart';
 import '../utils/activity_patch_attachments.dart';
 import 'activity_feed_card_permissions.dart';
@@ -99,7 +91,7 @@ bool activityHasMediaOrProcessing(ActivityItem activity) {
   return false;
 }
 
-class ActivityDailyTab extends StatefulWidget {
+class ActivityDailyTab extends StatelessWidget {
   const ActivityDailyTab({
     super.key,
     this.fromStudentProfile = false,
@@ -109,6 +101,8 @@ class ActivityDailyTab extends StatefulWidget {
     this.allowActivityWrite = true,
     this.highlightCode,
     this.highlightDate,
+    this.highlightClassroomCode,
+    this.onRefreshStaffSignInStatus,
   });
 
   /// Activity code from a notification deep-link; the matching feed card is
@@ -118,6 +112,11 @@ class ActivityDailyTab extends StatefulWidget {
   /// Date of the deep-linked activity (yyyy-MM-dd) so the feed opens on that
   /// day rather than today — otherwise the highlighted card isn't in view.
   final DateTime? highlightDate;
+
+  /// Classroom of the deep-linked activity. The feed loads ONE classroom at a
+  /// time, so without selecting this room the target card isn't in the list and
+  /// the highlight silently no-ops.
+  final String? highlightClassroomCode;
 
   final bool fromStudentProfile;
 
@@ -131,13 +130,60 @@ class ActivityDailyTab extends StatefulWidget {
   /// Edit / delete / add; false when [DAILY_ACTIVITY] has `write: false`.
   final bool allowActivityWrite;
 
+  /// Re-checks the staff persona's today sign-in status (drives the parent
+  /// screen's Add-activity FAB gate). Invoked on manual pull-to-refresh so the
+  /// FAB reflects a sign-in/out done elsewhere without needing an app restart.
+  final Future<void> Function()? onRefreshStaffSignInStatus;
+
   static const String routeName = '/activityDailyTab';
 
   @override
-  State<ActivityDailyTab> createState() => _ActivityDailyTabState();
+  Widget build(BuildContext context) {
+    return BlocProvider<ActivityFeedScopeCubit>(
+      create: (_) => serviceLocator<ActivityFeedScopeCubit>(),
+      child: _ActivityDailyTabView(
+        fromStudentProfile: fromStudentProfile,
+        studentName: studentName,
+        studentProfile: studentProfile,
+        isNotParent: isNotParent,
+        allowActivityWrite: allowActivityWrite,
+        highlightCode: highlightCode,
+        highlightDate: highlightDate,
+        highlightClassroomCode: highlightClassroomCode,
+        onRefreshStaffSignInStatus: onRefreshStaffSignInStatus,
+      ),
+    );
+  }
 }
 
-class _ActivityDailyTabState extends State<ActivityDailyTab>
+class _ActivityDailyTabView extends StatefulWidget {
+  const _ActivityDailyTabView({
+    this.fromStudentProfile = false,
+    this.studentName,
+    this.studentProfile,
+    this.isNotParent = true,
+    this.allowActivityWrite = true,
+    this.highlightCode,
+    this.highlightDate,
+    this.highlightClassroomCode,
+    this.onRefreshStaffSignInStatus,
+  });
+
+  final String? highlightCode;
+  final DateTime? highlightDate;
+  final String? highlightClassroomCode;
+  final bool fromStudentProfile;
+  final String? studentName;
+  final Map<String, dynamic>? studentProfile;
+  final bool isNotParent;
+  final bool allowActivityWrite;
+  final Future<void> Function()? onRefreshStaffSignInStatus;
+
+  @override
+  State<_ActivityDailyTabView> createState() => _ActivityDailyTabViewState();
+}
+
+class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
@@ -155,7 +201,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   late bool isNotParent;
   bool get _parentHome => !isNotParent && !widget.fromStudentProfile;
 
-  DateTime? _selectedDate = DateTime.now();
+  DateTime? _selectedDate = AppTime.now();
   String _schoolIana = SchoolTimezoneResolver.fallbackTimeZone;
   String? _selectdClassroom;
   String? _selectedStudent;
@@ -210,19 +256,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   bool _loadingParentContext = false;
   String? _lastGlobalSelectedStudentCode;
 
-  late final GetDailyActivityFeedUseCase _getDailyActivityFeedUseCase;
-  late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
-  late final GetActiveActivityTypesForSchoolUseCase
-  _getActiveActivityTypesForSchoolUseCase;
-  late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
-  late final GetTagNameCodeMapForSchoolUseCase
-  _getTagNameCodeMapForSchoolUseCase;
-  late final GetStudentCodesForActivityTagFilterUseCase
-  _getStudentCodesForActivityTagFilterUseCase;
-  late final GetStudentPageUseCase _getStudentPageUseCase;
-  late final GetStudentAttendanceDailyUseCase _getStudentAttendanceDailyUseCase;
-  late final GetStudentAbsentRecordsActivityUseCase
-  _getStudentAbsentRecordsActivityUseCase;
+  ActivityFeedScopeCubit get _feedScope =>
+      context.read<ActivityFeedScopeCubit>();
   late final ActivityModerationCubit _moderationCubit;
   StreamSubscription<ActivityModerationState>? _moderationSub;
   late final StorageService _storageService;
@@ -369,6 +404,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     _lastFeedRequestKey = null;
     _lastFeedCompletedAt = null;
     _lastFeedCompletedWithError = true;
+
+    // Re-check the staff sign-in gate in parallel: pull-to-refresh should
+    // also flip the Add-activity FAB after a sign-in/out done on another
+    // screen, not just the feed contents.
+    final refreshStaffSignInStatus = widget.onRefreshStaffSignInStatus;
+    if (refreshStaffSignInStatus != null) {
+      unawaited(refreshStaffSignInStatus());
+    }
 
     // Force refresh of metadata + feed.
     // Also bust staff dropdown cache so edit screens refetch staff list.
@@ -518,6 +561,28 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     return list;
   }
 
+  /// Tag-only subset of [_withClientFilters], for attendance-derived items
+  /// (Sign-in/Sign-out/Marked Absent). Those rows carry no
+  /// activityTypeCode/approvalStatus, so the other two filters in
+  /// [_withClientFilters] don't apply to them — Activity Type filtering for
+  /// them is already handled upstream at fetch time (see
+  /// [_shouldIncludeAttendanceEntries]/[_selectedAttendanceEventFilter]),
+  /// and approval status doesn't apply to attendance rows at all (see
+  /// [_selectedAttendanceEventFilter]'s own doc). Without this, picking a
+  /// Tag filter narrowed the regular activity feed to the tagged students
+  /// but left every student's Sign-in/Sign-out/Marked Absent cards showing
+  /// regardless of the tag.
+  List<ActivityItem> _withTagFilterOnly(List<ActivityItem> items) {
+    if (_filterTags.isEmpty) return items;
+    return items
+        .where(
+          (a) =>
+              a.studentCode != null &&
+              _studentCodesForTagFilter.contains(a.studentCode),
+        )
+        .toList();
+  }
+
   Future<void> _rebuildStudentCodesForTagFilter() async {
     _studentCodesForTagFilter.clear();
     if (_filterTags.isEmpty || !mounted) return;
@@ -539,7 +604,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             .toSet()
             .toList();
         for (final cc in classroomCodes) {
-          final students = await _getStudentCodesForActivityTagFilterUseCase(
+          final students = await _feedScope.getStudentCodesForActivityTagFilter(
             schoolCode: school,
             classroomCode: cc,
             tagCodes: tagCodes,
@@ -556,7 +621,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         return;
       }
       final cc = _classroomCodeByName[classroomName]!;
-      final students = await _getStudentCodesForActivityTagFilterUseCase(
+      final students = await _feedScope.getStudentCodesForActivityTagFilter(
         schoolCode: school,
         classroomCode: cc,
         tagCodes: tagCodes,
@@ -583,18 +648,22 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     final viewerName =
         (await _storageService.getString(StorageKeys.displayName) ?? '').trim();
     final viewerStaffCode = (await resolveStaffCodeForLoggedInUser()).trim();
-    final roles = (await _storageService.getString(StorageKeys.roles) ?? '')
-        .toUpperCase();
     final staffType =
         (await _storageService.getString(StorageKeys.staffType) ?? '')
             .trim()
             .toUpperCase();
+    // Active-persona check (RoleCubit), not a scan of the account's full
+    // cached roles list — that list always contains every role the account
+    // has across every school, so a dual-role user (e.g. STAFF + SCHOOL_ADMIN
+    // in a different school) would be misdetected as admin regardless of
+    // which persona is actually active right now.
+    final roleCubit = context.read<RoleCubit>();
     if (mounted) {
       setState(() {
         _viewerStaffDisplayName = viewerName;
         _viewerStaffCode = viewerStaffCode;
         _isAdminPersona =
-            roles.contains('ADMIN') ||
+            (roleCubit.isAdmin && !roleCubit.isStaff) ||
             staffType == 'SCHOOL_ADMIN' ||
             staffType == 'ORGANIZATION_ADMIN';
       });
@@ -660,6 +729,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             _classroomOptions = scoped.map((c) => c['name']!).toList()..sort();
             _feedError = null;
             if (_classroomOptions.isNotEmpty) {
+              _applyDeepLinkClassroom();
               final keep =
                   _selectdClassroom != null &&
                   _classroomOptions.contains(_selectdClassroom);
@@ -708,7 +778,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     }
 
     try {
-      final classrooms = await _getActiveClassroomsUseCase(
+      final classrooms = await _feedScope.getActiveClassrooms(
         schoolCode: school,
         onlyTypeClassroom: true,
       );
@@ -752,6 +822,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _classroomOptions = scoped.map((c) => c.name).toList()..sort();
         _feedError = null;
         if (_classroomOptions.isNotEmpty) {
+          _applyDeepLinkClassroom();
           final keep =
               _selectdClassroom != null &&
               _classroomOptions.contains(_selectdClassroom);
@@ -803,10 +874,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   }
 
   Future<void> _loadStaffClassroomScope() async {
-    // Scope only applies to staff/teacher personas (not parent/guardian; not admins).
-    final roles = (await _storageService.getString(StorageKeys.roles) ?? '')
-        .toUpperCase();
-    if (roles.contains('GUARDIAN') || roles.contains('PARENT')) {
+    // Scope only applies to staff/teacher personas (not parent/guardian; not
+    // admins). Checked against the ACTIVE persona (RoleCubit), not a scan of
+    // the account's full cached roles list — a dual-role account (e.g.
+    // STAFF + GUARDIAN in a different school) always has 'GUARDIAN' in that
+    // list regardless of which persona is active right now.
+    if (context.read<RoleCubit>().isParent) {
       _allowedClassroomCodes = const [];
       _primaryClassroomCode = null;
       return;
@@ -847,10 +920,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     try {
       final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
       if (staffCode.isNotEmpty) {
-        final repo = serviceLocator<StaffRepository>();
-        final profile = await repo.getStaffProfile(
+        final profile = await _feedScope.getOwnStaffProfileForClassroomScope(
           staffCode: staffCode,
-          forEditStaff: true,
         );
         final primary = profile.primaryClassroomCode.trim();
         final profileAllowed = profile.allowedClassroomCodes
@@ -903,7 +974,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         return;
       }
 
-      final page = await _getStudentPageUseCase(
+      final page = await _feedScope.getStudentPage(
         schoolCode: school,
         guardianCodes: [guardianCode],
         page: 0,
@@ -1024,13 +1095,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     );
 
     try {
-      final settings =
-          await ActivityFilterMetadataCache.loadSchoolActivityTypeSettingsForFilters(
-            cacheManager: _cacheManager,
-            useCase: _getActiveActivityTypesForSchoolUseCase,
-            schoolCode: school,
-            forceRefresh: forceRefreshApis,
-          );
+      final settings = await _feedScope.loadActivityTypeSettingsForFilters(
+        schoolCode: school,
+        forceRefresh: forceRefreshApis,
+      );
       if (!mounted) return;
       setState(() {
         _classroomActivitySettings = settings;
@@ -1077,7 +1145,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     }
 
     try {
-      final students = await _getStudentClassroomListUseCase(
+      final students = await _feedScope.getStudentClassroomList(
         schoolCode: school,
         classroomCode: code,
         status: const ['ACTIVE'],
@@ -1119,7 +1187,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       final classroomCode = _classroomCodeByName[classroomName];
       if (classroomCode == null || classroomCode.trim().isEmpty) continue;
       try {
-        final students = await _getStudentClassroomListUseCase(
+        final students = await _feedScope.getStudentClassroomList(
           schoolCode: school,
           classroomCode: classroomCode,
           status: const ['ACTIVE'],
@@ -1149,6 +1217,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           !_availableStudents.contains(_selectedStudent)) {
         _selectedStudent = null;
       }
+      _pinProfileStudent();
     });
   }
 
@@ -1167,7 +1236,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       final classroomCode = _classroomCodeByName[classroomName];
       if (classroomCode == null || classroomCode.trim().isEmpty) continue;
       try {
-        final students = await _getStudentClassroomListUseCase(
+        final students = await _feedScope.getStudentClassroomList(
           schoolCode: school,
           classroomCode: classroomCode,
           status: const ['ACTIVE'],
@@ -1264,20 +1333,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       }
     }
     if (missingCodes.isEmpty) return;
-    final repo = serviceLocator<StaffRepository>();
-    await Future.wait(
-      missingCodes.map((code) async {
-        try {
-          final profile = await repo.getStaffProfile(staffCode: code);
-          final full = profile.fullName.trim();
-          final composed = '${profile.firstName} ${profile.lastName}'.trim();
-          final resolved = full.isNotEmpty ? full : composed;
-          if (resolved.isNotEmpty) {
-            _staffDisplayNameByCode[code] = resolved;
-          }
-        } catch (_) {}
-      }),
-    );
+    final resolved = await _feedScope.resolveStaffDisplayNames(missingCodes);
+    _staffDisplayNameByCode.addAll(resolved);
   }
 
   String? _selectedAttendanceEventFilter() {
@@ -1387,6 +1444,17 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         .toList();
     if (fromSelectedStudents.isNotEmpty) return fromSelectedStudents;
 
+    // Opened from a student profile: the profile passes the student's classroom
+    // CODE directly. Use it as the final fallback so the feed resolves this
+    // student's room even when the name→code maps / _classroomStudents haven't
+    // populated yet (otherwise _loadDailyFeed early-returns an empty feed).
+    if (widget.fromStudentProfile && widget.studentProfile != null) {
+      final cc = widget.studentProfile!['classroomCode'];
+      if (cc is String && cc.trim().isNotEmpty) {
+        return <String>[cc.trim()];
+      }
+    }
+
     return const <String>[];
   }
 
@@ -1398,6 +1466,15 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     return _classroomNameByCode[c] ?? c;
   }
 
+  // `t.hour`/`.minute`/`.second` are SCHOOL-local wall-clock fields (the
+  // attendance API has no timezone context of its own — see
+  // [StudentAttendanceTimeModel.fromJson]). The DateTime built here is
+  // therefore only valid for DISPLAY formatting (DateFormat reads raw
+  // calendar fields, so it's zone-agnostic); it must NOT be fed to
+  // `.toIso8601String()` directly for [ActivityItem.activityDateIso] — Dart
+  // would interpret these school-local field values as DEVICE-local and
+  // compute the wrong UTC instant whenever the device's timezone differs
+  // from the school's. Use [_wallClockToUtcIso] for the ISO field instead.
   DateTime? _attendanceClockToDateTime(StudentAttendanceTime? t, DateTime day) {
     if (t == null) return null;
     return DateTime(day.year, day.month, day.day, t.hour, t.minute, t.second);
@@ -1409,6 +1486,22 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     final minute = (t.minute as int?) ?? 0;
     final second = (t.second as int?) ?? 0;
     return DateTime(day.year, day.month, day.day, hour, minute, second);
+  }
+
+  /// Converts a SCHOOL-local wall-clock [DateTime] (as produced by
+  /// [_attendanceClockToDateTime]/[_absentClockToDateTime]) into the correct
+  /// UTC instant, for use as [ActivityItem.activityDateIso] — the one field
+  /// the cross-source sort comparator (`_activityItemSortDateTime`) actually
+  /// relies on. Without this, attendance/absent-sourced rows sort against a
+  /// wrong instant (offset by device-tz vs school-tz) while activity-feed
+  /// rows (whose ISO comes untouched from the backend) sort correctly,
+  /// producing exactly the "attendance rows clustered separately from
+  /// activity rows" symptom instead of true chronological interleaving.
+  String _wallClockToUtcIso(DateTime schoolWallClock) {
+    return SchoolZoneDateTime.utcFromSchoolWallClockDateTime(
+      schoolWallClock,
+      _schoolIana,
+    ).toIso8601String();
   }
 
   DateTime? _tryParseDisplayDateTime(String dateRaw, String timeRaw) {
@@ -1453,6 +1546,22 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   }
 
   DateTime _activityItemSortDateTime(ActivityItem item) {
+    // Prefer the full-precision ISO instant — every source (activity feed,
+    // attendance daily, absent records) already populates [activityDateIso]
+    // with real second-level precision. The display `date`/`time` strings
+    // below are formatted via DateFormat.jm() ("10:15 AM"), which never
+    // includes seconds, so trying them FIRST (as this used to) meant two
+    // rows occurring in the same minute always collapsed to an identical
+    // sort key and silently fell through to the alphabetical-by-name
+    // tiebreak in [_compareActivityItemsByTimeDesc] instead of true
+    // chronological order.
+    final iso = (item.activityDateIso ?? '').trim();
+    if (iso.isNotEmpty) {
+      try {
+        return DateTime.parse(iso);
+      } catch (_) {}
+    }
+
     final parsedDisplay = _tryParseDisplayDateTime(item.date, item.time);
     if (parsedDisplay != null) return parsedDisplay;
 
@@ -1460,13 +1569,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     if (date.isNotEmpty) {
       try {
         return DateFormat('MMMM d, yyyy').parseStrict(date);
-      } catch (_) {}
-    }
-
-    final iso = (item.activityDateIso ?? '').trim();
-    if (iso.isNotEmpty) {
-      try {
-        return DateTime.parse(iso);
       } catch (_) {}
     }
     return DateTime.fromMillisecondsSinceEpoch(0);
@@ -1485,7 +1587,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   ) {
     if (!_shouldIncludeAttendanceEntries()) return const <ActivityItem>[];
     final eventFilter = _selectedAttendanceEventFilter();
-    final day = _selectedDate ?? DateTime.now();
+    final day = _selectedDate ?? AppTime.now();
     final selectedClassroomName = _selectdClassroom;
     final selectedClassroomCode = selectedClassroomName != null
         ? _classroomCodeByName[selectedClassroomName]
@@ -1553,7 +1655,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               classroomCode: viewingFromClassroom
                   ? (row.fromClassroomCode ?? row.classroomCode).trim()
                   : ((row.toClassroomCode ?? row.classroomCode).trim()),
-              activityDateIso: at.toIso8601String(),
+              activityDateIso: _wallClockToUtcIso(at),
               studentActivityRefs: <Map<String, String>>[
                 {
                   'name': studentName,
@@ -1592,7 +1694,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                   : row.signedOutBy!.trim(),
               studentCode: studentCode?.isEmpty == true ? null : studentCode,
               classroomCode: (row.toClassroomCode ?? row.classroomCode).trim(),
-              activityDateIso: at.toIso8601String(),
+              activityDateIso: _wallClockToUtcIso(at),
               studentActivityRefs: <Map<String, String>>[
                 {
                   'name': studentName,
@@ -1622,7 +1724,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                 : row.signedInBy!.trim(),
             studentCode: studentCode?.isEmpty == true ? null : studentCode,
             classroomCode: row.classroomCode.trim(),
-            activityDateIso: at.toIso8601String(),
+            activityDateIso: _wallClockToUtcIso(at),
             studentActivityRefs: <Map<String, String>>[
               {
                 'name': studentName,
@@ -1650,7 +1752,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                 : row.signedOutBy!.trim(),
             studentCode: studentCode?.isEmpty == true ? null : studentCode,
             classroomCode: row.classroomCode.trim(),
-            activityDateIso: at.toIso8601String(),
+            activityDateIso: _wallClockToUtcIso(at),
             studentActivityRefs: <Map<String, String>>[
               {
                 'name': studentName,
@@ -1662,7 +1764,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         );
       }
     }
-    out.sort(_compareActivityItemsByTimeDesc);
+    // Intentionally NOT sorted here. Sorting this source alone, then
+    // concatenating with the activity-feed and absent-records lists, then
+    // sorting again used to run the comparator twice over differently-scoped
+    // inputs. The caller combines all three sources into one list first and
+    // sorts exactly once over the full, merged set — that single sort is the
+    // only place order is decided.
     return out;
   }
 
@@ -1675,10 +1782,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       try {
         final src = row.absenceDate.trim();
         recordDay = src.isEmpty
-            ? (_selectedDate ?? DateTime.now())
+            ? (_selectedDate ?? AppTime.now())
             : DateTime.parse(src);
       } catch (_) {
-        recordDay = _selectedDate ?? DateTime.now();
+        recordDay = _selectedDate ?? AppTime.now();
       }
       final at =
           _absentClockToDateTime(row.markedAbsentTime, recordDay) ?? recordDay;
@@ -1708,7 +1815,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               : row.markedAbsentByName!.trim(),
           studentCode: studentCode.isEmpty ? null : studentCode,
           classroomCode: row.classroomCode.trim(),
-          activityDateIso: at.toIso8601String(),
+          activityDateIso: _wallClockToUtcIso(at),
           studentActivityRefs: <Map<String, String>>[
             {
               'name': studentName,
@@ -1718,7 +1825,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         ),
       );
     }
-    out.sort(_compareActivityItemsByTimeDesc);
+    // Intentionally NOT sorted here — see the matching note in
+    // [_mapAttendanceDailyPageToItems]: the caller combines all three
+    // sources into one list first and sorts exactly once over the merged
+    // set, which is the only place order is decided.
     return out;
   }
 
@@ -1789,7 +1899,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
       final includeAttendance =
           _filterApprovalStatuses.isEmpty && _shouldIncludeAttendanceEntries();
-      final activityFeedPage = await _getDailyActivityFeedUseCase(
+      final activityFeedPage = await _feedScope.getDailyActivityFeed(
         classroomCode: classroomCode,
         date: dateStr,
         studentCode: selectedStudentCode,
@@ -1804,7 +1914,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       StudentAttendanceAbsentFormPage? absentPage;
       if (includeAttendance) {
         if (_isMarkedAbsentEvent(selectedEvent)) {
-          absentPage = await _getStudentAbsentRecordsActivityUseCase(
+          absentPage = await _feedScope.getStudentAbsentRecordsActivity(
             fromAbsenceDate: dateStr,
             toAbsenceDate: dateStr,
             classroomCodes: classroomCodes.isNotEmpty
@@ -1819,7 +1929,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               ? classroomCodes
               : <String>[classroomCode];
           final dailyAbsent = await Future.wait([
-            _getStudentAttendanceDailyUseCase(
+            _feedScope.getStudentAttendanceDaily(
               attendanceDate: dateStr,
               classroomCodes: ccForAttendance,
               studentCodes: studentCodes,
@@ -1828,7 +1938,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               page: pageIndex,
               size: _feedPageSize,
             ),
-            _getStudentAbsentRecordsActivityUseCase(
+            _feedScope.getStudentAbsentRecordsActivity(
               fromAbsenceDate: dateStr,
               toAbsenceDate: dateStr,
               classroomCodes: ccForAttendance,
@@ -1840,7 +1950,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
           absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
         } else {
-          attendancePage = await _getStudentAttendanceDailyUseCase(
+          attendancePage = await _feedScope.getStudentAttendanceDaily(
             attendanceDate: dateStr,
             classroomCodes: classroomCodes.isNotEmpty
                 ? classroomCodes
@@ -1858,8 +1968,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
       final items = <ActivityItem>[
         if (attendancePage != null)
-          ..._mapAttendanceDailyPageToItems(attendancePage),
-        if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
+          ..._withTagFilterOnly(_mapAttendanceDailyPageToItems(attendancePage)),
+        if (absentPage != null)
+          ..._withTagFilterOnly(_mapAbsentRecordsPageToItems(absentPage)),
         ..._mapDailyFeedPageToItems(activityFeedPage),
       ]..sort(_compareActivityItemsByTimeDesc);
 
@@ -1940,11 +2051,18 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     ].join('|');
 
     if (!refresh && _lastFeedRequestKey == requestKey) {
+      // Already-loaded feed: skip the refetch, but still honour a pending
+      // deep-link scroll (the rows are on screen; only the trigger was missing).
       if (_isFeedRequestInFlight) return;
-      if (!_lastFeedCompletedWithError) return;
+      if (!_lastFeedCompletedWithError) {
+        _scheduleHighlightScroll();
+        return;
+      }
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
-          DateTime.now().difference(completedAt) < const Duration(seconds: 3)) {
+          AppTime.nowUtc().difference(completedAt) <
+              const Duration(seconds: 3)) {
+        _scheduleHighlightScroll();
         return;
       }
     }
@@ -1970,7 +2088,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       if (_filterApprovalStatuses.isEmpty &&
           _shouldIncludeAttendanceEntries()) {
         if (_isMarkedAbsentEvent(selectedEvent)) {
-          absentPage = await _getStudentAbsentRecordsActivityUseCase(
+          absentPage = await _feedScope.getStudentAbsentRecordsActivity(
             fromAbsenceDate: dateStr,
             toAbsenceDate: dateStr,
             studentCodes: codes,
@@ -1979,7 +2097,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           );
         } else if (selectedEvent == null) {
           final dailyAbsent = await Future.wait([
-            _getStudentAttendanceDailyUseCase(
+            _feedScope.getStudentAttendanceDaily(
               attendanceDate: dateStr,
               studentCodes: codes,
               signInAtFilter: null,
@@ -1987,7 +2105,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               page: 0,
               size: _feedPageSize,
             ),
-            _getStudentAbsentRecordsActivityUseCase(
+            _feedScope.getStudentAbsentRecordsActivity(
               fromAbsenceDate: dateStr,
               toAbsenceDate: dateStr,
               studentCodes: codes,
@@ -1998,7 +2116,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
           absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
         } else {
-          attendancePage = await _getStudentAttendanceDailyUseCase(
+          attendancePage = await _feedScope.getStudentAttendanceDaily(
             attendanceDate: dateStr,
             studentCodes: codes,
             signInAtFilter: signInAtFilter,
@@ -2020,7 +2138,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               last: true,
             );
           }
-          return _getDailyActivityFeedUseCase(
+          return _feedScope.getDailyActivityFeed(
             classroomCode: cc,
             date: dateStr,
             studentCode: sc,
@@ -2038,8 +2156,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       await primeActivityFeedOptionLabelsFromRows(merged.content);
       final items = <ActivityItem>[
         if (attendancePage != null)
-          ..._mapAttendanceDailyPageToItems(attendancePage),
-        if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
+          ..._withTagFilterOnly(_mapAttendanceDailyPageToItems(attendancePage)),
+        if (absentPage != null)
+          ..._withTagFilterOnly(_mapAbsentRecordsPageToItems(absentPage)),
         ..._mapDailyFeedPageToItems(merged),
       ]..sort(_compareActivityItemsByTimeDesc);
 
@@ -2061,8 +2180,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
       });
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = false;
+      _scheduleHighlightScroll();
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _maybeLoadNextDailyFeedPage(),
       );
@@ -2079,7 +2199,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       });
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = true;
     }
   }
@@ -2119,7 +2239,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       if (_filterApprovalStatuses.isEmpty &&
           _shouldIncludeAttendanceEntries()) {
         if (_isMarkedAbsentEvent(selectedEvent)) {
-          absentPage = await _getStudentAbsentRecordsActivityUseCase(
+          absentPage = await _feedScope.getStudentAbsentRecordsActivity(
             fromAbsenceDate: dateStr,
             toAbsenceDate: dateStr,
             studentCodes: _parentAllowedStudentCodes.toList(),
@@ -2128,7 +2248,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           );
         } else if (selectedEvent == null) {
           final dailyAbsent = await Future.wait([
-            _getStudentAttendanceDailyUseCase(
+            _feedScope.getStudentAttendanceDaily(
               attendanceDate: dateStr,
               studentCodes: _parentAllowedStudentCodes.toList(),
               signInAtFilter: null,
@@ -2136,7 +2256,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               page: pageIndex,
               size: _feedPageSize,
             ),
-            _getStudentAbsentRecordsActivityUseCase(
+            _feedScope.getStudentAbsentRecordsActivity(
               fromAbsenceDate: dateStr,
               toAbsenceDate: dateStr,
               studentCodes: _parentAllowedStudentCodes.toList(),
@@ -2147,7 +2267,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
           absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
         } else {
-          attendancePage = await _getStudentAttendanceDailyUseCase(
+          attendancePage = await _feedScope.getStudentAttendanceDaily(
             attendanceDate: dateStr,
             studentCodes: _parentAllowedStudentCodes.toList(),
             signInAtFilter: signInAtFilter,
@@ -2169,7 +2289,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               last: true,
             );
           }
-          return _getDailyActivityFeedUseCase(
+          return _feedScope.getDailyActivityFeed(
             classroomCode: cc,
             date: dateStr,
             studentCode: sc,
@@ -2187,8 +2307,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       await primeActivityFeedOptionLabelsFromRows(merged.content);
       final items = <ActivityItem>[
         if (attendancePage != null)
-          ..._mapAttendanceDailyPageToItems(attendancePage),
-        if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
+          ..._withTagFilterOnly(_mapAttendanceDailyPageToItems(attendancePage)),
+        if (absentPage != null)
+          ..._withTagFilterOnly(_mapAbsentRecordsPageToItems(absentPage)),
         ..._mapDailyFeedPageToItems(merged),
       ]..sort(_compareActivityItemsByTimeDesc);
 
@@ -2280,13 +2401,19 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       }
       if (!_lastFeedCompletedWithError) {
         // Last identical request already completed successfully
-        // (including empty-result success). No need to refetch.
+        // (including empty-result success). No need to refetch — but the rows
+        // ARE already loaded, so a pending deep-link still needs its scroll.
+        // Returning here previously skipped it entirely, which is why a cached
+        // feed highlighted without ever scrolling.
+        _scheduleHighlightScroll();
         return;
       }
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
-          DateTime.now().difference(completedAt) < const Duration(seconds: 3)) {
+          AppTime.nowUtc().difference(completedAt) <
+              const Duration(seconds: 3)) {
         // Throttle repeated failed requests for same filters.
+        _scheduleHighlightScroll();
         return;
       }
     }
@@ -2313,7 +2440,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
       final includeAttendance =
           _filterApprovalStatuses.isEmpty && _shouldIncludeAttendanceEntries();
-      final activityFeedPage = await _getDailyActivityFeedUseCase(
+      final activityFeedPage = await _feedScope.getDailyActivityFeed(
         classroomCode: classroomCode,
         date: dateStr,
         studentCode: selectedStudentCode,
@@ -2329,7 +2456,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       StudentAttendanceAbsentFormPage? absentPage;
       if (includeAttendance) {
         if (_isMarkedAbsentEvent(selectedEvent)) {
-          absentPage = await _getStudentAbsentRecordsActivityUseCase(
+          absentPage = await _feedScope.getStudentAbsentRecordsActivity(
             fromAbsenceDate: dateStr,
             toAbsenceDate: dateStr,
             classroomCodes: classroomCodes,
@@ -2339,7 +2466,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           );
         } else if (selectedEvent == null) {
           final dailyAbsent = await Future.wait([
-            _getStudentAttendanceDailyUseCase(
+            _feedScope.getStudentAttendanceDaily(
               attendanceDate: dateStr,
               classroomCodes: classroomCodes,
               studentCodes: studentCodes,
@@ -2348,7 +2475,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               page: 0,
               size: _feedPageSize,
             ),
-            _getStudentAbsentRecordsActivityUseCase(
+            _feedScope.getStudentAbsentRecordsActivity(
               fromAbsenceDate: dateStr,
               toAbsenceDate: dateStr,
               classroomCodes: classroomCodes,
@@ -2360,7 +2487,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
           absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
         } else {
-          attendancePage = await _getStudentAttendanceDailyUseCase(
+          attendancePage = await _feedScope.getStudentAttendanceDaily(
             attendanceDate: dateStr,
             classroomCodes: classroomCodes,
             studentCodes: studentCodes,
@@ -2376,8 +2503,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
       final items = <ActivityItem>[
         if (attendancePage != null)
-          ..._mapAttendanceDailyPageToItems(attendancePage),
-        if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
+          ..._withTagFilterOnly(_mapAttendanceDailyPageToItems(attendancePage)),
+        if (absentPage != null)
+          ..._withTagFilterOnly(_mapAbsentRecordsPageToItems(absentPage)),
         ..._mapDailyFeedPageToItems(activityFeedPage),
       ]..sort(_compareActivityItemsByTimeDesc);
 
@@ -2399,8 +2527,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _feedNextPage = _feedHasMore ? 1 : 0;
       });
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = false;
+      _scheduleHighlightScroll();
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _maybeLoadNextDailyFeedPage(),
       );
@@ -2417,7 +2546,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       });
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = true;
     }
   }
@@ -2430,36 +2559,29 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     if (widget.highlightDate != null) {
       _selectedDate = widget.highlightDate;
     }
-    _getDailyActivityFeedUseCase =
-        serviceLocator<GetDailyActivityFeedUseCase>();
-    _getActiveClassroomsUseCase = serviceLocator<GetActiveClassroomsUseCase>();
-    _getActiveActivityTypesForSchoolUseCase =
-        serviceLocator<GetActiveActivityTypesForSchoolUseCase>();
-    _getStudentClassroomListUseCase =
-        serviceLocator<GetStudentClassroomListUseCase>();
-    _getTagNameCodeMapForSchoolUseCase =
-        serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
-    _getStudentCodesForActivityTagFilterUseCase =
-        serviceLocator<GetStudentCodesForActivityTagFilterUseCase>();
-    _getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
-    _getStudentAttendanceDailyUseCase =
-        serviceLocator<GetStudentAttendanceDailyUseCase>();
-    _getStudentAbsentRecordsActivityUseCase =
-        serviceLocator<GetStudentAbsentRecordsActivityUseCase>();
     _moderationCubit = serviceLocator<ActivityModerationCubit>();
     _moderationSub = _moderationCubit.stream.listen(_onModerationState);
     _storageService = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storageService);
 
     isNotParent = widget.isNotParent;
-    if (widget.fromStudentProfile) {
-      final n = widget.studentName;
-      if (n != null && n.trim().isNotEmpty) {
-        _selectedStudent = n.trim();
-      }
-    }
+    _seedProfileContext();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _bootstrapSchoolZone();
+      // Opened from a student profile: we already have the classroom + student
+      // codes, so kick off the feed right away instead of waiting for the full
+      // classroom/student bootstrap. The dropdown option lists fill in behind
+      // it. _loadDailyFeed de-dupes by request key, so the later bootstrap call
+      // with the same classroom won't refetch.
+      if (widget.fromStudentProfile && widget.studentProfile != null) {
+        final school =
+            (await _storageService.getString(StorageKeys.schoolCode) ?? '')
+                .trim();
+        if (school.isNotEmpty && mounted) {
+          _schoolCode = school;
+          unawaited(_loadDailyFeed(refresh: true));
+        }
+      }
       await _bootstrap();
     });
     _feedScrollController.addListener(_onFeedScroll);
@@ -2468,6 +2590,39 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _loadDailyFeed(refresh: true);
       }
     });
+  }
+
+  /// Handles a NEW notification deep-link arriving into an already-live tab.
+  ///
+  /// This tab is `AutomaticKeepAliveClientMixin` and sits in an indexed-stack
+  /// shell branch, so once Activities has been visited the State is reused:
+  /// [initState] never runs again, every one-shot latch is still set from the
+  /// previous visit, and no feed reload is triggered. The card still flashed
+  /// (that reads `widget.highlightCode` live during paint) but nothing ever
+  /// asked for a scroll — the "cached / already open" case.
+  ///
+  /// Resetting the latches and reloading on the target's day + room restores
+  /// the same path a cold open takes.
+  @override
+  void didUpdateWidget(covariant _ActivityDailyTabView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final changed =
+        widget.highlightCode != oldWidget.highlightCode ||
+        widget.highlightDate != oldWidget.highlightDate ||
+        widget.highlightClassroomCode != oldWidget.highlightClassroomCode;
+    if (!changed) return;
+    if ((widget.highlightCode ?? '').trim().isEmpty) return;
+
+    setState(() {
+      _highlightApplied = false;
+      _highlightScrollScheduled = false;
+      _deepLinkClassroomApplied = false;
+      if (widget.highlightDate != null) _selectedDate = widget.highlightDate;
+      _applyDeepLinkClassroom();
+    });
+    // refresh: true bypasses the de-dupe, so the load always completes and
+    // fires the scroll even when the same day/room was already showing.
+    _loadDailyFeed(refresh: true);
   }
 
   Future<void> _bootstrapSchoolZone() async {
@@ -2548,6 +2703,153 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           .toList();
       _selectedStudent = null;
     }
+    _pinProfileStudent();
+  }
+
+  /// Seeds the classroom + student the screen was opened for (from a student
+  /// profile) into the dropdown state up-front — using the name/code already
+  /// carried in [ActivityFeedScreen.studentName] — so both dropdowns display
+  /// their selection on the first frame instead of appearing empty while the
+  /// classroom and student lists load in the background. The feed is filtered by
+  /// the student's code separately, so this is purely to preload the UI.
+  void _seedProfileContext() {
+    if (!widget.fromStudentProfile) return;
+    final cls = (widget.studentProfile?['classroom'] as String?)?.trim() ?? '';
+    final clsCode =
+        (widget.studentProfile?['classroomCode'] as String?)?.trim() ?? '';
+    if (cls.isNotEmpty && !cls.startsWith('CLS_')) {
+      if (clsCode.isNotEmpty) {
+        _classroomCodeByName[cls] = clsCode;
+        _classroomNameByCode[clsCode] = cls;
+      }
+      if (!_classroomOptions.contains(cls)) {
+        _classroomOptions = <String>[..._classroomOptions, cls]..sort();
+      }
+      _selectdClassroom = cls;
+      _selectedClassrooms = <String>[cls];
+    }
+    final name = widget.studentName?.trim() ?? '';
+    if (name.isNotEmpty) {
+      _selectedStudent = name;
+      _selectedStudents = <String>[name];
+    }
+    _pinProfileStudent();
+  }
+
+  bool _highlightScrollScheduled = false;
+
+  /// Scrolls the deep-linked card into view.
+  ///
+  /// Driven by the DATA (the target's index in [_activities]), never by the
+  /// item builder. `ListView.builder` builds lazily, so a target further down
+  /// the list is never built while off-screen — its `itemBuilder` doesn't run,
+  /// and `Scrollable.ensureVisible` has no element to scroll to. That's why the
+  /// card only ever flashed once the user scrolled to it by hand.
+  ///
+  /// Converges in two phases: jump proportionally to bring the target into the
+  /// build window, then fine-tune with `ensureVisible` once it exists, plus a
+  /// settle pass for rows that grow when attachment thumbnails resolve.
+  void _scheduleHighlightScroll() {
+    if (_highlightApplied || _highlightScrollScheduled) return;
+    if ((widget.highlightCode ?? '').trim().isEmpty) return;
+    final index = _activities.indexWhere(
+      (a) => _isHighlightTarget(a.activityCode),
+    );
+    if (index < 0) return; // not in this page yet — retried on the next load
+    _highlightScrollScheduled = true;
+
+    var passes = 0;
+    void step() {
+      if (!mounted) return;
+      if (passes++ > 25) {
+        _highlightScrollScheduled = false; // let a later load try again
+        return;
+      }
+      if (!_feedScrollController.hasClients) {
+        Future.delayed(const Duration(milliseconds: 100), step);
+        return;
+      }
+
+      final ctx = _highlightCardKey.currentContext;
+      if (ctx != null) {
+        // Built: fine-tune to the exact position.
+        _highlightApplied = true;
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 350),
+          alignment: 0.1,
+          curve: Curves.easeOut,
+        );
+        // One settle pass after layout stabilises.
+        Future.delayed(const Duration(milliseconds: 700), () {
+          if (!mounted) return;
+          final c = _highlightCardKey.currentContext;
+          if (c != null) {
+            Scrollable.ensureVisible(
+              c,
+              duration: const Duration(milliseconds: 200),
+              alignment: 0.1,
+              curve: Curves.easeOut,
+            );
+          }
+        });
+        return;
+      }
+
+      // Not built yet: jump proportionally so it enters the build window.
+      final pos = _feedScrollController.position;
+      final total = _activities.length;
+      final target = total <= 1
+          ? 0.0
+          : pos.maxScrollExtent * (index / (total - 1)).clamp(0.0, 1.0);
+      if ((target - pos.pixels).abs() > 1) {
+        _feedScrollController.jumpTo(target.clamp(0.0, pos.maxScrollExtent));
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) => step());
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => step());
+  }
+
+  /// Selects the classroom of a notification-deep-linked activity, so the feed
+  /// loads the room that actually contains the card being highlighted rather
+  /// than the viewer's default room.
+  ///
+  /// Called from [_bootstrap] once `_classroomNameByCode` is populated and
+  /// BEFORE the default-classroom `keep` check, so the resolved name survives as
+  /// the selection. No-op when there's no deep link or the code isn't in the
+  /// viewer's (possibly staff-scoped) classroom list.
+  void _applyDeepLinkClassroom() {
+    final code = (widget.highlightClassroomCode ?? '').trim();
+    if (code.isEmpty) return;
+    if (_deepLinkClassroomApplied) return;
+    final name = (_classroomNameByCode[code] ?? '').trim();
+    if (name.isEmpty || !_classroomOptions.contains(name)) return;
+    _deepLinkClassroomApplied = true;
+    _selectdClassroom = name;
+    _selectedClassrooms = <String>[name];
+  }
+
+  /// Applied once, so a later refresh can't yank the user off a room they
+  /// switched to after arriving via the deep link.
+  bool _deepLinkClassroomApplied = false;
+
+  /// Keeps the profile student present in the options + selection when launched
+  /// from a student profile. Both this widget's pruning and
+  /// [CustomMultiSelectDropdown] drop selections absent from the options list,
+  /// so without this the pre-selected student silently disappears once the real
+  /// student list loads.
+  void _pinProfileStudent() {
+    if (!widget.fromStudentProfile) return;
+    final name = widget.studentName?.trim() ?? '';
+    if (name.isEmpty) return;
+    if (!_availableStudents.contains(name)) {
+      _availableStudents = <String>[..._availableStudents, name]..sort();
+    }
+    if (!_selectedStudents.contains(name)) {
+      _selectedStudents = <String>[..._selectedStudents, name];
+    }
+    _selectedStudent ??= name;
   }
 
   Future<void> _openActivityFilter() async {
@@ -2669,9 +2971,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     final school = _schoolCode;
     if (school == null || school.isEmpty) return;
     try {
-      final map = await ActivityFilterMetadataCache.loadTagNameCodeMap(
-        cacheManager: _cacheManager,
-        useCase: _getTagNameCodeMapForSchoolUseCase,
+      final map = await _feedScope.loadTagNameCodeMap(
         schoolCode: school,
         forceRefresh: forceRefresh,
       );
@@ -2959,7 +3259,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                     CustomClearAllChip(
                                       onTap: () async {
                                         setState(() {
-                                          final now = DateTime.now();
+                                          final now = AppTime.now();
                                           _selectedDate = DateTime(
                                             now.year,
                                             now.month,
@@ -3092,20 +3392,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                         final bool isHighlightTarget = _isHighlightTarget(
                           activity.activityCode,
                         );
-                        if (isHighlightTarget && !_highlightApplied) {
-                          _highlightApplied = true;
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            final ctx = _highlightCardKey.currentContext;
-                            if (ctx != null) {
-                              Scrollable.ensureVisible(
-                                ctx,
-                                duration: const Duration(milliseconds: 400),
-                                alignment: 0.1,
-                                curve: Curves.easeOut,
-                              );
-                            }
-                          });
-                        }
+                        if (isHighlightTarget) _scheduleHighlightScroll();
 
                         return HighlightableCard(
                           key: isHighlightTarget ? _highlightCardKey : null,
@@ -4614,7 +4901,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   CustomClearAllChip(
                                     onTap: () async {
                                       setState(() {
-                                        final now = DateTime.now();
+                                        final now = AppTime.now();
                                         _selectedDate = DateTime(
                                           now.year,
                                           now.month,
@@ -4727,24 +5014,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                     _colorPalette[index % _colorPalette.length];
                                 final bool isHighlightTarget =
                                     _isHighlightTarget(activity.activityCode);
-                                if (isHighlightTarget && !_highlightApplied) {
-                                  _highlightApplied = true;
-                                  WidgetsBinding.instance.addPostFrameCallback((
-                                    _,
-                                  ) {
-                                    final ctx =
-                                        _highlightCardKey.currentContext;
-                                    if (ctx != null) {
-                                      Scrollable.ensureVisible(
-                                        ctx,
-                                        duration: const Duration(
-                                          milliseconds: 400,
-                                        ),
-                                        alignment: 0.1,
-                                        curve: Curves.easeOut,
-                                      );
-                                    }
-                                  });
+                                if (isHighlightTarget) {
+                                  _scheduleHighlightScroll();
                                 }
 
                                 return HighlightableCard(
@@ -5668,15 +5939,29 @@ String activityFeedCardBodyLine(ActivityItem activity) {
   if (activity.name == 'Nap Start' || activity.name == 'Nap End') {
     final desc = activity.description?.trim();
     final isStart = activity.name == 'Nap Start';
+
+    String _fmtNapTime(String? raw, String fallback) {
+      final s = raw?.trim() ?? '';
+      if (s.isEmpty) return fallback;
+      try {
+        final parsed = DateFormat('HH:mm').parse(s);
+        return DateFormat.jm().format(parsed);
+      } catch (_) {
+        try {
+          final parsed = DateFormat('h:mm a').parse(s);
+          return DateFormat.jm().format(parsed);
+        } catch (_) {
+          return s;
+        }
+      }
+    }
+
     final at = isStart
-        ? (activity.napStartTime?.trim().isNotEmpty == true
-              ? activity.napStartTime!.trim()
-              : activity.time.trim())
-        : (activity.napEndTime?.trim().isNotEmpty == true
-              ? activity.napEndTime!.trim()
-              : (activity.napStartTime?.trim().isNotEmpty == true
-                    ? activity.napStartTime!.trim()
-                    : activity.time.trim()));
+        ? _fmtNapTime(activity.napStartTime, activity.time.trim())
+        : _fmtNapTime(
+            activity.napEndTime,
+            _fmtNapTime(activity.napStartTime, activity.time.trim()),
+          );
     final firstLine = at.isNotEmpty
         ? 'Nap ${isStart ? 'started' : 'ended'} at $at'
         : 'Nap';
@@ -6372,7 +6657,7 @@ ActivityItem activityItemFromFeedRow(
         ? parsed.toLocal()
         : SchoolZoneDateTime.dateTimeFromInstantInSchool(parsed, iana);
   } catch (_) {
-    dt = DateTime.now();
+    dt = AppTime.now();
   }
   final time = DateFormat.jm().format(dt);
   final date = DateFormat('MMMM d, yyyy').format(dt);
@@ -6699,6 +6984,15 @@ ActivityItem activityItemFromFeedRow(
   final sc = (row.studentCode ?? '').trim();
   final ac = (row.activityCode ?? '').trim();
 
+  /// Incident's "Additional Notes" (CUSTOM parameter, distinct from "What
+  /// happened?" which the API already surfaces via [row.description]) has
+  /// no flat field on [ActivityFeedRow] — it must be read out of
+  /// [row.parameterValues] like every other custom parameter (bathroomType,
+  /// mealType, …) below.
+  final additionalNotesFromParams = name == 'Incident'
+      ? pickParam((n) => n.contains('additional') && n.contains('note'))
+      : null;
+
   return ActivityItem(
     time: time,
     date: date,
@@ -6725,6 +7019,7 @@ ActivityItem activityItemFromFeedRow(
             effectiveDescription.isNotEmpty
         ? effectiveDescription
         : null,
+    additionalNotes: additionalNotesFromParams,
     staffPresent: by,
     staffPresentCode: (staffFromParams ?? '').trim().isEmpty
         ? null

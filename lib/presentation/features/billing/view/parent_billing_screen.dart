@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_transaction_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/sibling_cards_widget.dart';
@@ -17,7 +20,12 @@ import 'package:wowcare/presentation/features/billing/view/pay_now_amount_screen
 /// Parent Billing UI — fetches live data from
 /// `GET /api/v1/invoices/family-ledger/by-guardian`.
 class ParentBillingScreen extends StatefulWidget {
-  const ParentBillingScreen({super.key});
+  const ParentBillingScreen({super.key, this.highlightCode});
+
+  /// Invoice code from a billing-notification deep-link. Its transaction card is
+  /// revealed (page window grown), scrolled into view and briefly flashed. Null
+  /// for normal navigation.
+  final String? highlightCode;
 
   static const String routeName = '/parent-billing';
 
@@ -26,9 +34,13 @@ class ParentBillingScreen extends StatefulWidget {
 }
 
 class _ParentBillingScreenState extends State<ParentBillingScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, SchoolSwitchReloadMixin {
   late final TabController _tabController;
   final ScrollController _billingScrollController = ScrollController();
+
+  /// Deep-linked invoice to flash, and whether we've already revealed it.
+  String? _highlightCode;
+  bool _highlightApplied = false;
 
   ParentBillingCubit get _cubit => context.read<ParentBillingCubit>();
 
@@ -37,7 +49,49 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _billingScrollController.addListener(_onBillingScroll);
+    _highlightCode = widget.highlightCode?.trim();
     _cubit.load();
+    // Covers the case where the ledger is already loaded (kept-alive branch), so
+    // no state change arrives to drive the listener below.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _maybeRevealHighlight(_cubit.state);
+    });
+  }
+
+  @override
+  void didUpdateWidget(ParentBillingScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The billing branch is kept alive and built with `builder:` (not a
+    // query-keyed page), so a SECOND billing notification rebuilds this widget
+    // rather than re-running initState. Re-arm the highlight for the new code.
+    if (widget.highlightCode != oldWidget.highlightCode) {
+      setState(() {
+        _highlightCode = widget.highlightCode?.trim();
+        _highlightApplied = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _maybeRevealHighlight(_cubit.state);
+      });
+    }
+  }
+
+  /// Grows the client-side page window so the deep-linked invoice's card is
+  /// mounted before [HighlightableCard] tries to flash it (an unmounted card
+  /// never fires). Runs once per highlight code, after the ledger has arrived.
+  void _maybeRevealHighlight(ParentBillingState state) {
+    final code = _highlightCode;
+    if (code == null || code.isEmpty || _highlightApplied) return;
+    if (state.isLoading || state.ledger == null) return;
+    _highlightApplied = true;
+    // The invoice lives on the Billing tab — make sure that's the visible one.
+    if (_tabController.index != 0) _tabController.animateTo(0);
+    _cubit.revealTransaction(code);
+  }
+
+  @override
+  void onSchoolSwitched() {
+    // Kept-alive billing branch — reload the ledger for the new school.
+    if (mounted) _cubit.refresh();
   }
 
   @override
@@ -115,15 +169,23 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
     return SiblingCardsWidget(
       students: state.students,
       currentBalance: state.openBalance,
+      paid: state.paid,
+      netPaid: state.netPaid,
+      refunded: state.refunded,
+      unpaid: state.unpaid,
+      inProcess: state.inProcess,
       isPaymentLoading: state.isPaymentLoading,
       isAutoPayLoading: state.isAutoPayLoading,
       onPayNow: () async {
         if (state.isPaymentLoading) return;
-        await Navigator.of(context).push(
+        final paid = await Navigator.of(context).push<bool>(
           MaterialPageRoute(
             builder: (_) => const PayNowAmountScreen(),
           ),
         );
+        // Reload the ledger so the just-made payment appears (In Process →
+        // Success/Failed once settled).
+        if (paid == true && mounted) _cubit.refresh();
       },
       onAutoPay: () async {
         if (state.isAutoPayLoading) return;
@@ -136,8 +198,10 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
         if (!mounted) return;
         _cubit.endAutoPay();
         if (result == true) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Auto Pay settings updated')),
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Auto Pay settings updated',
+            isSuccess: true,
           );
         }
       },
@@ -250,7 +314,22 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                     children: state.visibleTransactions.map((txn) {
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: ParentTransactionCard(transaction: txn),
+                        child: HighlightableCard(
+                          // Match on invoiceCode — `id` is a display/numeric key.
+                          code: txn.invoiceCode,
+                          highlightCode: _highlightCode,
+                          scrollOnHighlight: true,
+                          // StaffStyleCard (under ParentTransactionCard) paints an
+                          // opaque, full-bleed white background, which would hide a
+                          // behind-painted flash entirely — draw it on top instead,
+                          // at StaffStyleCard's own 12px radius so the border aligns.
+                          foreground: true,
+                          borderRadius: 12,
+                          child: ParentTransactionCard(
+                            transaction: txn,
+                            familyName: state.ledger?.familyName ?? '',
+                          ),
+                        ),
                       );
                     }).toList(),
                   ),
@@ -281,6 +360,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
       }).toList(),
       subscriberCode: state.ledger?.ownerCode ?? '',
       ownerType: state.ledger?.ownerType ?? 'GUARDIAN',
+      currentBalance: state.openBalance,
       customStartDate: state.startDate,
       customEndDate: state.endDate,
     );
@@ -288,7 +368,9 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ParentBillingCubit, ParentBillingState>(
+    return BlocConsumer<ParentBillingCubit, ParentBillingState>(
+      // Reveal the deep-linked invoice as soon as the ledger arrives.
+      listener: (context, state) => _maybeRevealHighlight(state),
       builder: (context, state) {
         return GlobalScaffold(
           body: Column(

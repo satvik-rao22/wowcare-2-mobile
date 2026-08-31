@@ -300,6 +300,9 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: qp,
+      // Backend aggregates attendance for every requested classroom in one
+      // pass; schools with many classrooms can exceed the default 30s.
+      options: Options(receiveTimeout: const Duration(seconds: 60)),
     );
     if (response.data is! Map<String, dynamic>) {
       throw Exception(

@@ -30,24 +30,26 @@ object GeofenceNotifications {
             if (isInside) {
                 Triple(
                     1001,
-                    "Attendance Available",
-                    "You are within the school premises. You can now Sign In or Sign Out.",
+                    "Sign In/Out",
+                    "Tap here to Sign In.",
                 )
             } else {
                 Triple(
                     1002,
-                    "Outside School Premises",
-                    "Attendance actions are currently unavailable.",
+                    "You have left the school",
+                    "Tap here to Sign Out.",
                 )
             }
 
-        // Open the app and carry GEOFENCE_ENTER so MainActivity passes it to
-        // Dart via consumeLaunchNotificationData(), which routes to /dashboard.
+        // Carry the geofence action so MainActivity passes it to Dart via
+        // consumeLaunchNotificationData(), which routes to /dashboard.
+        // Both ENTER and EXIT carry an action so tapping either notification
+        // navigates to the attendance screen rather than just opening the app.
         val launchIntent = context.packageManager
             .getLaunchIntentForPackage(context.packageName)
             ?.apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                if (isInside) putExtra("action", "GEOFENCE_ENTER")
+                putExtra("action", if (isInside) "GEOFENCE_ENTER" else "GEOFENCE_EXIT")
             }
             ?: Intent()
         val tapIntent = PendingIntent.getActivity(
@@ -88,6 +90,11 @@ object GeofenceNotifications {
                 nm.notify(id, notification)
             } catch (_: Exception) { /* nothing more we can do */ }
         }
+    }
+
+    fun cancel(context: Context) {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        nm?.cancel(1001)
     }
 }
 

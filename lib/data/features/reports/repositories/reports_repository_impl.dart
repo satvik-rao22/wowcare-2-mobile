@@ -1,6 +1,8 @@
+import '../../../../core/errors/failures.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/logger_service.dart';
+import '../../../../core/util/school_context_helper.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/reports/entities/report_entity.dart';
 import '../../../../domain/features/reports/entities/report_metadata_entity.dart';
@@ -47,16 +49,20 @@ class ReportsRepositoryImpl implements ReportsRepository {
         await _storageService.getString(StorageKeys.organizationCode) ?? '';
     final userCode =
         await _storageService.getString(StorageKeys.userCode) ?? '';
-
+    // Pass the schoolName properly instead of the schoolCode in the schoolName field.
+    final schoolName = await SchoolContextHelper.getSchoolName();
     requestBody['schoolCode'] = schoolCode;
     requestBody['organizationCode'] = organizationCode;
     requestBody['generatedBy'] = userCode;
+    if (schoolName != null && schoolName.isNotEmpty) {
+      requestBody['schoolName'] = schoolName;
+    }
 
     AppLogger.d('[REPORTS-REPO] Calling remote datasource for fresh API call');
 
     // Always make fresh API call - no caching of generated reports
     final response = await _remoteDataSource.generateReport(
-      reportType: params.reportType.backendValue,
+      reportType: params.reportType,
       requestBody: requestBody,
     );
 
@@ -67,39 +73,118 @@ class ReportsRepositoryImpl implements ReportsRepository {
     return _mapResponseModelToEntity(response);
   }
 
+  /// Resolves the human-readable school name for [schoolCode]/[organizationCode]
+  /// from the cached org/school list, since `StorageKeys.selectedSchoolName`
+  /// is sometimes populated with the school code instead of its name.
+  // Future<String> _resolveSchoolName(
+  //   String schoolCode,
+  //   String organizationCode,
+  // ) async {
+  //   final storedName =
+  //       await _storageService.getString(StorageKeys.selectedSchoolName) ?? '';
+
+  //   final raw = await _storageService.getString(
+  //     StorageKeys.organizationsAndSchools,
+  //   );
+  //   if (raw != null && raw.isNotEmpty) {
+  //     try {
+  //       final decoded = jsonDecode(raw);
+  //       if (decoded is List) {
+  //         final list = decoded.whereType<Map>().map(
+  //           (e) => Map<String, dynamic>.from(e),
+  //         );
+  //         final match = list.firstWhere(
+  //           (e) =>
+  //               (e['schoolCode']?.toString() ?? '') == schoolCode &&
+  //               (e['organizationCode']?.toString() ?? '') == organizationCode,
+  //           orElse: () => const <String, dynamic>{},
+  //         );
+  //         final fromList = match['schoolName']?.toString() ?? '';
+  //         if (fromList.isNotEmpty) {
+  //           return fromList;
+  //         }
+  //       }
+  //     } catch (e) {
+  //       AppLogger.e(
+  //         '[REPORTS-REPO] Failed to parse organizationsAndSchools: $e',
+  //       );
+  //     }
+  //   }
+
+  //   // Fallback to stored name or the code itself if no better name is found.
+  //   return storedName.isNotEmpty ? storedName : schoolCode;
+  // }
+
   @override
   Future<List<ReportMetadataEntity>> getRecentReports() async {
     AppLogger.d('[REPORTS] Repository: Starting getRecentReports()');
 
-    // Fetch from all 4 sources in parallel with eagerError: false
-    // so that if some fail, we still get results from successful ones
-    final results = await Future.wait<List<RecentReportModel>>([
-      _remoteDataSource.getRecentStudentAttendanceReports(),
-      _remoteDataSource.getRecentStaffAttendanceReports(),
-      _remoteDataSource.getRecentStaffReports(),
-      _remoteDataSource.getRecentStudentManagementReports(),
-    ], eagerError: false);
+    // Note: billing and IMMUNIZATION reports have no "recent" endpoint
+    // (ApiPaths has no billing/immunization-recent route), so they are
+    // intentionally absent from this list, not silently dropped by a bug.
+    final sources = <_RecentReportsSource>[
+      _RecentReportsSource(
+        'Student Attendance',
+        _remoteDataSource.getRecentStudentAttendanceReports,
+      ),
+      _RecentReportsSource(
+        'Staff Attendance',
+        _remoteDataSource.getRecentStaffAttendanceReports,
+      ),
+      _RecentReportsSource(
+        'Staff Reports',
+        _remoteDataSource.getRecentStaffReports,
+      ),
+      _RecentReportsSource(
+        'Student Management',
+        _remoteDataSource.getRecentStudentManagementReports,
+      ),
+    ];
 
-    AppLogger.d(
-      '[REPORTS] Student Attendance Reports Count: ${results[0].length}',
-    );
-    AppLogger.d(
-      '[REPORTS] Staff Attendance Reports Count: ${results[1].length}',
-    );
-    AppLogger.d('[REPORTS] Staff Reports Count: ${results[2].length}');
-    AppLogger.d(
-      '[REPORTS] Student Management Reports Count: ${results[3].length}',
-    );
+    // Fetch each source independently so one failing source doesn't discard
+    // results from sources that succeeded — but unlike before, a failure is
+    // logged AND recorded, not silently turned into an empty list.
+    final results = await Future.wait(sources.map(_safeFetchRecent));
 
-    // Flatten all results
-    final allReports = results.expand((x) => x).toList();
+    final allReports = <RecentReportModel>[];
+    final failures = <String>[];
+    for (final result in results) {
+      if (result.error != null) {
+        failures.add('${result.label}: ${result.error}');
+      } else {
+        AppLogger.d(
+          '[REPORTS] ${result.label} Reports Count: ${result.data.length}',
+        );
+        allReports.addAll(result.data);
+      }
+    }
+
+    if (allReports.isEmpty && failures.isNotEmpty) {
+      // Every source failed: surface a real Failure instead of "0 reports".
+      throw ServerFailure(
+        'Failed to load recent reports: ${failures.join('; ')}',
+      );
+    }
+    if (failures.isNotEmpty) {
+      AppLogger.e(
+        '[REPORTS] Some recent-report sources failed: ${failures.join('; ')}',
+      );
+    }
+
     AppLogger.d('[REPORTS] Total Merged Reports Count: ${allReports.length}');
 
-    // Deduplicate by reportId (keep last occurrence)
+    // Deduplicate by reportId (keep last occurrence). A single unparseable
+    // entry is skipped (and logged) rather than failing the whole list.
     final unique = <String, ReportMetadataEntity>{};
     for (final model in allReports) {
-      final entity = _mapRecentModelToEntity(model);
-      unique[entity.reportId] = entity;
+      try {
+        final entity = _mapRecentModelToEntity(model);
+        unique[entity.reportId] = entity;
+      } catch (e) {
+        AppLogger.w(
+          '[REPORTS] Skipping unparseable recent report (${model.reportId}): $e',
+        );
+      }
     }
 
     AppLogger.d('[REPORTS] After dedup: ${unique.length}');
@@ -114,6 +199,18 @@ class ReportsRepositoryImpl implements ReportsRepository {
     }
 
     return sorted;
+  }
+
+  Future<_RecentFetchResult> _safeFetchRecent(
+    _RecentReportsSource source,
+  ) async {
+    try {
+      final data = await source.fetch();
+      return _RecentFetchResult(label: source.label, data: data);
+    } catch (e) {
+      AppLogger.e('[REPORTS] ${source.label} recent-reports fetch failed: $e');
+      return _RecentFetchResult(label: source.label, data: const [], error: e);
+    }
   }
 
   @override
@@ -161,4 +258,23 @@ class ReportsRepositoryImpl implements ReportsRepository {
     AppLogger.d('Downloading report file');
     return _remoteDataSource.downloadReportFile(downloadUrl);
   }
+}
+
+/// One named "recent reports" data source, paired with a label used for
+/// logging/error aggregation in [ReportsRepositoryImpl._safeFetchRecent].
+class _RecentReportsSource {
+  _RecentReportsSource(this.label, this.fetch);
+
+  final String label;
+  final Future<List<RecentReportModel>> Function() fetch;
+}
+
+/// Outcome of fetching one [_RecentReportsSource]: either [data] (success)
+/// or [error] (failure) — never both, never silently neither.
+class _RecentFetchResult {
+  _RecentFetchResult({required this.label, required this.data, this.error});
+
+  final String label;
+  final List<RecentReportModel> data;
+  final Object? error;
 }
