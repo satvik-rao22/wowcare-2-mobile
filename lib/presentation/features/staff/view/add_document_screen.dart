@@ -229,6 +229,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
         ),
       );
 
+      if (!mounted) return;
       if (result != null && result['date'] != null) {
         final selectedDate = result['date'] as DateTime;
         final now = AppTime.now();
@@ -263,6 +264,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
         allowMultiple: false,
       );
 
+      if (!mounted) return;
       if (result != null && result.files.isNotEmpty) {
         PlatformFile file = result.files.first;
         setState(() {
@@ -275,6 +277,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       }
     } catch (e) {
       AppLogger.d('Error picking file: $e');
+      if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Error selecting file. Please try again.',
@@ -317,6 +320,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             (await storage.getString(StorageKeys.organizationCode) ?? '')
                 .trim();
       }
+      if (!mounted) return;
       if (schoolCode.isEmpty || organizationCode.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
@@ -335,7 +339,9 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
         return;
       }
       final file = File(selectedPath);
-      if (!await file.exists()) {
+      final fileExists = await file.exists();
+      if (!mounted) return;
+      if (!fileExists) {
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Selected file is not accessible',
@@ -406,6 +412,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
           })
           .catchError((_) {});
     } catch (e) {
+      if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Failed to upload file: ${e.toString()}',

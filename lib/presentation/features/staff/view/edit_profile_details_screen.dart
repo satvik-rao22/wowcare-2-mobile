@@ -477,6 +477,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         );
         return;
       }
+      if (!mounted) return;
       setState(() => _profilePhoto = file);
     } catch (e) {
       if (!mounted) return;
@@ -1105,6 +1106,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         ),
       );
 
+      if (!mounted) return;
       if (result != null && result['date'] != null) {
         final selectedDate = result['date'] as DateTime;
         final now = AppTime.now();

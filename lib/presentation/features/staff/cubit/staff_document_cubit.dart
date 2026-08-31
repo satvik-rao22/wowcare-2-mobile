@@ -39,6 +39,10 @@ class StaffDocumentCubit extends Cubit<StaffDocumentState> {
         document: document,
       );
 
+      // The document screen owning this cubit may have been popped while the
+      // add was in flight; skip the emit so we don't mutate a closed cubit.
+      if (isClosed) return;
+
       result.fold(
         (failure) {
           emit(StaffDocumentState.error(
@@ -74,6 +78,10 @@ class StaffDocumentCubit extends Cubit<StaffDocumentState> {
         staffCode: staffCode,
         document: document,
       );
+
+      // The document screen owning this cubit may have been popped while the
+      // update was in flight; skip the emit so we don't mutate a closed cubit.
+      if (isClosed) return;
 
       result.fold(
         (failure) {

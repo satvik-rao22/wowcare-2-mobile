@@ -352,6 +352,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       );
       final imagePath = picked?.path;
       if (imagePath == null || imagePath.isEmpty) return;
+      if (!mounted) return;
       final staffCode = widget.staffCode.trim();
       if (staffCode.isEmpty) {
         CoreUtils.showTopSnackBar(
@@ -365,6 +366,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
           (_organizationCode ?? '').trim().isEmpty) {
         await _loadUploadContext();
       }
+      if (!mounted) return;
       final schoolCode = (_schoolCode ?? '').trim();
       final organizationCode = (_organizationCode ?? '').trim();
       if (schoolCode.isEmpty || organizationCode.isEmpty) {
@@ -443,12 +445,12 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       final refreshed = await _staffProfileCubit.fetchProfile(
         staffCode: staffCode,
       );
+      if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Profile photo updated successfully',
         isSuccess: true,
       );
-      if (!mounted) return;
       setState(() {
         _profilePhotoUrl = (refreshed.profilePhotoUrl).trim().isNotEmpty
             ? refreshed.profilePhotoUrl.trim()
@@ -457,6 +459,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         if (uc.isNotEmpty) _profileUserCode = uc;
       });
     } catch (e) {
+      if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Failed to update profile photo: $e',

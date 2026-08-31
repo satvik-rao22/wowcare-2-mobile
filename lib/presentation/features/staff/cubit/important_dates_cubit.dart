@@ -69,6 +69,10 @@ class ImportantDatesCubit extends Cubit<ImportantDatesState> {
         dates: dates,
       );
 
+      // The widget/route owning this cubit may have been torn down while the
+      // update was in flight; skip the emit so we don't mutate a closed cubit.
+      if (isClosed) return;
+
       result.fold(
         (Failure failure) {
           emit(

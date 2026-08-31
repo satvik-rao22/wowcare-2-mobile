@@ -351,6 +351,7 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
         ),
       );
 
+      if (!mounted) return;
       if (result != null && result['date'] != null) {
         final selected = result['date'] as DateTime;
         final selectedOnly = _dateOnly(selected);

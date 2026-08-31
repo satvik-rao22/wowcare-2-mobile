@@ -199,5 +199,30 @@ void main() {
         await cubit.close();
       },
     );
+
+    test(
+      'an update whose response lands after the cubit is closed does NOT emit '
+      '(isClosed guard — no emit-after-close StateError)',
+      () async {
+        final repo = _FakeRepo()..updateGate = Completer<String>();
+        final cubit = _cubit(repo);
+
+        // Start the update (emits loading, then parks on the in-flight gate).
+        final pending = cubit.updateImportantDates(
+          staffCode: 'S1',
+          dates: const [StaffImportantDate(importantDateType: '', dueDate: '')],
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        // Tear the cubit down while the update is still in flight, then let the
+        // response resolve. Without the post-await isClosed guard the success
+        // fold would emit on a closed cubit and throw.
+        await cubit.close();
+        repo.updateGate!.complete('done');
+
+        await expectLater(pending, completes);
+        expect(cubit.isClosed, isTrue);
+      },
+    );
   });
 }

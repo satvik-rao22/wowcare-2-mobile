@@ -831,6 +831,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                     WidgetsBinding.instance.addPostFrameCallback((
                                       _,
                                     ) {
+                                      if (!mounted) return;
                                       showModalBottomSheet(
                                         context: context,
                                         isScrollControlled: true,

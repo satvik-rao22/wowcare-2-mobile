@@ -89,6 +89,10 @@ class CreateSchoolUserCubit extends Cubit<CreateSchoolUserState> {
         allowedClassroomCodes: allowedClassroomCodes,
       );
 
+      // The add-staff screen owning this cubit may have been popped while the
+      // create was in flight; skip the emit so we don't mutate a closed cubit.
+      if (isClosed) return;
+
       result.fold(
         (failure) => emit(CreateSchoolUserState.error(
           failure.message ?? 'Failed to create user',
