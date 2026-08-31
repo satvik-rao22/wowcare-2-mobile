@@ -2,6 +2,10 @@ import '../entities/staff_member.dart';
 import '../entities/staff_document.dart';
 import '../entities/staff_documents_page.dart';
 import '../entities/staff_profile.dart';
+import '../entities/staff_profile_update.dart';
+import '../entities/staff_address_update.dart';
+import '../entities/staff_important_date.dart';
+import '../entities/staff_schedule_entry.dart';
 import '../entities/create_school_user_result.dart';
 import '../entities/staff_count.dart';
 import '../entities/school_regular_schedule_day.dart';
@@ -85,19 +89,20 @@ abstract class StaffRepository {
 
   /// Updates staff profile core details (name, status, phone, designation, jobTag, classrooms, etc.).
   ///
-  /// [fields] should follow the backend PATCH contract for `/api/v1/staff/staff/my-profile/{staffCode}`.
+  /// [fields] carries the backend PATCH contract for `/api/v1/staff/staff/my-profile/{staffCode}`;
+  /// the repository serializes it via [StaffProfileUpdate.toPayload].
   Future<String> updateStaffProfile({
     required String staffCode,
-    required Map<String, dynamic> fields,
+    required StaffProfileUpdate fields,
   });
 
   /// Updates staff address via `/api/v1/staff-address/{staffCode}`.
   ///
-  /// [fields] should include addressStreet, addressLine2, addressCity,
-  /// addressState, addressZipCode, addressCountry.
+  /// [fields] carries addressStreet, addressLine2, addressCity, addressState,
+  /// addressZipCode, addressCountry; serialized via [StaffAddressUpdate.toPayload].
   Future<String> updateStaffAddress({
     required String staffCode,
-    required Map<String, dynamic> fields,
+    required StaffAddressUpdate fields,
   });
 
   /// Updates a staff member's allowed classrooms via
@@ -149,19 +154,15 @@ abstract class StaffRepository {
 
   /// Fetches staff important dates via `/api/v1/staff-dates/{staffCode}`.
   ///
-  /// Returns a list of map entries shaped as:
-  /// {
-  ///   "importantDateType": "HIRE_DATE",
-  ///   "dueDate": "2026-02-06",
-  ///   "completedDate": "2026-02-06"
-  /// }
-  Future<List<Map<String, String>>> getImportantDates({
+  /// Returns typed [StaffImportantDate] entries (importantDateType, dueDate,
+  /// optional completedDate/status).
+  Future<List<StaffImportantDate>> getImportantDates({
     required String staffCode,
   });
 
   Future<String> updateImportantDates({
     required String staffCode,
-    required List<Map<String, String>> dates,
+    required List<StaffImportantDate> dates,
   });
 
   /// Fetches the staff member's work and break schedules from the dedicated
@@ -176,12 +177,12 @@ abstract class StaffRepository {
 
   /// Updates staff work & break schedules via `/api/v1/staff-schedules/{staffCode}`.
   ///
-  /// [workSchedules] and [breakSchedules] should already be shaped according to
-  /// the backend contract (see API docs).
+  /// [workSchedules] and [breakSchedules] are typed entries; the repository
+  /// serializes each via `toPayload()` into the backend contract shape.
   Future<String> updateStaffSchedules({
     required String staffCode,
-    required List<Map<String, dynamic>> workSchedules,
-    required List<Map<String, dynamic>> breakSchedules,
+    required List<StaffWorkScheduleEntry> workSchedules,
+    required List<StaffBreakScheduleEntry> breakSchedules,
   });
 
   /// School operating hours per weekday from school settings
@@ -305,7 +306,7 @@ abstract class StaffRepositoryWithCache {
     String staffCode, {
     bool forEditStaff = false,
   });
-  Future<List<Map<String, String>>?> loadCachedImportantDates(String staffCode);
+  Future<List<StaffImportantDate>?> loadCachedImportantDates(String staffCode);
   Future<StaffCount?> loadCachedStaffCount({
     required String organizationCode,
     required String schoolCode,

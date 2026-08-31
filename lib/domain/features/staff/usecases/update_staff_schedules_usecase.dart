@@ -1,3 +1,4 @@
+import '../entities/staff_schedule_entry.dart';
 import '../repositories/staff_repository.dart';
 
 class UpdateStaffSchedulesUseCase {
@@ -7,8 +8,8 @@ class UpdateStaffSchedulesUseCase {
 
   Future<String> call({
     required String staffCode,
-    required List<Map<String, dynamic>> workSchedules,
-    required List<Map<String, dynamic>> breakSchedules,
+    required List<StaffWorkScheduleEntry> workSchedules,
+    required List<StaffBreakScheduleEntry> breakSchedules,
   }) {
     return _repository.updateStaffSchedules(
       staffCode: staffCode,

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_important_date.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_important_dates_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/update_important_dates_usecase.dart';
@@ -13,10 +14,10 @@ import 'package:wowcare/presentation/features/staff/cubit/important_dates_cubit.
 /// controllable data. Everything else throws via [noSuchMethod].
 class _FakeRepo implements StaffRepository, StaffRepositoryWithCache {
   /// Value returned from [loadCachedImportantDates] (null = cache miss).
-  List<Map<String, String>>? cached;
+  List<StaffImportantDate>? cached;
 
   /// Value returned from [getImportantDates] (the API read).
-  List<Map<String, String>> apiDates = const [];
+  List<StaffImportantDate> apiDates = const [];
 
   /// When set, [getImportantDates] throws this (use case folds it to a Left).
   Object? getError;
@@ -34,7 +35,7 @@ class _FakeRepo implements StaffRepository, StaffRepositoryWithCache {
   Completer<String>? updateGate;
 
   @override
-  Future<List<Map<String, String>>?> loadCachedImportantDates(
+  Future<List<StaffImportantDate>?> loadCachedImportantDates(
     String staffCode,
   ) async {
     cacheCalls++;
@@ -42,7 +43,7 @@ class _FakeRepo implements StaffRepository, StaffRepositoryWithCache {
   }
 
   @override
-  Future<List<Map<String, String>>> getImportantDates({
+  Future<List<StaffImportantDate>> getImportantDates({
     required String staffCode,
   }) async {
     getCalls++;
@@ -53,7 +54,7 @@ class _FakeRepo implements StaffRepository, StaffRepositoryWithCache {
   @override
   Future<String> updateImportantDates({
     required String staffCode,
-    required List<Map<String, String>> dates,
+    required List<StaffImportantDate> dates,
   }) {
     updateCalls++;
     if (updateGate != null) return updateGate!.future;
@@ -80,10 +81,10 @@ void main() {
       () async {
         final repo = _FakeRepo()
           ..cached = [
-            {'importantDateType': 'HIRE_DATE', 'dueDate': '2026-01-01'},
+            StaffImportantDate(importantDateType: 'HIRE_DATE', dueDate: '2026-01-01'),
           ]
           ..apiDates = [
-            {'importantDateType': 'CDA', 'dueDate': '2026-09-09'},
+            StaffImportantDate(importantDateType: 'CDA', dueDate: '2026-09-09'),
           ];
         final cubit = _cubit(repo);
 
@@ -100,7 +101,7 @@ void main() {
       final repo = _FakeRepo()
         ..cached = null
         ..apiDates = [
-          {'importantDateType': 'CDA', 'dueDate': '2026-02-02'},
+          StaffImportantDate(importantDateType: 'CDA', dueDate: '2026-02-02'),
         ];
       final cubit = _cubit(repo);
 
@@ -115,10 +116,10 @@ void main() {
     test('skips the cache entirely when useCache is false', () async {
       final repo = _FakeRepo()
         ..cached = [
-          {'importantDateType': 'HIRE_DATE', 'dueDate': '2026-01-01'},
+          StaffImportantDate(importantDateType: 'HIRE_DATE', dueDate: '2026-01-01'),
         ]
         ..apiDates = [
-          {'importantDateType': 'BRC', 'dueDate': '2026-03-03'},
+          StaffImportantDate(importantDateType: 'BRC', dueDate: '2026-03-03'),
         ];
       final cubit = _cubit(repo);
 
@@ -149,7 +150,7 @@ void main() {
       final repo = _FakeRepo()..updateResult = 'Saved!';
       final cubit = _cubit(repo);
 
-      await cubit.updateImportantDates(staffCode: 'S1', dates: const [{}]);
+      await cubit.updateImportantDates(staffCode: 'S1', dates: const [StaffImportantDate(importantDateType: '', dueDate: '')]);
 
       expect(cubit.state.isSuccess, isTrue);
       expect(cubit.state.message, 'Saved!');
@@ -161,7 +162,7 @@ void main() {
       final repo = _FakeRepo()..updateError = Exception('nope');
       final cubit = _cubit(repo);
 
-      await cubit.updateImportantDates(staffCode: 'S1', dates: const [{}]);
+      await cubit.updateImportantDates(staffCode: 'S1', dates: const [StaffImportantDate(importantDateType: '', dueDate: '')]);
 
       expect(cubit.state.isError, isTrue);
       expect(cubit.state.isSuccess, isFalse);
@@ -178,11 +179,11 @@ void main() {
         // Two rapid taps while the first is still in flight.
         final f1 = cubit.updateImportantDates(
           staffCode: 'S1',
-          dates: const [{}],
+          dates: const [StaffImportantDate(importantDateType: '', dueDate: '')],
         );
         final f2 = cubit.updateImportantDates(
           staffCode: 'S1',
-          dates: const [{}],
+          dates: const [StaffImportantDate(importantDateType: '', dueDate: '')],
         );
 
         await Future<void>.delayed(Duration.zero);

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/staff/entities/school_regular_schedule_day.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_schedule_entry.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_school_regular_schedules_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/update_staff_schedules_usecase.dart';
@@ -53,8 +54,8 @@ class _FakeUpdateUseCase extends UpdateStaffSchedulesUseCase {
   @override
   Future<String> call({
     required String staffCode,
-    required List<Map<String, dynamic>> workSchedules,
-    required List<Map<String, dynamic>> breakSchedules,
+    required List<StaffWorkScheduleEntry> workSchedules,
+    required List<StaffBreakScheduleEntry> breakSchedules,
   }) {
     calls++;
     staffCodes.add(staffCode);
@@ -111,7 +112,11 @@ void main() {
       final message = await cubit.updateSchedules(
         staffCode: 'ST1',
         workSchedules: const [
-          {'dayOfWeek': 'MONDAY', 'workStartTime': '09:00:00'},
+          StaffWorkScheduleEntry(
+            dayOfWeek: 'MONDAY',
+            workStartTime: '09:00:00',
+            workEndTime: '17:00:00',
+          ),
         ],
         breakSchedules: const [],
       );

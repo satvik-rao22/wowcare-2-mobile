@@ -18,6 +18,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/data/features/staff/models/staff_important_dates_models.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_important_date.dart';
 
 class EditImportantDatesScreen extends StatefulWidget {
   const EditImportantDatesScreen({
@@ -222,54 +223,54 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
       }
     }
 
-    final dates = <Map<String, String>>[];
+    final dates = <StaffImportantDate>[];
 
     // Hire Date (optional)
     if (_selectedHireDate != null) {
-      dates.add({
-        'importantDateType': ImportantDateType.hireDate.value,
-        'dueDate': DateFormat('yyyy-MM-dd').format(_selectedHireDate!),
-        'completedDate': DateFormat('yyyy-MM-dd').format(_selectedHireDate!),
-      });
+      dates.add(StaffImportantDate(
+        importantDateType: ImportantDateType.hireDate.value,
+        dueDate: DateFormat('yyyy-MM-dd').format(_selectedHireDate!),
+        completedDate: DateFormat('yyyy-MM-dd').format(_selectedHireDate!),
+      ));
     }
 
     // CDA Examination Date
     if (_selectedCdaExaminationDate != null) {
-      dates.add({
-        'importantDateType': ImportantDateType.cda.value,
-        'dueDate': DateFormat(
+      dates.add(StaffImportantDate(
+        importantDateType: ImportantDateType.cda.value,
+        dueDate: DateFormat(
           'yyyy-MM-dd',
         ).format(_selectedCdaExaminationDate!),
-        'completedDate': DateFormat(
+        completedDate: DateFormat(
           'yyyy-MM-dd',
         ).format(_selectedCdaExaminationDate!),
-      });
+      ));
     }
 
     // First Aid/CPR Expiration Date (maps to FIRST_AID_CPR)
     if (_selectedFirstAidCprExpirationDate != null) {
-      dates.add({
-        'importantDateType': ImportantDateType.firstAidCpr.value,
-        'dueDate': DateFormat(
+      dates.add(StaffImportantDate(
+        importantDateType: ImportantDateType.firstAidCpr.value,
+        dueDate: DateFormat(
           'yyyy-MM-dd',
         ).format(_selectedFirstAidCprExpirationDate!),
-        'completedDate': DateFormat(
+        completedDate: DateFormat(
           'yyyy-MM-dd',
         ).format(_selectedFirstAidCprExpirationDate!),
-      });
+      ));
     }
 
     // Background Record Check Expiration Date
     if (_selectedBackgroundRecordCheckExpirationDate != null) {
-      dates.add({
-        'importantDateType': ImportantDateType.brc.value,
-        'dueDate': DateFormat(
+      dates.add(StaffImportantDate(
+        importantDateType: ImportantDateType.brc.value,
+        dueDate: DateFormat(
           'yyyy-MM-dd',
         ).format(_selectedBackgroundRecordCheckExpirationDate!),
-        'completedDate': DateFormat(
+        completedDate: DateFormat(
           'yyyy-MM-dd',
         ).format(_selectedBackgroundRecordCheckExpirationDate!),
-      });
+      ));
     }
 
     // Physical Checkup Date (API supports status: Scheduled | Completed)
@@ -277,19 +278,22 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
       final dueDate = DateFormat(
         'yyyy-MM-dd',
       ).format(_selectedPhysicalCheckupDate!);
-      final map = <String, String>{
-        'importantDateType': ImportantDateType.physicalCheckup.value,
-        'dueDate': dueDate,
-      };
+      String? completedDate;
+      String? status;
       if (_selectedPhysicalCheckupStatus == 'Completed') {
-        map['completedDate'] = dueDate;
-        map['status'] = 'COMPLETED';
+        completedDate = dueDate;
+        status = 'COMPLETED';
       } else if (_selectedPhysicalCheckupStatus == 'Scheduled') {
-        map['status'] = 'SCHEDULED';
+        status = 'SCHEDULED';
       } else if (_selectedPhysicalCheckupStatus == 'Due') {
-        map['status'] = 'DUE';
+        status = 'DUE';
       }
-      dates.add(map);
+      dates.add(StaffImportantDate(
+        importantDateType: ImportantDateType.physicalCheckup.value,
+        dueDate: dueDate,
+        completedDate: completedDate,
+        status: status,
+      ));
     }
 
     _importantDatesCubit.updateImportantDates(

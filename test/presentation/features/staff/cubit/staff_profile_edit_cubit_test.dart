@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_address_update.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_profile_update.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/activate_organization_admin_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/activate_school_user_usecase.dart';
@@ -31,7 +33,7 @@ class _FakeUpdateProfileUseCase extends UpdateStaffProfileUseCase {
   @override
   Future<String> call({
     required String staffCode,
-    required Map<String, dynamic> fields,
+    required StaffProfileUpdate fields,
   }) {
     calls++;
     if (error != null) return Future.error(error!);
@@ -50,7 +52,7 @@ class _FakeUpdateAddressUseCase extends UpdateStaffAddressUseCase {
   @override
   Future<String> call({
     required String staffCode,
-    required Map<String, dynamic> fields,
+    required StaffAddressUpdate fields,
   }) {
     calls++;
     if (error != null) return Future.error(error!);
@@ -226,7 +228,13 @@ void main() {
 
       final message = await cubit.updateProfile(
         staffCode: 'ST1',
-        fields: const {'firstName': 'A'},
+        fields: const StaffProfileUpdate(
+          firstName: 'A',
+          lastName: '',
+          status: '',
+          phoneNumber: '',
+          designation: '',
+        ),
       );
 
       expect(fakes.updateProfile.calls, 1);
@@ -240,7 +248,14 @@ void main() {
 
       final message = await cubit.updateAddress(
         staffCode: 'ST1',
-        fields: const {'addressCity': 'Nashua'},
+        fields: const StaffAddressUpdate(
+          addressStreet: '',
+          addressLine2: '',
+          addressCity: 'Nashua',
+          addressState: '',
+          addressZipCode: '',
+          addressCountry: '',
+        ),
       );
 
       expect(fakes.updateAddress.calls, 1);
@@ -361,7 +376,16 @@ void main() {
       final cubit = fakes.build();
 
       await expectLater(
-        cubit.updateProfile(staffCode: 'ST1', fields: const {}),
+        cubit.updateProfile(
+          staffCode: 'ST1',
+          fields: const StaffProfileUpdate(
+            firstName: '',
+            lastName: '',
+            status: '',
+            phoneNumber: '',
+            designation: '',
+          ),
+        ),
         throwsA(isA<Exception>()),
       );
       await cubit.close();
@@ -373,7 +397,17 @@ void main() {
       final cubit = fakes.build();
 
       await expectLater(
-        cubit.updateAddress(staffCode: 'ST1', fields: const {}),
+        cubit.updateAddress(
+          staffCode: 'ST1',
+          fields: const StaffAddressUpdate(
+            addressStreet: '',
+            addressLine2: '',
+            addressCity: '',
+            addressState: '',
+            addressZipCode: '',
+            addressCountry: '',
+          ),
+        ),
         throwsA(isA<Exception>()),
       );
       await cubit.close();
@@ -495,8 +529,15 @@ void main() {
       fakes.updateProfile.gate = gate;
       final cubit = fakes.build();
 
-      final f1 = cubit.updateProfile(staffCode: 'ST1', fields: const {'a': 1});
-      final f2 = cubit.updateProfile(staffCode: 'ST1', fields: const {'a': 1});
+      const fields = StaffProfileUpdate(
+        firstName: 'A',
+        lastName: '',
+        status: '',
+        phoneNumber: '',
+        designation: '',
+      );
+      final f1 = cubit.updateProfile(staffCode: 'ST1', fields: fields);
+      final f2 = cubit.updateProfile(staffCode: 'ST1', fields: fields);
 
       expect(identical(f1, f2), isTrue);
 

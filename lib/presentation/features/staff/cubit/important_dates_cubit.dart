@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../domain/features/staff/entities/staff_important_date.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../domain/features/staff/usecases/get_important_dates_usecase.dart';
 import '../../../../domain/features/staff/usecases/update_important_dates_usecase.dart';
@@ -32,7 +33,7 @@ class ImportantDatesCubit extends Cubit<ImportantDatesState> {
   /// list is returned as-is (no API hit); otherwise the read falls through to
   /// the API via [GetImportantDatesUseCase]. On an API failure the [Failure] is
   /// thrown so callers can surface its message exactly as the old fold did.
-  Future<List<Map<String, String>>> fetchImportantDates(
+  Future<List<StaffImportantDate>> fetchImportantDates(
     String staffCode, {
     bool useCache = true,
   }) async {
@@ -42,7 +43,7 @@ class ImportantDatesCubit extends Cubit<ImportantDatesState> {
         final cached = await (repository as StaffRepositoryWithCache)
             .loadCachedImportantDates(staffCode);
         if (cached != null) {
-          return List<Map<String, String>>.from(cached);
+          return List<StaffImportantDate>.from(cached);
         }
       }
     }
@@ -50,13 +51,13 @@ class ImportantDatesCubit extends Cubit<ImportantDatesState> {
     final result = await _getImportantDatesUseCase(staffCode: staffCode);
     return result.fold(
       (Failure failure) => throw failure,
-      (List<Map<String, String>> dates) => dates,
+      (List<StaffImportantDate> dates) => dates,
     );
   }
 
   Future<void> updateImportantDates({
     required String staffCode,
-    required List<Map<String, String>> dates,
+    required List<StaffImportantDate> dates,
   }) async {
     if (_inFlight) return;
     _inFlight = true;

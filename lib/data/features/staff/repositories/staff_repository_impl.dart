@@ -6,6 +6,10 @@ import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/entities/staff_document.dart';
 import '../../../../domain/features/staff/entities/staff_documents_page.dart';
 import '../../../../domain/features/staff/entities/staff_profile.dart';
+import '../../../../domain/features/staff/entities/staff_profile_update.dart';
+import '../../../../domain/features/staff/entities/staff_address_update.dart';
+import '../../../../domain/features/staff/entities/staff_important_date.dart';
+import '../../../../domain/features/staff/entities/staff_schedule_entry.dart';
 import '../../../../domain/features/staff/entities/create_school_user_result.dart';
 import '../../../../domain/features/staff/entities/staff_count.dart';
 import '../../../../domain/features/staff/entities/school_user.dart';
@@ -610,11 +614,11 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   @override
   Future<String> updateStaffProfile({
     required String staffCode,
-    required Map<String, dynamic> fields,
+    required StaffProfileUpdate fields,
   }) async {
     final message = await _remoteDataSource.updateStaffProfile(
       staffCode: staffCode,
-      body: fields,
+      body: fields.toPayload(),
     );
 
     await _invalidateStaffProfileCaches(staffCode);
@@ -629,11 +633,11 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   @override
   Future<String> updateStaffAddress({
     required String staffCode,
-    required Map<String, dynamic> fields,
+    required StaffAddressUpdate fields,
   }) async {
     final message = await _remoteDataSource.updateStaffAddress(
       staffCode: staffCode,
-      body: fields,
+      body: fields.toPayload(),
     );
 
     await _invalidateStaffProfileCaches(staffCode);
@@ -829,7 +833,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   }
 
   @override
-  Future<List<Map<String, String>>> getImportantDates({
+  Future<List<StaffImportantDate>> getImportantDates({
     required String staffCode,
   }) async {
     final models = await _remoteDataSource.getImportantDates(
@@ -838,25 +842,27 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
 
     final result = models
         .map(
-          (m) => <String, String>{
-            'importantDateType': m.importantDateType,
-            'dueDate': m.dueDate,
-            if (m.completedDate != null) 'completedDate': m.completedDate!,
-            if (m.status != null && m.status!.isNotEmpty) 'status': m.status!,
-          },
+          (m) => StaffImportantDate(
+            importantDateType: m.importantDateType,
+            dueDate: m.dueDate,
+            completedDate: m.completedDate,
+            status: m.status,
+          ),
         )
         .toList();
 
-    // Cache the important dates
+    // Cache the important dates. `toPayload()` reproduces the exact conditional
+    // Map shape that was cached before (completedDate omitted when null; status
+    // omitted when null/empty), so the cached JSON stays byte-identical.
     await _cacheManager.saveCache(_staffImportantDatesCacheKey(staffCode), {
-      'dates': result,
+      'dates': result.map((e) => e.toPayload()).toList(),
     });
 
     return result;
   }
 
   @override
-  Future<List<Map<String, String>>?> loadCachedImportantDates(
+  Future<List<StaffImportantDate>?> loadCachedImportantDates(
     String staffCode,
   ) async {
     final payload = await _cacheManager.loadCache(
@@ -869,33 +875,25 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
 
     return dates
         .map((d) => d as Map<String, dynamic>)
-        .map(
-          (d) => <String, String>{
-            'importantDateType': d['importantDateType']?.toString() ?? '',
-            'dueDate': d['dueDate']?.toString() ?? '',
-            if (d['completedDate'] != null)
-              'completedDate': d['completedDate']!.toString(),
-            if (d['status'] != null) 'status': d['status']!.toString(),
-          },
-        )
+        .map(StaffImportantDate.fromMap)
         .toList();
   }
 
   @override
   Future<String> updateImportantDates({
     required String staffCode,
-    required List<Map<String, String>> dates,
+    required List<StaffImportantDate> dates,
   }) async {
     final today = AppTime.today();
 
     // Final safety guard: never allow PHYSICAL_CHECKUP Due/Scheduled in past
     // (reverse rule of Completed) even if any UI path misses validation.
     for (final date in dates) {
-      final type = (date['importantDateType'] ?? '').trim().toUpperCase();
+      final type = date.importantDateType.trim().toUpperCase();
       if (type != 'PHYSICAL_CHECKUP') continue;
 
-      final status = (date['status'] ?? '').trim().toUpperCase();
-      final dueDate = (date['dueDate'] ?? '').trim();
+      final status = (date.status ?? '').trim().toUpperCase();
+      final dueDate = date.dueDate.trim();
       if (dueDate.isEmpty) continue;
 
       DateTime? parsed;
@@ -936,10 +934,10 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     final dateRequests = dates
         .map(
           (date) => ImportantDateRequestModel(
-            importantDateType: date['importantDateType']!,
-            dueDate: date['dueDate']!,
-            completedDate: date['completedDate'],
-            status: date['status'],
+            importantDateType: date.importantDateType,
+            dueDate: date.dueDate,
+            completedDate: date.completedDate,
+            status: date.status,
           ),
         )
         .toList();
@@ -1005,12 +1003,12 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   @override
   Future<String> updateStaffSchedules({
     required String staffCode,
-    required List<Map<String, dynamic>> workSchedules,
-    required List<Map<String, dynamic>> breakSchedules,
+    required List<StaffWorkScheduleEntry> workSchedules,
+    required List<StaffBreakScheduleEntry> breakSchedules,
   }) async {
     final body = <String, dynamic>{
-      'workSchedules': workSchedules,
-      'breakSchedules': breakSchedules,
+      'workSchedules': workSchedules.map((e) => e.toPayload()).toList(),
+      'breakSchedules': breakSchedules.map((e) => e.toPayload()).toList(),
     };
 
     final message = await _remoteDataSource.updateStaffSchedules(

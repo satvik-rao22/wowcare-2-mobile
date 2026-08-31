@@ -17,6 +17,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_profile_update.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_address_update.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_profile_edit_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
@@ -736,15 +738,15 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
 
       // Classrooms are updated via dedicated /staff-classrooms endpoints below;
       // the /profile endpoint ignores them, so we don't send them here.
-      final profilePayload = <String, dynamic>{
-        'firstName': first,
-        'lastName': last,
-        'status': statusApi,
-        'phoneNumber': phoneDigits,
-        'designation': designationApi,
-        if (jobTagApi != null) 'jobTag': jobTagApi,
-        if (birthDateApi != null) 'birthdate': birthDateApi,
-      };
+      final profilePayload = StaffProfileUpdate(
+        firstName: first,
+        lastName: last,
+        status: statusApi,
+        phoneNumber: phoneDigits,
+        designation: designationApi,
+        jobTag: jobTagApi,
+        birthdate: birthDateApi,
+      );
 
       // Map selected state/country display names back to codes for API.
       String stateCode = '';
@@ -765,15 +767,15 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         countryCode = match.code;
       }
 
-      final addressPayload = <String, dynamic>{
-        'addressStreet': _streetController.text.trim(),
-        'addressLine2': _street2Controller.text.trim(),
-        'addressCity': _cityController.text.trim(),
-        'addressState': stateCode,
+      final addressPayload = StaffAddressUpdate(
+        addressStreet: _streetController.text.trim(),
+        addressLine2: _street2Controller.text.trim(),
+        addressCity: _cityController.text.trim(),
+        addressState: stateCode,
         // Send digits-only to backend for consistent storage.
-        'addressZipCode': zipDigits,
-        'addressCountry': countryCode,
-      };
+        addressZipCode: zipDigits,
+        addressCountry: countryCode,
+      );
 
       // If email changed, call email-change API first (same behavior as
       // EditUserProfileScreen/EditUserProfileCubit). Its own response

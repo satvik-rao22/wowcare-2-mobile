@@ -6,6 +6,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_important_date.dart';
 import 'package:wowcare/presentation/features/staff/cubit/important_dates_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_important_dates_screen.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
@@ -32,7 +33,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
   final Map<String, String> _datesByType = {};
 
   /// Full list from API/cache for passing to edit screen and Physical Checkup display.
-  List<Map<String, String>> _importantDatesList = [];
+  List<StaffImportantDate> _importantDatesList = [];
 
   /// Single ImportantDatesCubit instance for this tab (registered as a factory,
   /// so held in a field rather than looked up per call). All reads/mutations of
@@ -69,10 +70,10 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
       if (!mounted) return;
 
       _datesByType.clear();
-      _importantDatesList = List.from(dates);
+      _importantDatesList = List.of(dates);
       for (final date in dates) {
-        final type = (date['importantDateType'] ?? '').toUpperCase();
-        final dueDate = date['dueDate'] ?? '';
+        final type = date.importantDateType.toUpperCase();
+        final dueDate = date.dueDate;
         if (type.isEmpty || dueDate.isEmpty) continue;
         _datesByType[type] = _formatDate(dueDate);
       }
@@ -113,10 +114,10 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
     return _datesByType[type.toUpperCase()] ?? '';
   }
 
-  Map<String, String>? _getEntryByType(String type) {
+  StaffImportantDate? _getEntryByType(String type) {
     final key = type.toUpperCase();
     for (final e in _importantDatesList) {
-      if ((e['importantDateType'] ?? '').toUpperCase() == key) return e;
+      if (e.importantDateType.toUpperCase() == key) return e;
     }
     return null;
   }
@@ -159,9 +160,9 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
     const scheduledColor = Color.fromRGBO(30, 94, 255, 1);
     const scheduledBg = Color.fromRGBO(30, 94, 255, 0.12);
 
-    final statusUpper = (physical['status'] ?? '').toUpperCase();
-    final dueDate = (physical['dueDate'] ?? '').trim();
-    final completedDate = (physical['completedDate'] ?? '').trim();
+    final statusUpper = (physical.status ?? '').toUpperCase();
+    final dueDate = physical.dueDate.trim();
+    final completedDate = (physical.completedDate ?? '').trim();
     final bool isCompleted = statusUpper == 'COMPLETED';
     final bool showMore = !isCompleted;
     final cards = <Widget>[];
@@ -678,19 +679,20 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                         final existingCompleted =
                                             (_getEntryByType(
                                                       'PHYSICAL_CHECKUP',
-                                                    )?['completedDate'] ??
+                                                    )?.completedDate ??
                                                     '')
                                                 .trim();
-                                        final payload = <String, String>{
-                                          'importantDateType':
-                                              'PHYSICAL_CHECKUP',
-                                          'dueDate': dueIso,
-                                          'status': statusApi,
-                                          if (statusApi == 'COMPLETED')
-                                            'completedDate': dueIso
-                                          else if (existingCompleted.isNotEmpty)
-                                            'completedDate': existingCompleted,
-                                        };
+                                        final payload = StaffImportantDate(
+                                          importantDateType: 'PHYSICAL_CHECKUP',
+                                          dueDate: dueIso,
+                                          status: statusApi,
+                                          completedDate:
+                                              statusApi == 'COMPLETED'
+                                              ? dueIso
+                                              : (existingCompleted.isNotEmpty
+                                                    ? existingCompleted
+                                                    : null),
+                                        );
 
                                         setLocalState(() => isSaving = true);
                                         try {
@@ -799,20 +801,20 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                           MaterialPageRoute(
                             builder: (context) => EditImportantDatesScreen(
                               staffCode: widget.staffCode,
-                              initialHireDate: _parseIsoDate(hire?['dueDate']),
+                              initialHireDate: _parseIsoDate(hire?.dueDate),
                               initialCdaExaminationDate: _parseIsoDate(
-                                cda?['dueDate'],
+                                cda?.dueDate,
                               ),
                               initialFirstAidCprExpirationDate: _parseIsoDate(
-                                firstAid?['dueDate'],
+                                firstAid?.dueDate,
                               ),
                               initialBackgroundRecordCheckExpirationDate:
-                                  _parseIsoDate(brc?['dueDate']),
+                                  _parseIsoDate(brc?.dueDate),
                               initialPhysicalCheckupDate: _parseIsoDate(
-                                physical?['dueDate'],
+                                physical?.dueDate,
                               ),
                               initialPhysicalCheckupStatus:
-                                  _apiStatusToDropdown(physical?['status']),
+                                  _apiStatusToDropdown(physical?.status),
                             ),
                           ),
                         ).then((_) {

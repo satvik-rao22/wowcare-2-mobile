@@ -8,6 +8,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.da
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_schedule_entry.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_schedule_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -389,8 +390,8 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
     }
 
     // Build API payload for work and break schedules
-    final List<Map<String, dynamic>> workSchedules = [];
-    final List<Map<String, dynamic>> breakSchedules = [];
+    final List<StaffWorkScheduleEntry> workSchedules = [];
+    final List<StaffBreakScheduleEntry> breakSchedules = [];
 
     for (final day in _allDays) {
       final schedule = _schedules[day]!;
@@ -400,21 +401,21 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       final dayOfWeek = day.toUpperCase(); // MONDAY, TUESDAY, ...
 
       if (schedule.workStartTime != null && schedule.workEndTime != null) {
-        workSchedules.add({
-          'dayOfWeek': dayOfWeek,
+        workSchedules.add(StaffWorkScheduleEntry(
+          dayOfWeek: dayOfWeek,
           // Backend expects java.time.LocalTime which deserializes from string (e.g. "12:05:00")
-          'workStartTime': _formatLocalTime(schedule.workStartTime!),
-          'workEndTime': _formatLocalTime(schedule.workEndTime!),
-        });
+          workStartTime: _formatLocalTime(schedule.workStartTime!),
+          workEndTime: _formatLocalTime(schedule.workEndTime!),
+        ));
       }
 
       if (schedule.breakStartTime != null && schedule.breakEndTime != null) {
-        breakSchedules.add({
-          'dayOfWeek': dayOfWeek,
-          'breakType': 'LUNCH',
-          'breakStartTime': _formatLocalTime(schedule.breakStartTime!),
-          'breakEndTime': _formatLocalTime(schedule.breakEndTime!),
-        });
+        breakSchedules.add(StaffBreakScheduleEntry(
+          dayOfWeek: dayOfWeek,
+          breakType: 'LUNCH',
+          breakStartTime: _formatLocalTime(schedule.breakStartTime!),
+          breakEndTime: _formatLocalTime(schedule.breakEndTime!),
+        ));
       }
     }
 

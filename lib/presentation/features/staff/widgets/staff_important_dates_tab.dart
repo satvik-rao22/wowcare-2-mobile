@@ -65,14 +65,13 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
 
       final items = <Map<String, String>>[];
       for (final date in dates) {
-        final type = (date['importantDateType'] ?? '').toUpperCase();
-        final dueDate = date['dueDate'] ?? '';
+        final type = date.importantDateType.toUpperCase();
+        final dueDate = date.dueDate;
         if (dueDate.isEmpty) continue;
         items.add(<String, String>{
           'importantDateType': type,
           'dueDate': dueDate,
-          if ((date['status'] ?? '').toString().isNotEmpty)
-            'status': (date['status'] ?? '').toString(),
+          if ((date.status ?? '').isNotEmpty) 'status': date.status ?? '',
         });
       }
 

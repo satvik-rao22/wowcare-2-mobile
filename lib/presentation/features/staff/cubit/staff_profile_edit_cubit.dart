@@ -1,6 +1,8 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../../../domain/features/staff/entities/staff_address_update.dart';
+import '../../../../domain/features/staff/entities/staff_profile_update.dart';
 import '../../../../domain/features/staff/usecases/activate_organization_admin_usecase.dart';
 import '../../../../domain/features/staff/usecases/activate_school_user_usecase.dart';
 import '../../../../domain/features/staff/usecases/change_user_email_usecase.dart';
@@ -83,7 +85,7 @@ class StaffProfileEditCubit extends Cubit<StaffProfileEditState> {
 
   Future<String> updateProfile({
     required String staffCode,
-    required Map<String, dynamic> fields,
+    required StaffProfileUpdate fields,
   }) {
     return _singleFlight<String>('updateProfile:$staffCode', () async {
       if (!isClosed) emit(state.copyWith(mutationInProgress: true));
@@ -100,7 +102,7 @@ class StaffProfileEditCubit extends Cubit<StaffProfileEditState> {
 
   Future<String> updateAddress({
     required String staffCode,
-    required Map<String, dynamic> fields,
+    required StaffAddressUpdate fields,
   }) {
     return _singleFlight<String>('updateAddress:$staffCode', () async {
       if (!isClosed) emit(state.copyWith(mutationInProgress: true));

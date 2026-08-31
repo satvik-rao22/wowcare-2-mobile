@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../../domain/features/staff/entities/school_regular_schedule_day.dart';
+import '../../../../domain/features/staff/entities/staff_schedule_entry.dart';
 import '../../../../domain/features/staff/usecases/get_school_regular_schedules_usecase.dart';
 import '../../../../domain/features/staff/usecases/update_staff_schedules_usecase.dart';
 
@@ -58,8 +59,8 @@ class StaffScheduleCubit extends Cubit<StaffScheduleState> {
   /// `await` + snackbar + pop + try/catch.
   Future<String> updateSchedules({
     required String staffCode,
-    required List<Map<String, dynamic>> workSchedules,
-    required List<Map<String, dynamic>> breakSchedules,
+    required List<StaffWorkScheduleEntry> workSchedules,
+    required List<StaffBreakScheduleEntry> breakSchedules,
   }) {
     return _singleFlightMutation<String>('updateSchedules:$staffCode', () async {
       if (!isClosed) emit(state.copyWith(mutationInProgress: true));

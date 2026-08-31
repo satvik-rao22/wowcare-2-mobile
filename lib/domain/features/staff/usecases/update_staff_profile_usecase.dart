@@ -1,3 +1,4 @@
+import '../entities/staff_profile_update.dart';
 import '../repositories/staff_repository.dart';
 
 /// Use case to update a staff member's core profile details.
@@ -8,7 +9,7 @@ class UpdateStaffProfileUseCase {
 
   Future<String> call({
     required String staffCode,
-    required Map<String, dynamic> fields,
+    required StaffProfileUpdate fields,
   }) {
     return _repository.updateStaffProfile(staffCode: staffCode, fields: fields);
   }
