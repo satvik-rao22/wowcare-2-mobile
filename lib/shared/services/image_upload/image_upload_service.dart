@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show compute;
 import '../../../core/util/app_time.dart';
 
 import '../../../core/network/api_client.dart';
@@ -14,6 +15,14 @@ import '../../../core/util/api_constants.dart';
 import '../../../core/util/api_paths.dart';
 import '../../../core/util/logger_service.dart';
 import 'image_upload_models.dart';
+
+/// Isolate entry point: streams [path] through SHA-256 and returns the
+/// base64-encoded raw digest. Streaming means even a large video is hashed
+/// without loading it fully into memory. Top-level so it can run via `compute`.
+Future<String> _hashFileSha256Base64(String path) async {
+  final digest = await sha256.bind(File(path).openRead()).first;
+  return base64Encode(digest.bytes);
+}
 
 class ImageUploadService {
   ImageUploadService(this._apiClient);
@@ -322,10 +331,12 @@ class ImageUploadService {
     return raw;
   }
 
-  Future<String> computeFileChecksumSha256(File file) async {
-    final bytes = await file.readAsBytes();
-    // S3 `x-amz-checksum-sha256` must be base64-encoded raw SHA-256 bytes.
-    return base64Encode(sha256.convert(bytes).bytes);
+  Future<String> computeFileChecksumSha256(File file) {
+    // Hash on a background isolate, streaming the file chunk-by-chunk, so a
+    // large video is neither read fully into memory nor hashed on the UI
+    // isolate (which froze the UI for big files). Returns the base64-encoded
+    // raw SHA-256 bytes S3 expects in `x-amz-checksum-sha256`.
+    return compute(_hashFileSha256Base64, file.path);
   }
 
   Future<void> completeAssetUpload({
@@ -353,7 +364,11 @@ class ImageUploadService {
     void Function(int sentBytes, int totalBytes, int percent)? onProgress,
   }) async {
     final uploadClient = Dio();
-    final bytes = await file.readAsBytes();
+    // Stream the file instead of reading it fully into memory: a large video
+    // (up to 200 MB) must not be buffered on the heap. We set Content-Length
+    // explicitly so the streamed PUT is sent with a known length (not chunked),
+    // which S3 requires.
+    final contentLength = await file.length();
     final headers = <String, dynamic>{};
     requiredHeaders.forEach((key, value) {
       final k = key.trim();
@@ -363,6 +378,7 @@ class ImageUploadService {
       }
     });
     headers.putIfAbsent('Content-Type', () => fallbackContentType);
+    headers[Headers.contentLengthHeader] = contentLength;
 
     final putUri = Uri.parse(presignedPutUrl);
     final logUrl = '${putUri.scheme}://${putUri.host}${putUri.path}';
@@ -370,7 +386,7 @@ class ImageUploadService {
       url: logUrl,
       method: 'PUT',
       headers: headers,
-      body: '<binary: ${bytes.length} bytes>',
+      body: '<binary: $contentLength bytes>',
     );
 
     // The presigned URL is valid for an hour (see AssetPresignResult), so a
@@ -384,7 +400,8 @@ class ImageUploadService {
       try {
         final response = await uploadClient.putUri<dynamic>(
           putUri,
-          data: bytes,
+          // Fresh stream per attempt — a stream can only be consumed once.
+          data: file.openRead(),
           options: Options(
             headers: headers,
             responseType: ResponseType.plain,
@@ -392,8 +409,7 @@ class ImageUploadService {
                 status != null && status >= 200 && status < 300,
           ),
           onSendProgress: (sent, total) {
-            final effectiveTotal =
-                (total > 0) ? total : (bytes.isNotEmpty ? bytes.length : 0);
+            final effectiveTotal = (total > 0) ? total : contentLength;
             if (effectiveTotal <= 0) return;
             final fraction = sent / effectiveTotal;
             final percent = (fraction * 100).clamp(0, 100).round();
