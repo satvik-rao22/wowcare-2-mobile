@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'dart:async';
 
+import '../../../../core/network/session_expired_interceptor.dart'
+    show kNoAutoReplayExtraKey;
 import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
 import '../models/activity_asset_presign_model.dart';
@@ -150,6 +152,13 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
 
   final Dio _client;
 
+  /// Opts a request OUT of the shared 401-refresh auto-replay. Applied to the
+  /// non-idempotent activity mutations (create/shared-create/update, upload
+  /// session, asset presign) so a token-refresh replay cannot silently create a
+  /// duplicate activity or duplicate media. See [kNoAutoReplayExtraKey].
+  Options get _noReplayOptions =>
+      Options(extra: const {kNoAutoReplayExtraKey: true});
+
   bool _isAssetNotReadyConflict(Object error) {
     if (error is! DioException) return false;
     if (error.response?.statusCode != 409) return false;
@@ -248,7 +257,11 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     var attempt = 0;
     while (true) {
       try {
-        response = await _client.patch<dynamic>(endpoint, data: payload);
+        response = await _client.patch<dynamic>(
+          endpoint,
+          data: payload,
+          options: _noReplayOptions,
+        );
         break;
       } on DioException catch (e) {
         final statusCode = e.response?.statusCode;
@@ -462,6 +475,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
         response = await _client.post<dynamic>(
           endpoint,
           data: request.toJson(),
+          options: _noReplayOptions,
         );
         break;
       } catch (e) {
@@ -517,6 +531,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
         response = await _client.post<dynamic>(
           endpoint,
           data: payload,
+          options: _noReplayOptions,
         );
         break;
       } catch (e) {
@@ -571,6 +586,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     final response = await _client.post<dynamic>(
       endpoint,
       data: payload,
+      options: _noReplayOptions,
     );
 
     final body = response.data;
@@ -635,6 +651,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     final response = await _client.post<dynamic>(
       endpoint,
       data: payload,
+      options: _noReplayOptions,
     );
 
     final body = response.data;

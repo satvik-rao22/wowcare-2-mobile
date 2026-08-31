@@ -8,6 +8,8 @@ import '../../../core/util/app_time.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_logger.dart';
+import '../../../core/network/session_expired_interceptor.dart'
+    show kNoAutoReplayExtraKey;
 import '../../../core/util/api_constants.dart';
 import '../../../core/util/api_paths.dart';
 import '../../../core/util/logger_service.dart';
@@ -17,6 +19,13 @@ class ImageUploadService {
   ImageUploadService(this._apiClient);
 
   final ApiClient _apiClient;
+
+  /// Opts a request OUT of the shared 401-refresh auto-replay, so a token-refresh
+  /// replay cannot silently create a duplicate upload session / presigned asset /
+  /// completion. Applied to the non-idempotent upload mutations. See
+  /// [kNoAutoReplayExtraKey].
+  Options get _noReplayOptions =>
+      Options(extra: const {kNoAutoReplayExtraKey: true});
 
   /// Caches resolved delivery URLs by asset code so the same thumbnail is not
   /// re-resolved over the network every time its widget rebuilds (e.g. on list
@@ -75,6 +84,7 @@ class ImageUploadService {
         'bindingMode': bindingMode,
         'studentCodes': studentCodes,
       },
+      options: _noReplayOptions,
     );
 
     final body = response.data;
@@ -143,6 +153,7 @@ class ImageUploadService {
               },
             ],
           },
+          options: _noReplayOptions,
         )
         .catchError((error) {
           if (error is DioException) {
@@ -240,6 +251,7 @@ class ImageUploadService {
                 )
                 .toList(),
           },
+          options: _noReplayOptions,
         )
         .catchError((error) {
           if (error is DioException) {
@@ -329,7 +341,7 @@ class ImageUploadService {
     );
     final endpoint = '$origin$path';
 
-    await _apiClient.client.post<dynamic>(endpoint);
+    await _apiClient.client.post<dynamic>(endpoint, options: _noReplayOptions);
   }
 
   Future<void> uploadFileToPresignedUrl({
