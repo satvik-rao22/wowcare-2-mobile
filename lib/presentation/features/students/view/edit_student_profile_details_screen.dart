@@ -117,6 +117,11 @@ class _EditStudentProfileDetailsScreenState
   List<String> _availableGuardianNames = [];
   Map<String, String> _guardianNameToCode = {};
   Map<String, bool> _guardianInitialCustody = {};
+  // Full guardian record per code — the custody PATCH endpoint validates as
+  // a full update (firstName/lastName/email/mobile/relationToStudent/
+  // userCode/schoolCode all required), not a partial patch, so `legalCustody`
+  // alone 400s. Keyed by guardian code so it survives duplicate display names.
+  Map<String, Map<String, dynamic>> _guardianRawByCode = {};
   // Waitlist and Graduated removed: no mobile workflow exists for either
   // status, so offering them here just let a student get stuck in a status
   // nothing on mobile can act on. A student already carrying one of these
@@ -398,17 +403,21 @@ class _EditStudentProfileDetailsScreenState
           'name': base,
           'code': code,
           'legalCustody': legalCustody,
+          'raw': g,
         });
       }
 
       final names = <String>[];
       final nameToCode = <String, String>{};
       final initialCustody = <String, bool>{};
+      final rawByCode = <String, Map<String, dynamic>>{};
       for (final row in rawRows) {
         final base = row['name'] as String;
+        final code = row['code'] as String;
         names.add(base);
-        nameToCode[base] = row['code'] as String;
+        nameToCode[base] = code;
         initialCustody[base] = row['legalCustody'] as bool;
+        rawByCode[code] = row['raw'] as Map<String, dynamic>;
       }
       if (!mounted) return;
 
@@ -416,6 +425,7 @@ class _EditStudentProfileDetailsScreenState
         _availableGuardianNames = names;
         _guardianNameToCode = nameToCode;
         _guardianInitialCustody = initialCustody;
+        _guardianRawByCode = rawByCode;
         _selectedChildCustody.removeWhere(
           (g) => !_availableGuardianNames.contains(g),
         );
@@ -753,18 +763,53 @@ class _EditStudentProfileDetailsScreenState
 
       // 5) Child custody PATCH /api/v1/guardian/{code} — only for guardians
       // whose custody selection actually changed, so unrelated guardians
-      // aren't touched.
-      for (final entry in _guardianNameToCode.entries) {
-        final name = entry.key;
-        final code = entry.value;
-        final desiredCustody = _selectedChildCustody.contains(name);
-        final currentCustody = _guardianInitialCustody[name] ?? false;
-        if (desiredCustody == currentCustody) continue;
-        await repository.updateGuardian(
-          code: code,
-          studentCode: widget.studentCode,
-          fields: <String, dynamic>{'legalCustody': desiredCustody},
-        );
+      // aren't touched. The endpoint validates as a full guardian update
+      // (firstName/lastName/email/mobile/relationToStudent/userCode/
+      // schoolCode all required), so `legalCustody` alone 400s — the rest of
+      // the fields are echoed back unchanged from the guardian record loaded
+      // in `_loadGuardiansForCustody`.
+      String rawStr(Map<String, dynamic> g, List<String> keys) {
+        for (final k in keys) {
+          final v = (g[k] as Object?)?.toString().trim() ?? '';
+          if (v.isNotEmpty) return v;
+        }
+        return '';
+      }
+
+      if (_guardianNameToCode.entries.any(
+        (entry) =>
+            _selectedChildCustody.contains(entry.key) !=
+            (_guardianInitialCustody[entry.key] ?? false),
+      )) {
+        final storage = serviceLocator<StorageService>();
+        final schoolCode =
+            await storage.getString(StorageKeys.schoolCode) ?? '';
+
+        for (final entry in _guardianNameToCode.entries) {
+          final name = entry.key;
+          final code = entry.value;
+          final desiredCustody = _selectedChildCustody.contains(name);
+          final currentCustody = _guardianInitialCustody[name] ?? false;
+          if (desiredCustody == currentCustody) continue;
+
+          final raw = _guardianRawByCode[code] ?? const {};
+          await repository.updateGuardian(
+            code: code,
+            studentCode: widget.studentCode,
+            fields: <String, dynamic>{
+              'userCode': rawStr(raw, const ['userCode']),
+              'schoolCode': schoolCode,
+              'studentCode': widget.studentCode,
+              'firstName': rawStr(raw, const ['firstName', 'first_name']),
+              'lastName': rawStr(raw, const ['lastName', 'last_name']),
+              'email': rawStr(raw, const ['email']),
+              'mobile': rawStr(raw, const ['mobile', 'phone']),
+              'relationToStudent': rawStr(raw, const ['relationToStudent']),
+              'primaryContact': raw['primaryContact'] == true,
+              'legalCustody': desiredCustody,
+            },
+          );
+        }
       }
 
       if (!mounted) return;
