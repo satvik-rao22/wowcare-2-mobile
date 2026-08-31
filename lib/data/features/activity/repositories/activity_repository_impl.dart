@@ -312,10 +312,14 @@ class ActivityRepositoryImpl implements ActivityRepository {
     List<Map<String, dynamic>> parameterValues = const [],
     List<Map<String, dynamic>> attachments = const [],
   }) async {
+    // Trim + drop-empty + de-duplicate student codes before both the payload and
+    // the binding-mode derivation: a repeated student must not inflate the
+    // request or flip bindingMode to SHARED for what is really one student.
+    final normalizedStudentCodes = _dedupedStudentCodes(studentCodes);
     final request = ActivityCreateRequestModel(
       activityTypeCode: activityTypeCode,
       classroomCode: classroomCode,
-      studentCodes: studentCodes,
+      studentCodes: normalizedStudentCodes,
       staffCode: staffCode,
       schoolCode: schoolCode,
       organizationCode: organizationCode,
@@ -328,7 +332,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
       napReminderRole: napReminderRole,
       requireAdminApproval: requireAdminApproval,
       // v2 binding mode enum: PER_STUDENT (single), SHARED (multiple).
-      bindingMode: studentCodes.length > 1 ? 'SHARED' : 'PER_STUDENT',
+      bindingMode: normalizedStudentCodes.length > 1 ? 'SHARED' : 'PER_STUDENT',
       parameterValues: parameterValues,
       attachments: attachments,
     );
@@ -336,6 +340,19 @@ class ActivityRepositoryImpl implements ActivityRepository {
     final message = await _remoteDataSource.createActivity(request: request);
     await ActivityFeedInvalidation.invalidate(_storageService);
     return message;
+  }
+
+  /// Order-preserving trim + drop-empty + de-duplicate for student codes.
+  /// Mirrors the datasource's normalization used on the update/feed paths so the
+  /// create/shared paths carry the same identity guarantees.
+  List<String> _dedupedStudentCodes(List<String> codes) {
+    final out = <String>[];
+    for (final c in codes) {
+      final v = c.trim();
+      if (v.isEmpty || out.contains(v)) continue;
+      out.add(v);
+    }
+    return out;
   }
 
   @override
@@ -352,10 +369,13 @@ class ActivityRepositoryImpl implements ActivityRepository {
     required List<Map<String, dynamic>> attachments,
     List<Map<String, dynamic>> parameterValues = const [],
   }) async {
+    // Trim + drop-empty + de-duplicate before payload and binding-mode (see
+    // createActivity): a duplicated single student must not become SHARED.
+    final normalizedStudentCodes = _dedupedStudentCodes(studentCodes);
     final payload = <String, dynamic>{
       'activityTypeCode': activityTypeCode,
       'classroomCode': classroomCode,
-      'studentCodes': studentCodes,
+      'studentCodes': normalizedStudentCodes,
       'staffCode': staffCode,
       'schoolCode': schoolCode,
       'organizationCode': organizationCode,
@@ -364,7 +384,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
       // v2 binding mode enum: PER_STUDENT (single), SHARED (multiple) — must
       // match the asset owner the photo screen presigned (STUDENT vs CLASSROOM).
       // Previously hardcoded 'SHARED', which mismatched a single-student asset.
-      'bindingMode': studentCodes.length > 1 ? 'SHARED' : 'PER_STUDENT',
+      'bindingMode': normalizedStudentCodes.length > 1 ? 'SHARED' : 'PER_STUDENT',
       if (requireAdminApproval != null)
         'requireAdminApproval': requireAdminApproval,
       if (parameterValues.isNotEmpty) 'parameterValues': parameterValues,
