@@ -516,8 +516,17 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
     String source,
     List<Map<String, dynamic>> parameterValues,
   ) {
+    // Log only the non-sensitive SHAPE of the payload — the parameter codes
+    // present and the count — never the values. Incident parameter values
+    // carry free-text incident/health details, signature payloads, and
+    // staff/guardian codes, none of which may reach logs/Crashlytics.
+    final codes = parameterValues
+        .map((p) => (p['parameterCode'] ?? '').toString())
+        .where((c) => c.isNotEmpty)
+        .toList();
     debugPrint(
-      '[Incident][$source] parameterValues=${jsonEncode(parameterValues)}',
+      '[Incident][$source] parameterValues: count=${parameterValues.length} '
+      'codes=$codes',
     );
   }
 
