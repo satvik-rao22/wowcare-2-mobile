@@ -11,29 +11,40 @@ class ImportantDatesCubit extends Cubit<ImportantDatesState> {
 
   final UpdateImportantDatesUseCase _updateImportantDatesUseCase;
 
+  /// Re-entrancy guard: a second [updateImportantDates] call while the first is
+  /// still in flight (a double-tap) is ignored, so the cubit enforces
+  /// single-flight independently of any UI button-disabling.
+  bool _inFlight = false;
+
   Future<void> updateImportantDates({
     required String staffCode,
     required List<Map<String, String>> dates,
   }) async {
-    emit(ImportantDatesState.loading());
+    if (_inFlight) return;
+    _inFlight = true;
+    try {
+      emit(ImportantDatesState.loading());
 
-    final result = await _updateImportantDatesUseCase(
-      staffCode: staffCode,
-      dates: dates,
-    );
+      final result = await _updateImportantDatesUseCase(
+        staffCode: staffCode,
+        dates: dates,
+      );
 
-    result.fold(
-      (Failure failure) {
-        emit(
-          ImportantDatesState.error(
-            failure.message ?? 'Failed to update important dates',
-          ),
-        );
-      },
-      (String message) {
-        emit(ImportantDatesState.success(message));
-      },
-    );
+      result.fold(
+        (Failure failure) {
+          emit(
+            ImportantDatesState.error(
+              failure.message ?? 'Failed to update important dates',
+            ),
+          );
+        },
+        (String message) {
+          emit(ImportantDatesState.success(message));
+        },
+      );
+    } finally {
+      _inFlight = false;
+    }
   }
 
   void reset() {

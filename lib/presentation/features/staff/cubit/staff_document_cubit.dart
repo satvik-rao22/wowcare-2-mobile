@@ -18,27 +18,40 @@ class StaffDocumentCubit extends Cubit<StaffDocumentState> {
   final AddStaffDocumentUseCase _addStaffDocumentUseCase;
   final UpdateStaffDocumentUseCase? _updateStaffDocumentUseCase;
 
+  /// Re-entrancy guard shared by [addDocument] and [updateDocument]: a second
+  /// document op while one is still in flight (a double-tap) is ignored, so the
+  /// cubit enforces single-flight independently of any UI button-disabling.
+  /// Only one document op at a time from this cubit is expected, so a single
+  /// shared flag is sufficient.
+  bool _inFlight = false;
+
   Future<void> addDocument({
     required String staffCode,
     required StaffDocument document,
   }) async {
-    emit(const StaffDocumentState.loading());
+    if (_inFlight) return;
+    _inFlight = true;
+    try {
+      emit(const StaffDocumentState.loading());
 
-    final result = await _addStaffDocumentUseCase(
-      staffCode: staffCode,
-      document: document,
-    );
+      final result = await _addStaffDocumentUseCase(
+        staffCode: staffCode,
+        document: document,
+      );
 
-    result.fold(
-      (failure) {
-        emit(StaffDocumentState.error(
-          failure.message ?? 'Failed to add document',
-        ));
-      },
-      (message) {
-        emit(StaffDocumentState.success(message));
-      },
-    );
+      result.fold(
+        (failure) {
+          emit(StaffDocumentState.error(
+            failure.message ?? 'Failed to add document',
+          ));
+        },
+        (message) {
+          emit(StaffDocumentState.success(message));
+        },
+      );
+    } finally {
+      _inFlight = false;
+    }
   }
 
   Future<void> updateDocument({
@@ -51,24 +64,30 @@ class StaffDocumentCubit extends Cubit<StaffDocumentState> {
       return;
     }
 
-    emit(StaffDocumentState.loading());
+    if (_inFlight) return;
+    _inFlight = true;
+    try {
+      emit(StaffDocumentState.loading());
 
-    final result = await _updateStaffDocumentUseCase.call(
-      documentUuid: documentUuid,
-      staffCode: staffCode,
-      document: document,
-    );
+      final result = await _updateStaffDocumentUseCase.call(
+        documentUuid: documentUuid,
+        staffCode: staffCode,
+        document: document,
+      );
 
-    result.fold(
-      (failure) {
-        emit(StaffDocumentState.error(
-          failure.message ?? 'Failed to update document',
-        ));
-      },
-      (message) {
-        emit(StaffDocumentState.success(message));
-      },
-    );
+      result.fold(
+        (failure) {
+          emit(StaffDocumentState.error(
+            failure.message ?? 'Failed to update document',
+          ));
+        },
+        (message) {
+          emit(StaffDocumentState.success(message));
+        },
+      );
+    } finally {
+      _inFlight = false;
+    }
   }
 
   void reset() {

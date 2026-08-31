@@ -132,7 +132,14 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
     }
   }
 
+  /// Document UUIDs whose delete is in flight — a second tap on the same
+  /// document while the first delete is still running is ignored, so the cubit
+  /// enforces single-flight independently of any UI disabling.
+  final Set<String> _deletingDocuments = <String>{};
+
   Future<String?> deleteDocument(String staffCode, String documentUuid) async {
+    if (_deletingDocuments.contains(documentUuid)) return null;
+    _deletingDocuments.add(documentUuid);
     try {
       final result = await _deleteStaffDocumentUseCase.call(
         documentUuid: documentUuid,
@@ -153,6 +160,8 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
       );
     } catch (e) {
       return ApiErrorHandler.extractErrorMessage(e);
+    } finally {
+      _deletingDocuments.remove(documentUuid);
     }
   }
 }

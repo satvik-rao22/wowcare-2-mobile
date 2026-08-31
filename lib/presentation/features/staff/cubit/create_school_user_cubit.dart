@@ -19,6 +19,11 @@ class CreateSchoolUserCubit extends Cubit<CreateSchoolUserState> {
   final CreateSchoolUserUseCase _createSchoolUserUseCase;
   final StorageService _storageService;
 
+  /// Re-entrancy guard: a second [create] call while the first is still in
+  /// flight (a double-tap) is ignored, so the cubit enforces single-flight
+  /// independently of any UI button-disabling — a create is non-idempotent.
+  bool _inFlight = false;
+
   Future<void> create({
     required bool isAdmin,
     required String firstName,
@@ -33,37 +38,43 @@ class CreateSchoolUserCubit extends Cubit<CreateSchoolUserState> {
     List<String>? allowedClassroomCodes,
     String? userCode,
   }) async {
-    emit(const CreateSchoolUserState.loading());
+    if (_inFlight) return;
+    _inFlight = true;
+    try {
+      emit(const CreateSchoolUserState.loading());
 
-    // Take org/school from login-context API (saved in storage) only.
-    final resolvedOrganizationCode =
-        await _storageService.getString(StorageKeys.organizationCode) ?? '';
-    final resolvedSchoolCode =
-        await _storageService.getString(StorageKeys.schoolCode) ?? '';
+      // Take org/school from login-context API (saved in storage) only.
+      final resolvedOrganizationCode =
+          await _storageService.getString(StorageKeys.organizationCode) ?? '';
+      final resolvedSchoolCode =
+          await _storageService.getString(StorageKeys.schoolCode) ?? '';
 
-    final result = await _createSchoolUserUseCase(
-      isAdmin: isAdmin,
-      userCode: userCode,
-      firstName: firstName,
-      lastName: lastName,
-      displayName: displayName,
-      mobile: mobile,
-      email: email,
-      organizationCode: resolvedOrganizationCode,
-      schoolCode: resolvedSchoolCode,
-      role: role,
-      designation: designation,
-      status: status,
-      primaryClassroomCode: primaryClassroomCode,
-      allowedClassroomCodes: allowedClassroomCodes,
-    );
+      final result = await _createSchoolUserUseCase(
+        isAdmin: isAdmin,
+        userCode: userCode,
+        firstName: firstName,
+        lastName: lastName,
+        displayName: displayName,
+        mobile: mobile,
+        email: email,
+        organizationCode: resolvedOrganizationCode,
+        schoolCode: resolvedSchoolCode,
+        role: role,
+        designation: designation,
+        status: status,
+        primaryClassroomCode: primaryClassroomCode,
+        allowedClassroomCodes: allowedClassroomCodes,
+      );
 
-    result.fold(
-      (failure) => emit(CreateSchoolUserState.error(
-        failure.message ?? 'Failed to create user',
-      )),
-      (result) => emit(CreateSchoolUserState.success(result)),
-    );
+      result.fold(
+        (failure) => emit(CreateSchoolUserState.error(
+          failure.message ?? 'Failed to create user',
+        )),
+        (result) => emit(CreateSchoolUserState.success(result)),
+      );
+    } finally {
+      _inFlight = false;
+    }
   }
 
   void reset() => emit(const CreateSchoolUserState.initial());

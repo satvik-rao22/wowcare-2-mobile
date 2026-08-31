@@ -345,121 +345,148 @@ class StaffCubit extends Cubit<StaffState> {
     }
   }
 
+  /// In-flight staff mutations keyed by `action:staffCode`. A second call for
+  /// the same action+staff while the first is still running (a double-tap)
+  /// returns the SAME future instead of issuing a duplicate request — the cubit
+  /// enforces single-flight independently of any UI button-disabling.
+  final Map<String, Future<String>> _inFlightMutations = {};
+
+  Future<String> _singleFlightMutation(
+    String key,
+    Future<String> Function() operation,
+  ) {
+    final existing = _inFlightMutations[key];
+    if (existing != null) return existing;
+    final future = operation();
+    _inFlightMutations[key] = future;
+    future.whenComplete(() => _inFlightMutations.remove(key)).ignore();
+    return future;
+  }
+
   /// Deactivates a staff member (via school user deactivate API) and refreshes the list.
   /// Returns the success message from the backend. Errors are rethrown for UI to handle.
-  Future<String> deactivateStaff(String staffCode) async {
-    // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
-    final profile = await _repository.getStaffProfile(
-      staffCode: staffCode,
-      forEditStaff: true,
-    );
+  Future<String> deactivateStaff(String staffCode) {
+    return _singleFlightMutation('deactivate:$staffCode', () async {
+      // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
+      final profile = await _repository.getStaffProfile(
+        staffCode: staffCode,
+        forEditStaff: true,
+      );
 
-    final staffTypeUpper = profile.staffType.toUpperCase().trim();
-    final schoolCode = profile.schoolCode.trim();
-    final bool schoolCodeMissing = schoolCode.isEmpty || schoolCode == '-';
-    final bool isOrganizationAdmin =
-        staffTypeUpper.contains('ORGANIZATION') &&
-        staffTypeUpper.contains('ADMIN');
+      final staffTypeUpper = profile.staffType.toUpperCase().trim();
+      final schoolCode = profile.schoolCode.trim();
+      final bool schoolCodeMissing = schoolCode.isEmpty || schoolCode == '-';
+      final bool isOrganizationAdmin =
+          staffTypeUpper.contains('ORGANIZATION') &&
+          staffTypeUpper.contains('ADMIN');
 
-    // Organization admins are deactivated via a different endpoint that
-    // does not take `schoolCode` or `role`.
-    if (isOrganizationAdmin || schoolCodeMissing) {
-      final message = await _repository.deactivateOrganizationAdmin(
+      // Organization admins are deactivated via a different endpoint that
+      // does not take `schoolCode` or `role`.
+      if (isOrganizationAdmin || schoolCodeMissing) {
+        final message = await _repository.deactivateOrganizationAdmin(
+          userCode: profile.userCode,
+          organizationCode: profile.organizationCode,
+        );
+        await refreshWithCacheReset();
+        return message;
+      }
+
+      // Map staffType from profile to backend role expected by school-users APIs.
+      // Backend role differs for school admins vs regular staff.
+      final role =
+          (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
+              ? 'SCHOOL_ADMIN'
+              : 'STAFF';
+
+      final message = await _repository.deactivateSchoolUser(
         userCode: profile.userCode,
         organizationCode: profile.organizationCode,
+        schoolCode: schoolCode,
+        role: role,
       );
+
+      // Refresh the list so UI and cache reflect the updated status.
       await refreshWithCacheReset();
+
       return message;
-    }
-
-    // Map staffType from profile to backend role expected by school-users APIs.
-    // Backend role differs for school admins vs regular staff.
-    final role = (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
-        ? 'SCHOOL_ADMIN'
-        : 'STAFF';
-
-    final message = await _repository.deactivateSchoolUser(
-      userCode: profile.userCode,
-      organizationCode: profile.organizationCode,
-      schoolCode: schoolCode,
-      role: role,
-    );
-
-    // Refresh the list so UI and cache reflect the updated status.
-    await refreshWithCacheReset();
-
-    return message;
+    });
   }
 
   /// Activates a staff member (via school user activate API) and refreshes the list.
   /// Returns the success message from the backend. Errors are rethrown for UI to handle.
-  Future<String> activateStaff(String staffCode) async {
-    // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
-    final profile = await _repository.getStaffProfile(
-      staffCode: staffCode,
-      forEditStaff: true,
-    );
-
-    final staffTypeUpper = profile.staffType.toUpperCase().trim();
-    final schoolCode = profile.schoolCode.trim();
-    final bool schoolCodeMissing = schoolCode.isEmpty || schoolCode == '-';
-    final bool isOrganizationAdmin =
-        staffTypeUpper.contains('ORGANIZATION') &&
-        staffTypeUpper.contains('ADMIN');
-
-    if (isOrganizationAdmin || schoolCodeMissing) {
-      final message = await _repository.activateOrganizationAdmin(
-        userCode: profile.userCode,
-        organizationCode: profile.organizationCode,
+  Future<String> activateStaff(String staffCode) {
+    return _singleFlightMutation('activate:$staffCode', () async {
+      // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
+      final profile = await _repository.getStaffProfile(
+        staffCode: staffCode,
+        forEditStaff: true,
       );
 
+      final staffTypeUpper = profile.staffType.toUpperCase().trim();
+      final schoolCode = profile.schoolCode.trim();
+      final bool schoolCodeMissing = schoolCode.isEmpty || schoolCode == '-';
+      final bool isOrganizationAdmin =
+          staffTypeUpper.contains('ORGANIZATION') &&
+          staffTypeUpper.contains('ADMIN');
+
+      if (isOrganizationAdmin || schoolCodeMissing) {
+        final message = await _repository.activateOrganizationAdmin(
+          userCode: profile.userCode,
+          organizationCode: profile.organizationCode,
+        );
+
+        await refreshWithCacheReset();
+        return message;
+      }
+
+      final role =
+          (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
+              ? 'SCHOOL_ADMIN'
+              : 'STAFF';
+
+      final message = await _repository.activateSchoolUser(
+        userCode: profile.userCode,
+        organizationCode: profile.organizationCode,
+        schoolCode: schoolCode,
+        role: role,
+      );
+
+      // Refresh the list so UI and cache reflect the updated status.
       await refreshWithCacheReset();
+
       return message;
-    }
-
-    final role = (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
-        ? 'SCHOOL_ADMIN'
-        : 'STAFF';
-
-    final message = await _repository.activateSchoolUser(
-      userCode: profile.userCode,
-      organizationCode: profile.organizationCode,
-      schoolCode: schoolCode,
-      role: role,
-    );
-
-    // Refresh the list so UI and cache reflect the updated status.
-    await refreshWithCacheReset();
-
-    return message;
+    });
   }
 
   /// Permanently deletes a (deactivated) staff member via the school-user
   /// delete API and refreshes the list. Returns the success message from the
   /// backend. Errors are rethrown for the UI to handle.
-  Future<String> deleteStaff(String staffCode) async {
-    // Resolve userCode, organizationCode, schoolCode and role from the profile.
-    final profile = await _repository.getStaffProfile(
-      staffCode: staffCode,
-      forEditStaff: true,
-    );
+  Future<String> deleteStaff(String staffCode) {
+    return _singleFlightMutation('delete:$staffCode', () async {
+      // Resolve userCode, organizationCode, schoolCode and role from the profile.
+      final profile = await _repository.getStaffProfile(
+        staffCode: staffCode,
+        forEditStaff: true,
+      );
 
-    final staffTypeUpper = profile.staffType.toUpperCase().trim();
-    final role = (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
-        ? 'SCHOOL_ADMIN'
-        : 'STAFF';
+      final staffTypeUpper = profile.staffType.toUpperCase().trim();
+      final role =
+          (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
+              ? 'SCHOOL_ADMIN'
+              : 'STAFF';
 
-    final message = await _repository.deleteSchoolUser(
-      userCode: profile.userCode,
-      organizationCode: profile.organizationCode,
-      schoolCode: profile.schoolCode.trim(),
-      role: role,
-    );
+      final message = await _repository.deleteSchoolUser(
+        userCode: profile.userCode,
+        organizationCode: profile.organizationCode,
+        schoolCode: profile.schoolCode.trim(),
+        role: role,
+      );
 
-    // Refresh the list so UI and cache reflect the deletion.
-    await refreshWithCacheReset();
+      // Refresh the list so UI and cache reflect the deletion.
+      await refreshWithCacheReset();
 
-    return message;
+      return message;
+    });
   }
 
   /// Performs a lightweight search that only calls the staff list API (no count

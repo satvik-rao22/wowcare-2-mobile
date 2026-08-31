@@ -1,5 +1,7 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:dio/dio.dart';
+import 'package:wowcare/core/network/session_expired_interceptor.dart'
+    show kNoAutoReplayExtraKey;
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/api_paths.dart';
@@ -297,6 +299,13 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
   final Dio _client;
 
+  /// Options marking a non-idempotent create as UNSAFE to auto-replay after a
+  /// 401 token refresh (see [kNoAutoReplayExtraKey]). Applied to the create/add
+  /// mutations so a silently-replayed request can't duplicate a staff document,
+  /// school admin, or staff user.
+  Options get _noReplayOptions =>
+      Options(extra: const {kNoAutoReplayExtraKey: true});
+
   @override
   Future<StaffCountModel> getStaffCount({
     required String organizationCode,
@@ -475,6 +484,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     final response = await _client.post<dynamic>(
       endpoint,
       data: request.toJson(),
+      options: _noReplayOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -921,6 +931,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     final response = await _client.post<dynamic>(
       endpoint,
       data: request.toJson(),
+      options: _noReplayOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -941,6 +952,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     final response = await _client.post<dynamic>(
       endpoint,
       data: request.toJson(),
+      options: _noReplayOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
