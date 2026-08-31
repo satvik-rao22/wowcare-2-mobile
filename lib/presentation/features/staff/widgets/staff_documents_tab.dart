@@ -5,7 +5,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:dio/dio.dart';
 import 'package:gal/gal.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -318,7 +317,10 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
         final safeBase = base.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
         final outPath = p.join(tempDir.path, '$safeBase$ext');
 
-        await Dio().download(url, outPath);
+        // Plain-Dio download via the shared service: the URL is a pre-signed
+        // external (CloudFront) link, so the app's auth header / API base URL
+        // must NOT be attached, and the View must not construct a Dio itself.
+        await _documentsListCubit.downloadFile(url, outPath);
         if (isVideo) {
           await Gal.putVideo(outPath);
         } else {

@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/network/file_download_service.dart';
 
 import '../../../../domain/features/staff/entities/staff_document.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
@@ -12,14 +13,23 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
     required GetStaffDocumentsUseCase getStaffDocumentsUseCase,
     required DeleteStaffDocumentUseCase deleteStaffDocumentUseCase,
     required StaffRepository repository,
+    FileDownloadService? fileDownloadService,
   })  : _getStaffDocumentsUseCase = getStaffDocumentsUseCase,
         _deleteStaffDocumentUseCase = deleteStaffDocumentUseCase,
         _repository = repository,
+        _fileDownloadService = fileDownloadService ?? FileDownloadService(),
         super(const StaffDocumentsListState.initial());
 
   final GetStaffDocumentsUseCase _getStaffDocumentsUseCase;
   final DeleteStaffDocumentUseCase _deleteStaffDocumentUseCase;
   final StaffRepository _repository;
+  final FileDownloadService _fileDownloadService;
+
+  /// Downloads a resolved document URL to [savePath]. Kept off the View (which
+  /// must not construct a Dio) and off the authenticated API client (the URL is
+  /// a pre-signed external link — see [FileDownloadService]).
+  Future<void> downloadFile(String url, String savePath) =>
+      _fileDownloadService.downloadToFile(url, savePath);
 
   static const int _pageSize = 10;
 
