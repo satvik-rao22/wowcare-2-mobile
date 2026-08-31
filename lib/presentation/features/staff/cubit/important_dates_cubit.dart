@@ -1,20 +1,58 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../domain/features/staff/repositories/staff_repository.dart';
+import '../../../../domain/features/staff/usecases/get_important_dates_usecase.dart';
 import '../../../../domain/features/staff/usecases/update_important_dates_usecase.dart';
 
 class ImportantDatesCubit extends Cubit<ImportantDatesState> {
   ImportantDatesCubit({
+    required GetImportantDatesUseCase getImportantDatesUseCase,
     required UpdateImportantDatesUseCase updateImportantDatesUseCase,
-  })  : _updateImportantDatesUseCase = updateImportantDatesUseCase,
+    required StaffRepository staffRepository,
+  })  : _getImportantDatesUseCase = getImportantDatesUseCase,
+        _updateImportantDatesUseCase = updateImportantDatesUseCase,
+        _staffRepository = staffRepository,
         super(ImportantDatesState.initial());
 
+  final GetImportantDatesUseCase _getImportantDatesUseCase;
   final UpdateImportantDatesUseCase _updateImportantDatesUseCase;
+  final StaffRepository _staffRepository;
 
   /// Re-entrancy guard: a second [updateImportantDates] call while the first is
   /// still in flight (a double-tap) is ignored, so the cubit enforces
   /// single-flight independently of any UI button-disabling.
   bool _inFlight = false;
+
+  /// Cache-first read of a staff member's important dates.
+  ///
+  /// Reproduces verbatim the cache-first logic the two important-dates widgets
+  /// used to run inline against the repository: when [useCache] is true and the
+  /// repository exposes a cache ([StaffRepositoryWithCache]), a non-null cached
+  /// list is returned as-is (no API hit); otherwise the read falls through to
+  /// the API via [GetImportantDatesUseCase]. On an API failure the [Failure] is
+  /// thrown so callers can surface its message exactly as the old fold did.
+  Future<List<Map<String, String>>> fetchImportantDates(
+    String staffCode, {
+    bool useCache = true,
+  }) async {
+    if (useCache) {
+      final repository = _staffRepository;
+      if (repository is StaffRepositoryWithCache) {
+        final cached = await (repository as StaffRepositoryWithCache)
+            .loadCachedImportantDates(staffCode);
+        if (cached != null) {
+          return List<Map<String, String>>.from(cached);
+        }
+      }
+    }
+
+    final result = await _getImportantDatesUseCase(staffCode: staffCode);
+    return result.fold(
+      (Failure failure) => throw failure,
+      (List<Map<String, String>> dates) => dates,
+    );
+  }
 
   Future<void> updateImportantDates({
     required String staffCode,

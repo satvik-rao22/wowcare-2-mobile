@@ -4,9 +4,9 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
-import 'package:wowcare/domain/features/staff/usecases/get_important_dates_usecase.dart';
+import 'package:wowcare/presentation/features/staff/cubit/important_dates_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_important_dates_screen.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -34,10 +34,22 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
   /// Full list from API/cache for passing to edit screen and Physical Checkup display.
   List<Map<String, String>> _importantDatesList = [];
 
+  /// Single ImportantDatesCubit instance for this tab (registered as a factory,
+  /// so held in a field rather than looked up per call). All reads/mutations of
+  /// important dates route through it; closed in [dispose].
+  late final ImportantDatesCubit _importantDatesCubit;
+
   @override
   void initState() {
     super.initState();
+    _importantDatesCubit = serviceLocator<ImportantDatesCubit>();
     _loadDates();
+  }
+
+  @override
+  void dispose() {
+    _importantDatesCubit.close();
+    super.dispose();
   }
 
   Future<void> _loadDates({bool useCache = true}) async {
@@ -47,65 +59,36 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
     });
 
     try {
-      // Try cache first if useCache is true
-      if (useCache) {
-        final repository = serviceLocator<StaffRepository>();
-        if (repository is StaffRepositoryWithCache) {
-          final cached = await (repository as StaffRepositoryWithCache)
-              .loadCachedImportantDates(widget.staffCode);
-
-          if (cached != null && mounted) {
-            _datesByType.clear();
-            _importantDatesList = List.from(cached);
-            for (final date in cached) {
-              final type = (date['importantDateType'] ?? '').toUpperCase();
-              final dueDate = date['dueDate'] ?? '';
-              if (type.isEmpty || dueDate.isEmpty) continue;
-              _datesByType[type] = _formatDate(dueDate);
-            }
-
-            setState(() {
-              _isLoading = false;
-              _errorMessage = null;
-            });
-
-            // Don't hit API if cache is valid - return early
-            return;
-          }
-        }
-      }
-
-      // No cache or cache invalid - load from API
-      final useCase = serviceLocator<GetImportantDatesUseCase>();
-      final result = await useCase(staffCode: widget.staffCode);
+      // Cache-first read routed through the cubit (cached list when available,
+      // otherwise the API). Same transform for both sources, as before.
+      final dates = await _importantDatesCubit.fetchImportantDates(
+        widget.staffCode,
+        useCache: useCache,
+      );
 
       if (!mounted) return;
 
-      result.fold(
-        (failure) {
-          setState(() {
-            _isLoading = false;
-            _errorMessage = failure.message ?? 'Failed to load important dates';
-            _datesByType.clear();
-            _importantDatesList = [];
-          });
-        },
-        (dates) {
-          _datesByType.clear();
-          _importantDatesList = List.from(dates);
-          for (final date in dates) {
-            final type = (date['importantDateType'] ?? '').toUpperCase();
-            final dueDate = date['dueDate'] ?? '';
-            if (type.isEmpty || dueDate.isEmpty) continue;
-            _datesByType[type] = _formatDate(dueDate);
-          }
+      _datesByType.clear();
+      _importantDatesList = List.from(dates);
+      for (final date in dates) {
+        final type = (date['importantDateType'] ?? '').toUpperCase();
+        final dueDate = date['dueDate'] ?? '';
+        if (type.isEmpty || dueDate.isEmpty) continue;
+        _datesByType[type] = _formatDate(dueDate);
+      }
 
-          setState(() {
-            _isLoading = false;
-            _errorMessage = null;
-          });
-        },
-      );
+      setState(() {
+        _isLoading = false;
+        _errorMessage = null;
+      });
+    } on Failure catch (failure) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = failure.message ?? 'Failed to load important dates';
+        _datesByType.clear();
+        _importantDatesList = [];
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -711,32 +694,36 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
 
                                         setLocalState(() => isSaving = true);
                                         try {
-                                          final repo =
-                                              serviceLocator<StaffRepository>();
-                                          final msg = await repo
+                                          await _importantDatesCubit
                                               .updateImportantDates(
                                                 staffCode: widget.staffCode,
                                                 dates: [payload],
                                               );
                                           if (!context.mounted) return;
-                                          CoreUtils.showTopSnackBar(
-                                            context: context,
-                                            message: msg.isNotEmpty
-                                                ? msg
-                                                : 'Updated successfully',
-                                            isSuccess: true,
-                                          );
-                                          Navigator.of(context).pop();
-                                          await _loadDates(useCache: false);
-                                        } catch (e) {
-                                          if (!context.mounted) return;
-                                          CoreUtils.logApiError(e.toString());
-                                          CoreUtils.showTopSnackBar(
-                                            context: context,
-                                            message:
-                                                'Failed to update physical checkup. Please try again.',
-                                            isError: true,
-                                          );
+                                          final cubitState =
+                                              _importantDatesCubit.state;
+                                          if (cubitState.isSuccess) {
+                                            final msg = cubitState.message ?? '';
+                                            CoreUtils.showTopSnackBar(
+                                              context: context,
+                                              message: msg.isNotEmpty
+                                                  ? msg
+                                                  : 'Updated successfully',
+                                              isSuccess: true,
+                                            );
+                                            Navigator.of(context).pop();
+                                            await _loadDates(useCache: false);
+                                          } else {
+                                            CoreUtils.logApiError(
+                                              cubitState.message ?? '',
+                                            );
+                                            CoreUtils.showTopSnackBar(
+                                              context: context,
+                                              message:
+                                                  'Failed to update physical checkup. Please try again.',
+                                              isError: true,
+                                            );
+                                          }
                                         } finally {
                                           if (context.mounted) {
                                             setLocalState(

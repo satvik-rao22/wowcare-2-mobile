@@ -1897,7 +1897,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
   serviceLocator.registerFactory<ImportantDatesCubit>(
-    () => ImportantDatesCubit(updateImportantDatesUseCase: serviceLocator()),
+    () => ImportantDatesCubit(
+      getImportantDatesUseCase: serviceLocator(),
+      updateImportantDatesUseCase: serviceLocator(),
+      staffRepository: serviceLocator(),
+    ),
   );
   serviceLocator.registerFactory<CreateSchoolUserCubit>(
     () => CreateSchoolUserCubit(

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
-import 'package:wowcare/domain/features/staff/usecases/get_important_dates_usecase.dart';
+import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/presentation/features/staff/cubit/important_dates_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
@@ -30,10 +30,21 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
   String? _errorMessage;
   List<Map<String, String>> _items = const [];
 
+  /// Single ImportantDatesCubit instance for this tab (registered as a factory,
+  /// so held in a field rather than looked up per call); closed in [dispose].
+  late final ImportantDatesCubit _importantDatesCubit;
+
   @override
   void initState() {
     super.initState();
+    _importantDatesCubit = serviceLocator<ImportantDatesCubit>();
     _loadDates();
+  }
+
+  @override
+  void dispose() {
+    _importantDatesCubit.close();
+    super.dispose();
   }
 
   Future<void> _loadDates({bool useCache = true}) async {
@@ -43,74 +54,40 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
     });
 
     try {
-      // Try cache first if useCache is true
-      if (useCache) {
-        final repository = serviceLocator<StaffRepository>();
-        if (repository is StaffRepositoryWithCache) {
-          final cached = await (repository as StaffRepositoryWithCache)
-              .loadCachedImportantDates(widget.staffCode);
-
-          if (cached != null && mounted) {
-            final items = <Map<String, String>>[];
-            for (final date in cached) {
-              final type = (date['importantDateType'] ?? '').toUpperCase();
-              final dueDate = date['dueDate'] ?? '';
-              if (dueDate.isEmpty) continue;
-              items.add(<String, String>{
-                'importantDateType': type,
-                'dueDate': dueDate,
-                if ((date['status'] ?? '').toString().isNotEmpty)
-                  'status': (date['status'] ?? '').toString(),
-              });
-            }
-
-            setState(() {
-              _isLoading = false;
-              _errorMessage = null;
-              _items = items;
-            });
-
-            // Don't hit API if cache is valid - return early
-            return;
-          }
-        }
-      }
-
-      // No cache or cache invalid - load from API
-      final useCase = serviceLocator<GetImportantDatesUseCase>();
-      final result = await useCase(staffCode: widget.staffCode);
+      // Cache-first read routed through the cubit (cached list when available,
+      // otherwise the API). Same transform for both sources, as before.
+      final dates = await _importantDatesCubit.fetchImportantDates(
+        widget.staffCode,
+        useCache: useCache,
+      );
 
       if (!mounted) return;
 
-      result.fold(
-        (failure) {
-          setState(() {
-            _isLoading = false;
-            _errorMessage = failure.message ?? 'Failed to load important dates';
-            _items = const [];
-          });
-        },
-        (dates) {
-          final items = <Map<String, String>>[];
-          for (final date in dates) {
-            final type = (date['importantDateType'] ?? '').toUpperCase();
-            final dueDate = date['dueDate'] ?? '';
-            if (dueDate.isEmpty) continue;
-            items.add(<String, String>{
-              'importantDateType': type,
-              'dueDate': dueDate,
-              if ((date['status'] ?? '').toString().isNotEmpty)
-                'status': (date['status'] ?? '').toString(),
-            });
-          }
+      final items = <Map<String, String>>[];
+      for (final date in dates) {
+        final type = (date['importantDateType'] ?? '').toUpperCase();
+        final dueDate = date['dueDate'] ?? '';
+        if (dueDate.isEmpty) continue;
+        items.add(<String, String>{
+          'importantDateType': type,
+          'dueDate': dueDate,
+          if ((date['status'] ?? '').toString().isNotEmpty)
+            'status': (date['status'] ?? '').toString(),
+        });
+      }
 
-          setState(() {
-            _isLoading = false;
-            _errorMessage = null;
-            _items = items;
-          });
-        },
-      );
+      setState(() {
+        _isLoading = false;
+        _errorMessage = null;
+        _items = items;
+      });
+    } on Failure catch (failure) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = failure.message ?? 'Failed to load important dates';
+        _items = const [];
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
