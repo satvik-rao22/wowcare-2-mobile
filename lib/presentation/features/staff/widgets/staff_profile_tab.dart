@@ -18,7 +18,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/string_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_schedule_cubit.dart';
 
 class StaffProfileTab extends StatefulWidget {
   const StaffProfileTab({
@@ -48,6 +48,7 @@ class StaffProfileTab extends StatefulWidget {
 
 class _StaffProfileTabState extends State<StaffProfileTab> {
   late final StaffProfileCubit _profileCubit;
+  late final StaffScheduleCubit _scheduleCubit;
   final Map<String, String> _resolvedClassroomNameByCode = {};
   final Set<String> _classroomFetchInFlight = <String>{};
 
@@ -71,12 +72,14 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
     super.initState();
     _profileCubit = serviceLocator<StaffProfileCubit>()
       ..loadInitial(widget.staffCode);
+    _scheduleCubit = serviceLocator<StaffScheduleCubit>();
     _loadSchoolOpenDays();
   }
 
   @override
   void dispose() {
     _profileCubit.close();
+    _scheduleCubit.close();
     super.dispose();
   }
 
@@ -86,8 +89,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
       final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
           .trim();
       if (schoolCode.isEmpty) return;
-      final repo = serviceLocator<StaffRepository>();
-      final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
+      final days = await _scheduleCubit.fetchSchoolRegularSchedules(schoolCode);
       // Skip days the school is closed on (INACTIVE) or that aren't a
       // regular weekly schedule (e.g. HOLIDAY) — mirrors the filtering in
       // EditScheduleScreen so the profile view doesn't offer off days either.

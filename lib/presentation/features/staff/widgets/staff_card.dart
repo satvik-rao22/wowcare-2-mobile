@@ -4,7 +4,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_schedule_cubit.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -141,8 +141,8 @@ class _StaffCardState extends State<StaffCard> {
     final schoolCode =
         (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
     if (schoolCode.isEmpty) return const <String>[];
-    final repo = serviceLocator<StaffRepository>();
-    final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
+    final days = await serviceLocator<StaffScheduleCubit>()
+        .fetchSchoolRegularSchedules(schoolCode);
     final open = <String>{
       for (final d in days) d.dayOfWeek.toUpperCase(),
     };

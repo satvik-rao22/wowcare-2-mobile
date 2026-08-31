@@ -8,7 +8,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.da
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_schedule_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
@@ -70,12 +70,21 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
 
   String? _schoolHoursLoadError;
 
+  late final StaffScheduleCubit _scheduleCubit;
+
   @override
   void initState() {
     super.initState();
+    _scheduleCubit = serviceLocator<StaffScheduleCubit>();
     // School schedule must load before we can derive _allDays — _initializeSchedules
     // is invoked from the resolver completion handler.
     _loadSchoolRegularSchedules();
+  }
+
+  @override
+  void dispose() {
+    _scheduleCubit.close();
+    super.dispose();
   }
 
   Future<void> _loadSchoolRegularSchedules() async {
@@ -93,8 +102,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
     }
 
     try {
-      final repo = serviceLocator<StaffRepository>();
-      final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
+      final days = await _scheduleCubit.fetchSchoolRegularSchedules(schoolCode);
       final map = <String, (int, int)>{};
       for (final d in days) {
         // Skip days the school is closed on (INACTIVE) or that aren't a
@@ -436,8 +444,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
     });
 
     try {
-      final repository = serviceLocator<StaffRepository>();
-      final message = await repository.updateStaffSchedules(
+      final message = await _scheduleCubit.updateSchedules(
         staffCode: widget.staffCode,
         workSchedules: workSchedules,
         breakSchedules: breakSchedules,

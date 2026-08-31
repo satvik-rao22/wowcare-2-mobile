@@ -157,6 +157,8 @@ import '../../domain/features/staff/usecases/get_staff_documents_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import '../../domain/features/staff/usecases/get_important_dates_usecase.dart';
 import '../../domain/features/staff/usecases/update_important_dates_usecase.dart';
+import '../../domain/features/staff/usecases/get_school_regular_schedules_usecase.dart';
+import '../../domain/features/staff/usecases/update_staff_schedules_usecase.dart';
 import '../../domain/features/staff/usecases/create_school_user_usecase.dart';
 import '../../domain/features/student/repositories/student_repository.dart';
 import '../../domain/features/student/usecases/get_student_page_usecase.dart';
@@ -318,6 +320,7 @@ import '../../presentation/features/staff/cubit/staff_document_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_documents_list_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_profile_cubit.dart';
 import '../../presentation/features/staff/cubit/important_dates_cubit.dart';
+import '../../presentation/features/staff/cubit/staff_schedule_cubit.dart';
 import '../../presentation/features/staff/cubit/create_school_user_cubit.dart';
 import '../../presentation/features/students/cubit/student_cubit.dart';
 import '../../presentation/features/attendance/cubit/student_attendance_daily_cubit.dart';
@@ -965,6 +968,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<UpdateImportantDatesUseCase>(
     () => UpdateImportantDatesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetSchoolRegularSchedulesUseCase>(
+    () => GetSchoolRegularSchedulesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStaffSchedulesUseCase>(
+    () => UpdateStaffSchedulesUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<CreateSchoolUserUseCase>(
     () => CreateSchoolUserUseCase(serviceLocator()),
@@ -1901,6 +1910,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getImportantDatesUseCase: serviceLocator(),
       updateImportantDatesUseCase: serviceLocator(),
       staffRepository: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffScheduleCubit>(
+    () => StaffScheduleCubit(
+      getSchoolRegularSchedulesUseCase: serviceLocator(),
+      updateStaffSchedulesUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<CreateSchoolUserCubit>(
