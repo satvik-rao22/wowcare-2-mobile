@@ -2690,8 +2690,20 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         message: state.message,
         isSuccess: true,
       );
-      // Approve/reject change the feed; delete does not refresh (matches prior).
-      if (state.action != ActivityModerationAction.delete) {
+      // Approve/reject change the feed → refetch authoritative data. Delete
+      // reconciles locally: remove the deleted card so it doesn't linger until
+      // a manual refresh (a full refetch would also drop it, but removing the
+      // one row avoids a feed round-trip).
+      if (state.action == ActivityModerationAction.delete) {
+        final removed = state.code.trim();
+        if (removed.isNotEmpty) {
+          setState(() {
+            _activities = _activities
+                .where((a) => (a.activityCode ?? '').trim() != removed)
+                .toList();
+          });
+        }
+      } else {
         _loadDailyFeed(refresh: true);
       }
     } else if (state is ActivityModerationFailure) {

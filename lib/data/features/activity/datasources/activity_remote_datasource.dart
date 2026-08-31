@@ -154,8 +154,9 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
 
   /// Opts a request OUT of the shared 401-refresh auto-replay. Applied to the
   /// non-idempotent activity mutations (create/shared-create/update, upload
-  /// session, asset presign) so a token-refresh replay cannot silently create a
-  /// duplicate activity or duplicate media. See [kNoAutoReplayExtraKey].
+  /// session, asset presign, and the moderation actions approve/reject/
+  /// acknowledge/parent-signature) so a token-refresh replay cannot silently
+  /// duplicate the write. See [kNoAutoReplayExtraKey].
   Options get _noReplayOptions =>
       Options(extra: const {kNoAutoReplayExtraKey: true});
 
@@ -311,7 +312,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
   @override
   Future<String> approveActivity({required String cardGroupCode}) async {
     final endpoint = ApiPaths.url(ApiPaths.adminApproveActivity(cardGroupCode));
-    final response = await _client.post<dynamic>(endpoint);
+    final response = await _client.post<dynamic>(endpoint, options: _noReplayOptions);
     final body = response.data;
     if (body is! Map<String, dynamic>) {
       throw Exception('Unexpected approve-activity API response format');
@@ -326,7 +327,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
   @override
   Future<String> rejectActivity({required String cardGroupCode}) async {
     final endpoint = ApiPaths.url(ApiPaths.adminRejectActivity(cardGroupCode));
-    final response = await _client.post<dynamic>(endpoint);
+    final response = await _client.post<dynamic>(endpoint, options: _noReplayOptions);
     final body = response.data;
     if (body is! Map<String, dynamic>) {
       throw Exception('Unexpected reject-activity API response format');
@@ -343,7 +344,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     final endpoint = ApiPaths.url(
       ApiPaths.guardianAcknowledgeActivity(cardGroupCode),
     );
-    final response = await _client.post<dynamic>(endpoint);
+    final response = await _client.post<dynamic>(endpoint, options: _noReplayOptions);
     final body = response.data;
     if (body is! Map<String, dynamic>) {
       throw Exception('Unexpected guardian-acknowledge API response format');
@@ -376,6 +377,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
         'value': effective,
         'valueText': effective,
       },
+      options: _noReplayOptions,
     );
     final body = response.data;
     if (body is! Map<String, dynamic>) {
