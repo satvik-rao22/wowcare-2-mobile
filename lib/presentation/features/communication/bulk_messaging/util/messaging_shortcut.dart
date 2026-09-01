@@ -99,12 +99,6 @@ Future<void> _openSingleRecipientConversation(
   BuildContext context,
   SelectedRecipient recipient,
 ) async {
-  CoreUtils.showTopSnackBar(
-    context: context,
-    message: "Opening conversation with ${recipient.name}…",
-    isSuccess: true,
-  );
-
   final type = recipient.isStaff
       ? ConversationType.staffDirect
       : ConversationType.roomChat;

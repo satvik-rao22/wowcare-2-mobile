@@ -164,70 +164,116 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
     final bool hasPhoto = photoUrl?.isNotEmpty == true;
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black.withValues(alpha: 0.85),
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: IconButton(
-            icon: const Icon(
-              Icons.arrow_back,
-              color: Colors.white,
-              size: 28,
-            ),
-            onPressed: () => Navigator.of(context).pop(),
+      body: Stack(
+        children: [
+          // No AppBar here on purpose — a fixed app bar permanently steals
+          // vertical space from the body, so a portrait video can never
+          // reach the screen's true full height. The back/download controls
+          // float over the content instead (see below), same as
+          // Instagram/TikTok-style full-screen viewers.
+          Positioned.fill(
+            child: hasVideo
+                ? HlsWebPlayer(videoUrl: videoUrl!)
+                : hasPhoto
+                    // Let the InteractiveViewer fill the whole screen (image
+                    // centered inside) so the pan/zoom area is the full
+                    // viewport — not a small box the size of the image.
+                    ? InteractiveViewer(
+                        minScale: 0.8,
+                        maxScale: 4.0,
+                        child: Center(
+                          child: Image.network(
+                            photoUrl!,
+                            fit: BoxFit.contain,
+                            loadingBuilder: (c, child, progress) =>
+                                progress == null
+                                ? child
+                                : const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                            errorBuilder: (c, e, s) => const Center(
+                              child: Icon(
+                                Icons.error,
+                                color: Colors.white,
+                                size: 60,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    : const Center(
+                        child: Icon(
+                          Icons.broken_image,
+                          color: Colors.white,
+                          size: 100,
+                        ),
+                      ),
           ),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Download',
-            icon: _isDownloading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              bottom: false,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.75),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+                padding: const EdgeInsets.only(bottom: 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.arrow_back,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
                     ),
-                  )
-                : const Icon(Icons.download_rounded, color: Colors.white, size: 24),
-            onPressed: () => _downloadCurrentMedia(
-              videoUrl: videoUrl,
-              photoUrl: photoUrl,
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: IconButton(
+                        tooltip: 'Download',
+                        icon: _isDownloading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.download_rounded,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                        onPressed: () => _downloadCurrentMedia(
+                          videoUrl: videoUrl,
+                          photoUrl: photoUrl,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
       ),
-      body: hasVideo
-          ? HlsWebPlayer(videoUrl: videoUrl!)
-          : hasPhoto
-              // Let the InteractiveViewer fill the whole screen (image centered
-              // inside) so the pan/zoom area is the full viewport — not a small
-              // box the size of the image.
-              ? InteractiveViewer(
-                  minScale: 0.8,
-                  maxScale: 4.0,
-                  child: Center(
-                    child: Image.network(
-                      photoUrl!,
-                      fit: BoxFit.contain,
-                      loadingBuilder: (c, child, progress) => progress == null
-                          ? child
-                          : const Center(
-                              child:
-                                  CircularProgressIndicator(color: Colors.white),
-                            ),
-                      errorBuilder: (c, e, s) => const Center(
-                        child: Icon(Icons.error, color: Colors.white, size: 60),
-                      ),
-                    ),
-                  ),
-                )
-              : const Center(
-                  child:
-                      Icon(Icons.broken_image, color: Colors.white, size: 100),
-                ),
     );
   }
 }

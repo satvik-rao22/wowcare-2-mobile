@@ -1,11 +1,11 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:chewie/chewie.dart';
 import 'package:dio/dio.dart';
 import 'package:ffmpeg_kit_flutter_new_https/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_https/return_code.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:gal/gal.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
@@ -374,86 +374,122 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black87,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.arrow_back,
-                color: Colors.white,
-                size: 24,
+      body: Stack(
+        children: [
+          // No AppBar here on purpose — a fixed app bar permanently steals
+          // vertical space from the body, so a portrait video can never
+          // reach the screen's true full height. The back/title/download
+          // controls float over the content instead (see below), same as
+          // Instagram/TikTok-style full-screen viewers.
+          Positioned.fill(
+            child: hasVideo
+                ? (_hasUsableVideoUrl
+                      ? HlsWebPlayer(videoUrl: widget.videoUrl!)
+                      : _LocalVideoPlayer(file: widget.videoFile!))
+                : Center(
+                    child: hasImage
+                        ? FadeTransition(
+                            opacity: _fadeAnimation,
+                            child: InteractiveViewer(
+                              boundaryMargin: const EdgeInsets.all(20),
+                              minScale: 0.8,
+                              maxScale: 4.0,
+                              panEnabled: true,
+                              scaleEnabled: true,
+                              child: Hero(
+                                tag: widget.heroTag ?? 'media-hero',
+                                transitionOnUserGestures: true,
+                                child: _buildMediaWidget(),
+                              ),
+                            ),
+                          )
+                        : Container(
+                            color: Colors.black,
+                            child: const Icon(
+                              Icons.broken_image,
+                              color: Colors.white,
+                              size: 100,
+                            ),
+                          ),
+                  ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              bottom: false,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.75),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+                padding: const EdgeInsets.only(bottom: 20),
+                child: Row(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (widget.title != null)
+                      Expanded(
+                        child: Text(
+                          widget.title!,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      )
+                    else
+                      const Spacer(),
+                    if (hasImage || hasVideo)
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: IconButton(
+                          tooltip: 'Download',
+                          icon: _isDownloading
+                              ? const PrimaryCircularLoader(
+                                  size: 18,
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                )
+                              : const Icon(
+                                  Icons.download_rounded,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                          onPressed: _downloadCurrentMedia,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        title: widget.title != null
-            ? Text(
-                widget.title!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              )
-            : null,
-        actions: [
-          if (hasImage || hasVideo)
-            IconButton(
-              tooltip: 'Download',
-              icon: _isDownloading
-                  ? const PrimaryCircularLoader(
-                      size: 18,
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    )
-                  : const Icon(
-                      Icons.download_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-              onPressed: _downloadCurrentMedia,
-            ),
         ],
       ),
-      body: hasVideo
-          ? (_hasUsableVideoUrl
-                ? HlsWebPlayer(videoUrl: widget.videoUrl!)
-                : _LocalVideoPlayer(file: widget.videoFile!))
-          : Center(
-              child: hasImage
-                  ? FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: InteractiveViewer(
-                        boundaryMargin: const EdgeInsets.all(20),
-                        minScale: 0.8,
-                        maxScale: 4.0,
-                        panEnabled: true,
-                        scaleEnabled: true,
-                        child: Hero(
-                          tag: widget.heroTag ?? 'media-hero',
-                          transitionOnUserGestures: true,
-                          child: _buildMediaWidget(),
-                        ),
-                      ),
-                    )
-                  : Container(
-                      color: Colors.black,
-                      child: const Icon(
-                        Icons.broken_image,
-                        color: Colors.white,
-                        size: 100,
-                      ),
-                    ),
-            ),
     );
   }
 }
@@ -488,16 +524,24 @@ class _LocalVideoPlayerState extends State<_LocalVideoPlayer> {
         await controller.dispose();
         return;
       }
+      final aspectRatio = controller.value.aspectRatio == 0
+          ? 16 / 9
+          : controller.value.aspectRatio;
+      // Rotate to match the video's own orientation on fullscreen, not a
+      // fixed landscape lock — a portrait pending-upload clip should expand
+      // to a taller portrait frame, not get rotated onto its side.
+      final fullscreenOrientations = aspectRatio >= 1.0
+          ? const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
+          : const [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown];
       setState(() {
         _videoController = controller;
         _chewieController = ChewieController(
           videoPlayerController: controller,
           autoPlay: true,
           looping: false,
-          allowFullScreen: false,
-          aspectRatio: controller.value.aspectRatio == 0
-              ? 16 / 9
-              : controller.value.aspectRatio,
+          allowFullScreen: true,
+          deviceOrientationsOnEnterFullScreen: fullscreenOrientations,
+          aspectRatio: aspectRatio,
           materialProgressColors: ChewieProgressColors(
             playedColor: Colors.white,
             handleColor: Colors.white,

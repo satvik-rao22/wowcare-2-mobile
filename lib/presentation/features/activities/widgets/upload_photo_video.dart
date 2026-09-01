@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
@@ -941,6 +942,10 @@ class _FullscreenLocalVideoPlayerPageState
     extends State<FullscreenLocalVideoPlayerPage> {
   VideoPlayerController? _controller;
 
+  // Only offered for landscape-shot clips: a portrait video already fills a
+  // portrait screen, so rotating it would just turn it on its side.
+  bool _isRotated = false;
+
   void _onCtrlUpdate() {
     if (mounted) setState(() {});
   }
@@ -968,10 +973,41 @@ class _FullscreenLocalVideoPlayerPageState
     );
   }
 
+  void _toggleRotated() {
+    final rotated = !_isRotated;
+    setState(() => _isRotated = rotated);
+    if (rotated) {
+      SystemChrome.setPreferredOrientations(const [
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } else {
+      _restoreOrientationAndChrome();
+    }
+  }
+
+  // Matches the app-wide default from setPreferredOrientations() in
+  // device_configuration.dart — leaving a landscape-only lock behind after
+  // this page pops would break rotation for the rest of the app.
+  void _restoreOrientationAndChrome() {
+    SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
+  }
+
   @override
   void dispose() {
     _controller?.removeListener(_onCtrlUpdate);
     _controller?.dispose();
+    if (_isRotated) _restoreOrientationAndChrome();
     super.dispose();
   }
 
@@ -979,47 +1015,92 @@ class _FullscreenLocalVideoPlayerPageState
   Widget build(BuildContext context) {
     final c = _controller;
     final ready = c != null && c.value.isInitialized;
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: Center(
-        child: !ready
-            ? const CircularProgressIndicator(color: Colors.white)
-            : GestureDetector(
-                onTap: () {
-                  if (c.value.isPlaying) {
-                    c.pause();
-                  } else {
-                    c.play();
-                  }
-                },
-                child: AspectRatio(
-                  aspectRatio: c.value.aspectRatio,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      VideoPlayer(c),
-                      AnimatedOpacity(
-                        opacity: c.value.isPlaying ? 0 : 1,
-                        duration: const Duration(milliseconds: 300),
-                        child: const Icon(
-                          Icons.play_circle_fill,
-                          color: Colors.white70,
-                          size: 72,
+    final isLandscapeVideo = ready && c.value.aspectRatio >= 1.0;
+
+    return PopScope(
+      canPop: !_isRotated,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _isRotated) _toggleRotated();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        extendBodyBehindAppBar: true,
+        appBar: _isRotated
+            ? null
+            : AppBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                automaticallyImplyLeading: false,
+                leading: IconButton(
+                  icon: const Icon(
+                    Icons.arrow_back,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+        body: Stack(
+          children: [
+            Center(
+              child: !ready
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : GestureDetector(
+                      onTap: () {
+                        if (c.value.isPlaying) {
+                          c.pause();
+                        } else {
+                          c.play();
+                        }
+                      },
+                      child: AspectRatio(
+                        aspectRatio: c.value.aspectRatio,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            VideoPlayer(c),
+                            AnimatedOpacity(
+                              opacity: c.value.isPlaying ? 0 : 1,
+                              duration: const Duration(milliseconds: 300),
+                              child: const Icon(
+                                Icons.play_circle_fill,
+                                color: Colors.white70,
+                                size: 72,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
+            ),
+            if (isLandscapeVideo)
+              Positioned(
+                top: 14,
+                right: 14,
+                child: SafeArea(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: const Color(0x8A000000),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      tooltip: _isRotated
+                          ? 'Exit fullscreen'
+                          : 'Rotate to fullscreen',
+                      icon: Icon(
+                        _isRotated
+                            ? Icons.close_fullscreen_rounded
+                            : Icons.screen_rotation_alt_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      onPressed: _toggleRotated,
+                    ),
                   ),
                 ),
               ),
+          ],
+        ),
       ),
     );
   }
