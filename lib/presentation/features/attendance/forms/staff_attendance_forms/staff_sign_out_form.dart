@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -239,30 +238,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     if (mounted) {
       return !context.read<RoleCubit>().isStaff;
     }
-
-    final storage = serviceLocator<StorageService>();
-    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-        .trim()
-        .toUpperCase();
-
-    if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
-      return true;
-    }
-
-    final rolesJson = await storage.getString(StorageKeys.roles);
-    if (rolesJson == null || rolesJson.trim().isEmpty) return false;
-
-    try {
-      final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
-      return roles.any((r) {
-        if (r is! Map<String, dynamic>) return false;
-        final roleCode = (r['role'] ?? '').toString().toUpperCase();
-        return roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN';
-      });
-    } catch (_) {
-      // Treat unknown as teacher.
-      return false;
-    }
+    return resolveIsStaffAdminPersonaFromStorage();
   }
 
   Future<String> _resolveStaffCode() async {
@@ -565,10 +541,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         context.go('/dashboard');
       }
     } else {
-      redirectToAttendanceDaily(
-        context,
-        StaffAttendanceTabbedView.routeName,
-      );
+      redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
     }
   }
 

@@ -4,12 +4,12 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/presentation/features/attendance/view/screens/widgets/attendance_card_shared.dart';
 
-enum AbsentMarkMethod { gps, qr, kiosk, app, web }
+export 'package:wowcare/presentation/features/attendance/view/screens/widgets/attendance_card_shared.dart'
+    show AbsentMarkMethod;
 
 class StudentAbsentCardData {
   final String id;
@@ -81,8 +81,9 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
     final student = widget.student;
 
     final avatarSize = isTablet ? 52.0 : 50.0;
-    final headerPadding =
-        EdgeInsets.symmetric(horizontal: isTablet ? AppSpacing.xl : AppSpacing.md);
+    final headerPadding = EdgeInsets.symmetric(
+      horizontal: isTablet ? AppSpacing.xl : AppSpacing.md,
+    );
     final spacing = isTablet ? 16.0 : 9.0;
 
     return GestureDetector(
@@ -153,9 +154,9 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildDetailRow(context, 'Room', student.roomName),
+                    buildAbsentDetailRow(context, 'Room', student.roomName),
                     const SizedBox(height: AppSpacing.s10),
-                    _buildDetailRow(
+                    buildAbsentDetailRow(
                       context,
                       'Absent Time',
                       student.absentTime,
@@ -164,14 +165,18 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                     if (student.absentBy.isNotEmpty &&
                         student.absentBy != 'Unknown') ...[
                       const SizedBox(height: AppSpacing.s10),
-                      _buildDetailRow(context, 'Marked by', student.absentBy),
+                      buildAbsentDetailRow(
+                        context,
+                        'Marked by',
+                        student.absentBy,
+                      ),
                     ],
                     if (student.note != null && student.note!.isNotEmpty) ...[
                       const SizedBox(height: AppSpacing.s10),
-                      _buildDetailRow(context, 'Note', student.note!),
+                      buildAbsentDetailRow(context, 'Note', student.note!),
                     ],
                     const SizedBox(height: AppSpacing.s10),
-                    _buildDetailRow(
+                    buildAbsentDetailRow(
                       context,
                       'Start Date',
                       student.startDate.isNotEmpty
@@ -179,7 +184,7 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                           : 'N/A',
                     ),
                     const SizedBox(height: AppSpacing.s10),
-                    _buildDetailRow(
+                    buildAbsentDetailRow(
                       context,
                       'End Date',
                       student.endDate.isNotEmpty
@@ -191,7 +196,7 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                       SizedBox(
                         width: double.infinity,
                         height: AppSpacing.xxxl,
-                        child: _outlinedButton('View', widget.onView),
+                        child: attendanceOutlinedButton('View', widget.onView),
                       ),
                     ],
                   ],
@@ -202,95 +207,5 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
         ),
       ),
     );
-  }
-
-  Widget _buildDetailRow(
-    BuildContext context,
-    String label,
-    String value, {
-    AbsentMarkMethod? method,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: AppTextStyles.label,
-          ),
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              if (method != null) ...[
-                _buildMethodIcon(method),
-                const SizedBox(width: AppSpacing.xxs),
-              ],
-              Flexible(
-                child: Text(
-                  value,
-                  style: AppTextStyles.value,
-                  textAlign: TextAlign.end,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _outlinedButton(String label, VoidCallback? onPressed) {
-    return OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        side: const BorderSide(color: AppColors.attendanceActionAccentColor),
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.allSm,
-        ),
-        padding: EdgeInsets.zero,
-        backgroundColor: AppColors.cardColor,
-      ),
-      child: Text(
-        label,
-        style: AppTextStyles.title.copyWith(
-          color: AppColors.attendanceActionAccentColor,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMethodIcon(AbsentMarkMethod method) {
-    const size = 18.0;
-    switch (method) {
-      case AbsentMarkMethod.gps:
-        return SvgPicture.asset(MediaRes.gpsMethodIcon, width: size, height: size);
-      case AbsentMarkMethod.qr:
-        return SvgPicture.asset(MediaRes.qrAttendanceIcon, width: size, height: size);
-      case AbsentMarkMethod.kiosk:
-        return Icon(
-          Icons.point_of_sale_outlined,
-          size: size,
-          color: AppColors.themeColor,
-        );
-      case AbsentMarkMethod.app:
-        return SvgPicture.asset(
-          MediaRes.appMethodIcon,
-          width: size,
-          height: size,
-          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
-        );
-      case AbsentMarkMethod.web:
-        return SvgPicture.asset(
-          MediaRes.webMethodIcon,
-          width: size,
-          height: size,
-          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
-        );
-    }
   }
 }

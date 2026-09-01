@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -8,7 +6,6 @@ import '../../../../../../core/storage/storage_service.dart';
 import '../../../../../../core/util/school_timezone_resolver.dart';
 import '../../../../../../core/util/school_zone_datetime.dart';
 import '../../../../../../core/util/staff_code_resolver.dart';
-import '../../../../../../core/util/storage_keys.dart';
 import '../../../../../../domain/features/attendance/usecases/mark_staff_absent_usecase.dart';
 import '../staff_entity.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
@@ -26,10 +23,10 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
     required MarkStaffAbsentUseCase markStaffAbsentUseCase,
     required StorageService storageService,
     required ApiClient apiClient,
-  })  : _markStaffAbsentUseCase = markStaffAbsentUseCase,
-        _storageService = storageService,
-        _apiClient = apiClient,
-        super(StaffMarkAbsentState.initial());
+  }) : _markStaffAbsentUseCase = markStaffAbsentUseCase,
+       _storageService = storageService,
+       _apiClient = apiClient,
+       super(StaffMarkAbsentState.initial());
 
   final MarkStaffAbsentUseCase _markStaffAbsentUseCase;
   final StorageService _storageService;
@@ -71,43 +68,22 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
     } catch (_) {}
 
     final isAdmin =
-        knownIsStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
+        knownIsStaffAdminPersona ??
+        await resolveIsStaffAdminPersonaFromStorage();
     final currentStaffCode = (await resolveStaffCodeForLoggedInUser()).trim();
     if (isClosed) return;
     final start = (schoolIana != null && schoolIana.isNotEmpty)
         ? SchoolZoneDateTime.schoolCalendarTodayOnly(schoolIana)
         : _localToday();
-    emit(state.copyWith(
-      schoolIana: schoolIana,
-      isStaffAdminPersona: isAdmin,
-      currentStaffCode:
-          currentStaffCode.isNotEmpty ? currentStaffCode : null,
-      startDate: start,
-      endDate: start,
-    ));
-  }
-
-  Future<bool> _resolveIsStaffAdminPersona() async {
-    final staffType =
-        (await _storageService.getString(StorageKeys.staffType) ?? '')
-            .trim()
-            .toUpperCase();
-    if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
-      return true;
-    }
-
-    final rolesJson = await _storageService.getString(StorageKeys.roles);
-    if (rolesJson == null || rolesJson.trim().isEmpty) return false;
-    try {
-      final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
-      return roles.any((r) {
-        if (r is! Map<String, dynamic>) return false;
-        final roleCode = (r['role'] ?? '').toString().toUpperCase();
-        return roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN';
-      });
-    } catch (_) {
-      return false;
-    }
+    emit(
+      state.copyWith(
+        schoolIana: schoolIana,
+        isStaffAdminPersona: isAdmin,
+        currentStaffCode: currentStaffCode.isNotEmpty ? currentStaffCode : null,
+        startDate: start,
+        endDate: start,
+      ),
+    );
   }
 
   /// Removes [staff] from the working list. The view pops once the list is
@@ -159,7 +135,8 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
     }
 
     final isStaffAdmin =
-        state.isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
+        state.isStaffAdminPersona ??
+        await resolveIsStaffAdminPersonaFromStorage();
     if (!isStaffAdmin &&
         (targetStaffCodes.length != 1 ||
             targetStaffCodes.first != markerStaffCode)) {
@@ -183,7 +160,8 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
 
     // Self attendance (even for an admin persona) is always "today" —
     // defense in depth alongside the UI's disabled date pickers.
-    final isSelfTarget = targetStaffCodes.length == 1 &&
+    final isSelfTarget =
+        targetStaffCodes.length == 1 &&
         targetStaffCodes.first == markerStaffCode;
     final iana = state.schoolIana;
     final today = (iana != null && iana.isNotEmpty)
@@ -240,16 +218,16 @@ class StaffMarkAbsentSubmitOutcome {
     required String message,
     required bool returnToTabbedView,
   }) : this._(
-          success: true,
-          message: message,
-          returnToTabbedView: returnToTabbedView,
-        );
+         success: true,
+         message: message,
+         returnToTabbedView: returnToTabbedView,
+       );
 
   const StaffMarkAbsentSubmitOutcome.failure(String message)
-      : this._(success: false, message: message);
+    : this._(success: false, message: message);
 
   const StaffMarkAbsentSubmitOutcome.error(Object error)
-      : this._(success: false, error: error);
+    : this._(success: false, error: error);
 
   const StaffMarkAbsentSubmitOutcome.noop() : this._(success: false);
 

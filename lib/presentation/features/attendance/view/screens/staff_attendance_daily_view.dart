@@ -1,7 +1,6 @@
 import 'dart:async' show unawaited;
 
 import 'package:wowcare/core/util/logger_service.dart';
-import 'dart:convert' show jsonDecode;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -14,6 +13,7 @@ import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dar
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_summary.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_card.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_absent_card.dart';
@@ -279,34 +279,17 @@ class _StaffAttendanceDailyViewScreenState
 
   /// Mirrors the check in staff_sign_in_form.dart/staff_sign_out_form.dart:
   /// only SCHOOL_ADMIN/ORGANIZATION_ADMIN personas may edit attendance times.
+  ///
+  /// RoleCubit's active persona is the canonical, persona-switch-aware
+  /// signal — staffType/roles in storage can lag a beat after a persona
+  /// switch and misresolve a staff/teacher persona as admin (see
+  /// AttendancePopup._loadStaffPersonaFlags for the same fix). This method
+  /// previously skipped straight to the storage fallback, missing that fix.
   Future<bool> _resolveIsStaffAdminPersona() async {
-    final storage = serviceLocator<StorageService>();
-    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-        .trim()
-        .toUpperCase();
-
-    if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
-      return true;
+    if (mounted) {
+      return !context.read<RoleCubit>().isStaff;
     }
-
-    // Fallback: parse roles JSON if staffType isn't cached yet.
-    final rolesJson = await storage.getString(StorageKeys.roles);
-    if (rolesJson == null || rolesJson.trim().isEmpty) return false;
-
-    try {
-      final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
-      for (final r in roles) {
-        final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
-            .toString()
-            .toUpperCase();
-        if (roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN') {
-          return true;
-        }
-      }
-    } catch (_) {
-      // More restrictive default: treat unknown as non-admin.
-    }
-    return false;
+    return resolveIsStaffAdminPersonaFromStorage();
   }
 
   @override
@@ -1333,20 +1316,20 @@ class _StaffAttendanceDailyViewScreenState
     return null;
   }
 
-  StaffAbsentMarkMethod? _mapAbsentMethodStringToEnum(String? method) {
+  AbsentMarkMethod? _mapAbsentMethodStringToEnum(String? method) {
     if (method == null) return null;
     switch (method.trim().toUpperCase()) {
       case 'GPS':
-        return StaffAbsentMarkMethod.gps;
+        return AbsentMarkMethod.gps;
       case 'PIN':
       case 'KIOSK':
-        return StaffAbsentMarkMethod.kiosk;
+        return AbsentMarkMethod.kiosk;
       case 'QR':
-        return StaffAbsentMarkMethod.qr;
+        return AbsentMarkMethod.qr;
       case 'APP':
-        return StaffAbsentMarkMethod.app;
+        return AbsentMarkMethod.app;
       case 'WEB':
-        return StaffAbsentMarkMethod.web;
+        return AbsentMarkMethod.web;
       default:
         return null;
     }

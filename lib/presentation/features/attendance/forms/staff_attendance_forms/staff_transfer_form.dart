@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -72,6 +71,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     return _selectedStaff.length == 1 &&
         (_selectedStaff.first.staffCode ?? '').trim() == code;
   }
+
   // The staff member's latest/current classroom code. Seeded from the
   // entity (transfer-list API) for an instant first paint, then overridden
   // by today's transfer-form-list lookup (see
@@ -118,16 +118,17 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     } catch (_) {}
 
     final isAdmin = await _resolveIsStaffAdminPersona();
-    final currentStaffCode = (await serviceLocator<StorageService>()
-                .getString(StorageKeys.staffCode) ??
-            '')
-        .trim();
+    final currentStaffCode =
+        (await serviceLocator<StorageService>().getString(
+                  StorageKeys.staffCode,
+                ) ??
+                '')
+            .trim();
     if (!mounted) return;
     setState(() {
       _schoolIana = schoolIana;
       _isStaffAdminPersona = isAdmin;
-      _currentStaffCode =
-          currentStaffCode.isNotEmpty ? currentStaffCode : null;
+      _currentStaffCode = currentStaffCode.isNotEmpty ? currentStaffCode : null;
       final now = ServerTimeService.instance.now();
       _selectedTransferDate = now;
       _selectedTransferTime = TimeOfDay(hour: now.hour, minute: now.minute);
@@ -237,29 +238,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     if (mounted) {
       return !context.read<RoleCubit>().isStaff;
     }
-
-    final storage = serviceLocator<StorageService>();
-    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-        .trim()
-        .toUpperCase();
-
-    if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
-      return true;
-    }
-
-    final rolesJson = await storage.getString(StorageKeys.roles);
-    if (rolesJson == null || rolesJson.trim().isEmpty) return false;
-
-    try {
-      final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
-      return roles.any((r) {
-        if (r is! Map<String, dynamic>) return false;
-        final roleCode = (r['role'] ?? '').toString().toUpperCase();
-        return roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN';
-      });
-    } catch (_) {
-      return false;
-    }
+    return resolveIsStaffAdminPersonaFromStorage();
   }
 
   /// Resolves the human-readable name of the staff member's LATEST current
@@ -502,7 +481,10 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
           // whatever screen this action was started from.
           Navigator.of(context).pop();
         } else {
-          redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
+          redirectToAttendanceDaily(
+            context,
+            StaffAttendanceTabbedView.routeName,
+          );
         }
       }
     } catch (e) {
@@ -614,7 +596,8 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                               isTime: false,
                               fetchInitialTime: false,
                               initialDate: _selectedTransferDate,
-                              isDisabled: _isStaffAdminPersona != true || _isSelfTarget,
+                              isDisabled:
+                                  _isStaffAdminPersona != true || _isSelfTarget,
                               onDateSelected: (date) {
                                 setState(() {
                                   final iana = _schoolIana;
@@ -624,7 +607,9 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                                         )
                                       : DateTime(
                                           ServerTimeService.instance.now().year,
-                                          ServerTimeService.instance.now().month,
+                                          ServerTimeService.instance
+                                              .now()
+                                              .month,
                                           ServerTimeService.instance.now().day,
                                         );
                                   final picked = DateTime(
@@ -649,7 +634,8 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                             const AppText.label('Time'),
                             const SizedBox(height: AppSpacing.xs),
                             IgnorePointer(
-                              ignoring: _isStaffAdminPersona != true || _isSelfTarget,
+                              ignoring:
+                                  _isStaffAdminPersona != true || _isSelfTarget,
                               child: GradientTimePickerField(
                                 time: _selectedTransferTime,
                                 onTimeSelected: (t) {
@@ -754,7 +740,10 @@ class RemoveStaffTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: AppSpacing.xs),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(AppRadius.r10),

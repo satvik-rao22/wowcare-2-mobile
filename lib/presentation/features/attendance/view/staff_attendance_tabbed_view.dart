@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
@@ -38,7 +39,6 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'dart:convert';
 
 class StaffAttendanceTabbedView extends StatefulWidget {
   const StaffAttendanceTabbedView({
@@ -113,7 +113,9 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   }
 
   Future<void> _initPersonaFlags() async {
-    _isParentRole = await _resolveIsParentSession();
+    _isParentRole = await AttendancePermissionService.resolveIsParentSession(
+      context,
+    );
     if (!_isParentRole) {
       await _loadStaffPersonaFlags();
     } else {
@@ -121,49 +123,6 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       _loggedInStaffCode = '';
     }
     if (mounted) setState(() {});
-  }
-
-  Future<bool> _resolveIsParentSession() async {
-    final roleCubit = context.read<RoleCubit>();
-    // Once RoleCubit has resolved the ACTIVE persona, it is authoritative —
-    // trust it even when false. A dual-role account (e.g. SCHOOL_ADMIN +
-    // GUARDIAN) has 'GUARDIAN' somewhere in its full roles list regardless of
-    // which persona is currently active, so scanning that list below would
-    // wrongly flip an admin who switched profiles back to the guardian view.
-    // Only fall through to the best-effort scan while RoleCubit is still
-    // bootstrapping (no active persona resolved yet).
-    if (roleCubit.hasResolvedAccess) return roleCubit.isParent;
-    if (roleCubit.isParent) return true;
-    try {
-      final storage = serviceLocator<StorageService>();
-      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
-          .trim();
-      if (rolesJson.isNotEmpty) {
-        final decoded = jsonDecode(rolesJson);
-        if (decoded is List) {
-          for (final role in decoded) {
-            if (role is! Map) continue;
-            final roleName = (role['role'] ?? '')
-                .toString()
-                .toUpperCase()
-                .trim();
-            if (roleName.contains('PARENT') || roleName.contains('GUARDIAN')) {
-              return true;
-            }
-          }
-        }
-      }
-      final loginContext = await storage.getJson(StorageKeys.loginContext);
-      final raw = jsonEncode(
-        loginContext ?? const <String, dynamic>{},
-      ).toUpperCase();
-      if (raw.contains('PARENT') || raw.contains('GUARDIAN')) {
-        return true;
-      }
-    } catch (_) {
-      return false;
-    }
-    return false;
   }
 
   Future<void> _loadStaffPersonaFlags() async {
@@ -302,7 +261,10 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding: const EdgeInsets.only(top: AppSpacing.xxs, bottom: AppSpacing.xs),
+                            padding: const EdgeInsets.only(
+                              top: AppSpacing.xxs,
+                              bottom: AppSpacing.xs,
+                            ),
                             child: Text(
                               'Staff Attendance',
                               style: TextStyle(
@@ -544,36 +506,32 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       if (!mounted) return;
       switch (label) {
         case 'Sign-in':
-          context.push(
-            '/attendance/staff-sign-in',
-            extra: {'staff': staff},
-          ).then((_) {
-            if (mounted) _refreshAllAfterAttendanceFlow();
-          });
+          context
+              .push('/attendance/staff-sign-in', extra: {'staff': staff})
+              .then((_) {
+                if (mounted) _refreshAllAfterAttendanceFlow();
+              });
           break;
         case 'Sign-Out':
-          context.push(
-            '/attendance/staff-sign-out',
-            extra: {'staff': staff},
-          ).then((_) {
-            if (mounted) _refreshAllAfterAttendanceFlow();
-          });
+          context
+              .push('/attendance/staff-sign-out', extra: {'staff': staff})
+              .then((_) {
+                if (mounted) _refreshAllAfterAttendanceFlow();
+              });
           break;
         case 'Transfer':
-          context.push(
-            '/attendance/staff-transfer',
-            extra: {'staff': staff},
-          ).then((_) {
-            if (mounted) _refreshAllAfterAttendanceFlow();
-          });
+          context
+              .push('/attendance/staff-transfer', extra: {'staff': staff})
+              .then((_) {
+                if (mounted) _refreshAllAfterAttendanceFlow();
+              });
           break;
         case 'Absent':
-          context.push(
-            '/attendance/staff-mark-absent',
-            extra: {'staff': staff},
-          ).then((_) {
-            if (mounted) _refreshAllAfterAttendanceFlow();
-          });
+          context
+              .push('/attendance/staff-mark-absent', extra: {'staff': staff})
+              .then((_) {
+                if (mounted) _refreshAllAfterAttendanceFlow();
+              });
           break;
       }
       return;

@@ -3,14 +3,13 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/presentation/features/attendance/view/screens/widgets/attendance_card_shared.dart';
 
-enum SignMethod { gps, qr, pin, kiosk, direct, web, system }
+export 'package:wowcare/presentation/features/attendance/view/screens/widgets/attendance_card_shared.dart'
+    show SignMethod;
 
 class StaffAttendanceCardData {
   final String? attendanceRecordCode;
@@ -114,8 +113,8 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
         staff.signInTime != null &&
         staff.signOutTime != null) {
       try {
-        final signInTime = _parseTimeString(staff.signInTime!);
-        final signOutTime = _parseTimeString(staff.signOutTime!);
+        final signInTime = parseAttendanceTimeString(staff.signInTime!);
+        final signOutTime = parseAttendanceTimeString(staff.signOutTime!);
         var end = signOutTime;
         if (end.isBefore(signInTime)) {
           end = end.add(const Duration(days: 1));
@@ -234,15 +233,19 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildDetailRow(
+                    buildAttendanceDetailRow(
                       context,
                       'Expected Today?',
                       staff.expectedToday ? 'Yes' : 'No',
                     ),
                     const SizedBox(height: AppSpacing.s10),
-                    _buildDetailRow(context, 'Classroom', staff.roomName),
+                    buildAttendanceDetailRow(
+                      context,
+                      'Classroom',
+                      staff.roomName,
+                    ),
                     const SizedBox(height: AppSpacing.s10),
-                    _buildSignInOutRow(
+                    buildAttendanceSignInOutRow(
                       context,
                       'Sign In time & by',
                       signIn,
@@ -250,7 +253,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                       showTransferIcon: staff.isTransferSignIn,
                     ),
                     const SizedBox(height: AppSpacing.s10),
-                    _buildSignInOutRow(
+                    buildAttendanceSignInOutRow(
                       context,
                       'Sign Out time & by',
                       signOut,
@@ -259,18 +262,27 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                     ),
                     if (duration.isNotEmpty) ...[
                       const SizedBox(height: AppSpacing.s10),
-                      _buildDetailRow(context, 'Attended Time', duration),
+                      buildAttendanceDetailRow(
+                        context,
+                        'Attended Time',
+                        duration,
+                      ),
                     ],
                     if ((staff.notExpectedComment ?? '').trim().isNotEmpty) ...[
                       const SizedBox(height: AppSpacing.s10),
-                      _buildDetailRow(
+                      buildAttendanceDetailRow(
                         context,
                         'Comment',
                         staff.notExpectedComment!.trim(),
                       ),
                     ],
                     const SizedBox(height: AppSpacing.sm),
-                    _buildActionButtons(context),
+                    buildAttendanceActionButtons(
+                      context,
+                      onDelete: widget.onDelete,
+                      onEdit: widget.onEdit,
+                      onView: widget.onView,
+                    ),
                   ],
                 ),
               ),
@@ -279,324 +291,5 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
         ),
       ),
     );
-  }
-
-  Widget _buildDetailRow(BuildContext context, String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: AppTextStyles.label,
-          ),
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        Expanded(
-          child: Text(
-            value,
-            style: AppTextStyles.value,
-            textAlign: TextAlign.end,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSignInOutRow(
-    BuildContext context,
-    String label,
-    String value,
-    SignMethod? method, {
-    bool showTransferIcon = false,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: AppTextStyles.label,
-          ),
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (method != null) ...[
-                _buildMethodIcon(method),
-                const SizedBox(width: AppSpacing.xxs),
-              ],
-              if (showTransferIcon) ...[
-                Tooltip(
-                  message: 'Transfer',
-                  child: SvgPicture.asset(
-                    MediaRes.transfer,
-                    width: 18,
-                    height: 18,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.themeColor,
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.xxs),
-              ],
-              Flexible(
-                child: Text(
-                  value,
-                  style: AppTextStyles.value,
-                  textAlign: TextAlign.end,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMethodIcon(SignMethod method) {
-    const double size = 18;
-
-    switch (method) {
-      case SignMethod.gps:
-        return Tooltip(
-          message: 'GPS',
-          child: SvgPicture.asset(
-            MediaRes.gpsMethodIcon,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
-          ),
-        );
-      case SignMethod.qr:
-        return Tooltip(
-          message: 'QR',
-          child: SvgPicture.asset(
-            MediaRes.qrAttendanceIcon,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
-          ),
-        );
-      case SignMethod.kiosk:
-        return Tooltip(
-          message: 'Kiosk',
-          child: SvgPicture.asset(
-            MediaRes.kioskAttendenceIcons,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
-          ),
-        );
-      case SignMethod.pin:
-        return Tooltip(
-          message: 'PIN',
-          child: SvgPicture.asset(
-            MediaRes.kioskAttendenceIcons,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
-          ),
-        );
-      case SignMethod.direct:
-        return Tooltip(
-          message: 'APP',
-          child: SvgPicture.asset(
-            MediaRes.appMethodIcon,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
-          ),
-        );
-      case SignMethod.web:
-        return Tooltip(
-          message: 'WEB',
-          child: SvgPicture.asset(
-            MediaRes.webMethodIcon,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
-          ),
-        );
-      case SignMethod.system:
-        // Auto sign-out performed by the system (no person). Matches web's
-        // gear/"System" indicator.
-        return Tooltip(
-          message: 'System',
-          child: SvgPicture.asset(
-            MediaRes.systemMethodIcon,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
-          ),
-        );
-    }
-  }
-
-  Widget _buildActionButtons(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // For very small screens, stack buttons vertically
-        if (constraints.maxWidth < 300) {
-          return Column(
-            children: [
-              if (widget.onDelete != null)
-                SizedBox(
-                  width: double.infinity,
-                  height: AppSpacing.xxxl,
-                  child: _outlinedButton('Delete', widget.onDelete),
-                ),
-              if (widget.onDelete != null && widget.onEdit != null)
-                const SizedBox(height: AppSpacing.sm),
-              if (widget.onEdit != null)
-                SizedBox(
-                  width: double.infinity,
-                  height: AppSpacing.xxxl,
-                  child: _gradientButton('Edit', widget.onEdit),
-                ),
-              if (widget.onView != null) ...[
-                if (widget.onEdit != null || widget.onDelete != null)
-                  const SizedBox(height: AppSpacing.sm),
-                SizedBox(
-                  width: double.infinity,
-                  height: AppSpacing.xxxl,
-                  child: _outlinedButton('View', widget.onView),
-                ),
-              ],
-            ],
-          );
-        }
-
-        // For larger screens, use horizontal layout
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            if (widget.onDelete != null)
-              Expanded(
-                child: SizedBox(
-                  height: AppSpacing.xxxl,
-                  child: _outlinedButton('Delete', widget.onDelete),
-                ),
-              ),
-            if (widget.onDelete != null && widget.onEdit != null)
-              const SizedBox(width: AppSpacing.md),
-            if (widget.onEdit != null)
-              Expanded(
-                child: SizedBox(
-                  height: AppSpacing.xxxl,
-                  child: _gradientButton('Edit', widget.onEdit),
-                ),
-              ),
-            if (widget.onView != null) ...[
-              if (widget.onEdit != null || widget.onDelete != null)
-                const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: SizedBox(
-                  height: AppSpacing.xxxl,
-                  child: _outlinedButton('View', widget.onView),
-                ),
-              ),
-            ],
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _outlinedButton(String label, VoidCallback? onPressed) {
-    return OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        side: const BorderSide(color: AppColors.attendanceActionAccentColor),
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.allSm),
-        padding: EdgeInsets.zero,
-        backgroundColor: AppColors.cardColor,
-      ),
-      child: Text(
-        label,
-        style: AppTextStyles.title.copyWith(
-          color: AppColors.attendanceActionAccentColor,
-        ),
-      ),
-    );
-  }
-
-  Widget _gradientButton(String label, VoidCallback? onPressed) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: AppRadius.allSm,
-        gradient: AppColors.buildPrimaryGradient(),
-      ),
-      child: TextButton(
-        onPressed: onPressed,
-        style: TextButton.styleFrom(
-          padding: EdgeInsets.zero,
-          backgroundColor: AppColors.transparentColor,
-        ),
-        child: Text(
-          label,
-          style: AppTextStyles.title.copyWith(color: AppColors.cardColor),
-        ),
-      ),
-    );
-  }
-
-  DateTime _parseTimeString(String timeString) {
-    try {
-      final parts = timeString.split(' ');
-      if (parts.length < 2) {
-        return ServerTimeService.instance.now();
-      }
-
-      final timePart = parts[0];
-      final period = parts[1];
-
-      final timeComponents = timePart.split(':');
-      if (timeComponents.length < 2) {
-        return ServerTimeService.instance.now();
-      }
-
-      int hour = int.parse(timeComponents[0]);
-      int minute = int.parse(timeComponents[1]);
-
-      if (period == 'PM' && hour != 12) hour += 12;
-      if (period == 'AM' && hour == 12) hour = 0;
-
-      return ServerTimeService.instance.now().copyWith(
-        hour: hour,
-        minute: minute,
-      );
-    } catch (e) {
-      return ServerTimeService.instance.now();
-    }
   }
 }

@@ -29,7 +29,6 @@ import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
@@ -202,52 +201,6 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     } catch (_) {}
   }
 
-  Future<bool> _resolveIsParentSession() async {
-    final roleCubit = context.read<RoleCubit>();
-    // Once RoleCubit has resolved the ACTIVE persona, it is authoritative —
-    // trust it even when false. A dual-role account (e.g. SCHOOL_ADMIN +
-    // GUARDIAN) has 'GUARDIAN' somewhere in its full roles list regardless of
-    // which persona is currently active, so scanning that list below would
-    // wrongly flip an admin who switched profiles back to a guardian sign-out.
-    // Only fall through to the best-effort scan while RoleCubit is still
-    // bootstrapping (no active persona resolved yet).
-    if (roleCubit.hasResolvedAccess) return roleCubit.isParent;
-    if (roleCubit.isParent) return true;
-
-    try {
-      final storage = serviceLocator<StorageService>();
-      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
-          .trim();
-      if (rolesJson.isNotEmpty) {
-        final decoded = jsonDecode(rolesJson);
-        if (decoded is List) {
-          for (final role in decoded) {
-            if (role is! Map) continue;
-            final roleName = (role['role'] ?? '')
-                .toString()
-                .toUpperCase()
-                .trim();
-            if (roleName.contains('PARENT') || roleName.contains('GUARDIAN')) {
-              return true;
-            }
-          }
-        }
-      }
-
-      final loginContext = await storage.getJson(StorageKeys.loginContext);
-      final contextRaw = jsonEncode(
-        loginContext ?? const <String, dynamic>{},
-      ).toUpperCase();
-      if (contextRaw.contains('PARENT') || contextRaw.contains('GUARDIAN')) {
-        return true;
-      }
-    } catch (_) {
-      // Ignore parse/storage issues and keep non-parent fallback.
-    }
-
-    return false;
-  }
-
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;
     if (currentStudents.isEmpty) {
@@ -265,7 +218,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       _isSubmitting = true;
     });
 
-    final isParent = await _resolveIsParentSession();
+    final isParent = await AttendancePermissionService.resolveIsParentSession(
+      context,
+    );
 
     final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
       storage: serviceLocator<StorageService>(),
@@ -481,10 +436,12 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       pin: resolvedPin,
       attendanceDate: mode == StudentSignOutMode.staff ? attendanceDate : null,
       staffCode: resolvedStaffCode,
-      classroomCode:
-          mode == StudentSignOutMode.staff ? defaultClassroomCode : null,
-      classroomCodeByStudentCode:
-          mode == StudentSignOutMode.staff ? classroomCodeByStudentCode : null,
+      classroomCode: mode == StudentSignOutMode.staff
+          ? defaultClassroomCode
+          : null,
+      classroomCodeByStudentCode: mode == StudentSignOutMode.staff
+          ? classroomCodeByStudentCode
+          : null,
       occurredAtIso: mode == StudentSignOutMode.staff
           ? occurredAt.toUtc().toIso8601String()
           : null,

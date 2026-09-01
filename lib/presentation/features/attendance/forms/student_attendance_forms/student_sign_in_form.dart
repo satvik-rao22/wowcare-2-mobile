@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -36,8 +35,6 @@ import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
@@ -244,11 +241,11 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       while (true) {
         final absentPage =
             await serviceLocator<GetStudentAbsentFormListUseCase>()(
-          fromAbsenceDate: attendanceDateYyyyMmDd,
-          toAbsenceDate: attendanceDateYyyyMmDd,
-          page: page,
-          size: pageSize,
-        );
+              fromAbsenceDate: attendanceDateYyyyMmDd,
+              toAbsenceDate: attendanceDateYyyyMmDd,
+              page: page,
+              size: pageSize,
+            );
         allItems.addAll(absentPage.items);
         if (!absentPage.hasMore) break;
         page++;
@@ -306,52 +303,6 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     }
   }
 
-  Future<bool> _resolveIsParentSession() async {
-    final roleCubit = context.read<RoleCubit>();
-    // Once RoleCubit has resolved the ACTIVE persona, it is authoritative —
-    // trust it even when false. A dual-role account (e.g. SCHOOL_ADMIN +
-    // GUARDIAN) has 'GUARDIAN' somewhere in its full roles list regardless of
-    // which persona is currently active, so scanning that list below would
-    // wrongly flip an admin who switched profiles back to a guardian sign-in.
-    // Only fall through to the best-effort scan while RoleCubit is still
-    // bootstrapping (no active persona resolved yet).
-    if (roleCubit.hasResolvedAccess) return roleCubit.isParent;
-    if (roleCubit.isParent) return true;
-
-    try {
-      final storage = serviceLocator<StorageService>();
-      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
-          .trim();
-      if (rolesJson.isNotEmpty) {
-        final decoded = jsonDecode(rolesJson);
-        if (decoded is List) {
-          for (final role in decoded) {
-            if (role is! Map) continue;
-            final roleName = (role['role'] ?? '')
-                .toString()
-                .toUpperCase()
-                .trim();
-            if (roleName.contains('PARENT') || roleName.contains('GUARDIAN')) {
-              return true;
-            }
-          }
-        }
-      }
-
-      final loginContext = await storage.getJson(StorageKeys.loginContext);
-      final contextRaw = jsonEncode(
-        loginContext ?? const <String, dynamic>{},
-      ).toUpperCase();
-      if (contextRaw.contains('PARENT') || contextRaw.contains('GUARDIAN')) {
-        return true;
-      }
-    } catch (_) {
-      // Ignore parse/storage issues and keep non-parent fallback.
-    }
-
-    return false;
-  }
-
   Future<void> _submitSignIn() async {
     final gateState = _gateCubit.state;
     if (_submitInFlight) return;
@@ -370,7 +321,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       return;
     }
 
-    final isParent = await _resolveIsParentSession();
+    final isParent = await AttendancePermissionService.resolveIsParentSession(
+      context,
+    );
 
     final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
       storage: serviceLocator<StorageService>(),
@@ -563,9 +516,12 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       pin: resolvedPin,
       attendanceDate: mode == StudentSignInMode.staff ? attendanceDate : null,
       staffCode: resolvedStaffCode,
-      classroomCode: mode == StudentSignInMode.staff ? defaultClassroomCode : null,
-      classroomCodeByStudentCode:
-          mode == StudentSignInMode.staff ? classroomCodeByStudentCode : null,
+      classroomCode: mode == StudentSignInMode.staff
+          ? defaultClassroomCode
+          : null,
+      classroomCodeByStudentCode: mode == StudentSignInMode.staff
+          ? classroomCodeByStudentCode
+          : null,
       occurredAtIso: mode == StudentSignInMode.staff
           ? occurredAt.toUtc().toIso8601String()
           : null,
@@ -730,11 +686,11 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                     shrinkWrap: true,
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 14,
-                      childAspectRatio: 3.5,
-                    ),
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 14,
+                          mainAxisSpacing: 14,
+                          childAspectRatio: 3.5,
+                        ),
                     itemCount: currentStudents.length,
                     itemBuilder: (context, index) => RemoveStudentTile(
                       student: currentStudents[index],
@@ -762,8 +718,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                                 // device calendar.
                                 final iana = gate.schoolIana;
                                 final today = iana != null && iana.isNotEmpty
-                                    ? SchoolZoneDateTime
-                                        .schoolCalendarTodayOnly(iana)
+                                    ? SchoolZoneDateTime.schoolCalendarTodayOnly(
+                                        iana,
+                                      )
                                     : DateTime(
                                         ServerTimeService.instance.now().year,
                                         ServerTimeService.instance.now().month,
@@ -810,25 +767,26 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
             ),
             bottomBar:
                 BlocBuilder<StudentSignInSubmitCubit, StudentSignInSubmitState>(
-              bloc: _submitCubit,
-              builder: (context, submitState) {
-                final hasUnexpected = _gateCubit.hasUnexpectedAmongSelected();
-                final disabled =
-                    (submitState is StudentSignInSubmitInProgress) ||
+                  bloc: _submitCubit,
+                  builder: (context, submitState) {
+                    final hasUnexpected = _gateCubit
+                        .hasUnexpectedAmongSelected();
+                    final disabled =
+                        (submitState is StudentSignInSubmitInProgress) ||
                         gate.unexpectedGateLoading ||
                         (hasUnexpected && !gate.unexpectedSignInAcknowledged);
-                return CustomButtonLayout(
-                  confirmButtonLabel: 'Sign-In',
-                  onPressedConfirm: disabled ? null : _submitSignIn,
-                  showCancelButton: widget.isKiosk,
-                  onPressedCancel: widget.isKiosk
-                      ? () {
-                          context.go('/kiosk');
-                        }
-                      : null,
-                );
-              },
-            ),
+                    return CustomButtonLayout(
+                      confirmButtonLabel: 'Sign-In',
+                      onPressedConfirm: disabled ? null : _submitSignIn,
+                      showCancelButton: widget.isKiosk,
+                      onPressedCancel: widget.isKiosk
+                          ? () {
+                              context.go('/kiosk');
+                            }
+                          : null,
+                    );
+                  },
+                ),
           );
         },
       ),

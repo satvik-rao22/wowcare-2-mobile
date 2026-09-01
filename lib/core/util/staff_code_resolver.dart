@@ -20,15 +20,15 @@ Future<String> resolveStaffCodeForLoggedInUser({
 
   // Only reuse cached staffCode if it belongs to the currently logged-in user
   // and selected org/school context.
-  final currentUserCode =
-      (await storage.getString(StorageKeys.userCode) ?? '').trim();
+  final currentUserCode = (await storage.getString(StorageKeys.userCode) ?? '')
+      .trim();
   final currentOrganizationCode =
       (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
   final currentSchoolCode =
       (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
 
-  final rolesJsonEarly =
-      (await storage.getString(StorageKeys.roles) ?? '').trim();
+  final rolesJsonEarly = (await storage.getString(StorageKeys.roles) ?? '')
+      .trim();
   if (shouldSkipStaffCodeResolutionForContext(
     rolesJson: rolesJsonEarly,
     organizationCode: currentOrganizationCode,
@@ -85,7 +85,8 @@ Future<String> resolveStaffCodeForLoggedInUser({
   final userCode = (await storage.getString(StorageKeys.userCode) ?? '').trim();
   final organizationCode =
       (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-  final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+  final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+      .trim();
 
   if (userCode.isEmpty || organizationCode.isEmpty) return '';
 
@@ -149,10 +150,7 @@ Future<String> resolveStaffCodeForLoggedInUser({
         StorageKeys.staffCodeOrganization,
         organizationCode,
       );
-      await storage.saveString(
-        StorageKeys.staffCodeSchool,
-        schoolCode,
-      );
+      await storage.saveString(StorageKeys.staffCodeSchool, schoolCode);
       return trimmed;
     }
   }
@@ -162,6 +160,39 @@ Future<String> resolveStaffCodeForLoggedInUser({
   await storage.remove(StorageKeys.staffCodeOrganization);
   await storage.remove(StorageKeys.staffCodeSchool);
   return '';
+}
+
+/// Storage/roles-based fallback for "is the logged-in user a school/org
+/// admin?" — used when a `RoleCubit`-aware `BuildContext` isn't available
+/// (e.g. from a Cubit, which has no context per the MVVM rule, or a View
+/// that's already unmounted). `RoleCubit`'s active persona is the canonical,
+/// persona-switch-aware signal — staffType/roles in storage can lag a beat
+/// after a persona switch and misresolve a staff/teacher persona as admin —
+/// so a mounted View with context should check `RoleCubit` first and only
+/// fall back to this when unmounted.
+Future<bool> resolveIsStaffAdminPersonaFromStorage() async {
+  final storage = serviceLocator<StorageService>();
+  final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+      .trim()
+      .toUpperCase();
+
+  if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
+    return true;
+  }
+
+  final rolesJson = await storage.getString(StorageKeys.roles);
+  if (rolesJson == null || rolesJson.trim().isEmpty) return false;
+
+  try {
+    final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
+    return roles.any((r) {
+      if (r is! Map<String, dynamic>) return false;
+      final roleCode = (r['role'] ?? '').toString().toUpperCase();
+      return roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN';
+    });
+  } catch (_) {
+    return false;
+  }
 }
 
 class LoggedInStaffDisplay {
