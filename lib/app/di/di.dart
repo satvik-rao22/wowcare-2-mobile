@@ -231,6 +231,10 @@ import '../../domain/features/attendance/usecases/submit_staff_sign_out_usecase.
 import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_out_submit_cubit.dart';
 import '../../domain/features/attendance/usecases/submit_staff_transfer_usecase.dart';
 import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_transfer_submit_cubit.dart';
+import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_selection_cubit.dart';
+import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_transfer_selection_cubit.dart';
+import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_out_selection_cubit.dart';
+import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_mark_absent_selection_cubit.dart';
 import '../../domain/features/attendance/usecases/delete_staff_attendance_record_usecase.dart';
 import '../../domain/features/attendance/usecases/delete_student_attendance_record_usecase.dart';
 import '../../domain/features/attendance/usecases/delete_student_absence_record_usecase.dart';
@@ -1152,6 +1156,26 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetStaffAbsentFormListUseCase>(
     () => GetStaffAbsentFormListUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<StaffSignInSelectionCubit>(
+    () => StaffSignInSelectionCubit(
+      getStaffSignInFormListUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffTransferSelectionCubit>(
+    () => StaffTransferSelectionCubit(
+      getStaffTransferFormListUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffSignOutSelectionCubit>(
+    () => StaffSignOutSelectionCubit(
+      getStaffSignOutFormListUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffMarkAbsentSelectionCubit>(
+    () => StaffMarkAbsentSelectionCubit(
+      getStaffAbsentFormListUseCase: serviceLocator(),
+    ),
   );
   serviceLocator.registerFactory<MarkStaffAbsentUseCase>(
     () => MarkStaffAbsentUseCase(

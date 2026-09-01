@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_search_field.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_staff_list_item.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -14,9 +13,8 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_selection_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'staff_entity.dart';
@@ -60,14 +58,13 @@ class _StaffSelectionSignInFormState extends State<StaffSelectionSignInForm> {
   bool _isLoading = false;
   String? _errorMessage;
 
-  late final GetStaffSignInFormListUseCase _getStaffSignInFormListUseCase;
+  late final StaffSignInSelectionCubit _selectionCubit;
   late final ClassroomCubit _classroomCubit;
 
   @override
   void initState() {
     super.initState();
-    _getStaffSignInFormListUseCase =
-        serviceLocator<GetStaffSignInFormListUseCase>();
+    _selectionCubit = serviceLocator<StaffSignInSelectionCubit>();
     _classroomCubit = serviceLocator<ClassroomCubit>()
       ..loadActiveClassrooms(
         onlyTypeClassroom: false,
@@ -79,104 +76,73 @@ class _StaffSelectionSignInFormState extends State<StaffSelectionSignInForm> {
   @override
   void dispose() {
     _searchController.dispose();
+    _selectionCubit.close();
     super.dispose();
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  }
-
+  /// Delegates the fetch to [StaffSignInSelectionCubit] (owns timezone
+  /// bootstrap, "today" resolution, and the raw API call), then applies the
+  /// same local designation/search post-filter as before — UI-derived
+  /// filtering on top of the fetch, not a data concern.
   Future<void> _loadStaff() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    try {
-      await bootstrapAttendanceSchoolTimezone();
-      final today = attendanceSchoolToday();
-      final dateString = _formatDate(today);
+    final selectedClassroomCode = _selectedClassroomCode;
+    final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
+    final searchText = _searchController.text.trim().isNotEmpty
+        ? _searchController.text.trim()
+        : null;
 
-      final selectedClassroomCode = _selectedClassroomCode;
-      final classroomCodes =
-          selectedClassroomCode != null && selectedClassroomCode.isNotEmpty
-          ? <String>[selectedClassroomCode]
-          : null;
+    await _selectionCubit.loadStaff(
+      classroomCode: selectedClassroomCode,
+      tagCodes: tagCodes,
+      search: searchText,
+    );
+    if (!mounted) return;
 
-      // Map UI "Designation" selection to backend tagCodes parameter for compatibility
-      final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
-
-      final searchText = _searchController.text.trim().isNotEmpty
-          ? _searchController.text.trim()
-          : null;
-
-      final page = await _getStaffSignInFormListUseCase(
-        fromAttendanceDate: dateString,
-        toAttendanceDate: dateString,
-        classroomCodes: classroomCodes,
-        tagCodes: tagCodes,
-        search: searchText,
-        page: 0,
-        size: 200,
-      );
-
-      final staffList = page.items.asMap().entries.map((entry) {
-        final index = entry.key;
-        final item = entry.value;
-        return StaffEntity(
-          id: index + 1,
-          name: item.staffName,
-          primaryRoomId: 0,
-          classroomCode: item.classroomCode,
-          classroomName: item.classroomName,
-          photoUuid: null,
-          designation: item.designation.isNotEmpty
-              ? item.designation.first
-              : 'Staff',
-          staffCode: item.staffCode,
-          isExpectedToday: item.isExpectedToday,
-        );
-      }).toList();
-
-      // Apply local filter for Designation (in addition to backend)
-      List<StaffEntity> locallyFiltered = staffList;
-      if (_selectedTag.isNotEmpty) {
-        final selected = _selectedTag
-            .map((e) => e.trim().toUpperCase())
-            .toSet();
-        locallyFiltered = locallyFiltered.where((s) {
-          final d = s.designation.trim().toUpperCase();
-          return selected.contains(d);
-        }).toList();
-      }
-      if (searchText != null && searchText.trim().isNotEmpty) {
-        final q = searchText.toLowerCase();
-        locallyFiltered = locallyFiltered
-            .where((s) => s.name.toLowerCase().contains(q))
-            .toList();
-      }
-
-      // Preselect staff based on initial staff codes if provided
-      if (widget.initialStaffCodes != null &&
-          widget.initialStaffCodes!.isNotEmpty) {
-        selectedStaff = locallyFiltered
-            .where((e) => widget.initialStaffCodes!.contains(e.staffCode))
-            .toSet();
-      }
-
-      setState(() {
-        _filteredStaff = List.from(locallyFiltered);
-        _isLoading = false;
-        isSelectAllChecked =
-            _filteredStaff.isNotEmpty &&
-            _filteredStaff.every((s) => selectedStaff.contains(s));
-      });
-    } catch (e) {
+    final selectionState = _selectionCubit.state;
+    if (selectionState.errorMessage != null) {
       setState(() {
         _isLoading = false;
-        _errorMessage = ApiErrorHandler.extractErrorMessage(e);
+        _errorMessage = selectionState.errorMessage;
       });
+      return;
     }
+
+    // Apply local filter for Designation (in addition to backend)
+    List<StaffEntity> locallyFiltered = selectionState.staff;
+    if (_selectedTag.isNotEmpty) {
+      final selected = _selectedTag.map((e) => e.trim().toUpperCase()).toSet();
+      locallyFiltered = locallyFiltered.where((s) {
+        final d = s.designation.trim().toUpperCase();
+        return selected.contains(d);
+      }).toList();
+    }
+    if (searchText != null && searchText.trim().isNotEmpty) {
+      final q = searchText.toLowerCase();
+      locallyFiltered = locallyFiltered
+          .where((s) => s.name.toLowerCase().contains(q))
+          .toList();
+    }
+
+    // Preselect staff based on initial staff codes if provided
+    if (widget.initialStaffCodes != null &&
+        widget.initialStaffCodes!.isNotEmpty) {
+      selectedStaff = locallyFiltered
+          .where((e) => widget.initialStaffCodes!.contains(e.staffCode))
+          .toSet();
+    }
+
+    setState(() {
+      _filteredStaff = List.from(locallyFiltered);
+      _isLoading = false;
+      isSelectAllChecked =
+          _filteredStaff.isNotEmpty &&
+          _filteredStaff.every((s) => selectedStaff.contains(s));
+    });
   }
 
   void _toggleSelectAll(bool? value) {
@@ -304,7 +270,9 @@ class _StaffSelectionSignInFormState extends State<StaffSelectionSignInForm> {
             Row(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.xs,
+                  ),
                   child: CustomCheckbox(
                     value: isSelectAllChecked,
                     onChanged: _toggleSelectAll,
