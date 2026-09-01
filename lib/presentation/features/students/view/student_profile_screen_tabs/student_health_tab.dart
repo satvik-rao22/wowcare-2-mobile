@@ -130,80 +130,34 @@ class _StudentHealthTabState extends State<StudentHealthTab>
           SizedBox(height: 10,),
           CustomSectionCard(
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Flexible(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CustomToggle(
-                        key: ValueKey(_isImmunizationExempt),
-                        label: '',
-                        isToggled: _isImmunizationExempt,
-                        onToggle: (v) {
-                          setState(() => _isImmunizationExempt = v);
-                        },
-                      ),
-                      SizedBox(width: 10),
-                      Flexible(
-                        child: const Text(
-                          'Exempt students from immunizations',
-                          maxLines: 3,
-                          softWrap: true,
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                            color: Color(0xff573353),
-                            height: 16 / 13,
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 10,),
-                    ],
-                  ),
+                CustomToggle(
+                  key: ValueKey(_isImmunizationExempt),
+                  label: '',
+                  isToggled: _isImmunizationExempt,
+                  onToggle: (v) {
+                    setState(() => _isImmunizationExempt = v);
+                  },
                 ),
-
-                Flexible(
-                  child: Container(
-                    height: 35,
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      gradient: _isImmunizationExempt
-                          ? const LinearGradient(
-                              colors: [Color(0xFFC9C5CE), Color(0xFFB8B3BE)],
-                            )
-                          : AppColors.buildPrimaryGradient(),
-                    ),
-                    child: TextButton(
-                      onPressed: _isImmunizationExempt
-                          ? null
-                          : () {
-                            },
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                      ),
-                      child: Text(
-                        _isImmunizationExempt ? 'Reminder Disabled' : 'Send Reminder',
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          height: 16 / 16,
-                        ),
-                        maxLines: 2,
-                        textAlign: TextAlign.center,
-                        softWrap: true,
-                      ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Exempt students from immunizations',
+                    maxLines: 3,
+                    softWrap: true,
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xff573353),
+                      height: 16 / 13,
                     ),
                   ),
                 ),
               ],
             ),
-            ),
+          ),
           const SizedBox(height: 20),
         ],
 

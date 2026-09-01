@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
@@ -1293,12 +1294,13 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         ),
       );
     } catch (e) {
+      CoreUtils.logApiError('Open student family billing failed: $e');
       if (!context.mounted) return;
       // showLoadingDialog uses the root navigator, so dismiss it there.
       Navigator.of(context, rootNavigator: true).pop();
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Unable to open billing. Please try again.',
+        message: ApiErrorHandler.extractErrorMessage(e),
         isError: true,
       );
     }

@@ -101,6 +101,7 @@ class _EditStudentProfileDetailsScreenState
   List<String> _selectedSiblings = [];
   List<String> _selectedTags = [];
   String? _selectedClassroom;
+  bool _classroomChangedByUser = false;
   DateTime? _selectedBirthDate;
   List<String> _selectedChildCustody = [];
   String? _selectedState;
@@ -579,26 +580,30 @@ class _EditStudentProfileDetailsScreenState
     // WARN (never block) when the DOB is outside the selected classroom's age
     // range. An out-of-range placement is a legitimate staff decision, so we
     // surface it and let them proceed — matching the web "warn but allow".
-    ClassroomCubit? classroomCubitForWarning;
-    try {
-      classroomCubitForWarning = context.read<ClassroomCubit>();
-    } catch (_) {
-      classroomCubitForWarning = null;
-    }
-    final classroomsForWarning =
-        classroomCubitForWarning?.state.classrooms ?? const <Classroom>[];
-    final matchingClassrooms = classroomsForWarning.where(
-      (c) => c.name == _selectedClassroom || c.code == _selectedClassroom,
-    );
-    if (matchingClassrooms.isNotEmpty) {
-      final ageWarning = classroomAgeRangeWarning(
-        classroom: matchingClassrooms.first,
-        birthDate: _selectedBirthDate,
-        studentName: first,
+    // Only relevant when the user actually changed the classroom on this
+    // screen; editing unrelated fields shouldn't re-trigger it.
+    if (_classroomChangedByUser) {
+      ClassroomCubit? classroomCubitForWarning;
+      try {
+        classroomCubitForWarning = context.read<ClassroomCubit>();
+      } catch (_) {
+        classroomCubitForWarning = null;
+      }
+      final classroomsForWarning =
+          classroomCubitForWarning?.state.classrooms ?? const <Classroom>[];
+      final matchingClassrooms = classroomsForWarning.where(
+        (c) => c.name == _selectedClassroom || c.code == _selectedClassroom,
       );
-      if (ageWarning != null) {
-        final proceedAnyway = await _confirmAgeOutsideRange(ageWarning);
-        if (!proceedAnyway || !mounted) return;
+      if (matchingClassrooms.isNotEmpty) {
+        final ageWarning = classroomAgeRangeWarning(
+          classroom: matchingClassrooms.first,
+          birthDate: _selectedBirthDate,
+          studentName: first,
+        );
+        if (ageWarning != null) {
+          final proceedAnyway = await _confirmAgeOutsideRange(ageWarning);
+          if (!proceedAnyway || !mounted) return;
+        }
       }
     }
 
@@ -1052,7 +1057,10 @@ class _EditStudentProfileDetailsScreenState
                               : "Select",
                           classroomOptions,
                           selectedClassroomName,
-                          (v) => setState(() => _selectedClassroom = v),
+                          (v) => setState(() {
+                            _selectedClassroom = v;
+                            _classroomChangedByUser = true;
+                          }),
                           isRequired: true,
                           isEnabled:
                               !_isTodayStatusLoading && !_isSignedInToday,

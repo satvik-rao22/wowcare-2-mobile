@@ -39,6 +39,7 @@ class AddStudentStep2Screen extends StatefulWidget {
     this.createGuardianDirectly = false,
     this.editGuardianCode,
     this.initialUserCode,
+    this.isOptionalStep = false,
   });
 
   static const String routeName = '/add-student-step2-screen';
@@ -59,6 +60,11 @@ class AddStudentStep2Screen extends StatefulWidget {
   final bool createGuardianDirectly;
   final String? editGuardianCode;
   final String? initialUserCode;
+
+  /// True when this screen is the (optional) Add Parent step inside the Add
+  /// Student wizard — shows "(Optional)" in the heading. False for the
+  /// standalone add/edit-guardian entry points on the Family tab.
+  final bool isOptionalStep;
 
   @override
   _AddStudentStep2ScreenState createState() => _AddStudentStep2ScreenState();
@@ -321,6 +327,11 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     } catch (_) {
       // Non-critical for this screen; ignore errors and keep list empty.
     }
+  }
+
+  void _onCancel() {
+    if (_isSubmitting) return;
+    Navigator.pop(context);
   }
 
   void _onNext() {
@@ -643,7 +654,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
         backgroundColor: Colors.white,
-        appBar: const CustomAppBar(hasBackButton: true),
+        appBar: const CustomAppBar(hasBackButton: false),
         body: Stack(
           children: [
             Positioned.fill(
@@ -668,7 +679,11 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      _isEditMode ? 'Edit parent' : 'Add parent',
+                      _isEditMode
+                          ? 'Edit parent'
+                          : (widget.isOptionalStep
+                                ? 'Add Parent (Optional)'
+                                : 'Add parent'),
                       style: TextStyle(
                         fontFamily: "Manrope",
                         fontSize: responsive.titleFontSize,
@@ -969,9 +984,11 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             ),
           ),
           child: CustomButtonLayout(
-            confirmButtonLabel: _isEditMode ? 'SAVE' : 'ADD',
+            confirmButtonLabel: 'Save',
             onPressedConfirm: _isSubmitting ? null : _onNext,
-            showCancelButton: false,
+            cancelButtonLabel: 'Cancel',
+            onPressedCancel: _isSubmitting ? null : _onCancel,
+            showCancelButton: true,
             isForm: false,
             isLoading: _isSubmitting,
           ),

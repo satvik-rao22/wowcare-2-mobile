@@ -20,6 +20,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/students/util/profile_photo_background.dart';
+import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_create_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -75,7 +76,6 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
   DateTime? _selectedBirthdate;
   DateTime? _selectedSchoolStartDate;
   File? _profilePhoto;
-  int? _calculatedAge;
   String? _calculatedAgeLabel;
   bool _isSubmitting = false;
 
@@ -125,7 +125,6 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       months += 12;
     }
     setState(() {
-      _calculatedAge = years;
       _calculatedAgeLabel = _formatAgeLabel(years, months);
     });
   }
@@ -383,34 +382,12 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       if (!proceedAnyway || !mounted) return;
     }
 
-    final step1Data = {
-      'status': _selectedStatus,
-      'firstName': _firstNameController.text.trim(),
-      'lastName': _lastNameController.text.trim(),
-      'classroom': _selectedClassroom,
-      'classroomCode': selectedClassroomCode,
-      'birthdate': _selectedBirthdate,
-      'schoolStartDate': _selectedSchoolStartDate,
-      'profilePhoto': _profilePhoto,
-      'age': _calculatedAge,
-      'siblingCodesToLink': siblingCodesToLink,
-    };
-
-    // Navigate to step 2
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AddStudentStep2Screen(
-          initialSelectFromExisting: false,
-          initialSelectedExistingParents: const [],
-        ),
-      ),
-    ).then((step2Result) {
-      if (step2Result != null) {
-        // Handle step 2 result and continue to step 3 or complete
-        _handleStep2Result(step1Data, [step2Result]);
-      }
-    });
+    await _createStudentAndContinue(
+      firstName: _firstNameController.text.trim(),
+      lastName: _lastNameController.text.trim(),
+      classroomCode: selectedClassroomCode,
+      siblingCodesToLink: siblingCodesToLink,
+    );
   }
 
   /// Amber confirm for an out-of-range DOB. Returns true to proceed anyway.
@@ -554,6 +531,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         if (norm(s.firstName) == firstNorm && norm(s.lastName) == lastNorm) {
           continue;
         }
+        // Only offer active students as sibling candidates, matching web.
+        if (s.status.trim().toUpperCase() != 'ACTIVE') continue;
         matches.add(s);
       }
 
@@ -588,112 +567,29 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     }
   }
 
-  void _handleStep2Result(
-    Map<String, dynamic> step1Data,
-    List<dynamic> parents,
-  ) async {
-    if (parents.length < _maxParentsPerStudent) {
-      final addAnother = await showModalBottomSheet<bool>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => ConfirmationBottomSheet(
-          title: 'Do you want to add another parent?',
-          confirmText: 'Yes',
-          cancelText: 'Skip',
-          icon: Icons.family_restroom,
-          onConfirm: () => Navigator.of(context).pop(true),
-          onCancel: () => Navigator.of(context).pop(false),
-        ),
-      );
-
-      if (addAnother == true) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AddStudentStep2Screen(
-              initialSelectFromExisting: false,
-              initialSelectedExistingParents: const [],
-            ),
-          ),
-        ).then((nextParentResult) {
-          if (nextParentResult != null) {
-            final updatedParents = List<dynamic>.from(parents)
-              ..add(nextParentResult);
-            _handleStep2Result(step1Data, updatedParents);
-          }
-        });
-        return;
-      }
-    }
-
-    // After parent completion (or max parents), ask for schedule.
-    final addSchedule = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => ConfirmationBottomSheet(
-        title: 'Do you want to add schedule?',
-        confirmText: 'Yes',
-        cancelText: 'Skip',
-        icon: Icons.schedule,
-        onConfirm: () => Navigator.of(context).pop(true),
-        onCancel: () => Navigator.of(context).pop(false),
-      ),
-    );
-
-    dynamic scheduleData;
-    if (addSchedule == true) {
-      final step3Result = await Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const AddStudentStep3Screen()),
-      );
-      if (step3Result is Map<String, Map<String, TimeOfDay>>) {
-        scheduleData = step3Result;
-      } else if (step3Result is Map) {
-        scheduleData = Map<String, Map<String, TimeOfDay>>.from(
-          step3Result.map(
-            (k, v) =>
-                MapEntry(k.toString(), Map<String, TimeOfDay>.from(v as Map)),
-          ),
-        );
-      }
-    }
-
-    _completeWizard(step1Data, parents, scheduleData);
-  }
-
-  Future<void> _completeWizard(
-    Map<String, dynamic> step1Data,
-    List<dynamic> parents,
-    dynamic schedule,
-  ) async {
+  /// Creates the student via the student API immediately (Step 1's own
+  /// concern), then hands off to the now-optional Add Parent step. Parent
+  /// creation is Step 2's own API call — see [AddStudentStep2Screen] with
+  /// `createGuardianDirectly: true` — this method no longer touches guardian
+  /// endpoints at all.
+  Future<void> _createStudentAndContinue({
+    required String firstName,
+    required String lastName,
+    required String classroomCode,
+    required List<String> siblingCodesToLink,
+  }) async {
     setState(() {
       _isSubmitting = true;
     });
 
     try {
-      final firstName = (step1Data['firstName'] as String?)?.trim() ?? '';
-      final lastName = (step1Data['lastName'] as String?)?.trim() ?? '';
-      final rawStatus = (step1Data['status'] as String?) ?? 'Active';
+      final rawStatus = _selectedStatus ?? 'Active';
       final status = rawStatus.toUpperCase();
-      final classroomCode =
-          (step1Data['classroomCode'] as String?)?.trim() ?? '';
-      final DateTime? birthdate = step1Data['birthdate'] as DateTime?;
-      final DateTime? schoolStartDate =
-          step1Data['schoolStartDate'] as DateTime?;
-      final siblingCodesToLink =
-          (step1Data['siblingCodesToLink'] as List<dynamic>?)
-              ?.map((e) => e.toString().trim())
-              .where((e) => e.isNotEmpty)
-              .toList() ??
-          <String>[];
 
       final storage = serviceLocator<StorageService>();
       final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
       final organizationCode =
           await storage.getString(StorageKeys.organizationCode) ?? '';
-      final userCode = await storage.getString(StorageKeys.userCode) ?? '';
 
       final Student student = await _createCubit.createStudent(
         schoolCode: schoolCode,
@@ -701,8 +597,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         lastName: lastName,
         status: status,
         classroom: classroomCode,
-        dob: birthdate,
-        schoolStartDate: schoolStartDate,
+        dob: _selectedBirthdate,
+        schoolStartDate: _selectedSchoolStartDate,
         profilePhotoUrl: null,
       );
 
@@ -720,144 +616,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         );
       }
 
-      final studentName = student.fullName.isNotEmpty
-          ? student.fullName
-          : '$firstName $lastName'.trim();
-
-      // Create guardian-user records for each newly entered parent (step 2).
-      // Existing parents selected from the list are skipped here.
-      if (organizationCode.trim().isEmpty) {
-        if (mounted) {
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message:
-                'Organization is missing; cannot add guardians. Re-select your school and try again.',
-            isError: true,
-          );
-        }
-      } else {
-        for (final parent in parents) {
-          if (parent is! Map) continue;
-          final map = Map<String, dynamic>.from(parent);
-          final bool selectFromExisting =
-              map['selectFromExisting'] as bool? ?? false;
-          if (selectFromExisting) {
-            final selectedExistingParents =
-                (map['selectedExistingParents'] as List<dynamic>? ??
-                        const <dynamic>[])
-                    .map((e) => e.toString().trim())
-                    .where((e) => e.isNotEmpty)
-                    .toList();
-            if (selectedExistingParents.isEmpty) {
-              continue;
-            }
-            try {
-              final nameCodeMap = await _createCubit
-                  .fetchGuardianNameCodeMapForSchool(schoolCode: schoolCode);
-
-              final relationLabel = (map['relation'] as String?)?.trim() ?? '';
-              final relationOther =
-                  (map['relationOther'] as String?)?.trim() ?? '';
-              final relationEnum = relationLabel.isEmpty
-                  ? null
-                  : relationLabel.toUpperCase().replaceAll(' ', '_');
-              final relationDescription =
-                  relationLabel == 'Other' && relationOther.isNotEmpty
-                  ? relationOther
-                  : null;
-
-              for (final selectedName in selectedExistingParents) {
-                final guardianCode = (nameCodeMap[selectedName] ?? '').trim();
-                if (guardianCode.isEmpty) continue;
-                await _createCubit.linkExistingGuardian(
-                  guardianCode: guardianCode,
-                  studentCode: student.code,
-                  relation: relationEnum,
-                  relationDescription: relationDescription,
-                );
-              }
-            } catch (e) {
-              final message = ApiErrorHandler.extractErrorMessage(e);
-              if (mounted) {
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: 'Failed to link existing parent: $message',
-                  isError: true,
-                );
-              }
-            }
-            continue;
-          }
-
-          final parentFirst = (map['firstName'] as String?)?.trim() ?? '';
-          final parentLast = (map['lastName'] as String?)?.trim() ?? '';
-          final parentEmail =
-              (map['email'] as String?)?.trim().toLowerCase() ?? '';
-          final parentPhoneRaw = (map['phoneNumber'] as String?)?.trim() ?? '';
-          final parentPhoneDigits = parentPhoneRaw.replaceAll(
-            RegExp(r'\D'),
-            '',
-          );
-
-          if (parentFirst.isEmpty ||
-              parentLast.isEmpty ||
-              parentEmail.isEmpty ||
-              parentPhoneDigits.isEmpty) {
-            continue;
-          }
-
-          final relationLabel = (map['relation'] as String?)?.trim() ?? '';
-          final relationToStudent = relationLabel.toUpperCase();
-
-          final bool primaryContact =
-              map['isEmergencyContact'] as bool? ?? true;
-          final bool legalCustody = map['isChildCustody'] as bool? ?? true;
-
-          try {
-            final createdGuardian = await _createCubit.createGuardianUser(
-              schoolCode: schoolCode,
-              studentCode: student.code,
-              firstName: parentFirst,
-              lastName: parentLast,
-              email: parentEmail,
-              mobile: parentPhoneDigits,
-              relationToStudent: relationToStudent,
-              primaryContact: primaryContact,
-              legalCustody: legalCustody,
-              profilePhotoUrl: null,
-              userCode: userCode.isEmpty ? null : userCode,
-              organizationCode: organizationCode.trim(),
-            );
-            // Upload this parent's photo (picked in step 2) in the background.
-            final parentPhoto = map['profilePhoto'];
-            if (parentPhoto is File) {
-              unawaited(
-                uploadGuardianPhotoInBackground(
-                  file: parentPhoto,
-                  guardianCode: (createdGuardian.guardianCode ?? '').trim(),
-                  studentCode: student.code,
-                  email: parentEmail,
-                  mobile: parentPhoneDigits,
-                  schoolCode: schoolCode,
-                  organizationCode: organizationCode.trim(),
-                  userCode: '',
-                ),
-              );
-            }
-          } catch (e) {
-            final message = ApiErrorHandler.extractErrorMessage(e);
-            if (mounted) {
-              CoreUtils.showTopSnackBar(
-                context: context,
-                message: 'Failed to add guardian: $message',
-                isError: true,
-              );
-            }
-          }
-        }
-      }
-
-      // Link siblings after guardians (POST /api/v1/student/{code}/add-sibling).
+      // Link same-last-name siblings picked in Step 1
+      // (POST /api/v1/student/{code}/add-sibling).
       if (siblingCodesToLink.isNotEmpty) {
         try {
           await _createCubit.addStudentSibling(
@@ -876,88 +636,43 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         }
       }
 
-      // If a schedule was provided from Step 3, send it to the regular-schedules API.
-      try {
-        if (schedule is Map) {
-          final rawSchedule = Map<String, dynamic>.from(schedule);
-          final List<Map<String, dynamic>> payloadSchedule = [];
+      final studentName = student.fullName.isNotEmpty
+          ? student.fullName
+          : '$firstName $lastName'.trim();
 
-          String _formatLocalTime(TimeOfDay time) {
-            final h = time.hour.toString().padLeft(2, '0');
-            final m = time.minute.toString().padLeft(2, '0');
-            // Use HH:mm:ss which Jackson's LocalTime can parse by default.
-            return '$h:$m:00';
-          }
+      if (!mounted) return;
 
-          for (final entry in rawSchedule.entries) {
-            final dayName = entry.key.toString();
-            final timesMap = Map<String, dynamic>.from(entry.value as Map);
-            final start = timesMap['start'] as TimeOfDay?;
-            final end = timesMap['end'] as TimeOfDay?;
-
-            if (start == null || end == null) {
-              continue;
-            }
-
-            // Compute a simple mid-point time for halfDay between start and end.
-            final startMinutes = start.hour * 60 + start.minute;
-            final endMinutes = end.hour * 60 + end.minute;
-            final midMinutes = ((startMinutes + endMinutes) / 2).floor();
-            final halfDay = TimeOfDay(
-              hour: (midMinutes ~/ 60) % 24,
-              minute: midMinutes % 60,
-            );
-
-            payloadSchedule.add({
-              'dayOfWeek': dayName.toUpperCase(), // e.g. MONDAY
-              'startTime': _formatLocalTime(start),
-              'halfDay': _formatLocalTime(halfDay),
-              'endTime': _formatLocalTime(end),
-            });
-          }
-
-          if (payloadSchedule.isNotEmpty && schoolCode.isNotEmpty) {
-            await _createCubit.updateStudentRegularSchedules(
-              schoolCode: schoolCode,
-              studentCode: student.code,
-              schedule: payloadSchedule,
-            );
-          }
-        }
-      } catch (e) {
-        final message = ApiErrorHandler.extractErrorMessage(e);
-        if (mounted) {
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'Student created but failed to save schedule: $message',
-            isError: true,
-          );
-        }
-      }
-
-      final bool anyPhotoUploading =
-          _profilePhoto != null ||
-          parents.any((p) => p is Map && p['profilePhoto'] is File);
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Student${studentName.isNotEmpty ? ' $studentName ' : ' '}added successfully'
-            '${anyPhotoUploading ? '. Photo is uploading in the background…' : ''}',
-        isSuccess: true,
+      // Step 2 (Add Parent) is now optional: it calls the guardian API itself
+      // (createGuardianDirectly) and returns true only if a parent was saved.
+      final parentResult = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AddStudentStep2Screen(
+            studentCode: student.code,
+            schoolCode: schoolCode,
+            createGuardianDirectly: true,
+            isOptionalStep: true,
+          ),
+        ),
       );
 
-      Navigator.pop(context, {
-        'showPostAddPrompt': true,
-        'studentName': studentName,
-        'studentCode': student.code,
-      });
+      if (!mounted) return;
+
+      await _onParentStepResult(
+        studentCode: student.code,
+        studentName: studentName,
+        justAddedParent: parentResult == true,
+        parentCount: parentResult == true ? 1 : 0,
+      );
     } catch (e) {
       final message = ApiErrorHandler.extractErrorMessage(e);
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: message,
-        isError: true,
-      );
+      if (mounted) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: message,
+          isError: true,
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -965,6 +680,190 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         });
       }
     }
+  }
+
+  /// After the (optional) Add Parent step returns, offer to add another
+  /// parent, then move on to the (optional) schedule step, then finish.
+  Future<void> _onParentStepResult({
+    required String studentCode,
+    required String studentName,
+    required bool justAddedParent,
+    required int parentCount,
+  }) async {
+    if (justAddedParent && parentCount < _maxParentsPerStudent) {
+      final addAnother = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => ConfirmationBottomSheet(
+          title: 'Do you want to add another parent?',
+          confirmText: 'Yes',
+          cancelText: 'Skip',
+          icon: Icons.family_restroom,
+          onConfirm: () => Navigator.of(context).pop(true),
+          onCancel: () => Navigator.of(context).pop(false),
+        ),
+      );
+
+      if (addAnother == true) {
+        if (!mounted) return;
+        final storage = serviceLocator<StorageService>();
+        final schoolCode =
+            await storage.getString(StorageKeys.schoolCode) ?? '';
+        if (!mounted) return;
+
+        final nextParentResult = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AddStudentStep2Screen(
+              studentCode: studentCode,
+              schoolCode: schoolCode,
+              createGuardianDirectly: true,
+              isOptionalStep: true,
+            ),
+          ),
+        );
+
+        if (!mounted) return;
+        await _onParentStepResult(
+          studentCode: studentCode,
+          studentName: studentName,
+          justAddedParent: nextParentResult == true,
+          parentCount: nextParentResult == true ? parentCount + 1 : parentCount,
+        );
+        return;
+      }
+    }
+
+    if (!mounted) return;
+
+    // After parent completion (or it being skipped/cancelled), ask for schedule.
+    final addSchedule = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ConfirmationBottomSheet(
+        title: 'Do you want to add schedule?',
+        confirmText: 'Yes',
+        cancelText: 'Skip',
+        icon: Icons.schedule,
+        onConfirm: () => Navigator.of(context).pop(true),
+        onCancel: () => Navigator.of(context).pop(false),
+      ),
+    );
+
+    dynamic scheduleData;
+    if (addSchedule == true) {
+      if (!mounted) return;
+      final step3Result = await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AddStudentStep3Screen()),
+      );
+      if (step3Result is Map<String, Map<String, TimeOfDay>>) {
+        scheduleData = step3Result;
+      } else if (step3Result is Map) {
+        scheduleData = Map<String, Map<String, TimeOfDay>>.from(
+          step3Result.map(
+            (k, v) =>
+                MapEntry(k.toString(), Map<String, TimeOfDay>.from(v as Map)),
+          ),
+        );
+      }
+    }
+
+    if (!mounted) return;
+    await _finalizeWizard(
+      studentCode: studentCode,
+      studentName: studentName,
+      schedule: scheduleData,
+    );
+  }
+
+  /// Student and parent are already saved by this point (each via its own
+  /// API call). This only saves the optional schedule and closes the wizard.
+  Future<void> _finalizeWizard({
+    required String studentCode,
+    required String studentName,
+    required dynamic schedule,
+  }) async {
+    try {
+      if (schedule is Map) {
+        final storage = serviceLocator<StorageService>();
+        final schoolCode =
+            await storage.getString(StorageKeys.schoolCode) ?? '';
+        final rawSchedule = Map<String, dynamic>.from(schedule);
+        final List<Map<String, dynamic>> payloadSchedule = [];
+
+        String formatLocalTime(TimeOfDay time) {
+          final h = time.hour.toString().padLeft(2, '0');
+          final m = time.minute.toString().padLeft(2, '0');
+          // Use HH:mm:ss which Jackson's LocalTime can parse by default.
+          return '$h:$m:00';
+        }
+
+        for (final entry in rawSchedule.entries) {
+          final dayName = entry.key.toString();
+          final timesMap = Map<String, dynamic>.from(entry.value as Map);
+          final start = timesMap['start'] as TimeOfDay?;
+          final end = timesMap['end'] as TimeOfDay?;
+
+          if (start == null || end == null) {
+            continue;
+          }
+
+          // Compute a simple mid-point time for halfDay between start and end.
+          final startMinutes = start.hour * 60 + start.minute;
+          final endMinutes = end.hour * 60 + end.minute;
+          final midMinutes = ((startMinutes + endMinutes) / 2).floor();
+          final halfDay = TimeOfDay(
+            hour: (midMinutes ~/ 60) % 24,
+            minute: midMinutes % 60,
+          );
+
+          payloadSchedule.add({
+            'dayOfWeek': dayName.toUpperCase(), // e.g. MONDAY
+            'startTime': formatLocalTime(start),
+            'halfDay': formatLocalTime(halfDay),
+            'endTime': formatLocalTime(end),
+          });
+        }
+
+        if (payloadSchedule.isNotEmpty && schoolCode.isNotEmpty) {
+          final remote = serviceLocator<StudentRemoteDataSource>();
+          await remote.updateStudentRegularSchedules(
+            schoolCode: schoolCode,
+            studentCode: studentCode,
+            schedule: payloadSchedule,
+          );
+        }
+      }
+    } catch (e) {
+      final message = ApiErrorHandler.extractErrorMessage(e);
+      if (mounted) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Student created but failed to save schedule: $message',
+          isError: true,
+        );
+      }
+    }
+
+    if (!mounted) return;
+
+    final bool anyPhotoUploading = _profilePhoto != null;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message:
+          'Student${studentName.isNotEmpty ? ' $studentName ' : ' '}added successfully'
+          '${anyPhotoUploading ? '. Photo is uploading in the background…' : ''}',
+      isSuccess: true,
+    );
+
+    Navigator.pop(context, {
+      'showPostAddPrompt': true,
+      'studentName': studentName,
+      'studentCode': studentCode,
+    });
   }
 
   @override
