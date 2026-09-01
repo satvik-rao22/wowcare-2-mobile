@@ -16,6 +16,11 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
   bool _isEnteringPip = false;
   bool _isPipActive = false;
   bool _wasPlayingBeforeBackground = false;
+
+  // The underlying VideoPlayerController we've attached _onVideoValueChanged
+  // to, so it can be detached on rebuild/dispose.
+  ValueNotifier<VideoPlayerValue>? _observedVideoController;
+  double? _lastAppliedAspectRatio;
   static const List<String> _limitedTrackNames = <String>[
     'Auto',
     '360p',
@@ -67,6 +72,11 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
   void didUpdateWidget(covariant HlsWebPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.videoUrl != widget.videoUrl) {
+      // Detach before disposing — removeListener on an already-disposed
+      // notifier asserts, and the old controller is about to become one.
+      _observedVideoController?.removeListener(_applyAspectRatio);
+      _observedVideoController = null;
+      _lastAppliedAspectRatio = null;
       _controller?.dispose();
       _initPlayer();
     }
@@ -80,6 +90,13 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
     final config = BetterPlayerConfiguration(
       autoPlay: true,
       fit: BoxFit.contain,
+      // better_player_plus falls back to a hardcoded 16:9 box (landscape)
+      // until the real aspect ratio is known (see _applyAspectRatio) — most
+      // activity clips are recorded portrait, so default the loading box to
+      // 9:16 instead. This also covers the (rare) case where the video never
+      // reports a usable aspect ratio at all and _applyAspectRatio never
+      // overrides it.
+      aspectRatio: 9 / 16,
       // Handled manually in didChangeAppLifecycleState so an active PiP
       // session is exempted from the pause-on-background behaviour.
       handleLifecycle: false,
@@ -149,21 +166,38 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
       _isPipActive = false;
     }
     if (event.betterPlayerEventType == BetterPlayerEventType.initialized) {
-      final controller = _controller;
-      if (controller == null) return;
-      // BetterPlayer locks the player box to a 16:9 AspectRatio unless told
-      // otherwise, which letterboxes/crops portrait videos. Match the box to
-      // the video's real ratio so vertical videos render at their native size.
-      final videoAspectRatio =
-          controller.videoPlayerController?.value.aspectRatio;
-      if (videoAspectRatio != null &&
-          videoAspectRatio > 0 &&
-          videoAspectRatio.isFinite) {
-        controller.setOverriddenAspectRatio(videoAspectRatio);
+      _applyAspectRatio();
+      // For HLS in particular, the video's real dimensions can still be
+      // provisional/default at the moment `initialized` fires — ExoPlayer
+      // hasn't necessarily decoded the first rendition sample yet. Attach a
+      // listener so a corrected aspect ratio reported a moment later still
+      // gets picked up instead of leaving the player stuck on the fallback
+      // 16:9 box for a video that is actually portrait.
+      final videoController = _controller?.videoPlayerController;
+      if (videoController != null && videoController != _observedVideoController) {
+        _observedVideoController?.removeListener(_applyAspectRatio);
+        _observedVideoController = videoController;
+        videoController.addListener(_applyAspectRatio);
       }
-      // Keep content visible and avoid crop for tall portrait videos.
-      controller.setOverriddenFit(BoxFit.contain);
     }
+  }
+
+  // BetterPlayer locks the player box to a 16:9 AspectRatio unless told
+  // otherwise, which letterboxes/crops portrait videos. Match the box to
+  // the video's real ratio so vertical videos render at their native size.
+  void _applyAspectRatio() {
+    final controller = _controller;
+    final videoAspectRatio = controller?.videoPlayerController?.value.aspectRatio;
+    if (controller == null || videoAspectRatio == null) return;
+    if (videoAspectRatio <= 0 || !videoAspectRatio.isFinite) return;
+    if (_lastAppliedAspectRatio != null &&
+        (videoAspectRatio - _lastAppliedAspectRatio!).abs() < 0.01) {
+      return;
+    }
+    _lastAppliedAspectRatio = videoAspectRatio;
+    controller.setOverriddenAspectRatio(videoAspectRatio);
+    // Keep content visible and avoid crop for tall portrait videos.
+    controller.setOverriddenFit(BoxFit.contain);
   }
 
   /// Returns whether PiP was actually requested, so callers driven by
@@ -217,6 +251,7 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _controller?.removeEventsListener(_onPlayerEvent);
+    _observedVideoController?.removeListener(_applyAspectRatio);
     _controller?.dispose();
     super.dispose();
   }
@@ -258,20 +293,29 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
             ),
           ),
           Positioned(
-            top: 14,
-            right: 14,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xB010141A),
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: const Color(0x6635B6FF)),
-              ),
-              child: IconButton(
-                tooltip: 'PiP',
-                onPressed: _isEnteringPip ? null : _enterPipMode,
-                icon: const Icon(
-                  Icons.picture_in_picture_alt_rounded,
-                  color: Colors.white,
+            top: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                // The host screen (ShowFullScreenMedia / ShowFullScreenMediaView)
+                // now overlays its back/download row on top of the video instead
+                // of reserving a fixed AppBar — pushed down here so PiP doesn't
+                // sit underneath it.
+                padding: const EdgeInsets.only(top: 58, right: 14),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: const Color(0xB010141A),
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: const Color(0x6635B6FF)),
+                  ),
+                  child: IconButton(
+                    tooltip: 'PiP',
+                    onPressed: _isEnteringPip ? null : _enterPipMode,
+                    icon: const Icon(
+                      Icons.picture_in_picture_alt_rounded,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
             ),
