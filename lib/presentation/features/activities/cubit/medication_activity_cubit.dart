@@ -10,9 +10,10 @@ import '../utils/activity_description_limits.dart';
 import '../utils/activity_school_time.dart';
 import '../utils/activity_selected_date_prefill.dart';
 import '../utils/resolve_logged_in_staff_code.dart';
+import '../utils/activity_item_edit_mappers.dart'
+    show activityItemFromActivityDetail, studentDataMapsForActivityEdit;
 import '../view/activity_feed_card_permissions.dart';
-import '../view/activity_daily_tab.dart'
-    show ActivityItem, activityItemFromActivityDetail, studentDataMapsForActivityEdit;
+import '../view/activity_item.dart' show ActivityItem;
 import '../widgets/activity_edit_student_scope_checkboxes.dart';
 import 'activity_editor_cubit.dart';
 import 'activity_form_outcome.dart';
