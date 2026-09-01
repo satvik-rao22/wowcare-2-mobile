@@ -1,5 +1,6 @@
 import 'package:better_player_plus/better_player_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class HlsWebPlayer extends StatefulWidget {
   const HlsWebPlayer({super.key, required this.videoUrl});
@@ -21,6 +22,13 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
   // to, so it can be detached on rebuild/dispose.
   ValueNotifier<VideoPlayerValue>? _observedVideoController;
   double? _lastAppliedAspectRatio;
+
+  // BetterPlayerController.isFullScreen has no public stream/notifier we can
+  // subscribe to (the controller event stream that flips it is a private
+  // package type), so it's watched every frame instead — cheap (one bool
+  // compare) and catches both the icon-tap and system-back exit paths.
+  bool? _wasFullScreen;
+  bool _watchingFullScreen = false;
   static const List<String> _limitedTrackNames = <String>[
     'Auto',
     '360p',
@@ -82,6 +90,17 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
     }
   }
 
+  // Independent of BuildContext/MediaQuery (safe to call before the first
+  // build) so it can feed BetterPlayerConfiguration.fullScreenAspectRatio at
+  // controller-creation time. Locked to portrait since fullscreen no longer
+  // rotates — this is the shape the fullscreen box will actually be.
+  double _currentScreenAspectRatio() {
+    final view = WidgetsBinding.instance.platformDispatcher.views.first;
+    final size = view.physicalSize / view.devicePixelRatio;
+    if (size.width <= 0 || size.height <= 0) return 9 / 16;
+    return size.width / size.height;
+  }
+
   void _initPlayer() {
     final url = widget.videoUrl.trim();
     final lower = url.toLowerCase();
@@ -100,8 +119,20 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
       // Handled manually in didChangeAppLifecycleState so an active PiP
       // session is exempted from the pause-on-background behaviour.
       handleLifecycle: false,
-      autoDetectFullscreenDeviceOrientation: true,
-      autoDetectFullscreenAspectRatio: true,
+      // The reported aspect ratio can't be trusted to tell portrait from
+      // landscape (a backend transcode step has been observed delivering a
+      // portrait-shot video as a rotation-free 16:9 stream), so fullscreen
+      // no longer rotates or sizes the box off it at all. Fullscreen always
+      // stays in the app's current orientation and fills the true screen
+      // shape; _watchFullScreenState/_fitFor crop the video content itself
+      // with BoxFit.cover to fill that box edge-to-edge.
+      autoDetectFullscreenDeviceOrientation: false,
+      autoDetectFullscreenAspectRatio: false,
+      deviceOrientationsOnFullScreen: const [
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ],
+      fullScreenAspectRatio: _currentScreenAspectRatio(),
       controlsConfiguration: BetterPlayerControlsConfiguration(
         playerTheme: BetterPlayerTheme.material,
         iconsColor: Colors.white,
@@ -157,6 +188,37 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
     c.setupDataSource(source);
     c.addEventsListener(_onPlayerEvent);
     _controller = c;
+    _wasFullScreen = null;
+    if (!_watchingFullScreen) {
+      _watchingFullScreen = true;
+      _watchFullScreenState();
+    }
+  }
+
+  // Reel-style fullscreen for every video, not just ones detected as
+  // portrait — the reported aspect ratio can't be trusted to tell portrait
+  // from landscape (see the comment on fullScreenAspectRatio above), so
+  // fullscreen always fills the screen edge-to-edge and crops any excess
+  // rather than branching on a ratio that might be wrong. The embedded
+  // (non-fullscreen) view keeps BoxFit.contain so the complete frame stays
+  // visible there, letterboxed if needed.
+  BoxFit _fitFor(bool isFullScreen) =>
+      isFullScreen ? BoxFit.cover : BoxFit.contain;
+
+  void _watchFullScreenState() {
+    if (!mounted) {
+      _watchingFullScreen = false;
+      return;
+    }
+    final controller = _controller;
+    if (controller != null) {
+      final isFullScreen = controller.isFullScreen;
+      if (_wasFullScreen != isFullScreen) {
+        _wasFullScreen = isFullScreen;
+        controller.setOverriddenFit(_fitFor(isFullScreen));
+      }
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _watchFullScreenState());
   }
 
   void _onPlayerEvent(BetterPlayerEvent event) {
@@ -196,8 +258,11 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
     }
     _lastAppliedAspectRatio = videoAspectRatio;
     controller.setOverriddenAspectRatio(videoAspectRatio);
-    // Keep content visible and avoid crop for tall portrait videos.
-    controller.setOverriddenFit(BoxFit.contain);
+    // Re-derive fit from _fitFor rather than leaving whatever was last set —
+    // a later aspect-ratio correction (e.g. an ASMS rendition switch) can
+    // change whether the video counts as portrait, which should flip the
+    // fullscreen fit too.
+    controller.setOverriddenFit(_fitFor(controller.isFullScreen));
   }
 
   /// Returns whether PiP was actually requested, so callers driven by
