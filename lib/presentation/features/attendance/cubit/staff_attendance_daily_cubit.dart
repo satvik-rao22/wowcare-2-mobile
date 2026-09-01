@@ -1,6 +1,9 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/staff/usecases/get_staff_count_usecase.dart';
 
 import '../../../../domain/features/attendance/entities/staff_attendance_daily.dart';
 import '../../../../domain/features/attendance/usecases/get_staff_attendance_daily_usecase.dart';
@@ -12,15 +15,21 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
   StaffAttendanceDailyCubit({
     required GetStaffAttendanceDailyUseCase getStaffAttendanceDailyUseCase,
     required GetStaffAttendanceExpectedSummaryUseCase
-        getStaffAttendanceExpectedSummaryUseCase,
-  })  : _getStaffAttendanceDailyUseCase = getStaffAttendanceDailyUseCase,
-        _getStaffAttendanceExpectedSummaryUseCase =
-            getStaffAttendanceExpectedSummaryUseCase,
-        super(const StaffAttendanceDailyState.initial());
+    getStaffAttendanceExpectedSummaryUseCase,
+    required GetStaffCountUseCase getStaffCountUseCase,
+    required StorageService storageService,
+  }) : _getStaffAttendanceDailyUseCase = getStaffAttendanceDailyUseCase,
+       _getStaffAttendanceExpectedSummaryUseCase =
+           getStaffAttendanceExpectedSummaryUseCase,
+       _getStaffCountUseCase = getStaffCountUseCase,
+       _storageService = storageService,
+       super(const StaffAttendanceDailyState.initial());
 
   final GetStaffAttendanceDailyUseCase _getStaffAttendanceDailyUseCase;
   final GetStaffAttendanceExpectedSummaryUseCase
-      _getStaffAttendanceExpectedSummaryUseCase;
+  _getStaffAttendanceExpectedSummaryUseCase;
+  final GetStaffCountUseCase _getStaffCountUseCase;
+  final StorageService _storageService;
 
   static const int _pageSize = 10;
 
@@ -63,19 +72,21 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
 
     final dateString = _formatDate(attendanceDate);
 
-    emit(state.copyWith(
-      isLoading: state.items.isEmpty,
-      isRefreshing: true,
-      errorMessage: null,
-      attendanceDate: attendanceDate,
-      classroomCodes: classroomCodes,
-      tagCodes: tagCodes,
-      signInAtFilter: signInAtFilter,
-      signOutAtFilter: signOutAtFilter,
-      isExpectedNotMarked: isExpectedNotMarked,
-      search: search,
-      isSummaryLoading: true,
-    ));
+    emit(
+      state.copyWith(
+        isLoading: state.items.isEmpty,
+        isRefreshing: true,
+        errorMessage: null,
+        attendanceDate: attendanceDate,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
+        isExpectedNotMarked: isExpectedNotMarked,
+        search: search,
+        isSummaryLoading: true,
+      ),
+    );
 
     try {
       final firstPage = await _getStaffAttendanceDailyUseCase(
@@ -90,8 +101,7 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
         page: 0,
         size: _pageSize,
       );
-      final summary =
-          await _getStaffAttendanceExpectedSummaryUseCase(
+      final summary = await _getStaffAttendanceExpectedSummaryUseCase(
         classroomCode: _classroomCodeForSummary(classroomCodes),
         // refresh() is the explicit-reload path (pull-to-refresh, after an
         // attendance action, filter change), so bypass the cached summary —
@@ -101,33 +111,67 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
 
       if (isClosed) return;
 
-      emit(StaffAttendanceDailyState.loaded(
-        items: firstPage.items,
-        currentPage: firstPage.page,
-        hasMore: firstPage.hasMore,
-        isFromCache: false,
-        attendanceDate: attendanceDate,
-        classroomCodes: classroomCodes,
-        tagCodes: tagCodes,
-        signInAtFilter: signInAtFilter,
-        signOutAtFilter: signOutAtFilter,
-        isExpectedNotMarked: isExpectedNotMarked,
-        search: search,
-        expectedCount: summary.expected,
-        presentCount: summary.present,
-        absentCount: summary.absent,
-        signedOutCount: summary.signOut,
-        notMarkedCount: summary.notMarked,
-        isSummaryLoading: false,
-      ));
+      emit(
+        StaffAttendanceDailyState.loaded(
+          items: firstPage.items,
+          currentPage: firstPage.page,
+          hasMore: firstPage.hasMore,
+          isFromCache: false,
+          attendanceDate: attendanceDate,
+          classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
+          signInAtFilter: signInAtFilter,
+          signOutAtFilter: signOutAtFilter,
+          isExpectedNotMarked: isExpectedNotMarked,
+          search: search,
+          expectedCount: summary.expected,
+          presentCount: summary.present,
+          absentCount: summary.absent,
+          signedOutCount: summary.signOut,
+          notMarkedCount: summary.notMarked,
+          isSummaryLoading: false,
+          activeCount: state.activeCount,
+          upcomingCount: state.upcomingCount,
+          totalStaffCount: state.totalStaffCount,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoading: false,
-        isRefreshing: false,
-        isSummaryLoading: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          isSummaryLoading: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
+    }
+  }
+
+  /// Loads the total active/upcoming/total staff counts for the header
+  /// summary — a separate call from the paginated list/legend summary above.
+  Future<void> loadStaffCounts() async {
+    try {
+      final organizationCode =
+          await _storageService.getString(StorageKeys.organizationCode) ?? '';
+      final schoolCode =
+          await _storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (organizationCode.isEmpty || schoolCode.isEmpty) return;
+
+      final staffCount = await _getStaffCountUseCase(
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+      );
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          activeCount: staffCount.active,
+          upcomingCount: staffCount.upcoming,
+          totalStaffCount: staffCount.active + staffCount.upcoming,
+        ),
+      );
+    } catch (_) {
+      // Non-fatal; list still works (same as StaffCubit count failures).
     }
   }
 
@@ -157,18 +201,22 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
 
       if (isClosed) return;
 
-      emit(state.copyWith(
-        items: [...state.items, ...page.items],
-        currentPage: page.page,
-        hasMore: page.hasMore,
-        isLoadingMore: false,
-      ));
+      emit(
+        state.copyWith(
+          items: [...state.items, ...page.items],
+          currentPage: page.page,
+          hasMore: page.hasMore,
+          isLoadingMore: false,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoadingMore: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -176,4 +224,3 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 }
-

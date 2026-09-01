@@ -42,7 +42,6 @@ import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.da
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_daily.dart';
-import 'package:wowcare/domain/features/staff/usecases/get_staff_count_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_absent.dart'
     show StaffAttendanceAbsentItem;
@@ -203,29 +202,17 @@ class _StaffAttendanceDailyViewScreenState
     widget.onAttendanceMutated?.call();
   }
 
+  /// Delegates to [StaffAttendanceDailyCubit.loadStaffCounts] (owns the
+  /// fetch), then mirrors the result into local state the header summary
+  /// reads directly.
   Future<void> _loadStaffCounts() async {
-    try {
-      final storage = serviceLocator<StorageService>();
-      final organizationCode =
-          await storage.getString(StorageKeys.organizationCode) ?? '';
-      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
-      if (organizationCode.isEmpty || schoolCode.isEmpty) return;
-
-      final useCase = serviceLocator<GetStaffCountUseCase>();
-      final staffCount = await useCase(
-        organizationCode: organizationCode,
-        schoolCode: schoolCode,
-      );
-      if (!mounted) return;
-
-      setState(() {
-        active = staffCount.active;
-        upcoming = staffCount.upcoming;
-        totalStaff = active + upcoming;
-      });
-    } catch (_) {
-      // Non-fatal; list still works (same as StaffCubit count failures).
-    }
+    await _cubit.loadStaffCounts();
+    if (!mounted) return;
+    setState(() {
+      active = _cubit.state.activeCount ?? active;
+      upcoming = _cubit.state.upcomingCount ?? upcoming;
+      totalStaff = _cubit.state.totalStaffCount ?? totalStaff;
+    });
   }
 
   Future<void> _loadClassroomData() async {

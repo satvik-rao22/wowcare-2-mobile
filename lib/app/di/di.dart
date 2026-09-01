@@ -2114,6 +2114,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StaffAttendanceDailyCubit(
       getStaffAttendanceDailyUseCase: serviceLocator(),
       getStaffAttendanceExpectedSummaryUseCase: serviceLocator(),
+      getStaffCountUseCase: serviceLocator(),
+      storageService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StaffAttendanceCustomCubit>(
