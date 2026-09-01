@@ -2,14 +2,14 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_status_at_time_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_status_at_time_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 
 /// A transferred student's classroom-scoped "at time" sign-in record can
@@ -20,60 +20,6 @@ import '../../utils/resolve_logged_in_staff_code.dart';
 /// effectively-"now" submissions, so a real backdated/future check still
 /// gets the stricter classroom-scoped answer.
 const Duration _fallbackSignInCheckTolerance = Duration(minutes: 10);
-
-Future<Map<String, bool>> _fetchStudentSignedInStatusAtTime({
-  required ApiClient apiClient,
-  required List<String> studentCodes,
-  required String classroomCode,
-  required DateTime instantUtc,
-}) async {
-  if (studentCodes.isEmpty) return const <String, bool>{};
-  final endpoint = ApiPaths.url(ApiPaths.studentAttendanceSignInStatusAtTime);
-  final response = await apiClient.client.post<dynamic>(
-    endpoint,
-    data: <String, dynamic>{
-      'classroomCode': classroomCode,
-      'studentCodes': studentCodes,
-      'instant': instantUtc.toIso8601String(),
-    },
-  );
-  final root = response.data;
-  if (root is! Map<String, dynamic>) return const <String, bool>{};
-  final data = root['data'];
-  if (data is! Map) return const <String, bool>{};
-  return data.map<String, bool>((key, value) {
-    final code = key.toString().trim();
-    final isPresent = value == true;
-    return MapEntry(code, isPresent);
-  });
-}
-
-Future<Map<String, bool>> _fetchStaffSignedInStatusAtTime({
-  required ApiClient apiClient,
-  required List<String> staffCodes,
-  required String classroomCode,
-  required DateTime instantUtc,
-}) async {
-  if (staffCodes.isEmpty) return const <String, bool>{};
-  final endpoint = ApiPaths.url(ApiPaths.staffAttendanceSignInStatusAtTime);
-  final response = await apiClient.client.post<dynamic>(
-    endpoint,
-    data: <String, dynamic>{
-      'classroomCode': classroomCode,
-      'staffCodes': staffCodes,
-      'instant': instantUtc.toIso8601String(),
-    },
-  );
-  final root = response.data;
-  if (root is! Map<String, dynamic>) return const <String, bool>{};
-  final data = root['data'];
-  if (data is! Map) return const <String, bool>{};
-  return data.map<String, bool>((key, value) {
-    final code = key.toString().trim();
-    final isPresent = value == true || value.toString().toUpperCase() == 'SIGNED_IN';
-    return MapEntry(code, isPresent);
-  });
-}
 
 String _resolveClassroomCodeFromSelectedStudents(
   List<Map<String, dynamic>> students,
@@ -144,7 +90,6 @@ Future<bool> validateStudentsWithinAttendanceWindow({
   if (students.isEmpty) return true;
   if (selectedDate == null || selectedTime == null) return true;
   final storage = serviceLocator<StorageService>();
-  final apiClient = serviceLocator<ApiClient>();
   final instantUtc = SchoolZoneDateTime.resolvePickedInstantUtc(
     ServerTimeService.instance.schoolTimeZone,
     selectedDate: selectedDate,
@@ -159,8 +104,7 @@ Future<bool> validateStudentsWithinAttendanceWindow({
   final staffCode = (await resolveLoggedInStaffCode() ?? '').trim();
   if (shouldValidateStaff && staffCode.isNotEmpty) {
     try {
-      final staffStatus = await _fetchStaffSignedInStatusAtTime(
-        apiClient: apiClient,
+      final staffStatus = await serviceLocator<GetStaffSignInStatusAtTimeUseCase>()(
         staffCodes: <String>[staffCode],
         classroomCode: classroomCode,
         instantUtc: instantUtc,
@@ -203,8 +147,7 @@ Future<bool> validateStudentsWithinAttendanceWindow({
 
   if (studentCodes.isNotEmpty) {
     try {
-      final studentStatus = await _fetchStudentSignedInStatusAtTime(
-        apiClient: apiClient,
+      final studentStatus = await serviceLocator<GetStudentSignInStatusAtTimeUseCase>()(
         studentCodes: studentCodes,
         classroomCode: classroomCode,
         instantUtc: instantUtc,
@@ -238,8 +181,9 @@ Future<bool> validateStudentsWithinAttendanceWindow({
                   .abs() <=
               _fallbackSignInCheckTolerance) {
         try {
-          final fallbackStatus = await serviceLocator<AttendanceRepository>()
-              .getStudentTodaySignInStatusMap(fallbackEligibleCodes);
+          final fallbackStatus =
+              await serviceLocator<GetStudentTodaySignInStatusMapUseCase>()(
+                  studentCodes: fallbackEligibleCodes);
           notSignedInCodes = notSignedInCodes
               .where((code) =>
                   !fallbackEligibleCodes.contains(code) ||

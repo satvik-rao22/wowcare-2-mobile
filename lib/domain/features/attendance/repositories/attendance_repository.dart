@@ -320,6 +320,28 @@ abstract class AttendanceRepository {
     List<String> studentCodes,
   );
 
+  /// Classroom-scoped "at time" student sign-in status.
+  ///
+  /// Returns a map of `studentCode -> isPresent` for [instantUtc] within
+  /// [classroomCode]. See
+  /// [AttendanceRemoteDataSource.getStudentSignInStatusAtTime].
+  Future<Map<String, bool>> getStudentSignInStatusAtTime({
+    required String classroomCode,
+    required List<String> studentCodes,
+    required DateTime instantUtc,
+  });
+
+  /// Classroom-scoped "at time" staff sign-in status.
+  ///
+  /// Returns a map of `staffCode -> isPresent` for [instantUtc] within
+  /// [classroomCode]. See
+  /// [AttendanceRemoteDataSource.getStaffSignInStatusAtTime].
+  Future<Map<String, bool>> getStaffSignInStatusAtTime({
+    required String classroomCode,
+    required List<String> staffCodes,
+    required DateTime instantUtc,
+  });
+
   /// Updates a single student attendance record (sign-in/sign-out entry).
   ///
   /// Returns a human-friendly success message from the API.

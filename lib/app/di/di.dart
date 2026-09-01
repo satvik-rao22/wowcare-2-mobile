@@ -216,6 +216,8 @@ import '../../domain/features/attendance/usecases/get_staff_today_sign_in_status
 import '../../domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
+import '../../domain/features/attendance/usecases/get_student_sign_in_status_at_time_usecase.dart';
+import '../../domain/features/attendance/usecases/get_staff_sign_in_status_at_time_usecase.dart';
 import '../../domain/features/attendance/usecases/update_student_attendance_record_usecase.dart';
 import '../../domain/features/attendance/usecases/submit_student_sign_in_usecase.dart';
 import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_cubit.dart';
@@ -1166,6 +1168,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetStudentTodaySignInStatusMapUseCase>(
     () => GetStudentTodaySignInStatusMapUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentSignInStatusAtTimeUseCase>(
+    () => GetStudentSignInStatusAtTimeUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStaffSignInStatusAtTimeUseCase>(
+    () => GetStaffSignInStatusAtTimeUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<UpdateStudentAttendanceRecordUseCase>(
     () => UpdateStudentAttendanceRecordUseCase(serviceLocator()),

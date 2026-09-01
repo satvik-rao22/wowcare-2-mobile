@@ -1415,6 +1415,32 @@ class AttendanceRepositoryImpl
   }
 
   @override
+  Future<Map<String, bool>> getStudentSignInStatusAtTime({
+    required String classroomCode,
+    required List<String> studentCodes,
+    required DateTime instantUtc,
+  }) {
+    return _remoteDataSource.getStudentSignInStatusAtTime(
+      classroomCode: classroomCode,
+      studentCodes: studentCodes,
+      instantUtc: instantUtc,
+    );
+  }
+
+  @override
+  Future<Map<String, bool>> getStaffSignInStatusAtTime({
+    required String classroomCode,
+    required List<String> staffCodes,
+    required DateTime instantUtc,
+  }) {
+    return _remoteDataSource.getStaffSignInStatusAtTime(
+      classroomCode: classroomCode,
+      staffCodes: staffCodes,
+      instantUtc: instantUtc,
+    );
+  }
+
+  @override
   Future<String> updateStudentAttendanceRecord({
     required String attendanceRecordCode,
     required String staffCode,
