@@ -11,9 +11,9 @@ class StaffDocumentCubit extends Cubit<StaffDocumentState> {
   StaffDocumentCubit({
     required AddStaffDocumentUseCase addStaffDocumentUseCase,
     UpdateStaffDocumentUseCase? updateStaffDocumentUseCase,
-  })  : _addStaffDocumentUseCase = addStaffDocumentUseCase,
-        _updateStaffDocumentUseCase = updateStaffDocumentUseCase,
-        super(const StaffDocumentState.initial());
+  }) : _addStaffDocumentUseCase = addStaffDocumentUseCase,
+       _updateStaffDocumentUseCase = updateStaffDocumentUseCase,
+       super(const StaffDocumentState.initial());
 
   final AddStaffDocumentUseCase _addStaffDocumentUseCase;
   final UpdateStaffDocumentUseCase? _updateStaffDocumentUseCase;
@@ -45,9 +45,11 @@ class StaffDocumentCubit extends Cubit<StaffDocumentState> {
 
       result.fold(
         (failure) {
-          emit(StaffDocumentState.error(
-            failure.message ?? 'Failed to add document',
-          ));
+          emit(
+            StaffDocumentState.error(
+              failure.message ?? 'Failed to add document',
+            ),
+          );
         },
         (message) {
           emit(StaffDocumentState.success(message));
@@ -85,9 +87,11 @@ class StaffDocumentCubit extends Cubit<StaffDocumentState> {
 
       result.fold(
         (failure) {
-          emit(StaffDocumentState.error(
-            failure.message ?? 'Failed to update document',
-          ));
+          emit(
+            StaffDocumentState.error(
+              failure.message ?? 'Failed to update document',
+            ),
+          );
         },
         (message) {
           emit(StaffDocumentState.success(message));
@@ -102,4 +106,3 @@ class StaffDocumentCubit extends Cubit<StaffDocumentState> {
     emit(const StaffDocumentState.initial());
   }
 }
-

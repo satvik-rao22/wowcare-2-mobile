@@ -2,17 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_search_field.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_staff_list_item.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
-import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -334,7 +332,7 @@ class _StaffSelectionMarkAbsentFormState
                           final isSelected =
                               selectedStaff.contains(staff);
 
-                          return StaffListItem(
+                          return AttendanceStaffListItem(
                             staff: staff,
                             isSelected: isSelected,
                             onSelectionChanged: (value) {
@@ -358,72 +356,3 @@ class _StaffSelectionMarkAbsentFormState
   }
 
 }
-
-class StaffListItem extends StatelessWidget {
-  final StaffEntity staff;
-  final bool isSelected;
-  final ValueChanged<bool?> onSelectionChanged;
-
-  const StaffListItem({
-    super.key,
-    required this.staff,
-    required this.isSelected,
-    required this.onSelectionChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () {
-        onSelectionChanged(!isSelected);
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: AppColors.themeColor,
-          ),
-          borderRadius: AppRadius.allSm,
-          color: isSelected
-              ? const Color.fromARGB(255, 249, 245, 250)
-              : Colors.white,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.only(right: AppSpacing.xxs),
-          child: Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: CustomCheckbox(
-                  borderColor: AppColors.themeColor,
-                  value: isSelected,
-                  onChanged: onSelectionChanged,
-                ),
-              ),
-              DocumentImageWidget(
-                fileUuid: staff.photoUuid ?? '',
-                name: staff.name,
-                staffCode: staff.staffCode,
-                size: 32,
-                fontSize: 14,
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              Expanded(
-                child: EllipsisTooltipText(
-                  text: staff.name,
-                  maxLines: 2,
-                  preferLongPress: true,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-

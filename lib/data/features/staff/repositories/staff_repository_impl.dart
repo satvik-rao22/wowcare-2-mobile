@@ -8,6 +8,7 @@ import '../../../../domain/features/staff/entities/staff_documents_page.dart';
 import '../../../../domain/features/staff/entities/staff_profile.dart';
 import '../../../../domain/features/staff/entities/staff_profile_update.dart';
 import '../../../../domain/features/staff/entities/staff_address_update.dart';
+import '../../../../domain/features/staff/entities/staff_my_profile_update.dart';
 import '../../../../domain/features/staff/entities/staff_important_date.dart';
 import '../../../../domain/features/staff/entities/staff_schedule_entry.dart';
 import '../../../../domain/features/staff/entities/create_school_user_result.dart';
@@ -682,12 +683,12 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   @override
   Future<String> updateMyProfile({
     required String staffCode,
-    required Map<String, dynamic> fields,
+    required StaffMyProfileUpdate fields,
   }) async {
     // Call my-profile PATCH endpoint (updates name, phone, address together).
     final message = await _remoteDataSource.updateMyProfile(
       staffCode: staffCode,
-      body: fields,
+      body: fields.toPayload(),
     );
 
     // Refresh the cached profile:

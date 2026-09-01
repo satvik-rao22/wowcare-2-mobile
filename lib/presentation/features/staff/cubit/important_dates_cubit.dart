@@ -1,6 +1,9 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/school_timezone_resolver.dart';
 import '../../../../domain/features/staff/entities/staff_important_date.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../domain/features/staff/usecases/get_important_dates_usecase.dart';
@@ -11,14 +14,36 @@ class ImportantDatesCubit extends Cubit<ImportantDatesState> {
     required GetImportantDatesUseCase getImportantDatesUseCase,
     required UpdateImportantDatesUseCase updateImportantDatesUseCase,
     required StaffRepository staffRepository,
-  })  : _getImportantDatesUseCase = getImportantDatesUseCase,
-        _updateImportantDatesUseCase = updateImportantDatesUseCase,
-        _staffRepository = staffRepository,
-        super(ImportantDatesState.initial());
+    required StorageService storageService,
+    required ApiClient apiClient,
+  }) : _getImportantDatesUseCase = getImportantDatesUseCase,
+       _updateImportantDatesUseCase = updateImportantDatesUseCase,
+       _staffRepository = staffRepository,
+       _storageService = storageService,
+       _apiClient = apiClient,
+       super(ImportantDatesState.initial());
 
   final GetImportantDatesUseCase _getImportantDatesUseCase;
   final UpdateImportantDatesUseCase _updateImportantDatesUseCase;
   final StaffRepository _staffRepository;
+  final StorageService _storageService;
+  final ApiClient _apiClient;
+
+  /// Resolves (and caches) the current school's timezone so date
+  /// constraints/validation match the school's calendar day rather than the
+  /// device's. Keeps [ApiClient] out of the View per Mandate 5 — the View
+  /// only needs to know the resolve finished, to re-read
+  /// [SchoolTimezoneResolver.lastKnownTimeZone] and rebuild.
+  Future<void> warmSchoolTimezone() async {
+    try {
+      await SchoolTimezoneResolver.resolveForCurrentSchool(
+        storage: _storageService,
+        apiClient: _apiClient,
+      );
+    } catch (_) {
+      // Keep the last-known zone.
+    }
+  }
 
   /// Re-entrancy guard: a second [updateImportantDates] call while the first is
   /// still in flight (a double-tap) is ignored, so the cubit enforces
@@ -107,12 +132,11 @@ class ImportantDatesState extends Equatable {
   bool get isSuccess => this is _SuccessState;
   bool get isError => this is _ErrorState;
 
-  String? get message =>
-      this is _SuccessState
-          ? (this as _SuccessState).message
-          : this is _ErrorState
-              ? (this as _ErrorState).message
-              : null;
+  String? get message => this is _SuccessState
+      ? (this as _SuccessState).message
+      : this is _ErrorState
+      ? (this as _ErrorState).message
+      : null;
 
   @override
   List<Object?> get props => [];
@@ -141,4 +165,3 @@ class _ErrorState extends ImportantDatesState {
   @override
   List<Object?> get props => [message];
 }
-

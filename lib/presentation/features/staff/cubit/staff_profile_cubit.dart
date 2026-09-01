@@ -10,9 +10,9 @@ class StaffProfileCubit extends Cubit<StaffProfileState> {
   StaffProfileCubit({
     required GetStaffProfileUseCase getStaffProfileUseCase,
     required StaffRepository repository,
-  })  : _getStaffProfileUseCase = getStaffProfileUseCase,
-        _repository = repository,
-        super(const StaffProfileState.initial());
+  }) : _getStaffProfileUseCase = getStaffProfileUseCase,
+       _repository = repository,
+       super(const StaffProfileState.initial());
 
   final GetStaffProfileUseCase _getStaffProfileUseCase;
   final StaffRepository _repository;
@@ -43,12 +43,7 @@ class StaffProfileCubit extends Cubit<StaffProfileState> {
         : Future.value(null));
 
     if (cached != null && !isClosed) {
-      emit(
-        StaffProfileState.loaded(
-          profile: cached,
-          isFromCache: true,
-        ),
-      );
+      emit(StaffProfileState.loaded(profile: cached, isFromCache: true));
       // Stale-while-revalidate: show cached immediately, but still refresh from API
       // so UI fields stay in sync with backend shape changes.
       // ignore: unawaited_futures
@@ -83,12 +78,7 @@ class StaffProfileCubit extends Cubit<StaffProfileState> {
 
       if (isClosed) return;
 
-      emit(
-        StaffProfileState.loaded(
-          profile: profile,
-          isFromCache: false,
-        ),
-      );
+      emit(StaffProfileState.loaded(profile: profile, isFromCache: false));
     } catch (e) {
       if (isClosed) return;
       emit(
@@ -112,20 +102,20 @@ class StaffProfileState extends Equatable {
   });
 
   const StaffProfileState.initial()
-      : profile = null,
-        isLoading = false,
-        isRefreshing = false,
-        isFromCache = false,
-        errorMessage = null;
+    : profile = null,
+      isLoading = false,
+      isRefreshing = false,
+      isFromCache = false,
+      errorMessage = null;
 
   const StaffProfileState.loaded({
     required StaffProfile profile,
     required bool isFromCache,
-  })  : profile = profile,
-        isLoading = false,
-        isRefreshing = false,
-        isFromCache = isFromCache,
-        errorMessage = null;
+  }) : profile = profile,
+       isLoading = false,
+       isRefreshing = false,
+       isFromCache = isFromCache,
+       errorMessage = null;
 
   final StaffProfile? profile;
   final bool isLoading;
@@ -151,11 +141,10 @@ class StaffProfileState extends Equatable {
 
   @override
   List<Object?> get props => [
-        profile,
-        isLoading,
-        isRefreshing,
-        isFromCache,
-        errorMessage,
-      ];
+    profile,
+    isLoading,
+    isRefreshing,
+    isFromCache,
+    errorMessage,
+  ];
 }
-

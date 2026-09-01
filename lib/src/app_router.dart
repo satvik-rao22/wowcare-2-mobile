@@ -17,7 +17,7 @@ import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart'
-    show FilterData;
+    show FilterData, StaffFilterScreen;
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_in_form.dart';
@@ -61,6 +61,13 @@ import 'package:wowcare/presentation/features/notifications/view/notification_ce
 import 'package:wowcare/presentation/features/onboarding/view/onboarding_screen.dart';
 import 'package:wowcare/presentation/features/onboarding/view_model/onboarding_cubit.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_attendance_summary_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view/add_document_screen.dart';
+import 'package:wowcare/presentation/features/staff/view/add_staff_screen.dart';
+import 'package:wowcare/presentation/features/staff/view/edit_schedule_screen.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab_widgets.dart'
+    show ScheduleEntry;
 import 'package:wowcare/presentation/features/staff/view/edit_important_dates_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
@@ -841,6 +848,13 @@ final GoRouter appRouter = GoRouter(
                           create: (_) => serviceLocator<ClassroomCubit>()
                             ..loadActiveClassrooms(onlyTypeClassroom: false),
                         ),
+                        BlocProvider<StaffProfileCubit>(
+                          create: (_) => serviceLocator<StaffProfileCubit>(),
+                        ),
+                        BlocProvider<StaffAttendanceSummaryCubit>(
+                          create: (_) =>
+                              serviceLocator<StaffAttendanceSummaryCubit>(),
+                        ),
                       ],
                       child: StaffScreen(
                         incomingHighlightCode:
@@ -1000,7 +1014,22 @@ final GoRouter appRouter = GoRouter(
                     final staffCode = args?['staffCode'] as String? ?? '';
                     return _fastPage(
                       state,
-                      EditImportantDatesScreen(staffCode: staffCode),
+                      EditImportantDatesScreen(
+                        staffCode: staffCode,
+                        initialHireDate: args?['initialHireDate'] as DateTime?,
+                        initialCdaExaminationDate:
+                            args?['initialCdaExaminationDate'] as DateTime?,
+                        initialFirstAidCprExpirationDate:
+                            args?['initialFirstAidCprExpirationDate']
+                                as DateTime?,
+                        initialBackgroundRecordCheckExpirationDate:
+                            args?['initialBackgroundRecordCheckExpirationDate']
+                                as DateTime?,
+                        initialPhysicalCheckupDate:
+                            args?['initialPhysicalCheckupDate'] as DateTime?,
+                        initialPhysicalCheckupStatus:
+                            args?['initialPhysicalCheckupStatus'] as String?,
+                      ),
                     );
                   },
                 ),
@@ -1008,6 +1037,48 @@ final GoRouter appRouter = GoRouter(
                   path: 'edit-profile-details-screen',
                   pageBuilder: (context, state) =>
                       _fastPage(state, _editProfileDetailsScreen(state.extra)),
+                ),
+                GoRoute(
+                  path: 'add-staff-screen',
+                  pageBuilder: (context, state) =>
+                      _fastPage(state, _addStaffScreen(state.extra)),
+                ),
+                GoRoute(
+                  path: 'staff-filter-screen',
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    return _fastPage(
+                      state,
+                      BlocProvider<ClassroomCubit>(
+                        create: (_) => serviceLocator<ClassroomCubit>(),
+                        child: StaffFilterScreen(
+                          initialFilters:
+                              args?['initialFilters'] as FilterData?,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'add-document-screen',
+                  pageBuilder: (context, state) =>
+                      _fastPage(state, _addDocumentScreen(state.extra)),
+                ),
+                GoRoute(
+                  path: 'edit-schedule-screen',
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    final rawSchedules = args?['initialSchedules'];
+                    return _fastPage(
+                      state,
+                      EditScheduleScreen(
+                        staffCode: args?['staffCode'] as String? ?? '',
+                        initialSchedules: rawSchedules is List
+                            ? List<ScheduleEntry>.from(rawSchedules)
+                            : const [],
+                      ),
+                    );
+                  },
                 ),
                 GoRoute(
                   path: 'student-attendance-tabbed-view',
@@ -1365,8 +1436,12 @@ final GoRouter appRouter = GoRouter(
                   // the room that actually contains the card to highlight.
                   highlightClassroomCode: q['classroomCode'],
                   initialTab: q['tab'] == 'custom' ? 1 : 0,
-                  initialActivityTypes: q['activityType'] != null ? [q['activityType']!] : null,
-                  initialClassrooms: q['classroom'] != null ? [q['classroom']!] : null,
+                  initialActivityTypes: q['activityType'] != null
+                      ? [q['activityType']!]
+                      : null,
+                  initialClassrooms: q['classroom'] != null
+                      ? [q['classroom']!]
+                      : null,
                   resetKey: extra?['timestamp']?.toString(),
                 );
               },
@@ -1510,6 +1585,54 @@ Widget _editProfileDetailsScreen(Object? extra) {
   );
 }
 
+Widget _addStaffScreen(Object? extra) {
+  final args = extra as Map<String, dynamic>?;
+  List<String>? listArg(String key) {
+    final raw = args?[key];
+    if (raw is List) return List<String>.from(raw);
+    return null;
+  }
+
+  Map<String, String>? mapArg(String key) {
+    final raw = args?[key];
+    if (raw is Map) {
+      return raw.map((k, v) => MapEntry(k.toString(), v?.toString() ?? ''));
+    }
+    return null;
+  }
+
+  return AddStaffScreen(
+    isEdit: args?['isEdit'] as bool? ?? false,
+    initialFirstName: args?['initialFirstName'] as String?,
+    initialLastName: args?['initialLastName'] as String?,
+    initialEmail: args?['initialEmail'] as String?,
+    initialPhone: args?['initialPhone'] as String?,
+    initialRole: args?['initialRole'] as String?,
+    initialAllowedClassroomCodes: listArg('initialAllowedClassroomCodes'),
+    initialPrimaryClassroom: args?['initialPrimaryClassroom'] as String?,
+    initialStatus: args?['initialStatus'] as String?,
+    initialClassroomNames: listArg('initialClassroomNames'),
+    initialClassroomCodeByName: mapArg('initialClassroomCodeByName'),
+  );
+}
+
+Widget _addDocumentScreen(Object? extra) {
+  final args = extra as Map<String, dynamic>?;
+  return AddDocumentScreen(
+    staffCode: args?['staffCode'] as String? ?? '',
+    isEdit: args?['isEdit'] as bool? ?? false,
+    documentUuid: args?['documentUuid'] as String?,
+    initialDocumentName: args?['initialDocumentName'] as String?,
+    initialDocumentType: args?['initialDocumentType'] as String?,
+    initialExpiryDate: args?['initialExpiryDate'] as DateTime?,
+    initialFilePath: args?['initialFilePath'] as String?,
+    initialMimeType: args?['initialMimeType'] as String?,
+    initialFileSizeKb: args?['initialFileSizeKb'] as int?,
+    initialDocumentNotes: args?['initialDocumentNotes'] as String?,
+    initialAssetCode: args?['initialAssetCode'] as String?,
+  );
+}
+
 Widget _studentProfileScreen(Object? extra) {
   final args = extra as Map<String, dynamic>? ?? const {};
   return StudentProfileScreen(
@@ -1532,13 +1655,22 @@ Widget _studentProfileScreen(Object? extra) {
 
 Widget _staffProfileScreen(Object? extra) {
   final args = extra as Map<String, dynamic>? ?? const {};
+  final rawClassroomNames = args['classroomNames'];
+  final rawClassroomNameByCode = args['classroomNameByCode'];
   return StaffProfileScreen(
     staffCode: args['staffCode'] as String? ?? '',
+    userCode: args['userCode'] as String? ?? '',
     name: args['name'] as String? ?? '-',
     classroom: args['classroom'] as String? ?? '-',
     designation: args['designation'] as String? ?? '',
     phoneNumber: args['phoneNumber'] as String? ?? '',
     employmentStatus: args['employmentStatus'] as String?,
+    classroomNames: rawClassroomNames is List
+        ? List<String>.from(rawClassroomNames)
+        : null,
+    classroomNameByCode: rawClassroomNameByCode is Map
+        ? Map<String, String>.from(rawClassroomNameByCode)
+        : null,
   );
 }
 

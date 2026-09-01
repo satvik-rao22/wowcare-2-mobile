@@ -27,32 +27,31 @@ class StaffProfileEditCubit extends Cubit<StaffProfileEditState> {
     required UpdateStaffProfileUseCase updateStaffProfileUseCase,
     required UpdateStaffAddressUseCase updateStaffAddressUseCase,
     required UpdateStaffAllowedClassroomsUseCase
-        updateStaffAllowedClassroomsUseCase,
+    updateStaffAllowedClassroomsUseCase,
     required UpdateStaffPrimaryClassroomUseCase
-        updateStaffPrimaryClassroomUseCase,
+    updateStaffPrimaryClassroomUseCase,
     required ChangeUserEmailUseCase changeUserEmailUseCase,
     required ActivateOrganizationAdminUseCase activateOrganizationAdminUseCase,
     required DeactivateOrganizationAdminUseCase
-        deactivateOrganizationAdminUseCase,
+    deactivateOrganizationAdminUseCase,
     required ActivateSchoolUserUseCase activateSchoolUserUseCase,
     required DeactivateSchoolUserUseCase deactivateSchoolUserUseCase,
-  })  : _updateStaffProfileUseCase = updateStaffProfileUseCase,
-        _updateStaffAddressUseCase = updateStaffAddressUseCase,
-        _updateStaffAllowedClassroomsUseCase =
-            updateStaffAllowedClassroomsUseCase,
-        _updateStaffPrimaryClassroomUseCase =
-            updateStaffPrimaryClassroomUseCase,
-        _changeUserEmailUseCase = changeUserEmailUseCase,
-        _activateOrganizationAdminUseCase = activateOrganizationAdminUseCase,
-        _deactivateOrganizationAdminUseCase =
-            deactivateOrganizationAdminUseCase,
-        _activateSchoolUserUseCase = activateSchoolUserUseCase,
-        _deactivateSchoolUserUseCase = deactivateSchoolUserUseCase,
-        super(const StaffProfileEditState.initial());
+  }) : _updateStaffProfileUseCase = updateStaffProfileUseCase,
+       _updateStaffAddressUseCase = updateStaffAddressUseCase,
+       _updateStaffAllowedClassroomsUseCase =
+           updateStaffAllowedClassroomsUseCase,
+       _updateStaffPrimaryClassroomUseCase = updateStaffPrimaryClassroomUseCase,
+       _changeUserEmailUseCase = changeUserEmailUseCase,
+       _activateOrganizationAdminUseCase = activateOrganizationAdminUseCase,
+       _deactivateOrganizationAdminUseCase = deactivateOrganizationAdminUseCase,
+       _activateSchoolUserUseCase = activateSchoolUserUseCase,
+       _deactivateSchoolUserUseCase = deactivateSchoolUserUseCase,
+       super(const StaffProfileEditState.initial());
 
   final UpdateStaffProfileUseCase _updateStaffProfileUseCase;
   final UpdateStaffAddressUseCase _updateStaffAddressUseCase;
-  final UpdateStaffAllowedClassroomsUseCase _updateStaffAllowedClassroomsUseCase;
+  final UpdateStaffAllowedClassroomsUseCase
+  _updateStaffAllowedClassroomsUseCase;
   final UpdateStaffPrimaryClassroomUseCase _updateStaffPrimaryClassroomUseCase;
   final ChangeUserEmailUseCase _changeUserEmailUseCase;
   final ActivateOrganizationAdminUseCase _activateOrganizationAdminUseCase;
@@ -67,10 +66,7 @@ class StaffProfileEditCubit extends Cubit<StaffProfileEditState> {
   /// duplicate request — single-flight independent of any UI button-disabling.
   final Map<String, Future<Object?>> _inFlightMutations = {};
 
-  Future<T> _singleFlight<T>(
-    String key,
-    Future<T> Function() operation,
-  ) {
+  Future<T> _singleFlight<T>(String key, Future<T> Function() operation) {
     final existing = _inFlightMutations[key];
     if (existing != null) return existing as Future<T>;
     final future = operation();

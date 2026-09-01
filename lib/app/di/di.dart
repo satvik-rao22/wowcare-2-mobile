@@ -330,6 +330,8 @@ import '../../presentation/features/staff/cubit/staff_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_document_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_documents_list_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_profile_cubit.dart';
+import '../../presentation/features/staff/cubit/staff_attendance_summary_cubit.dart';
+import '../../presentation/features/staff/cubit/staff_profile_photo_upload_cubit.dart';
 import '../../presentation/features/staff/cubit/important_dates_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_schedule_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_profile_edit_cubit.dart';
@@ -610,6 +612,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<ImageUploadService>(
     () => ImageUploadService(serviceLocator<ApiClient>()),
+  );
+  serviceLocator.registerFactory<StaffProfilePhotoUploadCubit>(
+    () => StaffProfilePhotoUploadCubit(imageUploadService: serviceLocator()),
   );
   serviceLocator.registerLazySingleton<ProfilePhotoUploader>(
     () => ProfilePhotoUploader(serviceLocator<ImageUploadService>()),
@@ -1161,6 +1166,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStaffTodaySignInStatusMapUseCase>(
     () => GetStaffTodaySignInStatusMapUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<StaffAttendanceSummaryCubit>(
+    () => StaffAttendanceSummaryCubit(
+      getStaffAttendanceExpectedSummaryUseCase: serviceLocator(),
+      getStaffTodaySignInStatusMapUseCase: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<GetStudentTodaySignInStatusUseCase>(
     () => GetStudentTodaySignInStatusUseCase(serviceLocator()),
   );
@@ -1178,7 +1189,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<StudentSignInGateCubit>(
     () => StudentSignInGateCubit(
-      getStudentSignInFormList: serviceLocator<GetStudentSignInFormListUseCase>(),
+      getStudentSignInFormList:
+          serviceLocator<GetStudentSignInFormListUseCase>(),
       storageService: serviceLocator<StorageService>(),
       apiClient: serviceLocator<ApiClient>(),
     ),
@@ -1243,15 +1255,16 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator
       .registerFactory<FetchStudentAttendanceProfileAbsentToggleUseCase>(
-    () => FetchStudentAttendanceProfileAbsentToggleUseCase(serviceLocator()),
-  );
+        () =>
+            FetchStudentAttendanceProfileAbsentToggleUseCase(serviceLocator()),
+      );
   serviceLocator.registerFactory<FetchStaffAttendanceProfileUseCase>(
     () => FetchStaffAttendanceProfileUseCase(serviceLocator()),
   );
   serviceLocator
       .registerFactory<FetchStaffAttendanceProfileAbsentToggleUseCase>(
-    () => FetchStaffAttendanceProfileAbsentToggleUseCase(serviceLocator()),
-  );
+        () => FetchStaffAttendanceProfileAbsentToggleUseCase(serviceLocator()),
+      );
   serviceLocator.registerFactory<GetStudentAttendanceAbsentViewUseCase>(
     () => GetStudentAttendanceAbsentViewUseCase(serviceLocator()),
   );
@@ -1532,8 +1545,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<ActivityFeedScopeCubit>(
     () => ActivityFeedScopeCubit(
-      getDailyActivityFeedUseCase: serviceLocator<GetDailyActivityFeedUseCase>(),
-      getRangeActivityFeedUseCase: serviceLocator<GetRangeActivityFeedUseCase>(),
+      getDailyActivityFeedUseCase:
+          serviceLocator<GetDailyActivityFeedUseCase>(),
+      getRangeActivityFeedUseCase:
+          serviceLocator<GetRangeActivityFeedUseCase>(),
       getActiveClassroomsUseCase: serviceLocator<GetActiveClassroomsUseCase>(),
       getActiveActivityTypesForSchoolUseCase:
           serviceLocator<GetActiveActivityTypesForSchoolUseCase>(),
@@ -1963,6 +1978,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getImportantDatesUseCase: serviceLocator(),
       updateImportantDatesUseCase: serviceLocator(),
       staffRepository: serviceLocator(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StaffScheduleCubit>(

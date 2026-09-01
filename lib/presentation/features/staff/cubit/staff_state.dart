@@ -23,24 +23,24 @@ class StaffState extends Equatable {
   });
 
   const StaffState.initial()
-      : items = const [],
-        currentPage = 0,
-        hasMore = true,
-        staffCountTotal = 0,
-        staffCountActive = 0,
-        staffCountUpcoming = 0,
-        isLoading = true,
-        isRefreshing = false,
-        isLoadingMore = false,
-        isFromCache = false,
-        searchQuery = '',
-        statusFilter = null,
-        designationFilter = null,
-        primaryClassroomCodes = null,
-        classCodes = null,
-        sortBy = 'desc',
-        attendanceStatuses = null,
-        errorMessage = null;
+    : items = const [],
+      currentPage = 0,
+      hasMore = true,
+      staffCountTotal = 0,
+      staffCountActive = 0,
+      staffCountUpcoming = 0,
+      isLoading = true,
+      isRefreshing = false,
+      isLoadingMore = false,
+      isFromCache = false,
+      searchQuery = '',
+      statusFilter = null,
+      designationFilter = null,
+      primaryClassroomCodes = null,
+      classCodes = null,
+      sortBy = 'desc',
+      attendanceStatuses = null,
+      errorMessage = null;
 
   final List<StaffMember> items;
   final int currentPage;
@@ -112,25 +112,23 @@ class StaffState extends Equatable {
 
   @override
   List<Object?> get props => [
-        items,
-        currentPage,
-        hasMore,
-        staffCountTotal,
-        staffCountActive,
-        staffCountUpcoming,
-        isLoading,
-        isRefreshing,
-        isLoadingMore,
-        isFromCache,
-        searchQuery,
-        statusFilter,
-        designationFilter,
-        primaryClassroomCodes,
-        classCodes,
-        sortBy,
-        attendanceStatuses,
-        errorMessage,
-      ];
+    items,
+    currentPage,
+    hasMore,
+    staffCountTotal,
+    staffCountActive,
+    staffCountUpcoming,
+    isLoading,
+    isRefreshing,
+    isLoadingMore,
+    isFromCache,
+    searchQuery,
+    statusFilter,
+    designationFilter,
+    primaryClassroomCodes,
+    classCodes,
+    sortBy,
+    attendanceStatuses,
+    errorMessage,
+  ];
 }
-
-

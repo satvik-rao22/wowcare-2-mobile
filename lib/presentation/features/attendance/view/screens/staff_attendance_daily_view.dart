@@ -49,6 +49,8 @@ import 'package:wowcare/domain/features/attendance/entities/staff_attendance_abs
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_attendance_summary_cubit.dart';
 
 class StaffAttendanceDailyViewScreen extends StatefulWidget {
   const StaffAttendanceDailyViewScreen({
@@ -587,6 +589,12 @@ class _StaffAttendanceDailyViewScreenState
               create: (_) =>
                   serviceLocator<ClassroomCubit>()
                     ..loadActiveClassrooms(onlyTypeClassroom: false),
+            ),
+            BlocProvider<StaffProfileCubit>(
+              create: (_) => serviceLocator<StaffProfileCubit>(),
+            ),
+            BlocProvider<StaffAttendanceSummaryCubit>(
+              create: (_) => serviceLocator<StaffAttendanceSummaryCubit>(),
             ),
           ],
           child: StaffScreen(incomingStatusFilter: normalized),
@@ -1240,26 +1248,28 @@ class _StaffAttendanceDailyViewScreenState
                   );
                 },
           onView: () {
-            context.push(
-              StaffAttendanceProfile.routeName,
-              extra: {
-                'staffCode': staff.id,
-                'staffId': staff.staffId,
-                'staffName': staff.staffName,
-                'staffPhotoUuid': staff.staffPhotoUuid,
-                'designationName': staff.designationName,
-                'roomName': staff.roomName,
-                'isSignedIn': staff.hasSignIn,
-                'isAbsent': false,
-                'isExpectedToday': staff.expectedToday,
-                'isPresentToday': staff.hasSignIn,
-                'profileStatus': 'A',
-              },
-            ).then((_) {
-              if (mounted) {
-                refreshAfterReturningFromAttendanceFlow();
-              }
-            });
+            context
+                .push(
+                  StaffAttendanceProfile.routeName,
+                  extra: {
+                    'staffCode': staff.id,
+                    'staffId': staff.staffId,
+                    'staffName': staff.staffName,
+                    'staffPhotoUuid': staff.staffPhotoUuid,
+                    'designationName': staff.designationName,
+                    'roomName': staff.roomName,
+                    'isSignedIn': staff.hasSignIn,
+                    'isAbsent': false,
+                    'isExpectedToday': staff.expectedToday,
+                    'isPresentToday': staff.hasSignIn,
+                    'profileStatus': 'A',
+                  },
+                )
+                .then((_) {
+                  if (mounted) {
+                    refreshAfterReturningFromAttendanceFlow();
+                  }
+                });
           },
         );
       }).toList(),
@@ -1418,26 +1428,28 @@ class _StaffAttendanceDailyViewScreenState
             });
           },
           onView: () {
-            context.push(
-              StaffAttendanceProfile.routeName,
-              extra: {
-                'staffCode': staff.id,
-                'staffId': staff.staffId,
-                'staffName': staff.name,
-                'staffPhotoUuid': staff.photoUuid,
-                'roomName': staff.roomName,
-                'isSignedIn': staff.hasSignIn,
-                'isAbsent': true,
-                'isExpectedToday': staff.expectedToday,
-                'isPresentToday': false,
-                'profileStatus': 'A',
-                'initialShowAbsentDays': true,
-              },
-            ).then((_) {
-              if (mounted) {
-                refreshAfterReturningFromAttendanceFlow();
-              }
-            });
+            context
+                .push(
+                  StaffAttendanceProfile.routeName,
+                  extra: {
+                    'staffCode': staff.id,
+                    'staffId': staff.staffId,
+                    'staffName': staff.name,
+                    'staffPhotoUuid': staff.photoUuid,
+                    'roomName': staff.roomName,
+                    'isSignedIn': staff.hasSignIn,
+                    'isAbsent': true,
+                    'isExpectedToday': staff.expectedToday,
+                    'isPresentToday': false,
+                    'profileStatus': 'A',
+                    'initialShowAbsentDays': true,
+                  },
+                )
+                .then((_) {
+                  if (mounted) {
+                    refreshAfterReturningFromAttendanceFlow();
+                  }
+                });
           },
         );
       }).toList(),

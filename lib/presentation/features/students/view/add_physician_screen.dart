@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -405,35 +406,6 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class PhoneNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    if (digits.isEmpty) {
-      return const TextEditingValue(text: '');
-    }
-
-    String formattedText;
-    if (digits.length <= 3) {
-      formattedText = '($digits';
-    } else if (digits.length <= 6) {
-      formattedText = '(${digits.substring(0, 3)}) ${digits.substring(3)}';
-    } else {
-      final d = digits.substring(0, 10);
-      formattedText =
-          '(${d.substring(0, 3)}) ${d.substring(3, 6)}-${d.substring(6)}';
-    }
-
-    return TextEditingValue(
-      text: formattedText,
-      selection: TextSelection.collapsed(offset: formattedText.length),
     );
   }
 }

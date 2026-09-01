@@ -4,8 +4,9 @@ import 'dart:io';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
-import 'package:wowcare/presentation/features/staff/util/staff_photo_background.dart';
+import 'package:wowcare/presentation/features/staff/staff_photo_background.dart';
 import 'package:flutter/services.dart';
+import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen_formatters.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -30,7 +31,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 
-class EditProfileDetailsScreen extends StatefulWidget {
+class EditProfileDetailsScreen extends StatelessWidget {
   const EditProfileDetailsScreen({
     super.key,
     required this.staffCode,
@@ -78,11 +79,88 @@ class EditProfileDetailsScreen extends StatefulWidget {
   final Map<String, String>? initialClassroomCodeByName;
 
   @override
-  _EditProfileDetailsScreenState createState() =>
-      _EditProfileDetailsScreenState();
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<StaffProfileEditCubit>(
+          create: (_) => serviceLocator<StaffProfileEditCubit>(),
+        ),
+        BlocProvider<ClassroomCubit>(
+          create: (_) => serviceLocator<ClassroomCubit>(),
+        ),
+      ],
+      child: _EditProfileDetailsScreenView(
+        staffCode: staffCode,
+        initialFirstName: initialFirstName,
+        initialLastName: initialLastName,
+        initialStatus: initialStatus,
+        initialDesignation: initialDesignation,
+        initialAllowedClassrooms: initialAllowedClassrooms,
+        initialPrimaryClassroom: initialPrimaryClassroom,
+        initialBirthDate: initialBirthDate,
+        initialJobTag: initialJobTag,
+        initialEmail: initialEmail,
+        initialPhoneNumber: initialPhoneNumber,
+        initialStreet: initialStreet,
+        initialCity: initialCity,
+        initialState: initialState,
+        initialCountry: initialCountry,
+        initialZipCode: initialZipCode,
+        initialClassroomNames: initialClassroomNames,
+        initialClassroomCodeByName: initialClassroomCodeByName,
+      ),
+    );
+  }
 }
 
-class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
+class _EditProfileDetailsScreenView extends StatefulWidget {
+  const _EditProfileDetailsScreenView({
+    required this.staffCode,
+    this.initialFirstName,
+    this.initialLastName,
+    this.initialStatus,
+    this.initialDesignation,
+    this.initialAllowedClassrooms,
+    this.initialPrimaryClassroom,
+    this.initialBirthDate,
+    this.initialJobTag,
+    this.initialEmail,
+    this.initialPhoneNumber,
+    this.initialStreet,
+    this.initialCity,
+    this.initialState,
+    this.initialCountry,
+    this.initialZipCode,
+    this.initialClassroomNames,
+    this.initialClassroomCodeByName,
+  });
+
+  final String staffCode;
+  final String? initialFirstName;
+  final String? initialLastName;
+  final String? initialStatus;
+  final String? initialDesignation;
+  final List<String>? initialAllowedClassrooms;
+  final String? initialPrimaryClassroom;
+  final DateTime? initialBirthDate;
+  final String? initialJobTag;
+  final String? initialEmail;
+  final String? initialPhoneNumber;
+  final String? initialStreet;
+  final String? initialCity;
+  final String? initialState;
+  final String? initialCountry;
+  final String? initialZipCode;
+  final List<String>? initialClassroomNames;
+  final Map<String, String>? initialClassroomCodeByName;
+
+  @override
+  State<_EditProfileDetailsScreenView> createState() =>
+      _EditProfileDetailsScreenViewState();
+}
+
+class _EditProfileDetailsScreenViewState
+    extends State<_EditProfileDetailsScreenView> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
@@ -93,7 +171,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _zipCodeController = TextEditingController();
 
-  ClassroomCubit? _classroomCubit;
+  late final ClassroomCubit _classroomCubit;
 
   String? _selectedStatus;
   String? _selectedDesignation;
@@ -105,7 +183,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   // String? _selectedGender;
   String? _selectedState;
   String? _selectedCountry;
-  bool _isSubmitting = false;
+  final ValueNotifier<bool> _isSubmitting = ValueNotifier<bool>(false);
   File? _profilePhoto;
   String _originalEmail = '';
   String _profileUserCode = '';
@@ -212,8 +290,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   void initState() {
     super.initState();
     _getStaffProfileUseCase = serviceLocator<GetStaffProfileUseCase>();
-    _profileEditCubit = serviceLocator<StaffProfileEditCubit>();
-    _classroomCubit = serviceLocator<ClassroomCubit>();
+    _profileEditCubit = context.read<StaffProfileEditCubit>();
+    _classroomCubit = context.read<ClassroomCubit>();
 
     // Country is fixed to United States for staff address in this form.
     // Keep it prefilled and non-editable.
@@ -260,7 +338,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
 
   Future<void> _loadClassrooms({bool force = false}) async {
     final isAdmin = _isAdminSelected;
-    _classroomCubit?.loadActiveClassrooms(
+    _classroomCubit.loadActiveClassrooms(
       force: force,
       // Staff: type=CLASSROOM; Admin: no type filter.
       onlyTypeClassroom: !isAdmin,
@@ -416,7 +494,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         _streetController.text = a.street;
         _street2Controller.text = a.line2;
         _cityController.text = a.city;
-        _zipCodeController.text = _formatUsZipForDisplay(a.zipCode);
+        _zipCodeController.text = formatUsZipForDisplay(a.zipCode);
         _originalAddressStreet = a.street.trim().toLowerCase();
         _originalAddressLine2 = a.line2.trim().toLowerCase();
         _originalAddressCity = a.city.trim().toLowerCase();
@@ -453,8 +531,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     _streetController.dispose();
     _cityController.dispose();
     _zipCodeController.dispose();
-    _profileEditCubit.close();
-    // Do not close _classroomCubit here; it may be provided higher in the tree.
+    _isSubmitting.dispose();
     super.dispose();
   }
 
@@ -499,7 +576,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
             fontSize: responsive.labelFontSize,
             fontFamily: 'Manrope',
             fontWeight: FontWeight.w400,
-            color: const Color(0xff573353),
+            color: AppColors.primaryColor,
           ),
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
@@ -509,9 +586,9 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
             height: 120,
             width: 120,
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: AppColors.billingGreyLight,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0x66573353)),
+              border: Border.all(color: AppColors.inputBorderColor),
             ),
             child: _profilePhoto != null
                 ? ClipRRect(
@@ -523,7 +600,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                     children: [
                       Icon(
                         Icons.camera_alt,
-                        color: Colors.grey.shade600,
+                        color: AppColors.attendanceDialogHintTextColor,
                         size: 32,
                       ),
                       const SizedBox(height: 8),
@@ -531,7 +608,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                         'Upload Photo',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade600,
+                          color: AppColors.attendanceDialogHintTextColor,
                         ),
                       ),
                     ],
@@ -543,7 +620,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           'JPG, PNG, max 10MB (Optional)',
           style: TextStyle(
             fontSize: 12,
-            color: Colors.grey.shade600,
+            color: AppColors.attendanceDialogHintTextColor,
             fontFamily: 'Manrope',
           ),
         ),
@@ -713,9 +790,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       return;
     }
 
-    setState(() {
-      _isSubmitting = true;
-    });
+    _isSubmitting.value = true;
 
     try {
       final statusApi = _mapStatusToApiValue(_selectedStatus!);
@@ -901,9 +976,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       );
 
       if (!mounted) return;
-      setState(() {
-        _isSubmitting = false;
-      });
+      _isSubmitting.value = false;
 
       // Profile mutation — poke the scheduling screens so they silently
       // re-pull the staff list on the next visit.
@@ -938,8 +1011,9 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       // that only touched the name or phone number. The general profile
       // message is the correct default; address-specific text has no
       // reason to override it just because that endpoint also ran.
-      final profileOrAddressMessage =
-          profileMessage.isNotEmpty ? profileMessage : addressMessage;
+      final profileOrAddressMessage = profileMessage.isNotEmpty
+          ? profileMessage
+          : addressMessage;
       // This form always resubmits every field on save (no per-field dirty
       // tracking), so the /profile PATCH's generic success message can't by
       // itself tell "only email changed" apart from "other fields changed
@@ -993,9 +1067,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _isSubmitting = false;
-      });
+      _isSubmitting.value = false;
       final message = ApiErrorHandler.extractErrorMessage(e);
       CoreUtils.showTopSnackBar(
         context: context,
@@ -1137,478 +1209,462 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
-    // Get ClassroomCubit from context if available, otherwise use the one from service locator.
-    ClassroomCubit classroomCubit;
-    try {
-      classroomCubit = context.read<ClassroomCubit>();
-    } catch (_) {
-      classroomCubit = _classroomCubit ?? serviceLocator<ClassroomCubit>();
-      _classroomCubit = classroomCubit;
-    }
+    return BlocBuilder<ClassroomCubit, ClassroomState>(
+      builder: (context, classroomState) {
+        final desiredOnlyTypeClassroom = !_isAdminSelected;
 
-    return BlocProvider<ClassroomCubit>.value(
-      value: classroomCubit,
-      child: BlocBuilder<ClassroomCubit, ClassroomState>(
-        builder: (context, classroomState) {
-          final desiredOnlyTypeClassroom = !_isAdminSelected;
+        // If cubit is loaded with the wrong filter for current role,
+        // trigger a reload with correct onlyTypeClassroom.
+        if (!classroomState.isLoading &&
+            classroomState.classrooms.isNotEmpty &&
+            classroomState.onlyTypeClassroom != desiredOnlyTypeClassroom) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _loadClassrooms(force: true);
+          });
+        } else if (!classroomState.isLoading &&
+            classroomState.classrooms.isNotEmpty &&
+            classroomState.onlyTypeClassroom == desiredOnlyTypeClassroom) {
+          // Sync local options from correctly-filtered cubit state.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _updateClassroomsFromCubitState(classroomState);
+          });
+        }
 
-          // If cubit is loaded with the wrong filter for current role,
-          // trigger a reload with correct onlyTypeClassroom.
-          if (!classroomState.isLoading &&
-              classroomState.classrooms.isNotEmpty &&
-              classroomState.onlyTypeClassroom != desiredOnlyTypeClassroom) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _loadClassrooms(force: true);
-            });
-          } else if (!classroomState.isLoading &&
-              classroomState.classrooms.isNotEmpty &&
-              classroomState.onlyTypeClassroom == desiredOnlyTypeClassroom) {
-            // Sync local options from correctly-filtered cubit state.
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _updateClassroomsFromCubitState(classroomState);
-            });
-          }
-
-          return GestureDetector(
-            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-            child: Scaffold(
-              key: _scaffoldKey,
-              backgroundColor: Colors.white,
-              appBar: const CustomAppBar(hasBackButton: true),
-              body: Stack(
-                children: [
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: AppColors.buildScaffoldGradient(),
-                      ),
-                      child: Image.asset(
-                        MediaRes.wowcareMobileBg,
-                        fit: BoxFit.cover,
-                        alignment: Alignment.topCenter,
-                      ),
+        return GestureDetector(
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: Scaffold(
+            key: _scaffoldKey,
+            backgroundColor: AppColors.cardColor,
+            appBar: const CustomAppBar(hasBackButton: true),
+            body: Stack(
+              children: [
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: AppColors.buildScaffoldGradient(),
+                    ),
+                    child: Image.asset(
+                      MediaRes.wowcareMobileBg,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
                     ),
                   ),
-                  Column(
-                    children: [
-                      const SizedBox(height: 16),
-                      Padding(
-                        padding: EdgeInsets.symmetric(
+                ),
+                Column(
+                  children: [
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: responsive.horizontalSpacing,
+                      ),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Edit Staff',
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: responsive.titleFontSize,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primaryColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
+                    Expanded(
+                      child: Container(
+                        width: responsive.containerWidth,
+                        margin: EdgeInsets.symmetric(
                           horizontal: responsive.horizontalSpacing,
                         ),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Edit Staff',
-                            style: TextStyle(
-                              fontFamily: 'Manrope',
-                              fontSize: responsive.titleFontSize,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xff573353),
-                            ),
-                          ),
+                        padding: EdgeInsets.all(
+                          responsive.isTablet ? 32.0 : 16.0,
                         ),
-                      ),
-                      SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
-                      Expanded(
-                        child: Container(
-                          width: responsive.containerWidth,
-                          margin: EdgeInsets.symmetric(
-                            horizontal: responsive.horizontalSpacing,
+                        decoration: BoxDecoration(
+                          color: AppColors.cardColor,
+                          borderRadius: BorderRadius.all(
+                            Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                           ),
-                          padding: EdgeInsets.all(
-                            responsive.isTablet ? 32.0 : 16.0,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.all(
-                              Radius.circular(
-                                responsive.isTablet ? 40.0 : 24.0,
-                              ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.billingShadowColorLight,
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: ListView(
-                            padding: EdgeInsets.zero,
-                            children: [
-                              _buildStaffPhotoField(responsive),
-                              SizedBox(
-                                height: responsive.isTablet ? 24.0 : 16.0,
-                              ),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildInputField(
-                                      "First Name",
-                                      "E.g. John",
-                                      _firstNameController,
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    width: responsive.isTablet ? 24.0 : 16.0,
-                                  ),
-                                  Expanded(
-                                    child: _buildInputField(
-                                      "Last Name",
-                                      "E.g. Smith",
-                                      _lastNameController,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: responsive.verticalSpacing),
-                              // Gender is not needed for this form (per product requirement).
-                              // _buildCustomDropdown(
-                              //   "Gender",
-                              //   "Select",
-                              //   _genderOptions,
-                              //   _selectedGender,
-                              //   (v) => setState(() => _selectedGender = v),
-                              //   isRequired: false,
-                              // ),
-                              // SizedBox(height: responsive.verticalSpacing),
-                              _buildCustomDropdown(
-                                "Status",
-                                "Select",
-                                _statusOptionsForCurrentRole,
-                                _selectedStatus,
-                                (v) => setState(() => _selectedStatus = v),
-                                isRequired: true,
-                              ),
-                              SizedBox(height: responsive.verticalSpacing),
-                              _buildCustomDropdown(
-                                "Designation",
-                                "Select",
-                                // Show only admin or staff designations based on current role.
-                                _isAdminSelected
-                                    ? _adminDesignationOptions
-                                    : _staffDesignationOptions,
-                                _selectedDesignation,
-                                (v) {
-                                  setState(() {
-                                    _selectedDesignation = v;
-                                    // Upcoming is not valid for admin designations.
-                                    if (_isAdminSelected &&
-                                        _selectedStatus == 'Upcoming') {
-                                      _selectedStatus = 'Active';
-                                    }
-                                  });
-                                  // Reload classrooms when switching between admin/staff
-                                  // so we use the correct API (with or without type filter).
-                                  WidgetsBinding.instance.addPostFrameCallback((
-                                    _,
-                                  ) {
-                                    _loadClassrooms(force: true);
-                                  });
-                                },
-                                isRequired: true,
-                              ),
-                              SizedBox(height: responsive.verticalSpacing),
-
-                              // Allowed / Primary Classroom section (same view for staff & admin).
-                              // For admin roles: disabled (greyish), values visible but not editable.
-                              Opacity(
-                                opacity: _isAdminSelected ? 0.7 : 1.0,
-                                child: IgnorePointer(
-                                  ignoring: _isAdminSelected,
-                                  child: ClassroomSelectionWidgetExact(
-                                    primaryClassroom: _selectedPrimaryClassroom,
-                                    allowedClassrooms:
-                                        _selectedAllowedClassrooms,
-                                    availableClassrooms: _classroomOptions,
-                                    onPrimaryClassroomChanged: (classroom) {
-                                      setState(() {
-                                        _selectedPrimaryClassroom = classroom;
-                                      });
-                                    },
-                                    onAllowedClassroomsChanged: (classrooms) {
-                                      setState(() {
-                                        _selectedAllowedClassrooms = classrooms;
-                                        if (_selectedPrimaryClassroom != null &&
-                                            !classrooms.contains(
-                                              _selectedPrimaryClassroom,
-                                            )) {
-                                          // The removed classroom was this
-                                          // staff member's primary. Leaving
-                                          // this null meant _saveProfile's
-                                          // `primaryClassroomCode != null`
-                                          // guard skipped calling
-                                          // updateStaffPrimaryClassroom
-                                          // entirely on save — the backend's
-                                          // primaryClassroomCode (what the
-                                          // Classroom -> Staff list actually
-                                          // filters by, NOT allowedClassroomCodes)
-                                          // stayed pointed at the just-removed
-                                          // classroom, so the staff member kept
-                                          // showing in its roster no matter how
-                                          // many times that list refreshed.
-                                          // Auto-picking a remaining allowed
-                                          // classroom (when one exists) keeps
-                                          // this field non-null so the save
-                                          // actually persists a real change.
-                                          _selectedPrimaryClassroom =
-                                              classrooms.isNotEmpty
-                                              ? classrooms.first
-                                              : null;
-                                        }
-                                      });
-                                    },
-                                    primaryClassroomError: null,
-                                    allowedClassroomsError: null,
-                                    showPrimaryClassroom: false,
+                          ],
+                        ),
+                        child: ListView(
+                          padding: EdgeInsets.zero,
+                          children: [
+                            _buildStaffPhotoField(responsive),
+                            SizedBox(height: responsive.isTablet ? 24.0 : 16.0),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildInputField(
+                                    "First Name",
+                                    "E.g. John",
+                                    _firstNameController,
                                   ),
                                 ),
-                              ),
-                              SizedBox(height: responsive.verticalSpacing),
-                              // Primary Classroom Dropdown (disabled for admin roles)
-                              Stack(
-                                children: [
-                                  Opacity(
-                                    opacity: 1.0,
-                                    child: CustomDropdown(
-                                      label: "Primary Classroom",
-                                      hintText: 'Select',
-                                      items: _selectedAllowedClassrooms.isEmpty
-                                          ? []
-                                          : _selectedAllowedClassrooms,
-                                      selectedItem: _selectedPrimaryClassroom,
-                                      isEnabled: true,
-                                      labelStyle: TextStyle(
-                                        fontSize: responsive.labelFontSize,
-                                        fontFamily: "Manrope",
-                                        fontWeight: FontWeight.w400,
-                                        color: const Color(0xff573353),
-                                      ),
-                                      showAsterisk: !_isAdminSelected,
-                                      labelBottomSpacing: responsive.isTablet
-                                          ? 8.0
-                                          : 6.0,
-                                      fieldHeight: responsive.isTablet
-                                          ? 64.0
-                                          : 56.0,
-                                      selectedTextStyle: TextStyle(
-                                        fontFamily: 'Manrope',
-                                        fontSize: responsive.inputFontSize,
-                                        fontWeight: FontWeight.w600,
-                                        color: const Color(0xff573353),
-                                        height: 19 / 14,
-                                      ),
-                                      popupItemTextStyle: TextStyle(
-                                        fontFamily: 'Manrope',
-                                        fontSize: responsive.inputFontSize,
-                                        fontWeight: FontWeight.w400,
-                                        color: const Color(0xff573353),
-                                      ),
-                                      contentPadding: EdgeInsets.symmetric(
-                                        horizontal: responsive.isTablet
-                                            ? 16.0
-                                            : 12.0,
-                                        vertical: responsive.isTablet
-                                            ? 16.0
-                                            : 12.0,
-                                      ),
-                                      onSelect: (val) => setState(
-                                        () => _selectedPrimaryClassroom = val,
-                                      ),
-                                    ),
+                                SizedBox(
+                                  width: responsive.isTablet ? 24.0 : 16.0,
+                                ),
+                                Expanded(
+                                  child: _buildInputField(
+                                    "Last Name",
+                                    "E.g. Smith",
+                                    _lastNameController,
                                   ),
-                                  if (_selectedAllowedClassrooms.isEmpty &&
-                                      !_isAdminSelected)
-                                    Positioned.fill(
-                                      child: GestureDetector(
-                                        behavior: HitTestBehavior.opaque,
-                                        onTap: () {
-                                          CoreUtils.showTopSnackBar(
-                                            context: context,
-                                            message:
-                                                'Please select Allowed Classrooms first',
-                                            isError: true,
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              SizedBox(height: responsive.verticalSpacing),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: responsive.verticalSpacing),
+                            // Gender is not needed for this form (per product requirement).
+                            // _buildCustomDropdown(
+                            //   "Gender",
+                            //   "Select",
+                            //   _genderOptions,
+                            //   _selectedGender,
+                            //   (v) => setState(() => _selectedGender = v),
+                            //   isRequired: false,
+                            // ),
+                            // SizedBox(height: responsive.verticalSpacing),
+                            _buildCustomDropdown(
+                              "Status",
+                              "Select",
+                              _statusOptionsForCurrentRole,
+                              _selectedStatus,
+                              (v) => setState(() => _selectedStatus = v),
+                              isRequired: true,
+                            ),
+                            SizedBox(height: responsive.verticalSpacing),
+                            _buildCustomDropdown(
+                              "Designation",
+                              "Select",
+                              // Show only admin or staff designations based on current role.
+                              _isAdminSelected
+                                  ? _adminDesignationOptions
+                                  : _staffDesignationOptions,
+                              _selectedDesignation,
+                              (v) {
+                                setState(() {
+                                  _selectedDesignation = v;
+                                  // Upcoming is not valid for admin designations.
+                                  if (_isAdminSelected &&
+                                      _selectedStatus == 'Upcoming') {
+                                    _selectedStatus = 'Active';
+                                  }
+                                });
+                                // Reload classrooms when switching between admin/staff
+                                // so we use the correct API (with or without type filter).
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
+                                  _loadClassrooms(force: true);
+                                });
+                              },
+                              isRequired: true,
+                            ),
+                            SizedBox(height: responsive.verticalSpacing),
 
-                              _buildDateField("Birthdate", _selectedBirthDate),
-                              SizedBox(height: responsive.verticalSpacing),
-                              _buildCustomDropdown(
-                                "Job Tag",
-                                "Select",
-                                _jobTagOptions,
-                                _selectedJobTag,
-                                (v) => setState(() => _selectedJobTag = v),
-                              ),
-                              SizedBox(height: responsive.verticalSpacing),
-                              _buildInputField(
-                                "Email",
-                                "E.g. Jessica@wowcare.com",
-                                _emailController,
-                                isRequired: true,
-                                keyboardType: TextInputType.emailAddress,
-                                textCapitalization: TextCapitalization.none,
-                              ),
-                              SizedBox(height: responsive.verticalSpacing),
-                              _buildInputField(
-                                "Phone Number",
-                                "E.g. (000) 000-0000",
-                                _phoneNumberController,
-                                isRequired: true,
-                                keyboardType: TextInputType.phone,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                  LengthLimitingTextInputFormatter(10),
-                                  _EditPhoneNumberFormatter(),
-                                ],
-                              ),
-                              SizedBox(height: responsive.verticalSpacing),
-                              _buildInputField(
-                                "Street",
-                                "Eg. Street no",
-                                _streetController,
-                                isRequired: true,
-                                textCapitalization: TextCapitalization.words,
-                              ),
-                              SizedBox(height: responsive.verticalSpacing),
-                              _buildInputField(
-                                "Address line 2",
-                                "(Optional)",
-                                _street2Controller,
-                                isRequired: false,
-                                textCapitalization: TextCapitalization.words,
-                              ),
-                              SizedBox(height: responsive.verticalSpacing),
-                              _buildInputField(
-                                "City",
-                                "Eg. Nashua",
-                                _cityController,
-                                isRequired: true,
-                                textCapitalization: TextCapitalization.words,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.allow(
-                                    RegExp(r"[a-zA-Z\s.'-]"),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: responsive.verticalSpacing),
-                              _buildCustomDropdown(
-                                "State",
-                                "Select",
-                                _stateOptions,
-                                _selectedState,
-                                (v) => setState(() => _selectedState = v),
-                                isRequired: true,
-                              ),
-                              SizedBox(height: responsive.verticalSpacing),
-                              // Country is fixed to United States; show as non-editable.
-                              Opacity(
-                                opacity: 0.8,
-                                child: CustomDropdown(
-                                  label: "Country",
-                                  hintText: 'United States',
-                                  items: const <String>['United States'],
-                                  selectedItem: 'United States',
-                                  isEnabled: false,
-                                  showAsterisk: true,
-                                  labelStyle: TextStyle(
-                                    fontSize: responsive.labelFontSize,
-                                    fontFamily: "Manrope",
-                                    fontWeight: FontWeight.w400,
-                                    color: const Color(0xff573353),
-                                  ),
-                                  selectedTextStyle: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: responsive.inputFontSize,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade700,
-                                    height: 19 / 14,
-                                  ),
-                                  popupItemTextStyle: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: responsive.inputFontSize,
-                                    fontWeight: FontWeight.w400,
-                                    color: const Color(0xff573353),
-                                  ),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: responsive.isTablet
-                                        ? 16.0
-                                        : 12.0,
-                                    vertical: responsive.isTablet ? 16.0 : 12.0,
-                                  ),
-                                  onSelect: null,
+                            // Allowed / Primary Classroom section (same view for staff & admin).
+                            // For admin roles: disabled (greyish), values visible but not editable.
+                            Opacity(
+                              opacity: _isAdminSelected ? 0.7 : 1.0,
+                              child: IgnorePointer(
+                                ignoring: _isAdminSelected,
+                                child: ClassroomSelectionWidgetExact(
+                                  primaryClassroom: _selectedPrimaryClassroom,
+                                  allowedClassrooms: _selectedAllowedClassrooms,
+                                  availableClassrooms: _classroomOptions,
+                                  onPrimaryClassroomChanged: (classroom) {
+                                    setState(() {
+                                      _selectedPrimaryClassroom = classroom;
+                                    });
+                                  },
+                                  onAllowedClassroomsChanged: (classrooms) {
+                                    setState(() {
+                                      _selectedAllowedClassrooms = classrooms;
+                                      if (_selectedPrimaryClassroom != null &&
+                                          !classrooms.contains(
+                                            _selectedPrimaryClassroom,
+                                          )) {
+                                        // The removed classroom was this
+                                        // staff member's primary. Leaving
+                                        // this null meant _saveProfile's
+                                        // `primaryClassroomCode != null`
+                                        // guard skipped calling
+                                        // updateStaffPrimaryClassroom
+                                        // entirely on save — the backend's
+                                        // primaryClassroomCode (what the
+                                        // Classroom -> Staff list actually
+                                        // filters by, NOT allowedClassroomCodes)
+                                        // stayed pointed at the just-removed
+                                        // classroom, so the staff member kept
+                                        // showing in its roster no matter how
+                                        // many times that list refreshed.
+                                        // Auto-picking a remaining allowed
+                                        // classroom (when one exists) keeps
+                                        // this field non-null so the save
+                                        // actually persists a real change.
+                                        _selectedPrimaryClassroom =
+                                            classrooms.isNotEmpty
+                                            ? classrooms.first
+                                            : null;
+                                      }
+                                    });
+                                  },
+                                  primaryClassroomError: null,
+                                  allowedClassroomsError: null,
+                                  showPrimaryClassroom: false,
                                 ),
                               ),
-                              SizedBox(height: responsive.verticalSpacing),
-                              _buildInputField(
-                                "Zip Code",
-                                "E.g. 12345 or 12345-6789",
-                                _zipCodeController,
-                                isRequired: true,
-                                keyboardType: TextInputType.number,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                  // Limit to 9 digits; formatter will render it as either 12345 or 12345-6789.
-                                  LengthLimitingTextInputFormatter(9),
-                                  _ZipCodeFormatter(),
-                                ],
+                            ),
+                            SizedBox(height: responsive.verticalSpacing),
+                            // Primary Classroom Dropdown (disabled for admin roles)
+                            Stack(
+                              children: [
+                                Opacity(
+                                  opacity: 1.0,
+                                  child: CustomDropdown(
+                                    label: "Primary Classroom",
+                                    hintText: 'Select',
+                                    items: _selectedAllowedClassrooms.isEmpty
+                                        ? []
+                                        : _selectedAllowedClassrooms,
+                                    selectedItem: _selectedPrimaryClassroom,
+                                    isEnabled: true,
+                                    labelStyle: TextStyle(
+                                      fontSize: responsive.labelFontSize,
+                                      fontFamily: "Manrope",
+                                      fontWeight: FontWeight.w400,
+                                      color: AppColors.primaryColor,
+                                    ),
+                                    showAsterisk: !_isAdminSelected,
+                                    labelBottomSpacing: responsive.isTablet
+                                        ? 8.0
+                                        : 6.0,
+                                    fieldHeight: responsive.isTablet
+                                        ? 64.0
+                                        : 56.0,
+                                    selectedTextStyle: TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontSize: responsive.inputFontSize,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primaryColor,
+                                      height: 19 / 14,
+                                    ),
+                                    popupItemTextStyle: TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontSize: responsive.inputFontSize,
+                                      fontWeight: FontWeight.w400,
+                                      color: AppColors.primaryColor,
+                                    ),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: responsive.isTablet
+                                          ? 16.0
+                                          : 12.0,
+                                      vertical: responsive.isTablet
+                                          ? 16.0
+                                          : 12.0,
+                                    ),
+                                    onSelect: (val) => setState(
+                                      () => _selectedPrimaryClassroom = val,
+                                    ),
+                                  ),
+                                ),
+                                if (_selectedAllowedClassrooms.isEmpty &&
+                                    !_isAdminSelected)
+                                  Positioned.fill(
+                                    child: GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () {
+                                        CoreUtils.showTopSnackBar(
+                                          context: context,
+                                          message:
+                                              'Please select Allowed Classrooms first',
+                                          isError: true,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            SizedBox(height: responsive.verticalSpacing),
+
+                            _buildDateField("Birthdate", _selectedBirthDate),
+                            SizedBox(height: responsive.verticalSpacing),
+                            _buildCustomDropdown(
+                              "Job Tag",
+                              "Select",
+                              _jobTagOptions,
+                              _selectedJobTag,
+                              (v) => setState(() => _selectedJobTag = v),
+                            ),
+                            SizedBox(height: responsive.verticalSpacing),
+                            _buildInputField(
+                              "Email",
+                              "E.g. Jessica@wowcare.com",
+                              _emailController,
+                              isRequired: true,
+                              keyboardType: TextInputType.emailAddress,
+                              textCapitalization: TextCapitalization.none,
+                            ),
+                            SizedBox(height: responsive.verticalSpacing),
+                            _buildInputField(
+                              "Phone Number",
+                              "E.g. (000) 000-0000",
+                              _phoneNumberController,
+                              isRequired: true,
+                              keyboardType: TextInputType.phone,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(10),
+                                EditPhoneNumberFormatter(),
+                              ],
+                            ),
+                            SizedBox(height: responsive.verticalSpacing),
+                            _buildInputField(
+                              "Street",
+                              "Eg. Street no",
+                              _streetController,
+                              isRequired: true,
+                              textCapitalization: TextCapitalization.words,
+                            ),
+                            SizedBox(height: responsive.verticalSpacing),
+                            _buildInputField(
+                              "Address line 2",
+                              "(Optional)",
+                              _street2Controller,
+                              isRequired: false,
+                              textCapitalization: TextCapitalization.words,
+                            ),
+                            SizedBox(height: responsive.verticalSpacing),
+                            _buildInputField(
+                              "City",
+                              "Eg. Nashua",
+                              _cityController,
+                              isRequired: true,
+                              textCapitalization: TextCapitalization.words,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r"[a-zA-Z\s.'-]"),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: responsive.verticalSpacing),
+                            _buildCustomDropdown(
+                              "State",
+                              "Select",
+                              _stateOptions,
+                              _selectedState,
+                              (v) => setState(() => _selectedState = v),
+                              isRequired: true,
+                            ),
+                            SizedBox(height: responsive.verticalSpacing),
+                            // Country is fixed to United States; show as non-editable.
+                            Opacity(
+                              opacity: 0.8,
+                              child: CustomDropdown(
+                                label: "Country",
+                                hintText: 'United States',
+                                items: const <String>['United States'],
+                                selectedItem: 'United States',
+                                isEnabled: false,
+                                showAsterisk: true,
+                                labelStyle: TextStyle(
+                                  fontSize: responsive.labelFontSize,
+                                  fontFamily: "Manrope",
+                                  fontWeight: FontWeight.w400,
+                                  color: AppColors.primaryColor,
+                                ),
+                                selectedTextStyle: TextStyle(
+                                  fontFamily: 'Manrope',
+                                  fontSize: responsive.inputFontSize,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.billingGreyDark,
+                                  height: 19 / 14,
+                                ),
+                                popupItemTextStyle: TextStyle(
+                                  fontFamily: 'Manrope',
+                                  fontSize: responsive.inputFontSize,
+                                  fontWeight: FontWeight.w400,
+                                  color: AppColors.primaryColor,
+                                ),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: responsive.isTablet ? 16.0 : 12.0,
+                                  vertical: responsive.isTablet ? 16.0 : 12.0,
+                                ),
+                                onSelect: null,
                               ),
-                              SizedBox(height: responsive.verticalSpacing),
-                              // _buildPinField(responsive),
-                              // SizedBox(height: responsive.verticalSpacing),
-                              // _buildWorkTimeSection(responsive),
-                              // SizedBox(height: responsive.verticalSpacing),
-                              // _buildBreakTimeSection(responsive),
-                            ],
-                          ),
+                            ),
+                            SizedBox(height: responsive.verticalSpacing),
+                            _buildInputField(
+                              "Zip Code",
+                              "E.g. 12345 or 12345-6789",
+                              _zipCodeController,
+                              isRequired: true,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                // Limit to 9 digits; formatter will render it as either 12345 or 12345-6789.
+                                LengthLimitingTextInputFormatter(9),
+                                ZipCodeFormatter(),
+                              ],
+                            ),
+                            SizedBox(height: responsive.verticalSpacing),
+                            // _buildPinField(responsive),
+                            // SizedBox(height: responsive.verticalSpacing),
+                            // _buildWorkTimeSection(responsive),
+                            // SizedBox(height: responsive.verticalSpacing),
+                            // _buildBreakTimeSection(responsive),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 12),
-                    ],
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ],
+            ),
+            bottomNavigationBar: Container(
+              padding: EdgeInsets.only(
+                bottom: safeAreaBottom,
+                left: 16,
+                right: 16,
+                top: 8,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.cardColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.billingShadowColorLight,
+                    offset: const Offset(0, -4),
+                    blurRadius: 16,
                   ),
                 ],
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                ),
               ),
-              bottomNavigationBar: Container(
-                padding: EdgeInsets.only(
-                  bottom: safeAreaBottom,
-                  left: 16,
-                  right: 16,
-                  top: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      offset: const Offset(0, -4),
-                      blurRadius: 16,
-                    ),
-                  ],
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                    topRight: Radius.circular(
-                      responsive.isTablet ? 40.0 : 24.0,
-                    ),
-                  ),
-                ),
-                child: CustomButtonLayout(
-                  confirmButtonLabel: 'Save',
-                  onPressedConfirm: _saveProfileDetails,
-                  showCancelButton: false,
-                  isForm: false,
-                  isLoading: _isSubmitting,
-                ),
+              child: ValueListenableBuilder<bool>(
+                valueListenable: _isSubmitting,
+                builder: (context, isSubmitting, _) {
+                  return CustomButtonLayout(
+                    confirmButtonLabel: 'Save',
+                    onPressedConfirm: _saveProfileDetails,
+                    showCancelButton: false,
+                    isForm: false,
+                    isLoading: isSubmitting,
+                  );
+                },
               ),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -1626,7 +1682,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
 
     return Column(
@@ -1640,7 +1696,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.errorColor),
                 ),
             ],
           ),
@@ -1649,8 +1705,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.cardColor,
+            border: Border.all(color: AppColors.inputBorderColor),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -1662,7 +1718,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
             textCapitalization: textCapitalization,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.billingGrey),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -1673,7 +1729,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
               fontFamily: 'Manrope',
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 19 / 14,
             ),
           ),
@@ -1702,7 +1758,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         fontSize: responsive.labelFontSize,
         fontFamily: "Manrope",
         fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
+        color: AppColors.primaryColor,
       ),
       labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
       fieldHeight: responsive.isTablet ? 64.0 : 56.0,
@@ -1710,14 +1766,14 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         fontFamily: 'Manrope',
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w600,
-        color: const Color(0xff573353),
+        color: AppColors.primaryColor,
         height: 19 / 14,
       ),
       popupItemTextStyle: TextStyle(
         fontFamily: 'Manrope',
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
+        color: AppColors.primaryColor,
       ),
       contentPadding: EdgeInsets.symmetric(
         horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -1732,7 +1788,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
 
     return Column(
@@ -1746,8 +1802,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
             constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0x66573353)),
+              color: AppColors.cardColor,
+              border: Border.all(color: AppColors.inputBorderColor),
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,
               ),
@@ -1771,7 +1827,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                         fontWeight: selectedDate != null
                             ? FontWeight.w600
                             : FontWeight.w500,
-                        color: const Color(0xff573353),
+                        color: AppColors.primaryColor,
                         height: 19 / 14,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -1794,71 +1850,4 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       ],
     );
   }
-}
-
-/// Simple phone formatter to display US numbers as (XXX) XXX-XXXX
-/// while keeping only digits for API submission.
-class _EditPhoneNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
-    if (digitsOnly.isEmpty) {
-      return const TextEditingValue(text: '');
-    }
-
-    final buffer = StringBuffer();
-    for (var i = 0; i < digitsOnly.length && i < 10; i++) {
-      if (i == 0) buffer.write('(');
-      if (i == 3) buffer.write(') ');
-      if (i == 6) buffer.write('-');
-      buffer.write(digitsOnly[i]);
-    }
-    final formatted = buffer.toString();
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
-
-/// Formats US ZIP codes as either:
-/// - 12345
-/// - 12345-6789
-/// while keeping only digits for validation/API submission.
-class _ZipCodeFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
-    if (digitsOnly.isEmpty) {
-      return const TextEditingValue(text: '');
-    }
-
-    final buffer = StringBuffer();
-    for (var i = 0; i < digitsOnly.length && i < 9; i++) {
-      if (i == 5) buffer.write('-');
-      buffer.write(digitsOnly[i]);
-    }
-    final formatted = buffer.toString();
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
-
-String _formatUsZipForDisplay(String raw) {
-  final digits = raw.replaceAll(RegExp(r'\D'), '');
-  if (digits.isEmpty) return '';
-  if (digits.length <= 5) return digits.substring(0, digits.length);
-  final first5 = digits.substring(0, 5);
-  final last4 = digits.substring(5, digits.length.clamp(5, 9));
-  return last4.isEmpty ? first5 : '$first5-$last4';
 }

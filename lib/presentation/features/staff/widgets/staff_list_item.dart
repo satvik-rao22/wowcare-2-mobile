@@ -19,13 +19,14 @@ class StaffListItem extends StatelessWidget {
     final parts = name.trim().split(RegExp(r"\s+"));
     if (parts.isEmpty) return '';
     if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return (parts.first.substring(0, 1) + parts[1].substring(0, 1)).toUpperCase();
+    return (parts.first.substring(0, 1) + parts[1].substring(0, 1))
+        .toUpperCase();
   }
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparentColor,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -73,7 +74,9 @@ class StaffListItem extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: AppColors.primaryColor.withValues(alpha: 0.7),
+                              color: AppColors.primaryColor.withValues(
+                                alpha: 0.7,
+                              ),
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                             ),
@@ -84,7 +87,9 @@ class StaffListItem extends StatelessWidget {
                           Container(
                             height: 16,
                             child: VerticalDivider(
-                              color: AppColors.primaryColor.withValues(alpha: 0.3),
+                              color: AppColors.primaryColor.withValues(
+                                alpha: 0.3,
+                              ),
                               thickness: 0.5,
                               width: 0,
                             ),
@@ -116,5 +121,3 @@ class StaffListItem extends StatelessWidget {
     );
   }
 }
-
-

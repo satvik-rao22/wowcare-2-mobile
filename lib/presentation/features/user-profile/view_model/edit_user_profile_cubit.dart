@@ -7,6 +7,7 @@ import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../data/features/student/datasources/student_remote_datasource.dart';
+import '../../../../domain/features/staff/entities/staff_my_profile_update.dart';
 import '../../../../domain/features/staff/entities/staff_profile.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 
@@ -338,7 +339,17 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
 
       final profileMessage = await repo.updateMyProfile(
         staffCode: staffCode,
-        fields: fields,
+        fields: StaffMyProfileUpdate(
+          firstName: (fields['firstName'] ?? '').toString(),
+          lastName: (fields['lastName'] ?? '').toString(),
+          phoneNumber: (fields['phoneNumber'] ?? '').toString(),
+          addressStreet: (fields['addressStreet'] ?? '').toString(),
+          addressLine2: (fields['addressLine2'] ?? '').toString(),
+          addressCity: (fields['addressCity'] ?? '').toString(),
+          addressState: (fields['addressState'] ?? '').toString(),
+          addressZipCode: (fields['addressZipCode'] ?? '').toString(),
+          addressCountry: (fields['addressCountry'] ?? '').toString(),
+        ),
       );
 
       _lastSaveMessage = _combineSaveMessages(

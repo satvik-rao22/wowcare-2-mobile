@@ -4,6 +4,7 @@ import '../entities/staff_documents_page.dart';
 import '../entities/staff_profile.dart';
 import '../entities/staff_profile_update.dart';
 import '../entities/staff_address_update.dart';
+import '../entities/staff_my_profile_update.dart';
 import '../entities/staff_important_date.dart';
 import '../entities/staff_schedule_entry.dart';
 import '../entities/create_school_user_result.dart';
@@ -121,22 +122,9 @@ abstract class StaffRepository {
 
   /// Updates the *logged-in* staff member's basic profile + address via
   /// `PATCH /api/v1/staff/staff/my-profile/{staffCode}`.
-  ///
-  /// [fields] should match the backend contract:
-  /// {
-  ///   "firstName": "string",
-  ///   "lastName": "string",
-  ///   "phoneNumber": "string",
-  ///   "addressStreet": "string",
-  ///   "addressLine2": "string",
-  ///   "addressCity": "string",
-  ///   "addressState": "string",
-  ///   "addressZipCode": "string",
-  ///   "addressCountry": "string"
-  /// }
   Future<String> updateMyProfile({
     required String staffCode,
-    required Map<String, dynamic> fields,
+    required StaffMyProfileUpdate fields,
   });
 
   /// Changes the login email for a user via

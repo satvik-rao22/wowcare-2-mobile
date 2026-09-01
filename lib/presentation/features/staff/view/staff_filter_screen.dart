@@ -8,66 +8,9 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/views/filters/designation_display_utils.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_filter_data.dart';
 
-enum StaffFilterSection {
-  /// Uses the "Allowed Classroom" list as the classroom multi-select.
-  classroom,
-  designation,
-  status,
-  sortBy,
-  attendanceStatus,
-
-  /// Legacy: show the old Primary Classroom dropdown.
-  primaryClassroom,
-
-  /// Legacy: show the old Allowed Classroom dropdown.
-  allowedClassroom,
-}
-
-// Mock classes for now - replace with actual implementations
-class FilterData {
-  final List<int> classroomIds;
-  final List<String> classrooms;
-
-  /// Selected primary classroom names (for Primary Classroom dropdown).
-  final List<String>? primaryClassrooms;
-
-  /// Selected allowed classroom names (for Allowed Classroom dropdown).
-  final List<String>? allowedClassrooms;
-  final List<String> statuses;
-  final List<String> tags;
-  final List<String> attendanceStatuses;
-
-  /// Sort direction: 'asc' or 'desc'.
-  final String? sortBy;
-
-  FilterData({
-    required this.classroomIds,
-    required this.classrooms,
-    this.primaryClassrooms,
-    this.allowedClassrooms,
-    required this.statuses,
-    required this.tags,
-    this.attendanceStatuses = const [],
-    this.sortBy,
-  });
-
-  static FilterData createWithTagMapping({
-    required List<int> classroomIds,
-    required List<String> classrooms,
-    required List<String> statuses,
-    required List<String> tags,
-    List<String> attendanceStatuses = const [],
-  }) {
-    return FilterData(
-      classroomIds: classroomIds,
-      classrooms: classrooms,
-      statuses: statuses,
-      tags: tags,
-      attendanceStatuses: attendanceStatuses,
-    );
-  }
-}
+export 'package:wowcare/presentation/features/staff/view/staff_filter_data.dart';
 
 class StaffFilterScreen extends StatefulWidget {
   final FilterData? initialFilters;
@@ -262,7 +205,12 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
       // Designation options (backend codes; UI shows human-readable labels).
       _designationList = List<String>.from(_designationCodes);
 
-      _attendanceStatusList = ['Signed-In', 'Signed-Out', 'Not-Marked', 'Absent'];
+      _attendanceStatusList = [
+        'Signed-In',
+        'Signed-Out',
+        'Not-Marked',
+        'Absent',
+      ];
     });
   }
 
@@ -507,9 +455,9 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
             // toggle) and Sort by is single, so they don't get Select All.
             final showSelectAll =
                 section == StaffFilterSection.primaryClassroom ||
-                    section == StaffFilterSection.allowedClassroom ||
-                    section == StaffFilterSection.classroom ||
-                    section == StaffFilterSection.attendanceStatus;
+                section == StaffFilterSection.allowedClassroom ||
+                section == StaffFilterSection.classroom ||
+                section == StaffFilterSection.attendanceStatus;
 
             return CustomMultiSelectDropdown(
               label: label,

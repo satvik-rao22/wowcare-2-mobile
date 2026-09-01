@@ -7,8 +7,8 @@ class StaffProfileEditState extends Equatable {
   });
 
   const StaffProfileEditState.initial()
-      : mutationInProgress = false,
-        errorMessage = null;
+    : mutationInProgress = false,
+      errorMessage = null;
 
   final bool mutationInProgress;
   final String? errorMessage;

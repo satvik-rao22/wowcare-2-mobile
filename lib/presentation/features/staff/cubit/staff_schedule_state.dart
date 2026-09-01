@@ -7,8 +7,8 @@ class StaffScheduleState extends Equatable {
   });
 
   const StaffScheduleState.initial()
-      : mutationInProgress = false,
-        errorMessage = null;
+    : mutationInProgress = false,
+      errorMessage = null;
 
   final bool mutationInProgress;
   final String? errorMessage;

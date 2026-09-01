@@ -34,14 +34,14 @@ class StaffFormLayout extends StatelessWidget {
     final responsive = ResponsiveHelper(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.cardColor,
       appBar: isKiosk
           ? PreferredSize(
               preferredSize: const Size.fromHeight(kToolbarHeight + 1),
               child: Column(
                 children: [
                   Container(
-                    color: Colors.white,
+                    color: AppColors.cardColor,
                     child: SafeArea(
                       bottom: false,
                       child: Row(
@@ -50,7 +50,7 @@ class StaffFormLayout extends StatelessWidget {
                             IconButton(
                               icon: const Icon(
                                 Icons.arrow_back,
-                                color: Color(0xff573353),
+                                color: AppColors.primaryColor,
                               ),
                               onPressed: () => Navigator.maybePop(context),
                             ),
@@ -70,7 +70,7 @@ class StaffFormLayout extends StatelessWidget {
                             child: Text(
                               'WowCare',
                               style: TextStyle(
-                                color: Color(0xff573353),
+                                color: AppColors.primaryColor,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 18,
                               ),
@@ -78,10 +78,15 @@ class StaffFormLayout extends StatelessWidget {
                           ),
                           if (showKioskLogoutMenu)
                             PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert, color: Color(0xff573353)),
+                              icon: const Icon(
+                                Icons.more_vert,
+                                color: AppColors.primaryColor,
+                              ),
                               onSelected: (value) {
                                 if (value == 'logout') {
-                                  AppLogger.d('[Kiosk] Logout selected from menu');
+                                  AppLogger.d(
+                                    '[Kiosk] Logout selected from menu',
+                                  );
                                   context.go('/kiosk/logout');
                                 }
                               },
@@ -91,7 +96,11 @@ class StaffFormLayout extends StatelessWidget {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.logout, size: 20, color: Color(0xff573353)),
+                                      Icon(
+                                        Icons.logout,
+                                        size: 20,
+                                        color: AppColors.primaryColor,
+                                      ),
                                       SizedBox(width: 12),
                                       Text('Logout'),
                                     ],
@@ -103,7 +112,10 @@ class StaffFormLayout extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Divider(height: 1, color: Colors.grey[300]),
+                  Divider(
+                    height: 1,
+                    color: AppColors.attendanceBorderLightColor,
+                  ),
                 ],
               ),
             )
@@ -140,7 +152,7 @@ class StaffFormLayout extends StatelessWidget {
                         fontFamily: 'Manrope',
                         fontSize: responsive.titleFontSize,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xff573353),
+                        color: AppColors.primaryColor,
                       ),
                     ),
                   ),
@@ -154,13 +166,13 @@ class StaffFormLayout extends StatelessWidget {
                     ),
                     padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.cardColor,
                       borderRadius: BorderRadius.all(
                         Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: AppColors.billingShadowColorLight,
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),

@@ -17,9 +17,9 @@ class StaffScheduleCubit extends Cubit<StaffScheduleState> {
   StaffScheduleCubit({
     required GetSchoolRegularSchedulesUseCase getSchoolRegularSchedulesUseCase,
     required UpdateStaffSchedulesUseCase updateStaffSchedulesUseCase,
-  })  : _getSchoolRegularSchedulesUseCase = getSchoolRegularSchedulesUseCase,
-        _updateStaffSchedulesUseCase = updateStaffSchedulesUseCase,
-        super(const StaffScheduleState.initial());
+  }) : _getSchoolRegularSchedulesUseCase = getSchoolRegularSchedulesUseCase,
+       _updateStaffSchedulesUseCase = updateStaffSchedulesUseCase,
+       super(const StaffScheduleState.initial());
 
   final GetSchoolRegularSchedulesUseCase _getSchoolRegularSchedulesUseCase;
   final UpdateStaffSchedulesUseCase _updateStaffSchedulesUseCase;
@@ -62,17 +62,20 @@ class StaffScheduleCubit extends Cubit<StaffScheduleState> {
     required List<StaffWorkScheduleEntry> workSchedules,
     required List<StaffBreakScheduleEntry> breakSchedules,
   }) {
-    return _singleFlightMutation<String>('updateSchedules:$staffCode', () async {
-      if (!isClosed) emit(state.copyWith(mutationInProgress: true));
-      try {
-        return await _updateStaffSchedulesUseCase(
-          staffCode: staffCode,
-          workSchedules: workSchedules,
-          breakSchedules: breakSchedules,
-        );
-      } finally {
-        if (!isClosed) emit(state.copyWith(mutationInProgress: false));
-      }
-    });
+    return _singleFlightMutation<String>(
+      'updateSchedules:$staffCode',
+      () async {
+        if (!isClosed) emit(state.copyWith(mutationInProgress: true));
+        try {
+          return await _updateStaffSchedulesUseCase(
+            staffCode: staffCode,
+            workSchedules: workSchedules,
+            breakSchedules: breakSchedules,
+          );
+        } finally {
+          if (!isClosed) emit(state.copyWith(mutationInProgress: false));
+        }
+      },
+    );
   }
 }

@@ -10,6 +10,7 @@ class AppColors {
 
   static const cardColor = Colors.white;
   static final cardBorderColor = AppColors.primaryColor.withValues(alpha: 0.15);
+  static final inputBorderColor = AppColors.primaryColor.withValues(alpha: 0.4);
 
   static const Color transparentColor = Colors.transparent;
 
@@ -120,6 +121,10 @@ class AppColors {
   ];
 
   static const List<Color> tagTextColors = [Color(0xFF1B237E)];
+
+  /// Single-value alias for [tagTextColors]'s only entry, usable in const
+  /// contexts where indexing into the list isn't const-evaluable.
+  static const Color tagTextColor = Color(0xFF1B237E);
 
   // Billing specific colors
   static const Color billingTextColor = Color(
@@ -278,4 +283,42 @@ class AppColors {
   static const Color attendancePopupBarrierColor = Color(
     0x8A000000,
   ); // Attendance popup dialog barrier (was Colors.black54)
+
+  /// General alias so `.withValues(alpha: ...)` derivatives still resolve
+  /// through AppColors rather than a bare `Colors.black` literal.
+  static const Color blackColor = Colors.black;
+
+  // Staff specific colors
+  //
+  // The active/inactive badge pair is reused for two distinct UI elements in
+  // StaffCard: the classroom-name badge (always "active" styled) and the
+  // schedule day-of-week chips (active = has a schedule that day).
+  static const Color staffBadgeActiveBg = Color(
+    0x4DB1AFE9,
+  ); // Active badge background (classroom badge; schedule day with a shift)
+  static const Color staffBadgeInactiveBg = Color(
+    0xFFF3F4FB,
+  ); // Inactive badge background (schedule day with no shift)
+  static const Color staffBadgeActiveText = Color(
+    0xFF4B5B7A,
+  ); // Active badge text
+  static const Color staffBadgeInactiveText = Color(
+    0xFFB1AFC9,
+  ); // Inactive badge text
+  static const Color staffLightBackgroundColor = Color(
+    0xFFF8F7FA,
+  ); // Light panel/input fill background
+  static const Color staffLightBackgroundAltColor = Color(
+    0xFFF4F4FB,
+  ); // Second light background variant (distinct from staffBadgeInactiveBg's F3F4FB)
+  static final Color staffVeryLightGrey = Colors.grey.shade50;
+  static const Color staffPhotoUploadOverlayColor = Color(
+    0xB3241631,
+  ); // Dark scrim over the avatar while a profile-photo upload is in flight
+  static final Color staffWarningBannerBg = Colors.orange.shade50;
+  static final Color staffWarningBannerBorder = Colors.orange.shade100;
+  static final Color staffWarningBannerText = Colors.orange.shade800;
+  static final Color staffInfoBannerBg = Colors.blue.shade50;
+  static const Color staffInfoText = Colors.blue;
+  static final Color staffMutedBlueGreyText = Colors.blueGrey.shade700;
 }

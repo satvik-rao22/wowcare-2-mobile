@@ -119,7 +119,8 @@ class StaffCubit extends Cubit<StaffState> {
   /// emitting when this is true.
   Future<bool> _isStaleResponse(int gen, String schoolAtStart) async {
     if (isClosed || gen != _generation) return true;
-    final current = await _storageService.getString(StorageKeys.schoolCode) ?? '';
+    final current =
+        await _storageService.getString(StorageKeys.schoolCode) ?? '';
     return current != schoolAtStart;
   }
 
@@ -429,8 +430,8 @@ class StaffCubit extends Cubit<StaffState> {
       // Backend role differs for school admins vs regular staff.
       final role =
           (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
-              ? 'SCHOOL_ADMIN'
-              : 'STAFF';
+          ? 'SCHOOL_ADMIN'
+          : 'STAFF';
 
       final message = await _deactivateSchoolUserUseCase(
         userCode: profile.userCode,
@@ -475,8 +476,8 @@ class StaffCubit extends Cubit<StaffState> {
 
       final role =
           (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
-              ? 'SCHOOL_ADMIN'
-              : 'STAFF';
+          ? 'SCHOOL_ADMIN'
+          : 'STAFF';
 
       final message = await _activateSchoolUserUseCase(
         userCode: profile.userCode,
@@ -506,8 +507,8 @@ class StaffCubit extends Cubit<StaffState> {
       final staffTypeUpper = profile.staffType.toUpperCase().trim();
       final role =
           (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
-              ? 'SCHOOL_ADMIN'
-              : 'STAFF';
+          ? 'SCHOOL_ADMIN'
+          : 'STAFF';
 
       final message = await _deleteSchoolUserUseCase(
         userCode: profile.userCode,

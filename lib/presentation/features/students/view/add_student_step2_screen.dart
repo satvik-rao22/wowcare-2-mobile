@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -750,14 +751,14 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                       enableSearch: true,
                                       selectedItem:
                                           _selectedExistingParents.isEmpty
-                                              ? null
-                                              : _selectedExistingParents.first,
+                                          ? null
+                                          : _selectedExistingParents.first,
                                       onSelect: (selected) {
                                         setState(() {
                                           _selectedExistingParents =
                                               selected == null
-                                                  ? <String>[]
-                                                  : <String>[selected];
+                                              ? <String>[]
+                                              : <String>[selected];
                                         });
                                       },
                                     ),
@@ -1130,90 +1131,6 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class PhoneNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final newText = newValue.text;
-
-    if (newText.isEmpty) {
-      return newValue;
-    }
-
-    final digitsOnly = newText.replaceAll(RegExp(r'\D'), '');
-    final charCount = digitsOnly.length;
-
-    String formattedText;
-    if (charCount == 0) {
-      formattedText = '';
-    } else if (charCount <= 3) {
-      formattedText = '($digitsOnly';
-    } else if (charCount <= 6) {
-      formattedText =
-          '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3)}';
-    } else {
-      formattedText =
-          '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3, 6)}-${digitsOnly.substring(6)}';
-    }
-
-    return TextEditingValue(
-      text: formattedText,
-      selection: TextSelection.collapsed(offset: formattedText.length),
-    );
-  }
-}
-
-class NameCapitalizationFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    String text = newValue.text;
-
-    // Remove trailing spaces
-    text = text.replaceFirst(
-      RegExp(r"\s+"),
-      ' ',
-    ); // collapse multiple spaces inside
-    text = text.replaceAll(RegExp(r"\s{2,}"), ' ');
-    text = text.replaceAll(RegExp(r"\s+\z"), '');
-
-    if (text.isEmpty) {
-      return newValue.copyWith(
-        text: text,
-        selection: const TextSelection.collapsed(offset: 0),
-      );
-    }
-
-    // Enforce first letter uppercase, remaining lowercase
-    final firstChar = text[0].toUpperCase();
-    final rest = text.length > 1 ? text.substring(1).toLowerCase() : '';
-    final formatted = firstChar + rest;
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
-
-class TrimFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final trimmed = newValue.text.trimLeft();
-    return TextEditingValue(
-      text: trimmed,
-      selection: TextSelection.collapsed(offset: trimmed.length),
     );
   }
 }
