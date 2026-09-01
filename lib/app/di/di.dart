@@ -1185,7 +1185,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => SubmitStudentSignInUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<StudentSignInSubmitCubit>(
-    () => StudentSignInSubmitCubit(serviceLocator()),
+    () => StudentSignInSubmitCubit(
+      serviceLocator(),
+      getStudentAbsentFormListUseCase: serviceLocator(),
+      deleteStudentAbsenceRecordUseCase: serviceLocator(),
+    ),
   );
   serviceLocator.registerFactory<StudentSignInGateCubit>(
     () => StudentSignInGateCubit(
@@ -1218,7 +1222,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => SubmitStaffSignInUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<StaffSignInSubmitCubit>(
-    () => StaffSignInSubmitCubit(serviceLocator()),
+    () => StaffSignInSubmitCubit(
+      serviceLocator(),
+      getStaffAbsentFormListUseCase: serviceLocator(),
+      deleteStaffAbsenceRecordUseCase: serviceLocator(),
+    ),
   );
   serviceLocator.registerFactory<SubmitStaffSignOutUseCase>(
     () => SubmitStaffSignOutUseCase(serviceLocator()),

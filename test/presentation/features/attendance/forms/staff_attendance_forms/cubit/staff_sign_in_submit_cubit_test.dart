@@ -1,7 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
+import 'package:wowcare/domain/features/attendance/entities/staff_attendance_absent.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_sign_in_request.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/domain/features/attendance/usecases/delete_staff_absence_record_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_absent_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_staff_sign_in_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_submit_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_submit_state.dart';
@@ -47,6 +50,44 @@ class _FakeSubmitUseCase extends SubmitStaffSignInUseCase {
   }
 }
 
+/// Fake absent-form-list lookup — returns an empty page by default so the
+/// pre-delete step (not exercised by these submit()-focused tests) is a
+/// no-op.
+class _FakeGetStaffAbsentFormListUseCase extends GetStaffAbsentFormListUseCase {
+  _FakeGetStaffAbsentFormListUseCase() : super(_UnusedRepo());
+
+  @override
+  Future<StaffAttendanceAbsentPage> call({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) async {
+    return const StaffAttendanceAbsentPage(
+      items: [],
+      page: 0,
+      size: 0,
+      totalPages: 0,
+      totalElements: 0,
+      hasMore: false,
+    );
+  }
+}
+
+class _FakeDeleteStaffAbsenceRecordUseCase
+    extends DeleteStaffAbsenceRecordUseCase {
+  _FakeDeleteStaffAbsenceRecordUseCase() : super(_UnusedRepo());
+
+  @override
+  Future<void> call({
+    required String absenceRecordCode,
+    required String staffCode,
+  }) async {}
+}
+
 void main() {
   group('StaffSignInSubmitCubit', () {
     late _FakeSubmitUseCase useCase;
@@ -54,7 +95,11 @@ void main() {
 
     setUp(() {
       useCase = _FakeSubmitUseCase();
-      cubit = StaffSignInSubmitCubit(useCase);
+      cubit = StaffSignInSubmitCubit(
+        useCase,
+        getStaffAbsentFormListUseCase: _FakeGetStaffAbsentFormListUseCase(),
+        deleteStaffAbsenceRecordUseCase: _FakeDeleteStaffAbsenceRecordUseCase(),
+      );
     });
 
     tearDown(() => cubit.close());
@@ -64,52 +109,55 @@ void main() {
       expect(cubit.isSubmitting, isFalse);
     });
 
-    test('on success: emits InProgress then Success and returns the result', () async {
-      const result = AttendanceActionResult(
-        success: true,
-        message: 'Signed-In successfully',
-      );
-      useCase.resultToReturn = result;
+    test(
+      'on success: emits InProgress then Success and returns the result',
+      () async {
+        const result = AttendanceActionResult(
+          success: true,
+          message: 'Signed-In successfully',
+        );
+        useCase.resultToReturn = result;
 
-      final expectation = expectLater(
-        cubit.stream,
-        emitsInOrder([
-          isA<StaffSignInSubmitInProgress>(),
-          isA<StaffSignInSubmitSuccess>(),
-        ]),
-      );
+        final expectation = expectLater(
+          cubit.stream,
+          emitsInOrder([
+            isA<StaffSignInSubmitInProgress>(),
+            isA<StaffSignInSubmitSuccess>(),
+          ]),
+        );
 
-      final returned = await cubit.submit(
-        request: _sampleRequest,
-        isSelf: true,
-      );
+        final returned = await cubit.submit(
+          request: _sampleRequest,
+          isSelf: true,
+        );
 
-      await expectation;
-      expect(returned, same(result));
-      expect(useCase.calls, 1);
-      expect(useCase.lastIsSelf, isTrue);
-      expect(
-        (cubit.state as StaffSignInSubmitSuccess).result,
-        same(result),
-      );
-    });
+        await expectation;
+        expect(returned, same(result));
+        expect(useCase.calls, 1);
+        expect(useCase.lastIsSelf, isTrue);
+        expect((cubit.state as StaffSignInSubmitSuccess).result, same(result));
+      },
+    );
 
-    test('a success:false response is still a (non-throwing) Success state', () async {
-      const result = AttendanceActionResult(
-        success: false,
-        message: 'Already signed in',
-      );
-      useCase.resultToReturn = result;
+    test(
+      'a success:false response is still a (non-throwing) Success state',
+      () async {
+        const result = AttendanceActionResult(
+          success: false,
+          message: 'Already signed in',
+        );
+        useCase.resultToReturn = result;
 
-      final returned = await cubit.submit(
-        request: _sampleRequest,
-        isSelf: false,
-      );
+        final returned = await cubit.submit(
+          request: _sampleRequest,
+          isSelf: false,
+        );
 
-      expect(returned.success, isFalse);
-      expect(cubit.state, isA<StaffSignInSubmitSuccess>());
-      expect(useCase.lastIsSelf, isFalse);
-    });
+        expect(returned.success, isFalse);
+        expect(cubit.state, isA<StaffSignInSubmitSuccess>());
+        expect(useCase.lastIsSelf, isFalse);
+      },
+    );
 
     test('on error: emits InProgress then Failure and rethrows', () async {
       final error = Exception('boom');

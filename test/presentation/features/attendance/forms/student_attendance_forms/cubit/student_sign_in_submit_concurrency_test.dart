@@ -2,8 +2,11 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_sign_in_request.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/domain/features/attendance/usecases/delete_student_absence_record_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_student_sign_in_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_state.dart';
@@ -46,6 +49,44 @@ class _BlockingUseCase extends SubmitStudentSignInUseCase {
   }
 }
 
+/// Fake absent-form-list lookup — returns an empty page by default so the
+/// pre-delete step (not exercised by these concurrency tests) is a no-op.
+class _FakeGetStudentAbsentFormListUseCase
+    extends GetStudentAbsentFormListUseCase {
+  _FakeGetStudentAbsentFormListUseCase() : super(_UnusedRepo());
+
+  @override
+  Future<StudentAttendanceAbsentFormPage> call({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) async {
+    return const StudentAttendanceAbsentFormPage(
+      items: [],
+      page: 0,
+      size: 0,
+      totalPages: 0,
+      totalElements: 0,
+      hasMore: false,
+    );
+  }
+}
+
+class _FakeDeleteStudentAbsenceRecordUseCase
+    extends DeleteStudentAbsenceRecordUseCase {
+  _FakeDeleteStudentAbsenceRecordUseCase() : super(_UnusedRepo());
+
+  @override
+  Future<void> call({
+    required String absenceRecordCode,
+    required String staffCode,
+  }) async {}
+}
+
 void main() {
   group('StudentSignInSubmitCubit — concurrency', () {
     late _BlockingUseCase useCase;
@@ -53,7 +94,12 @@ void main() {
 
     setUp(() {
       useCase = _BlockingUseCase();
-      cubit = StudentSignInSubmitCubit(useCase);
+      cubit = StudentSignInSubmitCubit(
+        useCase,
+        getStudentAbsentFormListUseCase: _FakeGetStudentAbsentFormListUseCase(),
+        deleteStudentAbsenceRecordUseCase:
+            _FakeDeleteStudentAbsenceRecordUseCase(),
+      );
     });
 
     tearDown(() => cubit.close());
@@ -66,7 +112,9 @@ void main() {
 
         // Fire without awaiting — the use case blocks on the gate.
         final future = cubit.submit(request: _request, isParent: false);
-        await Future<void>.delayed(Duration.zero); // let submit() reach the await
+        await Future<void>.delayed(
+          Duration.zero,
+        ); // let submit() reach the await
 
         expect(cubit.isSubmitting, isTrue);
         expect(cubit.state, isA<StudentSignInSubmitInProgress>());

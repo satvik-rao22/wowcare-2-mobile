@@ -1,7 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_sign_in_request.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/domain/features/attendance/usecases/delete_student_absence_record_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_student_sign_in_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_state.dart';
@@ -45,6 +48,45 @@ class _FakeSubmitUseCase extends SubmitStudentSignInUseCase {
   }
 }
 
+/// Fake absent-form-list lookup — returns an empty page by default so the
+/// pre-delete step (not exercised by these submit()-focused tests) is a
+/// no-op.
+class _FakeGetStudentAbsentFormListUseCase
+    extends GetStudentAbsentFormListUseCase {
+  _FakeGetStudentAbsentFormListUseCase() : super(_UnusedRepo());
+
+  @override
+  Future<StudentAttendanceAbsentFormPage> call({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) async {
+    return const StudentAttendanceAbsentFormPage(
+      items: [],
+      page: 0,
+      size: 0,
+      totalPages: 0,
+      totalElements: 0,
+      hasMore: false,
+    );
+  }
+}
+
+class _FakeDeleteStudentAbsenceRecordUseCase
+    extends DeleteStudentAbsenceRecordUseCase {
+  _FakeDeleteStudentAbsenceRecordUseCase() : super(_UnusedRepo());
+
+  @override
+  Future<void> call({
+    required String absenceRecordCode,
+    required String staffCode,
+  }) async {}
+}
+
 void main() {
   group('StudentSignInSubmitCubit', () {
     late _FakeSubmitUseCase useCase;
@@ -52,7 +94,12 @@ void main() {
 
     setUp(() {
       useCase = _FakeSubmitUseCase();
-      cubit = StudentSignInSubmitCubit(useCase);
+      cubit = StudentSignInSubmitCubit(
+        useCase,
+        getStudentAbsentFormListUseCase: _FakeGetStudentAbsentFormListUseCase(),
+        deleteStudentAbsenceRecordUseCase:
+            _FakeDeleteStudentAbsenceRecordUseCase(),
+      );
     });
 
     tearDown(() => cubit.close());
@@ -62,52 +109,52 @@ void main() {
       expect(cubit.isSubmitting, isFalse);
     });
 
-    test('on success: emits InProgress then Success and returns the result', () async {
-      const result = AttendanceActionResult(
-        success: true,
-        message: 'Signed-In successfully',
-      );
-      useCase.resultToReturn = result;
+    test(
+      'on success: emits InProgress then Success and returns the result',
+      () async {
+        const result = AttendanceActionResult(
+          success: true,
+          message: 'Signed-In successfully',
+        );
+        useCase.resultToReturn = result;
 
-      final expectation = expectLater(
-        cubit.stream,
-        emitsInOrder([
-          isA<StudentSignInSubmitInProgress>(),
-          isA<StudentSignInSubmitSuccess>(),
-        ]),
-      );
+        final expectation = expectLater(
+          cubit.stream,
+          emitsInOrder([
+            isA<StudentSignInSubmitInProgress>(),
+            isA<StudentSignInSubmitSuccess>(),
+          ]),
+        );
 
-      final returned = await cubit.submit(
-        request: _request,
-        isParent: false,
-      );
+        final returned = await cubit.submit(request: _request, isParent: false);
 
-      await expectation;
-      expect(returned, same(result));
-      expect(useCase.calls, 1);
-      expect(useCase.lastIsParent, isFalse);
-      expect(
-        (cubit.state as StudentSignInSubmitSuccess).result,
-        same(result),
-      );
-    });
+        await expectation;
+        expect(returned, same(result));
+        expect(useCase.calls, 1);
+        expect(useCase.lastIsParent, isFalse);
+        expect(
+          (cubit.state as StudentSignInSubmitSuccess).result,
+          same(result),
+        );
+      },
+    );
 
-    test('a success:false response is still a (non-throwing) Success state', () async {
-      const result = AttendanceActionResult(
-        success: false,
-        message: 'Already signed in',
-      );
-      useCase.resultToReturn = result;
+    test(
+      'a success:false response is still a (non-throwing) Success state',
+      () async {
+        const result = AttendanceActionResult(
+          success: false,
+          message: 'Already signed in',
+        );
+        useCase.resultToReturn = result;
 
-      final returned = await cubit.submit(
-        request: _request,
-        isParent: true,
-      );
+        final returned = await cubit.submit(request: _request, isParent: true);
 
-      expect(returned.success, isFalse);
-      expect(cubit.state, isA<StudentSignInSubmitSuccess>());
-      expect(useCase.lastIsParent, isTrue);
-    });
+        expect(returned.success, isFalse);
+        expect(cubit.state, isA<StudentSignInSubmitSuccess>());
+        expect(useCase.lastIsParent, isTrue);
+      },
+    );
 
     test('on error: emits InProgress then Failure and rethrows', () async {
       final error = Exception('boom');

@@ -15,9 +15,6 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
-import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/delete_student_absence_record_usecase.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_sign_in_request.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_state.dart';
@@ -200,108 +197,6 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
   }
 
   Future<String> _resolveStaffCode() => resolveStaffCodeForLoggedInUser();
-
-  bool _absenceDateMatchesCalendarDay(
-    String absenceDateRaw,
-    String targetYyyyMmDd,
-  ) {
-    final trimmed = absenceDateRaw.trim();
-    if (trimmed.isEmpty) return false;
-    if (trimmed.length >= 10 && trimmed.substring(0, 10) == targetYyyyMmDd) {
-      return true;
-    }
-    try {
-      final dt = DateTime.parse(trimmed).toLocal();
-      final norm =
-          '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
-      return norm == targetYyyyMmDd;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  /// Staff sign-in: for students marked absent on [attendanceDateYyyyMmDd],
-  /// delete absence records first (override sign-in).
-  Future<void> _deleteTodaysAbsenceRecordsBeforeStaffSignIn({
-    required String attendanceDateYyyyMmDd,
-    required String staffCode,
-    required List<StudentEntity> students,
-  }) async {
-    final allItems = <StudentAttendanceAbsentFormItem>[];
-
-    // The absent-form-list lookup is a best-effort PRE-step: it exists only to
-    // clear a same-day absence record before signing the student in. If it
-    // fails (e.g. the backend 500s on this endpoint), do NOT abort the whole
-    // sign-in — skip the deletion and let the sign-in POST run. Worst case the
-    // backend rejects the sign-in for a still-present absence record, which is a
-    // clear, actionable error; being unable to sign anyone in is worse.
-    try {
-      var page = 0;
-      const pageSize = 200;
-      while (true) {
-        final absentPage =
-            await serviceLocator<GetStudentAbsentFormListUseCase>()(
-              fromAbsenceDate: attendanceDateYyyyMmDd,
-              toAbsenceDate: attendanceDateYyyyMmDd,
-              page: page,
-              size: pageSize,
-            );
-        allItems.addAll(absentPage.items);
-        if (!absentPage.hasMore) break;
-        page++;
-        if (page > 100) break;
-      }
-    } catch (e) {
-      AppLogger.d(
-        '[StudentSignIn] absent-form-list lookup failed ($e); '
-        'proceeding to sign-in without clearing absence records',
-      );
-      return; // skip deletion, caller continues to the sign-in POST
-    }
-
-    final processedStudentCodes = <String>{};
-    for (final s in students) {
-      final sc = s.studentCode.trim();
-      if (sc.isEmpty || processedStudentCodes.contains(sc)) continue;
-
-      final matches = allItems.where((it) {
-        if (it.studentCode.trim() != sc) return false;
-        return _absenceDateMatchesCalendarDay(
-          it.absenceDate,
-          attendanceDateYyyyMmDd,
-        );
-      }).toList();
-
-      if (matches.isEmpty) continue;
-
-      final withCode = matches
-          .where((it) => (it.absenceRecordCode ?? '').trim().isNotEmpty)
-          .toList();
-      if (withCode.isEmpty) {
-        throw Exception(
-          'Cannot sign in ${s.fullName}: marked absent for '
-          'this day but the absence record could not be resolved. Refresh and try again.',
-        );
-      }
-
-      final room = s.classroomCode.trim();
-      StudentAttendanceAbsentFormItem chosen = withCode.first;
-      if (room.isNotEmpty) {
-        final byRoom = withCode
-            .where((it) => it.classroomCode.trim() == room)
-            .toList();
-        if (byRoom.isNotEmpty) {
-          chosen = byRoom.first;
-        }
-      }
-
-      await serviceLocator<DeleteStudentAbsenceRecordUseCase>()(
-        absenceRecordCode: chosen.absenceRecordCode!.trim(),
-        staffCode: staffCode,
-      );
-      processedStudentCodes.add(sc);
-    }
-  }
 
   Future<void> _submitSignIn() async {
     final gateState = _gateCubit.state;
@@ -536,10 +431,18 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       if (!isParent) {
         final staffCode = (request.staffCode ?? '').trim();
         if (staffCode.isNotEmpty) {
-          await _deleteTodaysAbsenceRecordsBeforeStaffSignIn(
+          await _submitCubit.clearTodaysAbsenceRecordsBeforeSignIn(
             attendanceDateYyyyMmDd: attendanceDate,
             staffCode: staffCode,
-            students: List<StudentEntity>.from(currentStudents),
+            students: currentStudents
+                .map(
+                  (s) => (
+                    studentCode: s.studentCode,
+                    classroomCode: s.classroomCode,
+                    fullName: s.fullName,
+                  ),
+                )
+                .toList(),
           );
         }
       }
