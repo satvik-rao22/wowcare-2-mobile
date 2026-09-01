@@ -31,6 +31,87 @@ import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 
+/// Resolves the parent persona's selected child and builds the
+/// [StudentAttendanceProfile] widget to open for them — shared by
+/// [AttendancePopupManager.openParentChildAttendance] and
+/// [_AttendancePopupOverlayState._openParentStudentAttendanceProfile], which
+/// differ only in how they navigate to the result (a fade route into the
+/// dashboard branch navigator vs. a plain `Navigator.push` — both documented
+/// GoRouter holdouts, kept in each call site).
+///
+/// Shows the appropriate error snackbar and returns null if a profile can't
+/// be built (no child linked, or resolution failed) — the caller should
+/// just skip navigation when this returns null.
+Future<Widget?> buildParentChildAttendanceProfile(BuildContext context) async {
+  try {
+    final parentChild = context.read<ParentChildCubit>();
+    await parentChild.ensureLoaded();
+
+    final selectedChild = parentChild.selectedChild;
+    if (selectedChild == null || selectedChild.code.trim().isEmpty) {
+      if (!context.mounted) return null;
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
+          content: Text('No child linked to this parent account.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return null;
+    }
+
+    String roomName = selectedChild.classroom.trim().isNotEmpty
+        ? selectedChild.classroom
+        : '—';
+    var isSignedIn = false;
+
+    try {
+      final useCase = serviceLocator<GetStudentSignOutFormListUseCase>();
+      final now = ServerTimeService.instance.now();
+      final date =
+          '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final page = await useCase(
+        fromAttendanceDate: date,
+        toAttendanceDate: date,
+        page: 0,
+        size: 200,
+      );
+      final match = page.items.where(
+        (i) => i.studentCode.trim() == selectedChild.code.trim(),
+      );
+      if (match.isNotEmpty) {
+        final row = match.first;
+        roomName = row.classroomName.trim().isNotEmpty
+            ? row.classroomName
+            : roomName;
+        isSignedIn = row.hasSignIn && !row.hasSignOut;
+      }
+    } catch (_) {
+      // Parents may not have sign-out form list access — keep defaults.
+    }
+
+    return StudentAttendanceProfile(
+      studentCode: selectedChild.code.trim(),
+      studentId: 0,
+      studentName: selectedChild.name,
+      studentPhotoUuid: null,
+      roomName: roomName,
+      isSignedIn: isSignedIn,
+      syncWithParentChildSelection: true,
+    );
+  } catch (_) {
+    if (!context.mounted) return null;
+    CoreUtils.showTopSnackBarFromSnackBar(
+      context: context,
+      snackBar: const SnackBar(
+        content: Text('Unable to open child attendance profile.'),
+        backgroundColor: AppColors.errorColor,
+      ),
+    );
+    return null;
+  }
+}
+
 class AttendancePopupManager {
   // Guards against the bottom-nav Attendance tab being tapped multiple times
   // in quick succession: without this, each tap re-enters this method before
@@ -119,51 +200,8 @@ class AttendancePopupManager {
     if (alreadyOnProfile) return;
 
     try {
-      final parentChild = context.read<ParentChildCubit>();
-      await parentChild.ensureLoaded();
-
-      final selectedChild = parentChild.selectedChild;
-      if (selectedChild == null || selectedChild.code.trim().isEmpty) {
-        if (!context.mounted) return;
-        CoreUtils.showTopSnackBarFromSnackBar(
-          context: context,
-          snackBar: const SnackBar(
-            content: Text('No child linked to this parent account.'),
-            backgroundColor: AppColors.warningColor,
-          ),
-        );
-        return;
-      }
-
-      String roomName = selectedChild.classroom.trim().isNotEmpty
-          ? selectedChild.classroom
-          : '—';
-      var isSignedIn = false;
-
-      try {
-        final useCase = serviceLocator<GetStudentSignOutFormListUseCase>();
-        final now = ServerTimeService.instance.now();
-        final date =
-            '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-        final page = await useCase(
-          fromAttendanceDate: date,
-          toAttendanceDate: date,
-          page: 0,
-          size: 200,
-        );
-        final match = page.items.where(
-          (i) => i.studentCode.trim() == selectedChild.code.trim(),
-        );
-        if (match.isNotEmpty) {
-          final row = match.first;
-          roomName = row.classroomName.trim().isNotEmpty
-              ? row.classroomName
-              : roomName;
-          isSignedIn = row.hasSignIn && !row.hasSignOut;
-        }
-      } catch (_) {
-        // Parents may not have sign-out form list access — keep defaults.
-      }
+      final profile = await buildParentChildAttendanceProfile(context);
+      if (profile == null) return;
 
       if (!context.mounted) return;
       // Reached from the bottom nav — every OTHER nav item (Dashboard,
@@ -175,20 +213,14 @@ class AttendancePopupManager {
       // pushed" instead of feeling like just another tab. A quick fade reads
       // much closer to a tab swap than a slide does.
       // GoRouter holdout (documented): deliberate deterministic branch-navigator / fade / dedup flow (see app_router.dart popAllShellBranchNavigators docs) — kept imperative.
-      navigatorState.push(_fadeRoute(
-        settings: const RouteSettings(
-          name: StudentAttendanceProfile.routeName,
+      navigatorState.push(
+        _fadeRoute(
+          settings: const RouteSettings(
+            name: StudentAttendanceProfile.routeName,
+          ),
+          builder: (_) => profile,
         ),
-        builder: (_) => StudentAttendanceProfile(
-          studentCode: selectedChild.code.trim(),
-          studentId: 0,
-          studentName: selectedChild.name,
-          studentPhotoUuid: null,
-          roomName: roomName,
-          isSignedIn: isSignedIn,
-          syncWithParentChildSelection: true,
-        ),
-      ));
+      );
     } catch (_) {
       if (!context.mounted) return;
       CoreUtils.showTopSnackBarFromSnackBar(
@@ -215,8 +247,7 @@ PageRouteBuilder<T> _fadeRoute<T>({
     settings: settings,
     transitionDuration: const Duration(milliseconds: 150),
     reverseTransitionDuration: const Duration(milliseconds: 150),
-    pageBuilder: (context, animation, secondaryAnimation) =>
-        builder(context),
+    pageBuilder: (context, animation, secondaryAnimation) => builder(context),
     transitionsBuilder: (context, animation, secondaryAnimation, child) =>
         FadeTransition(opacity: animation, child: child),
   );
@@ -1399,82 +1430,16 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
   }
 
   Future<void> _openParentStudentAttendanceProfile(BuildContext context) async {
-    try {
-      final parentChild = context.read<ParentChildCubit>();
-      await parentChild.ensureLoaded();
-
-      final selectedChild = parentChild.selectedChild;
-      if (selectedChild == null || selectedChild.code.trim().isEmpty) {
-        if (!context.mounted) return;
-        CoreUtils.showTopSnackBarFromSnackBar(
-          context: context,
-          snackBar: const SnackBar(
-            content: Text('No child linked to this parent account.'),
-            backgroundColor: AppColors.warningColor,
-          ),
-        );
-        return;
-      }
-
-      String roomName = selectedChild.classroom.trim().isNotEmpty
-          ? selectedChild.classroom
-          : '—';
-      var isSignedIn = false;
-
-      try {
-        final useCase = serviceLocator<GetStudentSignOutFormListUseCase>();
-        final now = ServerTimeService.instance.now();
-        final date =
-            '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-        final page = await useCase(
-          fromAttendanceDate: date,
-          toAttendanceDate: date,
-          page: 0,
-          size: 200,
-        );
-        final match = page.items.where(
-          (i) => i.studentCode.trim() == selectedChild.code.trim(),
-        );
-        if (match.isNotEmpty) {
-          final row = match.first;
-          roomName = row.classroomName.trim().isNotEmpty
-              ? row.classroomName
-              : roomName;
-          isSignedIn = row.hasSignIn && !row.hasSignOut;
-        }
-      } catch (_) {
-        // Parents may not have sign-out form list access.
-      }
-
-      if (!context.mounted) return;
-      // GoRouter holdout (documented): deliberate deterministic branch-navigator / fade / dedup flow (see app_router.dart popAllShellBranchNavigators docs) — kept imperative.
-      Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-          settings: const RouteSettings(
-            name: StudentAttendanceProfile.routeName,
-          ),
-          builder: (_) => StudentAttendanceProfile(
-            studentCode: selectedChild.code.trim(),
-            studentId: 0,
-            studentName: selectedChild.name,
-            studentPhotoUuid: null,
-            roomName: roomName,
-            isSignedIn: isSignedIn,
-            syncWithParentChildSelection: true,
-          ),
-        ),
-      );
-    } catch (_) {
-      if (!context.mounted) return;
-      CoreUtils.showTopSnackBarFromSnackBar(
-        context: context,
-        snackBar: const SnackBar(
-          content: Text('Unable to open child attendance profile.'),
-          backgroundColor: AppColors.errorColor,
-        ),
-      );
-    }
+    final profile = await buildParentChildAttendanceProfile(context);
+    if (profile == null || !context.mounted) return;
+    // GoRouter holdout (documented): deliberate deterministic branch-navigator / fade / dedup flow (see app_router.dart popAllShellBranchNavigators docs) — kept imperative.
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: StudentAttendanceProfile.routeName),
+        builder: (_) => profile,
+      ),
+    );
   }
 
   double _getTabHeight({
