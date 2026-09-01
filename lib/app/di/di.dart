@@ -2431,6 +2431,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<NotificationBadgeCubit>(
     () => NotificationBadgeCubit(
       realtime: serviceLocator<NotificationRealtimeDataSource>(),
+      getUnreadCounts: serviceLocator<GetNotificationUnreadCountsUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );

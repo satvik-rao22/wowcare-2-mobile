@@ -523,9 +523,8 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                       disabledTooltip: widget.activitiesEnabled
                           ? ''
                           : (widget.activitiesDisabledHint ??
-                                'You cannot record activities for absent, not marked, '
-                                    'or not signed-in students. Select only students with '
-                                    'green signed-in status today.'),
+                                'Activities can be recorded only when all '
+                                    'selected students are signed in.'),
                     ),
                     const SizedBox(height: 20),
                     _ActionButton(

@@ -176,6 +176,7 @@ abstract class StudentRepository {
     String? profilePhotoUrl,
     String? userCode,
     String? organizationCode,
+    String? relationshipDescription,
   });
 
   /// Fetches all guardians/parents for a school via `GET /api/v1/guardian`.

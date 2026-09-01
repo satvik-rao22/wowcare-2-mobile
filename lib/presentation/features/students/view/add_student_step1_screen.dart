@@ -807,12 +807,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
           }
 
           final relationLabel = (map['relation'] as String?)?.trim() ?? '';
-          final relationOther = (map['relationOther'] as String?)?.trim() ?? '';
-          final relationToStudent =
-              (relationLabel == 'Other' && relationOther.isNotEmpty
-                      ? relationOther
-                      : relationLabel)
-                  .toUpperCase();
+          final relationToStudent = relationLabel.toUpperCase();
 
           final bool primaryContact =
               map['isEmergencyContact'] as bool? ?? true;

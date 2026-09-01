@@ -33,8 +33,9 @@ class _ClassroomDropdownState extends State<ClassroomDropdown> {
           padding: const EdgeInsets.only(left: 4),
           decoration: const BoxDecoration(),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
+              Flexible(
                 child: Text(
                   widget.value,
                   maxLines: 1,

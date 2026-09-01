@@ -25,10 +25,13 @@ abstract class StaffClassroomRemoteDataSource {
   });
 
   /// Fetches the staff that can be assigned to a classroom (manage-staff list),
-  /// excluding [excludeClassroomCode].
+  /// excluding [excludeClassroomCode]. [primaryClassroomCodes] and
+  /// [designation] filter server-side, same as [getStaffClassrooms].
   Future<List<StaffClassroomItemModel>> getManageStaffList({
     required String schoolCode,
     required String excludeClassroomCode,
+    List<String>? primaryClassroomCodes,
+    List<String>? designation,
   });
 }
 
@@ -113,20 +116,37 @@ class StaffClassroomRemoteDataSourceImpl implements StaffClassroomRemoteDataSour
   Future<List<StaffClassroomItemModel>> getManageStaffList({
     required String schoolCode,
     required String excludeClassroomCode,
+    List<String>? primaryClassroomCodes,
+    List<String>? designation,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffClassroomsManageStaffList,
       ApiConstants.staffBaseUrl,
     );
 
+    final norm = (List<String>? v) =>
+        (v ?? []).map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+
+    final queryParameters = <String, dynamic>{
+      'schoolCode': schoolCode,
+      'excludeClassroomCode': excludeClassroomCode,
+      'status': const ['ACTIVE'],
+      'sort': 'name,asc',
+    };
+
+    final normPrimary = norm(primaryClassroomCodes);
+    if (normPrimary.isNotEmpty) {
+      queryParameters['primaryClassroomCodes'] = normPrimary;
+    }
+
+    final normDesignation = norm(designation);
+    if (normDesignation.isNotEmpty) {
+      queryParameters['designation'] = normDesignation;
+    }
+
     final response = await _client.get<dynamic>(
       endpoint,
-      queryParameters: <String, dynamic>{
-        'schoolCode': schoolCode,
-        'excludeClassroomCode': excludeClassroomCode,
-        'status': const ['ACTIVE'],
-        'sort': 'name,asc',
-      },
+      queryParameters: queryParameters,
     );
 
     final body = response.data;

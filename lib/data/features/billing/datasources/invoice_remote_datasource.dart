@@ -209,6 +209,11 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       queryParameters: <String, dynamic>{
         'organizationCode': organizationCode,
         'school': school,
+        // The backend now paginates this endpoint (default pageSize: 10).
+        // The cubit loads the full family list once and filters/searches
+        // client-side, so request a page large enough to cover any school's
+        // family count in one call rather than adding pagination UI.
+        'size': 1000,
       },
     );
     return FamilySummaryModel.listFromJson(response.data ?? {});

@@ -742,6 +742,15 @@ class _StudentScreenState extends State<StudentScreen> {
     ).any((s) => s.status.trim().toUpperCase() != 'ACTIVE');
   }
 
+  /// True when 2+ selected students span more than one classroom. Activities
+  /// can only be recorded for one classroom at a time.
+  bool _hasCrossClassroomSelection(List<Student> students) {
+    final selected = _getSelectedStudents(students);
+    if (selected.length < 2) return false;
+    final firstClassroom = selected.first.classroom;
+    return selected.any((s) => s.classroom != firstClassroom);
+  }
+
   String _resolveClassroomCodeForStudent(
     Student student, {
     required Map<String, String> classroomCodeByName,
@@ -1362,7 +1371,9 @@ class _StudentScreenState extends State<StudentScreen> {
                             canShowActivities && !hasInactiveSelected,
                         activitiesDisabledHint: hasInactiveSelected
                             ? 'You cannot record activities for inactive student.'
-                            : null,
+                            : (_hasCrossClassroomSelection(students)
+                                  ? 'Please select students from the same classroom.'
+                                  : null),
                         showAttendanceActions:
                             _currentPanel == StudentPanelType.attendance,
                         isAttendanceActionLoading: _isAttendanceActionLoading,

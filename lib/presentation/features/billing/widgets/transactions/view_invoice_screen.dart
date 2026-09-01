@@ -1,14 +1,25 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/data/services/file_download_service.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_list_entity.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_invoice_by_code_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_profile_usecase.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 class ViewInvoiceScreen extends StatefulWidget {
   const ViewInvoiceScreen({
@@ -38,6 +49,8 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
   // invoice is fetched by code here to match it, regardless of which list
   // this screen was opened from.
   InvoiceListItemEntity? _invoiceDetail;
+
+  bool _isDownloading = false;
 
   @override
   void initState() {
@@ -309,7 +322,201 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
     );
   }
 
+  /// School name + address for the PDF header — same storage/API sourcing
+  /// as [BillingSchoolHeader], fetched fresh here since that widget keeps
+  /// its resolved data private to itself.
+  Future<({String name, String address})> _fetchSchoolHeaderForPdf() async {
+    final storage = serviceLocator<StorageService>();
+    final fallbackName =
+        (await storage.getString(StorageKeys.selectedSchoolName) ?? '').trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
+    if (schoolCode.isEmpty) {
+      return (name: fallbackName.isEmpty ? 'School' : fallbackName, address: '');
+    }
+    try {
+      final client = serviceLocator<ApiClient>().client;
+      final response = await client.get<dynamic>(
+        ApiPaths.url(ApiPaths.schoolByCode(schoolCode)),
+      );
+      final body = response.data;
+      if (body is! Map) {
+        return (name: fallbackName.isEmpty ? 'School' : fallbackName, address: '');
+      }
+      final data = (body['data'] is Map ? body['data'] : body) as Map;
+
+      String pick(Map source, List<String> keys) {
+        for (final k in keys) {
+          final v = (source[k] ?? '').toString().trim();
+          if (v.isNotEmpty) return v;
+        }
+        return '';
+      }
+
+      final name = pick(data, ['name', 'schoolName']);
+      final addr = data['address'] is Map ? data['address'] as Map : data;
+      final addressParts = <String>[
+        pick(addr, ['line1', 'addressLine1', 'line', 'street', 'addressLine']),
+        pick(addr, ['line2', 'addressLine2']),
+        pick(addr, ['city']),
+        pick(addr, ['state', 'province']),
+        pick(addr, ['country']),
+        pick(addr, ['postalCode', 'zipCode', 'zipcode', 'zip']),
+      ].where((p) => p.isNotEmpty).toList();
+
+      return (
+        name: name.isNotEmpty ? name : (fallbackName.isEmpty ? 'School' : fallbackName),
+        address: addressParts.join(', '),
+      );
+    } catch (_) {
+      return (name: fallbackName.isEmpty ? 'School' : fallbackName, address: '');
+    }
+  }
+
+  /// Builds a single-page PDF mirroring exactly what's on screen (school
+  /// header, Billed for + classroom, invoice meta rows, the item row, and
+  /// the total) and returns its bytes.
+  Future<Uint8List> _buildInvoicePdfBytes() async {
+    final school = await _fetchSchoolHeaderForPdf();
+    final classroom = (_roomName ?? widget.transaction.classroom).trim();
+
+    final metaRows = <String>[
+      if (_invoiceNumberLabel != null) 'Invoice Number : $_invoiceNumberLabel',
+      if (_dueDateLabel != null) 'Due Date : $_dueDateLabel',
+      if (_invoicePeriodLabel != null) 'Invoice Period : $_invoicePeriodLabel',
+    ];
+    if (metaRows.isEmpty) {
+      metaRows.add('Invoice Date : ${_formatDate(widget.transaction.date)}');
+    }
+
+    final doc = pw.Document();
+    doc.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        build: (context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(
+              school.name,
+              style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
+            ),
+            if (school.address.isNotEmpty)
+              pw.Text(school.address, style: const pw.TextStyle(fontSize: 11)),
+            pw.SizedBox(height: 20),
+            pw.Text(
+              'Billed for : ${widget.transaction.studentName}',
+              style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+            ),
+            if (classroom.isNotEmpty)
+              pw.Text(classroom, style: const pw.TextStyle(fontSize: 11)),
+            pw.SizedBox(height: 14),
+            for (final row in metaRows) pw.Text(row, style: const pw.TextStyle(fontSize: 11)),
+            pw.SizedBox(height: 20),
+            pw.Container(
+              color: PdfColors.grey200,
+              padding: const pw.EdgeInsets.all(10),
+              child: pw.Column(
+                children: [
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('Description', style: const pw.TextStyle(fontSize: 11)),
+                      pw.Text('Amount', style: const pw.TextStyle(fontSize: 11)),
+                    ],
+                  ),
+                  pw.Divider(),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text(widget.transaction.displayDescription),
+                      pw.Text('\$${widget.transaction.amount.toStringAsFixed(2)}'),
+                    ],
+                  ),
+                  pw.SizedBox(height: 10),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(10),
+                    color: PdfColors.grey300,
+                    child: pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text('Total Amount',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        pw.Text(
+                          '\$${widget.transaction.amount.toStringAsFixed(2)}',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    return doc.save();
+  }
+
+  Future<void> _downloadInvoicePdf() async {
+    if (_isDownloading) return;
+    setState(() => _isDownloading = true);
+    try {
+      final bytes = await _buildInvoicePdfBytes();
+      final invoiceNumber =
+          _invoiceNumberLabel ?? widget.transaction.id.toString();
+      final fileName = 'Invoice_$invoiceNumber.pdf';
+      final downloadService = serviceLocator<FileDownloadService>();
+      final savedPath = await downloadService.saveFile(
+        fileData: bytes,
+        fileName: fileName,
+        assetCode: invoiceNumber,
+        mimeType: 'application/pdf',
+      );
+      if (!mounted) return;
+      if (savedPath == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Failed to save the invoice PDF',
+          isError: true,
+        );
+        return;
+      }
+      final opened = await downloadService.openFile(
+        filePath: savedPath,
+        fileName: fileName,
+        assetCode: invoiceNumber,
+        mimeType: 'application/pdf',
+      );
+      if (!mounted) return;
+      if (opened) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Invoice saved',
+          isSuccess: true,
+        );
+      } else {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Invoice saved, but no app could open it',
+          isWarning: true,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Error generating the invoice PDF: $e',
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _isDownloading = false);
+    }
+  }
+
   Widget _buildBottomBar() {
+    final isParent = context.read<RoleCubit>().isParent;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -319,21 +526,34 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
             gradient: AppColors.buildPrimaryGradient(),
           ),
           child: TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: isParent
+                ? (_isDownloading ? null : _downloadInvoicePdf)
+                : () => Navigator.of(context).pop(),
             style: TextButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: Text(
-              'Send Invoice',
-              style: TextStyle(
-                color: AppColors.billingButtonTextColor,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            child: isParent && _isDownloading
+                ? SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(
+                        AppColors.billingButtonTextColor,
+                      ),
+                    ),
+                  )
+                : Text(
+                    isParent ? 'Download' : 'Send Invoice',
+                    style: TextStyle(
+                      color: AppColors.billingButtonTextColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
           ),
         ),
       ),

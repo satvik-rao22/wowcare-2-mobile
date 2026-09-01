@@ -110,7 +110,7 @@ class MessageEntityRemoteDataSourceImpl
     final body = <String, dynamic>{
       'conversationCode': conversationCode,
       'type': 'TEXT',
-      'content': text,
+      'content': _wrapAsHtml(text),
       // Backend tracks attachments by the messaging-service's own integer id
       // (assigned at registration — see ChatAttachmentUploader.upload), not
       // by the document-service asset code. Matches
@@ -120,8 +120,10 @@ class MessageEntityRemoteDataSourceImpl
       if (isPrivate) 'isPrivate': true,
       if (privateParentUserCode != null)
         'privateParentUserCode': privateParentUserCode,
-      // Backend uses 'replyToMessageId' (confirmed from MessageModel.fromJson)
-      if (threadParentCode != null) 'replyToMessageId': threadParentCode,
+      // Backend expects 'replyToMessageCode' on create (distinct from the
+      // 'replyToMessageId' key it echoes back on read — see
+      // MessageEntityDto.fromJson).
+      if (threadParentCode != null) 'replyToMessageCode': threadParentCode,
       if (activeRole.isNotEmpty) 'role': activeRole,
     };
 
@@ -133,6 +135,20 @@ class MessageEntityRemoteDataSourceImpl
     );
   }
 
+  /// Wraps plain/inline-formatted content in a block-level `<p>` tag, which
+  /// the messaging service requires — sending un-wrapped content (even a
+  /// single word like "Hi") 500s.
+  static String _wrapAsHtml(String content) {
+    final trimmed = content.trim();
+    if (RegExp(
+      r'^<(p|div|ul|ol|blockquote)[\s>]',
+      caseSensitive: false,
+    ).hasMatch(trimmed)) {
+      return trimmed;
+    }
+    return '<p>$trimmed</p>';
+  }
+
   @override
   Future<MessageEntityDto> editMessage({
     required String messageCode,
@@ -141,7 +157,7 @@ class MessageEntityRemoteDataSourceImpl
     final endpoint = _url(ApiPaths.messagingMessage(messageCode));
     final response = await apiClient.client.put(
       endpoint,
-      data: {'content': newText},
+      data: {'content': _wrapAsHtml(newText)},
     );
     _assertSuccess(response.data, 'Failed to edit message');
 

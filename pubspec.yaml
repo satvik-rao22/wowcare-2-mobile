@@ -44,6 +44,7 @@ dependencies:
   flutter_spinkit: ^5.2.1
   file_saver: ^0.2.12
   open_filex: ^4.7.0
+  pdf: ^3.11.1
   flutter_svg: ^2.0.17
   flutter_switch: ^0.3.2
   flutter_tindercard:
