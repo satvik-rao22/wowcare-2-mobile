@@ -20,6 +20,7 @@ import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/guardian_code_resolver.dart';
 import '../../../../../domain/features/activity/entities/activity_attachment.dart';
 import '../../../../../domain/features/activity/entities/activity_detail.dart';
+import '../../../../../domain/features/activity/entities/activity_parameter_value.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../cubit/activity_editor_cubit.dart';
@@ -520,14 +521,14 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
 
   void _debugIncidentParameterValues(
     String source,
-    List<Map<String, dynamic>> parameterValues,
+    List<ActivityParameterValue> parameterValues,
   ) {
     // Log only the non-sensitive SHAPE of the payload — the parameter codes
     // present and the count — never the values. Incident parameter values
     // carry free-text incident/health details, signature payloads, and
     // staff/guardian codes, none of which may reach logs/Crashlytics.
     final codes = parameterValues
-        .map((p) => (p['parameterCode'] ?? '').toString())
+        .map((p) => p.parameterCode)
         .where((c) => c.isNotEmpty)
         .toList();
     debugPrint(
@@ -635,7 +636,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
     }
   }
 
-  List<Map<String, dynamic>> _incidentSignerParameterValuesForPatch({
+  List<ActivityParameterValue> _incidentSignerParameterValuesForPatch({
     required List<ActivityTypeParameter> parameters,
     required String staffPresentCode,
     String? staffSignerCode,
@@ -662,29 +663,29 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       const ['Click to Sign - Parent'],
       contains: const ['click to sign - parent'],
     );
-    return <Map<String, dynamic>>[
+    return <ActivityParameterValue>[
       if (staffPresentParamCode != null &&
           staffPresentParamCode.trim().isNotEmpty &&
           staffPresentCode.trim().isNotEmpty)
-        {
-          'parameterCode': staffPresentParamCode.trim(),
-          'value': staffPresentCode.trim(),
-        },
+        ActivityParameterValue(
+          parameterCode: staffPresentParamCode.trim(),
+          value: staffPresentCode.trim(),
+        ),
       if (staffSignParamCode != null && staffSignParamCode.trim().isNotEmpty)
-        {
-          'parameterCode': staffSignParamCode.trim(),
-          'value': (staffSignerCode ?? '').trim(),
-        },
+        ActivityParameterValue(
+          parameterCode: staffSignParamCode.trim(),
+          value: (staffSignerCode ?? '').trim(),
+        ),
       if (adminSignParamCode != null && adminSignParamCode.trim().isNotEmpty)
-        {
-          'parameterCode': adminSignParamCode.trim(),
-          'value': (adminSignerCode ?? '').trim(),
-        },
+        ActivityParameterValue(
+          parameterCode: adminSignParamCode.trim(),
+          value: (adminSignerCode ?? '').trim(),
+        ),
       if (parentSignParamCode != null && parentSignParamCode.trim().isNotEmpty)
-        {
-          'parameterCode': parentSignParamCode.trim(),
-          'value': (parentSignerCode ?? '').trim(),
-        },
+        ActivityParameterValue(
+          parameterCode: parentSignParamCode.trim(),
+          value: (parentSignerCode ?? '').trim(),
+        ),
     ];
   }
 
@@ -762,7 +763,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
 
   /// Dropdown-style parameters must use [selectedOptionCode]; plain BOOLEAN
   /// uses JSON [value] (bool). Display strings like "Yes"/"No" are rejected.
-  Map<String, dynamic>? _firstAidParameterEntry(
+  ActivityParameterValue? _firstAidParameterEntry(
     ActivityTypeParameter param,
     bool given,
   ) {
@@ -820,23 +821,26 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       if (pick != null) {
         final oc = optionApiCode(pick);
         if (oc != null) {
-          return {'parameterCode': pc, 'selectedOptionCode': oc};
+          return ActivityParameterValue(
+              parameterCode: pc, selectedOptionCode: oc);
         }
       }
       if (sorted.length == 2) {
         final o = sorted[given ? 1 : 0];
         final oc = optionApiCode(o);
         if (oc != null) {
-          return {'parameterCode': pc, 'selectedOptionCode': oc};
+          return ActivityParameterValue(
+              parameterCode: pc, selectedOptionCode: oc);
         }
       }
     }
 
     final dt = (param.dataType ?? '').toUpperCase();
     if (dt == 'BOOLEAN') {
-      return {'parameterCode': pc, 'value': given};
+      return ActivityParameterValue(parameterCode: pc, value: given);
     }
-    return {'parameterCode': pc, 'value': given ? 'Yes' : 'No'};
+    return ActivityParameterValue(
+        parameterCode: pc, value: given ? 'Yes' : 'No');
   }
 
   @override
@@ -1770,31 +1774,36 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
               signingRecordCode: gCode,
             )
           : '';
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffCode.trim().isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffCode},
+          ActivityParameterValue(parameterCode: staffParamCode, value: staffCode),
         if (whatParamCode != null && whatParamCode.trim().isNotEmpty)
-          {'parameterCode': whatParamCode, 'value': whatValueForParam},
+          ActivityParameterValue(
+              parameterCode: whatParamCode, value: whatValueForParam),
         if (firstAidEntry != null) firstAidEntry,
         if (notesParamCode != null &&
             notesParamCode.trim().isNotEmpty &&
             !sameWhatAndNotes)
-          {'parameterCode': notesParamCode, 'value': additionalNotes},
+          ActivityParameterValue(
+              parameterCode: notesParamCode, value: additionalNotes),
         if (staffSignParamCode != null && staffSignParamCode.trim().isNotEmpty)
-          {'parameterCode': staffSignParamCode, 'value': staffSignValue},
+          ActivityParameterValue(
+              parameterCode: staffSignParamCode, value: staffSignValue),
         if (_isAdminDesignation &&
             adminSignParamCode != null &&
             adminSignParamCode.trim().isNotEmpty)
-          {'parameterCode': adminSignParamCode, 'value': adminSignValue},
+          ActivityParameterValue(
+              parameterCode: adminSignParamCode, value: adminSignValue),
         if (parentSignParamCode != null &&
             parentSignParamCode.trim().isNotEmpty)
-          {'parameterCode': parentSignParamCode, 'value': parentSignValue},
+          ActivityParameterValue(
+              parameterCode: parentSignParamCode, value: parentSignValue),
       ];
       _debugIncidentParameterValues('create', parameterValues);
 
@@ -2173,41 +2182,43 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
               );
             })()
           : '';
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             creatorStaffCodeForIncident.isNotEmpty)
-          {
-            'parameterCode': staffParamCode,
-            'value': creatorStaffCodeForIncident,
-          },
+          ActivityParameterValue(
+            parameterCode: staffParamCode,
+            value: creatorStaffCodeForIncident,
+          ),
         if (whatParamCode != null && whatParamCode.trim().isNotEmpty)
-          {'parameterCode': whatParamCode, 'value': whatValueForParam},
+          ActivityParameterValue(
+              parameterCode: whatParamCode, value: whatValueForParam),
         if (firstAidEntry != null) firstAidEntry,
         if (notesParamCode != null &&
             notesParamCode.trim().isNotEmpty &&
             !sameWhatAndNotes)
-          {'parameterCode': notesParamCode, 'value': additionalNotes},
+          ActivityParameterValue(
+              parameterCode: notesParamCode, value: additionalNotes),
         if (staffSignParamCode != null && staffSignParamCode.trim().isNotEmpty)
-          {
-            'parameterCode': staffSignParamCode,
-            'value': resolvedStaffSignerValue,
-          },
+          ActivityParameterValue(
+            parameterCode: staffSignParamCode,
+            value: resolvedStaffSignerValue,
+          ),
         if (adminSignParamCode != null && adminSignParamCode.trim().isNotEmpty)
-          {
-            'parameterCode': adminSignParamCode,
-            'value': resolvedAdminSignerValue,
-          },
+          ActivityParameterValue(
+            parameterCode: adminSignParamCode,
+            value: resolvedAdminSignerValue,
+          ),
         if (parentSignParamCode != null &&
             parentSignParamCode.trim().isNotEmpty)
-          {
-            'parameterCode': parentSignParamCode,
-            'value': resolvedParentSignerValue,
-          },
+          ActivityParameterValue(
+            parameterCode: parentSignParamCode,
+            value: resolvedParentSignerValue,
+          ),
       ];
       _debugIncidentParameterValues('update', parameterValues);
 

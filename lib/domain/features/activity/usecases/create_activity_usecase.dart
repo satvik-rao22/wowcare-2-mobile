@@ -1,6 +1,7 @@
 import 'package:wowcare/core/util/api_error_handler.dart';
 
 import '../entities/activity_attachment.dart';
+import '../entities/activity_parameter_value.dart';
 import '../repositories/activity_repository.dart';
 
 class CreateActivityUseCase {
@@ -23,7 +24,7 @@ class CreateActivityUseCase {
     String? napReminderUserCode,
     String? napReminderRole,
     bool? requireAdminApproval,
-    List<Map<String, dynamic>> parameterValues = const [],
+    List<ActivityParameterValue> parameterValues = const [],
     List<ActivityAttachment> attachments = const [],
   }) async {
     try {

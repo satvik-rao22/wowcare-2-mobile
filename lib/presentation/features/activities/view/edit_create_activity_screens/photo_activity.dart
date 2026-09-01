@@ -22,6 +22,7 @@ import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_attachment.dart';
+import '../../../../../domain/features/activity/entities/activity_parameter_value.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../cubit/activity_editor_cubit.dart';
@@ -1059,46 +1060,46 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
         details.parameters,
         exactName: 'upload photo',
       );
-      final createParameterValues = <Map<String, dynamic>>[
+      final createParameterValues = <ActivityParameterValue>[
         if (_findParameterCode(details.parameters, exactName: 'date') != null)
-          {
-            'parameterCode': _findParameterCode(
+          ActivityParameterValue(
+            parameterCode: _findParameterCode(
               details.parameters,
               exactName: 'date',
-            ),
-            'value': localDate,
-          },
+            )!,
+            value: localDate,
+          ),
         if (_findParameterCode(details.parameters, exactName: 'time') != null)
-          {
-            'parameterCode': _findParameterCode(
+          ActivityParameterValue(
+            parameterCode: _findParameterCode(
               details.parameters,
               exactName: 'time',
-            ),
-            'value': localTime,
-          },
+            )!,
+            value: localTime,
+          ),
         if (_findParameterCode(details.parameters, contains: 'staff') != null)
-          {
-            'parameterCode': _findParameterCode(
+          ActivityParameterValue(
+            parameterCode: _findParameterCode(
               details.parameters,
               contains: 'staff',
-            ),
-            'value': staffPresentCode,
-          },
+            )!,
+            value: staffPresentCode,
+          ),
         if (descriptionTrim.isNotEmpty &&
             _findParameterCode(details.parameters, exactName: 'description') !=
                 null)
-          {
-            'parameterCode': _findParameterCode(
+          ActivityParameterValue(
+            parameterCode: _findParameterCode(
               details.parameters,
               exactName: 'description',
-            ),
-            'value': descriptionTrim,
-          },
+            )!,
+            value: descriptionTrim,
+          ),
         if (uploadPhotoCode != null && uploadAssetCodes.isNotEmpty)
-          {
-            'parameterCode': uploadPhotoCode,
-            'value': uploadAssetCodes.join(','),
-          },
+          ActivityParameterValue(
+            parameterCode: uploadPhotoCode,
+            value: uploadAssetCodes.join(','),
+          ),
       ];
 
       // Shared media flow (photos + videos): create one shared activity per attachment.
@@ -1328,18 +1329,21 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
           .map((row) => (row['assetCode'] ?? '').toString().trim())
           .where((code) => code.isNotEmpty)
           .toList();
-      final parameterValues = <Map<String, dynamic>>[
-        if (dateCode != null) {'parameterCode': dateCode, 'value': localDate},
-        if (timeCode != null) {'parameterCode': timeCode, 'value': localTime},
+      final parameterValues = <ActivityParameterValue>[
+        if (dateCode != null)
+          ActivityParameterValue(parameterCode: dateCode, value: localDate),
+        if (timeCode != null)
+          ActivityParameterValue(parameterCode: timeCode, value: localTime),
         if (staffCodeParam != null)
-          {'parameterCode': staffCodeParam, 'value': staffPresentCode},
+          ActivityParameterValue(
+              parameterCode: staffCodeParam, value: staffPresentCode),
         if (descriptionCode != null && desc.isNotEmpty)
-          {'parameterCode': descriptionCode, 'value': desc},
+          ActivityParameterValue(parameterCode: descriptionCode, value: desc),
         if (uploadMediaCode != null && uploadAssetCodes.isNotEmpty)
-          {
-            'parameterCode': uploadMediaCode,
-            'value': uploadAssetCodes.join(','),
-          },
+          ActivityParameterValue(
+            parameterCode: uploadMediaCode,
+            value: uploadAssetCodes.join(','),
+          ),
       ];
 
       final targets = studentMapsForScopedActivityUpdate(

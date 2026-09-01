@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_detail.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_type_details.dart';
 import 'package:wowcare/domain/features/activity/usecases/approve_activity_usecase.dart';
@@ -120,7 +121,7 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     String? napReminderUserCode,
     String? napReminderRole,
     bool? requireAdminApproval,
-    List<Map<String, dynamic>> parameterValues = const [],
+    List<ActivityParameterValue> parameterValues = const [],
     List<ActivityAttachment> attachments = const [],
   }) =>
       _singleFlight(
@@ -152,7 +153,7 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     required String staffCode,
     required String activityDate,
     required String description,
-    List<Map<String, dynamic>> parameterValues = const [],
+    List<ActivityParameterValue> parameterValues = const [],
     List<Map<String, dynamic>> attachments = const [],
   }) =>
       _singleFlight(
@@ -187,7 +188,7 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     required String description,
     bool? requireAdminApproval,
     required List<ActivityAttachment> attachments,
-    List<Map<String, dynamic>> parameterValues = const [],
+    List<ActivityParameterValue> parameterValues = const [],
   }) =>
       _singleFlight(
         'createShared:$activityTypeCode:$classroomCode:${studentCodes.join(',')}:$activityDate',

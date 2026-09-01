@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/activity/entities/activity_parameter_value.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../utils/activity_description_limits.dart';
 import '../utils/activity_patch_attachments.dart';
@@ -639,7 +640,7 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
         .toList();
   }
 
-  List<Map<String, dynamic>> _buildParameterValues(
+  List<ActivityParameterValue> _buildParameterValues(
     dynamic details,
     String description,
     String staffCode,
@@ -669,21 +670,24 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     final localTime = localTimeHms;
     final staffPresentCode = (_staffPresentCode ?? staffCode).trim();
 
-    return <Map<String, dynamic>>[
+    return <ActivityParameterValue>[
       if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-        {'parameterCode': dateParamCode, 'value': localDate},
+        ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
       if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-        {'parameterCode': timeParamCode, 'value': localTime},
+        ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
       if (staffParamCode != null &&
           staffParamCode.trim().isNotEmpty &&
           staffPresentCode.isNotEmpty)
-        {'parameterCode': staffParamCode, 'value': staffPresentCode},
+        ActivityParameterValue(
+            parameterCode: staffParamCode, value: staffPresentCode),
       if (descParamCode != null &&
           descParamCode.trim().isNotEmpty &&
           description.isNotEmpty)
-        {'parameterCode': descParamCode, 'value': description},
+        ActivityParameterValue(
+            parameterCode: descParamCode, value: description),
       if (amountParamCode != null && amountParamCode.trim().isNotEmpty)
-        {'parameterCode': amountParamCode, 'value': amountOz.toString()},
+        ActivityParameterValue(
+            parameterCode: amountParamCode, value: amountOz.toString()),
     ];
   }
 }

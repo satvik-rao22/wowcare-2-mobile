@@ -15,6 +15,7 @@ import '../../../../../core/storage/storage_service.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
+import '../../../../../domain/features/activity/entities/activity_parameter_value.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../cubit/activity_editor_cubit.dart';
@@ -546,8 +547,8 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
     return null;
   }
 
-  List<Map<String, dynamic>> _buildExtraParameterValueEntries() {
-    final out = <Map<String, dynamic>>[];
+  List<ActivityParameterValue> _buildExtraParameterValueEntries() {
+    final out = <ActivityParameterValue>[];
     final bathroomOc = _optionCodeForBathroomTypeLabel(
       _selectedBathroomType ?? '',
     );
@@ -556,7 +557,8 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
       final dt = (p.dataType ?? '').toUpperCase();
       if (dt == 'BOOLEAN') {
         final b = _boolValueForParameter(p);
-        out.add({'parameterCode': p.code, 'value': b ? 'true' : 'false'});
+        out.add(ActivityParameterValue(
+            parameterCode: p.code, value: b ? 'true' : 'false'));
         continue;
       }
       if (dt == 'DROPDOWN' || dt == 'SELECT' || dt == 'MULTISELECT') {
@@ -828,7 +830,7 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
     }
   }
 
-  Map<String, dynamic>? _paramForOptionOrValue(
+  ActivityParameterValue? _paramForOptionOrValue(
     ActivityTypeParameter? param,
     String uiLabel, {
     String? restrictParentOptionCode,
@@ -853,14 +855,14 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
       if (matchesLabel || matchesOptionCode || matchesRawCode) {
         final selectedOptionCode = oc.isNotEmpty ? oc : rc;
         if (selectedOptionCode.isNotEmpty) {
-          return {
-            'parameterCode': param.code,
-            'selectedOptionCode': selectedOptionCode,
-          };
+          return ActivityParameterValue(
+            parameterCode: param.code,
+            selectedOptionCode: selectedOptionCode,
+          );
         }
       }
     }
-    return {'parameterCode': param.code, 'value': v};
+    return ActivityParameterValue(parameterCode: param.code, value: v);
   }
 
   Future<void> _submitCreateActivity() async {
@@ -1072,9 +1074,9 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
       );
       final subEntry = _paramForOptionOrValue(subParam, _selectedSubType!);
       if (typeEntry == null ||
-          !typeEntry.containsKey('selectedOptionCode') ||
+          (typeEntry.selectedOptionCode ?? '').isEmpty ||
           subEntry == null ||
-          !subEntry.containsKey('selectedOptionCode')) {
+          (subEntry.selectedOptionCode ?? '').isEmpty) {
         if (!mounted) return;
         CoreUtils.showTopSnackBar(
           context: context,
@@ -1086,17 +1088,19 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
       }
 
       // Build parameterValues in backend-required shape (supports multi-student fan-out via studentCodes).
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+              parameterCode: staffParamCode, value: staffPresentCode),
         if (descParamCode != null && descParamCode.trim().isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+              parameterCode: descParamCode, value: description),
         typeEntry,
         subEntry,
         ..._buildExtraParameterValueEntries(),
@@ -1299,9 +1303,9 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
       );
       final subEntry = _paramForOptionOrValue(subParam, _selectedSubType!);
       if (typeEntry == null ||
-          !typeEntry.containsKey('selectedOptionCode') ||
+          (typeEntry.selectedOptionCode ?? '').isEmpty ||
           subEntry == null ||
-          !subEntry.containsKey('selectedOptionCode')) {
+          (subEntry.selectedOptionCode ?? '').isEmpty) {
         if (!mounted) return;
         CoreUtils.showTopSnackBar(
           context: context,
@@ -1312,17 +1316,19 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
         return;
       }
 
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+              parameterCode: staffParamCode, value: staffPresentCode),
         if (descParamCode != null && descParamCode.trim().isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+              parameterCode: descParamCode, value: description),
         typeEntry,
         subEntry,
         ..._buildExtraParameterValueEntries(),

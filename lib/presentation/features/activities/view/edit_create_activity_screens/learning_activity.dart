@@ -18,6 +18,7 @@ import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_attachment.dart';
+import '../../../../../domain/features/activity/entities/activity_parameter_value.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../cubit/activity_editor_cubit.dart';
@@ -398,7 +399,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
 
   /// Maps a UI label to [selectedOptionCode] only for dropdown-like parameters.
   /// Other types must use [value] — the API rejects [selectedOptionCode] otherwise.
-  Map<String, dynamic>? _paramEntryForOption(
+  ActivityParameterValue? _paramEntryForOption(
     ActivityTypeParameter? param,
     String label,
   ) {
@@ -414,12 +415,13 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
         if (ol.isNotEmpty && ol.toLowerCase() == v.toLowerCase()) {
           final oc = (o.optionCode ?? o.code).trim();
           if (oc.isNotEmpty) {
-            return {'parameterCode': param.code, 'selectedOptionCode': oc};
+            return ActivityParameterValue(
+                parameterCode: param.code, selectedOptionCode: oc);
           }
         }
       }
     }
-    return {'parameterCode': param.code, 'value': v};
+    return ActivityParameterValue(parameterCode: param.code, value: v);
   }
 
   ActivityTypeParameter? _findActivityNameParameter(
@@ -831,32 +833,32 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
       final activityNameParam = _findActivityNameParameter(details.parameters);
       final categoryParam = _findCategoryParameter(details.parameters);
 
-      Map<String, dynamic>? activityEntry = _paramEntryForOption(
+      ActivityParameterValue? activityEntry = _paramEntryForOption(
         activityNameParam,
         _selectedActivityType!.trim(),
       );
       if (activityEntry == null && _selectedActivityType!.trim().isNotEmpty) {
         final c = findParamCode('activity') ?? findParamCode('learning');
         if (c != null && c.trim().isNotEmpty) {
-          activityEntry = {
-            'parameterCode': c,
-            'value': _selectedActivityType!.trim(),
-          };
+          activityEntry = ActivityParameterValue(
+            parameterCode: c,
+            value: _selectedActivityType!.trim(),
+          );
         }
       }
 
       final categoryValue = _selectedCategory!.trim();
-      Map<String, dynamic>? categoryEntry;
+      ActivityParameterValue? categoryEntry;
       if (categoryParam != null && categoryValue.isNotEmpty) {
         categoryEntry = _paramEntryForOption(categoryParam, categoryValue);
       }
       if (categoryEntry == null && categoryValue.isNotEmpty) {
         final fallbackCode = findParamCode('categor');
         if (fallbackCode != null && fallbackCode.trim().isNotEmpty) {
-          categoryEntry = {
-            'parameterCode': fallbackCode,
-            'value': categoryValue,
-          };
+          categoryEntry = ActivityParameterValue(
+            parameterCode: fallbackCode,
+            value: categoryValue,
+          );
         }
       }
 
@@ -866,17 +868,19 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
       final localTime = resolvedActivityTime.localTimeHms;
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+              parameterCode: staffParamCode, value: staffPresentCode),
         if (descParamCode != null && descParamCode.trim().isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+              parameterCode: descParamCode, value: description),
         if (activityEntry != null) activityEntry,
         if (categoryEntry != null) categoryEntry,
       ];
@@ -1106,32 +1110,32 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
       final activityNameParam = _findActivityNameParameter(details.parameters);
       final categoryParam = _findCategoryParameter(details.parameters);
 
-      Map<String, dynamic>? activityEntry = _paramEntryForOption(
+      ActivityParameterValue? activityEntry = _paramEntryForOption(
         activityNameParam,
         _selectedActivityType!.trim(),
       );
       if (activityEntry == null && _selectedActivityType!.trim().isNotEmpty) {
         final c = findParamCode('activity') ?? findParamCode('learning');
         if (c != null && c.trim().isNotEmpty) {
-          activityEntry = {
-            'parameterCode': c,
-            'value': _selectedActivityType!.trim(),
-          };
+          activityEntry = ActivityParameterValue(
+            parameterCode: c,
+            value: _selectedActivityType!.trim(),
+          );
         }
       }
 
       final categoryValue = _selectedCategory!.trim();
-      Map<String, dynamic>? categoryEntry;
+      ActivityParameterValue? categoryEntry;
       if (categoryParam != null && categoryValue.isNotEmpty) {
         categoryEntry = _paramEntryForOption(categoryParam, categoryValue);
       }
       if (categoryEntry == null && categoryValue.isNotEmpty) {
         final fallbackCode = findParamCode('categor');
         if (fallbackCode != null && fallbackCode.trim().isNotEmpty) {
-          categoryEntry = {
-            'parameterCode': fallbackCode,
-            'value': categoryValue,
-          };
+          categoryEntry = ActivityParameterValue(
+            parameterCode: fallbackCode,
+            value: categoryValue,
+          );
         }
       }
 
@@ -1141,17 +1145,19 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
       final localTime = resolvedActivityTime.localTimeHms;
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+              parameterCode: staffParamCode, value: staffPresentCode),
         if (descParamCode != null && descParamCode.trim().isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+              parameterCode: descParamCode, value: description),
         if (activityEntry != null) activityEntry,
         if (categoryEntry != null) categoryEntry,
       ];

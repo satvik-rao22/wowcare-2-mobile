@@ -17,6 +17,7 @@ import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_attachment.dart';
+import '../../../../../domain/features/activity/entities/activity_parameter_value.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../cubit/activity_editor_cubit.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
@@ -566,19 +567,21 @@ class _OutdoorActivityViewState extends State<_OutdoorActivityView> {
       final localTime = resolvedActivityTime.localTimeHms;
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+              parameterCode: staffParamCode, value: staffPresentCode),
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+              parameterCode: descParamCode, value: description),
       ];
 
       final message = await _editor.createActivity(
@@ -1021,19 +1024,21 @@ class _OutdoorActivityViewState extends State<_OutdoorActivityView> {
       final localTime = resolvedActivityTime.localTimeHms;
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+              parameterCode: staffParamCode, value: staffPresentCode),
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+              parameterCode: descParamCode, value: description),
       ];
 
       final patchAttachments = attachmentsForActivityPatchRequest(mergedRows);

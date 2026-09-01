@@ -2,6 +2,7 @@ import '../entities/activity_asset_presign.dart';
 import '../entities/activity_attachment.dart';
 import '../entities/activity_detail.dart';
 import '../entities/activity_feed_row.dart';
+import '../entities/activity_parameter_value.dart';
 import '../entities/activity_setting.dart';
 import '../entities/activity_type_details.dart';
 import '../entities/activity_type_summary.dart';
@@ -75,7 +76,7 @@ abstract class ActivityRepository {
     required String staffCode,
     required String activityDate,
     required String description,
-    List<Map<String, dynamic>> parameterValues = const [],
+    List<ActivityParameterValue> parameterValues = const [],
     List<Map<String, dynamic>> attachments = const [],
   });
 
@@ -115,7 +116,7 @@ abstract class ActivityRepository {
     String? napReminderUserCode,
     String? napReminderRole,
     bool? requireAdminApproval,
-    List<Map<String, dynamic>> parameterValues,
+    List<ActivityParameterValue> parameterValues,
     List<ActivityAttachment> attachments,
   });
 
@@ -133,7 +134,7 @@ abstract class ActivityRepository {
     required String description,
     bool? requireAdminApproval,
     required List<ActivityAttachment> attachments,
-    List<Map<String, dynamic>> parameterValues,
+    List<ActivityParameterValue> parameterValues,
   });
 
   /// Creates upload sessions via `POST /api/v2/activities/upload-sessions`.
