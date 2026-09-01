@@ -241,6 +241,7 @@ import '../../domain/features/attendance/usecases/delete_student_absence_record_
 import '../../domain/features/attendance/usecases/delete_staff_absence_record_usecase.dart';
 import '../../domain/features/attendance/usecases/fetch_student_attendance_profile_usecase.dart';
 import '../../presentation/features/attendance/cubit/student_attendance_profile_fetch_cubit.dart';
+import '../../presentation/features/attendance/cubit/staff_attendance_profile_fetch_cubit.dart';
 import '../../domain/features/attendance/usecases/fetch_student_attendance_profile_absent_toggle_usecase.dart';
 import '../../domain/features/attendance/usecases/fetch_staff_attendance_profile_usecase.dart';
 import '../../domain/features/attendance/usecases/fetch_staff_attendance_profile_absent_toggle_usecase.dart';
@@ -1315,6 +1316,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
       .registerFactory<FetchStaffAttendanceProfileAbsentToggleUseCase>(
         () => FetchStaffAttendanceProfileAbsentToggleUseCase(serviceLocator()),
       );
+  serviceLocator.registerFactory<StaffAttendanceProfileFetchCubit>(
+    () => StaffAttendanceProfileFetchCubit(
+      getStaffProfileUseCase: serviceLocator(),
+      fetchStaffAttendanceProfileUseCase: serviceLocator(),
+      fetchStaffAttendanceProfileAbsentToggleUseCase: serviceLocator(),
+      getStaffTodaySignInStatusUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<GetStudentAttendanceAbsentViewUseCase>(
     () => GetStudentAttendanceAbsentViewUseCase(serviceLocator()),
   );

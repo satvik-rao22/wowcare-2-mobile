@@ -21,16 +21,11 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/fetch_staff_attendance_profile_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/fetch_staff_attendance_profile_absent_toggle_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_profile_fetch_cubit.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_profile_query.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_profile_absent_toggle_query.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/staff_attendance_vertical_popup.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
@@ -461,6 +456,12 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   _StaffModel? staff;
   _AttendanceReportModel? attendanceReport;
   String? _todayStatusRaw;
+
+  /// Owns every raw fetch call this screen makes (View -> Cubit -> UseCase ->
+  /// Repository); see the cubit's doc comment for why this is a thin
+  /// fetch-wrapping seam rather than a full state-owning cubit.
+  final StaffAttendanceProfileFetchCubit _profileCubit =
+      serviceLocator<StaffAttendanceProfileFetchCubit>();
   // Starts true (rather than false) so Sign-In/Sign-Out/Transfer/Mark-Absent
   // render disabled until the real today-status has been fetched — defaulting
   // to false let the gate fall back to its "not signed in" assumption during
@@ -608,7 +609,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     try {
       // forEditStaff:true hits /staff/{code}/profile, which carries name,
       // designation and primaryClassroom name.
-      final profile = await serviceLocator<GetStaffProfileUseCase>()(
+      final profile = await _profileCubit.fetchStaffProfile(
         staffCode: code,
         forEditStaff: true,
       );
@@ -656,14 +657,12 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     final fromStr = DateFormat('yyyy-MM-dd').format(from);
     final toStr = DateFormat('yyyy-MM-dd').format(to);
 
-    final allowedClassroomCodes = await resolveAttendanceAllowedClassroomCodes(
-      storage: serviceLocator<StorageService>(),
-    );
+    final allowedClassroomCodes = await _profileCubit
+        .resolveAllowedClassroomCodes();
 
     try {
       // ---------- Load staff attendance profile (present days / summary) ----------
-      final data =
-          await serviceLocator<FetchStaffAttendanceProfileUseCase>()(
+      final data = await _profileCubit.fetchProfileData(
         query: AttendanceProfileQuery(
           staffCode: widget.staffCode,
           fromAttendanceDate: fromStr,
@@ -742,10 +741,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           final signOutByText = rawSignedOutBy.isNotEmpty
               ? rawSignedOutBy
               : (isTransferSignOut && transferredBy.isNotEmpty
-                  ? transferredBy
-                  : (signOutMethodEnum == StaffProfileAbsentMarkMethod.system
-                      ? 'System'
-                      : ''));
+                    ? transferredBy
+                    : (signOutMethodEnum == StaffProfileAbsentMarkMethod.system
+                          ? 'System'
+                          : ''));
 
           return _AttendanceModel(
             date: parsedDate,
@@ -759,9 +758,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             attendedMinutes: record.attendedMinutes,
             isTransferSignIn: isTransferSignIn,
             isTransferSignOut: isTransferSignOut,
-            signInMethod: _mapAbsentMethodStringToEnum(
-              record.signedInMethod,
-            ),
+            signInMethod: _mapAbsentMethodStringToEnum(record.signedInMethod),
             signOutMethod: signOutMethodEnum,
             notExpectedComment: record.notExpectedComment.trim(),
           );
@@ -787,8 +784,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       }
 
       // ---------- Load staff absent profile for toggle list ----------
-      final absentData = await serviceLocator<
-          FetchStaffAttendanceProfileAbsentToggleUseCase>()(
+      final absentData = await _profileCubit.fetchAbsentToggleData(
         query: AttendanceProfileAbsentToggleQuery(
           staffCode: widget.staffCode,
           fromAbsenceDate: fromStr,
@@ -876,8 +872,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       _isTodayStatusLoading = true;
     });
     try {
-      final useCase = serviceLocator<GetStaffTodaySignInStatusUseCase>();
-      final status = await useCase(staffCode: code);
+      final status = await _profileCubit.fetchTodayStatus(staffCode: code);
       if (!mounted) return;
       setState(() {
         _todayStatusRaw = status;
@@ -1170,7 +1165,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       elevation: 6,
       shadowColor: AppColors.primaryColor.withValues(alpha: 0.2),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.lg),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.lg,
+        ),
         child: Column(
           children: [
             Row(
@@ -1336,7 +1334,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.s10, horizontal: 15),
+      padding: const EdgeInsets.symmetric(
+        vertical: AppSpacing.s10,
+        horizontal: 15,
+      ),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.black12, width: 1),
         borderRadius: AppRadius.allMd,
@@ -1404,7 +1405,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     required Color valueColor,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.s10, horizontal: 15),
+      padding: const EdgeInsets.symmetric(
+        vertical: AppSpacing.s10,
+        horizontal: 15,
+      ),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.black12, width: 1),
         borderRadius: AppRadius.allMd,
@@ -1544,14 +1548,20 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         method == StaffProfileAbsentMarkMethod.pin;
   }
 
-  String _resolveSignInByDisplay(String signInBy, StaffProfileAbsentMarkMethod? method) {
+  String _resolveSignInByDisplay(
+    String signInBy,
+    StaffProfileAbsentMarkMethod? method,
+  ) {
     final name = signInBy.trim();
     if (name.isNotEmpty) return name;
     if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
     return '';
   }
 
-  String _resolveSignOutByDisplay(String signOutBy, StaffProfileAbsentMarkMethod? method) {
+  String _resolveSignOutByDisplay(
+    String signOutBy,
+    StaffProfileAbsentMarkMethod? method,
+  ) {
     final name = signOutBy.trim();
     if (name.isNotEmpty) return name;
     if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
@@ -1586,7 +1596,12 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           ),
           borderRadius: BorderRadius.circular(AppRadius.r14),
         ),
-        childrenPadding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.none, AppSpacing.md, AppSpacing.md),
+        childrenPadding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.none,
+          AppSpacing.md,
+          AppSpacing.md,
+        ),
         onExpansionChanged: (expanded) {
           setState(() {
             expandedIndex = expanded ? index : null;
@@ -1606,7 +1621,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           const SizedBox(height: AppSpacing.md),
           _AttendanceField(
             label: 'Sign In By',
-            text: _resolveSignInByDisplay(attendance.signInBy, attendance.signInMethod),
+            text: _resolveSignInByDisplay(
+              attendance.signInBy,
+              attendance.signInMethod,
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
           _AttendanceField(
@@ -1618,7 +1636,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           const SizedBox(height: AppSpacing.md),
           _AttendanceField(
             label: 'Sign Out By',
-            text: _resolveSignOutByDisplay(attendance.signOutBy, attendance.signOutMethod),
+            text: _resolveSignOutByDisplay(
+              attendance.signOutBy,
+              attendance.signOutMethod,
+            ),
           ),
           if (_formatAttendedTimeForCard(attendance).trim().isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
@@ -1663,7 +1684,12 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           ),
           borderRadius: BorderRadius.circular(AppRadius.r14),
         ),
-        childrenPadding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.none, AppSpacing.md, AppSpacing.md),
+        childrenPadding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.none,
+          AppSpacing.md,
+          AppSpacing.md,
+        ),
         onExpansionChanged: (expanded) {
           setState(() {
             expandedIndex = expanded ? index + 1000 : null;
