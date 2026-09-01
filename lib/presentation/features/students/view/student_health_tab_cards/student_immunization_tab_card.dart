@@ -128,6 +128,22 @@ class _StudentImmunizationTabCardState
           builder: (context, setLocalState) {
             final bool canSave = selectedDate != null;
 
+            // Web auto-fills today's date when the status is set to
+            // Completed/Missed so staff aren't left with a stale due date
+            // (e.g. a future due date rejected as "cannot be in the future").
+            // Only kicks in when the current date is unset or still in the
+            // future — an already-entered past date is left alone.
+            void onStatusChanged(String v) {
+              setLocalState(() {
+                statusUi = v;
+                if ((v == 'Completed' || v == 'Missed') &&
+                    (selectedDate == null ||
+                        selectedDate!.isAfter(DateTime.now()))) {
+                  selectedDate = DateTime.now();
+                }
+              });
+            }
+
             return SafeArea(
               top: false,
               child: ConstrainedBox(
@@ -225,8 +241,7 @@ class _StudentImmunizationTabCardState
                                     'Missed',
                                     'Exempt',
                                   ],
-                                  onChanged: (v) =>
-                                      setLocalState(() => statusUi = v),
+                                  onChanged: onStatusChanged,
                                 ),
                               ),
                             ],
@@ -276,8 +291,7 @@ class _StudentImmunizationTabCardState
                                   'Missed',
                                   'Exempt',
                                 ],
-                                onChanged: (v) =>
-                                    setLocalState(() => statusUi = v),
+                                onChanged: onStatusChanged,
                               ),
                             ],
                           ),

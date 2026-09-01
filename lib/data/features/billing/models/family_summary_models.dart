@@ -31,7 +31,16 @@ class FamilySummaryModel {
   final double openBalance;
 
   factory FamilySummaryModel.fromJson(Map<String, dynamic> json) {
-    double d(String key) => (json[key] as num?)?.toDouble() ?? 0;
+    // Tolerate a field arriving as a numeric-looking string (seen for
+    // never-billed / no-guardian-yet families) instead of a JSON number —
+    // a strict `as num?` cast would throw and take down the whole list.
+    double d(String key) {
+      final value = json[key];
+      if (value is num) return value.toDouble();
+      if (value is String) return double.tryParse(value) ?? 0;
+      return 0;
+    }
+
     DateTime? dt(String key) {
       final raw = json[key];
       return raw is String ? DateTime.tryParse(raw) : null;
