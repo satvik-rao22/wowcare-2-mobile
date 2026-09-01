@@ -27,7 +27,9 @@ import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../cubit/activity_editor_cubit.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
-import '../../../../../shared/services/image_upload/image_upload_service.dart';
+import '../../../../../domain/features/activity/repositories/activity_media_upload_repository.dart';
+import '../../../../../domain/features/activity/usecases/upload_activity_assets_usecase.dart';
+import '../../../../../domain/features/activity/usecases/get_activity_upload_asset_statuses_usecase.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
 import '../../utils/activity_description_limits.dart';
@@ -161,7 +163,9 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
       _existingVideoUrl != null;
 
   ActivityEditorCubit get _editor => context.read<ActivityEditorCubit>();
-  late final ImageUploadService _uploadService;
+  late final UploadActivityAssetsUseCase _uploadActivityAssetsUseCase;
+  late final GetActivityUploadAssetStatusesUseCase
+  _getUploadAssetStatusesUseCase;
 
   /// Cancels any in-flight activity media upload when this screen is disposed,
   /// so a large video PUT doesn't keep burning bandwidth after the user leaves.
@@ -215,7 +219,9 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
   void initState() {
     super.initState();
     bootstrapActivitySchoolTimezone();
-    _uploadService = serviceLocator<ImageUploadService>();
+    _uploadActivityAssetsUseCase = serviceLocator<UploadActivityAssetsUseCase>();
+    _getUploadAssetStatusesUseCase =
+        serviceLocator<GetActivityUploadAssetStatusesUseCase>();
 
     // Create flow: let [DateWidget]/[TimeWidget] apply school zone after
     // [resolveForCurrentSchool] (avoid stale [lastKnownTimeZone] from classroom tab).
@@ -668,89 +674,70 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
       _uploadedAssetCodeByPath.clear();
       _uploadContextKey = contextKey;
     }
-    final needsUpload =
-        media.any((f) => !_uploadedAssetCodeByPath.containsKey(f.path));
-    final uploadSession = needsUpload
-        ? await _uploadService.createActivityUploadSession(
-            organizationCode: organizationCode,
-            schoolCode: schoolCode,
-            classroomCode: classroomCode,
-            activityTypeCode: activityTypeCode,
-            bindingMode: bindingMode,
-            studentCodes: studentCodes,
-            cancelToken: _uploadCancelToken,
-          )
-        : null;
-    final uploadedCodes = <String>[];
-    final newlyUploadedCodes = <String>[];
-    for (var i = 0; i < media.length; i++) {
-      final file = media[i];
-      final fileIndex = i + 1;
-      final totalFiles = media.length;
-      if (_uploadedAssetCodeByPath.containsKey(file.path)) {
-        uploadedCodes.add(_uploadedAssetCodeByPath[file.path]!);
-        continue;
+    final missing =
+        media.where((f) => !_uploadedAssetCodeByPath.containsKey(f.path)).toList();
+
+    String? uploadedSessionCode;
+    var newlyUploadedCodes = const <String>[];
+    if (missing.isNotEmpty) {
+      final items = <ActivityUploadItem>[];
+      for (final file in missing) {
+        final lower = file.path.toLowerCase();
+        final isVideoByExt =
+            lower.endsWith('.mp4') ||
+            lower.endsWith('.mov') ||
+            lower.endsWith('.webm');
+        final forceVideoPayload = !widget.isPhoto;
+        final isVideo = forceVideoPayload || isVideoByExt;
+        final extension = lower.contains('.')
+            ? lower.split('.').last
+            : (isVideo ? 'mp4' : 'jpg');
+        final generatedFileName =
+            '${isVideo ? 'video' : 'photo'}_${AppTime.nowUtc().millisecondsSinceEpoch}.$extension';
+        final contentType = isVideo
+            ? (lower.endsWith('.mov')
+                  ? 'video/quicktime'
+                  : lower.endsWith('.webm')
+                  ? 'video/webm'
+                  : 'video/mp4')
+            : 'image/jpeg';
+        items.add(
+          ActivityUploadItem(
+            file: file,
+            fileName: generatedFileName,
+            contentType: contentType,
+            mediaType: isVideo ? 'VIDEO' : 'IMAGE',
+          ),
+        );
       }
-      final lower = file.path.toLowerCase();
-      final isVideoByExt =
-          lower.endsWith('.mp4') ||
-          lower.endsWith('.mov') ||
-          lower.endsWith('.webm');
-      final forceVideoPayload = !widget.isPhoto;
-      final isVideo = forceVideoPayload || isVideoByExt;
-      final extension = lower.contains('.')
-          ? lower.split('.').last
-          : (isVideo ? 'mp4' : 'jpg');
-      final generatedFileName =
-          '${isVideo ? 'video' : 'photo'}_${AppTime.nowUtc().millisecondsSinceEpoch}.$extension';
-      final contentType = isVideo
-          ? (lower.endsWith('.mov')
-                ? 'video/quicktime'
-                : lower.endsWith('.webm')
-                ? 'video/webm'
-                : 'video/mp4')
-          : 'image/jpeg';
-      final checksumSha256 = await _uploadService.computeFileChecksumSha256(
-        file,
-      );
-      final presign = await _uploadService.createAssetPresign(
-        sessionCode: uploadSession!.sessionCode,
-        documentApiBasePath: uploadSession.documentApiBasePath,
-        fileName: generatedFileName,
-        contentType: contentType,
-        contentLengthBytes: await file.length(),
-        checksumSha256: checksumSha256,
-        mediaType: isVideo ? 'VIDEO' : 'IMAGE',
+      final result = await _uploadActivityAssetsUseCase.call(
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+        classroomCode: classroomCode,
+        activityTypeCode: activityTypeCode,
+        bindingMode: bindingMode,
+        studentCodes: studentCodes,
         ownerType: ownerType,
         ownerCode: ownerCode,
-        cancelToken: _uploadCancelToken,
-      );
-      await _uploadService.uploadFileToPresignedUrl(
-        file: file,
-        presignedPutUrl: presign.presignedPutUrl,
-        requiredHeaders: presign.requiredHeaders,
-        fallbackContentType: contentType,
-        onProgress: (_, __, percent) {
+        items: items,
+        onItemProgress: (itemIndex, totalItems, percent) {
           if (!mounted) return;
           final overallFraction =
-              ((fileIndex - 1) + (percent / 100)) / totalFiles;
-          final overallPercent = (overallFraction * 100).clamp(0, 100).round();
+              ((itemIndex - 1) + (percent / 100)) / totalItems;
+          final overallPercent =
+              (overallFraction * 100).clamp(0, 100).round();
           setState(() => _uploadProgressPercent = overallPercent);
+        },
+        onItemComplete: (completed, total) {
+          if (mounted) {
+            setState(() => _uploadCompletedCount = completed);
+          }
         },
         cancelToken: _uploadCancelToken,
       );
-      await _uploadService.completeAssetUpload(
-        sessionCode: uploadSession.sessionCode,
-        assetCode: presign.assetCode,
-        documentApiBasePath: uploadSession.documentApiBasePath,
-        cancelToken: _uploadCancelToken,
-      );
-      if (mounted) {
-        setState(() => _uploadCompletedCount = fileIndex);
-      }
-      _uploadedAssetCodeByPath[file.path] = presign.assetCode;
-      uploadedCodes.add(presign.assetCode);
-      newlyUploadedCodes.add(presign.assetCode);
+      _uploadedAssetCodeByPath.addAll(result.assetCodeByPath);
+      uploadedSessionCode = result.sessionCode;
+      newlyUploadedCodes = result.newAssetCodes;
     }
 
     if (mounted) {
@@ -758,13 +745,15 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
     }
     // Poll only the codes uploaded in THIS run's session — reused codes were
     // already confirmed ready and belong to a prior session.
-    if (uploadSession != null && newlyUploadedCodes.isNotEmpty) {
+    if (uploadedSessionCode != null && newlyUploadedCodes.isNotEmpty) {
       _startProcessingPoll(
-        sessionCode: uploadSession.sessionCode,
+        sessionCode: uploadedSessionCode,
         assetCodes: newlyUploadedCodes,
         persist: true,
       );
     }
+    final uploadedCodes =
+        media.map((f) => _uploadedAssetCodeByPath[f.path]!).toList();
     return uploadedCodes.map((code) {
       if (isShared) {
         return ActivityAttachment(assetCode: code);
@@ -873,9 +862,9 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
     if (sessionCode == null || sessionCode.isEmpty || assetCodes.isEmpty)
       return;
     try {
-      final statuses = await _uploadService.getUploadAssetStatuses(
+      final statuses = await _getUploadAssetStatusesUseCase.call(
         sessionCode: sessionCode,
-        expectedAssetCodes: assetCodes,
+        assetCodes: assetCodes,
       );
       if (statuses.isEmpty) return;
       var ready = 0;

@@ -318,6 +318,11 @@ import '../../domain/features/activity/usecases/guardian_parent_signature_usecas
 import '../../domain/features/activity/usecases/reject_activity_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_upload_sessions_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_asset_presign_usecase.dart';
+import '../../domain/features/activity/repositories/activity_media_upload_repository.dart';
+import '../../domain/features/activity/usecases/upload_activity_assets_usecase.dart';
+import '../../domain/features/activity/usecases/wait_activity_assets_ready_usecase.dart';
+import '../../domain/features/activity/usecases/get_activity_upload_asset_statuses_usecase.dart';
+import '../../data/features/activity/repositories/activity_media_upload_repository_impl.dart';
 import '../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
 import '../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
 import '../../domain/features/activity/usecases/get_mark_activity_student_list_usecase.dart';
@@ -743,6 +748,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<ActivityRepository>(
     () => ActivityRepositoryImpl(serviceLocator(), serviceLocator()),
+  );
+  serviceLocator.registerLazySingleton<ActivityMediaUploadRepository>(
+    () => ActivityMediaUploadRepositoryImpl(serviceLocator<ImageUploadService>()),
   );
   // ===== COMMUNICATION V2.1 — REALTIME DATA SOURCES (Firestore) =====
   serviceLocator.registerLazySingleton<ConversationRealtimeDataSource>(
@@ -1595,6 +1603,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<CreateActivityAssetPresignUseCase>(
     () => CreateActivityAssetPresignUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UploadActivityAssetsUseCase>(
+    () => UploadActivityAssetsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<WaitActivityAssetsReadyUseCase>(
+    () => WaitActivityAssetsReadyUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetActivityUploadAssetStatusesUseCase>(
+    () => GetActivityUploadAssetStatusesUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetDailyActivityFeedUseCase>(
     () => GetDailyActivityFeedUseCase(serviceLocator()),

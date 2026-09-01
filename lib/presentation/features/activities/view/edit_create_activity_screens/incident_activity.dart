@@ -26,7 +26,6 @@ import '../../../../../domain/features/activity/entities/activity_type_details.d
 import '../../cubit/activity_editor_cubit.dart';
 import '../../cubit/incident_activity_cubit.dart';
 import '../../../../../shared/common/app/cubit/role_cubit.dart';
-import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/custom_toggle.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
@@ -228,7 +227,6 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
   ActivityEditorCubit get _editor => context.read<ActivityEditorCubit>();
   IncidentActivityCubit get _incidentCubit =>
       context.read<IncidentActivityCubit>();
-  late final ImageUploadService _imageUploadService;
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   bool _isAdminApprovalRequired(ActivityItem activity) {
@@ -847,7 +845,6 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
   void initState() {
     super.initState();
     bootstrapActivitySchoolTimezone();
-    _imageUploadService = serviceLocator<ImageUploadService>();
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
@@ -2312,7 +2309,6 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
     const bindingMode = 'PER_STUDENT';
 
     return uploadActivityPhotoAttachments(
-      uploadService: _imageUploadService,
       state: _attachmentState,
       files: _newPhotos,
       classroomCode: classroomCode,
