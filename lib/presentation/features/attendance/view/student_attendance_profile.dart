@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:wowcare/domain/features/student/usecases/get_student_profile_usecase.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -18,16 +17,10 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/attendance/usecases/fetch_student_attendance_profile_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/fetch_student_attendance_profile_absent_toggle_usecase.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_profile_query.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_profile_absent_toggle_query.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_profile_fetch_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -35,7 +28,6 @@ import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
     as student_sign_in;
@@ -423,6 +415,12 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   String? _todayStatusRaw;
   bool _isTodayStatusLoading = false;
 
+  /// Owns every raw fetch call this screen makes (View -> Cubit -> UseCase ->
+  /// Repository); see the cubit's doc comment for why this is a thin
+  /// fetch-wrapping seam rather than a full state-owning cubit.
+  final StudentAttendanceProfileFetchCubit _profileCubit =
+      serviceLocator<StudentAttendanceProfileFetchCubit>();
+
   String _resolveClassroomNameByCode(
     String? classroomCode,
     Map<String, String> codeToNameMap,
@@ -601,9 +599,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     final code = _activeStudentCode.trim();
     if (code.isEmpty) return;
     try {
-      final profile = await serviceLocator<GetStudentProfileUseCase>()(
-        code: code,
-      );
+      final profile = await _profileCubit.fetchStudentProfile(code: code);
       if (!mounted) return;
       final current = student;
       if (current == null) return;
@@ -650,12 +646,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     var isSignedIn = false;
 
     try {
-      final signOutFormList =
-          serviceLocator<GetStudentSignOutFormListUseCase>();
       final now = ServerTimeService.instance.now();
       final date =
           '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-      final signedInPage = await signOutFormList(
+      final signedInPage = await _profileCubit.fetchSignOutFormList(
         fromAttendanceDate: date,
         toAttendanceDate: date,
         page: 0,
@@ -723,17 +717,14 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     final fromStr = DateFormat('yyyy-MM-dd').format(from);
     final toStr = DateFormat('yyyy-MM-dd').format(to);
 
-    final allowedClassroomCodes =
-        await resolveStudentAttendanceAllowedClassroomCodes(
-      storage: serviceLocator<StorageService>(),
-    );
+    final allowedClassroomCodes = await _profileCubit
+        .resolveAllowedClassroomCodes();
 
     try {
       final codeToNameMap = await _loadClassroomCodeToNameMap();
       _applyResolvedClassroomHeaderName(codeToNameMap);
       // --------- Load attendance (present days / summary) ----------
-      final profileData =
-          await serviceLocator<FetchStudentAttendanceProfileUseCase>()(
+      final profileData = await _profileCubit.fetchProfileData(
         query: AttendanceProfileQuery(
           studentCode: _activeStudentCode,
           fromAttendanceDate: fromStr,
@@ -789,8 +780,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             }
           }
 
-          final fallbackClassroom =
-              record.classroomName ?? widget.roomName;
+          final fallbackClassroom = record.classroomName ?? widget.roomName;
           final resolvedClassroomName = _resolveClassroomNameByCode(
             record.classroomCode,
             codeToNameMap,
@@ -818,10 +808,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           final signOutByText = rawSignedOutBy.isNotEmpty
               ? rawSignedOutBy
               : (isTransferSignOut && transferredBy.isNotEmpty
-                  ? transferredBy
-                  : (signOutMethodEnum == ProfileAbsentMarkMethod.system
-                      ? 'System'
-                      : ''));
+                    ? transferredBy
+                    : (signOutMethodEnum == ProfileAbsentMarkMethod.system
+                          ? 'System'
+                          : ''));
 
           loadedAttendances.add(
             _AttendanceModel(
@@ -836,9 +826,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
               attendedMinutes: record.attendedMinutes,
               isTransferSignIn: isTransferSignIn,
               isTransferSignOut: isTransferSignOut,
-              signInMethod: _mapAbsentMethodStringToEnum(
-                record.signedInMethod,
-              ),
+              signInMethod: _mapAbsentMethodStringToEnum(record.signedInMethod),
               signOutMethod: signOutMethodEnum,
               notExpectedComment: record.notExpectedComment.trim(),
             ),
@@ -862,8 +850,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       }
 
       // --------- Load absent days for toggle list (profile/absent/toggle) ----------
-      final absentData = await serviceLocator<
-          FetchStudentAttendanceProfileAbsentToggleUseCase>()(
+      final absentData = await _profileCubit.fetchAbsentToggleData(
         query: AttendanceProfileAbsentToggleQuery(
           studentCode: _activeStudentCode,
           fromAbsenceDate: fromStr,
@@ -951,8 +938,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       _isTodayStatusLoading = true;
     });
     try {
-      final useCase = serviceLocator<GetStudentTodaySignInStatusUseCase>();
-      final status = await useCase(studentCode: code);
+      final status = await _profileCubit.fetchTodayStatus(studentCode: code);
       if (!mounted) return;
       setState(() {
         _todayStatusRaw = status;
@@ -1006,19 +992,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
 
   Future<Map<String, String>> _loadClassroomNameToCodeMap() async {
     try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
-      if (schoolCode.trim().isEmpty) return const <String, String>{};
-
-      final classrooms = await serviceLocator<GetActiveClassroomsUseCase>()(
-        schoolCode: schoolCode,
-        onlyTypeClassroom: true,
-      );
-      return {
-        for (final c in classrooms)
-          if (c.name.trim().isNotEmpty && c.code.trim().isNotEmpty)
-            c.name: c.code,
-      };
+      return await _profileCubit.fetchClassroomNameToCodeMap();
     } catch (_) {
       return const <String, String>{};
     }
@@ -1148,8 +1122,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       hasBackButton: true,
       showCustomNavigationBar: true,
       // Highlight the Attendance tab while a parent views their child's profile.
-      activeItemOverride:
-          isParentPersona ? BottomNavigationItem.attendance : null,
+      activeItemOverride: isParentPersona
+          ? BottomNavigationItem.attendance
+          : null,
       body: CustomRefreshIndicator(
         onRefresh: () async => refreshData(),
         child: SingleChildScrollView(
@@ -1264,7 +1239,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       elevation: 6,
       shadowColor: AppColors.primaryColor.withValues(alpha: 0.2),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.lg),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.lg,
+        ),
         child: Column(
           children: [
             Row(
@@ -1520,7 +1498,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     required Color valueColor,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.s10, horizontal: 15),
+      padding: const EdgeInsets.symmetric(
+        vertical: AppSpacing.s10,
+        horizontal: 15,
+      ),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.black12, width: 1),
         borderRadius: AppRadius.allMd,
@@ -1575,7 +1556,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.s10, horizontal: 15),
+      padding: const EdgeInsets.symmetric(
+        vertical: AppSpacing.s10,
+        horizontal: 15,
+      ),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.black12, width: 1),
         borderRadius: AppRadius.allMd,
@@ -1733,14 +1717,20 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     return method == ProfileAbsentMarkMethod.kiosk;
   }
 
-  String _resolveSignInByDisplay(String signInBy, ProfileAbsentMarkMethod? method) {
+  String _resolveSignInByDisplay(
+    String signInBy,
+    ProfileAbsentMarkMethod? method,
+  ) {
     final name = signInBy.trim();
     if (name.isNotEmpty) return name;
     if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
     return '';
   }
 
-  String _resolveSignOutByDisplay(String signOutBy, ProfileAbsentMarkMethod? method) {
+  String _resolveSignOutByDisplay(
+    String signOutBy,
+    ProfileAbsentMarkMethod? method,
+  ) {
     final name = signOutBy.trim();
     if (name.isNotEmpty) return name;
     if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
@@ -1776,7 +1766,12 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           ),
           borderRadius: BorderRadius.circular(AppRadius.r14),
         ),
-        childrenPadding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.none, AppSpacing.md, AppSpacing.md),
+        childrenPadding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.none,
+          AppSpacing.md,
+          AppSpacing.md,
+        ),
         onExpansionChanged: (expanded) {
           setState(() {
             expandedIndex = expanded ? index : null;
@@ -1796,7 +1791,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           const SizedBox(height: AppSpacing.md),
           _AttendanceField(
             label: 'Sign In By',
-            text: _resolveSignInByDisplay(attendance.signInBy, attendance.signInMethod),
+            text: _resolveSignInByDisplay(
+              attendance.signInBy,
+              attendance.signInMethod,
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
           _AttendanceField(
@@ -1808,7 +1806,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           const SizedBox(height: AppSpacing.md),
           _AttendanceField(
             label: 'Sign Out By',
-            text: _resolveSignOutByDisplay(attendance.signOutBy, attendance.signOutMethod),
+            text: _resolveSignOutByDisplay(
+              attendance.signOutBy,
+              attendance.signOutMethod,
+            ),
           ),
           if (_formatAttendedTimeForCard(attendance).trim().isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
@@ -1853,7 +1854,12 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           ),
           borderRadius: BorderRadius.circular(AppRadius.r14),
         ),
-        childrenPadding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.none, AppSpacing.md, AppSpacing.md),
+        childrenPadding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.none,
+          AppSpacing.md,
+          AppSpacing.md,
+        ),
         onExpansionChanged: (expanded) {
           setState(() {
             expandedIndex = expanded ? index + 1000 : null;
