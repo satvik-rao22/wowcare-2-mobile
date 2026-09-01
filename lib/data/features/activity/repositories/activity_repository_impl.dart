@@ -10,6 +10,7 @@ import '../../../../domain/features/activity/entities/activity_type_details.dart
 import '../../../../domain/features/activity/entities/activity_type_summary.dart';
 import '../../../../domain/features/activity/entities/activity_upload_session.dart';
 import '../../../../domain/features/activity/repositories/activity_repository.dart';
+import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
 import '../datasources/activity_remote_datasource.dart';
 import '../models/activity_settings_models.dart';
 
@@ -443,6 +444,25 @@ class ActivityRepositoryImpl implements ActivityRepository {
   @override
   Future<int> getPendingIncidentCount() {
     return _remoteDataSource.getPendingIncidentCount();
+  }
+
+  @override
+  Future<List<StudentAttendanceCustomItem>> getMarkActivityStudentList({
+    required String attendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    int page = 0,
+    int size = 200,
+    required String selectedClassroomCode,
+  }) {
+    return _remoteDataSource.getMarkActivityStudentList(
+      attendanceDate: attendanceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      page: page,
+      size: size,
+      selectedClassroomCode: selectedClassroomCode,
+    );
   }
 }
 

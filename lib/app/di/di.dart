@@ -318,6 +318,7 @@ import '../../domain/features/activity/usecases/create_activity_upload_sessions_
 import '../../domain/features/activity/usecases/create_activity_asset_presign_usecase.dart';
 import '../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
 import '../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
+import '../../domain/features/activity/usecases/get_mark_activity_student_list_usecase.dart';
 import '../../domain/features/activity/usecases/get_nap_start_students_usecase.dart';
 import '../../data/features/activity/datasources/activity_remote_datasource.dart';
 import '../../data/features/activity/repositories/activity_repository_impl.dart';
@@ -1427,6 +1428,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getTagNameCodeMapForSchoolUseCase:
           serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
       getNapStartStudentsUseCase: serviceLocator<GetNapStartStudentsUseCase>(),
+      getMarkActivityStudentListUseCase:
+          serviceLocator<GetMarkActivityStudentListUseCase>(),
       staffRepository: serviceLocator<StaffRepository>(),
     ),
   );
@@ -1593,6 +1596,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetNapStartStudentsUseCase>(
     () => GetNapStartStudentsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetMarkActivityStudentListUseCase>(
+    () => GetMarkActivityStudentListUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetStudentClassroomListUseCase>(
     () => GetStudentClassroomListUseCase(serviceLocator()),

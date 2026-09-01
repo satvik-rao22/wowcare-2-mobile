@@ -5,6 +5,7 @@ import '../entities/activity_setting.dart';
 import '../entities/activity_type_details.dart';
 import '../entities/activity_type_summary.dart';
 import '../entities/activity_upload_session.dart';
+import '../../attendance/entities/student_attendance_custom.dart';
 
 abstract class ActivityRepository {
   /// Returns enabled activity settings for a classroom via
@@ -160,5 +161,15 @@ abstract class ActivityRepository {
   /// Returns count of pending incident approvals via
   /// `GET /api/v2/activities/admin/activities/pending-incident-count`.
   Future<int> getPendingIncidentCount();
+
+  /// Returns the mark-activity student list for a date/filter selection.
+  Future<List<StudentAttendanceCustomItem>> getMarkActivityStudentList({
+    required String attendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    int page = 0,
+    int size = 200,
+    required String selectedClassroomCode,
+  });
 }
 
