@@ -1236,13 +1236,19 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => DeleteStaffAttendanceRecordUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<StaffAttendanceDeleteCubit>(
-    () => StaffAttendanceDeleteCubit(serviceLocator()),
+    () => StaffAttendanceDeleteCubit(
+      serviceLocator(),
+      storageService: serviceLocator(),
+    ),
   );
   serviceLocator.registerFactory<DeleteStudentAttendanceRecordUseCase>(
     () => DeleteStudentAttendanceRecordUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<StudentAttendanceDeleteCubit>(
-    () => StudentAttendanceDeleteCubit(serviceLocator()),
+    () => StudentAttendanceDeleteCubit(
+      serviceLocator(),
+      storageService: serviceLocator(),
+    ),
   );
   serviceLocator.registerFactory<DeleteStudentAbsenceRecordUseCase>(
     () => DeleteStudentAbsenceRecordUseCase(serviceLocator()),
@@ -2069,6 +2075,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentAttendanceDailyUseCase: serviceLocator(),
       getStudentAttendanceExpectedSummaryUseCase: serviceLocator(),
       repository: serviceLocator(),
+      getStudentCountsUseCase: serviceLocator(),
+      getTagNameCodeMapForSchoolUseCase: serviceLocator(),
+      storageService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<IndividualMovementsCubit>(

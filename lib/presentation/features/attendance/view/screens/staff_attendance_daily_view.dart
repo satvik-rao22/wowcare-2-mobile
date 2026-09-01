@@ -1173,14 +1173,8 @@ class _StaffAttendanceDailyViewScreenState
                               return;
                             }
 
-                            final storageService =
-                                serviceLocator<StorageService>();
-                            final staffCode =
-                                (await storageService.getString(
-                                          StorageKeys.staffCode,
-                                        ) ??
-                                        '')
-                                    .trim();
+                            final staffCode = await _deleteCubit
+                                .resolveStaffCode();
                             if (staffCode.isEmpty) {
                               if (!context.mounted) return;
                               CoreUtils.showTopSnackBarFromSnackBar(

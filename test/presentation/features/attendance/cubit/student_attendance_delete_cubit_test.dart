@@ -1,10 +1,28 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/delete_student_attendance_record_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/attendance_delete_state.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_delete_cubit.dart';
 
 class _UnusedRepo implements AttendanceRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} was not expected');
+}
+
+/// Stands in for [StorageService] — only [getString] is exercised, for
+/// [StorageKeys.staffCode] via [StudentAttendanceDeleteCubit.resolveStaffCode].
+class _FakeStorageService implements StorageService {
+  String? staffCode;
+
+  @override
+  Future<String?> getString(String key) async {
+    if (key == StorageKeys.staffCode) return staffCode;
+    return null;
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError('${invocation.memberName} was not expected');
@@ -37,7 +55,10 @@ void main() {
 
     setUp(() {
       useCase = _FakeDeleteUseCase();
-      cubit = StudentAttendanceDeleteCubit(useCase);
+      cubit = StudentAttendanceDeleteCubit(
+        useCase,
+        storageService: _FakeStorageService(),
+      );
     });
 
     tearDown(() => cubit.close());
@@ -47,23 +68,26 @@ void main() {
       expect(cubit.isDeleting, isFalse);
     });
 
-    test('on success: forwards codes and emits InProgress then Success', () async {
-      final expectation = expectLater(
-        cubit.stream,
-        emitsInOrder([
-          isA<AttendanceDeleteInProgress>(),
-          isA<AttendanceDeleteSuccess>(),
-        ]),
-      );
+    test(
+      'on success: forwards codes and emits InProgress then Success',
+      () async {
+        final expectation = expectLater(
+          cubit.stream,
+          emitsInOrder([
+            isA<AttendanceDeleteInProgress>(),
+            isA<AttendanceDeleteSuccess>(),
+          ]),
+        );
 
-      await cubit.delete(attendanceRecordCode: 'ATT-2', staffCode: 'STF-7');
+        await cubit.delete(attendanceRecordCode: 'ATT-2', staffCode: 'STF-7');
 
-      await expectation;
-      expect(useCase.calls, 1);
-      expect(useCase.lastRecordCode, 'ATT-2');
-      expect(useCase.lastStaffCode, 'STF-7');
-      expect(cubit.state, isA<AttendanceDeleteSuccess>());
-    });
+        await expectation;
+        expect(useCase.calls, 1);
+        expect(useCase.lastRecordCode, 'ATT-2');
+        expect(useCase.lastStaffCode, 'STF-7');
+        expect(cubit.state, isA<AttendanceDeleteSuccess>());
+      },
+    );
 
     test('on error: emits InProgress then Failure and rethrows', () async {
       final error = Exception('boom');
@@ -84,6 +108,22 @@ void main() {
 
       await expectation;
       expect(cubit.state, isA<AttendanceDeleteFailure>());
+    });
+
+    test('resolveStaffCode returns the trimmed stored staffCode', () async {
+      final storage = _FakeStorageService()..staffCode = '  STF-42  ';
+      final c = StudentAttendanceDeleteCubit(useCase, storageService: storage);
+      expect(await c.resolveStaffCode(), 'STF-42');
+      await c.close();
+    });
+
+    test('resolveStaffCode returns empty when storage has none', () async {
+      final c = StudentAttendanceDeleteCubit(
+        useCase,
+        storageService: _FakeStorageService(),
+      );
+      expect(await c.resolveStaffCode(), '');
+      await c.close();
     });
   });
 }

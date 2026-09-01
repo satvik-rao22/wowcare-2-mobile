@@ -37,13 +37,10 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
-import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
-import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_edit_attendance_form.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart'
@@ -272,44 +269,28 @@ class _StudentAttendanceDailyViewScreenState
     unawaited(_loadStudentCounts());
   }
 
+  /// Delegates to [StudentAttendanceDailyCubit.loadStudentCounts] (owns the
+  /// fetch), then mirrors the result into local state the header summary
+  /// reads directly.
   Future<void> _loadStudentCounts() async {
-    try {
-      final storageService = serviceLocator<StorageService>();
-      final schoolCode =
-          await storageService.getString(StorageKeys.schoolCode) ?? '';
-      if (schoolCode.isEmpty) return;
-
-      final useCase = serviceLocator<GetStudentCountsUseCase>();
-      final counts = await useCase(schoolCode: schoolCode);
-      if (!mounted) return;
-
-      final activeC = counts['activeCount'] ?? 0;
-      final upcomingC = counts['upcomingCount'] ?? 0;
-      setState(() {
-        active = activeC;
-        upcoming = upcomingC;
-        enrolled = activeC + upcomingC;
-      });
-    } catch (_) {
-      // Non-critical; keep existing values (same tolerance as StudentScreen).
-    }
+    await _cubit.loadStudentCounts();
+    if (!mounted) return;
+    setState(() {
+      active = _cubit.state.activeCount ?? active;
+      upcoming = _cubit.state.upcomingCount ?? upcoming;
+      enrolled = _cubit.state.enrolledCount ?? enrolled;
+    });
   }
 
-  /// Resolves whether the active school lets teachers do cross-class student
-  /// attendance. When enabled, flips this screen into admin-like mode and
-  /// reloads the classroom dropdown unscoped.
+  /// Delegates to [StudentAttendanceDailyCubit.resolveCrossClassFlag], then
+  /// mirrors the result and — when it just flipped on — reloads the
+  /// classroom dropdown unscoped, same as before.
   Future<void> _resolveCrossClassFlag() async {
-    try {
-      final enabled =
-          await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-            storage: serviceLocator<StorageService>(),
-          );
-      if (!mounted || !enabled || _allowCrossClass) return;
+    await _cubit.resolveCrossClassFlag();
+    if (!mounted) return;
+    if (_cubit.state.allowCrossClass && !_allowCrossClass) {
       setState(() => _allowCrossClass = true);
-      // Re-load the dropdown without staff scope now that we know it's allowed.
       _loadClassroomData();
-    } catch (_) {
-      // Non-critical: default (scoped) behaviour stays in effect.
     }
   }
 
@@ -325,39 +306,20 @@ class _StudentAttendanceDailyViewScreenState
     );
   }
 
+  /// Delegates to [StudentAttendanceDailyCubit.loadTagNameCodeMap] (owns the
+  /// fetch), then mirrors the result into local state the filter dropdown
+  /// reads directly.
   Future<void> _loadTagNameCodeMap() async {
     if (_isLoadingTagMap) return;
     setState(() {
       _isLoadingTagMap = true;
     });
-
-    try {
-      final storageService = serviceLocator<StorageService>();
-      final schoolCode =
-          await storageService.getString(StorageKeys.schoolCode) ?? '';
-      if (schoolCode.isEmpty) {
-        if (!mounted) return;
-        setState(() {
-          _isLoadingTagMap = false;
-        });
-        return;
-      }
-
-      final useCase = serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
-      final map = await useCase(schoolCode: schoolCode);
-      if (!mounted) return;
-      setState(() {
-        _tagNameToCode = map;
-        _isLoadingTagMap = false;
-      });
-    } catch (e) {
-      // Non-critical for filters; log but don't block UI
-      AppLogger.d('Failed to load tag name-to-code map: $e');
-      if (!mounted) return;
-      setState(() {
-        _isLoadingTagMap = false;
-      });
-    }
+    await _cubit.loadTagNameCodeMap();
+    if (!mounted) return;
+    setState(() {
+      _tagNameToCode = _cubit.state.tagNameToCode ?? _tagNameToCode;
+      _isLoadingTagMap = _cubit.state.isLoadingTagMap;
+    });
   }
 
   Future<void> _loadLoggedInUserName() async {
@@ -1115,26 +1077,29 @@ class _StudentAttendanceDailyViewScreenState
                                   });
                                 },
                                 onView: () {
-                                  context.push(
-                                    StudentAttendanceProfile.routeName,
-                                    extra: {
-                                      'studentCode': student.id,
-                                      'studentId': student.studentId,
-                                      'studentName': student.name,
-                                      'studentPhotoUuid': student.photoUuid,
-                                      'roomName': student.roomName,
-                                      'isSignedIn': false,
-                                      'isAbsent': true,
-                                      'isExpectedToday': student.expectedToday,
-                                      'isPresentToday': false,
-                                      'profileStatus': 'A',
-                                      'initialShowAbsentDays': true,
-                                    },
-                                  ).then((_) {
-                                    if (mounted) {
-                                      refreshAfterReturningFromAttendanceFlow();
-                                    }
-                                  });
+                                  context
+                                      .push(
+                                        StudentAttendanceProfile.routeName,
+                                        extra: {
+                                          'studentCode': student.id,
+                                          'studentId': student.studentId,
+                                          'studentName': student.name,
+                                          'studentPhotoUuid': student.photoUuid,
+                                          'roomName': student.roomName,
+                                          'isSignedIn': false,
+                                          'isAbsent': true,
+                                          'isExpectedToday':
+                                              student.expectedToday,
+                                          'isPresentToday': false,
+                                          'profileStatus': 'A',
+                                          'initialShowAbsentDays': true,
+                                        },
+                                      )
+                                      .then((_) {
+                                        if (mounted) {
+                                          refreshAfterReturningFromAttendanceFlow();
+                                        }
+                                      });
                                 },
                               );
                             }).toList(),
@@ -1302,18 +1267,9 @@ class _StudentAttendanceDailyViewScreenState
                                                 return;
                                               }
 
-                                              final storageService =
-                                                  serviceLocator<
-                                                    StorageService
-                                                  >();
                                               final staffCode =
-                                                  (await storageService
-                                                              .getString(
-                                                                StorageKeys
-                                                                    .staffCode,
-                                                              ) ??
-                                                          '')
-                                                      .trim();
+                                                  await _deleteCubit
+                                                      .resolveStaffCode();
                                               if (staffCode.isEmpty) {
                                                 if (!context.mounted) return;
                                                 CoreUtils.showTopSnackBarFromSnackBar(
@@ -1370,29 +1326,32 @@ class _StudentAttendanceDailyViewScreenState
                                     );
                                   },
                                   onView: () {
-                                    context.push(
-                                      StudentAttendanceProfile.routeName,
-                                      extra: {
-                                        'studentCode':
-                                            student.studentCode ?? '',
-                                        'studentId': student.studentId,
-                                        'studentName': student.studentName,
-                                        'studentPhotoUuid':
-                                            student.studentPhotoUuid,
-                                        'roomName': student.roomName,
-                                        'isSignedIn': student.hasSignIn,
-                                        'isAbsent':
-                                            !student.hasSignIn &&
-                                            student.expectedToday,
-                                        'isExpectedToday': student.expectedToday,
-                                        'isPresentToday': student.hasSignIn,
-                                        'profileStatus': 'A',
-                                      },
-                                    ).then((_) {
-                                      if (mounted) {
-                                        refreshAfterReturningFromAttendanceFlow();
-                                      }
-                                    });
+                                    context
+                                        .push(
+                                          StudentAttendanceProfile.routeName,
+                                          extra: {
+                                            'studentCode':
+                                                student.studentCode ?? '',
+                                            'studentId': student.studentId,
+                                            'studentName': student.studentName,
+                                            'studentPhotoUuid':
+                                                student.studentPhotoUuid,
+                                            'roomName': student.roomName,
+                                            'isSignedIn': student.hasSignIn,
+                                            'isAbsent':
+                                                !student.hasSignIn &&
+                                                student.expectedToday,
+                                            'isExpectedToday':
+                                                student.expectedToday,
+                                            'isPresentToday': student.hasSignIn,
+                                            'profileStatus': 'A',
+                                          },
+                                        )
+                                        .then((_) {
+                                          if (mounted) {
+                                            refreshAfterReturningFromAttendanceFlow();
+                                          }
+                                        });
                                   },
                                 ),
                               );
