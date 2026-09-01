@@ -145,6 +145,11 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
   List<String> _remainingExistingPhotoUrls = [];
   String? _remainingExistingVideoUrl;
   final Map<String, String> _uploadedAssetCodeByPath = {};
+
+  /// The upload context the [_uploadedAssetCodeByPath] cache belongs to. Retried
+  /// saves with the SAME context reuse the cache (no re-upload); a context
+  /// change clears it. See [_uploadAndBuildAttachments].
+  String? _uploadContextKey;
   List<Map<String, dynamic>> _uploadedAttachments = [];
 
   bool get _hasMedia =>
@@ -634,25 +639,48 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
     if (mounted) {
       setState(() => _uploadTotalCount = media.length);
     }
-    // Asset codes are scoped to a specific upload session. Reusing a previous
-    // session's cached assetCode causes polling on a new session with no assets.
-    _uploadedAssetCodeByPath.clear();
     // Single student → PER_STUDENT, multiple → SHARED. Owner follows the same
     // rule: STUDENT/studentCode for per-student, CLASSROOM/classroomCode shared.
     final isShared = studentCodes.length > 1;
     final bindingMode = isShared ? 'SHARED' : 'PER_STUDENT';
     final ownerType = isShared ? 'CLASSROOM' : 'STUDENT';
     final ownerCode = isShared ? classroomCode : studentCodes.first;
-    final uploadSession = await _uploadService.createActivityUploadSession(
-      organizationCode: organizationCode,
-      schoolCode: schoolCode,
-      classroomCode: classroomCode,
-      activityTypeCode: activityTypeCode,
-      bindingMode: bindingMode,
-      studentCodes: studentCodes,
-      cancelToken: _uploadCancelToken,
-    );
+    // Asset codes are session-scoped for POLLING but stay valid to LINK at
+    // create time. Keep the already-uploaded map across retries with the SAME
+    // upload context, so a Save retried after a partial failure reuses what
+    // already uploaded instead of re-uploading every file into a fresh session
+    // (which orphans the first set); clear it only when the context actually
+    // changes. Newly-uploaded files are polled against THIS run's session; the
+    // reused ones were already confirmed ready in the run that uploaded them.
+    final contextKey = [
+      organizationCode.trim(),
+      schoolCode.trim(),
+      classroomCode.trim(),
+      (studentCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+            ..sort())
+          .join(','),
+      activityTypeCode.trim(),
+      bindingMode,
+    ].join('|');
+    if (_uploadContextKey != contextKey) {
+      _uploadedAssetCodeByPath.clear();
+      _uploadContextKey = contextKey;
+    }
+    final needsUpload =
+        media.any((f) => !_uploadedAssetCodeByPath.containsKey(f.path));
+    final uploadSession = needsUpload
+        ? await _uploadService.createActivityUploadSession(
+            organizationCode: organizationCode,
+            schoolCode: schoolCode,
+            classroomCode: classroomCode,
+            activityTypeCode: activityTypeCode,
+            bindingMode: bindingMode,
+            studentCodes: studentCodes,
+            cancelToken: _uploadCancelToken,
+          )
+        : null;
     final uploadedCodes = <String>[];
+    final newlyUploadedCodes = <String>[];
     for (var i = 0; i < media.length; i++) {
       final file = media[i];
       final fileIndex = i + 1;
@@ -684,7 +712,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
         file,
       );
       final presign = await _uploadService.createAssetPresign(
-        sessionCode: uploadSession.sessionCode,
+        sessionCode: uploadSession!.sessionCode,
         documentApiBasePath: uploadSession.documentApiBasePath,
         fileName: generatedFileName,
         contentType: contentType,
@@ -720,16 +748,21 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
       }
       _uploadedAssetCodeByPath[file.path] = presign.assetCode;
       uploadedCodes.add(presign.assetCode);
+      newlyUploadedCodes.add(presign.assetCode);
     }
 
     if (mounted) {
       setState(() => _uploadProgressPercent = 100);
     }
-    _startProcessingPoll(
-      sessionCode: uploadSession.sessionCode,
-      assetCodes: uploadedCodes,
-      persist: true,
-    );
+    // Poll only the codes uploaded in THIS run's session — reused codes were
+    // already confirmed ready and belong to a prior session.
+    if (uploadSession != null && newlyUploadedCodes.isNotEmpty) {
+      _startProcessingPoll(
+        sessionCode: uploadSession.sessionCode,
+        assetCodes: newlyUploadedCodes,
+        persist: true,
+      );
+    }
     return uploadedCodes.map((code) {
       if (isShared) {
         return <String, dynamic>{'assetCode': code};
