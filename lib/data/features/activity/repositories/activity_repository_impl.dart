@@ -3,6 +3,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import '../../../../core/util/activity_feed_invalidation.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/activity/entities/activity_asset_presign.dart';
+import '../../../../domain/features/activity/entities/activity_attachment.dart';
 import '../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
@@ -311,7 +312,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
     String? napReminderRole,
     bool? requireAdminApproval,
     List<Map<String, dynamic>> parameterValues = const [],
-    List<Map<String, dynamic>> attachments = const [],
+    List<ActivityAttachment> attachments = const [],
   }) async {
     // Trim + drop-empty + de-duplicate student codes before both the payload and
     // the binding-mode derivation: a repeated student must not inflate the
@@ -335,7 +336,9 @@ class ActivityRepositoryImpl implements ActivityRepository {
       // v2 binding mode enum: PER_STUDENT (single), SHARED (multiple).
       bindingMode: normalizedStudentCodes.length > 1 ? 'SHARED' : 'PER_STUDENT',
       parameterValues: parameterValues,
-      attachments: attachments,
+      // Typed attachments converted to the wire Map shape here so
+      // ActivityCreateRequestModel — and the JSON on the wire — stay identical.
+      attachments: attachments.map((a) => a.toPayload()).toList(),
     );
 
     final message = await _remoteDataSource.createActivity(request: request);
@@ -367,7 +370,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
     required String activityDate,
     required String description,
     bool? requireAdminApproval,
-    required List<Map<String, dynamic>> attachments,
+    required List<ActivityAttachment> attachments,
     List<Map<String, dynamic>> parameterValues = const [],
   }) async {
     // Trim + drop-empty + de-duplicate before payload and binding-mode (see
@@ -389,7 +392,9 @@ class ActivityRepositoryImpl implements ActivityRepository {
       if (requireAdminApproval != null)
         'requireAdminApproval': requireAdminApproval,
       if (parameterValues.isNotEmpty) 'parameterValues': parameterValues,
-      'attachments': attachments,
+      // Typed attachments converted to the wire Map shape here so the shared
+      // payload JSON stays byte-for-byte identical.
+      'attachments': attachments.map((a) => a.toPayload()).toList(),
     };
 
     final cards = await _remoteDataSource.createSharedActivities(payload: payload);

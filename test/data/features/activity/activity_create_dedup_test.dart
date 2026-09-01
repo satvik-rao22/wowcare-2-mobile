@@ -3,6 +3,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/data/features/activity/datasources/activity_remote_datasource.dart';
 import 'package:wowcare/data/features/activity/models/activity_settings_models.dart';
 import 'package:wowcare/data/features/activity/repositories/activity_repository_impl.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
 
 /// Captures the create request / shared payload so we can assert the
 /// repository de-duplicated the student codes before dispatch.
@@ -91,7 +92,7 @@ void main() {
       organizationCode: 'ORG-1',
       activityDate: '2026-01-01T00:00:00Z',
       description: 'd',
-      attachments: const <Map<String, dynamic>>[],
+      attachments: const <ActivityAttachment>[],
     );
     expect(ds.capturedSharedPayload!['studentCodes'], ['STU-9']);
     expect(ds.capturedSharedPayload!['bindingMode'], 'PER_STUDENT');

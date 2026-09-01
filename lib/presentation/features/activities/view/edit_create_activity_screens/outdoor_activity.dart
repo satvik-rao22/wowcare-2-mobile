@@ -16,6 +16,7 @@ import '../../../../../core/storage/storage_service.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
+import '../../../../../domain/features/activity/entities/activity_attachment.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../cubit/activity_editor_cubit.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
@@ -622,7 +623,7 @@ class _OutdoorActivityViewState extends State<_OutdoorActivityView> {
   }
 
   /// Outdoor activity settings use shared attachments for the class/students.
-  Future<List<Map<String, dynamic>>> _ensurePhotoAssetsUploaded({
+  Future<List<ActivityAttachment>> _ensurePhotoAssetsUploaded({
     required String classroomCode,
     required String activityTypeCode,
     required String organizationCode,
@@ -990,7 +991,9 @@ class _OutdoorActivityViewState extends State<_OutdoorActivityView> {
         existingRows: _detailAttachmentRows
             .map((e) => Map<String, dynamic>.from(e))
             .toList(),
-        newUploadRows: newAttachments,
+        // Holdout: the PATCH/merge helper works on Map rows — convert the typed
+        // outbound attachments back to the wire Map shape at this boundary.
+        newUploadRows: newAttachments.map((a) => a.toPayload()).toList(),
         remainingNormalizedDeliveryUrls: remainingNorm,
       );
 

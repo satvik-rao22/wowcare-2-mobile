@@ -1,5 +1,6 @@
 import 'package:wowcare/core/util/api_error_handler.dart';
 
+import '../entities/activity_attachment.dart';
 import '../repositories/activity_repository.dart';
 
 class CreateSharedActivitiesUseCase {
@@ -17,7 +18,7 @@ class CreateSharedActivitiesUseCase {
     required String activityDate,
     required String description,
     bool? requireAdminApproval,
-    required List<Map<String, dynamic>> attachments,
+    required List<ActivityAttachment> attachments,
     List<Map<String, dynamic>> parameterValues = const [],
   }) async {
     try {

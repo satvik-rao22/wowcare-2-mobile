@@ -21,6 +21,7 @@ import '../../../../../core/storage/storage_service.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
+import '../../../../../domain/features/activity/entities/activity_attachment.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../cubit/activity_editor_cubit.dart';
@@ -150,7 +151,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
   /// saves with the SAME context reuse the cache (no re-upload); a context
   /// change clears it. See [_uploadAndBuildAttachments].
   String? _uploadContextKey;
-  List<Map<String, dynamic>> _uploadedAttachments = [];
+  List<ActivityAttachment> _uploadedAttachments = [];
 
   bool get _hasMedia =>
       _photos.isNotEmpty ||
@@ -623,7 +624,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
     }
   }
 
-  Future<List<Map<String, dynamic>>> _uploadAndBuildAttachments({
+  Future<List<ActivityAttachment>> _uploadAndBuildAttachments({
     required String classroomCode,
     required String activityTypeCode,
     required String organizationCode,
@@ -765,13 +766,13 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
     }
     return uploadedCodes.map((code) {
       if (isShared) {
-        return <String, dynamic>{'assetCode': code};
+        return ActivityAttachment(assetCode: code);
       }
-      return <String, dynamic>{
-        'assetCode': code,
-        'studentCode': ownerCode,
-        'bindingMode': bindingMode,
-      };
+      return ActivityAttachment(
+        assetCode: code,
+        studentCode: ownerCode,
+        bindingMode: bindingMode,
+      );
     }).toList();
   }
 
@@ -1051,7 +1052,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
               studentCodes: studentCodes,
             );
       final uploadAssetCodes = attachments
-          .map((row) => (row['assetCode'] ?? '').toString().trim())
+          .map((a) => a.assetCode.trim())
           .where((code) => code.isNotEmpty)
           .toList();
       final uploadPhotoCode = _findParameterCode(
@@ -1268,7 +1269,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
         return;
       }
 
-      List<Map<String, dynamic>> newUploads = const [];
+      List<ActivityAttachment> newUploads = const [];
       if (_photos.isNotEmpty || _video != null) {
         newUploads = _uploadedAttachments.isNotEmpty
             ? _uploadedAttachments
@@ -1293,7 +1294,9 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
         existingRows: _detailAttachmentRows
             .map((e) => Map<String, dynamic>.from(e))
             .toList(),
-        newUploadRows: newUploads,
+        // Holdout: the PATCH/merge helper works on Map rows — convert the typed
+        // outbound attachments back to the wire Map shape at this boundary.
+        newUploadRows: newUploads.map((a) => a.toPayload()).toList(),
         remainingNormalizedDeliveryUrls: remainingNorm,
       );
       final patchAttachments = attachmentsForActivityPatchRequest(mergedRows);

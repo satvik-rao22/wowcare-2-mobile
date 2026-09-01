@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:mime/mime.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 /// Holds upload session asset codes keyed by local file path (one coordinator per screen).
@@ -23,7 +24,7 @@ class ActivityPhotoAttachmentState {
 
 /// Presign → PUT → complete → poll, then build attachment rows for activity creation.
 /// [bindingMode] must match the activity type (`PER_STUDENT` or `SHARED`).
-Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
+Future<List<ActivityAttachment>> uploadActivityPhotoAttachments({
   required ImageUploadService uploadService,
   required ActivityPhotoAttachmentState state,
   required List<File> files,
@@ -167,18 +168,20 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
     }
   }
 
-  final attachments = <Map<String, dynamic>>[];
+  final attachments = <ActivityAttachment>[];
   for (final photo in files) {
     final assetCode = state.assetCodeByPath[photo.path];
     if (assetCode != null && assetCode.isNotEmpty) {
       if (isShared) {
-        attachments.add({'assetCode': assetCode});
+        attachments.add(ActivityAttachment(assetCode: assetCode));
       } else {
-        attachments.add({
-          'assetCode': assetCode,
-          'studentCode': ownerCode,
-          'bindingMode': bindingMode,
-        });
+        attachments.add(
+          ActivityAttachment(
+            assetCode: assetCode,
+            studentCode: ownerCode,
+            bindingMode: bindingMode,
+          ),
+        );
       }
     }
   }

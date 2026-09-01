@@ -1,4 +1,5 @@
 import '../entities/activity_asset_presign.dart';
+import '../entities/activity_attachment.dart';
 import '../entities/activity_detail.dart';
 import '../entities/activity_feed_row.dart';
 import '../entities/activity_setting.dart';
@@ -115,7 +116,7 @@ abstract class ActivityRepository {
     String? napReminderRole,
     bool? requireAdminApproval,
     List<Map<String, dynamic>> parameterValues,
-    List<Map<String, dynamic>> attachments,
+    List<ActivityAttachment> attachments,
   });
 
   /// Creates shared activity cards via `POST /api/v2/shared-activities`.
@@ -131,7 +132,7 @@ abstract class ActivityRepository {
     required String activityDate,
     required String description,
     bool? requireAdminApproval,
-    required List<Map<String, dynamic>> attachments,
+    required List<ActivityAttachment> attachments,
     List<Map<String, dynamic>> parameterValues,
   });
 

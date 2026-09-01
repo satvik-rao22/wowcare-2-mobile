@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
 import 'package:wowcare/domain/features/activity/repositories/activity_repository.dart';
 import 'package:wowcare/domain/features/activity/usecases/approve_activity_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/create_activity_usecase.dart';
@@ -58,7 +59,7 @@ class _GatedCreateUseCase extends CreateActivityUseCase {
     String? napReminderRole,
     bool? requireAdminApproval,
     List<Map<String, dynamic>> parameterValues = const [],
-    List<Map<String, dynamic>> attachments = const [],
+    List<ActivityAttachment> attachments = const [],
   }) {
     calls++;
     return gate.future;

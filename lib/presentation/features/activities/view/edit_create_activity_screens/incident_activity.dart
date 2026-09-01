@@ -18,6 +18,7 @@ import '../../../../../app/theme/colors.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/guardian_code_resolver.dart';
+import '../../../../../domain/features/activity/entities/activity_attachment.dart';
 import '../../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
@@ -2039,7 +2040,9 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         existingRows: _detailAttachmentRows
             .map((e) => Map<String, dynamic>.from(e))
             .toList(),
-        newUploadRows: newAttachments,
+        // Holdout: the PATCH/merge helper works on Map rows — convert the typed
+        // outbound attachments back to the wire Map shape at this boundary.
+        newUploadRows: newAttachments.map((a) => a.toPayload()).toList(),
         remainingNormalizedDeliveryUrls: remainingNorm,
       );
       final patchAttachments = attachmentsForActivityPatchRequest(mergedRows);
@@ -2284,7 +2287,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
     await _submitCreateActivity();
   }
 
-  Future<List<Map<String, dynamic>>> _ensureIncidentMediaUploaded({
+  Future<List<ActivityAttachment>> _ensureIncidentMediaUploaded({
     required String classroomCode,
     required String activityTypeCode,
     required String organizationCode,
