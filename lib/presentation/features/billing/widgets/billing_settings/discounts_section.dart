@@ -181,7 +181,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                         fontFamily: 'Manrope',
                         fontSize: isTablet ? 20.0 : 16.0,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xff573353),
+                        color: AppColors.billingTextColor,
                       ),
                     ),
                   ),
@@ -213,7 +213,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                             fontFamily: 'Manrope',
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xff573353),
+                            color: AppColors.billingTextColor,
                           ),
                           onToggle: (v) {
                             _cubit.setStatusFilter(

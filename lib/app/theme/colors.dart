@@ -228,6 +228,26 @@ class AppColors {
   static const Color billingStatusSuccess = Colors.green;
   static const Color billingStatusError = Color(0xFFFF3B30);
 
+  // Additional billing literals centralized (visual-neutral) — Mandate 4 color batch
+  static const Color billingBorderDefault = Color(
+    0x66573353,
+  ); // Input/card border = billing text @ 40% alpha (recurs 9x)
+  static const Color billingTextMuted = Color(
+    0x99573353,
+  ); // Muted secondary text/icons = billing text @ 60% alpha (recurs 6x)
+  static const Color billingAccentBlue = Color(
+    0xFF6F8CFF,
+  ); // Billing accent blue: card _accent, In-Process status, borders (recurs 6x)
+  static const Color billingSuccessBackground = Color(
+    0xFFE8FFF1,
+  ); // Light green success/primary tag background (recurs 4x)
+  static const Color billingSurfaceLight = Color(
+    0xFFF8F9FA,
+  ); // Light grey surface/background fill (recurs 3x)
+  static const Color billingCardAccent = Color(
+    0xFF6C7FD8,
+  ); // Card action accent, kept billing-scoped (same value as attendanceActionAccentColor) (recurs 3x)
+
   // Activity Custom tab
   static final List<Color> colorPalette = [
     const Color(0xFFB3E5FC),

@@ -355,7 +355,7 @@ class _StudentRow extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 6),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFF6657F8), width: 1),
+          border: Border.all(color: AppColors.billingInputBorderFocused, width: 1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -392,7 +392,7 @@ class _StudentRow extends StatelessWidget {
                       style: const TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: 12,
-                        color: Color(0x99573353),
+                        color: AppColors.billingTextMuted,
                       ),
                     ),
                   ],

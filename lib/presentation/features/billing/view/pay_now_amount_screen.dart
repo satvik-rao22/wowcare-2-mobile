@@ -32,8 +32,8 @@ class PayNowAmountScreen extends StatefulWidget {
 }
 
 class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
-  static const Color _primary = Color(0xFF573353);
-  static const Color _accent = Color(0xFF6F8CFF);
+  static const Color _primary = AppColors.billingTextColor;
+  static const Color _accent = AppColors.billingAccentBlue;
 
   final PayNowCubit _cubit = serviceLocator<PayNowCubit>();
 
@@ -230,7 +230,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F9FA),
+              color: AppColors.billingSurfaceLight,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.grey.shade200),
             ),
@@ -343,7 +343,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
       fontFamily: 'Manrope',
       fontSize: responsive.inputFontSize,
       fontWeight: FontWeight.w600,
-      color: const Color(0xff573353),
+      color: AppColors.billingTextColor,
       height: 19 / 14,
     );
     return Container(
@@ -351,7 +351,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(
-          color: hasError ? AppColors.errorColor : const Color(0x66573353),
+          color: hasError ? AppColors.errorColor : AppColors.billingBorderDefault,
         ),
         borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
       ),

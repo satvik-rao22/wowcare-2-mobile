@@ -24,7 +24,7 @@ import 'package:wowcare/shared/common/widgets/gradient_background.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 
-const _kPrimary = Color(0xff573353);
+const _kPrimary = AppColors.billingTextColor;
 
 class LedgerDetailScreen extends StatefulWidget {
   const LedgerDetailScreen({required this.ledger, super.key});

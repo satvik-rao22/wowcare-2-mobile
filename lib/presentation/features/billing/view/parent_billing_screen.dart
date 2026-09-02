@@ -380,7 +380,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                   unselectedLabelColor:
                       AppColors.primaryColor.withValues(alpha: 0.6),
                   controller: _tabController,
-                  dividerColor: Colors.transparent,
+                  dividerColor: AppColors.transparentColor,
                   indicatorSize: TabBarIndicatorSize.label,
                   indicator: _GradientTabIndicator(
                     gradient: AppColors.buildPrimaryGradient(),

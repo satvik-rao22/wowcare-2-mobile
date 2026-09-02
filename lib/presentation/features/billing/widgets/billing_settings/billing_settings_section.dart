@@ -41,7 +41,7 @@ class _BillingSettingsSectionState extends State<BillingSettingsSection> {
                       bottom: BorderSide(
                         color: isSelected
                             ? AppColors.themeColor
-                            : Colors.transparent,
+                            : AppColors.transparentColor,
                         width: 2,
                       ),
                     ),
@@ -54,7 +54,7 @@ class _BillingSettingsSectionState extends State<BillingSettingsSection> {
                       fontWeight: FontWeight.w600,
                       color: isSelected
                           ? AppColors.themeColor
-                          : const Color(0xff573353),
+                          : AppColors.billingTextColor,
                     ),
                   ),
                 ),

@@ -77,7 +77,7 @@ class ParentStatementsWidget extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppTextStyles.value.copyWith(
-                            color: const Color(0xff573353),
+                            color: AppColors.billingTextColor,
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                           ),
@@ -89,7 +89,7 @@ class ParentStatementsWidget extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: AppTextStyles.value.copyWith(
                               fontSize: 12,
-                              color: const Color(0xff573353),
+                              color: AppColors.billingTextColor,
                             ),
                           ),
                       ],

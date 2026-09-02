@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:wowcare/app/theme/colors.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/domain/features/billing/entities/ledger_transaction_entity.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -79,7 +80,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       fontSize: responsive.labelFontSize,
       fontFamily: 'Manrope',
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.billingTextColor,
     );
 
     return StaffFormLayout(
@@ -205,7 +206,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            border: Border.all(color: AppColors.billingBorderDefault),
             borderRadius:
                 BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
           ),
@@ -218,7 +219,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               fontFamily: 'Manrope',
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: AppColors.billingTextColor,
               height: 19 / 14,
             ),
             decoration: InputDecoration(

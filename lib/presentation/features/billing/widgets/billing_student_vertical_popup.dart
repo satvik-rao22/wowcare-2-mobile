@@ -108,7 +108,7 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
               ],
             ),
             child: Material(
-              color: Colors.transparent,
+              color: AppColors.transparentColor,
               child: InkWell(
                 onTap: onClose,
                 customBorder: const CircleBorder(),
@@ -450,7 +450,7 @@ class BillingMoreOptionsPopup extends StatelessWidget {
       constraints: const BoxConstraints(maxHeight: 400),
       padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        border: Border.all(color: const Color.fromRGBO(111, 140, 255, 1)),
+        border: Border.all(color: AppColors.billingAccentBlue),
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
@@ -499,7 +499,7 @@ class _MoreOptionItem extends StatelessWidget {
     final VoidCallback effectiveOnTap = onTap ?? () {};
     final String displayLabel = label.replaceAll(' ', '\n');
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparentColor,
       child: InkWell(
         onTap: effectiveOnTap,
         child: Column(

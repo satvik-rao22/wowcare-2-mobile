@@ -55,7 +55,7 @@ class TransactionActionDialog extends StatelessWidget {
                     child: const Padding(
                       padding: EdgeInsets.all(6.0),
                       child:
-                          Icon(Icons.close, size: 18, color: Color(0x99573353)),
+                          Icon(Icons.close, size: 18, color: AppColors.billingTextMuted),
                     ),
                   ),
                 ],
@@ -67,7 +67,7 @@ class TransactionActionDialog extends StatelessWidget {
                   fontFamily: 'Manrope',
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: Color(0x99573353),
+                  color: AppColors.billingTextMuted,
                 ),
               ),
               const SizedBox(height: 16),

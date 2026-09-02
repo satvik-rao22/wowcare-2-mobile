@@ -38,7 +38,7 @@ class AutoPayPaymentMethodsScreen extends StatefulWidget {
 
 class _AutoPayPaymentMethodsScreenState
     extends State<AutoPayPaymentMethodsScreen> {
-  static const Color _accent = Color(0xFF6F8CFF);
+  static const Color _accent = AppColors.billingAccentBlue;
   static const Color _autopayTagBg = Color(0xFFEEE9FF);
   static const Color _autopayTagFg = Color(0xFF6F52FF);
 
@@ -127,7 +127,7 @@ class _AutoPayPaymentMethodsScreenState
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (ctx) => ConfirmationBottomSheet(
         icon: Icons.autorenew,
         title: 'Turn off Auto Payment?',
@@ -204,7 +204,7 @@ class _AutoPayPaymentMethodsScreenState
                           horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                         color: enabled
-                            ? const Color(0xFFE8FFF1)
+                            ? AppColors.billingSuccessBackground
                             : Colors.grey.shade200,
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -284,7 +284,7 @@ class _AutoPayPaymentMethodsScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFE8FFF1),
+        color: AppColors.billingSuccessBackground,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -476,7 +476,7 @@ class _AutoPayPaymentMethodsScreenState
               if (m.autopay) _tag('AutoPay', _autopayTagBg, _autopayTagFg),
               if (m.primary) ...[
                 if (m.autopay) const SizedBox(width: 6),
-                _tag('Primary', const Color(0xFFE8FFF1),
+                _tag('Primary', AppColors.billingSuccessBackground,
                     AppColors.successColor),
               ],
               const Spacer(),
@@ -816,7 +816,7 @@ class _AutoPayPaymentMethodsScreenState
       width: double.infinity,
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
+        color: AppColors.billingSurfaceLight,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade300),
       ),
@@ -990,7 +990,7 @@ class _AutoPayPaymentMethodsScreenState
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (sheetCtx) => DeleteConfirmationBottomSheet(
         name: _methodTitle(m),
         type: 'payment_method',
@@ -1080,7 +1080,7 @@ class _AutoPayPaymentMethodsScreenState
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (_) => _EditMethodSheet(method: m, cubit: _cubit),
     );
     if (!mounted || saved != true) return;
@@ -1124,7 +1124,7 @@ class _EditMethodSheet extends StatefulWidget {
 }
 
 class _EditMethodSheetState extends State<_EditMethodSheet> {
-  static const Color _primary = Color(0xFF573353);
+  static const Color _primary = AppColors.billingTextColor;
 
   late final TextEditingController _holder;
   late final TextEditingController _routing;
@@ -1406,7 +1406,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: const Color(0x66573353)),
+        border: Border.all(color: AppColors.billingBorderDefault),
         borderRadius: BorderRadius.circular(8),
       ),
       child: TextField(

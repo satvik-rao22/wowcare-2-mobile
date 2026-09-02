@@ -245,7 +245,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
                                 fontFamily: 'Manrope',
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
-                                color: Color(0xff573353),
+                                color: AppColors.billingTextColor,
                               ),
                             ),
                             const SizedBox(width: 8),

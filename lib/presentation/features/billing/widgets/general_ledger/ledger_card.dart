@@ -127,7 +127,7 @@ class _OutlineActionButton extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
 
-  static const Color _accent = Color(0xFF6C7FD8);
+  static const Color _accent = AppColors.billingCardAccent;
 
   @override
   Widget build(BuildContext context) {

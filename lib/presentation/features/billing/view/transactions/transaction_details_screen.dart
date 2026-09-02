@@ -315,7 +315,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (sheetCtx) => DeleteConfirmationBottomSheet(
         name: name,
         type: type,
@@ -426,7 +426,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                   color: AppColors.cardColor,
                   child: TabBar(
                     controller: _tabController,
-                    dividerColor: Colors.transparent,
+                    dividerColor: AppColors.transparentColor,
                     indicator: const UnderlineTabIndicator(
                       borderSide:
                           BorderSide(color: AppColors.themeColor, width: 2),

@@ -403,7 +403,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
 
   List<Widget> _buildExpandedContent(String type) {
     final List<Widget> content = <Widget>[
-      const Divider(height: 1, thickness: 1, color: Color(0xFFE9ECEF)),
+      const Divider(height: 1, thickness: 1, color: AppColors.billingDividerLight),
       const SizedBox(height: 8),
       _studentInfoRow(),
       const SizedBox(height: 8),

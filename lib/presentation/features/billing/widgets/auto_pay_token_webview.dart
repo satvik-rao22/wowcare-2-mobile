@@ -81,7 +81,7 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Payment Method'),
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.transparentColor,
         foregroundColor: Colors.white,
         elevation: 0,
         flexibleSpace: Container(

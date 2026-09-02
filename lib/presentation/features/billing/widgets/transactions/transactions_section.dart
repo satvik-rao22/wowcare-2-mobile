@@ -351,7 +351,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (sheetCtx) => DeleteConfirmationBottomSheet(
         name: name,
         type: type,

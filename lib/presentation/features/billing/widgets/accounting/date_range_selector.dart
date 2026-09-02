@@ -142,7 +142,7 @@ class _AccountingDateRangeSelectorState
                     child: Container(
                       height: 40,
                       decoration: BoxDecoration(
-                        color: const Color(0x1AB1AFE9),
+                        color: AppColors.billingBorderLight,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 10),

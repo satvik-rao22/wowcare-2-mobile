@@ -266,7 +266,7 @@ class _ReceivePaymentIssueRefundScreenState
 
   BoxDecoration _fieldBox(ResponsiveHelper responsive) => BoxDecoration(
     color: AppColors.billingCardColor,
-    border: Border.all(color: const Color(0x66573353)),
+    border: Border.all(color: AppColors.billingBorderDefault),
     borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
   );
 
@@ -303,7 +303,7 @@ class _ReceivePaymentIssueRefundScreenState
           fontFamily: 'Manrope',
           fontSize: responsive.inputFontSize,
           fontWeight: FontWeight.w600,
-          color: const Color(0xff573353),
+          color: AppColors.billingTextColor,
         ),
         decoration: InputDecoration(
           hintText: hint,
@@ -591,7 +591,7 @@ class _ReceivePaymentIssueRefundScreenState
     const List<Color> palette = <Color>[
       Color(0xFFB983FF),
       Color(0xFFF6D365),
-      Color(0xFF6F8CFF),
+      AppColors.billingAccentBlue,
       Color(0xFF7ED9A6),
       Color(0xFFFF9AA2),
     ];
@@ -663,7 +663,7 @@ class _ReceivePaymentIssueRefundScreenState
       fontFamily: 'Manrope',
       fontSize: responsive.inputFontSize,
       fontWeight: FontWeight.w600,
-      color: const Color(0xff573353),
+      color: AppColors.billingTextColor,
     );
     final double radius = responsive.isTablet ? 12.0 : 8.0;
 
@@ -671,7 +671,7 @@ class _ReceivePaymentIssueRefundScreenState
       constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
       decoration: BoxDecoration(
         color: active ? AppColors.billingCardColor : const Color(0xFFF4F4F6),
-        border: Border.all(color: const Color(0x66573353)),
+        border: Border.all(color: AppColors.billingBorderDefault),
         borderRadius: BorderRadius.circular(radius),
       ),
       child: Row(
@@ -680,7 +680,7 @@ class _ReceivePaymentIssueRefundScreenState
             alignment: Alignment.center,
             padding: _fieldPadding(responsive),
             decoration: BoxDecoration(
-              color: const Color(0x1AB1AFE9),
+              color: AppColors.billingBorderLight,
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(radius),
                 bottomLeft: Radius.circular(radius),
@@ -730,7 +730,7 @@ class _ReceivePaymentIssueRefundScreenState
       fontFamily: 'Manrope',
       fontSize: responsive.inputFontSize,
       fontWeight: FontWeight.w600,
-      color: const Color(0xff573353),
+      color: AppColors.billingTextColor,
     );
 
     return Column(

@@ -47,7 +47,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
       List<Student>.from(widget.selectedStudents);
 
   // Add-Staff text palette (Manrope, #573353).
-  static const Color _text = Color(0xff573353);
+  static const Color _text = AppColors.billingTextColor;
   static TextStyle _ts(double size, FontWeight weight, {Color? color}) =>
       TextStyle(
         fontFamily: 'Manrope',

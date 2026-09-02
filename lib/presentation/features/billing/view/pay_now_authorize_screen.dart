@@ -42,7 +42,7 @@ class PayNowAuthorizeScreen extends StatefulWidget {
 }
 
 class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
-  static const Color _accent = Color(0xFF6F8CFF);
+  static const Color _accent = AppColors.billingAccentBlue;
 
   final PayNowAuthorizeCubit _cubit = serviceLocator<PayNowAuthorizeCubit>();
 
@@ -136,7 +136,7 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFE8FFF1),
+        color: AppColors.billingSuccessBackground,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(

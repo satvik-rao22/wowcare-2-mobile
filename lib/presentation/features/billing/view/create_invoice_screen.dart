@@ -288,7 +288,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         fontSize: responsive.labelFontSize,
         fontFamily: 'Manrope',
         fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
+        color: AppColors.billingTextColor,
       );
 
   Widget _buildDateField({
@@ -392,7 +392,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           decoration: BoxDecoration(
             borderRadius:
                 BorderRadius.circular(responsive.isTablet ? 12.0 : 10.0),
-            color: const Color(0x1AB1AFE9),
+            color: AppColors.billingBorderLight,
             border: Border.all(color: AppColors.billingBorderMedium),
           ),
           child: Row(
@@ -826,7 +826,7 @@ class _ItemTextField extends StatelessWidget {
       fontSize: responsive.labelFontSize,
       fontFamily: 'Manrope',
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.billingTextColor,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -845,7 +845,7 @@ class _ItemTextField extends StatelessWidget {
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
             color: enabled ? Colors.white : Colors.grey.shade200,
-            border: Border.all(color: const Color(0x66573353)),
+            border: Border.all(color: AppColors.billingBorderDefault),
             borderRadius:
                 BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
           ),
@@ -859,7 +859,7 @@ class _ItemTextField extends StatelessWidget {
               fontFamily: 'Manrope',
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: AppColors.billingTextColor,
               height: 19 / 14,
             ),
             decoration: InputDecoration(

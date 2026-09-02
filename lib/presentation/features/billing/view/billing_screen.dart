@@ -229,7 +229,7 @@ class _BillingScreenState extends State<BillingScreen>
                                     fontFamily: 'Manrope',
                                     fontSize: titleFontSize,
                                     fontWeight: FontWeight.w600,
-                                    color: const Color(0xff573353),
+                                    color: AppColors.billingTextColor,
                                     height: titleLineHeight,
                                   ),
                                   textAlign: TextAlign.left,
@@ -325,7 +325,7 @@ class _BillingScreenState extends State<BillingScreen>
                           // Scrollable TabBar (horizontal only)
                           Container(
                             decoration: BoxDecoration(
-                              color: Colors.transparent,
+                              color: AppColors.transparentColor,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             padding: const EdgeInsets.symmetric(
@@ -340,7 +340,7 @@ class _BillingScreenState extends State<BillingScreen>
                                   visualDensity: VisualDensity.compact,
                                   constraints: const BoxConstraints.tightFor(width: 26, height: 32),
                                   splashRadius: 14,
-                                  icon: const Icon(Icons.chevron_left, color: Color(0xff573353), size: 25),
+                                  icon: const Icon(Icons.chevron_left, color: AppColors.billingTextColor, size: 25),
                                   onPressed: () {
                                     final int current = controller.index;
                                     if (current > 0) {
@@ -355,8 +355,8 @@ class _BillingScreenState extends State<BillingScreen>
                                     labelPadding: EdgeInsets.zero,
                                     tabAlignment: TabAlignment.start,
                                     labelColor: AppColors.themeColor,
-                                    unselectedLabelColor: const Color(0xff573353),
-                                    dividerColor: Colors.transparent,
+                                    unselectedLabelColor: AppColors.billingTextColor,
+                                    dividerColor: AppColors.transparentColor,
                                     indicatorSize: TabBarIndicatorSize.label,
                                     indicator: UnderlineTabIndicator(
                                       borderSide: BorderSide(
@@ -391,7 +391,7 @@ class _BillingScreenState extends State<BillingScreen>
                                   visualDensity: VisualDensity.compact,
                                   constraints: const BoxConstraints.tightFor(width: 26, height: 32),
                                   splashRadius: 14,
-                                  icon: const Icon(Icons.chevron_right, color: Color(0xff573353), size: 25),
+                                  icon: const Icon(Icons.chevron_right, color: AppColors.billingTextColor, size: 25),
                                   onPressed: () {
                                     final int current = controller.index;
                                     if (current < _tabs.length - 1) {
