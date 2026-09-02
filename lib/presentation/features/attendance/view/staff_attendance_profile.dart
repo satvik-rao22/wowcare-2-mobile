@@ -255,6 +255,129 @@ class _AbsentDayModel {
   });
 }
 
+/// Formats many possible API time shapes into a clean 12-hour display ("hh:mm a").
+/// Supports:
+/// - Map: {hour, minute, second?, nano?}
+/// - "HH:mm", "HH:mm:ss", "HH:mm:ss.SSSSSS"
+/// - "h:mm:ss AM", "hh:mm:ss a"
+/// - ISO datetime strings (e.g. "2026-04-07T13:05:00.000Z")
+String _formatTime12h(dynamic value) {
+  if (value == null) return '';
+  final s = value.toString().trim();
+  if (s.isEmpty) return '';
+
+  try {
+    if (value is Map<String, dynamic>) {
+      final hour = value['hour'] as int? ?? 0;
+      final minute = value['minute'] as int? ?? 0;
+      final dt = DateTime(2000, 1, 1, hour, minute);
+      return DateFormat('hh:mm a').format(dt);
+    }
+
+    // Render ISO instants in the school's zone (not the device zone) so
+    // sign-in/out times match the backend regardless of where the user is.
+    final schoolDt = attendanceDisplayDateTimeFromIso(s);
+    if (schoolDt != null) {
+      return DateFormat('hh:mm a').format(schoolDt);
+    }
+
+    final amPmMatch = RegExp(
+      r'^\s*(\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?\s*([aApP][mM])\s*$',
+    ).firstMatch(s);
+    if (amPmMatch != null) {
+      final hour = int.parse(amPmMatch.group(1)!);
+      final minute = int.parse(amPmMatch.group(2)!);
+      final period = amPmMatch.group(4)!.toUpperCase();
+      int h24 = hour % 12;
+      if (period == 'PM') h24 += 12;
+      final dt = DateTime(2000, 1, 1, h24, minute);
+      return DateFormat('hh:mm a').format(dt);
+    }
+
+    final hms = s.split('.')[0];
+    final parts = hms.split(':');
+    if (parts.length >= 2) {
+      final hour = int.tryParse(parts[0]) ?? 0;
+      final minute = int.tryParse(parts[1]) ?? 0;
+      final dt = DateTime(2000, 1, 1, hour, minute);
+      return DateFormat('hh:mm a').format(dt);
+    }
+  } catch (_) {
+    // fall-through to raw string
+  }
+
+  return s;
+}
+
+String _formatAttendedTimeForCard(_AttendanceModel attendance) {
+  final inStr = attendance.signInTime.trim();
+  final outStr = attendance.signOutTime.trim();
+
+  if (inStr.isNotEmpty && outStr.isEmpty) {
+    return 'Not Yet Signed Out';
+  }
+
+  final day = DateTime(
+    attendance.date.year,
+    attendance.date.month,
+    attendance.date.day,
+  );
+  final start = parseFlexibleAttendanceMoment(day, inStr);
+  final end = parseFlexibleAttendanceMoment(day, outStr);
+  final label = attendedLabelFromMoments(start, end);
+  if (label != null && label.isNotEmpty) {
+    return label;
+  }
+  return '';
+}
+
+/// Shows the full name (first + last), not just the first word.
+String getFirstName(String name) {
+  return name.trim();
+}
+
+String formatTime(String time) {
+  if (time.trim().isEmpty) return 'Not Yet Signed Out';
+  return _formatTime12h(time);
+}
+
+bool _isKioskOrPinMethodEnum(StaffProfileAbsentMarkMethod? method) {
+  return method == StaffProfileAbsentMarkMethod.kiosk ||
+      method == StaffProfileAbsentMarkMethod.pin;
+}
+
+String _resolveSignInByDisplay(
+  String signInBy,
+  StaffProfileAbsentMarkMethod? method,
+) {
+  final name = signInBy.trim();
+  if (name.isNotEmpty) return name;
+  if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
+  return '';
+}
+
+String _resolveSignOutByDisplay(
+  String signOutBy,
+  StaffProfileAbsentMarkMethod? method,
+) {
+  final name = signOutBy.trim();
+  if (name.isNotEmpty) return name;
+  if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
+  return '';
+}
+
+/// Cleans an enum-style designation from the API into a human label, e.g.
+/// "ASSISTANT_TEACHER" -> "Assistant Teacher", "DIRECTOR" -> "Director".
+String _formatDesignation(String? value) {
+  final raw = (value ?? '').trim();
+  if (raw.isEmpty) return '-';
+  return raw
+      .split(RegExp(r'[_\s]+'))
+      .where((p) => p.isNotEmpty)
+      .map((p) => p[0].toUpperCase() + p.substring(1).toLowerCase())
+      .join(' ');
+}
+
 class _StaffModel {
   final int id;
   final String name;
@@ -417,82 +540,6 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       return '$h12:$mm:00 $period';
     }
     return value.toString();
-  }
-
-  /// Formats many possible API time shapes into a clean 12-hour display ("hh:mm a").
-  /// Supports:
-  /// - Map: {hour, minute, second?, nano?}
-  /// - "HH:mm", "HH:mm:ss", "HH:mm:ss.SSSSSS"
-  /// - "h:mm:ss AM", "hh:mm:ss a"
-  /// - ISO datetime strings (e.g. "2026-04-07T13:05:00.000Z")
-  String _formatTime12h(dynamic value) {
-    if (value == null) return '';
-    final s = value.toString().trim();
-    if (s.isEmpty) return '';
-
-    try {
-      if (value is Map<String, dynamic>) {
-        final hour = value['hour'] as int? ?? 0;
-        final minute = value['minute'] as int? ?? 0;
-        final dt = DateTime(2000, 1, 1, hour, minute);
-        return DateFormat('hh:mm a').format(dt);
-      }
-
-      // Render ISO instants in the school's zone (not the device zone) so
-      // sign-in/out times match the backend regardless of where the user is.
-      final schoolDt = attendanceDisplayDateTimeFromIso(s);
-      if (schoolDt != null) {
-        return DateFormat('hh:mm a').format(schoolDt);
-      }
-
-      final amPmMatch = RegExp(
-        r'^\s*(\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?\s*([aApP][mM])\s*$',
-      ).firstMatch(s);
-      if (amPmMatch != null) {
-        final hour = int.parse(amPmMatch.group(1)!);
-        final minute = int.parse(amPmMatch.group(2)!);
-        final period = amPmMatch.group(4)!.toUpperCase();
-        int h24 = hour % 12;
-        if (period == 'PM') h24 += 12;
-        final dt = DateTime(2000, 1, 1, h24, minute);
-        return DateFormat('hh:mm a').format(dt);
-      }
-
-      final hms = s.split('.')[0];
-      final parts = hms.split(':');
-      if (parts.length >= 2) {
-        final hour = int.tryParse(parts[0]) ?? 0;
-        final minute = int.tryParse(parts[1]) ?? 0;
-        final dt = DateTime(2000, 1, 1, hour, minute);
-        return DateFormat('hh:mm a').format(dt);
-      }
-    } catch (_) {
-      // fall-through to raw string
-    }
-
-    return s;
-  }
-
-  String _formatAttendedTimeForCard(_AttendanceModel attendance) {
-    final inStr = attendance.signInTime.trim();
-    final outStr = attendance.signOutTime.trim();
-
-    if (inStr.isNotEmpty && outStr.isEmpty) {
-      return 'Not Yet Signed Out';
-    }
-
-    final day = DateTime(
-      attendance.date.year,
-      attendance.date.month,
-      attendance.date.day,
-    );
-    final start = parseFlexibleAttendanceMoment(day, inStr);
-    final end = parseFlexibleAttendanceMoment(day, outStr);
-    final label = attendedLabelFromMoments(start, end);
-    if (label != null && label.isNotEmpty) {
-      return label;
-    }
-    return '';
   }
 
   @override
@@ -950,7 +997,14 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
-                  _buildPopupMenu(),
+                  GradientAddButton(
+                    onTap: () {
+                      _showActionMenu(context);
+                    },
+                    isTablet: ResponsiveHelper(context).isTabletCompact,
+                    isLargeTablet: ResponsiveHelper(context).isWide,
+                    isRectangle: true,
+                  ),
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
@@ -961,7 +1015,26 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                       ? const AttendanceProfileShimmer()
                       : Column(
                           children: [
-                            _buildStaffCard(),
+                            _StaffCard(
+                              staff: staff,
+                              staffCode: widget.staffCode,
+                              isStaffPersona: context.read<RoleCubit>().isStaff,
+                              canOpenStaffTabbedViewFromStats:
+                                  _canOpenStaffTabbedViewFromStats,
+                              attendanceReport: attendanceReport,
+                              onPresentTap: () {
+                                context.push(
+                                  StaffAttendanceTabbedView.routeName,
+                                  extra: {'filter': 'Present'},
+                                );
+                              },
+                              onAbsentTap: () {
+                                context.push(
+                                  StaffAttendanceTabbedView.routeName,
+                                  extra: {'filter': 'Absent'},
+                                );
+                              },
+                            ),
                             const SizedBox(height: AppSpacing.md),
                             // Toggle for showing absent days
                             Row(
@@ -985,7 +1058,20 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                               ],
                             ),
                             const SizedBox(height: AppSpacing.md),
-                            _buildAttendanceList(),
+                            _StaffAttendanceListSection(
+                              showAbsentDays: showAbsentDays,
+                              isAttendancesLoading: isAttendancesLoading,
+                              attendances: attendances,
+                              isAbsentDaysLoading: isAbsentDaysLoading,
+                              absentDays: absentDays,
+                              fallbackRoomName:
+                                  staff?.roomName ?? widget.roomName,
+                              onExpandedIndexChanged: (value) {
+                                setState(() {
+                                  expandedIndex = value;
+                                });
+                              },
+                            ),
                           ],
                         );
                 },
@@ -994,20 +1080,6 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildPopupMenu() {
-    final isTablet = ResponsiveHelper(context).isTabletCompact;
-    final isLargeTablet = ResponsiveHelper(context).isWide;
-
-    return GradientAddButton(
-      onTap: () {
-        _showActionMenu(context);
-      },
-      isTablet: isTablet,
-      isLargeTablet: isLargeTablet,
-      isRectangle: true,
     );
   }
 
@@ -1066,202 +1138,41 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     );
   }
 
-  /// Cleans an enum-style designation from the API into a human label, e.g.
-  /// "ASSISTANT_TEACHER" -> "Assistant Teacher", "DIRECTOR" -> "Director".
-  String _formatDesignation(String? value) {
-    final raw = (value ?? '').trim();
-    if (raw.isEmpty) return '-';
-    return raw
-        .split(RegExp(r'[_\s]+'))
-        .where((p) => p.isNotEmpty)
-        .map((p) => p[0].toUpperCase() + p.substring(1).toLowerCase())
-        .join(' ');
-  }
-
-  Widget _buildStaffCard() {
-    if (staff == null) return const SizedBox.shrink();
-
-    final currentStaff = staff!;
-
-    return Card(
-      margin: EdgeInsets.zero,
-      color: AppColors.cardColor,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.2),
-          width: 0.5,
-        ),
-        borderRadius: AppRadius.allLg,
-      ),
-      elevation: 6,
-      shadowColor: AppColors.primaryColor.withValues(alpha: 0.2),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.lg,
-        ),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                const SizedBox(width: AppSpacing.s5),
-                DocumentImageWidget(
-                  fileUuid: currentStaff.photoUuid ?? '',
-                  size: 80,
-                  name: currentStaff.name,
-                  fontSize: 24,
-                  // Drive status dot purely from attendance API using staffCode.
-                  staffCode: widget.staffCode,
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      AppText.title(
-                        currentStaff.name,
-                        style: TextStyle(
-                          fontSize: ResponsiveHelper(context).isTablet
-                              ? 23
-                              : 20,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.6,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xxs),
-                      // Staff persona: show the primary classroom name.
-                      // Admin persona: show the designation, cleaned up
-                      // (e.g. ASSISTANT_TEACHER -> Assistant Teacher) instead
-                      // of the raw enum value from the API.
-                      if (context.read<RoleCubit>().isStaff)
-                        AppText.body(
-                          currentStaff.roomName,
-                          style: AppTextStyles.mediumWeight,
-                        )
-                      else
-                        AppText.body(
-                          _formatDesignation(currentStaff.designationName),
-                          style: AppTextStyles.mediumWeight,
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            _buildStats(),
-          ],
-        ),
-      ),
-    );
-  }
-
   /// Attended/Absent Days cards navigate to [StaffAttendanceTabbedView], which
   /// lists ALL staff — an admin-only surface. A staff persona viewing their
   /// own "My Attendance" profile must never be able to reach it, so those
   /// cards are non-tappable for that persona (self-service view only).
   bool get _canOpenStaffTabbedViewFromStats => !_isSelfStaffPersona;
+}
 
-  Widget _buildStats() {
-    if (attendanceReport == null) {
-      return Column(
-        children: [
-          InkWell(
-            onTap: _canOpenStaffTabbedViewFromStats
-                ? () {
-                    context.push(
-                      StaffAttendanceTabbedView.routeName,
-                      extra: {'filter': 'Present'},
-                    );
-                  }
-                : null,
-            child: AttendanceProfileStatItem(
-              icon: MediaRes.calenderClockIcon,
-              iconColor: AppColors.attendanceStatBlueColor,
-              label: 'Attended Days',
-              value: '',
-              valueColor: AppColors.attendanceStatGreenColor,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          AttendanceProfileAttendedHoursStat(totalAttendedHours: null),
-          const SizedBox(height: AppSpacing.md),
-          InkWell(
-            onTap: _canOpenStaffTabbedViewFromStats
-                ? () {
-                    context.push(
-                      StaffAttendanceTabbedView.routeName,
-                      extra: {'filter': 'Absent'},
-                    );
-                  }
-                : null,
-            child: AttendanceProfileStatItem(
-              icon: MediaRes.calenderClockIcon,
-              iconColor: AppColors.attendanceStatBlueColor,
-              label: 'Absent Days',
-              value: '',
-              valueColor: AppColors.errorColor,
-            ),
-          ),
-        ],
-      );
-    }
+class _StaffAttendanceListSection extends StatelessWidget {
+  const _StaffAttendanceListSection({
+    required this.showAbsentDays,
+    required this.isAttendancesLoading,
+    required this.attendances,
+    required this.isAbsentDaysLoading,
+    required this.absentDays,
+    required this.fallbackRoomName,
+    required this.onExpandedIndexChanged,
+  });
 
-    return Column(
-      children: [
-        InkWell(
-          onTap: _canOpenStaffTabbedViewFromStats
-              ? () {
-                  context.push(
-                    StaffAttendanceTabbedView.routeName,
-                    extra: {'filter': 'Present'},
-                  );
-                }
-              : null,
-          child: AttendanceProfileStatItem(
-            icon: MediaRes.calenderClockIcon,
-            iconColor: AppColors.attendanceStatBlueColor,
-            label: 'Attended Days',
-            value: '${attendanceReport!.attendedDays}',
-            valueColor: AppColors.attendanceStatGreenColor,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        AttendanceProfileAttendedHoursStat(
-          totalAttendedHours: attendanceReport?.totalAttendedHours,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        InkWell(
-          onTap: _canOpenStaffTabbedViewFromStats
-              ? () {
-                  context.push(
-                    StaffAttendanceTabbedView.routeName,
-                    extra: {'filter': 'Absent'},
-                  );
-                }
-              : null,
-          child: AttendanceProfileStatItem(
-            icon: MediaRes.calenderClockIcon,
-            iconColor: AppColors.attendanceStatBlueColor,
-            label: 'Absent Days',
-            value: '${attendanceReport!.absentDays}',
-            valueColor: AppColors.errorColor,
-          ),
-        ),
-      ],
-    );
-  }
+  final bool showAbsentDays;
+  final bool isAttendancesLoading;
+  final List<_AttendanceModel> attendances;
+  final bool isAbsentDaysLoading;
+  final List<_AbsentDayModel> absentDays;
+  final String fallbackRoomName;
+  final ValueChanged<int?> onExpandedIndexChanged;
 
-  Widget _buildAttendanceList() {
+  @override
+  Widget build(BuildContext context) {
     if (showAbsentDays) {
-      return _buildAbsentDaysList();
-    } else {
-      return _buildPresentDaysList();
+      return _absentDaysList();
     }
+    return _presentDaysList();
   }
 
-  Widget _buildPresentDaysList() {
+  Widget _presentDaysList() {
     if (isAttendancesLoading) {
       return ListView.builder(
         shrinkWrap: true,
@@ -1294,12 +1205,17 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
 
     return Column(
       children: List.generate(attendances.length, (index) {
-        return _buildAttendanceItem(index);
+        return _StaffAttendanceItemCard(
+          attendance: attendances[index],
+          onExpansionChanged: (expanded) {
+            onExpandedIndexChanged(expanded ? index : null);
+          },
+        );
       }),
     );
   }
 
-  Widget _buildAbsentDaysList() {
+  Widget _absentDaysList() {
     if (isAbsentDaysLoading) {
       return ListView.builder(
         shrinkWrap: true,
@@ -1332,49 +1248,29 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
 
     return Column(
       children: List.generate(absentDays.length, (index) {
-        return _buildAbsentDayItem(index);
+        return _StaffAbsentDayItemCard(
+          absentDay: absentDays[index],
+          fallbackRoomName: fallbackRoomName,
+          onExpansionChanged: (expanded) {
+            onExpandedIndexChanged(expanded ? index + 1000 : null);
+          },
+        );
       }),
     );
   }
+}
 
-  String getFirstName(String name) {
-    // Show the full name (first + last), not just the first word.
-    return name.trim();
-  }
+class _StaffAttendanceItemCard extends StatelessWidget {
+  const _StaffAttendanceItemCard({
+    required this.attendance,
+    required this.onExpansionChanged,
+  });
 
-  String formatTime(String time) {
-    if (time.trim().isEmpty) return 'Not Yet Signed Out';
-    return _formatTime12h(time);
-  }
+  final _AttendanceModel attendance;
+  final ValueChanged<bool> onExpansionChanged;
 
-  bool _isKioskOrPinMethodEnum(StaffProfileAbsentMarkMethod? method) {
-    return method == StaffProfileAbsentMarkMethod.kiosk ||
-        method == StaffProfileAbsentMarkMethod.pin;
-  }
-
-  String _resolveSignInByDisplay(
-    String signInBy,
-    StaffProfileAbsentMarkMethod? method,
-  ) {
-    final name = signInBy.trim();
-    if (name.isNotEmpty) return name;
-    if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
-    return '';
-  }
-
-  String _resolveSignOutByDisplay(
-    String signOutBy,
-    StaffProfileAbsentMarkMethod? method,
-  ) {
-    final name = signOutBy.trim();
-    if (name.isNotEmpty) return name;
-    if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
-    return '';
-  }
-
-  Widget _buildAttendanceItem(int index) {
-    final attendance = attendances[index];
-
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: ExpansionTile(
@@ -1406,11 +1302,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           AppSpacing.md,
           AppSpacing.md,
         ),
-        onExpansionChanged: (expanded) {
-          setState(() {
-            expandedIndex = expanded ? index : null;
-          });
-        },
+        onExpansionChanged: onExpansionChanged,
         children: [
           Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: AppSpacing.md),
@@ -1467,10 +1359,21 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       ),
     );
   }
+}
 
-  Widget _buildAbsentDayItem(int index) {
-    final absentDay = absentDays[index];
+class _StaffAbsentDayItemCard extends StatelessWidget {
+  const _StaffAbsentDayItemCard({
+    required this.absentDay,
+    required this.fallbackRoomName,
+    required this.onExpansionChanged,
+  });
 
+  final _AbsentDayModel absentDay;
+  final String fallbackRoomName;
+  final ValueChanged<bool> onExpansionChanged;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: ExpansionTile(
@@ -1498,11 +1401,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           AppSpacing.md,
           AppSpacing.md,
         ),
-        onExpansionChanged: (expanded) {
-          setState(() {
-            expandedIndex = expanded ? index + 1000 : null;
-          });
-        },
+        onExpansionChanged: onExpansionChanged,
         children: [
           Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: AppSpacing.md),
@@ -1512,7 +1411,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
               if (absentDay.classroomName.isNotEmpty) {
                 return absentDay.classroomName;
               }
-              final fallback = staff?.roomName ?? widget.roomName;
+              final fallback = fallbackRoomName;
               return (fallback.trim().isNotEmpty &&
                       fallback != '-' &&
                       fallback != '—')
@@ -1546,6 +1445,164 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _StaffCard extends StatelessWidget {
+  const _StaffCard({
+    required this.staff,
+    required this.staffCode,
+    required this.isStaffPersona,
+    required this.canOpenStaffTabbedViewFromStats,
+    required this.attendanceReport,
+    required this.onPresentTap,
+    required this.onAbsentTap,
+  });
+
+  final _StaffModel? staff;
+  final String? staffCode;
+  final bool isStaffPersona;
+  final bool canOpenStaffTabbedViewFromStats;
+  final _AttendanceReportModel? attendanceReport;
+  final VoidCallback onPresentTap;
+  final VoidCallback onAbsentTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (staff == null) return const SizedBox.shrink();
+
+    final currentStaff = staff!;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      color: AppColors.cardColor,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(
+          color: AppColors.primaryColor.withValues(alpha: 0.2),
+          width: 0.5,
+        ),
+        borderRadius: AppRadius.allLg,
+      ),
+      elevation: 6,
+      shadowColor: AppColors.primaryColor.withValues(alpha: 0.2),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.lg,
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                const SizedBox(width: AppSpacing.s5),
+                DocumentImageWidget(
+                  fileUuid: currentStaff.photoUuid ?? '',
+                  size: 80,
+                  name: currentStaff.name,
+                  fontSize: 24,
+                  // Drive status dot purely from attendance API using staffCode.
+                  staffCode: staffCode,
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AppText.title(
+                        currentStaff.name,
+                        style: TextStyle(
+                          fontSize: ResponsiveHelper(context).isTablet
+                              ? 23
+                              : 20,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.6,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xxs),
+                      // Staff persona: show the primary classroom name.
+                      // Admin persona: show the designation, cleaned up
+                      // (e.g. ASSISTANT_TEACHER -> Assistant Teacher) instead
+                      // of the raw enum value from the API.
+                      if (isStaffPersona)
+                        AppText.body(
+                          currentStaff.roomName,
+                          style: AppTextStyles.mediumWeight,
+                        )
+                      else
+                        AppText.body(
+                          _formatDesignation(currentStaff.designationName),
+                          style: AppTextStyles.mediumWeight,
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _StaffStatsSection(
+              canOpenStaffTabbedViewFromStats: canOpenStaffTabbedViewFromStats,
+              attendedDays: attendanceReport?.attendedDays,
+              absentDays: attendanceReport?.absentDays,
+              totalAttendedHours: attendanceReport?.totalAttendedHours,
+              onPresentTap: onPresentTap,
+              onAbsentTap: onAbsentTap,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StaffStatsSection extends StatelessWidget {
+  const _StaffStatsSection({
+    required this.canOpenStaffTabbedViewFromStats,
+    required this.attendedDays,
+    required this.absentDays,
+    required this.totalAttendedHours,
+    required this.onPresentTap,
+    required this.onAbsentTap,
+  });
+
+  final bool canOpenStaffTabbedViewFromStats;
+  final int? attendedDays;
+  final int? absentDays;
+  final String? totalAttendedHours;
+  final VoidCallback onPresentTap;
+  final VoidCallback onAbsentTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        InkWell(
+          onTap: canOpenStaffTabbedViewFromStats ? onPresentTap : null,
+          child: AttendanceProfileStatItem(
+            icon: MediaRes.calenderClockIcon,
+            iconColor: AppColors.attendanceStatBlueColor,
+            label: 'Attended Days',
+            value: attendedDays != null ? '$attendedDays' : '',
+            valueColor: AppColors.attendanceStatGreenColor,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        AttendanceProfileAttendedHoursStat(
+          totalAttendedHours: totalAttendedHours,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        InkWell(
+          onTap: canOpenStaffTabbedViewFromStats ? onAbsentTap : null,
+          child: AttendanceProfileStatItem(
+            icon: MediaRes.calenderClockIcon,
+            iconColor: AppColors.attendanceStatBlueColor,
+            label: 'Absent Days',
+            value: absentDays != null ? '$absentDays' : '',
+            valueColor: AppColors.errorColor,
+          ),
+        ),
+      ],
     );
   }
 }
