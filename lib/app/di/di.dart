@@ -306,6 +306,7 @@ import '../../presentation/features/activities/cubit/bottle_activity_cubit.dart'
 import '../../presentation/features/activities/cubit/nap_activity_cubit.dart';
 import '../../presentation/features/activities/cubit/incident_activity_cubit.dart';
 import '../../presentation/features/activities/cubit/activity_feed_scope_cubit.dart';
+import '../../presentation/features/activities/cubit/activity_feed_cubit.dart';
 import '../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../domain/features/activity/usecases/create_shared_activities_usecase.dart';
@@ -1565,6 +1566,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentAbsentRecordsActivityUseCase:
           serviceLocator<GetStudentAbsentRecordsActivityUseCase>(),
       staffRepository: serviceLocator<StaffRepository>(),
+      storageService: serviceLocator<StorageService>(),
+    ),
+  );
+  // Testable, View-free daily-feed ViewModel (foundation for the later
+  // activity_daily_tab View migration; not yet wired into any View). Reuses the
+  // ActivityFeedScopeCubit as its ActivityFeedDataSource seam.
+  serviceLocator.registerFactory<ActivityFeedCubit>(
+    () => ActivityFeedCubit(
+      dataSource: serviceLocator<ActivityFeedScopeCubit>(),
       storageService: serviceLocator<StorageService>(),
     ),
   );
