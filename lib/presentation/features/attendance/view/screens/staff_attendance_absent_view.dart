@@ -326,22 +326,10 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
 
   @override
   Widget build(BuildContext context) {
-    if (widget.contentOnly) {
-      return _buildContent();
-    }
-
-    return GlobalScaffold(
-      hasBackButton: true,
-      showCustomNavigationBar: true,
-      body: _buildContent(),
-    );
-  }
-
-  Widget _buildContent() {
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
 
-    return MultiBlocProvider(
+    final Widget content = MultiBlocProvider(
       providers: [
         BlocProvider<StaffAttendanceAbsentCubit>.value(value: _cubit),
         BlocProvider<ClassroomCubit>.value(value: _classroomCubit),
@@ -577,7 +565,37 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
                           ...filtered.asMap().entries.map((entry) {
                             final index = entry.key;
                             final staff = entry.value;
-                            return _buildAbsentStaffCard(staff, index);
+                            return _AbsentStaffCardItem(
+                              staff: staff,
+                              index: index,
+                              isExpanded: _expandedStaffIndex == index,
+                              onTap: () {
+                                setState(() {
+                                  _expandedStaffIndex =
+                                      _expandedStaffIndex == index
+                                      ? null
+                                      : index;
+                                });
+                              },
+                              onView: () {
+                                context.push(
+                                  StaffAttendanceProfile.routeName,
+                                  extra: {
+                                    'staffCode': staff.id,
+                                    'staffId': staff.staffId,
+                                    'staffName': staff.name,
+                                    'staffPhotoUuid': staff.photoUuid,
+                                    'roomName': staff.roomName,
+                                    'isSignedIn': staff.hasSignIn,
+                                    'isAbsent': true,
+                                    'isExpectedToday': staff.expectedToday,
+                                    'isPresentToday': false,
+                                    'profileStatus': 'A',
+                                    'initialShowAbsentDays': true,
+                                  },
+                                );
+                              },
+                            );
                           }).toList(),
                           if (state.isLoadingMore)
                             Padding(
@@ -597,12 +615,36 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
         ),
       ),
     );
+
+    if (widget.contentOnly) {
+      return content;
+    }
+
+    return GlobalScaffold(
+      hasBackButton: true,
+      showCustomNavigationBar: true,
+      body: content,
+    );
   }
+}
 
-  Widget _buildAbsentStaffCard(_AbsentStaffModel staff, int index) {
-    final bool isExpanded = _expandedStaffIndex == index;
+class _AbsentStaffCardItem extends StatelessWidget {
+  const _AbsentStaffCardItem({
+    required this.staff,
+    required this.index,
+    required this.isExpanded,
+    required this.onTap,
+    required this.onView,
+  });
 
-    // Convert to StaffAbsentCardData
+  final _AbsentStaffModel staff;
+  final int index;
+  final bool isExpanded;
+  final VoidCallback onTap;
+  final VoidCallback onView;
+
+  @override
+  Widget build(BuildContext context) {
     final cardData = StaffAbsentCardData(
       id: staff.id,
       name: staff.name,
@@ -625,33 +667,8 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
       index: index,
       isExpanded: isExpanded,
       disableAttendanceStatusLookup: true,
-      onTap: () {
-        setState(() {
-          if (_expandedStaffIndex == index) {
-            _expandedStaffIndex = null;
-          } else {
-            _expandedStaffIndex = index;
-          }
-        });
-      },
-      onView: () {
-        context.push(
-          StaffAttendanceProfile.routeName,
-          extra: {
-            'staffCode': staff.id,
-            'staffId': staff.staffId,
-            'staffName': staff.name,
-            'staffPhotoUuid': staff.photoUuid,
-            'roomName': staff.roomName,
-            'isSignedIn': staff.hasSignIn,
-            'isAbsent': true,
-            'isExpectedToday': staff.expectedToday,
-            'isPresentToday': false,
-            'profileStatus': 'A',
-            'initialShowAbsentDays': true,
-          },
-        );
-      },
+      onTap: onTap,
+      onView: onView,
     );
   }
 }
