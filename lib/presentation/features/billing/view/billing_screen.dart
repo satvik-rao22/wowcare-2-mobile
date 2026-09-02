@@ -24,6 +24,7 @@ import 'package:wowcare/presentation/features/billing/widgets/general_ledger/mod
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_settings/billing_settings_section.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/core/util/school_switch_events.dart';
 
 class BillingScreen extends StatefulWidget {
   const BillingScreen({super.key});
@@ -35,7 +36,7 @@ class BillingScreen extends StatefulWidget {
 }
 
 class _BillingScreenState extends State<BillingScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SchoolSwitchReloadMixin {
   static const List<String> _tabs = <String>[
     'Student(s)',
     'Transactions',
@@ -115,6 +116,19 @@ class _BillingScreenState extends State<BillingScreen>
         _analyticsRefreshFn?.call();
         break;
     }
+  }
+
+  /// On an org/school switch, re-fetch EVERY tab (not just the visible one) so
+  /// no billing tab keeps showing the previous school's invoices / ledger /
+  /// analytics after the switch (BILL-INV-01). Tabs not yet built load fresh on
+  /// first visit; already-built ones refetch under the now-current school.
+  @override
+  void onSchoolSwitched() {
+    if (!mounted) return;
+    _studentsRefreshFn?.call();
+    _transactionsRefreshFn?.call();
+    _ledgerRefreshFn?.call();
+    _analyticsRefreshFn?.call();
   }
 
   void _onScroll() => _maybeLoadNextPage();
