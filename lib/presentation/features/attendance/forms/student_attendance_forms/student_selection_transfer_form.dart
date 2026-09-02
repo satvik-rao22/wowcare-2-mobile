@@ -4,14 +4,12 @@ import 'package:wowcare/presentation/features/attendance/widgets/attendance_sear
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
-import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_selectable_person_tile.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -263,7 +261,9 @@ class _StudentSelectionTransferFormState
               Row(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xs,
+                    ),
                     child: CustomCheckbox(
                       borderColor: AppColors.themeColor,
                       value: isSelectAllChecked,
@@ -315,8 +315,10 @@ class _StudentSelectionTransferFormState
                             student,
                           );
 
-                          return StudentListItem(
-                            student: student,
+                          return AttendanceSelectablePersonTile(
+                            name: student.fullName,
+                            photoUuid: student.photoUuid,
+                            code: student.studentCode,
                             isSelected: isSelected,
                             onSelectionChanged: (value) {
                               _toggleStudentSelection(
@@ -378,72 +380,6 @@ class _StudentSelectionTransferFormState
           ),
         );
       },
-    );
-  }
-}
-
-class StudentListItem extends StatelessWidget {
-  final StudentEntity student;
-  final bool isSelected;
-  final ValueChanged<bool?> onSelectionChanged;
-
-  const StudentListItem({
-    Key? key,
-    required this.student,
-    required this.isSelected,
-    required this.onSelectionChanged,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () {
-        onSelectionChanged(!isSelected);
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.themeColor),
-          borderRadius: AppRadius.allSm,
-          color: isSelected
-              ? const Color.fromARGB(255, 249, 245, 250)
-              : Colors.white,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.only(right: AppSpacing.xxs),
-          child: Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-                child: CustomCheckbox(
-                  borderColor: AppColors.themeColor,
-                  value: isSelected,
-                  onChanged: onSelectionChanged,
-                ),
-              ),
-              DocumentImageWidget(
-                fileUuid: student.photoUuid,
-                name: student.fullName,
-                studentCode: student.studentCode,
-                size: 32,
-                fontSize: 14,
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              Expanded(
-                child: EllipsisTooltipText(
-                  text: student.fullName,
-                  maxLines: 2,
-                  preferLongPress: true,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
