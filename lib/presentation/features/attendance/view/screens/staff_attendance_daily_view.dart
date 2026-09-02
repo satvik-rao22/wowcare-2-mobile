@@ -13,7 +13,7 @@ import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dar
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_persona_resolver.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_summary.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_card.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_absent_card.dart';
@@ -269,12 +269,8 @@ class _StaffAttendanceDailyViewScreenState
   /// switch and misresolve a staff/teacher persona as admin (see
   /// AttendancePopup._loadStaffPersonaFlags for the same fix). This method
   /// previously skipped straight to the storage fallback, missing that fix.
-  Future<bool> _resolveIsStaffAdminPersona() async {
-    if (mounted) {
-      return !context.read<RoleCubit>().isStaff;
-    }
-    return resolveIsStaffAdminPersonaFromStorage();
-  }
+  Future<bool> _resolveIsStaffAdminPersona() =>
+      resolveIsStaffAdminPersonaForView(context, mounted: mounted);
 
   @override
   void dispose() {

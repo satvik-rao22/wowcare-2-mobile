@@ -17,9 +17,9 @@ import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_persona_resolver.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'staff_entity.dart';
@@ -221,16 +221,8 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     });
   }
 
-  Future<bool> _resolveIsStaffAdminPersona() async {
-    // RoleCubit's active persona is the canonical, persona-switch-aware
-    // signal — staffType/roles in storage can lag a beat after a persona
-    // switch and misresolve a staff/teacher persona as admin (see
-    // AttendancePopup._loadStaffPersonaFlags for the same fix).
-    if (mounted) {
-      return !context.read<RoleCubit>().isStaff;
-    }
-    return resolveIsStaffAdminPersonaFromStorage();
-  }
+  Future<bool> _resolveIsStaffAdminPersona() =>
+      resolveIsStaffAdminPersonaForView(context, mounted: mounted);
 
   /// Resolves the human-readable name of the staff member's LATEST current
   /// classroom for display.

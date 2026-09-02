@@ -27,11 +27,11 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'staff_entity.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_persona_resolver.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 class StaffSignOutForm extends StatefulWidget {
   const StaffSignOutForm({
@@ -225,16 +225,8 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     });
   }
 
-  Future<bool> _resolveIsStaffAdminPersona() async {
-    // RoleCubit's active persona is the canonical, persona-switch-aware
-    // signal — staffType/roles in storage can lag a beat after a persona
-    // switch and misresolve a staff/teacher persona as admin (see
-    // AttendancePopup._loadStaffPersonaFlags for the same fix).
-    if (mounted) {
-      return !context.read<RoleCubit>().isStaff;
-    }
-    return resolveIsStaffAdminPersonaFromStorage();
-  }
+  Future<bool> _resolveIsStaffAdminPersona() =>
+      resolveIsStaffAdminPersonaForView(context, mounted: mounted);
 
   Future<String> _resolveStaffCode() async {
     // In kiosk mode, use the staff code from PIN verification
