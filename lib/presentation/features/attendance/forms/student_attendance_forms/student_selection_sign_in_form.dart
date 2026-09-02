@@ -361,7 +361,9 @@ class _StudentSelectionSignInFormState
                           children: [
                             AppText.body(
                               state.studentsError ?? 'Failed to load students',
-                              style: const TextStyle(color: Colors.red),
+                              style: const TextStyle(
+                                color: AppColors.errorColor,
+                              ),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: AppSpacing.xs),

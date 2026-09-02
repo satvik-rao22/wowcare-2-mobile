@@ -97,7 +97,9 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
           Navigator.of(context).pop();
         } else {
           redirectToAttendanceDaily(
-              context, StudentAttendanceTabbedView.routeName);
+            context,
+            StudentAttendanceTabbedView.routeName,
+          );
         }
       case false:
         final message = outcome.error != null
@@ -143,7 +145,7 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
               'Access Denied: You must be inside geofence and signed in to manage student attendance.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.red,
+                color: AppColors.errorColor,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
@@ -227,7 +229,8 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(AppRadius.r10),
                           borderSide: const BorderSide(
-                              color: Color.fromRGBO(87, 51, 83, 0.4)),
+                            color: Color.fromRGBO(87, 51, 83, 0.4),
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(AppRadius.r10),
@@ -246,14 +249,14 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                         errorBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(AppRadius.r10),
                           borderSide: const BorderSide(
-                            color: Colors.red,
+                            color: AppColors.errorColor,
                             width: 1,
                           ),
                         ),
                         focusedErrorBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(AppRadius.r10),
                           borderSide: const BorderSide(
-                            color: Colors.red,
+                            color: AppColors.errorColor,
                             width: 2,
                           ),
                         ),
@@ -297,9 +300,7 @@ class RemoveStudentTile extends StatelessWidget {
         vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.themeColor,
-        ),
+        border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(AppRadius.r10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
@@ -335,7 +336,7 @@ class RemoveStudentTile extends StatelessWidget {
           GestureDetector(
             onTap: onRemove,
             child: SvgPicture.asset(MediaRes.delete_icon),
-          )
+          ),
         ],
       ),
     );

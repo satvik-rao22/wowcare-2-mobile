@@ -136,7 +136,9 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: state.startDate,
-                        isDisabled: state.isStaffAdminPersona != true || state.isSelfTarget,
+                        isDisabled:
+                            state.isStaffAdminPersona != true ||
+                            state.isSelfTarget,
                         onDateSelected: _cubit.selectStartDate,
                       ),
                     ],
@@ -155,7 +157,9 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: state.endDate,
-                        isDisabled: state.isStaffAdminPersona != true || state.isSelfTarget,
+                        isDisabled:
+                            state.isStaffAdminPersona != true ||
+                            state.isSelfTarget,
                         onDateSelected: _cubit.selectEndDate,
                       ),
                     ],
@@ -213,11 +217,17 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                   ),
                   errorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppRadius.r10),
-                    borderSide: const BorderSide(color: Colors.red, width: 1),
+                    borderSide: const BorderSide(
+                      color: AppColors.errorColor,
+                      width: 1,
+                    ),
                   ),
                   focusedErrorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppRadius.r10),
-                    borderSide: const BorderSide(color: Colors.red, width: 2),
+                    borderSide: const BorderSide(
+                      color: AppColors.errorColor,
+                      width: 2,
+                    ),
                   ),
                   filled: true,
                   fillColor: AppColors.cardColor,
@@ -253,7 +263,10 @@ class RemoveStaffTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: AppSpacing.xs),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(AppRadius.r10),

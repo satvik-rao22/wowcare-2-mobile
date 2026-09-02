@@ -558,7 +558,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
               'Access Denied: You must be inside geofence and signed in to manage student attendance.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.red,
+                color: AppColors.errorColor,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),

@@ -220,7 +220,7 @@ class _StudentSelectionMarkAbsentFormState
               'Access Denied: You must be inside geofence and signed in to manage student attendance.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.red,
+                color: AppColors.errorColor,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
@@ -307,7 +307,9 @@ class _StudentSelectionMarkAbsentFormState
                           children: [
                             AppText.body(
                               state.studentsError ?? 'Failed to load students',
-                              style: const TextStyle(color: Colors.red),
+                              style: const TextStyle(
+                                color: AppColors.errorColor,
+                              ),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: AppSpacing.xs),
