@@ -245,18 +245,22 @@ abstract class StudentRepository {
   });
 
   /// Fetches student counts (active, upcoming, enrolled) for a school.
-  ///
-  /// The returned map must contain keys: 'activeCount', 'upcomingCount',
-  /// and 'enrolledCount'.
-  Future<Map<String, int>> getStudentCounts({required String schoolCode});
+  Future<({int activeCount, int upcomingCount, int enrolledCount})>
+  getStudentCounts({required String schoolCode});
 
   /// `GET /api/v1/student/student-documents/expiry-count`
-  Future<({int expiredDocumentCount, int expiringWithinWeekCount, int totalDocumentsWithExpiry})>
-      getStudentDocumentExpiryCount({required String schoolCode});
+  Future<
+    ({
+      int expiredDocumentCount,
+      int expiringWithinWeekCount,
+      int totalDocumentsWithExpiry,
+    })
+  >
+  getStudentDocumentExpiryCount({required String schoolCode});
 
   /// `GET /api/v1/student/student/physical-checkup-count/{schoolCode}`
   Future<({int overdueExamCount, int studentsWithoutActiveExamCount})>
-      getStudentPhysicalCheckupCount({required String schoolCode});
+  getStudentPhysicalCheckupCount({required String schoolCode});
 
   /// Updates a student's tags via `POST /api/v1/student-tags`.
   ///

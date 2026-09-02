@@ -279,8 +279,8 @@ class StudentAttendanceDailyCubit extends Cubit<StudentAttendanceDailyState> {
       if (schoolCode.isEmpty) return;
       final counts = await _getStudentCountsUseCase(schoolCode: schoolCode);
       if (isClosed) return;
-      final activeC = counts['activeCount'] ?? 0;
-      final upcomingC = counts['upcomingCount'] ?? 0;
+      final activeC = counts.activeCount;
+      final upcomingC = counts.upcomingCount;
       emit(
         state.copyWith(
           activeCount: activeC,

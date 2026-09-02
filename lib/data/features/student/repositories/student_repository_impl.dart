@@ -341,25 +341,24 @@ class StudentRepositoryImpl
   }
 
   @override
-  Future<Map<String, int>> getStudentCounts({
-    required String schoolCode,
-  }) async {
+  Future<({int activeCount, int upcomingCount, int enrolledCount})>
+  getStudentCounts({required String schoolCode}) async {
     final key = _studentCountsCacheKey(schoolCode);
     final cached = await _cacheManager.loadCache(key);
     if (cached != null) {
-      return <String, int>{
-        'activeCount': (cached['activeCount'] as num?)?.toInt() ?? 0,
-        'upcomingCount': (cached['upcomingCount'] as num?)?.toInt() ?? 0,
-        'enrolledCount': (cached['enrolledCount'] as num?)?.toInt() ?? 0,
-      };
+      return (
+        activeCount: (cached['activeCount'] as num?)?.toInt() ?? 0,
+        upcomingCount: (cached['upcomingCount'] as num?)?.toInt() ?? 0,
+        enrolledCount: (cached['enrolledCount'] as num?)?.toInt() ?? 0,
+      );
     }
     final fresh = await _remoteDataSource.getStudentCounts(
       schoolCode: schoolCode,
     );
     await _cacheManager.saveCache(key, {
-      'activeCount': fresh['activeCount'] ?? 0,
-      'upcomingCount': fresh['upcomingCount'] ?? 0,
-      'enrolledCount': fresh['enrolledCount'] ?? 0,
+      'activeCount': fresh.activeCount,
+      'upcomingCount': fresh.upcomingCount,
+      'enrolledCount': fresh.enrolledCount,
     });
     return fresh;
   }
