@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -226,13 +228,12 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
                         families: familyState.filteredFamilies,
                         isLoading: familyState.isLoading,
                         errorMessage: familyState.errorMessage,
-                        onBillingProfile: (family) => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => TransactionDetailsScreen(
-                              ownerType: family.ownerType,
-                              ownerCode: family.ownerCode,
-                              familyName: family.familyName,
-                            ),
+                        onBillingProfile: (family) => context.push(
+                          TransactionDetailsScreen.routeName,
+                          extra: TransactionDetailsArgs(
+                            ownerType: family.ownerType,
+                            ownerCode: family.ownerCode,
+                            familyName: family.familyName,
                           ),
                         ),
                       ),

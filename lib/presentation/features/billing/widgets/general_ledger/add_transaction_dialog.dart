@@ -14,6 +14,8 @@ class AddTransactionScreen extends StatefulWidget {
     super.key,
   });
 
+  static const String routeName = '/billing/add-transaction';
+
   final String ledgerCode;
 
   /// Called with the validated params. Return true on success, false on failure.

@@ -15,6 +15,7 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_transaction_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/sibling_cards_widget.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_statements_tab.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/billing/view/auto_pay_payment_methods_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/pay_now_amount_screen.dart';
 
@@ -179,10 +180,8 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
       isAutoPayLoading: state.isAutoPayLoading,
       onPayNow: () async {
         if (state.isPaymentLoading) return;
-        final paid = await Navigator.of(context).push<bool>(
-          MaterialPageRoute(
-            builder: (_) => const PayNowAmountScreen(),
-          ),
+        final paid = await context.push<bool>(
+          PayNowAmountScreen.routeName,
         );
         // Reload the ledger so the just-made payment appears (In Process →
         // Success/Failed once settled).
@@ -191,10 +190,8 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
       onAutoPay: () async {
         if (state.isAutoPayLoading) return;
         _cubit.beginAutoPay();
-        final result = await Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => const AutoPayPaymentMethodsScreen(),
-          ),
+        final result = await context.push(
+          AutoPayPaymentMethodsScreen.routeName,
         );
         if (!mounted) return;
         _cubit.endAutoPay();

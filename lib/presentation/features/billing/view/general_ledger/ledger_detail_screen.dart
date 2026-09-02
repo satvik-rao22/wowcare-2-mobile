@@ -1,6 +1,8 @@
 import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
@@ -26,6 +28,8 @@ const _kPrimary = Color(0xff573353);
 
 class LedgerDetailScreen extends StatefulWidget {
   const LedgerDetailScreen({required this.ledger, super.key});
+
+  static const String routeName = '/billing/ledger-detail';
 
   final LedgerAccountModel ledger;
 
@@ -69,12 +73,11 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
   }
 
   Future<void> _addTransaction() async {
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => AddTransactionScreen(
-          ledgerCode: widget.ledger.id,
-          onSave: (params) => _cubit.addTransaction(params),
-        ),
+    final result = await context.push<bool>(
+      AddTransactionScreen.routeName,
+      extra: AddTransactionArgs(
+        ledgerCode: widget.ledger.id,
+        onSave: (params) => _cubit.addTransaction(params),
       ),
     );
     if (!mounted) return;

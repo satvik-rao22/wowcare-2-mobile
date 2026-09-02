@@ -16,6 +16,8 @@ import 'package:wowcare/core/util/billing_school_time.dart';
 class SendInvoiceScreen extends StatefulWidget {
   const SendInvoiceScreen({super.key, required this.transaction});
 
+  static const String routeName = '/billing/send-invoice';
+
   final TransactionItem transaction;
 
   @override

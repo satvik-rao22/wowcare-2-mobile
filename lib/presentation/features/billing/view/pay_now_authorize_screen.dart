@@ -22,6 +22,8 @@ class PayNowAuthorizeScreen extends StatefulWidget {
     required this.settings,
   });
 
+  static const String routeName = '/billing/pay-now-authorize';
+
   final PaymentMethodEntity method;
 
   /// Total across all family charges (for the review/fee display).

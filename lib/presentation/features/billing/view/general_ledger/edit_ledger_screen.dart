@@ -24,6 +24,8 @@ const _kCategories = [
 class EditLedgerScreen extends StatefulWidget {
   const EditLedgerScreen({required this.ledger, super.key});
 
+  static const String routeName = '/billing/edit-ledger';
+
   final LedgerAccountModel ledger;
 
   @override

@@ -10,6 +10,8 @@ import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/presentation/features/billing/view/create_invoice_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
@@ -18,6 +20,8 @@ import 'package:wowcare/presentation/features/billing/model/student_models.dart'
 class SelectStudentsScreen extends StatefulWidget {
   const SelectStudentsScreen({Key? key, this.invoiceData, this.onNext})
       : super(key: key);
+
+  static const String routeName = '/billing/select-students';
   final InvoiceDraft? invoiceData;
 
   /// Optional override for the "Next" action. When provided, it's called with
@@ -285,13 +289,11 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
               return;
             }
 
-            final created = await Navigator.push<bool>(
-              context,
-              MaterialPageRoute(
-                builder: (_) => CreateInvoiceScreen(
-                  selectedStudents: selectedStudents,
-                  initialInvoiceData: widget.invoiceData,
-                ),
+            final created = await context.push<bool>(
+              CreateInvoiceScreen.routeName,
+              extra: CreateInvoiceArgs(
+                selectedStudents: selectedStudents,
+                initialInvoiceData: widget.invoiceData,
               ),
             );
             // Invoice saved from the preview step → close the wizard back to

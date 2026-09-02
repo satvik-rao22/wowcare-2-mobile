@@ -2,7 +2,9 @@ import 'dart:async' show unawaited;
 import 'package:wowcare/core/util/billing_school_time.dart';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/billing_events.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 // import 'package:wowcare/presentation/features/billing/widgets/subsidies/subsidies_section.dart'; // Subsidies not implemented yet
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -246,12 +248,8 @@ class _BillingScreenState extends State<BillingScreen>
                                           controller.index ==
                                               _tabs.indexOf('General Ledger');
                                       if (isGeneralLedgerTab) {
-                                        final result =
-                                            await Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                const CreateLedgerScreen(),
-                                          ),
+                                        final result = await context.push(
+                                          CreateLedgerScreen.routeName,
                                         );
                                         if (result is LedgerAccountModel) {
                                           _ledgerCreationNotifier.value =
@@ -270,36 +268,32 @@ class _BillingScreenState extends State<BillingScreen>
                                             onSelectCreateInvoice: () {
                                               unawaited(Navigator.of(ctx)
                                                   .maybePop());
-                                              unawaited(Navigator.of(context)
-                                                  .push(MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const SelectStudentsScreen(),
-                                              )));
+                                              unawaited(context.push(
+                                                SelectStudentsScreen.routeName,
+                                              ));
                                             },
                                             onSelectReceivePayment: () {
                                               unawaited(Navigator.of(ctx)
                                                   .maybePop());
-                                              unawaited(Navigator.of(context)
-                                                  .push(MaterialPageRoute(
-                                                builder: (_) =>
-                                                    SelectStudentsScreen(
+                                              unawaited(context.push(
+                                                SelectStudentsScreen.routeName,
+                                                extra: SelectStudentsArgs(
                                                   onNext: (selCtx, students) {
-                                                    Navigator.of(selCtx)
-                                                        .pushReplacement(
-                                                      MaterialPageRoute(
-                                                        builder: (_) =>
-                                                            ReceivePaymentIssueRefundScreen(
-                                                          transaction:
-                                                              _buildReceivePaymentTransaction(
-                                                                  students),
-                                                          studentCode: students
-                                                              .first.code,
-                                                        ),
+                                                    selCtx.pushReplacement(
+                                                      ReceivePaymentIssueRefundScreen
+                                                          .routeName,
+                                                      extra:
+                                                          ReceivePaymentRefundArgs(
+                                                        transaction:
+                                                            _buildReceivePaymentTransaction(
+                                                                students),
+                                                        studentCode:
+                                                            students.first.code,
                                                       ),
                                                     );
                                                   },
                                                 ),
-                                              )));
+                                              ));
                                             },
                                           ),
                                         );
@@ -311,11 +305,9 @@ class _BillingScreenState extends State<BillingScreen>
                                           onSelectOneTime: () {
                                             unawaited(
                                                 Navigator.of(ctx).maybePop());
-                                            unawaited(Navigator.of(context)
-                                                .push(MaterialPageRoute(
-                                              builder: (_) =>
-                                                  const SelectStudentsScreen(),
-                                            )));
+                                            unawaited(context.push(
+                                              SelectStudentsScreen.routeName,
+                                            ));
                                           },
                                           onSelectRecurring: () {
                                             unawaited(

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -294,12 +296,11 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   void _openEditInvoice(TransactionItem item) {
     final code = _invoiceCodeOrWarn(item);
     if (code == null) return;
-    Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => CreateInvoiceScreen(
-          selectedStudents: [Student(code: '', fullName: item.studentName)],
-          initialInvoiceData: InvoiceDraft(invoiceCode: code),
-        ),
+    context.push<bool>(
+      CreateInvoiceScreen.routeName,
+      extra: CreateInvoiceArgs(
+        selectedStudents: [Student(code: '', fullName: item.studentName)],
+        initialInvoiceData: InvoiceDraft(invoiceCode: code),
       ),
     );
   }
@@ -364,66 +365,57 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   }
 
   void _openSendInvoice(TransactionItem item) {
-    Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (context) => SendInvoiceScreen(transaction: item),
-      ),
+    context.push<bool>(
+      SendInvoiceScreen.routeName,
+      extra: SendInvoiceArgs(transaction: item),
     );
   }
 
   void _openReceivePayment(TransactionItem item) {
-    Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (context) =>
-            ReceivePaymentIssueRefundScreen(transaction: item),
-      ),
+    context.push<bool>(
+      ReceivePaymentIssueRefundScreen.routeName,
+      extra: ReceivePaymentRefundArgs(transaction: item),
     );
   }
 
   void _openIssueRefund(TransactionItem item) {
-    Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (context) => ReceivePaymentIssueRefundScreen(
-          transaction: item,
-          isRefund: true,
-        ),
+    context.push<bool>(
+      ReceivePaymentIssueRefundScreen.routeName,
+      extra: ReceivePaymentRefundArgs(
+        transaction: item,
+        isRefund: true,
       ),
     );
   }
 
   void _openTransactionDetails(TransactionItem item) {
     final familyCode = (item.familyCode ?? '').trim();
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => TransactionDetailsScreen(
-          transaction: item,
-          // When we know the family, load the real family ledger.
-          ownerType: familyCode.isNotEmpty ? 'FAMILY' : null,
-          ownerCode: familyCode.isNotEmpty ? familyCode : null,
-          familyName: item.studentName,
-        ),
+    context.push(
+      TransactionDetailsScreen.routeName,
+      extra: TransactionDetailsArgs(
+        transaction: item,
+        // When we know the family, load the real family ledger.
+        ownerType: familyCode.isNotEmpty ? 'FAMILY' : null,
+        ownerCode: familyCode.isNotEmpty ? familyCode : null,
+        familyName: item.studentName,
       ),
     );
   }
 
   void _openViewReceipt(TransactionItem item, String viewType) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ViewReceiptScreen(
-          transaction: item,
-          viewType: viewType,
-        ),
+    context.push(
+      ViewReceiptScreen.routeName,
+      extra: ViewReceiptArgs(
+        transaction: item,
+        viewType: viewType,
       ),
     );
   }
 
   void _openViewInvoice(TransactionItem item) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ViewInvoiceScreen(
-          transaction: item,
-        ),
-      ),
+    context.push(
+      ViewInvoiceScreen.routeName,
+      extra: ViewInvoiceArgs(transaction: item),
     );
   }
 }

@@ -9,6 +9,8 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/auto_pay_methods_cubit.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/presentation/features/billing/widgets/auto_pay_token_webview.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -1012,12 +1014,10 @@ class _AutoPayPaymentMethodsScreenState
   /// Adds a new saved payment method via the Forte webview (which now collects
   /// the account-holder name and the Make-Primary / Use-for-AutoPay toggles).
   Future<void> _openAddMethod() async {
-    final result = await Navigator.of(context).push<dynamic>(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => AutoPayTokenWebView(
-          payload: _cubit.buildWebviewPayload(title: 'Add Payment Method'),
-        ),
+    final result = await context.push<dynamic>(
+      AutoPayTokenWebView.routeName,
+      extra: AutoPayTokenWebViewArgs(
+        payload: _cubit.buildWebviewPayload(title: 'Add Payment Method'),
       ),
     );
     if (!mounted || result is! Map) return;

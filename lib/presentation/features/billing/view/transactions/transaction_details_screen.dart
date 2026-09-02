@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/billing_events.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -49,6 +51,8 @@ class TransactionDetailsScreen extends StatefulWidget {
     this.ownerCode,
     this.familyName,
   });
+
+  static const String routeName = '/billing/transaction-details';
 
   @override
   State<TransactionDetailsScreen> createState() => _TransactionDetailsScreenState();
@@ -186,34 +190,31 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
       builder: (ctx) => TransactionActionDialog(
         onSelectCreateInvoice: () {
           Navigator.of(ctx).maybePop();
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => CreateInvoiceScreen(selectedStudents: students),
-            ),
+          context.push(
+            CreateInvoiceScreen.routeName,
+            extra: CreateInvoiceArgs(selectedStudents: students),
           );
         },
         onSelectReceivePayment: () {
           Navigator.of(ctx).maybePop();
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => ReceivePaymentIssueRefundScreen(
-                transaction: _buildReceivePaymentTransaction(students),
-                studentCode: students.first.code,
-                ownerType: widget.ownerType,
-                ownerCode: widget.ownerCode,
-              ),
+          context.push(
+            ReceivePaymentIssueRefundScreen.routeName,
+            extra: ReceivePaymentRefundArgs(
+              transaction: _buildReceivePaymentTransaction(students),
+              studentCode: students.first.code,
+              ownerType: widget.ownerType,
+              ownerCode: widget.ownerCode,
             ),
           );
         },
         onSelectAddCredit: () {
           Navigator.of(ctx).maybePop();
-          Navigator.of(context).push<bool>(
-            MaterialPageRoute<bool>(
-              builder: (_) => AddCreditScreen(
-                ownerType: widget.ownerType,
-                ownerCode: widget.ownerCode,
-                familyName: _familyDisplayName,
-              ),
+          context.push<bool>(
+            AddCreditScreen.routeName,
+            extra: AddCreditArgs(
+              ownerType: widget.ownerType,
+              ownerCode: widget.ownerCode,
+              familyName: _familyDisplayName,
             ),
           ).then((added) {
             if (added == true) _cubit.refresh();
@@ -224,14 +225,13 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
   }
 
   void _openGenerateStatement() {
-    Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => GenerateStatementScreen(
-          cubit: _statementsCubit,
-          subscriberCode: widget.ownerCode ?? '',
-          ownerType: widget.ownerType ?? 'FAMILY',
-          familyChildren: _familyChildren,
-        ),
+    context.push<bool>(
+      GenerateStatementScreen.routeName,
+      extra: GenerateStatementArgs(
+        cubit: _statementsCubit,
+        subscriberCode: widget.ownerCode ?? '',
+        ownerType: widget.ownerType ?? 'FAMILY',
+        familyChildren: _familyChildren,
       ),
     );
   }
@@ -248,12 +248,11 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
   Future<void> _openEditInvoice(TransactionItem item) async {
     final code = _invoiceCodeOrWarn(item);
     if (code == null) return;
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => CreateInvoiceScreen(
-          selectedStudents: [Student(code: '', fullName: item.studentName)],
-          initialInvoiceData: InvoiceDraft(invoiceCode: code),
-        ),
+    final result = await context.push<bool>(
+      CreateInvoiceScreen.routeName,
+      extra: CreateInvoiceArgs(
+        selectedStudents: [Student(code: '', fullName: item.studentName)],
+        initialInvoiceData: InvoiceDraft(invoiceCode: code),
       ),
     );
     if (result == true && mounted) {
@@ -365,10 +364,9 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
     // Replace, don't stack — otherwise tapping multiple siblings builds up
     // a deep navigator stack of TransactionDetailsScreen copies and back
     // walks through every one.
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (context) => TransactionDetailsScreen(transaction: item),
-      ),
+    context.pushReplacement(
+      TransactionDetailsScreen.routeName,
+      extra: TransactionDetailsArgs(transaction: item),
     );
   }
 
@@ -614,47 +612,39 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                       // Already on the Billing profile — don't offer to reopen it.
                       showBillingProfile: false,
                       onView: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => ViewInvoiceScreen(
-                              transaction: transaction,
-                            ),
-                          ),
+                        context.push(
+                          ViewInvoiceScreen.routeName,
+                          extra: ViewInvoiceArgs(transaction: transaction),
                         );
                       },
                       onViewReceipt: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => ViewReceiptScreen(
-                              transaction: transaction,
-                              viewType: 'receipt',
-                            ),
+                        context.push(
+                          ViewReceiptScreen.routeName,
+                          extra: ViewReceiptArgs(
+                            transaction: transaction,
+                            viewType: 'receipt',
                           ),
                         );
                       },
-                      onSendInvoice: () => Navigator.of(context).push(
-                        MaterialPageRoute<bool>(
-                          builder: (_) =>
-                              SendInvoiceScreen(transaction: transaction),
+                      onSendInvoice: () => context.push<bool>(
+                        SendInvoiceScreen.routeName,
+                        extra: SendInvoiceArgs(transaction: transaction),
+                      ),
+                      onReceivePayment: () => context.push<bool>(
+                        ReceivePaymentIssueRefundScreen.routeName,
+                        extra: ReceivePaymentRefundArgs(
+                          transaction: transaction,
+                          ownerType: widget.ownerType,
+                          ownerCode: widget.ownerCode,
                         ),
                       ),
-                      onReceivePayment: () => Navigator.of(context).push(
-                        MaterialPageRoute<bool>(
-                          builder: (_) => ReceivePaymentIssueRefundScreen(
-                            transaction: transaction,
-                            ownerType: widget.ownerType,
-                            ownerCode: widget.ownerCode,
-                          ),
-                        ),
-                      ),
-                      onIssueRefund: () => Navigator.of(context).push(
-                        MaterialPageRoute<bool>(
-                          builder: (_) => ReceivePaymentIssueRefundScreen(
-                            transaction: transaction,
-                            isRefund: true,
-                            ownerType: widget.ownerType,
-                            ownerCode: widget.ownerCode,
-                          ),
+                      onIssueRefund: () => context.push<bool>(
+                        ReceivePaymentIssueRefundScreen.routeName,
+                        extra: ReceivePaymentRefundArgs(
+                          transaction: transaction,
+                          isRefund: true,
+                          ownerType: widget.ownerType,
+                          ownerCode: widget.ownerCode,
                         ),
                       ),
                       onEditInvoice: () => _openEditInvoice(transaction),

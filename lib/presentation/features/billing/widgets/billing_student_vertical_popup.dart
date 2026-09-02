@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -566,14 +568,17 @@ VoidCallback? _transactionDetailsOpener(
   }
   final TransactionItem transactionItem = transaction;
   return () {
-    final NavigatorState navigator = Navigator.of(context, rootNavigator: true);
-    navigator.pop();
+    // Capture the router before popping — `context` belongs to the popup that
+    // the pop below tears down, so it can't be used after the frame. The popup
+    // (a modal) is dismissed via the root navigator, then the details screen is
+    // pushed through GoRouter on the next frame (same root navigator, no bottom
+    // nav) exactly as before.
+    final GoRouter router = GoRouter.of(context);
+    Navigator.of(context, rootNavigator: true).pop();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      navigator.push(
-        MaterialPageRoute(
-          builder: (context) =>
-              TransactionDetailsScreen(transaction: transactionItem),
-        ),
+      router.push(
+        TransactionDetailsScreen.routeName,
+        extra: TransactionDetailsArgs(transaction: transactionItem),
       );
     });
   };

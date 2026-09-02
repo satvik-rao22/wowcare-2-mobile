@@ -8,6 +8,8 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/cubit/create_invoice_cubit.dart';
 import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
 import 'package:wowcare/presentation/features/billing/model/student_models.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/presentation/features/billing/view/selected_students_receipt_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -21,6 +23,8 @@ class CreateInvoiceScreen extends StatefulWidget {
     required this.selectedStudents,
     this.initialInvoiceData,
   });
+
+  static const String routeName = '/billing/create-invoice';
 
   final List<Student> selectedStudents;
   final InvoiceDraft? initialInvoiceData;
@@ -145,14 +149,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     );
 
     _isSubmitting.value = true;
-    final submitted = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SelectedStudentsReceiptScreen(
-          selectedStudents: _students,
-          invoiceData: invoiceData,
-          onSubmit: _submitInvoice,
-        ),
+    final submitted = await context.push<bool>(
+      SelectedStudentsReceiptScreen.routeName,
+      extra: SelectedStudentsReceiptArgs(
+        selectedStudents: _students,
+        invoiceData: invoiceData,
+        onSubmit: _submitInvoice,
       ),
     );
     if (!mounted) return;

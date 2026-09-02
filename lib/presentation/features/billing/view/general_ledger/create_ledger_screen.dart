@@ -23,6 +23,8 @@ const _kCategories = [
 class CreateLedgerScreen extends StatefulWidget {
   const CreateLedgerScreen({super.key});
 
+  static const String routeName = '/billing/create-ledger';
+
   @override
   State<CreateLedgerScreen> createState() => _CreateLedgerScreenState();
 }

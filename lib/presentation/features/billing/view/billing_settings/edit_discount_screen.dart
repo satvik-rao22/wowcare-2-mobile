@@ -16,6 +16,8 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 class EditDiscountScreen extends StatefulWidget {
   const EditDiscountScreen({required this.discount, super.key});
 
+  static const String routeName = '/billing/edit-discount';
+
   final DiscountAccountModel discount;
 
   @override

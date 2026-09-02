@@ -19,6 +19,8 @@ class AddCreditScreen extends StatefulWidget {
     this.familyName,
   });
 
+  static const String routeName = '/billing/add-credit';
+
   final String? ownerType;
   final String? ownerCode;
   final String? studentCode;

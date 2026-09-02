@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
@@ -153,12 +155,11 @@ class ParentTransactionCard extends StatelessWidget {
         ..add(const SizedBox(height: 16))
         ..add(StaffCardActions(
           primaryLabel: 'View Receipt',
-          onPrimary: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => ViewReceiptScreen(
-                transaction: _toTransactionItem(),
-                viewType: 'receipt',
-              ),
+          onPrimary: () => context.push(
+            ViewReceiptScreen.routeName,
+            extra: ViewReceiptArgs(
+              transaction: _toTransactionItem(),
+              viewType: 'receipt',
             ),
           ),
         ));
@@ -167,11 +168,10 @@ class ParentTransactionCard extends StatelessWidget {
         ..add(const SizedBox(height: 16))
         ..add(StaffCardActions(
           primaryLabel: 'View Invoice',
-          onPrimary: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => ViewInvoiceScreen(
-                transaction: _toTransactionItem(),
-              ),
+          onPrimary: () => context.push(
+            ViewInvoiceScreen.routeName,
+            extra: ViewInvoiceArgs(
+              transaction: _toTransactionItem(),
             ),
           ),
         ));

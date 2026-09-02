@@ -3,7 +3,9 @@ import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/cubit/general_ledger_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view/general_ledger/ledger_detail_screen.dart';
@@ -84,16 +86,16 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
   }
 
   void _onView(LedgerAccountModel ledger) {
-    unawaited(Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => LedgerDetailScreen(ledger: ledger),
-      ),
+    unawaited(context.push(
+      LedgerDetailScreen.routeName,
+      extra: LedgerDetailArgs(ledger: ledger),
     ));
   }
 
   Future<void> _onEdit(LedgerAccountModel ledger) async {
-    final LedgerAccountModel? updated = await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => EditLedgerScreen(ledger: ledger)),
+    final LedgerAccountModel? updated = await context.push<LedgerAccountModel>(
+      EditLedgerScreen.routeName,
+      extra: EditLedgerArgs(ledger: ledger),
     );
     if (updated == null) return;
     _cubit.updateLedger(updated);

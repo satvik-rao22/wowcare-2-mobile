@@ -16,6 +16,8 @@ class ViewInvoiceScreen extends StatefulWidget {
     required this.transaction,
   });
 
+  static const String routeName = '/billing/view-invoice';
+
   final TransactionItem transaction;
 
   @override

@@ -35,6 +35,8 @@ class GenerateStatementScreen extends StatefulWidget {
     this.familyChildren = const [],
   });
 
+  static const String routeName = '/billing/generate-statement';
+
   final AdminStatementsCubit cubit;
   final String subscriberCode;
   final String ownerType;

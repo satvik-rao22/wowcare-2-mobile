@@ -1,10 +1,12 @@
 import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/cubit/discount_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_settings/add_discount_screen.dart';
@@ -58,18 +60,17 @@ class _DiscountsSectionState extends State<DiscountsSection> {
   }
 
   Future<void> _onAdd() async {
-    final DiscountAccountModel? created = await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const AddDiscountScreen()),
-    );
+    final DiscountAccountModel? created =
+        await context.push<DiscountAccountModel>(AddDiscountScreen.routeName);
     if (created == null) return;
     _cubit.addDiscount(created);
   }
 
   Future<void> _onEdit(DiscountAccountModel discount) async {
     final DiscountAccountModel? updated =
-        await Navigator.of(context).push(
-      MaterialPageRoute(
-          builder: (_) => EditDiscountScreen(discount: discount)),
+        await context.push<DiscountAccountModel>(
+      EditDiscountScreen.routeName,
+      extra: EditDiscountArgs(discount: discount),
     );
     if (updated == null) return;
     _cubit.updateDiscount(updated);

@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
-import 'package:wowcare/presentation/features/reports/view/report_file_viewer_screen.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -200,13 +201,12 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
       );
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ReportFileViewerScreen(
-          fileData: bytes,
-          fileName: 'statement-${statement.code}.pdf',
-          fileType: 'pdf',
-        ),
+    context.push(
+      ReportFileViewerArgs.routeName,
+      extra: ReportFileViewerArgs(
+        fileData: bytes,
+        fileName: 'statement-${statement.code}.pdf',
+        fileType: 'pdf',
       ),
     );
   }

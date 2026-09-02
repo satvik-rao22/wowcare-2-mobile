@@ -13,6 +13,8 @@ class ViewReceiptScreen extends StatefulWidget {
     this.viewType = 'receipt', // 'receipt' or 'invoice'
   });
 
+  static const String routeName = '/billing/view-receipt';
+
   final TransactionItem transaction;
   final String viewType;
 

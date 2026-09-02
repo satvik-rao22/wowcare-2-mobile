@@ -18,6 +18,8 @@ class SelectedStudentsReceiptScreen extends StatefulWidget {
     this.onSubmit,
   });
 
+  static const String routeName = '/billing/selected-students-receipt';
+
   final List<Student> selectedStudents;
   final InvoiceDraft invoiceData;
   final void Function(Student student)? onStudentRemoved;

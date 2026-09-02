@@ -19,6 +19,8 @@ class ReceivePaymentIssueRefundScreen extends StatefulWidget {
     this.ownerCode,
   });
 
+  static const String routeName = '/billing/receive-payment';
+
   final TransactionItem transaction;
   final bool isRefund;
 

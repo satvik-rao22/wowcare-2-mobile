@@ -12,6 +12,8 @@ import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.da
 import 'package:wowcare/presentation/features/billing/cubit/pay_now_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/pay_now_authorize_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/payment_settings_cubit.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/presentation/features/billing/view/auto_pay_payment_methods_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/pay_now_authorize_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -451,10 +453,9 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
     );
 
     // Step 2: the Saved Payment Methods picker (AutoPay UI without auto-pay).
-    final method = await Navigator.of(context).push<PaymentMethodEntity>(
-      MaterialPageRoute(
-        builder: (_) => const AutoPayPaymentMethodsScreen(isPicker: true),
-      ),
+    final method = await context.push<PaymentMethodEntity>(
+      AutoPayPaymentMethodsScreen.routeName,
+      extra: const AutoPayPaymentMethodsArgs(isPicker: true),
     );
     if (!mounted || method == null) return;
     // Ensure the school payment settings have resolved before showing the
@@ -465,14 +466,13 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
     await (_settingsFuture ??= _settingsCubit.load());
     if (!mounted) return;
     // Step 3: review + authorize (real charge via the payment gateway).
-    final paid = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => PayNowAuthorizeScreen(
-          method: method,
-          amount: total,
-          charges: <PayNowCharge>[charge],
-          settings: _settingsCubit.state.settings,
-        ),
+    final paid = await context.push<bool>(
+      PayNowAuthorizeScreen.routeName,
+      extra: PayNowAuthorizeArgs(
+        method: method,
+        amount: total,
+        charges: <PayNowCharge>[charge],
+        settings: _settingsCubit.state.settings,
       ),
     );
     // A payment was made — dismiss the entry screen and signal the billing

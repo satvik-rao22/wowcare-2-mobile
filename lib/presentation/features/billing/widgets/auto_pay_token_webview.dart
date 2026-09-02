@@ -21,6 +21,8 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 class AutoPayTokenWebView extends StatefulWidget {
   const AutoPayTokenWebView({super.key, required this.payload});
 
+  static const String routeName = '/billing/auto-pay-webview';
+
   /// Init payload injected into the HTML: `{ env, apiLoginId, isAutoPayEnabled }`.
   final AutoPayWebviewPayload payload;
 

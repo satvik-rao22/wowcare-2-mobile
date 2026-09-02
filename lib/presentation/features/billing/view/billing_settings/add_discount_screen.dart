@@ -15,6 +15,8 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 class AddDiscountScreen extends StatefulWidget {
   const AddDiscountScreen({super.key});
 
+  static const String routeName = '/billing/add-discount';
+
   @override
   State<AddDiscountScreen> createState() => _AddDiscountScreenState();
 }
