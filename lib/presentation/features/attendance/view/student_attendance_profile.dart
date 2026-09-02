@@ -1162,10 +1162,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                                   showAbsentDays
                                       ? 'Absent Days'
                                       : 'Present Days',
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                  style: AppTextStyles.heading18,
                                 ),
                                 CustomToggle(
                                   label: 'Show Absent',
@@ -1263,7 +1260,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                         children: [
                           AppText.body(
                             currentStudent.roomName,
-                            style: const TextStyle(fontWeight: FontWeight.w500),
+                            style: AppTextStyles.mediumWeight,
                           ),
                           const SizedBox(width: 100),
                           InkWell(
@@ -1273,10 +1270,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                                 builder: (context) => AlertDialog(
                                   title: AppText.title(
                                     'Details',
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                    style: AppTextStyles.heading18,
                                   ),
                                   content: Column(
                                     mainAxisSize: MainAxisSize.min,
@@ -1316,9 +1310,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                                           Navigator.of(context).pop(),
                                       child: AppText.body(
                                         'Close',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w500,
-                                        ),
+                                        style: AppTextStyles.mediumWeight,
                                       ),
                                     ),
                                   ],
@@ -1508,10 +1500,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
           ),
           const SizedBox(width: AppSpacing.xs),
-          AppText.body(
-            label,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-          ),
+          AppText.body(label, style: AppTextStyles.valueLarge),
           const Spacer(),
           Container(
             width: 36,
@@ -1568,10 +1557,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             ),
           ),
           const SizedBox(width: AppSpacing.xs),
-          const AppText.body(
-            'Attended Hours',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-          ),
+          const AppText.body('Attended Hours', style: AppTextStyles.valueLarge),
           const Spacer(),
           Row(
             children: [
@@ -1644,7 +1630,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         child: Center(
           child: AppText.body(
             'No attendance records found for selected date range',
-            style: const TextStyle(fontSize: 16),
+            style: AppTextStyles.size16,
             textAlign: TextAlign.center,
           ),
         ),
@@ -1682,7 +1668,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         child: Center(
           child: AppText.body(
             'No absent days found for selected date range',
-            style: const TextStyle(fontSize: 16),
+            style: AppTextStyles.size16,
             textAlign: TextAlign.center,
           ),
         ),
@@ -1739,12 +1725,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       child: ExpansionTile(
         title: AppText.body(
           DateFormat('MMM dd, yyyy').format(attendance.date),
-          style: const TextStyle(fontWeight: FontWeight.w500),
+          style: AppTextStyles.mediumWeight,
         ),
-        trailing: AppText.body(
-          collapsedText,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-        ),
+        trailing: AppText.body(collapsedText, style: AppTextStyles.valueLarge),
         backgroundColor: AppColors.cardColor,
         collapsedBackgroundColor: AppColors.cardColor,
         collapsedShape: RoundedRectangleBorder(
@@ -1831,7 +1814,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       child: ExpansionTile(
         title: AppText.body(
           DateFormat('MMM dd, yyyy').format(absentDay.startDate),
-          style: const TextStyle(fontWeight: FontWeight.w500),
+          style: AppTextStyles.mediumWeight,
         ),
         backgroundColor: AppColors.cardColor,
         collapsedBackgroundColor: AppColors.cardColor,

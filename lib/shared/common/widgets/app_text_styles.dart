@@ -83,6 +83,29 @@ class AppTextStyles {
     fontWeight: FontWeight.w600,
     color: AppColors.primaryColor,
   );
+
+  /// Medium-weight override with no size/color of its own — for text that
+  /// inherits its size and color from an ambient style (e.g. `AppText.body`)
+  /// and only needs a heavier weight.
+  static const TextStyle mediumWeight = TextStyle(fontWeight: FontWeight.w500);
+
+  /// fontSize: 16, fontWeight: w500, no color of its own (inherits ambient).
+  /// A larger sibling of [value]/[body] used where those two are locked to
+  /// 14 — kept as its own entry rather than `.copyWith` so it doesn't also
+  /// pull in their color/height.
+  static const TextStyle valueLarge = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+  );
+
+  /// fontSize: 16, no weight/color of its own (inherits ambient).
+  static const TextStyle size16 = TextStyle(fontSize: 16);
+
+  /// fontSize: 18, fontWeight: w600, no color of its own (inherits ambient).
+  static const TextStyle heading18 = TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+  );
 }
 
 /// Reusable text widgets with predefined styles

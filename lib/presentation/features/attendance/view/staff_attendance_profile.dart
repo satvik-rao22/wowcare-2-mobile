@@ -1025,10 +1025,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                                   showAbsentDays
                                       ? 'Absent Days'
                                       : 'Present Days',
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                  style: AppTextStyles.heading18,
                                 ),
                                 CustomToggle(
                                   label: 'Show Absent',
@@ -1194,12 +1191,12 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                       if (context.read<RoleCubit>().isStaff)
                         AppText.body(
                           currentStaff.roomName,
-                          style: const TextStyle(fontWeight: FontWeight.w500),
+                          style: AppTextStyles.mediumWeight,
                         )
                       else
                         AppText.body(
                           _formatDesignation(currentStaff.designationName),
-                          style: const TextStyle(fontWeight: FontWeight.w500),
+                          style: AppTextStyles.mediumWeight,
                         ),
                     ],
                   ),
@@ -1344,10 +1341,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             ),
           ),
           const SizedBox(width: AppSpacing.xs),
-          const AppText.body(
-            'Attended Hours',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-          ),
+          const AppText.body('Attended Hours', style: AppTextStyles.valueLarge),
           const Spacer(),
           Row(
             children: [
@@ -1415,10 +1409,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
           ),
           const SizedBox(width: AppSpacing.xs),
-          AppText.body(
-            label,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-          ),
+          AppText.body(label, style: AppTextStyles.valueLarge),
           const Spacer(),
           Container(
             width: 36,
@@ -1471,7 +1462,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         child: Center(
           child: AppText.body(
             'No attendance records found for selected date range',
-            style: const TextStyle(fontSize: 16),
+            style: AppTextStyles.size16,
             textAlign: TextAlign.center,
           ),
         ),
@@ -1509,7 +1500,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         child: Center(
           child: AppText.body(
             'No absent days found for selected date range',
-            style: const TextStyle(fontSize: 16),
+            style: AppTextStyles.size16,
             textAlign: TextAlign.center,
           ),
         ),
@@ -1566,11 +1557,11 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       child: ExpansionTile(
         title: AppText.body(
           DateFormat('MMM dd, yyyy').format(attendance.date),
-          style: const TextStyle(fontWeight: FontWeight.w500),
+          style: AppTextStyles.mediumWeight,
         ),
         trailing: AppText.body(
           _formatAttendedTimeForCard(attendance),
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          style: AppTextStyles.valueLarge,
         ),
         backgroundColor: AppColors.cardColor,
         collapsedBackgroundColor: AppColors.cardColor,
@@ -1658,7 +1649,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       child: ExpansionTile(
         title: AppText.body(
           DateFormat('MMM dd, yyyy').format(absentDay.startDate),
-          style: const TextStyle(fontWeight: FontWeight.w500),
+          style: AppTextStyles.mediumWeight,
         ),
         backgroundColor: AppColors.cardColor,
         collapsedBackgroundColor: AppColors.cardColor,
