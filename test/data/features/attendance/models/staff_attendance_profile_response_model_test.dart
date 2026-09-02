@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wowcare/domain/features/attendance/entities/staff_attendance_profile_response.dart';
+import 'package:wowcare/data/features/attendance/models/staff_attendance_profile_response_model.dart';
 
 void main() {
-  group('StaffAttendanceProfileResponse.fromJson fidelity', () {
+  group('StaffAttendanceProfileResponseModel.fromJson fidelity', () {
     test('parses a full present-days record identically to the old inline '
         'screen code (data.records.content)', () {
       // The staff_attendance_profile screen reads data.aggregations +
@@ -40,7 +40,7 @@ void main() {
         },
       };
 
-      final response = StaffAttendanceProfileResponse.fromJson(raw);
+      final response = StaffAttendanceProfileResponseModel.fromJson(raw);
 
       // --- Aggregations (attendedDays / totalAttendedTime / absentDays) ---
       expect(response.attendedDays, 5);
@@ -88,7 +88,7 @@ void main() {
         },
       };
 
-      final response = StaffAttendanceProfileResponse.fromJson(raw);
+      final response = StaffAttendanceProfileResponseModel.fromJson(raw);
       final r = response.records.single;
       expect(r.signedInTime, <String, dynamic>{'hour': 8, 'minute': 30});
     });
@@ -103,7 +103,7 @@ void main() {
         },
       };
 
-      final response = StaffAttendanceProfileResponse.fromJson(raw);
+      final response = StaffAttendanceProfileResponseModel.fromJson(raw);
 
       // Missing aggregation keys.
       expect(response.attendedDays, 0);
@@ -130,48 +130,50 @@ void main() {
       expect(r.notExpectedComment, '');
     });
 
-    test('empty / missing containers yield zero aggregations and no records',
-        () {
-      // Completely empty top-level map.
-      final empty = StaffAttendanceProfileResponse.fromJson(
-        <String, dynamic>{},
-      );
-      expect(empty.attendedDays, 0);
-      expect(empty.totalAttendedTime, '');
-      expect(empty.absentDays, 0);
-      expect(empty.records, isEmpty);
-      // dailyPage is always produced (the cubit's parse path).
-      expect(empty.dailyPage.items, isEmpty);
-      expect(empty.dailyPage.attendedDays, 0);
-      expect(empty.dailyPage.totalAttendedHours, '');
+    test(
+      'empty / missing containers yield zero aggregations and no records',
+      () {
+        // Completely empty top-level map.
+        final empty = StaffAttendanceProfileResponseModel.fromJson(
+          <String, dynamic>{},
+        );
+        expect(empty.attendedDays, 0);
+        expect(empty.totalAttendedTime, '');
+        expect(empty.absentDays, 0);
+        expect(empty.records, isEmpty);
+        // dailyPage is always produced (the cubit's parse path).
+        expect(empty.dailyPage.items, isEmpty);
+        expect(empty.dailyPage.attendedDays, 0);
+        expect(empty.dailyPage.totalAttendedHours, '');
 
-      // data present but without aggregations / records.
-      final partial = StaffAttendanceProfileResponse.fromJson(
-        <String, dynamic>{'data': <String, dynamic>{}},
-      );
-      expect(partial.attendedDays, 0);
-      expect(partial.totalAttendedTime, '');
-      expect(partial.absentDays, 0);
-      expect(partial.records, isEmpty);
+        // data present but without aggregations / records.
+        final partial = StaffAttendanceProfileResponseModel.fromJson(
+          <String, dynamic>{'data': <String, dynamic>{}},
+        );
+        expect(partial.attendedDays, 0);
+        expect(partial.totalAttendedTime, '');
+        expect(partial.absentDays, 0);
+        expect(partial.records, isEmpty);
 
-      // records present but no content list.
-      final noContent = StaffAttendanceProfileResponse.fromJson(
-        <String, dynamic>{
-          'data': {
-            'aggregations': {
-              'attendedDays': 3,
-              'totalAttendedTime': '3h',
-              'absentDays': 1,
+        // records present but no content list.
+        final noContent = StaffAttendanceProfileResponseModel.fromJson(
+          <String, dynamic>{
+            'data': {
+              'aggregations': {
+                'attendedDays': 3,
+                'totalAttendedTime': '3h',
+                'absentDays': 1,
+              },
+              'records': <String, dynamic>{},
             },
-            'records': <String, dynamic>{},
           },
-        },
-      );
-      expect(noContent.attendedDays, 3);
-      expect(noContent.totalAttendedTime, '3h');
-      expect(noContent.absentDays, 1);
-      expect(noContent.records, isEmpty);
-    });
+        );
+        expect(noContent.attendedDays, 3);
+        expect(noContent.totalAttendedTime, '3h');
+        expect(noContent.absentDays, 1);
+        expect(noContent.records, isEmpty);
+      },
+    );
 
     test('dailyPage parses the pageable shape the dashboard cubit needs '
         '(data.content + data.number / totalPages)', () {
@@ -199,7 +201,7 @@ void main() {
         },
       };
 
-      final response = StaffAttendanceProfileResponse.fromJson(raw);
+      final response = StaffAttendanceProfileResponseModel.fromJson(raw);
 
       final page = response.dailyPage;
       expect(page.items.length, 1);

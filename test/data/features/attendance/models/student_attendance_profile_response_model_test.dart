@@ -1,17 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wowcare/domain/features/attendance/entities/student_attendance_profile_response.dart';
+import 'package:wowcare/data/features/attendance/models/student_attendance_profile_response_model.dart';
 
 void main() {
-  group('StudentAttendanceProfileResponse.fromJson fidelity', () {
+  group('StudentAttendanceProfileResponseModel.fromJson fidelity', () {
     test('parses a full record identically to the old inline screen code', () {
       // A representative raw backend response: data.aggregations + one full
       // record under data.records.content.
       final raw = <String, dynamic>{
         'data': {
-          'aggregations': {
-            'attendedDays': 5,
-            'totalAttendedTime': '12h 30m',
-          },
+          'aggregations': {'attendedDays': 5, 'totalAttendedTime': '12h 30m'},
           'records': {
             'content': [
               {
@@ -39,7 +36,7 @@ void main() {
         },
       };
 
-      final response = StudentAttendanceProfileResponse.fromJson(raw);
+      final response = StudentAttendanceProfileResponseModel.fromJson(raw);
 
       // --- Aggregations (agg['attendedDays'] as int? ?? 0 / totalAttendedTime) ---
       expect(response.attendedDays, 5);
@@ -87,7 +84,7 @@ void main() {
         },
       };
 
-      final response = StudentAttendanceProfileResponse.fromJson(raw);
+      final response = StudentAttendanceProfileResponseModel.fromJson(raw);
       final r = response.records.single;
       expect(r.signedInTime, <String, dynamic>{'hour': 8, 'minute': 30});
     });
@@ -102,7 +99,7 @@ void main() {
         },
       };
 
-      final response = StudentAttendanceProfileResponse.fromJson(raw);
+      final response = StudentAttendanceProfileResponseModel.fromJson(raw);
 
       // Missing aggregation keys.
       expect(response.attendedDays, 0);
@@ -129,35 +126,38 @@ void main() {
       expect(r.notExpectedComment, '');
     });
 
-    test('empty / missing containers yield zero aggregations and no records', () {
-      // Completely empty top-level map.
-      final empty = StudentAttendanceProfileResponse.fromJson(
-        <String, dynamic>{},
-      );
-      expect(empty.attendedDays, 0);
-      expect(empty.totalAttendedTime, '');
-      expect(empty.records, isEmpty);
+    test(
+      'empty / missing containers yield zero aggregations and no records',
+      () {
+        // Completely empty top-level map.
+        final empty = StudentAttendanceProfileResponseModel.fromJson(
+          <String, dynamic>{},
+        );
+        expect(empty.attendedDays, 0);
+        expect(empty.totalAttendedTime, '');
+        expect(empty.records, isEmpty);
 
-      // data present but without aggregations / records.
-      final partial = StudentAttendanceProfileResponse.fromJson(
-        <String, dynamic>{'data': <String, dynamic>{}},
-      );
-      expect(partial.attendedDays, 0);
-      expect(partial.totalAttendedTime, '');
-      expect(partial.records, isEmpty);
+        // data present but without aggregations / records.
+        final partial = StudentAttendanceProfileResponseModel.fromJson(
+          <String, dynamic>{'data': <String, dynamic>{}},
+        );
+        expect(partial.attendedDays, 0);
+        expect(partial.totalAttendedTime, '');
+        expect(partial.records, isEmpty);
 
-      // records present but no content list.
-      final noContent = StudentAttendanceProfileResponse.fromJson(
-        <String, dynamic>{
-          'data': {
-            'aggregations': {'attendedDays': 3, 'totalAttendedTime': '3h'},
-            'records': <String, dynamic>{},
+        // records present but no content list.
+        final noContent = StudentAttendanceProfileResponseModel.fromJson(
+          <String, dynamic>{
+            'data': {
+              'aggregations': {'attendedDays': 3, 'totalAttendedTime': '3h'},
+              'records': <String, dynamic>{},
+            },
           },
-        },
-      );
-      expect(noContent.attendedDays, 3);
-      expect(noContent.totalAttendedTime, '3h');
-      expect(noContent.records, isEmpty);
-    });
+        );
+        expect(noContent.attendedDays, 3);
+        expect(noContent.totalAttendedTime, '3h');
+        expect(noContent.records, isEmpty);
+      },
+    );
   });
 }

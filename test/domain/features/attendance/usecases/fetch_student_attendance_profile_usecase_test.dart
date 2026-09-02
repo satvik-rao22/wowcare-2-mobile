@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_profile_query.dart';
+import 'package:wowcare/data/features/attendance/models/student_attendance_profile_response_model.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_profile_response.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/fetch_student_attendance_profile_usecase.dart';
@@ -41,11 +42,10 @@ void main() {
       useCase = FetchStudentAttendanceProfileUseCase(repo);
     });
 
-    test('forwards query and returns the repository result',
-        () async {
-      final expected = StudentAttendanceProfileResponse.fromJson(
+    test('forwards query and returns the repository result', () async {
+      final expected = StudentAttendanceProfileResponseModel.fromJson(
         const <String, dynamic>{},
-      );
+      ).toEntity();
       repo.resultToReturn = expected;
 
       final result = await useCase(query: _query);
@@ -58,10 +58,7 @@ void main() {
       final failure = Exception('network down');
       repo.errorToThrow = failure;
 
-      expect(
-        () => useCase(query: _query),
-        throwsA(same(failure)),
-      );
+      expect(() => useCase(query: _query), throwsA(same(failure)));
     });
   });
 }

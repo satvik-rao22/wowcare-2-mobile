@@ -33,6 +33,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_view_response.dart';
+import 'package:wowcare/data/features/attendance/models/student_attendance_absent_view_response_model.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_absent_fetch_cubit.dart';
@@ -446,7 +447,9 @@ class _StudentAttendanceAbsentViewState
           if (!mounted) return;
           if (cachedPayload != null) {
             _applyPagePayload(
-              StudentAttendanceAbsentViewResponse.fromJson(cachedPayload),
+              StudentAttendanceAbsentViewResponseModel.fromJson(
+                cachedPayload,
+              ).toEntity(),
               reset: true,
             );
             return;
@@ -553,7 +556,10 @@ class _StudentAttendanceAbsentViewState
             tagCodes: tagCodes,
             search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
           );
-          await _cacheManager.saveCache(cacheKey, data.toJson());
+          await _cacheManager.saveCache(
+            cacheKey,
+            StudentAttendanceAbsentViewResponseModel.fromEntity(data).toJson(),
+          );
         }
       }
 
