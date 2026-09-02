@@ -2,12 +2,9 @@ import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:get_it/get_it.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/billing/usecases/create_ledger_usecase.dart';
-import 'package:wowcare/domain/features/billing/usecases/update_ledger_usecase.dart';
 import 'package:wowcare/presentation/features/billing/cubit/ledger_form_cubit.dart';
 import 'package:wowcare/presentation/features/billing/model/ledger_account_model.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -34,7 +31,7 @@ class EditLedgerScreen extends StatefulWidget {
 }
 
 class _EditLedgerScreenState extends State<EditLedgerScreen> {
-  late final LedgerFormCubit _cubit;
+  final LedgerFormCubit _cubit = serviceLocator<LedgerFormCubit>();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
 
@@ -52,12 +49,9 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
             _kCategories.contains(widget.ledger.category)
         ? widget.ledger.category
         : null;
-    _cubit = LedgerFormCubit(
-      initialCategory: initialCategory,
-      createLedgerUseCase: GetIt.instance<CreateLedgerUseCase>(),
-      updateLedgerUseCase: GetIt.instance<UpdateLedgerUseCase>(),
-      storageService: GetIt.instance<StorageService>(),
-    );
+    if (initialCategory != null) {
+      _cubit.setCategory(initialCategory);
+    }
     _titleController.text = widget.ledger.name;
     _descriptionController.text = widget.ledger.description ?? '';
   }

@@ -546,6 +546,8 @@ import '../../domain/features/billing/usecases/reactivate_discount_usecase.dart'
 import '../../presentation/features/billing/cubit/analytics_cubit.dart';
 import '../../presentation/features/billing/cubit/discount_cubit.dart';
 import '../../presentation/features/billing/cubit/discount_form_cubit.dart';
+import '../../presentation/features/billing/cubit/ledger_form_cubit.dart';
+import '../../presentation/features/billing/cubit/billing_school_header_cubit.dart';
 import '../../domain/features/billing/usecases/get_guardian_family_ledger_usecase.dart';
 import '../../domain/features/billing/usecases/get_invoice_analytics_usecase.dart';
 
@@ -2650,6 +2652,19 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getLedgerByCodeUseCase: serviceLocator<GetLedgerByCodeUseCase>(),
     ),
   );
+  serviceLocator.registerFactory<LedgerFormCubit>(
+    () => LedgerFormCubit(
+      createLedgerUseCase: serviceLocator<CreateLedgerUseCase>(),
+      updateLedgerUseCase: serviceLocator<UpdateLedgerUseCase>(),
+      storageService: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<BillingSchoolHeaderCubit>(
+    () => BillingSchoolHeaderCubit(
+      storageService: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    ),
+  );
 
   // ── Discounts ─────────────────────────────────────────────────────────────
   serviceLocator.registerLazySingleton<DiscountRemoteDataSource>(
@@ -2788,6 +2803,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStatements: serviceLocator<GetBillingStatementsUseCase>(),
       statementsRepository: serviceLocator<BillingStatementsRepository>(),
       fileDownloadService: serviceLocator<FileDownloadService>(),
+      storageService: serviceLocator<StorageService>(),
     ),
   );
   serviceLocator.registerFactory<ParentStatementsCubit>(

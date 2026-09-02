@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -131,15 +128,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
     if (!_validate()) return;
     setState(() => _isSubmitting = true);
 
-    final storage = serviceLocator<StorageService>();
-    final orgCode =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-
     final error = await widget.cubit.generateStatement(
-      organizationCode: orgCode,
-      schoolCode: schoolCode,
       ownerType: widget.ownerType,
       subscriberCode: widget.subscriberCode,
       statementType: _kApiStatementType[_statementType!] ?? _statementType!,

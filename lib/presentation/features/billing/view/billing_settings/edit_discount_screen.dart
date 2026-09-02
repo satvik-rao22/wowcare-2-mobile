@@ -3,12 +3,9 @@ import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:get_it/get_it.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/billing/usecases/create_discount_usecase.dart';
-import 'package:wowcare/domain/features/billing/usecases/update_discount_usecase.dart';
 import 'package:wowcare/presentation/features/billing/cubit/discount_form_cubit.dart';
 import 'package:wowcare/presentation/features/billing/model/discount_account_model.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -26,11 +23,7 @@ class EditDiscountScreen extends StatefulWidget {
 }
 
 class _EditDiscountScreenState extends State<EditDiscountScreen> {
-  late final DiscountFormCubit _cubit = DiscountFormCubit(
-    createDiscountUseCase: GetIt.instance<CreateDiscountUseCase>(),
-    updateDiscountUseCase: GetIt.instance<UpdateDiscountUseCase>(),
-    storageService: GetIt.instance<StorageService>(),
-  );
+  final DiscountFormCubit _cubit = serviceLocator<DiscountFormCubit>();
 
   late final TextEditingController _nameController =
       TextEditingController(text: widget.discount.name);

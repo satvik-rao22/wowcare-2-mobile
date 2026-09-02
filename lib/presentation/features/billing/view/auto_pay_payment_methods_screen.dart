@@ -1133,7 +1133,6 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
   String _accountType = 'checking';
   late bool _makePrimary;
   late bool _makeAutopay;
-  bool _saving = false;
 
   bool get _isEcheck => widget.method.isEcheck;
 
@@ -1170,7 +1169,6 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
   }
 
   Future<void> _save() async {
-    setState(() => _saving = true);
     final ok = _isEcheck
         ? await widget.cubit.updatePaymentMethod(
             method: widget.method,
@@ -1189,7 +1187,6 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
             makeAutopay: _makeAutopay,
           );
     if (!mounted) return;
-    setState(() => _saving = false);
     if (ok) Navigator.of(context).pop(true);
   }
 
@@ -1341,26 +1338,33 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                     gradient: AppColors.buildPrimaryGradient(),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: TextButton(
-                    onPressed: _saving ? null : _save,
-                    child: _saving
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : const Text(
-                            'Save Changes',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                  child: BlocBuilder<AutoPayMethodsCubit, AutoPayMethodsState>(
+                    bloc: widget.cubit,
+                    buildWhen: (prev, curr) => prev.isSaving != curr.isSaving,
+                    builder: (context, state) {
+                      final saving = state.isSaving;
+                      return TextButton(
+                        onPressed: saving ? null : _save,
+                        child: saving
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
+                                ),
+                              )
+                            : const Text(
+                                'Save Changes',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                      );
+                    },
                   ),
                 ),
               ),
