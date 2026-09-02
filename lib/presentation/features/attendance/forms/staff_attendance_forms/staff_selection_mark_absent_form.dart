@@ -74,6 +74,7 @@ class _StaffSelectionMarkAbsentFormState
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _selectionCubit.close();
+    _classroomCubit.close();
     super.dispose();
   }
 

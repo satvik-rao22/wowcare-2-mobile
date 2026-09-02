@@ -71,6 +71,7 @@ class _StaffSelectionSignOutFormState extends State<StaffSelectionSignOutForm> {
   void dispose() {
     _searchController.dispose();
     _selectionCubit.close();
+    _classroomCubit.close();
     super.dispose();
   }
 

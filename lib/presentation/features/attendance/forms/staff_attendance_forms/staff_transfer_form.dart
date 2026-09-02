@@ -97,6 +97,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
   @override
   void dispose() {
     _submitCubit.close();
+    _classroomCubit.close();
     super.dispose();
   }
 
