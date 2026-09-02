@@ -288,7 +288,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     } else {
       GeofenceState? geofenceState;
       try {
-        geofenceState = serviceLocator<GeofenceCubit>().state;
+        geofenceState = context.read<GeofenceCubit>().state;
       } catch (_) {
         geofenceState = null;
       }

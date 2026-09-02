@@ -367,15 +367,15 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
 
     // QR scan is physical proof of presence — skip GPS geofence check.
     // Kiosk is a fixed location device — always within geofence.
-    // For GPS sign-out, read the singleton directly (form may be outside the
-    // dashboard BlocProvider tree when pushed via MaterialPageRoute).
+    // GeofenceCubit is provided above MaterialApp.router (app_bloc_providers),
+    // so context.read reaches it from any screen regardless of push mechanism.
     final bool withinGeofence;
     if (widget.qrToken.isNotEmpty || widget.isKiosk) {
       withinGeofence = true;
     } else {
       GeofenceState? geofenceState;
       try {
-        geofenceState = serviceLocator<GeofenceCubit>().state;
+        geofenceState = context.read<GeofenceCubit>().state;
       } catch (_) {
         geofenceState = null;
       }

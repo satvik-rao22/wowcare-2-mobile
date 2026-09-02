@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
@@ -88,7 +87,7 @@ class _StudentAttendanceTabbedViewState
     // Shared app-session singleton (registered in di.dart) — `startWatching`
     // is idempotent, so re-calling it here on mount keeps badges fresh
     // without opening a second, duplicate set of Firestore listeners.
-    _unreadBadgeCubit = serviceLocator<UnreadBadgeCubit>()..startWatching();
+    _unreadBadgeCubit = context.read<UnreadBadgeCubit>()..startWatching();
     _tabController = TabController(
       length: 3,
       vsync: this,

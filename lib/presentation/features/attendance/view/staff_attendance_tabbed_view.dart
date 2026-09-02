@@ -103,7 +103,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     // Shared app-session singleton (registered in di.dart) — `startWatching`
     // is idempotent, so re-calling it here on mount keeps badges fresh
     // without opening a second, duplicate set of Firestore listeners.
-    _unreadBadgeCubit = serviceLocator<UnreadBadgeCubit>()..startWatching();
+    _unreadBadgeCubit = context.read<UnreadBadgeCubit>()..startWatching();
     _tabController = TabController(
       length: 3,
       vsync: this,

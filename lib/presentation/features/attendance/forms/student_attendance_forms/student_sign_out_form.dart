@@ -417,7 +417,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
       if (success) {
         AttendanceEvents.notifyChanged();
-        serviceLocator<ParentChildCubit>().forceRefresh();
+        context.read<ParentChildCubit>().forceRefresh();
         if (widget.popOnSuccess) {
           widget.refreshCallback?.call();
           Navigator.of(context).pop();
