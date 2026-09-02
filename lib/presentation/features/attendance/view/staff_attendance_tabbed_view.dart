@@ -426,43 +426,37 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildMenuItem(context, MediaRes.Sign_in, 'Sign-in'),
+                  _StaffMenuItem(
+                    svgPath: MediaRes.Sign_in,
+                    label: 'Sign-in',
+                    onTap: () => _onStaffActionTap(context, 'Sign-in'),
+                  ),
                   const SizedBox(height: AppSpacing.s5),
-                  _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out'),
+                  _StaffMenuItem(
+                    svgPath: MediaRes.Sign_out,
+                    label: 'Sign-Out',
+                    onTap: () => _onStaffActionTap(context, 'Sign-Out'),
+                  ),
                   const SizedBox(height: AppSpacing.s5),
                   if (!(_isTeacherStaffPersona ?? false))
-                    _buildMenuItem(context, MediaRes.transfer, 'Transfer'),
+                    _StaffMenuItem(
+                      svgPath: MediaRes.transfer,
+                      label: 'Transfer',
+                      onTap: () => _onStaffActionTap(context, 'Transfer'),
+                    ),
                   if (!(_isTeacherStaffPersona ?? false))
                     const SizedBox(height: AppSpacing.s5),
-                  _buildMenuItem(context, MediaRes.Mark_absent, 'Absent'),
+                  _StaffMenuItem(
+                    svgPath: MediaRes.Mark_absent,
+                    label: 'Absent',
+                    onTap: () => _onStaffActionTap(context, 'Absent'),
+                  ),
                 ],
               ),
             ),
           ),
         );
       },
-    );
-  }
-
-  Widget _buildMenuItem(BuildContext context, String svgPath, String label) {
-    return InkWell(
-      onTap: () => _onStaffActionTap(context, label),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
-            decoration: BoxDecoration(
-              color: AppColors.attendanceInfoHighlightColor,
-              shape: BoxShape.circle,
-            ),
-            child: SvgPicture.asset(svgPath, height: 24, width: 24),
-          ),
-          const SizedBox(height: AppSpacing.s5),
-          Text(label, maxLines: 1, style: AppTextStyles.body),
-        ],
-      ),
     );
   }
 
@@ -551,5 +545,40 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
         });
         break;
     }
+  }
+}
+
+class _StaffMenuItem extends StatelessWidget {
+  const _StaffMenuItem({
+    required this.svgPath,
+    required this.label,
+    required this.onTap,
+  });
+
+  final String svgPath;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
+            decoration: BoxDecoration(
+              color: AppColors.attendanceInfoHighlightColor,
+              shape: BoxShape.circle,
+            ),
+            child: SvgPicture.asset(svgPath, height: 24, width: 24),
+          ),
+          const SizedBox(height: AppSpacing.s5),
+          Text(label, maxLines: 1, style: AppTextStyles.body),
+        ],
+      ),
+    );
   }
 }
