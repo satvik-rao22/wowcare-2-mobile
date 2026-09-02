@@ -4,6 +4,7 @@ import 'package:wowcare/presentation/features/billing/utils/billing_school_time.
 class TransactionItem {
   TransactionItem({
     required this.id,
+    this.transactionId,
     required this.transactionType,
     required this.date,
     required this.amount,
@@ -29,6 +30,11 @@ class TransactionItem {
   });
 
   final int id;
+
+  /// Stable server transaction identity (the API row's `id`), used to
+  /// de-duplicate rows across paginated load-more responses. Null when the
+  /// row carries no server id.
+  final String? transactionId;
 
   /// Backend invoice code (the real identifier). `id` is only a display/list
   /// key — invoices are addressed by [invoiceCode] in API calls.

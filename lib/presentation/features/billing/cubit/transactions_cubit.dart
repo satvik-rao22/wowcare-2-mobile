@@ -239,12 +239,20 @@ class TransactionsCubit extends Cubit<TransactionsState> {
         size: _pageSize,
       );
       if (isClosed) return;
-      final existing =
-          state.transactions.map((r) => r.item.invoiceCode).toSet();
+      // De-duplicate across pages by the STABLE server transaction id only —
+      // never by invoiceCode (which is null for many rows and shared between an
+      // invoice and its payment/refund rows, so the old code silently dropped
+      // valid transactions). Rows without a server id are always kept.
+      final existing = state.transactions
+          .map((r) => r.item.transactionId)
+          .whereType<String>()
+          .toSet();
       final merged = <TransactionRecord>[
         ...state.transactions,
         ..._mapRecords(result.items, startIndex: state.transactions.length)
-            .where((r) => !existing.contains(r.item.invoiceCode)),
+            .where((r) =>
+                r.item.transactionId == null ||
+                existing.add(r.item.transactionId!)),
       ];
       emit(state.copyWith(
         transactions: merged,
@@ -275,6 +283,7 @@ class TransactionsCubit extends Cubit<TransactionsState> {
         status: _statusFromApi(t.status),
         item: TransactionItem(
           id: startIndex + i + 1,
+          transactionId: t.id.isNotEmpty ? t.id : null,
           invoiceCode: t.invoiceCode.isNotEmpty ? t.invoiceCode : null,
           transactionType: t.type.isNotEmpty ? t.type : 'Invoice',
           date: t.date ?? billingSchoolNow(),
