@@ -530,6 +530,8 @@ import '../../presentation/features/billing/cubit/family_summary_cubit.dart';
 import '../../presentation/features/billing/cubit/transaction_details_cubit.dart';
 import '../../presentation/features/billing/cubit/receive_payment_refund_cubit.dart';
 import '../../presentation/features/billing/cubit/add_credit_cubit.dart';
+import '../../presentation/features/billing/cubit/view_invoice_cubit.dart';
+import '../../presentation/features/billing/cubit/send_invoice_cubit.dart';
 import '../../data/features/billing/datasources/auto_pay_remote_datasource.dart';
 import '../../data/features/billing/repositories/auto_pay_repository_impl.dart';
 import '../../domain/features/billing/repositories/auto_pay_repository.dart';
@@ -556,6 +558,8 @@ import '../../domain/features/billing/usecases/reactivate_discount_usecase.dart'
 import '../../presentation/features/billing/cubit/analytics_cubit.dart';
 import '../../presentation/features/billing/cubit/discount_cubit.dart';
 import '../../presentation/features/billing/cubit/discount_form_cubit.dart';
+import '../../presentation/features/billing/cubit/ledger_form_cubit.dart';
+import '../../presentation/features/billing/cubit/billing_school_header_cubit.dart';
 import '../../domain/features/billing/usecases/get_guardian_family_ledger_usecase.dart';
 import '../../domain/features/billing/usecases/get_invoice_analytics_usecase.dart';
 
@@ -2777,6 +2781,19 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getLedgerByCodeUseCase: serviceLocator<GetLedgerByCodeUseCase>(),
     ),
   );
+  serviceLocator.registerFactory<LedgerFormCubit>(
+    () => LedgerFormCubit(
+      createLedgerUseCase: serviceLocator<CreateLedgerUseCase>(),
+      updateLedgerUseCase: serviceLocator<UpdateLedgerUseCase>(),
+      storageService: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<BillingSchoolHeaderCubit>(
+    () => BillingSchoolHeaderCubit(
+      storageService: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    ),
+  );
 
   // ── Discounts ─────────────────────────────────────────────────────────────
   serviceLocator.registerLazySingleton<DiscountRemoteDataSource>(
@@ -2895,6 +2912,19 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storage: serviceLocator<StorageService>(),
     ),
   );
+  serviceLocator.registerFactory<ViewInvoiceCubit>(
+    () => ViewInvoiceCubit(
+      getStudentProfile: serviceLocator<GetStudentProfileUseCase>(),
+      getInvoiceByCode: serviceLocator<GetInvoiceByCodeUseCase>(),
+    ),
+  );
+  serviceLocator.registerFactory<SendInvoiceCubit>(
+    () => SendInvoiceCubit(
+      getStudentProfile: serviceLocator<GetStudentProfileUseCase>(),
+      issueInvoice: serviceLocator<IssueInvoiceUseCase>(),
+      resendInvoice: serviceLocator<ResendInvoiceUseCase>(),
+    ),
+  );
   serviceLocator.registerLazySingleton<BillingStatementsRemoteDataSource>(
     () => BillingStatementsRemoteDataSourceImpl(
       serviceLocator<ApiClient>().client,
@@ -2915,6 +2945,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStatements: serviceLocator<GetBillingStatementsUseCase>(),
       statementsRepository: serviceLocator<BillingStatementsRepository>(),
       fileDownloadService: serviceLocator<FileDownloadService>(),
+      storageService: serviceLocator<StorageService>(),
     ),
   );
   serviceLocator.registerFactory<ParentStatementsCubit>(

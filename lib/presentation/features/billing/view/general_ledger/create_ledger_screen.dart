@@ -2,13 +2,11 @@ import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:get_it/get_it.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/billing/usecases/create_ledger_usecase.dart';
-import 'package:wowcare/domain/features/billing/usecases/update_ledger_usecase.dart';
 import 'package:wowcare/presentation/features/billing/cubit/ledger_form_cubit.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -26,16 +24,14 @@ const _kCategories = [
 class CreateLedgerScreen extends StatefulWidget {
   const CreateLedgerScreen({super.key});
 
+  static const String routeName = '/billing/create-ledger';
+
   @override
   State<CreateLedgerScreen> createState() => _CreateLedgerScreenState();
 }
 
 class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
-  late final LedgerFormCubit _cubit = LedgerFormCubit(
-    createLedgerUseCase: GetIt.instance<CreateLedgerUseCase>(),
-    updateLedgerUseCase: GetIt.instance<UpdateLedgerUseCase>(),
-    storageService: GetIt.instance<StorageService>(),
-  );
+  final LedgerFormCubit _cubit = serviceLocator<LedgerFormCubit>();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
 
@@ -64,14 +60,14 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
       case LedgerFormStatus.success:
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Ledger created successfully!',
+          message: BillingStrings.ledgerCreatedSuccessfully,
           isSuccess: true,
         );
         Navigator.of(context).pop(result.ledger);
       case LedgerFormStatus.error:
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'An unexpected error occurred. Please try again.',
+          message: BillingStrings.anUnexpectedErrorOccurred,
           isError: true,
         );
     }
@@ -93,15 +89,15 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
           );
 
           return StaffFormLayout(
-            title: 'Create Ledger',
+            title: BillingStrings.createLedger,
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
                 _buildInputField(
-                  label: 'Title',
-                  hint: 'Ledger Account (e.g Operational Exp)',
+                  label: BillingStrings.title,
+                  hint: BillingStrings.ledgerAccountOperationalExp,
                   controller: _titleController,
-                  error: _titleError ? '*This field is required.' : null,
+                  error: _titleError ? BillingStrings.thisFieldIsRequired : null,
                   labelStyle: labelStyle,
                   responsive: responsive,
                 ),
@@ -109,8 +105,8 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
 
                 // ── Category dropdown ──────────────────────────────────
                 CustomDropdown(
-                  label: 'Type',
-                  hintText: 'Select Type',
+                  label: BillingStrings.type,
+                  hintText: BillingStrings.selectType,
                   items: _kCategories,
                   selectedItem: _selectedCategory,
                   isRequired: true,
@@ -124,7 +120,7 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
                   Padding(
                     padding: const EdgeInsets.only(left: 2),
                     child: Text(
-                      '*This field is required.',
+                      BillingStrings.thisFieldIsRequired,
                       style: AppTextStyles.small
                           .copyWith(color: AppColors.errorColor),
                     ),
@@ -133,8 +129,8 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
                 SizedBox(height: verticalSpacing),
 
                 _buildInputField(
-                  label: 'Description',
-                  hint: 'Description (e.g Books, Activities, Postage)',
+                  label: BillingStrings.description,
+                  hint: BillingStrings.descriptionBooksActivitiesPostage,
                   controller: _descriptionController,
                   maxLines: 3,
                   required: false,
@@ -166,7 +162,7 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
                 ),
               ),
               child: CustomButtonLayout(
-                confirmButtonLabel: 'Save',
+                confirmButtonLabel: BillingStrings.save,
                 onPressedConfirm: _onSave,
                 showCancelButton: false,
                 isForm: false,

@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -13,7 +12,7 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/util/billing_school_time.dart';
 
 const _kStatementTypes = ['Monthly', 'Yearly', 'Custom Range'];
 
@@ -37,10 +36,12 @@ class GenerateStatementScreen extends StatefulWidget {
     this.familyChildren = const [],
   });
 
+  static const String routeName = '/billing/generate-statement';
+
   final AdminStatementsCubit cubit;
   final String subscriberCode;
   final String ownerType;
-  final List<Map<String, dynamic>> familyChildren;
+  final List<BillingFamilyMember> familyChildren;
 
   @override
   State<GenerateStatementScreen> createState() =>
@@ -50,7 +51,7 @@ class GenerateStatementScreen extends StatefulWidget {
 class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
   late final Set<String> _selectedCodes = {
     for (final c in widget.familyChildren)
-      if ((c['code'] ?? '').toString().isNotEmpty) (c['code'] ?? '').toString(),
+      if ((c.code ?? '').toString().isNotEmpty) (c.code ?? '').toString(),
   };
 
   final TextEditingController _descriptionController = TextEditingController();
@@ -130,15 +131,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
     if (!_validate()) return;
     setState(() => _isSubmitting = true);
 
-    final storage = serviceLocator<StorageService>();
-    final orgCode =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-
     final error = await widget.cubit.generateStatement(
-      organizationCode: orgCode,
-      schoolCode: schoolCode,
       ownerType: widget.ownerType,
       subscriberCode: widget.subscriberCode,
       statementType: _kApiStatementType[_statementType!] ?? _statementType!,
@@ -153,7 +146,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
     if (error == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Statement generated successfully!',
+        message: BillingStrings.statementGeneratedSuccessfully,
         isSuccess: true,
       );
       Navigator.of(context).pop(true);
@@ -178,7 +171,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
     );
 
     return StaffFormLayout(
-      title: 'Generate Statement',
+      title: BillingStrings.generateStatement,
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
@@ -201,8 +194,8 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
 
           // ── Statement Type ────────────────────────────────────────────────
           CustomDropdown(
-            label: 'Statement Type',
-            hintText: 'Select Statement Type',
+            label: BillingStrings.statementType,
+            hintText: BillingStrings.selectStatementType,
             items: _kStatementTypes,
             selectedItem: _statementType,
             isRequired: true,
@@ -234,8 +227,8 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       CustomDropdown(
-                        label: 'Select Month',
-                        hintText: 'Month',
+                        label: BillingStrings.selectMonth,
+                        hintText: BillingStrings.month,
                         items: _kMonths,
                         selectedItem: _selectedMonth,
                         isRequired: true,
@@ -257,8 +250,8 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       CustomDropdown(
-                        label: 'Select Year',
-                        hintText: 'Year',
+                        label: BillingStrings.selectYear,
+                        hintText: BillingStrings.year,
                         items: _yearOptions,
                         selectedItem: _selectedYear,
                         isRequired: true,
@@ -279,8 +272,8 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
             SizedBox(height: vs),
           ] else if (_statementType == 'Yearly') ...[
             CustomDropdown(
-              label: 'Select Year',
-              hintText: 'Select Year',
+              label: BillingStrings.selectYear,
+              hintText: BillingStrings.selectYear,
               items: _yearOptions,
               selectedItem: _selectedYear,
               isRequired: true,
@@ -302,7 +295,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
                   text: TextSpan(
                     style: labelStyle,
                     children: [
-                      const TextSpan(text: 'Select Date Range'),
+                      const TextSpan(text: BillingStrings.selectDateRange),
                       TextSpan(
                         text: ' *',
                         style: AppTextStyles.small
@@ -315,7 +308,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
                 CustomDateTimeField(
                   hasLabel: false,
                   isRangePicker: true,
-                  label: 'Select Date Range',
+                  label: BillingStrings.selectDateRange,
                   fetchInitialTime: false,
                   isRequired: true,
                   onRangeSelected: (start, end) => setState(() {
@@ -352,7 +345,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text('Include Description', style: labelStyle),
+                Text(BillingStrings.includeDescription, style: labelStyle),
               ],
             ),
           ),
@@ -372,7 +365,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
                 maxLines: null,
                 keyboardType: TextInputType.multiline,
                 decoration: InputDecoration(
-                  hintText: 'Enter description…',
+                  hintText: BillingStrings.enterDescription,
                   hintStyle:
                       labelStyle.copyWith(color: AppColors.billingGrey),
                   border: InputBorder.none,
@@ -409,7 +402,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
           ),
         ),
         child: CustomButtonLayout(
-          confirmButtonLabel: 'Generate',
+          confirmButtonLabel: BillingStrings.generate,
           onPressedConfirm: _onGenerate,
           showCancelButton: false,
           isForm: false,
@@ -422,7 +415,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
   Widget _errorWidget() => Padding(
         padding: const EdgeInsets.only(top: 4, left: 2),
         child: Text(
-          '*This field is required.',
+          BillingStrings.thisFieldIsRequired,
           style: AppTextStyles.small.copyWith(color: AppColors.errorColor),
         ),
       );
@@ -440,7 +433,7 @@ class _SelectedStudentsCard extends StatelessWidget {
     required this.onToggle,
   });
 
-  final List<Map<String, dynamic>> children;
+  final List<BillingFamilyMember> children;
   final Set<String> selectedCodes;
   final TextStyle labelStyle;
   final void Function(String code) onToggle;
@@ -448,7 +441,7 @@ class _SelectedStudentsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selectedCount = children
-        .where((c) => selectedCodes.contains((c['code'] ?? '').toString()))
+        .where((c) => selectedCodes.contains((c.code ?? '').toString()))
         .length;
 
     return Column(
@@ -465,9 +458,9 @@ class _SelectedStudentsCard extends StatelessWidget {
           spacing: 10,
           runSpacing: 10,
           children: children.map((child) {
-            final code = (child['code'] ?? '').toString();
+            final code = (child.code ?? '').toString();
             final name =
-                (child['fullName'] ?? child['name'] ?? '').toString();
+                (child.fullName ?? child.name ?? '').toString();
             final isSelected = selectedCodes.contains(code);
 
             return InkWell(
@@ -502,7 +495,7 @@ class _SelectedStudentsCard extends StatelessWidget {
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 130),
                       child: Text(
-                        name.trim().isEmpty ? 'Student' : name.trim(),
+                        name.trim().isEmpty ? BillingStrings.student : name.trim(),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.value.copyWith(

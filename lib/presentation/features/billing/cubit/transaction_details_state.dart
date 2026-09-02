@@ -42,8 +42,8 @@ class TransactionDetailsState extends Equatable {
   final DateTime? startDate;
   final DateTime? endDate;
   final bool isLoadingFamily;
-  final List<Map<String, dynamic>> familyChildren;
-  final List<Map<String, dynamic>> familyParents;
+  final List<BillingFamilyMember> familyChildren;
+  final List<BillingFamilyMember> familyParents;
   final String familyName;
   final String familyError;
   final bool hasMoreData;
@@ -75,8 +75,8 @@ class TransactionDetailsState extends Equatable {
     DateTime? Function()? startDate,
     DateTime? Function()? endDate,
     bool? isLoadingFamily,
-    List<Map<String, dynamic>>? familyChildren,
-    List<Map<String, dynamic>>? familyParents,
+    List<BillingFamilyMember>? familyChildren,
+    List<BillingFamilyMember>? familyParents,
     String? familyName,
     String? familyError,
     bool? hasMoreData,

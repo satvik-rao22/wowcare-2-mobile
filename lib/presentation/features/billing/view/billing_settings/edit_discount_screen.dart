@@ -3,14 +3,12 @@ import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:get_it/get_it.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/billing/usecases/create_discount_usecase.dart';
-import 'package:wowcare/domain/features/billing/usecases/update_discount_usecase.dart';
 import 'package:wowcare/presentation/features/billing/cubit/discount_form_cubit.dart';
-import 'package:wowcare/presentation/features/billing/widgets/billing_settings/discount_account_model.dart';
+import 'package:wowcare/presentation/features/billing/model/discount_account_model.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -19,6 +17,8 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 class EditDiscountScreen extends StatefulWidget {
   const EditDiscountScreen({required this.discount, super.key});
 
+  static const String routeName = '/billing/edit-discount';
+
   final DiscountAccountModel discount;
 
   @override
@@ -26,11 +26,7 @@ class EditDiscountScreen extends StatefulWidget {
 }
 
 class _EditDiscountScreenState extends State<EditDiscountScreen> {
-  late final DiscountFormCubit _cubit = DiscountFormCubit(
-    createDiscountUseCase: GetIt.instance<CreateDiscountUseCase>(),
-    updateDiscountUseCase: GetIt.instance<UpdateDiscountUseCase>(),
-    storageService: GetIt.instance<StorageService>(),
-  );
+  final DiscountFormCubit _cubit = serviceLocator<DiscountFormCubit>();
 
   late final TextEditingController _nameController =
       TextEditingController(text: widget.discount.name);
@@ -59,14 +55,14 @@ class _EditDiscountScreenState extends State<EditDiscountScreen> {
       case DiscountFormStatus.success:
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Discount updated successfully!',
+          message: BillingStrings.discountUpdatedSuccessfully,
           isSuccess: true,
         );
         Navigator.of(context).pop(result.discount);
       case DiscountFormStatus.error:
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'An unexpected error occurred. Please try again.',
+          message: BillingStrings.anUnexpectedErrorOccurred,
           isError: true,
         );
     }
@@ -88,21 +84,21 @@ class _EditDiscountScreenState extends State<EditDiscountScreen> {
           );
 
           return StaffFormLayout(
-            title: 'Edit Discount',
+            title: BillingStrings.editDiscount,
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
                 _buildField(
-                  label: 'Discount Name',
-                  hint: 'e.g., Sibling discount',
+                  label: BillingStrings.discountName,
+                  hint: BillingStrings.egSiblingDiscount,
                   controller: _nameController,
-                  error: state.nameError ? '*This field is required.' : null,
+                  error: state.nameError ? BillingStrings.thisFieldIsRequired : null,
                   labelStyle: labelStyle,
                   responsive: responsive,
                 ),
                 SizedBox(height: spacing),
                 _buildField(
-                  label: 'Percentage (%)',
+                  label: BillingStrings.percentagePercent,
                   hint: '0',
                   controller: _percentageController,
                   keyboardType:
@@ -112,7 +108,7 @@ class _EditDiscountScreenState extends State<EditDiscountScreen> {
                         RegExp(r'^\d{0,3}(\.\d{0,2})?')),
                   ],
                   error: state.percentageError
-                      ? '*Enter a value between 0 and 100.'
+                      ? BillingStrings.enterAValueBetween
                       : null,
                   labelStyle: labelStyle,
                   responsive: responsive,
@@ -144,7 +140,7 @@ class _EditDiscountScreenState extends State<EditDiscountScreen> {
                 ),
               ),
               child: CustomButtonLayout(
-                confirmButtonLabel: 'Update',
+                confirmButtonLabel: BillingStrings.update,
                 onPressedConfirm: _onSave,
                 showCancelButton: false,
                 isForm: false,

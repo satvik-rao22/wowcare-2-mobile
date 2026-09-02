@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:wowcare/app/theme/colors.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/domain/features/billing/entities/ledger_transaction_entity.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -13,6 +15,8 @@ class AddTransactionScreen extends StatefulWidget {
     required this.onSave,
     super.key,
   });
+
+  static const String routeName = '/billing/add-transaction';
 
   final String ledgerCode;
 
@@ -77,24 +81,24 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       fontSize: responsive.labelFontSize,
       fontFamily: 'Manrope',
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.billingTextColor,
     );
 
     return StaffFormLayout(
-      title: 'Add Transaction',
+      title: BillingStrings.addTransaction,
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
           // ── Amount ──────────────────────────────────────────────────
           _buildInputField(
-            label: 'Amount',
-            hint: 'E.g. 100.00',
+            label: BillingStrings.amount,
+            hint: BillingStrings.eg10000,
             controller: _amountCtrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
             ],
-            error: _amountError ? '*Enter a valid amount.' : null,
+            error: _amountError ? BillingStrings.enterAValidAmount : null,
             labelStyle: labelStyle,
             responsive: responsive,
           ),
@@ -102,7 +106,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
           // ── Date ────────────────────────────────────────────────────
           CustomDateTimeField(
-            label: 'Date',
+            label: BillingStrings.date,
             hasLabel: true,
             isRequired: true,
             fetchInitialTime: false,
@@ -115,7 +119,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           if (_dateError) ...[
             const SizedBox(height: 4),
             const Text(
-              '*Date is required.',
+              BillingStrings.dateIsRequired,
               style: TextStyle(
                 fontFamily: 'Manrope',
                 fontSize: 12,
@@ -127,8 +131,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
           // ── Description ─────────────────────────────────────────────
           _buildInputField(
-            label: 'Description',
-            hint: 'Add Description',
+            label: BillingStrings.description,
+            hint: BillingStrings.addDescription,
             controller: _narrationCtrl,
             maxLines: 4,
             required: false,
@@ -160,7 +164,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           ),
         ),
         child: CustomButtonLayout(
-          confirmButtonLabel: 'Save',
+          confirmButtonLabel: BillingStrings.save,
           onPressedConfirm: _submit,
           showCancelButton: false,
           isForm: false,
@@ -203,7 +207,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            border: Border.all(color: AppColors.billingBorderDefault),
             borderRadius:
                 BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
           ),
@@ -216,7 +220,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               fontFamily: 'Manrope',
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: AppColors.billingTextColor,
               height: 19 / 14,
             ),
             decoration: InputDecoration(

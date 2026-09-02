@@ -1,7 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/widgets.dart';
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/util/billing_school_time.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -17,7 +17,8 @@ import 'package:wowcare/domain/features/billing/usecases/get_discounts_usecase.d
 import 'package:wowcare/domain/features/billing/usecases/get_fee_structures_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_other_fees_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_subsidies_usecase.dart';
-import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
+import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
+import 'package:wowcare/presentation/features/billing/model/student_models.dart';
 
 part 'create_invoice_state.dart';
 
@@ -145,37 +146,30 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
 
   /// Hydrates items + dates from a previously-built invoice payload, then kicks
   /// off the (silent) catalog prefetch.
-  void initialize(Map<String, dynamic>? data) {
+  void initialize(InvoiceDraft? data) {
     if (data != null) {
-      final rawCode = data['invoiceCode']?.toString().trim();
+      final rawCode = data.invoiceCode?.toString().trim();
       _editingInvoiceCode = (rawCode != null && rawCode.isNotEmpty) ? rawCode : null;
       var items = state.items;
-      if (data['invoiceItems'] is List) {
-        final raw = data['invoiceItems'] as List<dynamic>;
-        if (raw.isNotEmpty) {
-          for (final item in state.items) {
-            item.dispose();
-          }
-          items = raw.mapIndexed((index, r) {
-            final map = r as Map<String, dynamic>;
-            return InvoiceItemFormData(
-              type: map['type']?.toString() ?? InvoiceItemTypes.newItem,
-              description: map['description']?.toString() ?? '',
-              amount: map['amount']?.toString() ?? '',
-              isPrimary: index == 0,
-            );
-          }).toList();
+      final rawItems = data.invoiceItems;
+      if (rawItems.isNotEmpty) {
+        for (final item in state.items) {
+          item.dispose();
         }
+        items = rawItems.mapIndexed((index, r) {
+          return InvoiceItemFormData(
+            type: r.type,
+            description: r.description,
+            amount: r.amount,
+            isPrimary: index == 0,
+          );
+        }).toList();
       }
 
       emit(state.copyWith(
         items: items,
-        invoiceDate: () => data['invoiceDate'] is DateTime
-            ? data['invoiceDate'] as DateTime
-            : state.invoiceDate,
-        dueDate: () => data['dueDate'] is DateTime
-            ? data['dueDate'] as DateTime
-            : state.dueDate,
+        invoiceDate: () => data.invoiceDate ?? state.invoiceDate,
+        dueDate: () => data.dueDate ?? state.dueDate,
         revision: state.revision + 1,
       ));
     }

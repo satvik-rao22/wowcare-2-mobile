@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
 /// Shared visual language for every billing card, inherited from
@@ -7,8 +8,8 @@ import 'package:wowcare/app/theme/colors.dart';
 /// All billing cards use the same white, rounded, [AppColors.cardBorderColor]
 /// bordered, tap-to-expand container, the same `#573353` text colour and the
 /// same Manrope font sizes/weights so they match the staff card exactly.
-const Color kBillingCardTextColor = Color(0xff573353);
-const Color kBillingCardDividerColor = Color(0xFFE9ECEF);
+const Color kBillingCardTextColor = AppColors.billingTextColor;
+const Color kBillingCardDividerColor = AppColors.billingDividerLight;
 
 /// Text styles lifted verbatim from the staff card.
 class BillingCardText {
@@ -109,7 +110,7 @@ class _StaffStyleCardState extends State<StaffStyleCard> {
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = MediaQuery.of(context).size.width > 600;
+    final isTablet = ResponsiveHelper(context).isTabletCompact;
     return LayoutBuilder(
       builder: (context, constraints) {
         return IntrinsicHeight(
@@ -122,7 +123,7 @@ class _StaffStyleCardState extends State<StaffStyleCard> {
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
-              color: Colors.transparent,
+              color: AppColors.transparentColor,
               child: InkWell(
                 onTap: _toggle,
                 onLongPress: widget.onLongPress,
@@ -247,7 +248,7 @@ class StaffCardActions extends StatelessWidget {
   final String primaryLabel;
   final VoidCallback? onPrimary;
 
-  static const Color _accent = Color(0xFF6C7FD8);
+  static const Color _accent = AppColors.billingCardAccent;
 
   @override
   Widget build(BuildContext context) {

@@ -2,14 +2,12 @@ import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:get_it/get_it.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/billing/usecases/create_ledger_usecase.dart';
-import 'package:wowcare/domain/features/billing/usecases/update_ledger_usecase.dart';
 import 'package:wowcare/presentation/features/billing/cubit/ledger_form_cubit.dart';
-import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
+import 'package:wowcare/presentation/features/billing/model/ledger_account_model.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -27,6 +25,8 @@ const _kCategories = [
 class EditLedgerScreen extends StatefulWidget {
   const EditLedgerScreen({required this.ledger, super.key});
 
+  static const String routeName = '/billing/edit-ledger';
+
   final LedgerAccountModel ledger;
 
   @override
@@ -34,7 +34,7 @@ class EditLedgerScreen extends StatefulWidget {
 }
 
 class _EditLedgerScreenState extends State<EditLedgerScreen> {
-  late final LedgerFormCubit _cubit;
+  final LedgerFormCubit _cubit = serviceLocator<LedgerFormCubit>();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
 
@@ -52,12 +52,9 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
             _kCategories.contains(widget.ledger.category)
         ? widget.ledger.category
         : null;
-    _cubit = LedgerFormCubit(
-      initialCategory: initialCategory,
-      createLedgerUseCase: GetIt.instance<CreateLedgerUseCase>(),
-      updateLedgerUseCase: GetIt.instance<UpdateLedgerUseCase>(),
-      storageService: GetIt.instance<StorageService>(),
-    );
+    if (initialCategory != null) {
+      _cubit.setCategory(initialCategory);
+    }
     _titleController.text = widget.ledger.name;
     _descriptionController.text = widget.ledger.description ?? '';
   }
@@ -83,14 +80,14 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
       case LedgerFormStatus.success:
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Ledger updated successfully!',
+          message: BillingStrings.ledgerUpdatedSuccessfully,
           isSuccess: true,
         );
         Navigator.of(context).pop(result.ledger);
       case LedgerFormStatus.error:
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'An unexpected error occurred. Please try again.',
+          message: BillingStrings.anUnexpectedErrorOccurred,
           isError: true,
         );
     }
@@ -112,17 +109,17 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
           );
 
           return StaffFormLayout(
-            title: 'Edit Ledger',
+            title: BillingStrings.editLedger,
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : ListView(
                     padding: EdgeInsets.zero,
                     children: [
                       _buildInputField(
-                        label: 'Title',
-                        hint: 'Ledger Account (e.g Operational Exp)',
+                        label: BillingStrings.title,
+                        hint: BillingStrings.ledgerAccountOperationalExp,
                         controller: _titleController,
-                        error: _titleError ? '*This field is required.' : null,
+                        error: _titleError ? BillingStrings.thisFieldIsRequired : null,
                         labelStyle: labelStyle,
                         responsive: responsive,
                       ),
@@ -130,8 +127,8 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
 
                       // ── Category dropdown ────────────────────────────
                       CustomDropdown(
-                        label: 'Type',
-                        hintText: 'Select Type',
+                        label: BillingStrings.type,
+                        hintText: BillingStrings.selectType,
                         items: _kCategories,
                         selectedItem: _selectedCategory,
                         isRequired: true,
@@ -145,7 +142,7 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
                         Padding(
                           padding: const EdgeInsets.only(left: 2),
                           child: Text(
-                            '*This field is required.',
+                            BillingStrings.thisFieldIsRequired,
                             style: AppTextStyles.small
                                 .copyWith(color: AppColors.errorColor),
                           ),
@@ -154,8 +151,8 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
                       SizedBox(height: verticalSpacing),
 
                       _buildInputField(
-                        label: 'Description',
-                        hint: 'Description (e.g Books, Activities, Postage)',
+                        label: BillingStrings.description,
+                        hint: BillingStrings.descriptionBooksActivitiesPostage,
                         controller: _descriptionController,
                         maxLines: 3,
                         required: false,
@@ -191,7 +188,7 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
                       ),
                     ),
                     child: CustomButtonLayout(
-                      confirmButtonLabel: 'Update',
+                      confirmButtonLabel: BillingStrings.update,
                       onPressedConfirm: _onSave,
                       showCancelButton: false,
                       isForm: false,

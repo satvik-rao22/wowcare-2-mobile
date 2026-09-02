@@ -1,25 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/billing_events.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/transaction_details_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
 import 'package:wowcare/presentation/features/billing/widgets/admin_statements_tab.dart';
-import 'package:wowcare/presentation/features/billing/widgets/create_invoice_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/generate_statement_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/add_credit_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/create_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/generate_statement_screen.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
+import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
+import 'package:wowcare/presentation/features/billing/model/student_models.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/add_credit_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/billing_transaction_card.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/send_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/receive_payment_issue_refund_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/send_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_action_dialog.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/view_receipt_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/view_receipt_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/view_invoice_screen.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:shimmer/shimmer.dart';
@@ -27,7 +32,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/gradient_circular_progress.dart';
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/util/billing_school_time.dart';
 
 class TransactionDetailsScreen extends StatefulWidget {
   /// Optional source transaction (when opened from a transaction card).
@@ -47,6 +52,8 @@ class TransactionDetailsScreen extends StatefulWidget {
     this.ownerCode,
     this.familyName,
   });
+
+  static const String routeName = '/billing/transaction-details';
 
   @override
   State<TransactionDetailsScreen> createState() => _TransactionDetailsScreenState();
@@ -71,8 +78,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
   DateTime? get _startDate => _cubit.state.startDate;
   DateTime? get _endDate => _cubit.state.endDate;
   bool get _isLoadingFamily => _cubit.state.isLoadingFamily;
-  List<Map<String, dynamic>> get _familyChildren => _cubit.state.familyChildren;
-  List<Map<String, dynamic>> get _familyParents => _cubit.state.familyParents;
+  List<BillingFamilyMember> get _familyChildren => _cubit.state.familyChildren;
+  List<BillingFamilyMember> get _familyParents => _cubit.state.familyParents;
   String get _familyError => _cubit.state.familyError;
   bool get _isLoadingMore => _cubit.state.isLoadingMore;
 
@@ -93,9 +100,9 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
     return (familyName?.isNotEmpty ?? false) ? familyName! : 'Family';
   }
 
-  String? _extractFamilyNameFromList(List<Map<String, dynamic>> members) {
+  String? _extractFamilyNameFromList(List<BillingFamilyMember> members) {
     if (members.isEmpty) return null;
-    final first = members.first['fullName']?.toString();
+    final first = members.first.fullName?.toString();
     return _extractFamilyName(first);
   }
 
@@ -163,9 +170,9 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
   List<Student> _familyStudents() {
     return _familyChildren
         .map((c) => Student(
-              code: (c['code'] ?? '').toString(),
-              fullName: (c['fullName'] ?? '').toString(),
-              photoUuid: c['photoUuid'] as String?,
+              code: (c.code ?? '').toString(),
+              fullName: (c.fullName ?? '').toString(),
+              photoUuid: c.photoUuid,
             ))
         .where((s) => s.code.isNotEmpty)
         .toList();
@@ -175,7 +182,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
     final students = _familyStudents();
     if (students.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No students found for this family.')),
+        const SnackBar(
+            content: Text(BillingStrings.noStudentsFoundForFamily)),
       );
       return;
     }
@@ -184,34 +192,31 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
       builder: (ctx) => TransactionActionDialog(
         onSelectCreateInvoice: () {
           Navigator.of(ctx).maybePop();
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => CreateInvoiceScreen(selectedStudents: students),
-            ),
+          context.push(
+            CreateInvoiceScreen.routeName,
+            extra: CreateInvoiceArgs(selectedStudents: students),
           );
         },
         onSelectReceivePayment: () {
           Navigator.of(ctx).maybePop();
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => ReceivePaymentIssueRefundScreen(
-                transaction: _buildReceivePaymentTransaction(students),
-                studentCode: students.first.code,
-                ownerType: widget.ownerType,
-                ownerCode: widget.ownerCode,
-              ),
+          context.push(
+            ReceivePaymentIssueRefundScreen.routeName,
+            extra: ReceivePaymentRefundArgs(
+              transaction: _buildReceivePaymentTransaction(students),
+              studentCode: students.first.code,
+              ownerType: widget.ownerType,
+              ownerCode: widget.ownerCode,
             ),
           );
         },
         onSelectAddCredit: () {
           Navigator.of(ctx).maybePop();
-          Navigator.of(context).push<bool>(
-            MaterialPageRoute<bool>(
-              builder: (_) => AddCreditScreen(
-                ownerType: widget.ownerType,
-                ownerCode: widget.ownerCode,
-                familyName: _familyDisplayName,
-              ),
+          context.push<bool>(
+            AddCreditScreen.routeName,
+            extra: AddCreditArgs(
+              ownerType: widget.ownerType,
+              ownerCode: widget.ownerCode,
+              familyName: _familyDisplayName,
             ),
           ).then((added) {
             if (added == true) _cubit.refresh();
@@ -222,21 +227,20 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
   }
 
   void _openGenerateStatement() {
-    Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => GenerateStatementScreen(
-          cubit: _statementsCubit,
-          subscriberCode: widget.ownerCode ?? '',
-          ownerType: widget.ownerType ?? 'FAMILY',
-          familyChildren: _familyChildren,
-        ),
+    context.push<bool>(
+      GenerateStatementScreen.routeName,
+      extra: GenerateStatementArgs(
+        cubit: _statementsCubit,
+        subscriberCode: widget.ownerCode ?? '',
+        ownerType: widget.ownerType ?? 'FAMILY',
+        familyChildren: _familyChildren,
       ),
     );
   }
 
   void _showMessageUnavailable() => CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Messaging is not available yet.',
+        message: BillingStrings.messagingNotAvailableYet,
         isWarning: true,
       );
 
@@ -246,12 +250,11 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
   Future<void> _openEditInvoice(TransactionItem item) async {
     final code = _invoiceCodeOrWarn(item);
     if (code == null) return;
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => CreateInvoiceScreen(
-          selectedStudents: [Student(code: '', fullName: item.studentName)],
-          initialInvoiceData: <String, dynamic>{'invoiceCode': code},
-        ),
+    final result = await context.push<bool>(
+      CreateInvoiceScreen.routeName,
+      extra: CreateInvoiceArgs(
+        selectedStudents: [Student(code: '', fullName: item.studentName)],
+        initialInvoiceData: InvoiceDraft(invoiceCode: code),
       ),
     );
     if (result == true && mounted) {
@@ -270,7 +273,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
     if (code == null || code.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'This invoice cannot be modified.',
+        message: BillingStrings.invoiceCannotBeModified,
         isWarning: true,
       );
       return null;
@@ -285,7 +288,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
       item: item,
       type: 'invoice_cancel',
       action: () => _cubit.cancelInvoice(code),
-      successMessage: 'Invoice cancelled',
+      successMessage: BillingStrings.invoiceCancelled,
     );
   }
 
@@ -296,7 +299,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
       item: item,
       type: 'invoice_delete',
       action: () => _cubit.deleteInvoice(code),
-      successMessage: 'Invoice deleted',
+      successMessage: BillingStrings.invoiceDeleted,
     );
   }
 
@@ -314,7 +317,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (sheetCtx) => DeleteConfirmationBottomSheet(
         name: name,
         type: type,
@@ -363,20 +366,19 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
     // Replace, don't stack — otherwise tapping multiple siblings builds up
     // a deep navigator stack of TransactionDetailsScreen copies and back
     // walks through every one.
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (context) => TransactionDetailsScreen(transaction: item),
-      ),
+    context.pushReplacement(
+      TransactionDetailsScreen.routeName,
+      extra: TransactionDetailsArgs(transaction: item),
     );
   }
 
-  List<Map<String, dynamic>> get _statementsChildren => _familyChildren
-      .map((c) => <String, dynamic>{
-            'fullName': (c['fullName'] ?? '').toString(),
-            'name': (c['fullName'] ?? '').toString(),
-            'room': '',
-            'roomName': '',
-          })
+  List<BillingFamilyMember> get _statementsChildren => _familyChildren
+      .map((c) => BillingFamilyMember(
+            fullName: (c.fullName ?? '').toString(),
+            name: (c.fullName ?? '').toString(),
+            room: '',
+            roomName: '',
+          ))
       .toList();
 
   @override
@@ -426,7 +428,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                   color: AppColors.cardColor,
                   child: TabBar(
                     controller: _tabController,
-                    dividerColor: Colors.transparent,
+                    dividerColor: AppColors.transparentColor,
                     indicator: const UnderlineTabIndicator(
                       borderSide:
                           BorderSide(color: AppColors.themeColor, width: 2),
@@ -446,8 +448,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                       fontSize: 16,
                     ),
                     tabs: const [
-                      Tab(text: 'Transactions'),
-                      Tab(text: 'Statements'),
+                      Tab(text: BillingStrings.transactions),
+                      Tab(text: BillingStrings.statements),
                     ],
                   ),
                 ),
@@ -527,7 +529,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                 ),
                 TextButton(
                   onPressed: () => _cubit.refresh(),
-                  child: const Text('Retry'),
+                  child: const Text(BillingStrings.retry),
                 ),
               ],
             ),
@@ -539,7 +541,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Family Transaction Summary',
+                BillingStrings.familyTransactionSummary,
                 style: TextStyle(
                   color: AppColors.primaryColor,
                   fontSize: 18,
@@ -574,7 +576,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                 ),
                 TextButton(
                   onPressed: () => _cubit.refresh(),
-                  child: const Text('Retry'),
+                  child: const Text(BillingStrings.retry),
                 ),
               ],
             ),
@@ -593,7 +595,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
             padding: EdgeInsets.all(24.0),
             child: Center(
               child: Text(
-                'No family transactions found',
+                BillingStrings.noFamilyTransactionsFound,
                 style: TextStyle(fontSize: 16, color: AppColors.billingTextColor),
               ),
             ),
@@ -612,47 +614,39 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                       // Already on the Billing profile — don't offer to reopen it.
                       showBillingProfile: false,
                       onView: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => ViewInvoiceScreen(
-                              transaction: transaction,
-                            ),
-                          ),
+                        context.push(
+                          ViewInvoiceScreen.routeName,
+                          extra: ViewInvoiceArgs(transaction: transaction),
                         );
                       },
                       onViewReceipt: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => ViewReceiptScreen(
-                              transaction: transaction,
-                              viewType: 'receipt',
-                            ),
+                        context.push(
+                          ViewReceiptScreen.routeName,
+                          extra: ViewReceiptArgs(
+                            transaction: transaction,
+                            viewType: 'receipt',
                           ),
                         );
                       },
-                      onSendInvoice: () => Navigator.of(context).push(
-                        MaterialPageRoute<bool>(
-                          builder: (_) =>
-                              SendInvoiceScreen(transaction: transaction),
+                      onSendInvoice: () => context.push<bool>(
+                        SendInvoiceScreen.routeName,
+                        extra: SendInvoiceArgs(transaction: transaction),
+                      ),
+                      onReceivePayment: () => context.push<bool>(
+                        ReceivePaymentIssueRefundScreen.routeName,
+                        extra: ReceivePaymentRefundArgs(
+                          transaction: transaction,
+                          ownerType: widget.ownerType,
+                          ownerCode: widget.ownerCode,
                         ),
                       ),
-                      onReceivePayment: () => Navigator.of(context).push(
-                        MaterialPageRoute<bool>(
-                          builder: (_) => ReceivePaymentIssueRefundScreen(
-                            transaction: transaction,
-                            ownerType: widget.ownerType,
-                            ownerCode: widget.ownerCode,
-                          ),
-                        ),
-                      ),
-                      onIssueRefund: () => Navigator.of(context).push(
-                        MaterialPageRoute<bool>(
-                          builder: (_) => ReceivePaymentIssueRefundScreen(
-                            transaction: transaction,
-                            isRefund: true,
-                            ownerType: widget.ownerType,
-                            ownerCode: widget.ownerCode,
-                          ),
+                      onIssueRefund: () => context.push<bool>(
+                        ReceivePaymentIssueRefundScreen.routeName,
+                        extra: ReceivePaymentRefundArgs(
+                          transaction: transaction,
+                          isRefund: true,
+                          ownerType: widget.ownerType,
+                          ownerCode: widget.ownerCode,
                         ),
                       ),
                       onEditInvoice: () => _openEditInvoice(transaction),
@@ -672,7 +666,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                     child: GradientCircularProgress(
                       size: 40,
                       strokeWidth: 3,
-                      loadingText: 'Loading more...',
+                      loadingText: BillingStrings.loadingMore,
                     ),
                   ),
                 ),
@@ -752,7 +746,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
           border: Border.all(color: AppColors.cardBorderColor),
         ),
         child: const Text(
-          'No invoiced data available for this family.',
+          BillingStrings.noInvoicedDataAvailable,
           style: TextStyle(
             color: AppColors.primaryColor,
             fontFamily: 'Manrope',
@@ -770,7 +764,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
       inProcessAmount: _amountInProcess,
       outstandingAmount: _amountUnpaid,
       refundedAmount: _amountRefund,
-      title: 'Invoiced Amount',
+      title: BillingStrings.invoicedAmount,
     );
   }
 
@@ -872,8 +866,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                       .map((c) => Padding(
                             padding: const EdgeInsets.only(right: 6),
                             child: _FamilyChip(
-                              name: (c['fullName'] ?? '').toString(),
-                              photoUuid: c['photoUuid'],
+                              name: (c.fullName ?? '').toString(),
+                              photoUuid: c.photoUuid,
                               backgroundColor: AppColors.warningColor,
                             ),
                           ))
@@ -891,7 +885,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
 
   Widget _buildParentsLine() {
     final names = _familyParents
-        .map((p) => (p['fullName'] ?? '').toString())
+        .map((p) => (p.fullName ?? '').toString())
         .where((e) => e.isNotEmpty)
         .toList();
     final text = names.isEmpty ? '-' : names.join(', ');
@@ -899,7 +893,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
       text: TextSpan(
         children: [
           const TextSpan(
-            text: 'Parents: ',
+            text: BillingStrings.parents,
             style: TextStyle(
               fontWeight: FontWeight.w700,
               color: AppColors.billingTextColor,

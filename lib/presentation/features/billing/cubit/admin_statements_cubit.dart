@@ -2,8 +2,10 @@ import 'dart:typed_data';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/services/file_download_service.dart';
 import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
 import 'package:wowcare/domain/features/billing/repositories/billing_statements_repository.dart';
@@ -16,14 +18,17 @@ class AdminStatementsCubit extends Cubit<AdminStatementsState> {
     required GetBillingStatementsUseCase getStatements,
     required BillingStatementsRepository statementsRepository,
     required FileDownloadService fileDownloadService,
+    required StorageService storageService,
   })  : _getStatements = getStatements,
         _repository = statementsRepository,
         _fileDownloadService = fileDownloadService,
+        _storageService = storageService,
         super(const AdminStatementsState.initial());
 
   final GetBillingStatementsUseCase _getStatements;
   final BillingStatementsRepository _repository;
   final FileDownloadService _fileDownloadService;
+  final StorageService _storageService;
   String _subscriberCode = '';
 
   Future<void> load(String subscriberCode) async {
@@ -56,8 +61,6 @@ class AdminStatementsCubit extends Cubit<AdminStatementsState> {
   /// Generates a new statement via POST and refreshes the list on success.
   /// Returns an error message on failure, or null on success.
   Future<String?> generateStatement({
-    required String organizationCode,
-    required String schoolCode,
     required String ownerType,
     required String subscriberCode,
     required String statementType,
@@ -67,6 +70,12 @@ class AdminStatementsCubit extends Cubit<AdminStatementsState> {
   }) async {
     emit(state.copyWith(isGenerating: true, generateError: ''));
     try {
+      final organizationCode =
+          (await _storageService.getString(StorageKeys.organizationCode) ?? '')
+              .trim();
+      final schoolCode =
+          (await _storageService.getString(StorageKeys.schoolCode) ?? '')
+              .trim();
       await _repository.generateStatement(
         organizationCode: organizationCode,
         schoolCode: schoolCode,

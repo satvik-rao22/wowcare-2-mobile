@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/add_credit_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -18,6 +19,8 @@ class AddCreditScreen extends StatefulWidget {
     this.studentCode,
     this.familyName,
   });
+
+  static const String routeName = '/billing/add-credit';
 
   final String? ownerType;
   final String? ownerCode;
@@ -60,11 +63,11 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
 
   Future<void> _onSave() async {
     if (_selectedReason == null) {
-      _showMessage('Please select a reason', isError: true);
+      _showMessage(BillingStrings.pleaseSelectReason, isError: true);
       return;
     }
     if (_descriptionController.text.trim().isEmpty) {
-      _showMessage('Please enter a description', isError: true);
+      _showMessage(BillingStrings.pleaseEnterDescription, isError: true);
       return;
     }
     final result = await _cubit.submit(
@@ -78,14 +81,14 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
     if (!mounted) return;
     switch (result) {
       case AddCreditResult.missingAmount:
-        _showMessage('Please enter an amount', isError: true);
+        _showMessage(BillingStrings.pleaseEnterAnAmount, isError: true);
       case AddCreditResult.failure:
         _showMessage(
-          _cubit.state.errorMessage ?? 'Could not add the credit.',
+          _cubit.state.errorMessage ?? BillingStrings.couldNotAddCredit,
           isError: true,
         );
       case AddCreditResult.success:
-        _showMessage('Credit added successfully.', isSuccess: true);
+        _showMessage(BillingStrings.creditAddedSuccessfully, isSuccess: true);
         Navigator.of(context).maybePop(true);
     }
   }
@@ -128,7 +131,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
 
   BoxDecoration _fieldBox(ResponsiveHelper responsive) => BoxDecoration(
         color: AppColors.billingCardColor,
-        border: Border.all(color: const Color(0x66573353)),
+        border: Border.all(color: AppColors.billingBorderDefault),
         borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
       );
 
@@ -141,7 +144,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
         fontFamily: 'Manrope',
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w600,
-        color: const Color(0xff573353),
+        color: AppColors.billingTextColor,
       );
 
   @override
@@ -155,43 +158,44 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
           final double labelGap = responsive.isTablet ? 8.0 : 6.0;
 
           return StaffFormLayout(
-            title: 'Add Credit',
+            title: BillingStrings.addCredit,
             bottomBar: _buildBottomBar(responsive),
             child: ListView(
               padding: EdgeInsets.zero,
               children: <Widget>[
                 _buildHeader(),
                 SizedBox(height: verticalSpacing),
-                _fieldLabel(responsive, 'Amount', required: true),
+                _fieldLabel(responsive, BillingStrings.amount, required: true),
                 SizedBox(height: labelGap),
                 _buildAmountBox(responsive),
                 if (_amountError)
                   const Padding(
                     padding: EdgeInsets.only(top: 4.0, left: 2.0),
                     child: Text(
-                      '*Please enter a valid amount.',
+                      BillingStrings.pleaseEnterValidAmount,
                       style: TextStyle(color: Colors.red, fontSize: 12),
                     ),
                   ),
                 SizedBox(height: verticalSpacing),
-                _fieldLabel(responsive, 'Reason', required: true),
+                _fieldLabel(responsive, BillingStrings.reason, required: true),
                 SizedBox(height: labelGap),
                 _buildReasonDropdown(responsive),
                 SizedBox(height: verticalSpacing),
-                _fieldLabel(responsive, 'Description', required: true),
+                _fieldLabel(responsive, BillingStrings.description,
+                    required: true),
                 SizedBox(height: labelGap),
                 _buildCounterField(
                   responsive,
                   controller: _descriptionController,
-                  hint: 'Enter description',
+                  hint: BillingStrings.enterDescription,
                 ),
                 SizedBox(height: verticalSpacing),
-                _fieldLabel(responsive, 'Add Optional Internal Note'),
+                _fieldLabel(responsive, BillingStrings.addOptionalInternalNote),
                 SizedBox(height: labelGap),
                 _buildCounterField(
                   responsive,
                   controller: _internalNoteController,
-                  hint: 'Add internal note (optional)',
+                  hint: BillingStrings.addInternalNoteOptional,
                 ),
               ],
             ),
@@ -271,7 +275,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
       constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
       decoration: BoxDecoration(
         color: AppColors.billingCardColor,
-        border: Border.all(color: const Color(0x66573353)),
+        border: Border.all(color: AppColors.billingBorderDefault),
         borderRadius: BorderRadius.circular(radius),
       ),
       child: Row(
@@ -280,7 +284,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
             alignment: Alignment.center,
             padding: _fieldPadding(responsive),
             decoration: BoxDecoration(
-              color: const Color(0x1AB1AFE9),
+              color: AppColors.billingBorderLight,
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(radius),
                 bottomLeft: Radius.circular(radius),
@@ -352,7 +356,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                 children: <Widget>[
                   Expanded(
                     child: Text(
-                      _selectedReason ?? 'Select reason',
+                      _selectedReason ?? BillingStrings.selectReason,
                       style: _selectedReason != null
                           ? _valueStyle(responsive)
                           : _labelStyle(responsive).copyWith(color: Colors.grey),
@@ -461,7 +465,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                     ),
                     const SizedBox(width: 12),
                     Text(
-                      'Processing...',
+                      BillingStrings.processing,
                       style: TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: responsive.buttonFontSize,
@@ -472,7 +476,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                   ],
                 )
               : Text(
-                  'Save',
+                  BillingStrings.save,
                   style: TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: responsive.buttonFontSize,

@@ -4,11 +4,12 @@ import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_analytics_entity.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/analytics_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/util/billing_school_time.dart';
 
 class AnalyticsSection extends StatelessWidget {
   const AnalyticsSection({super.key, this.onRegisterRefresh});
@@ -105,7 +106,7 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
                   const SizedBox(height: 12),
                   TextButton(
                     onPressed: () => context.read<AnalyticsCubit>().load(),
-                    child: const Text('Retry'),
+                    child: const Text(BillingStrings.retry),
                   ),
                 ],
               ),
@@ -160,39 +161,39 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
             ),
             SizedBox(height: sectionGap),
             _AnalyticsBarCard(
-              title: 'Revenue (Net Paid)',
-              ytdLabel: 'Total Revenue',
+              title: BillingStrings.revenueNetPaid,
+              ytdLabel: BillingStrings.totalRevenue,
               ytdAmount: revenueYtd,
               data: revenue,
               months: _months,
               gradient: AppColors.buildPrimaryGradient(
                 colors: const <Color>[Color(0xFF1BB686), Color(0xFF31C9A5)],
               ),
-              legendLabel: 'Revenue',
+              legendLabel: BillingStrings.revenue,
             ),
             SizedBox(height: sectionGap),
             _AnalyticsBarCard(
-              title: 'Amount Invoiced',
-              ytdLabel: 'Total Invoiced',
+              title: BillingStrings.amountInvoiced,
+              ytdLabel: BillingStrings.totalInvoiced,
               ytdAmount: invoicedYtd,
               data: invoiced,
               months: _months,
               gradient: AppColors.buildPrimaryGradient(
                 colors: const <Color>[Color(0xFF5A86FF), Color(0xFF3F7DE3)],
               ),
-              legendLabel: 'Invoiced',
+              legendLabel: BillingStrings.invoiced,
             ),
             SizedBox(height: sectionGap),
             _AnalyticsBarCard(
-              title: 'Refunds',
-              ytdLabel: 'Total Refunds',
+              title: BillingStrings.refunds,
+              ytdLabel: BillingStrings.totalRefunds,
               ytdAmount: refundsYtd,
               data: refunds,
               months: _months,
               gradient: AppColors.buildPrimaryGradient(
                 colors: const <Color>[Color(0xFFFF5A68), Color(0xFFEF3D4B)],
               ),
-              legendLabel: 'Refunds',
+              legendLabel: BillingStrings.refunds,
             ),
             SizedBox(height: sectionGap),
             _SubsidiesOverviewCard(
@@ -406,7 +407,7 @@ class _YearSelector extends StatelessWidget {
         width: 140,
         child: CustomDropdown(
           label: null,
-          hintText: 'Select Year',
+          hintText: BillingStrings.selectYear,
           items: yearStrings,
           selectedItem: selectedYearStr,
           isRequired: false,
@@ -565,7 +566,7 @@ class _SubsidiesOverviewCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Subsidies Overview',
+                  BillingStrings.subsidiesOverview,
                   style: TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: isTablet ? 16 : 14,
@@ -578,7 +579,7 @@ class _SubsidiesOverviewCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    'Total Subsidies Invoiced',
+                    BillingStrings.totalSubsidiesInvoiced,
                     style: TextStyle(
                       fontFamily: 'Manrope',
                       fontSize: isTablet ? 13 : 12,
@@ -606,7 +607,7 @@ class _SubsidiesOverviewCard extends StatelessWidget {
             maxAbsY: maxAbsY,
             series: <_ChartSeries>[
               _ChartSeries(
-                label: 'Balance',
+                label: BillingStrings.balance,
                 data: balance,
                 gradientColors: const <Color>[
                   Color(0xFFFFC453),
@@ -614,7 +615,7 @@ class _SubsidiesOverviewCard extends StatelessWidget {
                 ],
               ),
               _ChartSeries(
-                label: 'Invoiced',
+                label: BillingStrings.invoiced,
                 data: invoiced,
                 gradientColors: const <Color>[
                   Color(0xFF8E6EFF),
@@ -622,7 +623,7 @@ class _SubsidiesOverviewCard extends StatelessWidget {
                 ],
               ),
               _ChartSeries(
-                label: 'Received',
+                label: BillingStrings.received,
                 data: received,
                 gradientColors: const <Color>[
                   Color(0xFF2BC7A2),

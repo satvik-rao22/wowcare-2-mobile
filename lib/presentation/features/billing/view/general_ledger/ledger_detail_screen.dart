@@ -1,6 +1,9 @@
 import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
@@ -9,7 +12,8 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/ledger_transaction_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/ledger_detail_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/add_transaction_dialog.dart';
-import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
+import 'package:wowcare/presentation/features/billing/model/ledger_account_model.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -21,10 +25,12 @@ import 'package:wowcare/shared/common/widgets/gradient_background.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 
-const _kPrimary = Color(0xff573353);
+const _kPrimary = AppColors.billingTextColor;
 
 class LedgerDetailScreen extends StatefulWidget {
   const LedgerDetailScreen({required this.ledger, super.key});
+
+  static const String routeName = '/billing/ledger-detail';
 
   final LedgerAccountModel ledger;
 
@@ -68,18 +74,19 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
   }
 
   Future<void> _addTransaction() async {
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => AddTransactionScreen(
-          ledgerCode: widget.ledger.id,
-          onSave: (params) => _cubit.addTransaction(params),
-        ),
+    final result = await context.push<bool>(
+      AddTransactionScreen.routeName,
+      extra: AddTransactionArgs(
+        ledgerCode: widget.ledger.id,
+        onSave: (params) => _cubit.addTransaction(params),
       ),
     );
     if (!mounted) return;
     if (result == true) {
       CoreUtils.showTopSnackBar(
-          context: context, message: 'Transaction added.', isSuccess: true);
+          context: context,
+          message: BillingStrings.transactionAdded,
+          isSuccess: true);
     }
   }
 
@@ -88,7 +95,7 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
     final double titleFontSize = ResponsiveSizing.titleFontSize(context);
     final double titleLineHeight = ResponsiveSizing.titleLineHeight(context);
     final EdgeInsets contentPadding = ResponsiveSizing.contentPadding(context);
-    final bool isTablet = MediaQuery.of(context).size.width >= 600;
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
 
     return BlocProvider<LedgerDetailCubit>.value(
       value: _cubit,
@@ -156,7 +163,7 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
                                 hasLabel: false,
                                 isRangePicker: true,
                                 fetchInitialTime: false,
-                                label: 'Date Range',
+                                label: BillingStrings.dateRange,
                                 onRangeSelected: (start, end) {
                                   final fromStr =
                                       DateFormat('yyyy-MM-dd').format(start);
@@ -201,7 +208,7 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
                 color: AppColors.primaryColor.withValues(alpha: 0.3)),
             const SizedBox(height: 12),
             Text(
-              state.errorMessage ?? 'Error loading transactions.',
+              state.errorMessage ?? BillingStrings.errorLoadingTransactions,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontFamily: 'Manrope',
@@ -212,7 +219,7 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
             const SizedBox(height: 12),
             TextButton(
               onPressed: () => _cubit.loadPage(0),
-              child: const Text('Retry'),
+              child: const Text(BillingStrings.retry),
             ),
           ],
         ),
@@ -233,7 +240,7 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
                   color: AppColors.primaryColor.withValues(alpha: 0.3)),
               const SizedBox(height: 12),
               const Text(
-                'No transactions found.',
+                BillingStrings.noTransactionsFound,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'Manrope',
@@ -317,7 +324,7 @@ class _LedgerEntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = MediaQuery.of(context).size.width > 600;
+    final isTablet = ResponsiveHelper(context).isTabletCompact;
     final bool hasDebit = tx.debit != null && tx.debit! != 0;
     final bool hasCredit = tx.credit != null && tx.credit! != 0;
     final double amount =
@@ -381,18 +388,18 @@ class _LedgerEntryCard extends StatelessWidget {
         if (tx.contraAccount != null &&
             tx.contraAccount!.isNotEmpty) ...[
           StaffCardDetailRow(
-              label: 'Contra Ledger', value: tx.contraAccount!),
+              label: BillingStrings.contraLedger, value: tx.contraAccount!),
           const SizedBox(height: 10),
         ],
         if (tx.description != null &&
             tx.description!.isNotEmpty) ...[
           StaffCardDetailRow(
-              label: 'Narration', value: tx.description!),
+              label: BillingStrings.narration, value: tx.description!),
           const SizedBox(height: 10),
         ],
         if (hasDebit) ...[
           StaffCardDetailRow(
-            label: 'Debit',
+            label: BillingStrings.debit,
             value: '\$${tx.debit!.toStringAsFixed(2)}',
             valueColor: const Color(0xFFF85A5A),
           ),
@@ -400,14 +407,14 @@ class _LedgerEntryCard extends StatelessWidget {
         ],
         if (hasCredit) ...[
           StaffCardDetailRow(
-            label: 'Credit',
+            label: BillingStrings.credit,
             value: '\$${tx.credit!.toStringAsFixed(2)}',
             valueColor: const Color(0xFF4CAF50),
           ),
           const SizedBox(height: 10),
         ],
         StaffCardDetailRow(
-          label: 'Running Balance',
+          label: BillingStrings.runningBalance,
           value: '\$${tx.balance.toStringAsFixed(2)}'
               '${tx.balanceType != null ? ' ${tx.balanceType}' : ''}',
         ),

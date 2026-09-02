@@ -1,6 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/util/billing_school_time.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -86,6 +86,15 @@ class TransactionsCubit extends Cubit<TransactionsState> {
   final StorageService _storage;
 
   static const int _pageSize = 10;
+
+  /// Monotonic load generation. Bumped whenever the logical list query changes
+  /// (a fresh [loadTransactions], an [applyFilter], or a [setDateRange] — the
+  /// latter two funnel through [loadTransactions]) so a slower in-flight
+  /// response for a superseded query is discarded instead of clobbering (or
+  /// appending into) the current list. [loadNextPage] captures the current
+  /// generation WITHOUT bumping so a refresh/filter/date change mid-flight
+  /// drops the stale page.
+  int _generation = 0;
 
   /// Loads the invoice overview for the current (optional) date range. Silent
   /// on failure — the stat bar just falls back to zero totals.
@@ -177,6 +186,9 @@ class TransactionsCubit extends Cubit<TransactionsState> {
   /// Loads page 0 of the Transactions list (initial load / refresh / date
   /// change). Drives the shimmer via [TransactionsState.isLoading].
   Future<void> loadTransactions({DateTime? dateFrom, DateTime? dateTo}) async {
+    // A fresh list load owns a new generation; a slower in-flight response for
+    // a superseded query is discarded before it can emit.
+    final gen = ++_generation;
     emit(state.copyWith(isLoading: true, errorMessage: null));
     try {
       final org =
@@ -184,7 +196,7 @@ class TransactionsCubit extends Cubit<TransactionsState> {
       final school =
           (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
       if (org.isEmpty || school.isEmpty) {
-        if (isClosed) return;
+        if (isClosed || gen != _generation) return;
         emit(state.copyWith(isLoading: false, transactions: const []));
         return;
       }
@@ -199,7 +211,7 @@ class TransactionsCubit extends Cubit<TransactionsState> {
         page: 0,
         size: _pageSize,
       );
-      if (isClosed) return;
+      if (isClosed || gen != _generation) return;
       emit(state.copyWith(
         transactions: _mapRecords(result.items),
         page: 0,
@@ -208,7 +220,7 @@ class TransactionsCubit extends Cubit<TransactionsState> {
         isLoadingMore: false,
       ));
     } catch (e) {
-      if (isClosed) return;
+      if (isClosed || gen != _generation) return;
       emit(state.copyWith(
         isLoading: false,
         isLoadingMore: false,
@@ -220,6 +232,10 @@ class TransactionsCubit extends Cubit<TransactionsState> {
   /// Appends the next transactions page (infinite scroll).
   Future<void> loadNextPage() async {
     if (state.isLoading || state.isLoadingMore || !state.hasMore) return;
+    // load-more continues the CURRENT query — capture its generation (do not
+    // bump) so a refresh/filter/date change mid-flight discards this page
+    // instead of appending it into a now-different list.
+    final gen = _generation;
     emit(state.copyWith(isLoadingMore: true, errorMessage: null));
     final nextPage = state.page + 1;
     try {
@@ -238,13 +254,21 @@ class TransactionsCubit extends Cubit<TransactionsState> {
         page: nextPage,
         size: _pageSize,
       );
-      if (isClosed) return;
-      final existing =
-          state.transactions.map((r) => r.item.invoiceCode).toSet();
+      if (isClosed || gen != _generation) return;
+      // De-duplicate across pages by the STABLE server transaction id only —
+      // never by invoiceCode (which is null for many rows and shared between an
+      // invoice and its payment/refund rows, so the old code silently dropped
+      // valid transactions). Rows without a server id are always kept.
+      final existing = state.transactions
+          .map((r) => r.item.transactionId)
+          .whereType<String>()
+          .toSet();
       final merged = <TransactionRecord>[
         ...state.transactions,
         ..._mapRecords(result.items, startIndex: state.transactions.length)
-            .where((r) => !existing.contains(r.item.invoiceCode)),
+            .where((r) =>
+                r.item.transactionId == null ||
+                existing.add(r.item.transactionId!)),
       ];
       emit(state.copyWith(
         transactions: merged,
@@ -253,7 +277,7 @@ class TransactionsCubit extends Cubit<TransactionsState> {
         isLoadingMore: false,
       ));
     } catch (e) {
-      if (isClosed) return;
+      if (isClosed || gen != _generation) return;
       emit(state.copyWith(
         isLoadingMore: false,
         errorMessage: ApiErrorHandler.extractErrorMessage(e),
@@ -275,6 +299,7 @@ class TransactionsCubit extends Cubit<TransactionsState> {
         status: _statusFromApi(t.status),
         item: TransactionItem(
           id: startIndex + i + 1,
+          transactionId: t.id.isNotEmpty ? t.id : null,
           invoiceCode: t.invoiceCode.isNotEmpty ? t.invoiceCode : null,
           transactionType: t.type.isNotEmpty ? t.type : 'Invoice',
           date: t.date ?? billingSchoolNow(),

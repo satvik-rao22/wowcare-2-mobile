@@ -9,7 +9,7 @@ import 'package:wowcare/domain/features/billing/usecases/delete_ledger_usecase.d
 import 'package:wowcare/domain/features/billing/usecases/deactivate_ledger_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/reactivate_ledger_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_ledgers_usecase.dart';
-import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
+import 'package:wowcare/presentation/features/billing/model/ledger_account_model.dart';
 
 part 'general_ledger_state.dart';
 
@@ -37,6 +37,33 @@ class GeneralLedgerCubit extends Cubit<GeneralLedgerState> {
 
   String? _orgCode;
   String? _schoolCode;
+
+  /// Monotonic load generation. Bumped whenever the logical query changes (a
+  /// fresh load, a refresh, or a filter/category/status change) so a slower
+  /// in-flight response for a superseded query is discarded instead of
+  /// clobbering (or appending into) the current list. A load-MORE captures the
+  /// current generation WITHOUT bumping so a refresh/filter change mid-flight
+  /// drops the stale page.
+  int _generation = 0;
+
+  /// Appends [incoming] onto [existing], skipping any ledger whose stable [id]
+  /// is already present (keep first per non-empty id) so overlapping backend
+  /// pages can't show the same account twice. Id-less rows are always kept.
+  static List<LedgerAccountModel> _appendDedupById(
+    List<LedgerAccountModel> existing,
+    List<LedgerAccountModel> incoming,
+  ) {
+    final seen = existing.map((e) => e.id).where((id) => id.isNotEmpty).toSet();
+    final result = List<LedgerAccountModel>.from(existing);
+    for (final e in incoming) {
+      if (e.id.isEmpty) {
+        result.add(e);
+        continue;
+      }
+      if (seen.add(e.id)) result.add(e);
+    }
+    return result;
+  }
 
   Future<String> _resolveOrgCode() async {
     _orgCode ??=
@@ -118,6 +145,9 @@ class GeneralLedgerCubit extends Cubit<GeneralLedgerState> {
 
   Future<void> loadInitial() async {
     if (state.isLoading) return;
+    // A fresh load owns a new generation; a slower in-flight response for a
+    // superseded query is discarded before it can emit.
+    final gen = ++_generation;
     emit(state.copyWith(isLoading: true, errorMessage: () => null));
 
     // Hydrate from cache immediately so UI shows stale data while refreshing
@@ -125,7 +155,7 @@ class GeneralLedgerCubit extends Cubit<GeneralLedgerState> {
     final cacheKey = _cacheKey(school);
     final cached = await _cacheManager.loadCache(cacheKey);
     final cachedItems = _decodeList(cached);
-    if (cachedItems.isNotEmpty && !isClosed) {
+    if (cachedItems.isNotEmpty && !isClosed && gen == _generation) {
       emit(state.copyWith(
         allLedgers: cachedItems,
         isLoading: false,
@@ -133,21 +163,30 @@ class GeneralLedgerCubit extends Cubit<GeneralLedgerState> {
       ));
     }
 
-    await _fetchPage(page: 0, reset: true);
+    await _fetchPage(page: 0, reset: true, gen: gen);
   }
 
   Future<void> refresh() async {
+    final gen = ++_generation;
     emit(state.copyWith(isRefreshing: true, errorMessage: () => null));
-    await _fetchPage(page: 0, reset: true);
+    await _fetchPage(page: 0, reset: true, gen: gen);
   }
 
   Future<void> loadNextPage() async {
     if (!state.hasMore || state.isLoadingMore) return;
+    // load-more continues the CURRENT query: capture its generation (do not
+    // bump) so a refresh/filter change mid-flight discards this page instead of
+    // appending it into a now-different list.
+    final gen = _generation;
     emit(state.copyWith(isLoadingMore: true));
-    await _fetchPage(page: state.currentPage + 1, reset: false);
+    await _fetchPage(page: state.currentPage + 1, reset: false, gen: gen);
   }
 
-  Future<void> _fetchPage({required int page, required bool reset}) async {
+  Future<void> _fetchPage({
+    required int page,
+    required bool reset,
+    required int gen,
+  }) async {
     try {
       final org = await _resolveOrgCode();
       final school = await _resolveSchoolCode();
@@ -160,11 +199,15 @@ class GeneralLedgerCubit extends Cubit<GeneralLedgerState> {
         page: page,
       );
 
+      // Drop a superseded response: a newer load/refresh/filter change bumped
+      // the generation while this request was in flight.
+      if (isClosed || gen != _generation) return;
+
       final newItems =
           result.content.map(LedgerAccountModel.fromEntity).toList();
-      final merged = reset ? newItems : [...state.allLedgers, ...newItems];
+      final merged =
+          reset ? newItems : _appendDedupById(state.allLedgers, newItems);
 
-      if (isClosed) return;
       emit(state.copyWith(
         allLedgers: merged,
         isLoading: false,
@@ -181,7 +224,7 @@ class GeneralLedgerCubit extends Cubit<GeneralLedgerState> {
         await _cacheManager.saveCache(cacheKey, _encodeList(merged));
       }
     } catch (e) {
-      if (isClosed) return;
+      if (isClosed || gen != _generation) return;
       emit(state.copyWith(
         isLoading: false,
         isRefreshing: false,

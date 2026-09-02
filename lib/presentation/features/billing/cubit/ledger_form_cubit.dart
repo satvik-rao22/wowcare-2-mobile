@@ -5,7 +5,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/billing/entities/ledger_entity.dart';
 import 'package:wowcare/domain/features/billing/usecases/create_ledger_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/update_ledger_usecase.dart';
-import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
+import 'package:wowcare/presentation/features/billing/model/ledger_account_model.dart';
 
 part 'ledger_form_state.dart';
 

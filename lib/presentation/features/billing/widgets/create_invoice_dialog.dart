@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
 
 class CreateInvoiceDialog extends StatelessWidget {
@@ -31,7 +32,7 @@ class CreateInvoiceDialog extends StatelessWidget {
                 children: [
                   const Expanded(
                     child: Text(
-                      'Create Invoice',
+                      BillingStrings.createInvoice,
                       style: TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: 16,
@@ -48,7 +49,7 @@ class CreateInvoiceDialog extends StatelessWidget {
                       child: Icon(
                         Icons.close,
                         size: 18,
-                        color: Color(0x99573353),
+                        color: AppColors.billingTextMuted,
                       ),
                     ),
                   ),
@@ -56,19 +57,18 @@ class CreateInvoiceDialog extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               const Text(
-                'Select the type of invoice you want to create:',
+                BillingStrings.selectTheTypeOfInvoice,
                 style: TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: Color(0x99573353),
+                  color: AppColors.billingTextMuted,
                 ),
               ),
               const SizedBox(height: 16),
               BillingActionCard(
-                title: 'One-Time Invoice',
-                subtitle:
-                    'Create a manual invoice for one or more students with custom line items',
+                title: BillingStrings.oneTimeInvoice,
+                subtitle: BillingStrings.createAManualInvoice,
                 icon: Icons.receipt_long,
                 onTap: onSelectOneTime,
               ),
@@ -125,7 +125,7 @@ class BillingActionCardState extends State<BillingActionCard> {
               : AppColors.billingTextColor;
           final Color secondaryText = _isHighlighted
               ? Colors.white70
-              : const Color(0x99573353);
+              : AppColors.billingTextMuted;
           final Color iconBg = _isHighlighted
               ? Colors.white24
               : AppColors.themeColor.withValues(alpha: 0.1);

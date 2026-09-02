@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/receive_payment_refund_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -18,6 +19,8 @@ class ReceivePaymentIssueRefundScreen extends StatefulWidget {
     this.ownerType,
     this.ownerCode,
   });
+
+  static const String routeName = '/billing/receive-payment';
 
   final TransactionItem transaction;
   final bool isRefund;
@@ -196,24 +199,24 @@ class _ReceivePaymentIssueRefundScreenState
   void _handleResult(ReceivePaymentRefundResult result) {
     switch (result) {
       case ReceivePaymentRefundResult.missingAmount:
-        _showMessage('Please enter an amount', isError: true);
+        _showMessage(BillingStrings.pleaseEnterAnAmount, isError: true);
       case ReceivePaymentRefundResult.missingType:
-        _showMessage('Please select a payment type', isError: true);
+        _showMessage(BillingStrings.pleaseSelectPaymentType, isError: true);
       case ReceivePaymentRefundResult.missingCheque:
-        _showMessage('Please enter cheque number', isError: true);
+        _showMessage(BillingStrings.pleaseEnterChequeNumber, isError: true);
       case ReceivePaymentRefundResult.failure:
         _showMessage(
           _cubit.state.errorMessage ??
               (widget.isRefund
-                  ? 'Could not process the refund.'
-                  : 'Could not process the payment.'),
+                  ? BillingStrings.couldNotProcessRefund
+                  : BillingStrings.couldNotProcessPayment),
           isError: true,
         );
       case ReceivePaymentRefundResult.success:
         _showMessage(
           widget.isRefund
-              ? 'Refund processed successfully.'
-              : 'Payment received successfully.',
+              ? BillingStrings.refundProcessedSuccessfully
+              : BillingStrings.paymentReceivedSuccessfully,
           isSuccess: true,
         );
         Navigator.of(context).maybePop(true);
@@ -264,7 +267,7 @@ class _ReceivePaymentIssueRefundScreenState
 
   BoxDecoration _fieldBox(ResponsiveHelper responsive) => BoxDecoration(
     color: AppColors.billingCardColor,
-    border: Border.all(color: const Color(0x66573353)),
+    border: Border.all(color: AppColors.billingBorderDefault),
     borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
   );
 
@@ -301,7 +304,7 @@ class _ReceivePaymentIssueRefundScreenState
           fontFamily: 'Manrope',
           fontSize: responsive.inputFontSize,
           fontWeight: FontWeight.w600,
-          color: const Color(0xff573353),
+          color: AppColors.billingTextColor,
         ),
         decoration: InputDecoration(
           hintText: hint,
@@ -324,7 +327,9 @@ class _ReceivePaymentIssueRefundScreenState
           final double labelGap = responsive.isTablet ? 8.0 : 6.0;
 
           return StaffFormLayout(
-            title: widget.isRefund ? 'Issue Refund' : 'Receive Payment',
+            title: widget.isRefund
+                ? BillingStrings.issueRefund
+                : BillingStrings.receivePayment,
             bottomBar: _buildBottomBar(responsive),
             child: ListView(
               padding: EdgeInsets.zero,
@@ -338,12 +343,13 @@ class _ReceivePaymentIssueRefundScreenState
                 _buildPaymentTypeField(responsive, labelGap),
                 if (_selectedPaymentType == 'Cheque') ...<Widget>[
                   SizedBox(height: verticalSpacing),
-                  _fieldLabel(responsive, 'Cheque Number', required: true),
+                  _fieldLabel(responsive, BillingStrings.chequeNumber,
+                      required: true),
                   SizedBox(height: labelGap),
                   _outlinedTextField(
                     responsive,
                     controller: _chequeNumberController,
-                    hint: 'Enter cheque number',
+                    hint: BillingStrings.enterChequeNumber,
                   ),
                 ],
                 if (!widget.isRefund) ...<Widget>[
@@ -354,7 +360,7 @@ class _ReceivePaymentIssueRefundScreenState
                 _outlinedTextField(
                   responsive,
                   controller: _internalNoteController,
-                  hint: 'Add Optional Note',
+                  hint: BillingStrings.addOptionalNote,
                   minLines: 3,
                   maxLines: 4,
                   // Payment notes allow 250 chars; refund notes stay 150.
@@ -367,16 +373,16 @@ class _ReceivePaymentIssueRefundScreenState
                   value: _sendEmailNotification,
                   onChanged: (bool? value) =>
                       _cubit.setSendEmailNotification(value ?? true),
-                  label: 'Send Email Notification To Parents On Payment',
+                  label: BillingStrings.sendEmailNotificationToParents,
                   labelStyle: _labelStyle(responsive),
                 ),
                 SizedBox(height: verticalSpacing),
-                _fieldLabel(responsive, 'Admin Only Note'),
+                _fieldLabel(responsive, BillingStrings.adminOnlyNote),
                 SizedBox(height: labelGap),
                 _outlinedTextField(
                   responsive,
                   controller: _staffNoteController,
-                  hint: 'Admin Only Note',
+                  hint: BillingStrings.adminOnlyNote,
                   minLines: 3,
                   maxLines: 4,
                   maxLength: _staffNoteMaxLength,
@@ -397,7 +403,7 @@ class _ReceivePaymentIssueRefundScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        _fieldLabel(responsive, 'Amount', required: true),
+        _fieldLabel(responsive, BillingStrings.amount, required: true),
         SizedBox(height: labelGap),
         _buildAmountBox(
           responsive,
@@ -408,7 +414,7 @@ class _ReceivePaymentIssueRefundScreenState
           const Padding(
             padding: EdgeInsets.only(top: 4.0, left: 2.0),
             child: Text(
-              '*Please enter an amount.',
+              BillingStrings.pleaseEnterAnAmountError,
               style: TextStyle(color: Colors.red, fontSize: 12),
             ),
           ),
@@ -434,7 +440,7 @@ class _ReceivePaymentIssueRefundScreenState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
-          'Receive Method',
+          BillingStrings.receiveMethod,
           style: TextStyle(
             fontFamily: 'Manrope',
             fontSize: responsive.isTablet ? 18.0 : 16.0,
@@ -447,8 +453,8 @@ class _ReceivePaymentIssueRefundScreenState
           responsive,
           selected: !_useCustomAmount,
           label: isRefund
-              ? 'Current Outstanding'
-              : 'Current Outstanding (Family Balance)',
+              ? BillingStrings.currentOutstanding
+              : BillingStrings.currentOutstandingFamilyBalance,
           onTap: () => setState(() => _useCustomAmount = false),
         ),
         const SizedBox(height: 8),
@@ -461,7 +467,7 @@ class _ReceivePaymentIssueRefundScreenState
         _methodRadio(
           responsive,
           selected: _useCustomAmount,
-          label: 'Custom Amount',
+          label: BillingStrings.customAmount,
           onTap: () => setState(() => _useCustomAmount = true),
         ),
         if (_useCustomAmount) ...<Widget>[
@@ -495,7 +501,7 @@ class _ReceivePaymentIssueRefundScreenState
           const Padding(
             padding: EdgeInsets.only(top: 4.0, left: 2.0),
             child: Text(
-              '*Please enter an amount.',
+              BillingStrings.pleaseEnterAnAmountError,
               style: TextStyle(color: Colors.red, fontSize: 12),
             ),
           ),
@@ -575,7 +581,7 @@ class _ReceivePaymentIssueRefundScreenState
             const Padding(
               padding: EdgeInsets.only(top: 6.0, left: 2.0),
               child: Text(
-                '*Amount exceeds outstanding.',
+                BillingStrings.amountExceedsOutstanding,
                 style: TextStyle(color: Colors.red, fontSize: 12),
               ),
             ),
@@ -589,7 +595,7 @@ class _ReceivePaymentIssueRefundScreenState
     const List<Color> palette = <Color>[
       Color(0xFFB983FF),
       Color(0xFFF6D365),
-      Color(0xFF6F8CFF),
+      AppColors.billingAccentBlue,
       Color(0xFF7ED9A6),
       Color(0xFFFF9AA2),
     ];
@@ -661,7 +667,7 @@ class _ReceivePaymentIssueRefundScreenState
       fontFamily: 'Manrope',
       fontSize: responsive.inputFontSize,
       fontWeight: FontWeight.w600,
-      color: const Color(0xff573353),
+      color: AppColors.billingTextColor,
     );
     final double radius = responsive.isTablet ? 12.0 : 8.0;
 
@@ -669,7 +675,7 @@ class _ReceivePaymentIssueRefundScreenState
       constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
       decoration: BoxDecoration(
         color: active ? AppColors.billingCardColor : const Color(0xFFF4F4F6),
-        border: Border.all(color: const Color(0x66573353)),
+        border: Border.all(color: AppColors.billingBorderDefault),
         borderRadius: BorderRadius.circular(radius),
       ),
       child: Row(
@@ -678,7 +684,7 @@ class _ReceivePaymentIssueRefundScreenState
             alignment: Alignment.center,
             padding: _fieldPadding(responsive),
             decoration: BoxDecoration(
-              color: const Color(0x1AB1AFE9),
+              color: AppColors.billingBorderLight,
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(radius),
                 bottomLeft: Radius.circular(radius),
@@ -728,13 +734,13 @@ class _ReceivePaymentIssueRefundScreenState
       fontFamily: 'Manrope',
       fontSize: responsive.inputFontSize,
       fontWeight: FontWeight.w600,
-      color: const Color(0xff573353),
+      color: AppColors.billingTextColor,
     );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        _fieldLabel(responsive, 'Payment Type', required: true),
+        _fieldLabel(responsive, BillingStrings.paymentType, required: true),
         SizedBox(height: labelGap),
         LayoutBuilder(
           builder: (BuildContext context, BoxConstraints constraints) {
@@ -778,7 +784,7 @@ class _ReceivePaymentIssueRefundScreenState
                     children: <Widget>[
                       Expanded(
                         child: Text(
-                          selected ?? 'Select payment type',
+                          selected ?? BillingStrings.selectPaymentType,
                           style: selected != null
                               ? valueStyle
                               : _labelStyle(
@@ -853,7 +859,7 @@ class _ReceivePaymentIssueRefundScreenState
                     ),
                     const SizedBox(width: 12),
                     Text(
-                      'Processing...',
+                      BillingStrings.processing,
                       style: TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: responsive.buttonFontSize,
@@ -864,7 +870,7 @@ class _ReceivePaymentIssueRefundScreenState
                   ],
                 )
               : Text(
-                  'Save',
+                  BillingStrings.save,
                   style: TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: responsive.buttonFontSize,

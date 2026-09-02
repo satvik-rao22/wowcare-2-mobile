@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/transaction_details_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 
 enum BillingPopupType { student, invoice, payment, refund }
@@ -106,7 +109,7 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
               ],
             ),
             child: Material(
-              color: Colors.transparent,
+              color: AppColors.transparentColor,
               child: InkWell(
                 onTap: onClose,
                 customBorder: const CircleBorder(),
@@ -137,7 +140,7 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
           if (showBillingProfile)
             _PopupActionConfig(
               iconPath: MediaRes.profile_panel_icon,
-              label: 'Billing Profile',
+              label: BillingStrings.billingProfile,
               onTap: defaultBillingProfileTap,
             ),
         ];
@@ -148,19 +151,19 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
             return <_PopupActionConfig>[
               _PopupActionConfig(
                 iconPath: MediaRes.docsIcon,
-                label: 'View',
+                label: BillingStrings.view,
                 onTap: onViewTap,
               ),
               _PopupActionConfig(
                 iconPath: MediaRes.redirectArrowGradientIcon,
-                label: 'Send',
+                label: BillingStrings.send,
                 onTap: onResendTap,
                 // This SVG fills its viewBox; shrink it to match the others.
                 iconSize: 19,
               ),
               _PopupActionConfig(
                 iconPath: MediaRes.moreIcon,
-                label: 'More',
+                label: BillingStrings.more,
                 onTap: onMoreTap,
               ),
             ];
@@ -168,24 +171,24 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
             return <_PopupActionConfig>[
               _PopupActionConfig(
                 iconPath: MediaRes.docsIcon,
-                label: 'View',
+                label: BillingStrings.view,
                 onTap: onViewTap,
               ),
               _PopupActionConfig(
                 iconPath: MediaRes.redirectArrowGradientIcon,
-                label: 'Resend',
+                label: BillingStrings.resend,
                 onTap: onResendTap,
                 // This SVG fills its viewBox; shrink it to match the others.
                 iconSize: 19,
               ),
               _PopupActionConfig(
                 iconData: Icons.attach_money,
-                label: 'Receive Payment',
+                label: BillingStrings.receivePayment,
                 onTap: onReceivePaymentTap,
               ),
               _PopupActionConfig(
                 iconPath: MediaRes.moreIcon,
-                label: 'More',
+                label: BillingStrings.more,
                 onTap: onMoreTap,
               ),
             ];
@@ -197,17 +200,17 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
               if (canRefund)
                 _PopupActionConfig(
                   iconData: Icons.attach_money,
-                  label: 'Issue Refund',
+                  label: BillingStrings.issueRefund,
                   onTap: onIssueRefundTap,
                 ),
               _PopupActionConfig(
                 iconPath: MediaRes.docsIcon,
-                label: 'View',
+                label: BillingStrings.view,
                 onTap: onViewTap,
               ),
               _PopupActionConfig(
                 iconPath: MediaRes.moreIcon,
-                label: 'More',
+                label: BillingStrings.more,
                 onTap: onMoreTap,
               ),
             ];
@@ -216,12 +219,12 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
             return <_PopupActionConfig>[
               _PopupActionConfig(
                 iconPath: MediaRes.docsIcon,
-                label: 'View',
+                label: BillingStrings.view,
                 onTap: onViewTap,
               ),
               _PopupActionConfig(
                 iconData: Icons.delete_outline,
-                label: 'Delete',
+                label: BillingStrings.delete,
                 onTap: onDeleteTap,
               ),
             ];
@@ -394,13 +397,13 @@ class BillingMoreOptionsPopup extends StatelessWidget {
 
     final _PopupActionConfig editAction = _PopupActionConfig(
       iconPath: MediaRes.communicationIcon,
-      label: 'Edit',
+      label: BillingStrings.edit,
       onTap: onEditTap,
     );
 
     final _PopupActionConfig cancelAction = _PopupActionConfig(
       iconData: Icons.close,
-      label: 'Cancel',
+      label: BillingStrings.cancel,
       onTap: onCancelTap,
     );
 
@@ -448,7 +451,7 @@ class BillingMoreOptionsPopup extends StatelessWidget {
       constraints: const BoxConstraints(maxHeight: 400),
       padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        border: Border.all(color: const Color.fromRGBO(111, 140, 255, 1)),
+        border: Border.all(color: AppColors.billingAccentBlue),
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
@@ -497,7 +500,7 @@ class _MoreOptionItem extends StatelessWidget {
     final VoidCallback effectiveOnTap = onTap ?? () {};
     final String displayLabel = label.replaceAll(' ', '\n');
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparentColor,
       child: InkWell(
         onTap: effectiveOnTap,
         child: Column(
@@ -566,14 +569,17 @@ VoidCallback? _transactionDetailsOpener(
   }
   final TransactionItem transactionItem = transaction;
   return () {
-    final NavigatorState navigator = Navigator.of(context, rootNavigator: true);
-    navigator.pop();
+    // Capture the router before popping — `context` belongs to the popup that
+    // the pop below tears down, so it can't be used after the frame. The popup
+    // (a modal) is dismissed via the root navigator, then the details screen is
+    // pushed through GoRouter on the next frame (same root navigator, no bottom
+    // nav) exactly as before.
+    final GoRouter router = GoRouter.of(context);
+    Navigator.of(context, rootNavigator: true).pop();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      navigator.push(
-        MaterialPageRoute(
-          builder: (context) =>
-              TransactionDetailsScreen(transaction: transactionItem),
-        ),
+      router.push(
+        TransactionDetailsScreen.routeName,
+        extra: TransactionDetailsArgs(transaction: transactionItem),
       );
     });
   };

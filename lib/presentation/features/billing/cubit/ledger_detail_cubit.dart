@@ -6,7 +6,7 @@ import 'package:wowcare/domain/features/billing/entities/ledger_transaction_enti
 import 'package:wowcare/domain/features/billing/usecases/add_ledger_transaction_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_ledger_by_code_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_ledger_transactions_usecase.dart';
-import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
+import 'package:wowcare/presentation/features/billing/model/ledger_account_model.dart';
 
 part 'ledger_detail_state.dart';
 
@@ -25,6 +25,35 @@ class LedgerDetailCubit extends Cubit<LedgerDetailState> {
   final GetLedgerByCodeUseCase _getLedgerByCodeUseCase;
 
   String? _ledgerCode;
+
+  /// Monotonic load generation. Bumped on a fresh (page-0) load / date-range
+  /// change so a superseded in-flight response is discarded; a load-MORE
+  /// (page > 0) captures the current generation without bumping.
+  int _generation = 0;
+
+  /// Appends [incoming] onto [existing], skipping any transaction whose stable
+  /// [code] is already present (keep first per non-empty code) so overlapping
+  /// backend pages can't show the same row twice. Code-less rows are kept.
+  static List<LedgerTransactionEntity> _appendDedupByCode(
+    List<LedgerTransactionEntity> existing,
+    List<LedgerTransactionEntity> incoming,
+  ) {
+    final seen = existing
+        .map((e) => e.code)
+        .whereType<String>()
+        .where((c) => c.isNotEmpty)
+        .toSet();
+    final result = List<LedgerTransactionEntity>.from(existing);
+    for (final e in incoming) {
+      final code = e.code;
+      if (code == null || code.isEmpty) {
+        result.add(e);
+        continue;
+      }
+      if (seen.add(code)) result.add(e);
+    }
+    return result;
+  }
 
   void init(String ledgerCode) {
     _ledgerCode = ledgerCode;
@@ -49,12 +78,16 @@ class LedgerDetailCubit extends Cubit<LedgerDetailState> {
   Future<void> loadPage(int page) async {
     if (state.isLoading) return;
     final isFirst = page == 0;
+    // A page-0 load is a fresh query (initial / refresh / date change) and owns
+    // a new generation; a later page continues the current query and captures
+    // its generation so a mid-flight reset discards the stale page.
+    final gen = isFirst ? ++_generation : _generation;
     emit(state.copyWith(
       isLoading: isFirst,
       isLoadingMore: !isFirst,
       errorMessage: () => null,
     ));
-    await _fetch(page: page, reset: isFirst);
+    await _fetch(page: page, reset: isFirst, gen: gen);
   }
 
   Future<void> loadNextPage() async {
@@ -81,7 +114,11 @@ class LedgerDetailCubit extends Cubit<LedgerDetailState> {
 
   Future<void> clearDateRange() => setDateRange();
 
-  Future<void> _fetch({required int page, required bool reset}) async {
+  Future<void> _fetch({
+    required int page,
+    required bool reset,
+    required int gen,
+  }) async {
     if (_ledgerCode == null) return;
     try {
       final result = await _getTransactionsUseCase(
@@ -90,11 +127,13 @@ class LedgerDetailCubit extends Cubit<LedgerDetailState> {
         to: state.toDate,
         page: page,
       );
-      if (isClosed) return;
+      // Drop a superseded response (a newer page-0 load / date change bumped
+      // the generation while this request was in flight).
+      if (isClosed || gen != _generation) return;
       emit(state.copyWith(
         transactions: reset
             ? result.content
-            : [...state.transactions, ...result.content],
+            : _appendDedupByCode(state.transactions, result.content),
         isLoading: false,
         isLoadingMore: false,
         hasMore: result.hasMore,
@@ -105,7 +144,7 @@ class LedgerDetailCubit extends Cubit<LedgerDetailState> {
         errorMessage: () => null,
       ));
     } catch (e) {
-      if (isClosed) return;
+      if (isClosed || gen != _generation) return;
       emit(state.copyWith(
         isLoading: false,
         isLoadingMore: false,

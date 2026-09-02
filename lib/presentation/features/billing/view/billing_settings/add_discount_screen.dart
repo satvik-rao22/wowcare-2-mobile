@@ -3,13 +3,11 @@ import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:get_it/get_it.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/billing/usecases/create_discount_usecase.dart';
-import 'package:wowcare/domain/features/billing/usecases/update_discount_usecase.dart';
 import 'package:wowcare/presentation/features/billing/cubit/discount_form_cubit.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -18,16 +16,14 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 class AddDiscountScreen extends StatefulWidget {
   const AddDiscountScreen({super.key});
 
+  static const String routeName = '/billing/add-discount';
+
   @override
   State<AddDiscountScreen> createState() => _AddDiscountScreenState();
 }
 
 class _AddDiscountScreenState extends State<AddDiscountScreen> {
-  late final DiscountFormCubit _cubit = DiscountFormCubit(
-    createDiscountUseCase: GetIt.instance<CreateDiscountUseCase>(),
-    updateDiscountUseCase: GetIt.instance<UpdateDiscountUseCase>(),
-    storageService: GetIt.instance<StorageService>(),
-  );
+  final DiscountFormCubit _cubit = serviceLocator<DiscountFormCubit>();
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _percentageController =
@@ -53,14 +49,14 @@ class _AddDiscountScreenState extends State<AddDiscountScreen> {
       case DiscountFormStatus.success:
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Discount created successfully!',
+          message: BillingStrings.discountCreatedSuccessfully,
           isSuccess: true,
         );
         Navigator.of(context).pop(result.discount);
       case DiscountFormStatus.error:
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'An unexpected error occurred. Please try again.',
+          message: BillingStrings.anUnexpectedErrorOccurred,
           isError: true,
         );
     }
@@ -82,21 +78,21 @@ class _AddDiscountScreenState extends State<AddDiscountScreen> {
           );
 
           return StaffFormLayout(
-            title: 'Add Discount',
+            title: BillingStrings.addDiscount,
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
                 _buildField(
-                  label: 'Discount Name',
-                  hint: 'e.g., Sibling discount',
+                  label: BillingStrings.discountName,
+                  hint: BillingStrings.egSiblingDiscount,
                   controller: _nameController,
-                  error: state.nameError ? '*This field is required.' : null,
+                  error: state.nameError ? BillingStrings.thisFieldIsRequired : null,
                   labelStyle: labelStyle,
                   responsive: responsive,
                 ),
                 SizedBox(height: spacing),
                 _buildField(
-                  label: 'Percentage (%)',
+                  label: BillingStrings.percentagePercent,
                   hint: '0',
                   controller: _percentageController,
                   keyboardType:
@@ -106,7 +102,7 @@ class _AddDiscountScreenState extends State<AddDiscountScreen> {
                         RegExp(r'^\d{0,3}(\.\d{0,2})?')),
                   ],
                   error: state.percentageError
-                      ? '*Enter a value between 0 and 100.'
+                      ? BillingStrings.enterAValueBetween
                       : null,
                   labelStyle: labelStyle,
                   responsive: responsive,
@@ -138,7 +134,7 @@ class _AddDiscountScreenState extends State<AddDiscountScreen> {
                 ),
               ),
               child: CustomButtonLayout(
-                confirmButtonLabel: 'Save',
+                confirmButtonLabel: BillingStrings.save,
                 onPressedConfirm: _onSave,
                 showCancelButton: false,
                 isForm: false,

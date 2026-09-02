@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
-import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
+import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
+import 'package:wowcare/presentation/features/billing/model/student_models.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -17,8 +19,10 @@ class SelectedStudentsReceiptScreen extends StatefulWidget {
     this.onSubmit,
   });
 
+  static const String routeName = '/billing/selected-students-receipt';
+
   final List<Student> selectedStudents;
-  final Map<String, dynamic> invoiceData;
+  final InvoiceDraft invoiceData;
   final void Function(Student student)? onStudentRemoved;
 
   /// When true the invoice has already been created — the screen is a read-only
@@ -44,7 +48,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
       List<Student>.from(widget.selectedStudents);
 
   // Add-Staff text palette (Manrope, #573353).
-  static const Color _text = Color(0xff573353);
+  static const Color _text = AppColors.billingTextColor;
   static TextStyle _ts(double size, FontWeight weight, {Color? color}) =>
       TextStyle(
         fontFamily: 'Manrope',
@@ -60,16 +64,14 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
 
   double _computeTotalAmount() {
     double totalAmount = 0.0;
-    final invoiceItems = widget.invoiceData['invoiceItems'] as List<dynamic>? ?? [];
-    for (var item in invoiceItems) {
-      if (item is Map<String, dynamic>) {
-        final amount = double.tryParse(item['amount']?.toString() ?? '0') ?? 0.0;
-        final type = item['type']?.toString() ?? '';
-        if (type == 'Discount' || type == 'Subsidy') {
-          totalAmount -= amount;
-        } else {
-          totalAmount += amount;
-        }
+    final invoiceItems = widget.invoiceData.invoiceItems;
+    for (final item in invoiceItems) {
+      final amount = double.tryParse(item.amount) ?? 0.0;
+      final type = item.type;
+      if (type == 'Discount' || type == 'Subsidy') {
+        totalAmount -= amount;
+      } else {
+        totalAmount += amount;
       }
     }
     return totalAmount;
@@ -77,26 +79,20 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
 
   Widget _buildInvoiceDetails(ResponsiveHelper responsive) {
     final invoiceData = widget.invoiceData;
-    final items = invoiceData['invoiceItems'] as List<dynamic>? ?? const [];
+    final items = invoiceData.invoiceItems;
     final totalAmount = _computeTotalAmount();
 
     // Real school header (name + tagline + address).
     const schoolHeader = BillingSchoolHeader();
 
     String? dueDateString;
-    final dueDate = invoiceData['dueDate'] is DateTime
-        ? invoiceData['dueDate'] as DateTime
-        : (invoiceData['invoiceDate'] is DateTime
-            ? invoiceData['invoiceDate'] as DateTime
-            : null);
+    final dueDate = invoiceData.dueDate ?? invoiceData.invoiceDate;
     if (dueDate != null) {
       dueDateString = DateFormat('MMM dd, yyyy').format(dueDate);
-    } else if (invoiceData['dueDate'] is String) {
-      dueDateString = invoiceData['dueDate'] as String;
     }
 
-    DateTime? serviceStart = invoiceData['serviceDate'] is DateTime ? invoiceData['serviceDate'] as DateTime : null;
-    DateTime? serviceEnd = invoiceData['serviceDateEnd'] is DateTime ? invoiceData['serviceDateEnd'] as DateTime : null;
+    DateTime? serviceStart = invoiceData.serviceDate;
+    DateTime? serviceEnd = invoiceData.serviceDateEnd;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -117,7 +113,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Invoice Details',
+                BillingStrings.invoiceDetails,
                 style: _ts(16, FontWeight.w700),
               ),
               const SizedBox(height: 12),
@@ -127,7 +123,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
               child: Row(
                 children: [
                   Text(
-                    'Due Date: ',
+                    BillingStrings.dueDate,
                     style: _ts(14, FontWeight.w400,
                         color: _text.withValues(alpha: 0.6)),
                   ),
@@ -144,7 +140,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
               child: Row(
                 children: [
                   Text(
-                    'Service Period: ',
+                    BillingStrings.servicePeriod,
                     style: TextStyle(
                       fontSize: 14,
                       color: AppColors.billingGreyMedium,
@@ -164,14 +160,14 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                 ],
               ),
             ),
-          if (invoiceData['internalNote'] != null && invoiceData['internalNote'].toString().isNotEmpty)
+          if (invoiceData.internalNote != null && invoiceData.internalNote!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Internal Note:',
+                    BillingStrings.internalNoteLabel,
                     style: TextStyle(
                       fontSize: 14,
                       color: AppColors.billingGreyMedium,
@@ -180,7 +176,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    invoiceData['internalNote'].toString(),
+                    invoiceData.internalNote!,
                     style: const TextStyle(
                       color: AppColors.primaryColor,
                       fontSize: 14,
@@ -197,7 +193,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
               Expanded(
                 flex: 3,
                 child: Text(
-                  'Description',
+                  BillingStrings.description,
                   style: _ts(15, FontWeight.w400,
                       color: _text.withValues(alpha: 0.6)),
                   textAlign: TextAlign.start,
@@ -206,7 +202,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
               Expanded(
                 flex: 1,
                 child: Text(
-                  'Amount',
+                  BillingStrings.amount,
                   style: _ts(15, FontWeight.w400,
                       color: _text.withValues(alpha: 0.6)),
                   textAlign: TextAlign.end,
@@ -216,10 +212,9 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
           ),
           Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
           ...items.map((raw) {
-            if (raw is! Map<String, dynamic>) return const SizedBox.shrink();
-            final description = raw['description']?.toString() ?? 'No description';
-            final amount = double.tryParse(raw['amount']?.toString() ?? '0') ?? 0.0;
-            final type = raw['type']?.toString() ?? '';
+            final description = raw.description;
+            final amount = double.tryParse(raw.amount) ?? 0.0;
+            final type = raw.type;
             final isDiscount = type == 'Discount' || type == 'Subsidy';
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -283,7 +278,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12.0),
               child: Text(
-                'No students selected. Go back to add a student.',
+                BillingStrings.noStudentsSelectedGoBack,
                 style: _ts(14, FontWeight.w400,
                     color: _text.withValues(alpha: 0.6)),
               ),
@@ -314,7 +309,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                           Text(
                             student.tags.isNotEmpty
                                 ? '${student.tags.first.id} - ${student.tags.first.name} - ${student.roomName ?? 'N/A'}'
-                                : student.roomName ?? 'No details available',
+                                : student.roomName ?? BillingStrings.noDetailsAvailable,
                             style: _ts(14, FontWeight.w400,
                                 color: _text.withValues(alpha: 0.6)),
                           ),
@@ -353,7 +348,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
     if (isProcessing) return;
     if (_students.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add at least one student to the invoice.')),
+        const SnackBar(content: Text(BillingStrings.addAtLeastOneStudentToInvoice)),
       );
       return;
     }
@@ -382,7 +377,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     return StaffFormLayout(
-      title: widget.isConfirmation ? 'Invoice Receipt' : 'Invoice Preview',
+      title: widget.isConfirmation ? BillingStrings.invoiceReceipt : BillingStrings.invoicePreview,
       bottomBar: _buildBottomBar(),
       child: SingleChildScrollView(
         child: Column(
@@ -443,19 +438,19 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         child: widget.isConfirmation
-            ? gradientButton('Done', () => Navigator.of(context).pop())
+            ? gradientButton(BillingStrings.done, () => Navigator.of(context).pop())
             : Row(
                 children: [
                   Expanded(
                     child: gradientButton(
-                      'Save',
+                      BillingStrings.save,
                       (isProcessing || _students.isEmpty) ? null : _onSave,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: gradientButton(
-                      'Save and Send',
+                      BillingStrings.saveAndSend,
                       (isProcessing || _students.isEmpty)
                           ? null
                           : _onSaveAndSend,

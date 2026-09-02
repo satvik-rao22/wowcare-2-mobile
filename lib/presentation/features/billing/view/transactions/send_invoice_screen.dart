@@ -1,28 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/billing/usecases/issue_invoice_usecase.dart';
-import 'package:wowcare/domain/features/billing/usecases/resend_invoice_usecase.dart';
-import 'package:wowcare/domain/features/student/usecases/get_student_profile_usecase.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
+import 'package:wowcare/presentation/features/billing/cubit/send_invoice_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/util/billing_school_time.dart';
 
-class SendInvoiceScreen extends StatefulWidget {
+class SendInvoiceScreen extends StatelessWidget {
   const SendInvoiceScreen({super.key, required this.transaction});
+
+  static const String routeName = '/billing/send-invoice';
 
   final TransactionItem transaction;
 
   @override
-  State<SendInvoiceScreen> createState() => _SendInvoiceScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider<SendInvoiceCubit>(
+      create: (_) => serviceLocator<SendInvoiceCubit>()
+        ..loadRoomName(transaction.studentCode),
+      child: _SendInvoiceForm(transaction: transaction),
+    );
+  }
 }
 
-class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
+class _SendInvoiceForm extends StatefulWidget {
+  const _SendInvoiceForm({required this.transaction});
+
+  final TransactionItem transaction;
+
+  @override
+  State<_SendInvoiceForm> createState() => _SendInvoiceFormState();
+}
+
+class _SendInvoiceFormState extends State<_SendInvoiceForm> {
   // Dummy data for UI
   Map<String, dynamic>? _invoiceDetails;
 
@@ -36,30 +52,11 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
   // Form data
   String _invoiceNumber = '';
 
-  // Invoices carry no room field of their own, so the student's current
-  // classroom is looked up separately by student code.
-  String? _roomName;
-
   @override
   void initState() {
     super.initState();
     _initializeDummyData();
     _initializeFormData();
-    _loadRoomName();
-  }
-
-  Future<void> _loadRoomName() async {
-    final code = widget.transaction.studentCode?.trim();
-    if (code == null || code.isEmpty) return;
-    try {
-      final profile = await serviceLocator<GetStudentProfileUseCase>()(
-        code: code,
-      );
-      if (!mounted) return;
-      setState(() => _roomName = profile.classroomName);
-    } catch (_) {
-      // No room fallback — the row is simply omitted.
-    }
   }
 
   void _initializeDummyData() {
@@ -146,19 +143,19 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
       if (widget.transaction.refTable != 'Invoice') {
         return 'Not applicable - Transaction references ${widget.transaction.refTable}';
       }
-      return 'N/A';
+      return BillingStrings.na;
     }
 
     final startDate = _invoiceDetails!['startDate'];
     final endDate = _invoiceDetails!['endDate'];
 
     if (startDate == null && endDate == null) {
-      return 'Not specified in invoice';
+      return BillingStrings.notSpecifiedInInvoice;
     }
 
     try {
-      String startText = 'Not specified';
-      String endText = 'Not specified';
+      String startText = BillingStrings.notSpecified;
+      String endText = BillingStrings.notSpecified;
 
       if (startDate != null) {
         final startParsed = DateTime.parse(startDate.toString());
@@ -172,7 +169,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
 
       return '$startText - $endText';
     } catch (e) {
-      return 'Date format error';
+      return BillingStrings.dateFormatError;
     }
   }
 
@@ -185,58 +182,49 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
     super.dispose();
   }
 
-  bool _isSending = false;
-
   /// A draft is issued (POST /issue); an already-issued invoice is re-sent
   /// (PATCH /resend).
   bool get _isDraft =>
       widget.transaction.status.toUpperCase().contains('DRAFT');
 
   Future<void> _sendInvoice() async {
-    if (_isSending) return;
-    final code = widget.transaction.invoiceCode?.trim();
-    if (code == null || code.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'This invoice cannot be sent.',
-        isWarning: true,
-      );
-      return;
-    }
-
-    setState(() => _isSending = true);
-    try {
-      if (_isDraft) {
-        await serviceLocator<IssueInvoiceUseCase>()(code);
-      } else {
-        await serviceLocator<ResendInvoiceUseCase>()(code);
-      }
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: _isDraft
-            ? 'Invoice sent successfully.'
-            : 'Invoice re-sent successfully.',
-        isSuccess: true,
-      );
-      Navigator.pop(context, true);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isSending = false);
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ApiErrorHandler.extractErrorMessage(e),
-        isError: true,
-      );
+    final cubit = context.read<SendInvoiceCubit>();
+    final outcome = await cubit.send(
+      invoiceCode: widget.transaction.invoiceCode,
+      isDraft: _isDraft,
+    );
+    if (!mounted) return;
+    switch (outcome) {
+      case SendInvoiceOutcome.missingCode:
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: BillingStrings.invoiceCannotBeSent,
+          isWarning: true,
+        );
+      case SendInvoiceOutcome.success:
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: _isDraft
+              ? BillingStrings.invoiceSentSuccessfully
+              : BillingStrings.invoiceResentSuccessfully,
+          isSuccess: true,
+        );
+        Navigator.pop(context, true);
+      case SendInvoiceOutcome.failure:
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: cubit.state.errorMessage ?? '',
+          isError: true,
+        );
     }
   }
 
-  Widget _buildBilledForRow() {
-    final classroom = (_roomName ?? widget.transaction.classroom).trim();
+  Widget _buildBilledForRow(String? roomName) {
+    final classroom = (roomName ?? widget.transaction.classroom).trim();
     return Row(
       children: [
         Text(
-          'Billed for : ',
+          BillingStrings.billedForColon,
           style: AppTextStyles.title.copyWith(
             fontSize: 16,
             color: AppColors.primaryColor,
@@ -266,7 +254,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
         Row(
           children: [
             Text(
-              'Invoice Number : ',
+              BillingStrings.invoiceNumberColon,
               style: TextStyle(
                 fontSize: 15,
                 color: AppColors.billingGreyMedium,
@@ -292,7 +280,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Text(
-                'Invoice Period : ',
+                BillingStrings.invoicePeriodColon,
                 style: TextStyle(
                   fontSize: 15,
                   color: AppColors.billingGreyMedium,
@@ -317,7 +305,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
         Row(
           children: [
             Text(
-              'Due Date : ',
+              BillingStrings.dueDateColon,
               style: TextStyle(
                 fontSize: 15,
                 color: AppColors.billingGreyMedium,
@@ -326,7 +314,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
             ),
             Text(
               _dueDateController.text.isEmpty
-                  ? 'Not set'
+                  ? BillingStrings.notSet
                   : _dueDateController.text,
               style: TextStyle(
                 fontSize: 15,
@@ -355,7 +343,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
               Expanded(
                 flex: 4,
                 child: Text(
-                  'Description',
+                  BillingStrings.description,
                   style: TextStyle(
                     fontSize: 15,
                     color: AppColors.billingGreyMedium,
@@ -367,7 +355,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
               Expanded(
                 flex: 2,
                 child: Text(
-                  'Amount',
+                  BillingStrings.amount,
                   style: TextStyle(
                     fontSize: 15,
                     color: AppColors.billingGreyMedium,
@@ -421,7 +409,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                 Expanded(
                   flex: 4,
                   child: Text(
-                    'Total Amount',
+                    BillingStrings.totalAmount,
                     style: TextStyle(
                       color: AppColors.primaryColor,
                       fontSize: 16,
@@ -452,27 +440,31 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return StaffFormLayout(
-      title: 'Send Invoice',
-      bottomBar: _buildBottomBar(),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const BillingSchoolHeader(),
-            const SizedBox(height: 20),
-            _buildBilledForRow(),
-            const SizedBox(height: 16),
-            _buildInvoiceDetailsSection(),
-            const SizedBox(height: 16),
-            _buildInvoiceTable(),
-          ],
-        ),
-      ),
+    return BlocBuilder<SendInvoiceCubit, SendInvoiceState>(
+      builder: (context, state) {
+        return StaffFormLayout(
+          title: BillingStrings.sendInvoice,
+          bottomBar: _buildBottomBar(state.isSending),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const BillingSchoolHeader(),
+                const SizedBox(height: 20),
+                _buildBilledForRow(state.roomName),
+                const SizedBox(height: 16),
+                _buildInvoiceDetailsSection(),
+                const SizedBox(height: 16),
+                _buildInvoiceTable(),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildBottomBar() {
+  Widget _buildBottomBar(bool isSending) {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -482,14 +474,14 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
             gradient: AppColors.buildPrimaryGradient(),
           ),
           child: TextButton(
-            onPressed: _isSending ? null : _sendInvoice,
+            onPressed: isSending ? null : _sendInvoice,
             style: TextButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: _isSending
+            child: isSending
                 ? const SizedBox(
                     width: 22,
                     height: 22,
@@ -499,7 +491,9 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                     ),
                   )
                 : Text(
-                    _isDraft ? 'Send Invoice' : 'Resend Invoice',
+                    _isDraft
+                        ? BillingStrings.sendInvoice
+                        : BillingStrings.resendInvoice,
                     style: TextStyle(
                       color: AppColors.billingButtonTextColor,
                       fontSize: 16,
