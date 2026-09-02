@@ -42,7 +42,7 @@ class AttendanceSelectablePersonTile extends StatelessWidget {
           borderRadius: AppRadius.allSm,
           color: isSelected
               ? const Color.fromARGB(255, 249, 245, 250)
-              : Colors.white,
+              : AppColors.cardColor,
         ),
         child: Padding(
           padding: const EdgeInsets.only(right: AppSpacing.xxs),

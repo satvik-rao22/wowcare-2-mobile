@@ -217,7 +217,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                   indicator: const UnderlineTabIndicator(
                     borderSide: BorderSide(color: AppColors.themeColor),
                   ),
-                  dividerColor: Colors.transparent,
+                  dividerColor: AppColors.transparentColor,
                   indicatorPadding: EdgeInsets.only(
                     bottom: responsive.isTablet ? 10 : 8,
                   ),
@@ -391,7 +391,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       barrierDismissible: true,
       builder: (BuildContext context) {
         return Dialog(
-          backgroundColor: Colors.transparent,
+          backgroundColor: AppColors.transparentColor,
           elevation: 0,
           // Pin to the top-right so the menu sits flush below the + button
           // instead of being vertically centered in the inset band.
@@ -419,7 +419,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
               constraints: const BoxConstraints(maxHeight: 400),
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.cardColor,
                 borderRadius: BorderRadius.circular(AppRadius.r10),
               ),
               child: Column(

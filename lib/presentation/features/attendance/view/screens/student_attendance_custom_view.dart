@@ -650,11 +650,11 @@ class _StudentAttendanceCustomViewState
               icon: const Icon(Icons.refresh),
               label: AppText.body(
                 'Retry',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: AppColors.cardColor),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.themeColor,
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.cardColor,
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.xl,
                   vertical: AppSpacing.sm,

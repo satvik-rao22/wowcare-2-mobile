@@ -1212,7 +1212,8 @@ class _StudentAttendanceDailyViewScreenState
                                     showModalBottomSheet(
                                       context: context,
                                       isScrollControlled: true,
-                                      backgroundColor: Colors.transparent,
+                                      backgroundColor:
+                                          AppColors.transparentColor,
                                       builder: (ctx) {
                                         return DeleteConfirmationBottomSheet(
                                           name: student.studentName,
@@ -1447,7 +1448,7 @@ class _StudentAttendanceDailyViewScreenState
               ),
               const SizedBox(width: AppSpacing.xs),
               Material(
-                color: Colors.transparent,
+                color: AppColors.transparentColor,
                 child: InkWell(
                   onTap: _navigateToFilterScreen,
                   borderRadius: AppRadius.allPill,

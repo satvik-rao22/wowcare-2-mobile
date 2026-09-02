@@ -822,7 +822,7 @@ class _StaffAttendanceDailyViewScreenState
               ),
               const SizedBox(width: AppSpacing.xs),
               Material(
-                color: Colors.transparent,
+                color: AppColors.transparentColor,
                 child: InkWell(
                   onTap: _navigateToFilterScreen,
                   borderRadius: AppRadius.allPill,
@@ -1115,7 +1115,7 @@ class _StaffAttendanceDailyViewScreenState
                   showModalBottomSheet(
                     context: context,
                     isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
+                    backgroundColor: AppColors.transparentColor,
                     builder: (ctx) {
                       return DeleteConfirmationBottomSheet(
                         name: staff.staffName,

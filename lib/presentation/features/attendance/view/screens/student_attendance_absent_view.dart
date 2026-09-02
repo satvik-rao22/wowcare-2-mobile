@@ -913,7 +913,7 @@ class _StudentAttendanceAbsentViewState
                         onPressed: () => _loadInitialData(reset: true),
                         child: AppText.body(
                           'Retry',
-                          style: TextStyle(color: Colors.white),
+                          style: TextStyle(color: AppColors.cardColor),
                         ),
                       ),
                     ],

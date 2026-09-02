@@ -1101,7 +1101,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       barrierDismissible: true,
       builder: (BuildContext context) {
         return Dialog(
-          backgroundColor: Colors.transparent,
+          backgroundColor: AppColors.transparentColor,
           elevation: 0,
           // Pin the menu flush below the + button (top-right) and give it the
           // full height beneath the button. A large `bottom` inset here used to
