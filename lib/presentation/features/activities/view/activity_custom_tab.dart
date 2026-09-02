@@ -53,6 +53,7 @@ import 'edit_create_activity_screens/meal_activity.dart';
 import 'edit_create_activity_screens/medication_activity.dart';
 import 'edit_create_activity_screens/nap_activity.dart';
 import 'edit_create_activity_screens/notes_activity.dart';
+import 'edit_create_activity_screens/observation_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
 
@@ -267,6 +268,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         MedicationActivityScreen(activityData: activity, isEdit: true),
     'Notes': (activity) =>
         NotesActivityScreen(activityData: activity, isEdit: true),
+    'Observation': (activity) =>
+        ObservationActivityScreen(activityData: activity, isEdit: true),
     'Outdoor': (activity) =>
         OutdoorActivityScreen(activityData: activity, isEdit: true),
     'Learning': (activity) =>
@@ -320,6 +323,11 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       isEdit: true,
       readOnly: true,
     ),
+    'Observation': (activity) => ObservationActivityScreen(
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+    ),
     'Outdoor': (activity) => OutdoorActivityScreen(
       activityData: activity,
       isEdit: true,
@@ -343,6 +351,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     'Video': MediaRes.photoVideoActivityIcon,
     'Medication': MediaRes.medicationActivityIcon,
     'Notes': MediaRes.notesActivityIcon,
+    'Observation': MediaRes.observationActivityIcon,
     'Outdoor': MediaRes.outdoorActivityIcon,
     'Learning': MediaRes.learningActivityIcon,
     'Sign-in': MediaRes.dailyActivitySignInIcon,

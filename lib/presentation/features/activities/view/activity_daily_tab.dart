@@ -54,6 +54,7 @@ import 'edit_create_activity_screens/learning_activity.dart';
 import 'edit_create_activity_screens/meal_activity.dart';
 import 'edit_create_activity_screens/medication_activity.dart';
 import 'edit_create_activity_screens/notes_activity.dart';
+import 'edit_create_activity_screens/observation_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
 import '../utils/activity_parent_feed_merge.dart';
@@ -313,6 +314,8 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         MedicationActivityScreen(activityData: activity, isEdit: true),
     'Notes': (activity) =>
         NotesActivityScreen(activityData: activity, isEdit: true),
+    'Observation': (activity) =>
+        ObservationActivityScreen(activityData: activity, isEdit: true),
     'Outdoor': (activity) =>
         OutdoorActivityScreen(activityData: activity, isEdit: true),
     'Learning': (activity) =>
@@ -367,6 +370,11 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
       isEdit: true,
       readOnly: true,
     ),
+    'Observation': (activity) => ObservationActivityScreen(
+      activityData: activity,
+      isEdit: true,
+      readOnly: true,
+    ),
     'Outdoor': (activity) => OutdoorActivityScreen(
       activityData: activity,
       isEdit: true,
@@ -390,6 +398,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     'Video': MediaRes.photoVideoActivityIcon,
     'Medication': MediaRes.medicationActivityIcon,
     'Notes': MediaRes.notesActivityIcon,
+    'Observation': MediaRes.observationActivityIcon,
     'Outdoor': MediaRes.outdoorActivityIcon,
     'Learning': MediaRes.learningActivityIcon,
     'Sign-in': MediaRes.dailyActivitySignInIcon,
@@ -6107,6 +6116,7 @@ const Set<String> _mergeableMultiStudentActivityNames = {
   'Meal',
   'Bottle',
   'Notes',
+  'Observation',
   'Nap Start',
   'Nap End',
   'Nap',
@@ -6607,6 +6617,7 @@ String mapApiActivityTypeNameToUiLabel(String apiName) {
   if (s.contains('learning')) return 'Learning';
   if (s.contains('photo') && !s.contains('video')) return 'Photo';
   if (s.contains('video')) return 'Video';
+  if (s.contains('observation')) return 'Observation';
   if (s.contains('note')) return 'Notes';
   if (s.contains('sign') && s.contains('in')) return 'Sign-in';
   if (s.contains('sign') && s.contains('out')) return 'Sign-out';
@@ -7015,7 +7026,7 @@ ActivityItem activityItemFromFeedRow(
         : null,
     napEndTime: name == 'Nap End' ? (napEndTime ?? napTimeParam) : null,
     whatHappened:
-        (name == 'Incident' || name == 'Notes') &&
+        (name == 'Incident' || name == 'Notes' || name == 'Observation') &&
             effectiveDescription.isNotEmpty
         ? effectiveDescription
         : null,

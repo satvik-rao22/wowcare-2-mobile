@@ -255,6 +255,8 @@ class MediaRes {
       '$_baseIcons/medication-activity-icon.png';
   static const String napActivityIcon = '$_baseIcons/nap-activity-icon.png';
   static const String notesActivityIcon = '$_baseIcons/notes-activity-icon.png';
+  static const String observationActivityIcon =
+      '$_baseIcons/observation-activity-icon.png';
   static const String outdoorActivityIcon =
       '$_baseIcons/outdoor-activity-icon.png';
   static const String photoVideoActivityIcon =
