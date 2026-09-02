@@ -640,7 +640,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                 spacing: spacing,
                 runSpacing: spacing,
                 children: [
-                  _buildActionButton(
+                  AttendancePopupActionButton(
                     icon: MediaRes.Sign_in,
                     label: 'Sign-in',
                     iconSize: buttonSize,
@@ -658,9 +658,8 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                               '/attendance/student-selection-sign-in',
                             );
                           },
-                    context: context,
                   ),
-                  _buildActionButton(
+                  AttendancePopupActionButton(
                     icon: MediaRes.Sign_out,
                     label: 'Sign-Out',
                     iconSize: buttonSize,
@@ -678,10 +677,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                               '/attendance/student-selection-sign-out',
                             );
                           },
-                    context: context,
                   ),
                   if (!isParent)
-                    _buildActionButton(
+                    AttendancePopupActionButton(
                       icon: MediaRes.transfer,
                       label: 'Transfer',
                       iconSize: buttonSize,
@@ -699,10 +697,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                 '/attendance/student-selection-transfer',
                               );
                             },
-                      context: context,
                     ),
                   if (!isParent)
-                    _buildActionButton(
+                    AttendancePopupActionButton(
                       icon: MediaRes.Mark_absent,
                       label: 'Absent',
                       iconSize: buttonSize,
@@ -720,7 +717,6 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                 '/attendance/student-selection-mark-absent',
                               );
                             },
-                      context: context,
                     ),
                 ],
               )
@@ -729,7 +725,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   Expanded(
-                    child: _buildActionButton(
+                    child: AttendancePopupActionButton(
                       icon: MediaRes.Sign_in,
                       label: 'Sign-in',
                       iconSize: buttonSize,
@@ -747,12 +743,11 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                 '/attendance/student-selection-sign-in',
                               );
                             },
-                      context: context,
                     ),
                   ),
                   SizedBox(width: spacing),
                   Expanded(
-                    child: _buildActionButton(
+                    child: AttendancePopupActionButton(
                       icon: MediaRes.Sign_out,
                       label: 'Sign-Out',
                       iconSize: buttonSize,
@@ -770,14 +765,13 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                 '/attendance/student-selection-sign-out',
                               );
                             },
-                      context: context,
                     ),
                   ),
                   SizedBox(width: spacing),
                   if (!isParent) ...[
                     SizedBox(width: spacing),
                     Expanded(
-                      child: _buildActionButton(
+                      child: AttendancePopupActionButton(
                         icon: MediaRes.transfer,
                         label: 'Transfer',
                         iconSize: buttonSize,
@@ -795,12 +789,11 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                   '/attendance/student-selection-transfer',
                                 );
                               },
-                        context: context,
                       ),
                     ),
                     SizedBox(width: spacing),
                     Expanded(
-                      child: _buildActionButton(
+                      child: AttendancePopupActionButton(
                         icon: MediaRes.Mark_absent,
                         label: 'Absent',
                         iconSize: buttonSize,
@@ -818,7 +811,6 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                   '/attendance/student-selection-mark-absent',
                                 );
                               },
-                        context: context,
                       ),
                     ),
                   ],
@@ -827,9 +819,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
             // Parent and admin can open student attendance profile/view.
             if (isAdmin || isParent) ...[
               SizedBox(height: isTablet ? 20 : 16),
-              _buildViewAttendanceButton(
-                context,
-                isStaffTab: false,
+              AttendancePopupViewButton(
+                onTap: () =>
+                    _handleViewAttendanceTap(context, isStaffTab: false),
                 isTablet: isTablet,
                 label: isParent
                     ? 'View My Child Attendance'
@@ -890,7 +882,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                 spacing: spacing,
                 runSpacing: spacing,
                 children: [
-                  _buildActionButton(
+                  AttendancePopupActionButton(
                     icon: MediaRes.Sign_in,
                     label: 'Sign-in',
                     iconSize: buttonSize,
@@ -933,9 +925,8 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                               );
                             }
                           },
-                    context: context,
                   ),
-                  _buildActionButton(
+                  AttendancePopupActionButton(
                     icon: MediaRes.Sign_out,
                     label: 'Sign-Out',
                     iconSize: buttonSize,
@@ -978,9 +969,8 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                               );
                             }
                           },
-                    context: context,
                   ),
-                  _buildActionButton(
+                  AttendancePopupActionButton(
                     icon: MediaRes.transfer,
                     label: 'Transfer',
                     iconSize: buttonSize,
@@ -1023,9 +1013,8 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                               );
                             }
                           },
-                    context: context,
                   ),
-                  _buildActionButton(
+                  AttendancePopupActionButton(
                     icon: MediaRes.Mark_absent,
                     label: 'Absent',
                     iconSize: buttonSize,
@@ -1068,7 +1057,6 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                               );
                             }
                           },
-                    context: context,
                   ),
                 ],
               )
@@ -1077,7 +1065,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   Expanded(
-                    child: _buildActionButton(
+                    child: AttendancePopupActionButton(
                       icon: MediaRes.Sign_in,
                       label: 'Sign-in',
                       iconSize: buttonSize,
@@ -1120,12 +1108,11 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                 );
                               }
                             },
-                      context: context,
                     ),
                   ),
                   SizedBox(width: spacing),
                   Expanded(
-                    child: _buildActionButton(
+                    child: AttendancePopupActionButton(
                       icon: MediaRes.Sign_out,
                       label: 'Sign-Out',
                       iconSize: buttonSize,
@@ -1168,12 +1155,11 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                 );
                               }
                             },
-                      context: context,
                     ),
                   ),
                   SizedBox(width: spacing),
                   Expanded(
-                    child: _buildActionButton(
+                    child: AttendancePopupActionButton(
                       icon: MediaRes.transfer,
                       label: 'Transfer',
                       iconSize: buttonSize,
@@ -1216,12 +1202,11 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                 );
                               }
                             },
-                      context: context,
                     ),
                   ),
                   SizedBox(width: spacing),
                   Expanded(
-                    child: _buildActionButton(
+                    child: AttendancePopupActionButton(
                       icon: MediaRes.Mark_absent,
                       label: 'Absent',
                       iconSize: buttonSize,
@@ -1264,7 +1249,6 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                 );
                               }
                             },
-                      context: context,
                     ),
                   ),
                 ],
@@ -1274,9 +1258,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
             // - Teacher persona: View My Attendance (self-only profile)
             if (isAdmin || _isTeacherStaffPersona == true) ...[
               SizedBox(height: isTablet ? 20 : 16),
-              _buildViewAttendanceButton(
-                context,
-                isStaffTab: true,
+              AttendancePopupViewButton(
+                onTap: () =>
+                    _handleViewAttendanceTap(context, isStaffTab: true),
                 isTablet: isTablet,
                 label: _isTeacherStaffPersona == true
                     ? 'View My Attendance'
@@ -1289,14 +1273,108 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     );
   }
 
-  Widget _buildActionButton({
-    required String icon,
-    required String label,
-    required VoidCallback? onTap,
-    required BuildContext context,
-    double iconSize = 36.0,
-    double fontSize = 12.0,
+  Future<void> _handleViewAttendanceTap(
+    BuildContext context, {
+    required bool isStaffTab,
+  }) async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    // Captured before popping the popup — the popup's own context is
+    // defunct once it's removed.
+    final router = GoRouter.of(context);
+    navigator.pop();
+    if (isStaffTab) {
+      if (_isTeacherStaffPersona == true) {
+        // Staff persona: only allow viewing own attendance profile. Open it
+        // IN-PLACE inside the app shell via the router (the same way the
+        // admin case below does) so the bottom nav stays functional and
+        // tapping again while already on the page doesn't stack a duplicate
+        // detached page — `router.go` to the same location replaces rather
+        // than pushes.
+        final display = await resolveLoggedInStaffDisplay();
+        final staffCode = display.staffCode.trim();
+        if (staffCode.isEmpty) {
+          return;
+        }
+        final uri = Uri(
+          path: '${StaffAttendanceProfile.routeName}-by-code',
+          queryParameters: {
+            'code': staffCode,
+            'name': display.fullName.isNotEmpty ? display.fullName : '-',
+          },
+        );
+        router.go(uri.toString());
+      } else {
+        // Admin: open the staff attendance tabbed view inside the app
+        // shell (via the router) so the bottom navigation bar stays
+        // functional, instead of pushing a detached new screen.
+        router.go(StaffAttendanceTabbedView.routeName);
+      }
+    } else {
+      if (_isParentRole) {
+        await _openParentStudentAttendanceProfile(navigator.context);
+        return;
+      }
+      // Open the student attendance tabbed view inside the app shell
+      // (via the router) so the bottom navigation bar stays functional,
+      // instead of pushing a detached new screen.
+      router.go(StudentAttendanceTabbedView.routeName);
+    }
+  }
+
+  Future<void> _openParentStudentAttendanceProfile(BuildContext context) async {
+    final profile = await buildParentChildAttendanceProfile(context);
+    if (profile == null || !context.mounted) return;
+    // GoRouter holdout (documented): deliberate deterministic branch-navigator / fade / dedup flow (see app_router.dart popAllShellBranchNavigators docs) — kept imperative.
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: StudentAttendanceProfile.routeName),
+        builder: (_) => profile,
+      ),
+    );
+  }
+
+  double _getTabHeight({
+    required bool isAdmin,
+    required bool isParent,
+    required bool isTablet,
+    required double maxAvailableHeight,
   }) {
+    // Calculate required height for content
+    final buttonRowHeight = isTablet ? 100.0 : 80.0;
+    final viewButtonHeight =
+        (isParent || isAdmin || _isTeacherStaffPersona == true)
+        ? (isTablet ? 76.0 : 64.0)
+        : 0.0;
+    final padding = isTablet ? 32.0 : 24.0;
+    final calculatedHeight = buttonRowHeight + viewButtonHeight + padding;
+
+    // Use calculated height but don't exceed available space
+    return calculatedHeight.clamp(80.0, maxAvailableHeight.clamp(80.0, 300.0));
+  }
+}
+
+/// A single action icon+label in the attendance popup's action row (e.g.
+/// Sign-in, Sign-Out, Transfer, Absent) — used by both the student and staff
+/// tab bodies. Was a private `_buildActionButton` method.
+class AttendancePopupActionButton extends StatelessWidget {
+  const AttendancePopupActionButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.iconSize = 36.0,
+    this.fontSize = 12.0,
+  });
+
+  final String icon;
+  final String label;
+  final VoidCallback? onTap;
+  final double iconSize;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
     final bool isDisabled = onTap == null;
     return Opacity(
       opacity: isDisabled ? 0.4 : 1.0,
@@ -1333,58 +1411,29 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
       ),
     );
   }
+}
 
-  Widget _buildViewAttendanceButton(
-    BuildContext context, {
-    required bool isStaffTab,
-    required bool isTablet,
-    String label = 'View Attendance',
-  }) {
+/// The gradient-bordered "View Attendance" button shown at the bottom of
+/// both the student and staff tab bodies. Was a private
+/// `_buildViewAttendanceButton` method — the async navigation logic it used
+/// to build inline now lives in `_handleViewAttendanceTap`, passed in here
+/// as a plain [onTap] callback.
+class AttendancePopupViewButton extends StatelessWidget {
+  const AttendancePopupViewButton({
+    super.key,
+    required this.onTap,
+    required this.isTablet,
+    this.label = 'View Attendance',
+  });
+
+  final VoidCallback onTap;
+  final bool isTablet;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
     return InkWell(
-      onTap: () async {
-        final navigator = Navigator.of(context, rootNavigator: true);
-        // Captured before popping the popup — the popup's own context is
-        // defunct once it's removed.
-        final router = GoRouter.of(context);
-        navigator.pop();
-        if (isStaffTab) {
-          if (_isTeacherStaffPersona == true) {
-            // Staff persona: only allow viewing own attendance profile. Open it
-            // IN-PLACE inside the app shell via the router (the same way the
-            // admin case below does) so the bottom nav stays functional and
-            // tapping again while already on the page doesn't stack a duplicate
-            // detached page — `router.go` to the same location replaces rather
-            // than pushes.
-            final display = await resolveLoggedInStaffDisplay();
-            final staffCode = display.staffCode.trim();
-            if (staffCode.isEmpty) {
-              return;
-            }
-            final uri = Uri(
-              path: '${StaffAttendanceProfile.routeName}-by-code',
-              queryParameters: {
-                'code': staffCode,
-                'name': display.fullName.isNotEmpty ? display.fullName : '-',
-              },
-            );
-            router.go(uri.toString());
-          } else {
-            // Admin: open the staff attendance tabbed view inside the app
-            // shell (via the router) so the bottom navigation bar stays
-            // functional, instead of pushing a detached new screen.
-            router.go(StaffAttendanceTabbedView.routeName);
-          }
-        } else {
-          if (_isParentRole) {
-            await _openParentStudentAttendanceProfile(navigator.context);
-            return;
-          }
-          // Open the student attendance tabbed view inside the app shell
-          // (via the router) so the bottom navigation bar stays functional,
-          // instead of pushing a detached new screen.
-          router.go(StudentAttendanceTabbedView.routeName);
-        }
-      },
+      onTap: onTap,
       borderRadius: AppRadius.allSm,
       child: Container(
         height: isTablet ? 56 : 48,
@@ -1425,37 +1474,5 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
         ),
       ),
     );
-  }
-
-  Future<void> _openParentStudentAttendanceProfile(BuildContext context) async {
-    final profile = await buildParentChildAttendanceProfile(context);
-    if (profile == null || !context.mounted) return;
-    // GoRouter holdout (documented): deliberate deterministic branch-navigator / fade / dedup flow (see app_router.dart popAllShellBranchNavigators docs) — kept imperative.
-    Navigator.push(
-      context,
-      MaterialPageRoute<void>(
-        settings: const RouteSettings(name: StudentAttendanceProfile.routeName),
-        builder: (_) => profile,
-      ),
-    );
-  }
-
-  double _getTabHeight({
-    required bool isAdmin,
-    required bool isParent,
-    required bool isTablet,
-    required double maxAvailableHeight,
-  }) {
-    // Calculate required height for content
-    final buttonRowHeight = isTablet ? 100.0 : 80.0;
-    final viewButtonHeight =
-        (isParent || isAdmin || _isTeacherStaffPersona == true)
-        ? (isTablet ? 76.0 : 64.0)
-        : 0.0;
-    final padding = isTablet ? 32.0 : 24.0;
-    final calculatedHeight = buttonRowHeight + viewButtonHeight + padding;
-
-    // Use calculated height but don't exceed available space
-    return calculatedHeight.clamp(80.0, maxAvailableHeight.clamp(80.0, 300.0));
   }
 }
