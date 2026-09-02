@@ -20,7 +20,6 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -1031,12 +1030,8 @@ class _StudentAttendanceAbsentViewState
                       Flexible(
                         child: Text(
                           student.name,
-                          style: TextStyle(
-                            fontFamily: Fonts.manrope,
+                          style: AppTextStyles.body.copyWith(
                             fontSize: responsive.isTablet ? 16 : 14,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.primaryColor,
-                            height: 19 / 14,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -1046,12 +1041,8 @@ class _StudentAttendanceAbsentViewState
                       Flexible(
                         child: Text(
                           student.roomName,
-                          style: TextStyle(
-                            fontFamily: Fonts.manrope,
+                          style: AppTextStyles.body.copyWith(
                             fontSize: responsive.isTablet ? 16 : 14,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.primaryColor,
-                            height: 19 / 14,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

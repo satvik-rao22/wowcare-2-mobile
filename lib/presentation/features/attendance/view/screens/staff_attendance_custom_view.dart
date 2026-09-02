@@ -14,7 +14,6 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -636,12 +635,8 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                       Flexible(
                         child: Text(
                           staffName,
-                          style: TextStyle(
-                            fontFamily: Fonts.manrope,
+                          style: AppTextStyles.body.copyWith(
                             fontSize: responsive.isTablet ? 16 : 14,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.primaryColor,
-                            height: 19 / 14,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -650,12 +645,8 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                       Flexible(
                         child: Text(
                           roomName,
-                          style: TextStyle(
-                            fontFamily: Fonts.manrope,
+                          style: AppTextStyles.body.copyWith(
                             fontSize: responsive.isTablet ? 16 : 14,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.primaryColor,
-                            height: 19 / 14,
                           ),
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.right,
