@@ -11,7 +11,6 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_sign_out_request.dart';
@@ -22,7 +21,6 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -213,10 +211,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
   Future<void> _loadPersonaFlags() async {
     String? iana;
     try {
-      iana = await SchoolTimezoneResolver.resolveForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-        apiClient: serviceLocator<ApiClient>(),
-      );
+      iana = await _submitCubit.resolveFreshSchoolTimeZone();
     } catch (_) {}
 
     final isAdmin = await _resolveIsStaffAdminPersona();
@@ -310,10 +305,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     final isStaffAdmin =
         _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
 
-    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
-    );
+    final schoolTimeZone = await _submitCubit.resolveFreshSchoolTimeZone();
 
     // Teachers can only sign out themselves and cannot modify time.
     late final DateTime occurredAt;

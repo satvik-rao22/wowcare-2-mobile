@@ -9,14 +9,12 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_transfer_request.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_transfer_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/classroom_visibility.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
@@ -147,10 +145,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     try {
       String? schoolIana;
       try {
-        schoolIana = await SchoolTimezoneResolver.resolveForCurrentSchool(
-          storage: serviceLocator<StorageService>(),
-          apiClient: serviceLocator<ApiClient>(),
-        );
+        schoolIana = await _submitCubit.resolveFreshSchoolTimeZone();
       } catch (_) {}
 
       final storage = serviceLocator<StorageService>();
@@ -353,10 +348,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       _isSubmitting = true;
     });
 
-    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
-    );
+    final schoolTimeZone = await _submitCubit.resolveFreshSchoolTimeZone();
     final schoolToday = SchoolZoneDateTime.schoolCalendarTodayOnly(
       schoolTimeZone,
     );

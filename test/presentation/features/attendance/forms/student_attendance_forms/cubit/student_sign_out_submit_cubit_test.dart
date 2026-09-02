@@ -1,10 +1,18 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_sign_out_request.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_student_sign_out_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_out_submit_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_out_submit_state.dart';
+
+class _UnusedStorageService implements StorageService {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} was not expected');
+}
 
 const _request = StudentSignOutRequest(
   mode: StudentSignOutMode.staff,
@@ -50,7 +58,11 @@ void main() {
 
     setUp(() {
       useCase = _FakeSubmitUseCase();
-      cubit = StudentSignOutSubmitCubit(useCase);
+      cubit = StudentSignOutSubmitCubit(
+        useCase,
+        storageService: _UnusedStorageService(),
+        apiClient: ApiClient(baseUrl: 'http://unused'),
+      );
     });
 
     tearDown(() => cubit.close());
@@ -60,52 +72,52 @@ void main() {
       expect(cubit.isSubmitting, isFalse);
     });
 
-    test('on success: emits InProgress then Success and returns the result', () async {
-      const result = AttendanceActionResult(
-        success: true,
-        message: 'Signed-Out successfully',
-      );
-      useCase.resultToReturn = result;
+    test(
+      'on success: emits InProgress then Success and returns the result',
+      () async {
+        const result = AttendanceActionResult(
+          success: true,
+          message: 'Signed-Out successfully',
+        );
+        useCase.resultToReturn = result;
 
-      final expectation = expectLater(
-        cubit.stream,
-        emitsInOrder([
-          isA<StudentSignOutSubmitInProgress>(),
-          isA<StudentSignOutSubmitSuccess>(),
-        ]),
-      );
+        final expectation = expectLater(
+          cubit.stream,
+          emitsInOrder([
+            isA<StudentSignOutSubmitInProgress>(),
+            isA<StudentSignOutSubmitSuccess>(),
+          ]),
+        );
 
-      final returned = await cubit.submit(
-        request: _request,
-        isParent: false,
-      );
+        final returned = await cubit.submit(request: _request, isParent: false);
 
-      await expectation;
-      expect(returned, same(result));
-      expect(useCase.calls, 1);
-      expect(useCase.lastIsParent, isFalse);
-      expect(
-        (cubit.state as StudentSignOutSubmitSuccess).result,
-        same(result),
-      );
-    });
+        await expectation;
+        expect(returned, same(result));
+        expect(useCase.calls, 1);
+        expect(useCase.lastIsParent, isFalse);
+        expect(
+          (cubit.state as StudentSignOutSubmitSuccess).result,
+          same(result),
+        );
+      },
+    );
 
-    test('a success:false response is still a (non-throwing) Success state', () async {
-      const result = AttendanceActionResult(
-        success: false,
-        message: 'Already signed out',
-      );
-      useCase.resultToReturn = result;
+    test(
+      'a success:false response is still a (non-throwing) Success state',
+      () async {
+        const result = AttendanceActionResult(
+          success: false,
+          message: 'Already signed out',
+        );
+        useCase.resultToReturn = result;
 
-      final returned = await cubit.submit(
-        request: _request,
-        isParent: true,
-      );
+        final returned = await cubit.submit(request: _request, isParent: true);
 
-      expect(returned.success, isFalse);
-      expect(cubit.state, isA<StudentSignOutSubmitSuccess>());
-      expect(useCase.lastIsParent, isTrue);
-    });
+        expect(returned.success, isFalse);
+        expect(cubit.state, isA<StudentSignOutSubmitSuccess>());
+        expect(useCase.lastIsParent, isTrue);
+      },
+    );
 
     test('on error: emits InProgress then Failure and rethrows', () async {
       final error = Exception('boom');

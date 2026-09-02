@@ -1,6 +1,9 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/idempotency_key.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_sign_out_request.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_student_sign_out_usecase.dart';
@@ -16,12 +19,30 @@ import 'student_sign_out_submit_state.dart';
 /// centralises submit state, but the form keeps its exact success/navigation
 /// and catch behaviour, so nothing the user sees changes.
 class StudentSignOutSubmitCubit extends Cubit<StudentSignOutSubmitState> {
-  StudentSignOutSubmitCubit(this._submitStudentSignOut)
-    : super(const StudentSignOutSubmitInitial());
+  StudentSignOutSubmitCubit(
+    this._submitStudentSignOut, {
+    required StorageService storageService,
+    required ApiClient apiClient,
+  }) : _storage = storageService,
+       _apiClient = apiClient,
+       super(const StudentSignOutSubmitInitial());
 
   final SubmitStudentSignOutUseCase _submitStudentSignOut;
+  final StorageService _storage;
+  final ApiClient _apiClient;
 
   String? _idempotencyKey;
+
+  /// Fresh school-timezone resolution — re-syncs the server clock at the
+  /// moment it's called, per [SchoolTimezoneResolver]'s own "fetch fresh"
+  /// contract. Used by the View both to seed date/time on load and again
+  /// (fresh) right before submit.
+  Future<String> resolveFreshSchoolTimeZone() {
+    return SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: _storage,
+      apiClient: _apiClient,
+    );
+  }
 
   /// True while a submit is in flight.
   bool get isSubmitting => state is StudentSignOutSubmitInProgress;

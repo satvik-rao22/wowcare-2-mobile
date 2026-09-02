@@ -68,10 +68,7 @@ class StaffSignInGateCubit extends Cubit<StaffSignInGateState> {
     required StaffEntity? staff,
     required List<StaffEntity>? staffList,
   }) async {
-    final z = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: _storage,
-      apiClient: _apiClient,
-    );
+    final z = await resolveFreshSchoolTimeZone();
     if (isClosed) return;
     emit(state.copyWith(schoolIana: z));
     setCurrentDateTime();
@@ -184,9 +181,23 @@ class StaffSignInGateCubit extends Cubit<StaffSignInGateState> {
     );
   }
 
-  void setSelectedDate(DateTime date) => emit(state.copyWith(selectedDate: date));
+  /// Fresh school-timezone resolution for the submit flow — re-syncs the
+  /// server clock at the moment of submission, per
+  /// [SchoolTimezoneResolver]'s own "fetch fresh on submit" contract. Unlike
+  /// [initializeSchoolAndPersona], this does NOT touch state: the user's
+  /// already-picked date/time must not be reset right before they submit.
+  Future<String> resolveFreshSchoolTimeZone() {
+    return SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: _storage,
+      apiClient: _apiClient,
+    );
+  }
 
-  void setSelectedTime(TimeOfDay time) => emit(state.copyWith(selectedTime: time));
+  void setSelectedDate(DateTime date) =>
+      emit(state.copyWith(selectedDate: date));
+
+  void setSelectedTime(TimeOfDay time) =>
+      emit(state.copyWith(selectedTime: time));
 
   /// Removes [staff]; returns true when the list is now empty (View pops). When
   /// staff remain and none are unexpected, the gate is re-acknowledged.
@@ -282,7 +293,9 @@ class StaffSignInGateCubit extends Cubit<StaffSignInGateState> {
       page: 0,
       size: 500,
     );
-    return {for (final item in page.items) item.staffCode: item.isExpectedToday};
+    return {
+      for (final item in page.items) item.staffCode: item.isExpectedToday,
+    };
   }
 
   /// Fetches expected-today for the selected day + updates gate state. Token
@@ -295,7 +308,11 @@ class StaffSignInGateCubit extends Cubit<StaffSignInGateState> {
           unexpectedSignInAcknowledged: true,
         ),
       );
-      return (superseded: false, needsDialog: false, unexpectedNames: const <String>[]);
+      return (
+        superseded: false,
+        needsDialog: false,
+        unexpectedNames: const <String>[],
+      );
     }
 
     final token = ++_gateToken;
@@ -307,18 +324,30 @@ class StaffSignInGateCubit extends Cubit<StaffSignInGateState> {
         attendanceDate: dateStr,
       );
       if (isClosed || token != _gateToken) {
-        return (superseded: true, needsDialog: false, unexpectedNames: const <String>[]);
+        return (
+          superseded: true,
+          needsDialog: false,
+          unexpectedNames: const <String>[],
+        );
       }
       emit(state.copyWith(expectedTodayFromApi: map));
     } catch (_) {
       if (isClosed || token != _gateToken) {
-        return (superseded: true, needsDialog: false, unexpectedNames: const <String>[]);
+        return (
+          superseded: true,
+          needsDialog: false,
+          unexpectedNames: const <String>[],
+        );
       }
       emit(state.copyWith(expectedTodayFromApi: const {}));
     }
 
     if (isClosed || token != _gateToken) {
-      return (superseded: true, needsDialog: false, unexpectedNames: const <String>[]);
+      return (
+        superseded: true,
+        needsDialog: false,
+        unexpectedNames: const <String>[],
+      );
     }
 
     if (!hasUnexpectedAmongSelected()) {
@@ -328,7 +357,11 @@ class StaffSignInGateCubit extends Cubit<StaffSignInGateState> {
           unexpectedGateLoading: false,
         ),
       );
-      return (superseded: false, needsDialog: false, unexpectedNames: const <String>[]);
+      return (
+        superseded: false,
+        needsDialog: false,
+        unexpectedNames: const <String>[],
+      );
     }
 
     emit(

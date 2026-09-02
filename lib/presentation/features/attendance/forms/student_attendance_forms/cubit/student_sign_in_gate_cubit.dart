@@ -69,13 +69,22 @@ class StudentSignInGateCubit extends Cubit<StudentSignInGateState> {
   /// Resolves the school timezone id, then re-seeds date/time. Mirrors the
   /// widget's _bootstrapSchoolZone (minus the gate, which the View orchestrates).
   Future<void> bootstrapSchoolZone() async {
-    final z = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: _storage,
-      apiClient: _apiClient,
-    );
+    final z = await resolveFreshSchoolTimeZone();
     if (isClosed) return;
     emit(state.copyWith(schoolIana: z));
     setCurrentDateTime();
+  }
+
+  /// Fresh school-timezone resolution for the submit flow — re-syncs the
+  /// server clock at the moment of submission, per
+  /// [SchoolTimezoneResolver]'s own "fetch fresh on submit" contract. Unlike
+  /// [bootstrapSchoolZone], this does NOT touch state: the user's already-
+  /// picked date/time must not be reset right before they submit.
+  Future<String> resolveFreshSchoolTimeZone() {
+    return SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: _storage,
+      apiClient: _apiClient,
+    );
   }
 
   void setCurrentDateTime() {

@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_transfer_request.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
@@ -8,6 +10,12 @@ import 'package:wowcare/domain/features/classroom/repositories/classroom_reposit
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_transfer_submit_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_transfer_submit_state.dart';
+
+class _UnusedStorageService implements StorageService {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} was not expected');
+}
 
 const _request = StudentTransferRequest(
   transferDate: '2026-08-27',
@@ -74,6 +82,8 @@ void main() {
       cubit = StudentTransferSubmitCubit(
         useCase,
         getActiveClassroomsUseCase: _FakeGetActiveClassroomsUseCase(),
+        storageService: _UnusedStorageService(),
+        apiClient: ApiClient(baseUrl: 'http://unused'),
       );
     });
 

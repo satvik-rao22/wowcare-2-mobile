@@ -1255,7 +1255,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => SubmitStudentSignOutUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<StudentSignOutSubmitCubit>(
-    () => StudentSignOutSubmitCubit(serviceLocator()),
+    () => StudentSignOutSubmitCubit(
+      serviceLocator(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
+    ),
   );
   serviceLocator.registerFactory<SubmitStudentTransferUseCase>(
     () => SubmitStudentTransferUseCase(serviceLocator()),
@@ -1264,6 +1268,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StudentTransferSubmitCubit(
       serviceLocator(),
       getActiveClassroomsUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<SubmitStaffSignInUseCase>(
@@ -1280,7 +1286,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => SubmitStaffSignOutUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<StaffSignOutSubmitCubit>(
-    () => StaffSignOutSubmitCubit(serviceLocator()),
+    () => StaffSignOutSubmitCubit(
+      serviceLocator(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
+    ),
   );
   serviceLocator.registerFactory<SubmitStaffTransferUseCase>(
     () => SubmitStaffTransferUseCase(serviceLocator()),
@@ -1290,6 +1300,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator(),
       getStaffTransferFormListUseCase: serviceLocator(),
       getStaffProfileUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<DeleteStaffAttendanceRecordUseCase>(

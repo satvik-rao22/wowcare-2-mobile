@@ -1,6 +1,9 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/idempotency_key.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_daily.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_transfer_request.dart';
@@ -24,15 +27,31 @@ class StaffTransferSubmitCubit extends Cubit<StaffTransferSubmitState> {
     this._submitStaffTransfer, {
     required GetStaffTransferFormListUseCase getStaffTransferFormListUseCase,
     required GetStaffProfileUseCase getStaffProfileUseCase,
+    required StorageService storageService,
+    required ApiClient apiClient,
   }) : _getStaffTransferFormListUseCase = getStaffTransferFormListUseCase,
        _getStaffProfileUseCase = getStaffProfileUseCase,
+       _storage = storageService,
+       _apiClient = apiClient,
        super(const StaffTransferSubmitInitial());
 
   final SubmitStaffTransferUseCase _submitStaffTransfer;
   final GetStaffTransferFormListUseCase _getStaffTransferFormListUseCase;
   final GetStaffProfileUseCase _getStaffProfileUseCase;
+  final StorageService _storage;
+  final ApiClient _apiClient;
 
   String? _idempotencyKey;
+
+  /// Fresh school-timezone resolution — re-syncs the server clock at the
+  /// moment it's called, per [SchoolTimezoneResolver]'s own "fetch fresh"
+  /// contract.
+  Future<String> resolveFreshSchoolTimeZone() {
+    return SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: _storage,
+      apiClient: _apiClient,
+    );
+  }
 
   /// Delegates to [GetStaffTransferFormListUseCase] — used by the View to
   /// resolve a selected staff member's current classroom from today's

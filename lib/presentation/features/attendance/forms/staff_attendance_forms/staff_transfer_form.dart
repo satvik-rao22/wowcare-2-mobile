@@ -10,13 +10,11 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_transfer_request.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_transfer_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -109,10 +107,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
   Future<void> _loadPersonaFlags() async {
     String? schoolIana;
     try {
-      schoolIana = await SchoolTimezoneResolver.resolveForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-        apiClient: serviceLocator<ApiClient>(),
-      );
+      schoolIana = await _submitCubit.resolveFreshSchoolTimeZone();
     } catch (_) {}
 
     final isAdmin = await _resolveIsStaffAdminPersona();
@@ -396,10 +391,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       for (final code in staffCodes) code: toClassroomCode,
     };
 
-    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
-    );
+    final schoolTimeZone = await _submitCubit.resolveFreshSchoolTimeZone();
     final schoolToday = SchoolZoneDateTime.schoolCalendarTodayOnly(
       schoolTimeZone,
     );

@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_daily.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_transfer_request.dart';
@@ -10,6 +12,12 @@ import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart
 import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_transfer_submit_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_transfer_submit_state.dart';
+
+class _UnusedStorageService implements StorageService {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} was not expected');
+}
 
 const _request = StaffTransferRequest(
   staffCode: 'STF-1',
@@ -108,6 +116,8 @@ void main() {
         useCase,
         getStaffTransferFormListUseCase: _FakeGetStaffTransferFormListUseCase(),
         getStaffProfileUseCase: _FakeGetStaffProfileUseCase(),
+        storageService: _UnusedStorageService(),
+        apiClient: ApiClient(baseUrl: 'http://unused'),
       );
     });
 

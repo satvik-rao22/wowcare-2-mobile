@@ -1,6 +1,9 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/idempotency_key.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_transfer_request.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_student_transfer_usecase.dart';
@@ -21,13 +24,29 @@ class StudentTransferSubmitCubit extends Cubit<StudentTransferSubmitState> {
   StudentTransferSubmitCubit(
     this._submitStudentTransfer, {
     required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
+    required StorageService storageService,
+    required ApiClient apiClient,
   }) : _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
+       _storage = storageService,
+       _apiClient = apiClient,
        super(const StudentTransferSubmitInitial());
 
   final SubmitStudentTransferUseCase _submitStudentTransfer;
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
+  final StorageService _storage;
+  final ApiClient _apiClient;
 
   String? _idempotencyKey;
+
+  /// Fresh school-timezone resolution — re-syncs the server clock at the
+  /// moment it's called, per [SchoolTimezoneResolver]'s own "fetch fresh"
+  /// contract.
+  Future<String> resolveFreshSchoolTimeZone() {
+    return SchoolTimezoneResolver.resolveForCurrentSchool(
+      storage: _storage,
+      apiClient: _apiClient,
+    );
+  }
 
   /// Delegates to [GetActiveClassroomsUseCase] — used by the View to populate
   /// the transfer-target classroom dropdown.
