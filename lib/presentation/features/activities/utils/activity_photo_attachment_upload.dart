@@ -5,7 +5,11 @@ import 'package:flutter/foundation.dart';
 import 'package:mime/mime.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/domain/features/activity/repositories/activity_media_upload_repository.dart';
+import 'package:wowcare/domain/features/activity/usecases/upload_activity_assets_usecase.dart';
+import 'package:wowcare/domain/features/activity/usecases/wait_activity_assets_ready_usecase.dart';
+
+import '../../../../app/di/di.dart';
 
 /// Holds upload session asset codes keyed by local file path (one coordinator per screen).
 class ActivityPhotoAttachmentState {
@@ -25,7 +29,6 @@ class ActivityPhotoAttachmentState {
 /// Presign → PUT → complete → poll, then build attachment rows for activity creation.
 /// [bindingMode] must match the activity type (`PER_STUDENT` or `SHARED`).
 Future<List<ActivityAttachment>> uploadActivityPhotoAttachments({
-  required ImageUploadService uploadService,
   required ActivityPhotoAttachmentState state,
   required List<File> files,
   required String classroomCode,
@@ -75,31 +78,9 @@ Future<List<ActivityAttachment>> uploadActivityPhotoAttachments({
     setState(() => setUploading(true));
     try {
       onOverallProgressPercent?.call(0);
-      final uploadSession = await uploadService.createActivityUploadSession(
-        organizationCode: organizationCode,
-        schoolCode: schoolCode,
-        classroomCode: classroomCode,
-        activityTypeCode: activityTypeCode,
-        bindingMode: bindingMode,
-        studentCodes: studentCodes,
-        cancelToken: cancelToken,
-      );
 
-      final sessionAssetCodes = <String>[];
-      // Keyed separately from state.assetCodeByPath so a photo is only
-      // considered "done" (and eligible for Save/attach) once
-      // waitUntilAssetsReady below actually confirms it — completing the
-      // S3 PUT/complete call is not the same as the backend reporting the
-      // asset ready to link, and writing straight into
-      // state.assetCodeByPath here let a subsequent ready-poll timeout pass
-      // through silently: the map already held the assetCode, so the caller
-      // believed upload had finished and let Save submit an asset the
-      // backend then rejected with 409 "not ready for linking".
-      final pendingAssetCodeByPath = <String, String>{};
-      for (var i = 0; i < missing.length; i++) {
-        final photo = missing[i];
-        final fileIndex = i + 1;
-        final totalFiles = missing.length;
+      final items = <ActivityUploadItem>[];
+      for (final photo in missing) {
         final fileName = photo.uri.pathSegments.isNotEmpty
             ? photo.uri.pathSegments.last
             : 'photo.jpg';
@@ -112,54 +93,56 @@ Future<List<ActivityAttachment>> uploadActivityPhotoAttachments({
         final contentType =
             lookupMimeType(photo.path) ??
             FilePickerUtils.getMimeType(fileName.split('.').last);
-        final contentLengthBytes = await photo.length();
-        final checksumSha256 =
-            await uploadService.computeFileChecksumSha256(photo);
-        final presign = await uploadService.createAssetPresign(
-          sessionCode: uploadSession.sessionCode,
-          documentApiBasePath: uploadSession.documentApiBasePath,
-          fileName: fileName,
-          contentType: contentType,
-          contentLengthBytes: contentLengthBytes,
-          checksumSha256: checksumSha256,
-          mediaType: 'IMAGE',
-          ownerType: ownerType,
-          ownerCode: ownerCode,
-          cancelToken: cancelToken,
+        items.add(
+          ActivityUploadItem(
+            file: photo,
+            fileName: fileName,
+            contentType: contentType,
+            mediaType: 'IMAGE',
+          ),
         );
-        await uploadService.uploadFileToPresignedUrl(
-          file: photo,
-          presignedPutUrl: presign.presignedPutUrl,
-          requiredHeaders: presign.requiredHeaders,
-          fallbackContentType: contentType,
-          onProgress: (_, __, percent) {
-            final overallFraction =
-                ((fileIndex - 1) + (percent / 100)) / totalFiles;
-            final overallPercent =
-                (overallFraction * 100).clamp(0, 100).round();
-            if (mounted()) {
-              setState(() => onOverallProgressPercent?.call(overallPercent));
-            }
-          },
-          cancelToken: cancelToken,
-        );
-        await uploadService.completeAssetUpload(
-          sessionCode: uploadSession.sessionCode,
-          assetCode: presign.assetCode,
-          documentApiBasePath: uploadSession.documentApiBasePath,
-          cancelToken: cancelToken,
-        );
-        pendingAssetCodeByPath[photo.path] = presign.assetCode;
-        sessionAssetCodes.add(presign.assetCode);
-        if (mounted()) {
-          setState(() => onFileCompleted?.call(fileIndex, totalFiles));
-        }
       }
-      await uploadService.waitUntilAssetsReady(
-        sessionCode: uploadSession.sessionCode,
-        expectedAssetCodes: sessionAssetCodes,
+
+      final result = await serviceLocator<UploadActivityAssetsUseCase>().call(
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+        classroomCode: classroomCode,
+        activityTypeCode: activityTypeCode,
+        bindingMode: bindingMode,
+        studentCodes: studentCodes,
+        ownerType: ownerType,
+        ownerCode: ownerCode,
+        items: items,
+        onItemProgress: (itemIndex, totalItems, percent) {
+          final overallFraction =
+              ((itemIndex - 1) + (percent / 100)) / totalItems;
+          final overallPercent =
+              (overallFraction * 100).clamp(0, 100).round();
+          if (mounted()) {
+            setState(() => onOverallProgressPercent?.call(overallPercent));
+          }
+        },
+        onItemComplete: (completed, total) {
+          if (mounted()) {
+            setState(() => onFileCompleted?.call(completed, total));
+          }
+        },
+        cancelToken: cancelToken,
       );
-      state.assetCodeByPath.addAll(pendingAssetCodeByPath);
+
+      // Only mark a photo "done" (eligible for Save/attach) once the blocking
+      // ready-poll confirms it — completing the S3 PUT/complete call is not the
+      // same as the backend reporting the asset ready to link. Writing into
+      // state.assetCodeByPath before this (i.e. inside the upload) let a
+      // subsequent ready-poll timeout pass through silently: the map already
+      // held the assetCode, so the caller believed upload had finished and let
+      // Save submit an asset the backend then rejected with 409 "not ready for
+      // linking". Hence the wait precedes the addAll below.
+      await serviceLocator<WaitActivityAssetsReadyUseCase>().call(
+        sessionCode: result.sessionCode,
+        assetCodes: result.newAssetCodes,
+      );
+      state.assetCodeByPath.addAll(result.assetCodeByPath);
       onOverallProgressPercent?.call(100);
     } finally {
       if (mounted()) {

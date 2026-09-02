@@ -20,7 +20,6 @@ import '../../../../../domain/features/activity/entities/activity_attachment.dar
 import '../../../../../domain/features/activity/entities/activity_parameter_value.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../cubit/activity_editor_cubit.dart';
-import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
@@ -125,7 +124,6 @@ class _OutdoorActivityViewState extends State<_OutdoorActivityView> {
   int get _uploadedPhotoCount => _attachmentState.uploadedCount(_newPhotos);
 
   ActivityEditorCubit get _editor => context.read<ActivityEditorCubit>();
-  late final ImageUploadService _imageUploadService;
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   bool _isAdminApprovalRequired(ActivityItem activity) {
@@ -150,8 +148,6 @@ class _OutdoorActivityViewState extends State<_OutdoorActivityView> {
   void initState() {
     super.initState();
     bootstrapActivitySchoolTimezone();
-
-    _imageUploadService = serviceLocator<ImageUploadService>();
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
@@ -641,7 +637,6 @@ class _OutdoorActivityViewState extends State<_OutdoorActivityView> {
     final bindingMode = isShared ? 'SHARED' : 'PER_STUDENT';
 
     return uploadActivityPhotoAttachments(
-      uploadService: _imageUploadService,
       state: _attachmentState,
       files: _newPhotos,
       classroomCode: classroomCode,

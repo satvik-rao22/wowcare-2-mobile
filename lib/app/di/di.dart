@@ -216,6 +216,8 @@ import '../../domain/features/attendance/usecases/get_staff_today_sign_in_status
 import '../../domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
+import '../../domain/features/attendance/usecases/get_student_sign_in_status_at_time_usecase.dart';
+import '../../domain/features/attendance/usecases/get_staff_sign_in_status_at_time_usecase.dart';
 import '../../domain/features/attendance/usecases/update_student_attendance_record_usecase.dart';
 import '../../domain/features/attendance/usecases/submit_student_sign_in_usecase.dart';
 import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_cubit.dart';
@@ -310,6 +312,7 @@ import '../../presentation/features/activities/cubit/bottle_activity_cubit.dart'
 import '../../presentation/features/activities/cubit/nap_activity_cubit.dart';
 import '../../presentation/features/activities/cubit/incident_activity_cubit.dart';
 import '../../presentation/features/activities/cubit/activity_feed_scope_cubit.dart';
+import '../../presentation/features/activities/cubit/activity_feed_cubit.dart';
 import '../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../domain/features/activity/usecases/create_shared_activities_usecase.dart';
@@ -322,6 +325,11 @@ import '../../domain/features/activity/usecases/guardian_parent_signature_usecas
 import '../../domain/features/activity/usecases/reject_activity_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_upload_sessions_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_asset_presign_usecase.dart';
+import '../../domain/features/activity/repositories/activity_media_upload_repository.dart';
+import '../../domain/features/activity/usecases/upload_activity_assets_usecase.dart';
+import '../../domain/features/activity/usecases/wait_activity_assets_ready_usecase.dart';
+import '../../domain/features/activity/usecases/get_activity_upload_asset_statuses_usecase.dart';
+import '../../data/features/activity/repositories/activity_media_upload_repository_impl.dart';
 import '../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
 import '../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
 import '../../domain/features/activity/usecases/get_mark_activity_student_list_usecase.dart';
@@ -752,6 +760,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<ActivityRepository>(
     () => ActivityRepositoryImpl(serviceLocator(), serviceLocator()),
+  );
+  serviceLocator.registerLazySingleton<ActivityMediaUploadRepository>(
+    () => ActivityMediaUploadRepositoryImpl(serviceLocator<ImageUploadService>()),
   );
   // ===== COMMUNICATION V2.1 — REALTIME DATA SOURCES (Firestore) =====
   serviceLocator.registerLazySingleton<ConversationRealtimeDataSource>(
@@ -1204,6 +1215,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStudentTodaySignInStatusMapUseCase>(
     () => GetStudentTodaySignInStatusMapUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetStudentSignInStatusAtTimeUseCase>(
+    () => GetStudentSignInStatusAtTimeUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStaffSignInStatusAtTimeUseCase>(
+    () => GetStaffSignInStatusAtTimeUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<UpdateStudentAttendanceRecordUseCase>(
     () => UpdateStudentAttendanceRecordUseCase(serviceLocator()),
   );
@@ -1627,6 +1644,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storageService: serviceLocator<StorageService>(),
     ),
   );
+  // Testable, View-free daily-feed ViewModel (foundation for the later
+  // activity_daily_tab View migration; not yet wired into any View). Reuses the
+  // ActivityFeedScopeCubit as its ActivityFeedDataSource seam.
+  serviceLocator.registerFactory<ActivityFeedCubit>(
+    () => ActivityFeedCubit(
+      dataSource: serviceLocator<ActivityFeedScopeCubit>(),
+      storageService: serviceLocator<StorageService>(),
+    ),
+  );
   serviceLocator.registerFactory<GetActivityTypeDetailsUseCase>(
     () => GetActivityTypeDetailsUseCase(serviceLocator()),
   );
@@ -1662,6 +1688,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<CreateActivityAssetPresignUseCase>(
     () => CreateActivityAssetPresignUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UploadActivityAssetsUseCase>(
+    () => UploadActivityAssetsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<WaitActivityAssetsReadyUseCase>(
+    () => WaitActivityAssetsReadyUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetActivityUploadAssetStatusesUseCase>(
+    () => GetActivityUploadAssetStatusesUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetDailyActivityFeedUseCase>(
     () => GetDailyActivityFeedUseCase(serviceLocator()),
