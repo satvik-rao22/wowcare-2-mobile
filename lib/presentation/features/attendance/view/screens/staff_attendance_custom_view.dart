@@ -25,7 +25,6 @@ import 'package:wowcare/presentation/features/attendance/util/attendance_school_
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 
 class StaffAttendanceCustomView extends StatefulWidget {
   const StaffAttendanceCustomView({super.key, this.contentOnly = false});
@@ -55,8 +54,6 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
 
   late final StaffAttendanceCustomCubit _cubit;
   late final ClassroomCubit _classroomCubit;
-  final GetClassroomByCodeUseCase _getClassroomByCode =
-      serviceLocator<GetClassroomByCodeUseCase>();
   final Map<String, String> _classroomNameByCode = {};
   final Set<String> _classroomFetchInFlight = {};
 
@@ -165,16 +162,13 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
 
   Future<void> _fetchClassroomName(String code) async {
     try {
-      final details = await _getClassroomByCode(code: code);
+      final name = await _cubit.fetchClassroomName(code);
       if (!mounted) return;
-      final name = details.name.trim();
-      if (name.isNotEmpty) {
+      if (name != null && name.isNotEmpty) {
         setState(() {
           _classroomNameByCode[code] = name;
         });
       }
-    } catch (_) {
-      // Keep code when lookup fails.
     } finally {
       _classroomFetchInFlight.remove(code);
     }

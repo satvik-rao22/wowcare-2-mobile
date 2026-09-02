@@ -42,7 +42,6 @@ import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.da
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_daily.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_absent.dart'
     show StaffAttendanceAbsentItem;
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
@@ -117,8 +116,6 @@ class _StaffAttendanceDailyViewScreenState
   final StaffAttendanceDeleteCubit _deleteCubit =
       serviceLocator<StaffAttendanceDeleteCubit>();
   String? _loggedInUserName;
-  final GetClassroomByCodeUseCase _getClassroomByCode =
-      serviceLocator<GetClassroomByCodeUseCase>();
   final Map<String, String> _absentToggleClassroomNameByCode = {};
   final Set<String> _absentToggleClassroomFetchInFlight = {};
   // The backend only allows SCHOOL_ADMIN/ORGANIZATION_ADMIN to edit/backdate
@@ -508,16 +505,13 @@ class _StaffAttendanceDailyViewScreenState
 
   Future<void> _fetchStaffAbsentToggleClassroomName(String code) async {
     try {
-      final details = await _getClassroomByCode(code: code);
+      final name = await _cubit.fetchClassroomName(code);
       if (!mounted) return;
-      final name = details.name.trim();
-      if (name.isNotEmpty) {
+      if (name != null && name.isNotEmpty) {
         setState(() {
           _absentToggleClassroomNameByCode[code] = name;
         });
       }
-    } catch (_) {
-      // Keep showing classroom code when lookup fails.
     } finally {
       _absentToggleClassroomFetchInFlight.remove(code);
     }

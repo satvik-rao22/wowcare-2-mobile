@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 
 import '../../../../domain/features/attendance/entities/staff_attendance_daily.dart';
 import '../../../../domain/features/attendance/usecases/get_staff_attendance_custom_usecase.dart';
@@ -11,12 +12,29 @@ part 'staff_attendance_custom_state.dart';
 class StaffAttendanceCustomCubit extends Cubit<StaffAttendanceCustomState> {
   StaffAttendanceCustomCubit({
     required GetStaffAttendanceCustomUseCase getStaffAttendanceCustomUseCase,
-  })  : _getStaffAttendanceCustomUseCase = getStaffAttendanceCustomUseCase,
-        super(const StaffAttendanceCustomState.initial());
+    required GetClassroomByCodeUseCase getClassroomByCodeUseCase,
+  }) : _getStaffAttendanceCustomUseCase = getStaffAttendanceCustomUseCase,
+       _getClassroomByCodeUseCase = getClassroomByCodeUseCase,
+       super(const StaffAttendanceCustomState.initial());
 
   final GetStaffAttendanceCustomUseCase _getStaffAttendanceCustomUseCase;
+  final GetClassroomByCodeUseCase _getClassroomByCodeUseCase;
 
   static const int _pageSize = 10;
+
+  /// Resolves a classroom's display name from its code — used by the View's
+  /// own on-demand name cache when a row's classroom name isn't already
+  /// known. Returns null (rather than throwing) on failure, matching the
+  /// View's previous "keep code when lookup fails" behavior.
+  Future<String?> fetchClassroomName(String code) async {
+    try {
+      final details = await _getClassroomByCodeUseCase(code: code);
+      final name = details.name.trim();
+      return name.isNotEmpty ? name : null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<void> loadInitial({
     required DateTime fromDate,
@@ -41,7 +59,8 @@ class StaffAttendanceCustomCubit extends Cubit<StaffAttendanceCustomState> {
     List<String>? tagCodes,
     String? search,
   }) async {
-    final filtersChanged = !listEquals(classroomCodes, state.classroomCodes) ||
+    final filtersChanged =
+        !listEquals(classroomCodes, state.classroomCodes) ||
         !listEquals(tagCodes, state.tagCodes) ||
         search != state.search ||
         state.fromDate != fromDate ||
@@ -51,16 +70,18 @@ class StaffAttendanceCustomCubit extends Cubit<StaffAttendanceCustomState> {
     final fromDateString = _formatDate(fromDate);
     final toDateString = _formatDate(toDate);
 
-    emit(state.copyWith(
-      isLoading: state.items.isEmpty,
-      isRefreshing: true,
-      errorMessage: null,
-      fromDate: fromDate,
-      toDate: toDate,
-      classroomCodes: classroomCodes,
-      tagCodes: tagCodes,
-      search: search,
-    ));
+    emit(
+      state.copyWith(
+        isLoading: state.items.isEmpty,
+        isRefreshing: true,
+        errorMessage: null,
+        fromDate: fromDate,
+        toDate: toDate,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        search: search,
+      ),
+    );
 
     try {
       final firstPage = await _getStaffAttendanceCustomUseCase(
@@ -75,24 +96,28 @@ class StaffAttendanceCustomCubit extends Cubit<StaffAttendanceCustomState> {
 
       if (isClosed) return;
 
-      emit(StaffAttendanceCustomState.loaded(
-        items: firstPage.items,
-        currentPage: firstPage.page,
-        hasMore: firstPage.hasMore,
-        isFromCache: false,
-        fromDate: fromDate,
-        toDate: toDate,
-        classroomCodes: classroomCodes,
-        tagCodes: tagCodes,
-        search: search,
-      ));
+      emit(
+        StaffAttendanceCustomState.loaded(
+          items: firstPage.items,
+          currentPage: firstPage.page,
+          hasMore: firstPage.hasMore,
+          isFromCache: false,
+          fromDate: fromDate,
+          toDate: toDate,
+          classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
+          search: search,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoading: false,
-        isRefreshing: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -120,18 +145,22 @@ class StaffAttendanceCustomCubit extends Cubit<StaffAttendanceCustomState> {
 
       if (isClosed) return;
 
-      emit(state.copyWith(
-        items: [...state.items, ...page.items],
-        currentPage: page.page,
-        hasMore: page.hasMore,
-        isLoadingMore: false,
-      ));
+      emit(
+        state.copyWith(
+          items: [...state.items, ...page.items],
+          currentPage: page.page,
+          hasMore: page.hasMore,
+          isLoadingMore: false,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoadingMore: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -139,4 +168,3 @@ class StaffAttendanceCustomCubit extends Cubit<StaffAttendanceCustomState> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 }
-

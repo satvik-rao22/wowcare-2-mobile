@@ -5,6 +5,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
@@ -24,6 +25,7 @@ class StudentAttendanceDailyCubit extends Cubit<StudentAttendanceDailyState> {
     required GetTagNameCodeMapForSchoolUseCase
     getTagNameCodeMapForSchoolUseCase,
     required StorageService storageService,
+    required GetClassroomByCodeUseCase getClassroomByCodeUseCase,
   }) : _getStudentAttendanceDailyUseCase = getStudentAttendanceDailyUseCase,
        _getStudentAttendanceExpectedSummaryUseCase =
            getStudentAttendanceExpectedSummaryUseCase,
@@ -31,6 +33,7 @@ class StudentAttendanceDailyCubit extends Cubit<StudentAttendanceDailyState> {
        _getStudentCountsUseCase = getStudentCountsUseCase,
        _getTagNameCodeMapForSchoolUseCase = getTagNameCodeMapForSchoolUseCase,
        _storageService = storageService,
+       _getClassroomByCodeUseCase = getClassroomByCodeUseCase,
        super(const StudentAttendanceDailyState.initial());
 
   final GetStudentAttendanceDailyUseCase _getStudentAttendanceDailyUseCase;
@@ -40,8 +43,23 @@ class StudentAttendanceDailyCubit extends Cubit<StudentAttendanceDailyState> {
   final GetStudentCountsUseCase _getStudentCountsUseCase;
   final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
   final StorageService _storageService;
+  final GetClassroomByCodeUseCase _getClassroomByCodeUseCase;
 
   static const int _pageSize = 10;
+
+  /// Resolves a classroom's display name from its code — used by the View's
+  /// own on-demand name cache when a row's classroom name isn't already
+  /// known. Returns null (rather than throwing) on failure, matching the
+  /// View's previous "keep code when lookup fails" behavior.
+  Future<String?> fetchClassroomName(String code) async {
+    try {
+      final details = await _getClassroomByCodeUseCase(code: code);
+      final name = details.name.trim();
+      return name.isNotEmpty ? name : null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   String? _classroomCodeForSummary(List<String>? classroomCodes) {
     if (classroomCodes == null || classroomCodes.isEmpty) return null;

@@ -40,7 +40,6 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_edit_attendance_form.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart'
@@ -148,8 +147,6 @@ class _StudentAttendanceDailyViewScreenState
   /// Owns the delete-attendance call (View -> Cubit -> UseCase -> Repository).
   final StudentAttendanceDeleteCubit _deleteCubit =
       serviceLocator<StudentAttendanceDeleteCubit>();
-  final GetClassroomByCodeUseCase _getClassroomByCode =
-      serviceLocator<GetClassroomByCodeUseCase>();
   final Map<String, String> _absentToggleClassroomNameByCode = {};
   final Set<String> _absentToggleClassroomFetchInFlight = {};
 
@@ -563,16 +560,13 @@ class _StudentAttendanceDailyViewScreenState
 
   Future<void> _fetchAbsentToggleClassroomName(String code) async {
     try {
-      final details = await _getClassroomByCode(code: code);
+      final name = await _cubit.fetchClassroomName(code);
       if (!mounted) return;
-      final name = details.name.trim();
-      if (name.isNotEmpty) {
+      if (name != null && name.isNotEmpty) {
         setState(() {
           _absentToggleClassroomNameByCode[code] = name;
         });
       }
-    } catch (_) {
-      // Keep showing classroom code when lookup fails.
     } finally {
       _absentToggleClassroomFetchInFlight.remove(code);
     }

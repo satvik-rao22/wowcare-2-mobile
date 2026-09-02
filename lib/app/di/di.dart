@@ -762,7 +762,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ActivityRepositoryImpl(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerLazySingleton<ActivityMediaUploadRepository>(
-    () => ActivityMediaUploadRepositoryImpl(serviceLocator<ImageUploadService>()),
+    () =>
+        ActivityMediaUploadRepositoryImpl(serviceLocator<ImageUploadService>()),
   );
   // ===== COMMUNICATION V2.1 — REALTIME DATA SOURCES (Firestore) =====
   serviceLocator.registerLazySingleton<ConversationRealtimeDataSource>(
@@ -2167,6 +2168,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentCountsUseCase: serviceLocator(),
       getTagNameCodeMapForSchoolUseCase: serviceLocator(),
       storageService: serviceLocator(),
+      getClassroomByCodeUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<IndividualMovementsCubit>(
@@ -2197,6 +2199,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StudentAttendanceCustomCubit(
       getStudentAttendanceCustomUseCase: serviceLocator(),
       repository: serviceLocator(),
+      getClassroomByCodeUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StaffAttendanceDailyCubit>(
@@ -2205,16 +2208,19 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStaffAttendanceExpectedSummaryUseCase: serviceLocator(),
       getStaffCountUseCase: serviceLocator(),
       storageService: serviceLocator(),
+      getClassroomByCodeUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StaffAttendanceCustomCubit>(
     () => StaffAttendanceCustomCubit(
       getStaffAttendanceCustomUseCase: serviceLocator(),
+      getClassroomByCodeUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StaffAttendanceAbsentCubit>(
     () => StaffAttendanceAbsentCubit(
       getStaffAttendanceAbsentUseCase: serviceLocator(),
+      getClassroomByCodeUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StaffAttendanceAbsentToggleCubit>(
