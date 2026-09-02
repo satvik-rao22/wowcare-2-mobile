@@ -412,3 +412,36 @@ DateTime parseAttendanceTimeString(String timeString) {
     return ServerTimeService.instance.now();
   }
 }
+
+/// Attended time: prefers the client-computed label from [attendedTimeDisplay];
+/// else derives it from [signInTime]/[signOutTime]. Shared by
+/// [StaffAttendanceCard] and [StudentAttendanceCard] — was identical inline
+/// math duplicated in both `build()` methods.
+String computeAttendedDurationLabel({
+  required String? attendedTimeDisplay,
+  required String? signInTime,
+  required String? signOutTime,
+}) {
+  String duration = (attendedTimeDisplay ?? '').trim();
+  if (duration.isEmpty && signInTime != null && signOutTime != null) {
+    try {
+      final parsedSignIn = parseAttendanceTimeString(signInTime);
+      final parsedSignOut = parseAttendanceTimeString(signOutTime);
+      var end = parsedSignOut;
+      if (end.isBefore(parsedSignIn)) {
+        end = end.add(const Duration(days: 1));
+      }
+      final difference = end.difference(parsedSignIn);
+      if (difference.inSeconds == 0) {
+        duration = '0 hours 0 minutes';
+      } else if (difference.inSeconds > 0) {
+        final hours = difference.inHours;
+        final minutes = difference.inMinutes % 60;
+        duration = '$hours hours $minutes minutes';
+      }
+    } catch (e) {
+      duration = '';
+    }
+  }
+  return duration;
+}

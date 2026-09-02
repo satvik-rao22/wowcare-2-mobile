@@ -110,30 +110,11 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
         ? '${student.signOutTime} By ${student.signOutBy ?? 'Unknown'}'
         : 'Not Yet Signed Out';
 
-    // Attended time: prefer client-computed label from parent; else derive locally.
-    String duration = (student.attendedTimeDisplay ?? '').trim();
-    if (duration.isEmpty &&
-        student.signInTime != null &&
-        student.signOutTime != null) {
-      try {
-        final signInTime = parseAttendanceTimeString(student.signInTime!);
-        final signOutTime = parseAttendanceTimeString(student.signOutTime!);
-        var end = signOutTime;
-        if (end.isBefore(signInTime)) {
-          end = end.add(const Duration(days: 1));
-        }
-        final difference = end.difference(signInTime);
-        if (difference.inSeconds == 0) {
-          duration = '0 hours 0 minutes';
-        } else if (difference.inSeconds > 0) {
-          final hours = difference.inHours;
-          final minutes = difference.inMinutes % 60;
-          duration = '$hours hours $minutes minutes';
-        }
-      } catch (e) {
-        duration = '';
-      }
-    }
+    final duration = computeAttendedDurationLabel(
+      attendedTimeDisplay: student.attendedTimeDisplay,
+      signInTime: student.signInTime,
+      signOutTime: student.signOutTime,
+    );
 
     final avatarSize = isTablet ? 52.0 : 50.0;
     final headerPadding = EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16);

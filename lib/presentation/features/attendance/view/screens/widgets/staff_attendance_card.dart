@@ -109,29 +109,11 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
         ? '${staff.signOutTime} By ${staff.signOutBy ?? 'Unknown'}'
         : 'Not Yet Signed Out';
 
-    String duration = (staff.attendedTimeDisplay ?? '').trim();
-    if (duration.isEmpty &&
-        staff.signInTime != null &&
-        staff.signOutTime != null) {
-      try {
-        final signInTime = parseAttendanceTimeString(staff.signInTime!);
-        final signOutTime = parseAttendanceTimeString(staff.signOutTime!);
-        var end = signOutTime;
-        if (end.isBefore(signInTime)) {
-          end = end.add(const Duration(days: 1));
-        }
-        final difference = end.difference(signInTime);
-        if (difference.inSeconds == 0) {
-          duration = '0 hours 0 minutes';
-        } else if (difference.inSeconds > 0) {
-          final hours = difference.inHours;
-          final minutes = difference.inMinutes % 60;
-          duration = '$hours hours $minutes minutes';
-        }
-      } catch (e) {
-        duration = '';
-      }
-    }
+    final duration = computeAttendedDurationLabel(
+      attendedTimeDisplay: staff.attendedTimeDisplay,
+      signInTime: staff.signInTime,
+      signOutTime: staff.signOutTime,
+    );
 
     final avatarSize = isTablet ? 52.0 : 50.0;
     final headerPadding = EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16);
