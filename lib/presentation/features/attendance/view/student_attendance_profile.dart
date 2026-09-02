@@ -10,6 +10,7 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_profile_field.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
@@ -44,157 +45,93 @@ import 'package:wowcare/core/util/server_time_service.dart';
 
 enum ProfileAbsentMarkMethod { gps, qr, kiosk, app, web, system }
 
-// Simple field widget for displaying label and text
-class _AttendanceField extends StatelessWidget {
-  final String label;
-  final String text;
-  final bool showTransferIcon;
-  final ProfileAbsentMarkMethod? markMethod;
-
-  const _AttendanceField({
-    required this.label,
-    required this.text,
-    this.showTransferIcon = false,
-    this.markMethod,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 120,
-          child: Text(
-            label,
-            style: AppTextStyles.label,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+/// Builds the small method-tooltip icon for [AttendanceProfileField]'s
+/// [AttendanceProfileField.methodIcon] slot. Kept local (rather than shared
+/// with the staff profile screen) because the two personas' method sets
+/// genuinely differ — staff adds pin/transfer/nfc/biometric.
+Widget _absentMethodIcon(ProfileAbsentMarkMethod method) {
+  const double size = 16;
+  switch (method) {
+    case ProfileAbsentMarkMethod.gps:
+      return Tooltip(
+        message: 'GPS',
+        child: SvgPicture.asset(
+          MediaRes.gpsMethodIcon,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
           ),
         ),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              if (showTransferIcon) ...[
-                Tooltip(
-                  message: 'Transfer',
-                  child: SvgPicture.asset(
-                    MediaRes.transfer,
-                    width: 16,
-                    height: 16,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.themeColor,
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.s6),
-              ],
-              if (markMethod != null) ...[
-                _methodIcon(markMethod!),
-                const SizedBox(width: AppSpacing.s6),
-              ],
-              Flexible(
-                child: Text(
-                  text,
-                  textAlign: TextAlign.end,
-                  style: AppTextStyles.body,
-                ),
-              ),
-            ],
+      );
+    case ProfileAbsentMarkMethod.qr:
+      return Tooltip(
+        message: 'QR',
+        child: SvgPicture.asset(
+          MediaRes.qrAttendanceIcon,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _methodIcon(ProfileAbsentMarkMethod method) {
-    const double size = 16;
-    switch (method) {
-      case ProfileAbsentMarkMethod.gps:
-        return Tooltip(
-          message: 'GPS',
-          child: SvgPicture.asset(
-            MediaRes.gpsMethodIcon,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
+      );
+    case ProfileAbsentMarkMethod.kiosk:
+      return Tooltip(
+        message: 'Kiosk',
+        child: SvgPicture.asset(
+          MediaRes.kioskAttendenceIcons,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
           ),
-        );
-      case ProfileAbsentMarkMethod.qr:
-        return Tooltip(
-          message: 'QR',
-          child: SvgPicture.asset(
-            MediaRes.qrAttendanceIcon,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
+        ),
+      );
+    case ProfileAbsentMarkMethod.app:
+      return Tooltip(
+        message: 'APP',
+        child: SvgPicture.asset(
+          MediaRes.appMethodIcon,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
           ),
-        );
-      case ProfileAbsentMarkMethod.kiosk:
-        return Tooltip(
-          message: 'Kiosk',
-          child: SvgPicture.asset(
-            MediaRes.kioskAttendenceIcons,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
+        ),
+      );
+    case ProfileAbsentMarkMethod.web:
+      return Tooltip(
+        message: 'WEB',
+        child: SvgPicture.asset(
+          MediaRes.webMethodIcon,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
           ),
-        );
-      case ProfileAbsentMarkMethod.app:
-        return Tooltip(
-          message: 'APP',
-          child: SvgPicture.asset(
-            MediaRes.appMethodIcon,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
+        ),
+      );
+    case ProfileAbsentMarkMethod.system:
+      // Auto sign-out performed by the system (no person). Matches web's
+      // gear/"System" indicator.
+      return Tooltip(
+        message: 'System',
+        child: SvgPicture.asset(
+          MediaRes.systemMethodIcon,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
           ),
-        );
-      case ProfileAbsentMarkMethod.web:
-        return Tooltip(
-          message: 'WEB',
-          child: SvgPicture.asset(
-            MediaRes.webMethodIcon,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
-          ),
-        );
-      case ProfileAbsentMarkMethod.system:
-        // Auto sign-out performed by the system (no person). Matches web's
-        // gear/"System" indicator.
-        return Tooltip(
-          message: 'System',
-          child: SvgPicture.asset(
-            MediaRes.systemMethodIcon,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
-          ),
-        );
-    }
+        ),
+      );
   }
 }
 
@@ -1718,16 +1655,18 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         children: [
           Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(label: 'Classroom', text: attendance.roomName),
+          AttendanceProfileField(label: 'Classroom', text: attendance.roomName),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(
+          AttendanceProfileField(
             label: 'Sign In',
             text: formatTime(attendance.signInTime),
             showTransferIcon: attendance.isTransferSignIn,
-            markMethod: attendance.signInMethod,
+            methodIcon: attendance.signInMethod != null
+                ? _absentMethodIcon(attendance.signInMethod!)
+                : null,
           ),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(
+          AttendanceProfileField(
             label: 'Sign In By',
             text: _resolveSignInByDisplay(
               attendance.signInBy,
@@ -1735,14 +1674,16 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(
+          AttendanceProfileField(
             label: 'Sign Out',
             text: formatTime(attendance.signOutTime),
             showTransferIcon: attendance.isTransferSignOut,
-            markMethod: attendance.signOutMethod,
+            methodIcon: attendance.signOutMethod != null
+                ? _absentMethodIcon(attendance.signOutMethod!)
+                : null,
           ),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(
+          AttendanceProfileField(
             label: 'Sign Out By',
             text: _resolveSignOutByDisplay(
               attendance.signOutBy,
@@ -1751,14 +1692,14 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           ),
           if (_formatAttendedTimeForCard(attendance).trim().isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
-            _AttendanceField(
+            AttendanceProfileField(
               label: 'Attended Time',
               text: _formatAttendedTimeForCard(attendance),
             ),
           ],
           if (attendance.notExpectedComment.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
-            _AttendanceField(
+            AttendanceProfileField(
               label: 'Comment',
               text: attendance.notExpectedComment,
             ),
@@ -1806,7 +1747,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         children: [
           Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(
+          AttendanceProfileField(
             label: 'Classroom',
             text: () {
               if (absentDay.classroomName.isNotEmpty) {
@@ -1821,24 +1762,26 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             }(),
           ),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(
+          AttendanceProfileField(
             label: 'Date',
             text:
                 '${DateFormat('MMM dd, yyyy').format(absentDay.startDate)} - ${DateFormat('MMM dd, yyyy').format(absentDay.endDate)}',
           ),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(
+          AttendanceProfileField(
             label: 'Marked By',
             text: getFirstName(absentDay.absentBy),
           ),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(
+          AttendanceProfileField(
             label: 'Marked Absent Time',
             text: formatTime(absentDay.absentTime),
-            markMethod: absentDay.markAbsentMethod,
+            methodIcon: absentDay.markAbsentMethod != null
+                ? _absentMethodIcon(absentDay.markAbsentMethod!)
+                : null,
           ),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(
+          AttendanceProfileField(
             label: 'Absent Note',
             text: absentDay.note.isNotEmpty ? absentDay.note : '-',
           ),

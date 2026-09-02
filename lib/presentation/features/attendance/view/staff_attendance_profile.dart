@@ -14,6 +14,7 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_profile_field.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
@@ -51,206 +52,150 @@ enum StaffProfileAbsentMarkMethod {
   system,
 }
 
-// Simple field widget for displaying label and text
-class _AttendanceField extends StatelessWidget {
-  final String label;
-  final String text;
-  final bool showTransferIcon;
-  final StaffProfileAbsentMarkMethod? markMethod;
-
-  const _AttendanceField({
-    required this.label,
-    required this.text,
-    this.showTransferIcon = false,
-    this.markMethod,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 120,
-          child: Text(
-            label,
-            style: AppTextStyles.label,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+/// Builds the small method-tooltip icon for [AttendanceProfileField]'s
+/// [AttendanceProfileField.methodIcon] slot. Kept local (rather than shared
+/// with the student profile screen) because the two personas' method sets
+/// genuinely differ — staff adds pin/transfer/nfc/biometric.
+Widget _absentMethodIcon(StaffProfileAbsentMarkMethod method) {
+  const double size = 16;
+  switch (method) {
+    case StaffProfileAbsentMarkMethod.gps:
+      return Tooltip(
+        message: 'GPS',
+        child: SvgPicture.asset(
+          MediaRes.gpsMethodIcon,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
           ),
         ),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              if (showTransferIcon) ...[
-                Tooltip(
-                  message: 'Transfer',
-                  child: SvgPicture.asset(
-                    MediaRes.transfer,
-                    width: 16,
-                    height: 16,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.themeColor,
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.s6),
-              ],
-              if (markMethod != null) ...[
-                _methodIcon(markMethod!),
-                const SizedBox(width: AppSpacing.s6),
-              ],
-              Flexible(
-                child: Text(
-                  text,
-                  textAlign: TextAlign.end,
-                  style: AppTextStyles.body,
-                ),
-              ),
-            ],
+      );
+    case StaffProfileAbsentMarkMethod.qr:
+      return Tooltip(
+        message: 'QR',
+        child: SvgPicture.asset(
+          MediaRes.qrAttendanceIcon,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
           ),
         ),
-      ],
-    );
-  }
+      );
+    case StaffProfileAbsentMarkMethod.kiosk:
+      return Tooltip(
+        message: 'Kiosk',
+        child: SvgPicture.asset(
+          MediaRes.kioskAttendenceIcons,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
+          ),
+        ),
+      );
+    case StaffProfileAbsentMarkMethod.app:
+      return Tooltip(
+        message: 'APP',
+        child: SvgPicture.asset(
+          MediaRes.appMethodIcon,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
+          ),
+        ),
+      );
+    case StaffProfileAbsentMarkMethod.web:
+      return Tooltip(
+        message: 'WEB',
+        child: SvgPicture.asset(
+          MediaRes.webMethodIcon,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
+          ),
+        ),
+      );
 
-  Widget _methodIcon(StaffProfileAbsentMarkMethod method) {
-    const double size = 16;
-    switch (method) {
-      case StaffProfileAbsentMarkMethod.gps:
-        return Tooltip(
-          message: 'GPS',
-          child: SvgPicture.asset(
-            MediaRes.gpsMethodIcon,
-            width: size,
-            height: size,
+    case StaffProfileAbsentMarkMethod.pin:
+      // TODO: Handle this case.
+      return Tooltip(
+        message: 'PIN',
+        child: SvgPicture.asset(
+          MediaRes.pinMethodIcon,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
           ),
-        );
-      case StaffProfileAbsentMarkMethod.qr:
-        return Tooltip(
-          message: 'QR',
-          child: SvgPicture.asset(
-            MediaRes.qrAttendanceIcon,
-            width: size,
-            height: size,
+        ),
+      );
+    case StaffProfileAbsentMarkMethod.transfer:
+      // TODO: Handle this case.
+      return Tooltip(
+        message: 'Transfer',
+        child: SvgPicture.asset(
+          MediaRes.transferMethodIcon,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
           ),
-        );
-      case StaffProfileAbsentMarkMethod.kiosk:
-        return Tooltip(
-          message: 'Kiosk',
-          child: SvgPicture.asset(
-            MediaRes.kioskAttendenceIcons,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
+        ),
+      );
+    case StaffProfileAbsentMarkMethod.nfc:
+      // TODO: Handle this case.
+      return Tooltip(
+        message: 'NFC',
+        child: SvgPicture.asset(
+          MediaRes.nfcMethodIcon,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
           ),
-        );
-      case StaffProfileAbsentMarkMethod.app:
-        return Tooltip(
-          message: 'APP',
-          child: SvgPicture.asset(
-            MediaRes.appMethodIcon,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
+        ),
+      );
+    case StaffProfileAbsentMarkMethod.biometric:
+      // TODO: Handle this case.
+      return Tooltip(
+        message: 'Biometric',
+        child: SvgPicture.asset(
+          MediaRes.biometricMethodIcon,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
           ),
-        );
-      case StaffProfileAbsentMarkMethod.web:
-        return Tooltip(
-          message: 'WEB',
-          child: SvgPicture.asset(
-            MediaRes.webMethodIcon,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
+        ),
+      );
+    case StaffProfileAbsentMarkMethod.system:
+      // Auto sign-out performed by the system (no person). Matches web's
+      // gear/"System" indicator.
+      return Tooltip(
+        message: 'System',
+        child: SvgPicture.asset(
+          MediaRes.systemMethodIcon,
+          width: size,
+          height: size,
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
           ),
-        );
-
-      case StaffProfileAbsentMarkMethod.pin:
-        // TODO: Handle this case.
-        return Tooltip(
-          message: 'PIN',
-          child: SvgPicture.asset(
-            MediaRes.pinMethodIcon,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
-          ),
-        );
-      case StaffProfileAbsentMarkMethod.transfer:
-        // TODO: Handle this case.
-        return Tooltip(
-          message: 'Transfer',
-          child: SvgPicture.asset(
-            MediaRes.transferMethodIcon,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
-          ),
-        );
-      case StaffProfileAbsentMarkMethod.nfc:
-        // TODO: Handle this case.
-        return Tooltip(
-          message: 'NFC',
-          child: SvgPicture.asset(
-            MediaRes.nfcMethodIcon,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
-          ),
-        );
-      case StaffProfileAbsentMarkMethod.biometric:
-        // TODO: Handle this case.
-        return Tooltip(
-          message: 'Biometric',
-          child: SvgPicture.asset(
-            MediaRes.biometricMethodIcon,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
-          ),
-        );
-      case StaffProfileAbsentMarkMethod.system:
-        // Auto sign-out performed by the system (no person). Matches web's
-        // gear/"System" indicator.
-        return Tooltip(
-          message: 'System',
-          child: SvgPicture.asset(
-            MediaRes.systemMethodIcon,
-            width: size,
-            height: size,
-            colorFilter: const ColorFilter.mode(
-              AppColors.themeColor,
-              BlendMode.srcIn,
-            ),
-          ),
-        );
-    }
+        ),
+      );
   }
 }
 
@@ -1591,16 +1536,18 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         children: [
           Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(label: 'Classroom', text: attendance.roomName),
+          AttendanceProfileField(label: 'Classroom', text: attendance.roomName),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(
+          AttendanceProfileField(
             label: 'Sign In',
             text: formatTime(attendance.signInTime),
             showTransferIcon: attendance.isTransferSignIn,
-            markMethod: attendance.signInMethod,
+            methodIcon: attendance.signInMethod != null
+                ? _absentMethodIcon(attendance.signInMethod!)
+                : null,
           ),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(
+          AttendanceProfileField(
             label: 'Sign In By',
             text: _resolveSignInByDisplay(
               attendance.signInBy,
@@ -1608,14 +1555,16 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(
+          AttendanceProfileField(
             label: 'Sign Out',
             text: formatTime(attendance.signOutTime),
             showTransferIcon: attendance.isTransferSignOut,
-            markMethod: attendance.signOutMethod,
+            methodIcon: attendance.signOutMethod != null
+                ? _absentMethodIcon(attendance.signOutMethod!)
+                : null,
           ),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(
+          AttendanceProfileField(
             label: 'Sign Out By',
             text: _resolveSignOutByDisplay(
               attendance.signOutBy,
@@ -1624,14 +1573,14 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           ),
           if (_formatAttendedTimeForCard(attendance).trim().isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
-            _AttendanceField(
+            AttendanceProfileField(
               label: 'Attended Time',
               text: _formatAttendedTimeForCard(attendance),
             ),
           ],
           if (attendance.notExpectedComment.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
-            _AttendanceField(
+            AttendanceProfileField(
               label: 'Comment',
               text: attendance.notExpectedComment,
             ),
@@ -1679,7 +1628,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         children: [
           Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(
+          AttendanceProfileField(
             label: 'Classroom',
             text: () {
               if (absentDay.classroomName.isNotEmpty) {
@@ -1694,24 +1643,26 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             }(),
           ),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(
+          AttendanceProfileField(
             label: 'Date',
             text:
                 '${DateFormat('MMM dd, yyyy').format(absentDay.startDate)} - ${DateFormat('MMM dd, yyyy').format(absentDay.endDate)}',
           ),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(
+          AttendanceProfileField(
             label: 'Marked By',
             text: getFirstName(absentDay.absentBy),
           ),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(
+          AttendanceProfileField(
             label: 'Marked Absent Time',
             text: formatTime(absentDay.absentTime),
-            markMethod: absentDay.markAbsentMethod,
+            methodIcon: absentDay.markAbsentMethod != null
+                ? _absentMethodIcon(absentDay.markAbsentMethod!)
+                : null,
           ),
           const SizedBox(height: AppSpacing.md),
-          _AttendanceField(
+          AttendanceProfileField(
             label: 'Absent Note',
             text: absentDay.note.isNotEmpty ? absentDay.note : '-',
           ),
