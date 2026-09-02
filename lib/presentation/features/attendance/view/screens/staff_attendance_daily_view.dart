@@ -253,8 +253,10 @@ class _StaffAttendanceDailyViewScreenState
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _scrollController.dispose();
+    _cubit.close();
     _absentToggleCubit.close();
     _deleteCubit.close();
+    _classroomCubit.close();
     super.dispose();
   }
 

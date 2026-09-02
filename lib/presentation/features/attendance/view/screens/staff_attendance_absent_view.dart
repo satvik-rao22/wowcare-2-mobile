@@ -193,6 +193,8 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     cancelSearchDebounce();
+    _cubit.close();
+    _classroomCubit.close();
     super.dispose();
   }
 

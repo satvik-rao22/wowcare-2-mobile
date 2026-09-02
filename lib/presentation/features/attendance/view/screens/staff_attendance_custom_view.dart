@@ -141,6 +141,8 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
     _customSearchController.removeListener(_onSearchChanged);
     _customSearchController.dispose();
     _scrollController.dispose();
+    _cubit.close();
+    _classroomCubit.close();
     super.dispose();
   }
 

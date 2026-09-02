@@ -265,6 +265,7 @@ class _StudentAttendanceAbsentViewState
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     cancelSearchDebounce();
+    _classroomCubit.close();
     super.dispose();
   }
 

@@ -184,6 +184,7 @@ class _StudentAttendanceCustomViewState
     _customSearchController.dispose();
     _scrollController.dispose();
     _cubit.close();
+    _classroomCubit.close();
     super.dispose();
   }
 

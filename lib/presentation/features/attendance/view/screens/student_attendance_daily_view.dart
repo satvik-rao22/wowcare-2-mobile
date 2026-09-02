@@ -320,6 +320,7 @@ class _StudentAttendanceDailyViewScreenState
     _cubit.close();
     _absentToggleCubit.close();
     _deleteCubit.close();
+    _classroomCubit.close();
     super.dispose();
   }
 
