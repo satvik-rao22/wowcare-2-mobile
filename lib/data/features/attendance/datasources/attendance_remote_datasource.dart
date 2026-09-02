@@ -305,12 +305,28 @@ abstract class AttendanceRemoteDataSource {
     required List<String> allowedClassroomCodes,
   });
 
-  /// Same contract as activity [activity_attendance_window_validator]: `instant` is UTC ISO.
-  /// Returns `studentCode ->` status strings (or normalized from bool `data` values).
-  Future<Map<String, String>> getStudentSignInStatusAtTime({
+  /// Classroom-scoped "at time" student sign-in status.
+  ///
+  /// Moved verbatim from the activity attendance-window validator: POSTs to
+  /// [ApiPaths.studentAttendanceSignInStatusAtTime] and parses the `data` map
+  /// into `studentCode -> isPresent`, where a value of `true` counts as
+  /// present.
+  Future<Map<String, bool>> getStudentSignInStatusAtTime({
     required String classroomCode,
     required List<String> studentCodes,
-    required String instantIsoUtc,
+    required DateTime instantUtc,
+  });
+
+  /// Classroom-scoped "at time" staff sign-in status.
+  ///
+  /// Moved verbatim from the activity attendance-window validator: POSTs to
+  /// [ApiPaths.staffAttendanceSignInStatusAtTime] and parses the `data` map
+  /// into `staffCode -> isPresent`, where a value of `true` OR the string
+  /// `SIGNED_IN` counts as present.
+  Future<Map<String, bool>> getStaffSignInStatusAtTime({
+    required String classroomCode,
+    required List<String> staffCodes,
+    required DateTime instantUtc,
   });
 
   /// Updates a single student attendance record (sign-in/sign-out entry).
@@ -1682,34 +1698,58 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   }
 
   @override
-  Future<Map<String, String>> getStudentSignInStatusAtTime({
+  Future<Map<String, bool>> getStudentSignInStatusAtTime({
     required String classroomCode,
     required List<String> studentCodes,
-    required String instantIsoUtc,
+    required DateTime instantUtc,
   }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.studentAttendanceSignInStatusAtTime,
-      ApiConstants.attendanceBaseUrl,
-    );
-
-    final response = await _client.post<Map<String, dynamic>>(
+    if (studentCodes.isEmpty) return const <String, bool>{};
+    final endpoint = ApiPaths.url(ApiPaths.studentAttendanceSignInStatusAtTime);
+    final response = await _client.post<dynamic>(
       endpoint,
       data: <String, dynamic>{
-        'classroomCode': classroomCode.trim(),
+        'classroomCode': classroomCode,
         'studentCodes': studentCodes,
-        'instant': instantIsoUtc.trim(),
+        'instant': instantUtc.toIso8601String(),
       },
     );
+    final root = response.data;
+    if (root is! Map<String, dynamic>) return const <String, bool>{};
+    final data = root['data'];
+    if (data is! Map) return const <String, bool>{};
+    return data.map<String, bool>((key, value) {
+      final code = key.toString().trim();
+      final isPresent = value == true;
+      return MapEntry(code, isPresent);
+    });
+  }
 
-    final data = response.data;
-    if (data == null || data['data'] is! Map<String, dynamic>) {
-      throw Exception(
-        'Unexpected student sign-in status at-time API response format',
-      );
-    }
-
-    final raw = data['data'] as Map<String, dynamic>;
-    return raw.map((key, value) => MapEntry(key, value.toString()));
+  @override
+  Future<Map<String, bool>> getStaffSignInStatusAtTime({
+    required String classroomCode,
+    required List<String> staffCodes,
+    required DateTime instantUtc,
+  }) async {
+    if (staffCodes.isEmpty) return const <String, bool>{};
+    final endpoint = ApiPaths.url(ApiPaths.staffAttendanceSignInStatusAtTime);
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: <String, dynamic>{
+        'classroomCode': classroomCode,
+        'staffCodes': staffCodes,
+        'instant': instantUtc.toIso8601String(),
+      },
+    );
+    final root = response.data;
+    if (root is! Map<String, dynamic>) return const <String, bool>{};
+    final data = root['data'];
+    if (data is! Map) return const <String, bool>{};
+    return data.map<String, bool>((key, value) {
+      final code = key.toString().trim();
+      final isPresent =
+          value == true || value.toString().toUpperCase() == 'SIGNED_IN';
+      return MapEntry(code, isPresent);
+    });
   }
 
   @override
