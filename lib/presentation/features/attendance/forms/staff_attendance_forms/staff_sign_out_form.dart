@@ -1,13 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_remove_tile.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -561,9 +558,12 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                   childAspectRatio: 3.5,
                 ),
                 itemCount: _selectedStaff.length,
-                itemBuilder: (context, index) => _buildStaffCard(
-                  _selectedStaff[index],
+                itemBuilder: (context, index) => AttendanceRemoveTile(
+                  name: _selectedStaff[index].name,
+                  photoUuid: _selectedStaff[index].photoUuid ?? '',
+                  horizontalPadding: AppSpacing.sm,
                   canRemove: _selectedStaff.length > 1,
+                  onRemove: () => _removeStaff(_selectedStaff[index]),
                 ),
               ),
             const SizedBox(height: AppSpacing.lg),
@@ -645,52 +645,6 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                 context.go('/kiosk');
               }
             : null,
-      ),
-    );
-  }
-
-  Widget _buildStaffCard(StaffEntity staff, {required bool canRemove}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.themeColor),
-        borderRadius: BorderRadius.circular(AppRadius.r10),
-        color: AppColors.attendanceSelectedTintColor,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                DocumentImageWidget(
-                  fileUuid: staff.photoUuid ?? '',
-                  name: staff.name,
-                  size: 30,
-                  fontSize: 12,
-                ),
-                const SizedBox(width: AppSpacing.s6),
-                Flexible(
-                  child: Text(
-                    staff.name,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                    softWrap: false,
-                    style: AppTextStyles.body,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (canRemove)
-            GestureDetector(
-              onTap: () => _removeStaff(staff),
-              child: SvgPicture.asset(MediaRes.delete_icon),
-            ),
-        ],
       ),
     );
   }

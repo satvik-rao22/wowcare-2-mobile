@@ -125,153 +125,167 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
             prev.students.isNotEmpty && curr.students.isEmpty,
         listener: (context, _) => Navigator.pop(context),
         child: BlocBuilder<StudentMarkAbsentFormCubit, StudentMarkAbsentState>(
-          builder: (context, state) => _buildForm(context, state),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildForm(BuildContext context, StudentMarkAbsentState state) {
-    if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
-      context,
-    )) {
-      return Scaffold(
-        body: Center(
-          child: Padding(
-            padding: EdgeInsets.all(AppSpacing.xl),
-            child: Text(
-              'Access Denied: You must be inside geofence and signed in to manage student attendance.',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.title.copyWith(color: AppColors.errorColor),
-            ),
-          ),
-        ),
-      );
-    }
-
-    final currentStudents = state.students;
-    return StaffFormLayout(
-      title: 'Mark Absent',
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const AppText.label('Start Date'),
-                      const SizedBox(height: AppSpacing.xs),
-                      CustomDateTimeField(
-                        hasLabel: false,
-                        isRangePicker: false,
-                        isTime: false,
-                        fetchInitialTime: false,
-                        initialDate: state.startDate,
-                        isDisabled: !(state.isStaffAdminPersona ?? false),
-                        onDateSelected: _cubit.selectStartDate,
+          builder: (context, state) {
+            if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
+              context,
+            )) {
+              return Scaffold(
+                body: Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(AppSpacing.xl),
+                    child: Text(
+                      'Access Denied: You must be inside geofence and signed in to manage student attendance.',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.title.copyWith(
+                        color: AppColors.errorColor,
                       ),
-                    ],
+                    ),
                   ),
                 ),
-                const SizedBox(width: AppSpacing.lg),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const AppText.label('End Date'),
-                      const SizedBox(height: AppSpacing.xs),
-                      CustomDateTimeField(
-                        hasLabel: false,
-                        isRangePicker: false,
-                        isTime: false,
-                        fetchInitialTime: false,
-                        initialDate: state.endDate,
-                        isDisabled: !(state.isStaffAdminPersona ?? false),
-                        onDateSelected: _cubit.selectEndDate,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 28),
-            ListView.builder(
-              physics: const NeverScrollableScrollPhysics(),
-              shrinkWrap: true,
-              itemCount: currentStudents.length,
-              itemBuilder: (context, index) {
-                final student = currentStudents[index];
+              );
+            }
 
-                return Column(
+            final currentStudents = state.students;
+            return StaffFormLayout(
+              title: 'Mark Absent',
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    AttendanceRemoveTile(
-                      name: student.fullName,
-                      photoUuid: student.photoUuid ?? '',
-                      onRemove: () => _removeStudent(student),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const AppText.label('Start Date'),
+                              const SizedBox(height: AppSpacing.xs),
+                              CustomDateTimeField(
+                                hasLabel: false,
+                                isRangePicker: false,
+                                isTime: false,
+                                fetchInitialTime: false,
+                                initialDate: state.startDate,
+                                isDisabled:
+                                    !(state.isStaffAdminPersona ?? false),
+                                onDateSelected: _cubit.selectStartDate,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.lg),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const AppText.label('End Date'),
+                              const SizedBox(height: AppSpacing.xs),
+                              CustomDateTimeField(
+                                hasLabel: false,
+                                isRangePicker: false,
+                                isTime: false,
+                                fetchInitialTime: false,
+                                initialDate: state.endDate,
+                                isDisabled:
+                                    !(state.isStaffAdminPersona ?? false),
+                                onDateSelected: _cubit.selectEndDate,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: AppSpacing.lg),
-                    TextField(
-                      controller: notesControllers[student.studentCode],
-                      decoration: InputDecoration(
-                        hintText: 'Enter Absent Notes',
-                        hintStyle: AppTextStyles.body.copyWith(
-                          color: AppColors.primaryColor.withValues(alpha: 0.5),
-                          fontSize: 15,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppRadius.r10),
-                          borderSide: BorderSide(
-                            color: AppColors.inputBorderColor,
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppRadius.r10),
-                          borderSide: BorderSide(
-                            color: AppColors.inputBorderColor,
-                            width: 1,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppRadius.r10),
-                          borderSide: BorderSide(
-                            color: AppColors.inputBorderColor,
-                            width: 2,
-                          ),
-                        ),
-                        errorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppRadius.r10),
-                          borderSide: const BorderSide(
-                            color: AppColors.errorColor,
-                            width: 1,
-                          ),
-                        ),
-                        focusedErrorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppRadius.r10),
-                          borderSide: const BorderSide(
-                            color: AppColors.errorColor,
-                            width: 2,
-                          ),
-                        ),
-                        filled: true,
-                        fillColor: AppColors.cardColor,
-                      ),
+                    const SizedBox(height: 28),
+                    ListView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      shrinkWrap: true,
+                      itemCount: currentStudents.length,
+                      itemBuilder: (context, index) {
+                        final student = currentStudents[index];
+
+                        return Column(
+                          children: [
+                            AttendanceRemoveTile(
+                              name: student.fullName,
+                              photoUuid: student.photoUuid ?? '',
+                              onRemove: () => _removeStudent(student),
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            TextField(
+                              controller: notesControllers[student.studentCode],
+                              decoration: InputDecoration(
+                                hintText: 'Enter Absent Notes',
+                                hintStyle: AppTextStyles.body.copyWith(
+                                  color: AppColors.primaryColor.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                  fontSize: 15,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.r10,
+                                  ),
+                                  borderSide: BorderSide(
+                                    color: AppColors.inputBorderColor,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.r10,
+                                  ),
+                                  borderSide: BorderSide(
+                                    color: AppColors.inputBorderColor,
+                                    width: 1,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.r10,
+                                  ),
+                                  borderSide: BorderSide(
+                                    color: AppColors.inputBorderColor,
+                                    width: 2,
+                                  ),
+                                ),
+                                errorBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.r10,
+                                  ),
+                                  borderSide: const BorderSide(
+                                    color: AppColors.errorColor,
+                                    width: 1,
+                                  ),
+                                ),
+                                focusedErrorBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.r10,
+                                  ),
+                                  borderSide: const BorderSide(
+                                    color: AppColors.errorColor,
+                                    width: 2,
+                                  ),
+                                ),
+                                filled: true,
+                                fillColor: AppColors.cardColor,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                          ],
+                        );
+                      },
                     ),
-                    const SizedBox(height: AppSpacing.lg),
                   ],
-                );
-              },
-            ),
-          ],
+                ),
+              ),
+              bottomBar: CustomButtonLayout(
+                confirmButtonLabel: 'Submit',
+                onPressedConfirm: _handleSubmit,
+                showCancelButton: false,
+                isLoading: state.isSubmitting,
+              ),
+            );
+          },
         ),
-      ),
-      bottomBar: CustomButtonLayout(
-        confirmButtonLabel: 'Submit',
-        onPressedConfirm: _handleSubmit,
-        showCancelButton: false,
-        isLoading: state.isSubmitting,
       ),
     );
   }

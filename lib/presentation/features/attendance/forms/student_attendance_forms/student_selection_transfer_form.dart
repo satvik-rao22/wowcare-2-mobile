@@ -7,9 +7,9 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_select_all_row.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_selectable_person_tile.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_selection_shimmer_grid.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -160,20 +160,6 @@ class _StudentSelectionTransferFormState
     });
   }
 
-  Widget _buildShimmerGrid() {
-    return GridView.builder(
-      physics: const NeverScrollableScrollPhysics(),
-      shrinkWrap: true,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisExtent: 69,
-      ),
-      itemCount: 8,
-      itemBuilder: (context, index) =>
-          const ShimmerLoaderCard(child: SizedBox()),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
@@ -261,7 +247,7 @@ class _StudentSelectionTransferFormState
               const SizedBox(height: AppSpacing.sm),
               Expanded(
                 child: state.isLoadingStudents
-                    ? _buildShimmerGrid()
+                    ? const AttendanceSelectionShimmerGrid()
                     : state.studentsError != null
                     ? Center(
                         child: Column(

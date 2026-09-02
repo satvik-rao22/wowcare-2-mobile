@@ -106,140 +106,143 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
             prev.selectedStaff.isNotEmpty && curr.selectedStaff.isEmpty,
         listener: (context, _) => Navigator.pop(context),
         child: BlocBuilder<StaffMarkAbsentFormCubit, StaffMarkAbsentState>(
-          builder: (context, state) => _buildForm(context, state),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildForm(BuildContext context, StaffMarkAbsentState state) {
-    return StaffFormLayout(
-      title: 'Mark Absent',
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: AppSpacing.xs),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const AppText.label('Start Date'),
-                      const SizedBox(height: AppSpacing.xs),
-                      CustomDateTimeField(
-                        hasLabel: false,
-                        isRangePicker: false,
-                        isTime: false,
-                        fetchInitialTime: false,
-                        initialDate: state.startDate,
-                        isDisabled:
-                            state.isStaffAdminPersona != true ||
-                            state.isSelfTarget,
-                        onDateSelected: _cubit.selectStartDate,
+          builder: (context, state) {
+            return StaffFormLayout(
+              title: 'Mark Absent',
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: AppSpacing.xs),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const AppText.label('Start Date'),
+                              const SizedBox(height: AppSpacing.xs),
+                              CustomDateTimeField(
+                                hasLabel: false,
+                                isRangePicker: false,
+                                isTime: false,
+                                fetchInitialTime: false,
+                                initialDate: state.startDate,
+                                isDisabled:
+                                    state.isStaffAdminPersona != true ||
+                                    state.isSelfTarget,
+                                onDateSelected: _cubit.selectStartDate,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.lg),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const AppText.label('End Date'),
+                              const SizedBox(height: AppSpacing.xs),
+                              CustomDateTimeField(
+                                hasLabel: false,
+                                isRangePicker: false,
+                                isTime: false,
+                                fetchInitialTime: false,
+                                initialDate: state.endDate,
+                                isDisabled:
+                                    state.isStaffAdminPersona != true ||
+                                    state.isSelfTarget,
+                                onDateSelected: _cubit.selectEndDate,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 28),
+                    if (state.selectedStaff.isNotEmpty) ...[
+                      GridView.builder(
+                        physics: const NeverScrollableScrollPhysics(),
+                        shrinkWrap: true,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 14,
+                              mainAxisSpacing: 14,
+                              childAspectRatio: 3.5,
+                            ),
+                        itemCount: state.selectedStaff.length,
+                        itemBuilder: (context, index) => AttendanceRemoveTile(
+                          name: state.selectedStaff[index].name,
+                          photoUuid: state.selectedStaff[index].photoUuid ?? '',
+                          canRemove: state.selectedStaff.length > 1,
+                          onRemove: () =>
+                              _cubit.removeStaff(state.selectedStaff[index]),
+                        ),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.lg),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const AppText.label('End Date'),
-                      const SizedBox(height: AppSpacing.xs),
-                      CustomDateTimeField(
-                        hasLabel: false,
-                        isRangePicker: false,
-                        isTime: false,
-                        fetchInitialTime: false,
-                        initialDate: state.endDate,
-                        isDisabled:
-                            state.isStaffAdminPersona != true ||
-                            state.isSelfTarget,
-                        onDateSelected: _cubit.selectEndDate,
+                      const SizedBox(height: AppSpacing.lg),
+                      TextField(
+                        controller: _notesController,
+                        decoration: InputDecoration(
+                          hintText: 'Enter Absent Notes',
+                          hintStyle: AppTextStyles.body.copyWith(
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
+                            fontSize: 15,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.r10),
+                            borderSide: BorderSide(
+                              color: AppColors.inputBorderColor,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.r10),
+                            borderSide: BorderSide(
+                              color: AppColors.inputBorderColor,
+                              width: 1,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.r10),
+                            borderSide: BorderSide(
+                              color: AppColors.inputBorderColor,
+                              width: 2,
+                            ),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.r10),
+                            borderSide: const BorderSide(
+                              color: AppColors.errorColor,
+                              width: 1,
+                            ),
+                          ),
+                          focusedErrorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.r10),
+                            borderSide: const BorderSide(
+                              color: AppColors.errorColor,
+                              width: 2,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: AppColors.cardColor,
+                        ),
                       ),
+                      const SizedBox(height: AppSpacing.lg),
                     ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 28),
-            if (state.selectedStaff.isNotEmpty) ...[
-              GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  childAspectRatio: 3.5,
-                ),
-                itemCount: state.selectedStaff.length,
-                itemBuilder: (context, index) => AttendanceRemoveTile(
-                  name: state.selectedStaff[index].name,
-                  photoUuid: state.selectedStaff[index].photoUuid ?? '',
-                  canRemove: state.selectedStaff.length > 1,
-                  onRemove: () =>
-                      _cubit.removeStaff(state.selectedStaff[index]),
+                  ],
                 ),
               ),
-              const SizedBox(height: AppSpacing.lg),
-              TextField(
-                controller: _notesController,
-                decoration: InputDecoration(
-                  hintText: 'Enter Absent Notes',
-                  hintStyle: AppTextStyles.body.copyWith(
-                    color: AppColors.primaryColor.withValues(alpha: 0.5),
-                    fontSize: 15,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.r10),
-                    borderSide: BorderSide(color: AppColors.inputBorderColor),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.r10),
-                    borderSide: BorderSide(
-                      color: AppColors.inputBorderColor,
-                      width: 1,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.r10),
-                    borderSide: BorderSide(
-                      color: AppColors.inputBorderColor,
-                      width: 2,
-                    ),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.r10),
-                    borderSide: const BorderSide(
-                      color: AppColors.errorColor,
-                      width: 1,
-                    ),
-                  ),
-                  focusedErrorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.r10),
-                    borderSide: const BorderSide(
-                      color: AppColors.errorColor,
-                      width: 2,
-                    ),
-                  ),
-                  filled: true,
-                  fillColor: AppColors.cardColor,
-                ),
+              bottomBar: CustomButtonLayout(
+                confirmButtonLabel: 'Submit',
+                onPressedConfirm: _handleSubmit,
+                showCancelButton: false,
+                isLoading: state.isSubmitting,
               ),
-              const SizedBox(height: AppSpacing.lg),
-            ],
-          ],
+            );
+          },
         ),
-      ),
-      bottomBar: CustomButtonLayout(
-        confirmButtonLabel: 'Submit',
-        onPressedConfirm: _handleSubmit,
-        showCancelButton: false,
-        isLoading: state.isSubmitting,
       ),
     );
   }
