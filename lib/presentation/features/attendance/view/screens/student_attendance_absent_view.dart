@@ -717,23 +717,11 @@ class _StudentAttendanceAbsentViewState
 
   @override
   Widget build(BuildContext context) {
-    if (widget.contentOnly) {
-      return _buildContent();
-    }
-
-    return GlobalScaffold(
-      hasBackButton: true,
-      showCustomNavigationBar: true,
-      body: _buildContent(),
-    );
-  }
-
-  Widget _buildContent() {
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
     final filtered = _absentStudents;
 
-    return BlocListener<ClassroomCubit, ClassroomState>(
+    final Widget content = BlocListener<ClassroomCubit, ClassroomState>(
       bloc: _classroomCubit,
       listenWhen: (previous, current) =>
           previous.classrooms.isEmpty && current.classrooms.isNotEmpty,
@@ -950,7 +938,35 @@ class _StudentAttendanceAbsentViewState
                     ...filtered.asMap().entries.map((entry) {
                       final index = entry.key;
                       final student = entry.value;
-                      return _buildAbsentStudentCard(student, index);
+                      return _AbsentStudentCardItem(
+                        student: student,
+                        isExpanded: _expandedStudentIndex == index,
+                        isLoading: _loadingButtons[student.studentId] == true,
+                        onTap: () {
+                          setState(() {
+                            _expandedStudentIndex =
+                                _expandedStudentIndex == index ? null : index;
+                          });
+                        },
+                        onView: () {
+                          context.push(
+                            StudentAttendanceProfile.routeName,
+                            extra: {
+                              'studentCode': student.id,
+                              'studentId': student.studentId,
+                              'studentName': student.name,
+                              'studentPhotoUuid': student.photoUuid,
+                              'roomName': student.roomName,
+                              'isSignedIn': false,
+                              'isAbsent': true,
+                              'isExpectedToday': true,
+                              'isPresentToday': false,
+                              'profileStatus': 'A',
+                              'initialShowAbsentDays': true,
+                            },
+                          );
+                        },
+                      );
                     }).toList(),
                     // Pagination loader
                     if (_isLoadingStudents &&
@@ -970,24 +986,42 @@ class _StudentAttendanceAbsentViewState
         ),
       ),
     );
-  }
 
-  Widget _buildAbsentStudentCard(_AbsentStudentModel student, int index) {
+    if (widget.contentOnly) {
+      return content;
+    }
+
+    return GlobalScaffold(
+      hasBackButton: true,
+      showCustomNavigationBar: true,
+      body: content,
+    );
+  }
+}
+
+class _AbsentStudentCardItem extends StatelessWidget {
+  const _AbsentStudentCardItem({
+    required this.student,
+    required this.isExpanded,
+    required this.isLoading,
+    required this.onTap,
+    required this.onView,
+  });
+
+  final _AbsentStudentModel student;
+  final bool isExpanded;
+  final bool isLoading;
+  final VoidCallback onTap;
+  final VoidCallback onView;
+
+  @override
+  Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final bool isExpanded = _expandedStudentIndex == index;
     final avatarSize = responsive.isTablet ? 52.0 : 44.0;
     final spacing = responsive.isTablet ? 16.0 : 14.0;
 
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          if (_expandedStudentIndex == index) {
-            _expandedStudentIndex = null;
-          } else {
-            _expandedStudentIndex = index;
-          }
-        });
-      },
+      onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
@@ -1058,28 +1092,40 @@ class _StudentAttendanceAbsentViewState
               SizedBox(height: responsive.verticalSpacing / 2),
               Divider(height: 1, color: AppColors.cardBorderColor),
               SizedBox(height: responsive.verticalSpacing / 2),
-              _buildDetailRow(responsive, 'Classroom', student.roomName),
-              SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildDetailRow(
-                responsive,
-                'Absent Days',
-                '${student.absentDays} days',
+              _AbsentStudentDetailRow(
+                responsive: responsive,
+                label: 'Classroom',
+                value: student.roomName,
               ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildDetailRow(
-                responsive,
-                'Absent Date',
-                DateFormat('MMM dd, yyyy').format(student.startDate),
+              _AbsentStudentDetailRow(
+                responsive: responsive,
+                label: 'Absent Days',
+                value: '${student.absentDays} days',
               ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildDetailRow(responsive, 'Absent Time', student.absentTime),
+              _AbsentStudentDetailRow(
+                responsive: responsive,
+                label: 'Absent Date',
+                value: DateFormat('MMM dd, yyyy').format(student.startDate),
+              ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildDetailRow(responsive, 'Marked By', student.absentBy),
+              _AbsentStudentDetailRow(
+                responsive: responsive,
+                label: 'Absent Time',
+                value: student.absentTime,
+              ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildDetailRow(
-                responsive,
-                'Absent Note',
-                (student.note != null && student.note!.trim().isNotEmpty)
+              _AbsentStudentDetailRow(
+                responsive: responsive,
+                label: 'Marked By',
+                value: student.absentBy,
+              ),
+              SizedBox(height: responsive.isTablet ? 8 : 6),
+              _AbsentStudentDetailRow(
+                responsive: responsive,
+                label: 'Absent Note',
+                value: (student.note != null && student.note!.trim().isNotEmpty)
                     ? student.note!.trim()
                     : '-',
               ),
@@ -1088,7 +1134,7 @@ class _StudentAttendanceAbsentViewState
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
                 child: SizedBox(
                   width: double.infinity,
-                  child: _loadingButtons[student.studentId] == true
+                  child: isLoading
                       ? Container(
                           height: 48,
                           decoration: BoxDecoration(
@@ -1116,24 +1162,7 @@ class _StudentAttendanceAbsentViewState
                         )
                       : CustomCancelButton(
                           cancelButtonLabel: 'View',
-                          onPressedCancel: () {
-                            context.push(
-                              StudentAttendanceProfile.routeName,
-                              extra: {
-                                'studentCode': student.id,
-                                'studentId': student.studentId,
-                                'studentName': student.name,
-                                'studentPhotoUuid': student.photoUuid,
-                                'roomName': student.roomName,
-                                'isSignedIn': false,
-                                'isAbsent': true,
-                                'isExpectedToday': true,
-                                'isPresentToday': false,
-                                'profileStatus': 'A',
-                                'initialShowAbsentDays': true,
-                              },
-                            );
-                          },
+                          onPressedCancel: onView,
                         ),
                 ),
               ),
@@ -1143,12 +1172,21 @@ class _StudentAttendanceAbsentViewState
       ),
     );
   }
+}
 
-  Widget _buildDetailRow(
-    ResponsiveHelper responsive,
-    String label,
-    String value,
-  ) {
+class _AbsentStudentDetailRow extends StatelessWidget {
+  const _AbsentStudentDetailRow({
+    required this.responsive,
+    required this.label,
+    required this.value,
+  });
+
+  final ResponsiveHelper responsive;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
