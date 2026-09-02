@@ -106,7 +106,6 @@ class _StudentAttendanceAbsentViewState
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
   int? _expandedStudentIndex;
-  bool _isClassroomDataReady = false;
 
   // Pagination & list state
   bool _isInitialLoadingStudents = true;
@@ -197,7 +196,6 @@ class _StudentAttendanceAbsentViewState
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
       if (!mounted) return;
-      setState(() => _isClassroomDataReady = true);
       if (hadClassroomSelection) {
         _syncClassroomFilterCodes();
         if (_selectedClassroomCodes != null) {
@@ -214,12 +212,10 @@ class _StudentAttendanceAbsentViewState
     }
 
     if (!mounted) return;
-    setState(() {
-      _isClassroomDataReady =
-          !_classroomCubit.state.isLoading &&
-          _classroomCubit.state.classrooms.isNotEmpty;
-    });
-    if (hadClassroomSelection && _isClassroomDataReady) {
+    final isClassroomDataReady =
+        !_classroomCubit.state.isLoading &&
+        _classroomCubit.state.classrooms.isNotEmpty;
+    if (hadClassroomSelection && isClassroomDataReady) {
       _syncClassroomFilterCodes();
       if (_selectedClassroomCodes != null) {
         _loadAbsentStudents(reset: true);
@@ -821,7 +817,7 @@ class _StudentAttendanceAbsentViewState
                                   .map((c) => c.name)
                                   .toList();
                               final isLoading =
-                                  state.isLoading || !_isClassroomDataReady;
+                                  state.isLoading || state.classrooms.isEmpty;
                               if (isLoading && items.isEmpty) {
                                 return ShimmerLoader(height: 40);
                               }

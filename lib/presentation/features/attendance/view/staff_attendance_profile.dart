@@ -506,7 +506,6 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   bool isAbsentDaysLoading = false;
   bool isStaffLoading = false;
   bool showAbsentDays = false;
-  int? expandedIndex;
 
   List<_AttendanceModel> attendances = [];
   List<_AbsentDayModel> absentDays = [];
@@ -1010,6 +1009,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
               const SizedBox(height: AppSpacing.md),
               Builder(
                 builder: (context) {
+                  final isStaffPersona = context.watch<RoleCubit>().isStaff;
                   return isStaffLoading &&
                           (isAttendancesLoading || isAbsentDaysLoading)
                       ? const AttendanceProfileShimmer()
@@ -1018,9 +1018,14 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                             _StaffCard(
                               staff: staff,
                               staffCode: widget.staffCode,
-                              isStaffPersona: context.read<RoleCubit>().isStaff,
-                              canOpenStaffTabbedViewFromStats:
-                                  _canOpenStaffTabbedViewFromStats,
+                              isStaffPersona: isStaffPersona,
+                              // Attended/Absent Days cards navigate to
+                              // StaffAttendanceTabbedView, which lists ALL
+                              // staff — an admin-only surface. A staff
+                              // persona viewing their own "My Attendance"
+                              // profile must never reach it, so those cards
+                              // are non-tappable for that persona.
+                              canOpenStaffTabbedViewFromStats: !isStaffPersona,
                               attendanceReport: attendanceReport,
                               onPresentTap: () {
                                 context.push(
@@ -1066,11 +1071,6 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                               absentDays: absentDays,
                               fallbackRoomName:
                                   staff?.roomName ?? widget.roomName,
-                              onExpandedIndexChanged: (value) {
-                                setState(() {
-                                  expandedIndex = value;
-                                });
-                              },
                             ),
                           ],
                         );
@@ -1137,12 +1137,6 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       },
     );
   }
-
-  /// Attended/Absent Days cards navigate to [StaffAttendanceTabbedView], which
-  /// lists ALL staff — an admin-only surface. A staff persona viewing their
-  /// own "My Attendance" profile must never be able to reach it, so those
-  /// cards are non-tappable for that persona (self-service view only).
-  bool get _canOpenStaffTabbedViewFromStats => !_isSelfStaffPersona;
 }
 
 class _StaffAttendanceListSection extends StatelessWidget {
@@ -1153,7 +1147,6 @@ class _StaffAttendanceListSection extends StatelessWidget {
     required this.isAbsentDaysLoading,
     required this.absentDays,
     required this.fallbackRoomName,
-    required this.onExpandedIndexChanged,
   });
 
   final bool showAbsentDays;
@@ -1162,7 +1155,6 @@ class _StaffAttendanceListSection extends StatelessWidget {
   final bool isAbsentDaysLoading;
   final List<_AbsentDayModel> absentDays;
   final String fallbackRoomName;
-  final ValueChanged<int?> onExpandedIndexChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1205,12 +1197,7 @@ class _StaffAttendanceListSection extends StatelessWidget {
 
     return Column(
       children: List.generate(attendances.length, (index) {
-        return _StaffAttendanceItemCard(
-          attendance: attendances[index],
-          onExpansionChanged: (expanded) {
-            onExpandedIndexChanged(expanded ? index : null);
-          },
-        );
+        return _StaffAttendanceItemCard(attendance: attendances[index]);
       }),
     );
   }
@@ -1251,9 +1238,6 @@ class _StaffAttendanceListSection extends StatelessWidget {
         return _StaffAbsentDayItemCard(
           absentDay: absentDays[index],
           fallbackRoomName: fallbackRoomName,
-          onExpansionChanged: (expanded) {
-            onExpandedIndexChanged(expanded ? index + 1000 : null);
-          },
         );
       }),
     );
@@ -1261,13 +1245,9 @@ class _StaffAttendanceListSection extends StatelessWidget {
 }
 
 class _StaffAttendanceItemCard extends StatelessWidget {
-  const _StaffAttendanceItemCard({
-    required this.attendance,
-    required this.onExpansionChanged,
-  });
+  const _StaffAttendanceItemCard({required this.attendance});
 
   final _AttendanceModel attendance;
-  final ValueChanged<bool> onExpansionChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1302,7 +1282,6 @@ class _StaffAttendanceItemCard extends StatelessWidget {
           AppSpacing.md,
           AppSpacing.md,
         ),
-        onExpansionChanged: onExpansionChanged,
         children: [
           Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: AppSpacing.md),
@@ -1365,12 +1344,10 @@ class _StaffAbsentDayItemCard extends StatelessWidget {
   const _StaffAbsentDayItemCard({
     required this.absentDay,
     required this.fallbackRoomName,
-    required this.onExpansionChanged,
   });
 
   final _AbsentDayModel absentDay;
   final String fallbackRoomName;
-  final ValueChanged<bool> onExpansionChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1401,7 +1378,6 @@ class _StaffAbsentDayItemCard extends StatelessWidget {
           AppSpacing.md,
           AppSpacing.md,
         ),
-        onExpansionChanged: onExpansionChanged,
         children: [
           Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: AppSpacing.md),

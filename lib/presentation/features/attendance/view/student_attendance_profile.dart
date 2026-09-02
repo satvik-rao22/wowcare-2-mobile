@@ -439,7 +439,6 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   bool isAbsentDaysLoading = false;
   bool isStudentLoading = false;
   bool showAbsentDays = false;
-  int? expandedIndex;
 
   List<_AttendanceModel> attendances = [];
   List<_AbsentDayModel> absentDays = [];
@@ -1148,11 +1147,6 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                               absentDays: absentDays,
                               fallbackRoomName:
                                   student?.roomName ?? widget.roomName,
-                              onExpandedIndexChanged: (value) {
-                                setState(() {
-                                  expandedIndex = value;
-                                });
-                              },
                             ),
                           ],
                         );
@@ -1394,7 +1388,6 @@ class _StudentAttendanceListSection extends StatelessWidget {
     required this.isAbsentDaysLoading,
     required this.absentDays,
     required this.fallbackRoomName,
-    required this.onExpandedIndexChanged,
   });
 
   final bool showAbsentDays;
@@ -1403,7 +1396,6 @@ class _StudentAttendanceListSection extends StatelessWidget {
   final bool isAbsentDaysLoading;
   final List<_AbsentDayModel> absentDays;
   final String fallbackRoomName;
-  final ValueChanged<int?> onExpandedIndexChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1446,12 +1438,7 @@ class _StudentAttendanceListSection extends StatelessWidget {
 
     return Column(
       children: List.generate(attendances.length, (index) {
-        return _StudentAttendanceItemCard(
-          attendance: attendances[index],
-          onExpansionChanged: (expanded) {
-            onExpandedIndexChanged(expanded ? index : null);
-          },
-        );
+        return _StudentAttendanceItemCard(attendance: attendances[index]);
       }),
     );
   }
@@ -1492,9 +1479,6 @@ class _StudentAttendanceListSection extends StatelessWidget {
         return _StudentAbsentDayItemCard(
           absentDay: absentDays[index],
           fallbackRoomName: fallbackRoomName,
-          onExpansionChanged: (expanded) {
-            onExpandedIndexChanged(expanded ? index + 1000 : null);
-          },
         );
       }),
     );
@@ -1502,13 +1486,9 @@ class _StudentAttendanceListSection extends StatelessWidget {
 }
 
 class _StudentAttendanceItemCard extends StatelessWidget {
-  const _StudentAttendanceItemCard({
-    required this.attendance,
-    required this.onExpansionChanged,
-  });
+  const _StudentAttendanceItemCard({required this.attendance});
 
   final _AttendanceModel attendance;
-  final ValueChanged<bool> onExpansionChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1542,7 +1522,6 @@ class _StudentAttendanceItemCard extends StatelessWidget {
           AppSpacing.md,
           AppSpacing.md,
         ),
-        onExpansionChanged: onExpansionChanged,
         children: [
           Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: AppSpacing.md),
@@ -1605,12 +1584,10 @@ class _StudentAbsentDayItemCard extends StatelessWidget {
   const _StudentAbsentDayItemCard({
     required this.absentDay,
     required this.fallbackRoomName,
-    required this.onExpansionChanged,
   });
 
   final _AbsentDayModel absentDay;
   final String fallbackRoomName;
-  final ValueChanged<bool> onExpansionChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1641,7 +1618,6 @@ class _StudentAbsentDayItemCard extends StatelessWidget {
           AppSpacing.md,
           AppSpacing.md,
         ),
-        onExpansionChanged: onExpansionChanged,
         children: [
           Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: AppSpacing.md),

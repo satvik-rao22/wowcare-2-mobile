@@ -60,7 +60,6 @@ class _StudentAttendanceCustomViewState
   DateTime? _customRangeStart;
   DateTime? _customRangeEnd;
   int? _customExpandedStudentIndex;
-  bool _isClassroomDataReady = false;
 
   // Optional: show a small spinner on "View" action (UI-only)
   final Map<String, bool> _loadingButtons = <String, bool>{};
@@ -155,7 +154,6 @@ class _StudentAttendanceCustomViewState
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
       if (!mounted) return;
-      setState(() => _isClassroomDataReady = true);
       if (hadClassroomSelection) {
         _syncClassroomFilterCodes();
         if (_selectedClassroomCodes != null) {
@@ -173,12 +171,10 @@ class _StudentAttendanceCustomViewState
     }
 
     if (!mounted) return;
-    setState(() {
-      _isClassroomDataReady =
-          !_classroomCubit.state.isLoading &&
-          _classroomCubit.state.classrooms.isNotEmpty;
-    });
-    if (hadClassroomSelection && _isClassroomDataReady) {
+    final isClassroomDataReady =
+        !_classroomCubit.state.isLoading &&
+        _classroomCubit.state.classrooms.isNotEmpty;
+    if (hadClassroomSelection && isClassroomDataReady) {
       _syncClassroomFilterCodes();
       if (_selectedClassroomCodes != null) {
         _loadAttendanceData(reset: true);
@@ -298,7 +294,6 @@ class _StudentAttendanceCustomViewState
                         _CustomFilterSection(
                           searchController: _customSearchController,
                           classroomCubit: _classroomCubit,
-                          isClassroomDataReady: _isClassroomDataReady,
                           selectedClassroomNames: _selectedClassroomNames,
                           onClassroomsChanged: (values) {
                             setState(() {
@@ -665,7 +660,6 @@ class _CustomFilterSection extends StatelessWidget {
   const _CustomFilterSection({
     required this.searchController,
     required this.classroomCubit,
-    required this.isClassroomDataReady,
     required this.selectedClassroomNames,
     required this.onClassroomsChanged,
     required this.onRangeSelected,
@@ -674,7 +668,6 @@ class _CustomFilterSection extends StatelessWidget {
 
   final TextEditingController searchController;
   final ClassroomCubit classroomCubit;
-  final bool isClassroomDataReady;
   final List<String> selectedClassroomNames;
   final ValueChanged<List<String>> onClassroomsChanged;
   final void Function(DateTime start, DateTime? end) onRangeSelected;
@@ -705,7 +698,8 @@ class _CustomFilterSection extends StatelessWidget {
                   bloc: classroomCubit,
                   builder: (context, state) {
                     final items = state.classrooms.map((c) => c.name).toList();
-                    final isLoading = state.isLoading || !isClassroomDataReady;
+                    final isLoading =
+                        state.isLoading || state.classrooms.isEmpty;
                     if (isLoading && items.isEmpty) {
                       return ShimmerLoader(
                         height: 40,

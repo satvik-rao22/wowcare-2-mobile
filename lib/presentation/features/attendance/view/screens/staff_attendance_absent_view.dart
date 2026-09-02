@@ -89,7 +89,6 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
   int? _expandedStaffIndex;
-  bool _isClassroomDataReady = false;
 
   late final StaffAttendanceAbsentCubit _cubit;
   late final ClassroomCubit _classroomCubit;
@@ -160,7 +159,6 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
       if (!mounted) return;
-      setState(() => _isClassroomDataReady = true);
       if (hadClassroomSelection) {
         _syncClassroomFilterCodes();
         if (_selectedClassroomCodes != null) {
@@ -177,12 +175,10 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
     }
 
     if (!mounted) return;
-    setState(() {
-      _isClassroomDataReady =
-          !_classroomCubit.state.isLoading &&
-          _classroomCubit.state.classrooms.isNotEmpty;
-    });
-    if (hadClassroomSelection && _isClassroomDataReady) {
+    final isClassroomDataReady =
+        !_classroomCubit.state.isLoading &&
+        _classroomCubit.state.classrooms.isNotEmpty;
+    if (hadClassroomSelection && isClassroomDataReady) {
       _syncClassroomFilterCodes();
       if (_selectedClassroomCodes != null) {
         _loadAbsentStaff(reset: true);
@@ -420,7 +416,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
                                             .toList();
                                         final isLoading =
                                             classroomState.isLoading ||
-                                            !_isClassroomDataReady;
+                                            classroomState.classrooms.isEmpty;
                                         if (isLoading && items.isEmpty) {
                                           return ShimmerLoader(
                                             height: 40,

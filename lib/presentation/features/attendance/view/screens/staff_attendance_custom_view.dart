@@ -48,7 +48,6 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
   DateTime? _customRangeStart;
   DateTime? _customRangeEnd;
   int? _customExpandedStaffIndex;
-  bool _isClassroomDataReady = false;
 
   final List<_CustomStaffAttendanceRow> _attendanceList =
       <_CustomStaffAttendanceRow>[];
@@ -110,7 +109,6 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
       if (!mounted) return;
-      setState(() => _isClassroomDataReady = true);
       if (hadClassroomSelection) {
         _syncClassroomFilterCodes();
         if (_selectedClassroomCodes != null) {
@@ -127,12 +125,10 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
     }
 
     if (!mounted) return;
-    setState(() {
-      _isClassroomDataReady =
-          !_classroomCubit.state.isLoading &&
-          _classroomCubit.state.classrooms.isNotEmpty;
-    });
-    if (hadClassroomSelection && _isClassroomDataReady) {
+    final isClassroomDataReady =
+        !_classroomCubit.state.isLoading &&
+        _classroomCubit.state.classrooms.isNotEmpty;
+    if (hadClassroomSelection && isClassroomDataReady) {
       _syncClassroomFilterCodes();
       if (_selectedClassroomCodes != null) {
         _loadAttendanceData(reset: true);
@@ -384,7 +380,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                                               .toList();
                                           final isLoading =
                                               classroomState.isLoading ||
-                                              !_isClassroomDataReady;
+                                              classroomState.classrooms.isEmpty;
                                           if (isLoading && items.isEmpty) {
                                             return ShimmerLoader(
                                               height: 40,
