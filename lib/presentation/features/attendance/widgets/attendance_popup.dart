@@ -573,24 +573,641 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                         physics: const NeverScrollableScrollPhysics(),
                         children: isParent
                             ? [
-                                _buildStudentAttendanceTab(
-                                  context,
-                                  isAdmin,
-                                  isParent,
-                                  isTablet,
+                                _StudentAttendanceTabView(
+                                  isAdmin: isAdmin,
+                                  isParent: isParent,
+                                  isTablet: isTablet,
+                                  onViewAttendanceTap: () =>
+                                      _handleViewAttendanceTap(
+                                        context,
+                                        isStaffTab: false,
+                                      ),
                                 ),
                               ]
                             : [
-                                _buildStudentAttendanceTab(
-                                  context,
-                                  isAdmin,
-                                  isParent,
-                                  isTablet,
+                                _StudentAttendanceTabView(
+                                  isAdmin: isAdmin,
+                                  isParent: isParent,
+                                  isTablet: isTablet,
+                                  onViewAttendanceTap: () =>
+                                      _handleViewAttendanceTap(
+                                        context,
+                                        isStaffTab: false,
+                                      ),
                                 ),
-                                _buildStaffAttendanceTab(
-                                  context,
-                                  isAdmin,
-                                  isTablet,
+                                Builder(
+                                  builder: (context) {
+                                    final roleProvider = context
+                                        .watch<RoleCubit>();
+                                    final geofenceState = context
+                                        .watch<GeofenceCubit>()
+                                        .state;
+                                    final bool isStaff = roleProvider.isStaff;
+                                    // Self-service gating only applies to the staff persona's own
+                                    // Sign-In/Sign-Out/Transfer/Mark-Absent; the admin staff-selection flow
+                                    // (StaffSelectionSignInForm etc.) is unaffected.
+                                    final StaffAttendanceActionAvailability
+                                    availability = _todayGate
+                                        .availabilityWithGeofence(
+                                          geofenceState.isWithinGeofence,
+                                        );
+                                    final bool selfActionsLoading =
+                                        isStaff && _isTodayStatusLoading;
+                                    final bool isSignInDisabled =
+                                        isStaff &&
+                                        (selfActionsLoading ||
+                                            !availability.signInEnabled);
+                                    final bool isSignOutDisabled =
+                                        isStaff &&
+                                        (selfActionsLoading ||
+                                            !availability.signOutEnabled);
+                                    final bool isTransferDisabledForStaff =
+                                        isStaff &&
+                                        (selfActionsLoading ||
+                                            !availability.transferEnabled);
+                                    final bool isAbsentDisabledForStaff =
+                                        isStaff &&
+                                        (selfActionsLoading ||
+                                            !availability.absentEnabled);
+
+                                    final buttonSize = isTablet ? 40.0 : 36.0;
+                                    final fontSize = isTablet ? 14.0 : 12.0;
+                                    final horizontalPadding = isTablet
+                                        ? 16.0
+                                        : 12.0;
+                                    final verticalPadding = isTablet
+                                        ? 16.0
+                                        : 12.0;
+                                    final spacing = isTablet ? 16.0 : 8.0;
+
+                                    // For very small screens, use wrap layout
+                                    final useWrap = ResponsiveHelper(
+                                      context,
+                                    ).isNarrow;
+
+                                    return SingleChildScrollView(
+                                      physics: const ClampingScrollPhysics(),
+                                      child: Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: horizontalPadding,
+                                          vertical: verticalPadding,
+                                        ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (useWrap)
+                                              Wrap(
+                                                alignment:
+                                                    WrapAlignment.spaceEvenly,
+                                                spacing: spacing,
+                                                runSpacing: spacing,
+                                                children: [
+                                                  AttendancePopupActionButton(
+                                                    icon: MediaRes.Sign_in,
+                                                    label: 'Sign-in',
+                                                    iconSize: buttonSize,
+                                                    fontSize: fontSize,
+                                                    onTap: isSignInDisabled
+                                                        ? null
+                                                        : () async {
+                                                            final navigator =
+                                                                Navigator.of(
+                                                                  context,
+                                                                  rootNavigator:
+                                                                      true,
+                                                                );
+                                                            final router =
+                                                                GoRouter.of(
+                                                                  context,
+                                                                );
+                                                            navigator.pop();
+                                                            if (_isTeacherStaffPersona ==
+                                                                    true &&
+                                                                _loggedInStaffCode
+                                                                    .isNotEmpty) {
+                                                              final display =
+                                                                  await resolveLoggedInStaffDisplay();
+                                                              router.push(
+                                                                '/attendance/staff-sign-in',
+                                                                extra: {
+                                                                  'staff': StaffEntity(
+                                                                    id: 0,
+                                                                    name:
+                                                                        display
+                                                                            .fullName
+                                                                            .isNotEmpty
+                                                                        ? display
+                                                                              .fullName
+                                                                        : 'My Attendance',
+                                                                    primaryRoomId:
+                                                                        0,
+                                                                    photoUuid:
+                                                                        display
+                                                                            .profilePhotoUrl
+                                                                            .isNotEmpty
+                                                                        ? display
+                                                                              .profilePhotoUrl
+                                                                        : null,
+                                                                    staffCode:
+                                                                        display
+                                                                            .staffCode
+                                                                            .isNotEmpty
+                                                                        ? display
+                                                                              .staffCode
+                                                                        : _loggedInStaffCode,
+                                                                  ),
+                                                                },
+                                                              );
+                                                            } else {
+                                                              router.push(
+                                                                '/attendance/staff-selection-sign-in',
+                                                              );
+                                                            }
+                                                          },
+                                                  ),
+                                                  AttendancePopupActionButton(
+                                                    icon: MediaRes.Sign_out,
+                                                    label: 'Sign-Out',
+                                                    iconSize: buttonSize,
+                                                    fontSize: fontSize,
+                                                    onTap: isSignOutDisabled
+                                                        ? null
+                                                        : () async {
+                                                            final navigator =
+                                                                Navigator.of(
+                                                                  context,
+                                                                  rootNavigator:
+                                                                      true,
+                                                                );
+                                                            final router =
+                                                                GoRouter.of(
+                                                                  context,
+                                                                );
+                                                            navigator.pop();
+                                                            if (_isTeacherStaffPersona ==
+                                                                    true &&
+                                                                _loggedInStaffCode
+                                                                    .isNotEmpty) {
+                                                              final display =
+                                                                  await resolveLoggedInStaffDisplay();
+                                                              router.push(
+                                                                '/attendance/staff-sign-out',
+                                                                extra: {
+                                                                  'staff': StaffEntity(
+                                                                    id: 0,
+                                                                    name:
+                                                                        display
+                                                                            .fullName
+                                                                            .isNotEmpty
+                                                                        ? display
+                                                                              .fullName
+                                                                        : 'My Attendance',
+                                                                    primaryRoomId:
+                                                                        0,
+                                                                    photoUuid:
+                                                                        display
+                                                                            .profilePhotoUrl
+                                                                            .isNotEmpty
+                                                                        ? display
+                                                                              .profilePhotoUrl
+                                                                        : null,
+                                                                    staffCode:
+                                                                        display
+                                                                            .staffCode
+                                                                            .isNotEmpty
+                                                                        ? display
+                                                                              .staffCode
+                                                                        : _loggedInStaffCode,
+                                                                  ),
+                                                                },
+                                                              );
+                                                            } else {
+                                                              router.push(
+                                                                '/attendance/staff-selection-sign-out',
+                                                              );
+                                                            }
+                                                          },
+                                                  ),
+                                                  AttendancePopupActionButton(
+                                                    icon: MediaRes.transfer,
+                                                    label: 'Transfer',
+                                                    iconSize: buttonSize,
+                                                    fontSize: fontSize,
+                                                    onTap:
+                                                        isTransferDisabledForStaff
+                                                        ? null
+                                                        : () async {
+                                                            final navigator =
+                                                                Navigator.of(
+                                                                  context,
+                                                                  rootNavigator:
+                                                                      true,
+                                                                );
+                                                            final router =
+                                                                GoRouter.of(
+                                                                  context,
+                                                                );
+                                                            navigator.pop();
+                                                            if (_isTeacherStaffPersona ==
+                                                                    true &&
+                                                                _loggedInStaffCode
+                                                                    .isNotEmpty) {
+                                                              final display =
+                                                                  await resolveLoggedInStaffDisplay();
+                                                              router.push(
+                                                                '/attendance/staff-transfer',
+                                                                extra: {
+                                                                  'staff': StaffEntity(
+                                                                    id: 0,
+                                                                    name:
+                                                                        display
+                                                                            .fullName
+                                                                            .isNotEmpty
+                                                                        ? display
+                                                                              .fullName
+                                                                        : 'My Attendance',
+                                                                    primaryRoomId:
+                                                                        0,
+                                                                    photoUuid:
+                                                                        display
+                                                                            .profilePhotoUrl
+                                                                            .isNotEmpty
+                                                                        ? display
+                                                                              .profilePhotoUrl
+                                                                        : null,
+                                                                    staffCode:
+                                                                        display
+                                                                            .staffCode
+                                                                            .isNotEmpty
+                                                                        ? display
+                                                                              .staffCode
+                                                                        : _loggedInStaffCode,
+                                                                  ),
+                                                                },
+                                                              );
+                                                            } else {
+                                                              router.push(
+                                                                '/attendance/staff-selection-transfer',
+                                                              );
+                                                            }
+                                                          },
+                                                  ),
+                                                  AttendancePopupActionButton(
+                                                    icon: MediaRes.Mark_absent,
+                                                    label: 'Absent',
+                                                    iconSize: buttonSize,
+                                                    fontSize: fontSize,
+                                                    onTap:
+                                                        isAbsentDisabledForStaff
+                                                        ? null
+                                                        : () async {
+                                                            final navigator =
+                                                                Navigator.of(
+                                                                  context,
+                                                                  rootNavigator:
+                                                                      true,
+                                                                );
+                                                            final router =
+                                                                GoRouter.of(
+                                                                  context,
+                                                                );
+                                                            navigator.pop();
+                                                            if (_isTeacherStaffPersona ==
+                                                                    true &&
+                                                                _loggedInStaffCode
+                                                                    .isNotEmpty) {
+                                                              final display =
+                                                                  await resolveLoggedInStaffDisplay();
+                                                              router.push(
+                                                                '/attendance/staff-mark-absent',
+                                                                extra: {
+                                                                  'staff': StaffEntity(
+                                                                    id: 0,
+                                                                    name:
+                                                                        display
+                                                                            .fullName
+                                                                            .isNotEmpty
+                                                                        ? display
+                                                                              .fullName
+                                                                        : 'My Attendance',
+                                                                    primaryRoomId:
+                                                                        0,
+                                                                    photoUuid:
+                                                                        display
+                                                                            .profilePhotoUrl
+                                                                            .isNotEmpty
+                                                                        ? display
+                                                                              .profilePhotoUrl
+                                                                        : null,
+                                                                    staffCode:
+                                                                        display
+                                                                            .staffCode
+                                                                            .isNotEmpty
+                                                                        ? display
+                                                                              .staffCode
+                                                                        : _loggedInStaffCode,
+                                                                  ),
+                                                                },
+                                                              );
+                                                            } else {
+                                                              router.push(
+                                                                '/attendance/staff-selection-mark-absent',
+                                                              );
+                                                            }
+                                                          },
+                                                  ),
+                                                ],
+                                              )
+                                            else
+                                              Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceEvenly,
+                                                children: [
+                                                  Expanded(
+                                                    child: AttendancePopupActionButton(
+                                                      icon: MediaRes.Sign_in,
+                                                      label: 'Sign-in',
+                                                      iconSize: buttonSize,
+                                                      fontSize: fontSize,
+                                                      onTap: isSignInDisabled
+                                                          ? null
+                                                          : () async {
+                                                              final navigator =
+                                                                  Navigator.of(
+                                                                    context,
+                                                                    rootNavigator:
+                                                                        true,
+                                                                  );
+                                                              final router =
+                                                                  GoRouter.of(
+                                                                    context,
+                                                                  );
+                                                              navigator.pop();
+                                                              if (_isTeacherStaffPersona ==
+                                                                      true &&
+                                                                  _loggedInStaffCode
+                                                                      .isNotEmpty) {
+                                                                final display =
+                                                                    await resolveLoggedInStaffDisplay();
+                                                                router.push(
+                                                                  '/attendance/staff-sign-in',
+                                                                  extra: {
+                                                                    'staff': StaffEntity(
+                                                                      id: 0,
+                                                                      name:
+                                                                          display
+                                                                              .fullName
+                                                                              .isNotEmpty
+                                                                          ? display.fullName
+                                                                          : 'My Attendance',
+                                                                      primaryRoomId:
+                                                                          0,
+                                                                      photoUuid:
+                                                                          display
+                                                                              .profilePhotoUrl
+                                                                              .isNotEmpty
+                                                                          ? display.profilePhotoUrl
+                                                                          : null,
+                                                                      staffCode:
+                                                                          display
+                                                                              .staffCode
+                                                                              .isNotEmpty
+                                                                          ? display.staffCode
+                                                                          : _loggedInStaffCode,
+                                                                    ),
+                                                                  },
+                                                                );
+                                                              } else {
+                                                                router.push(
+                                                                  '/attendance/staff-selection-sign-in',
+                                                                );
+                                                              }
+                                                            },
+                                                    ),
+                                                  ),
+                                                  SizedBox(width: spacing),
+                                                  Expanded(
+                                                    child: AttendancePopupActionButton(
+                                                      icon: MediaRes.Sign_out,
+                                                      label: 'Sign-Out',
+                                                      iconSize: buttonSize,
+                                                      fontSize: fontSize,
+                                                      onTap: isSignOutDisabled
+                                                          ? null
+                                                          : () async {
+                                                              final navigator =
+                                                                  Navigator.of(
+                                                                    context,
+                                                                    rootNavigator:
+                                                                        true,
+                                                                  );
+                                                              final router =
+                                                                  GoRouter.of(
+                                                                    context,
+                                                                  );
+                                                              navigator.pop();
+                                                              if (_isTeacherStaffPersona ==
+                                                                      true &&
+                                                                  _loggedInStaffCode
+                                                                      .isNotEmpty) {
+                                                                final display =
+                                                                    await resolveLoggedInStaffDisplay();
+                                                                router.push(
+                                                                  '/attendance/staff-sign-out',
+                                                                  extra: {
+                                                                    'staff': StaffEntity(
+                                                                      id: 0,
+                                                                      name:
+                                                                          display
+                                                                              .fullName
+                                                                              .isNotEmpty
+                                                                          ? display.fullName
+                                                                          : 'My Attendance',
+                                                                      primaryRoomId:
+                                                                          0,
+                                                                      photoUuid:
+                                                                          display
+                                                                              .profilePhotoUrl
+                                                                              .isNotEmpty
+                                                                          ? display.profilePhotoUrl
+                                                                          : null,
+                                                                      staffCode:
+                                                                          display
+                                                                              .staffCode
+                                                                              .isNotEmpty
+                                                                          ? display.staffCode
+                                                                          : _loggedInStaffCode,
+                                                                    ),
+                                                                  },
+                                                                );
+                                                              } else {
+                                                                router.push(
+                                                                  '/attendance/staff-selection-sign-out',
+                                                                );
+                                                              }
+                                                            },
+                                                    ),
+                                                  ),
+                                                  SizedBox(width: spacing),
+                                                  Expanded(
+                                                    child: AttendancePopupActionButton(
+                                                      icon: MediaRes.transfer,
+                                                      label: 'Transfer',
+                                                      iconSize: buttonSize,
+                                                      fontSize: fontSize,
+                                                      onTap:
+                                                          isTransferDisabledForStaff
+                                                          ? null
+                                                          : () async {
+                                                              final navigator =
+                                                                  Navigator.of(
+                                                                    context,
+                                                                    rootNavigator:
+                                                                        true,
+                                                                  );
+                                                              final router =
+                                                                  GoRouter.of(
+                                                                    context,
+                                                                  );
+                                                              navigator.pop();
+                                                              if (_isTeacherStaffPersona ==
+                                                                      true &&
+                                                                  _loggedInStaffCode
+                                                                      .isNotEmpty) {
+                                                                final display =
+                                                                    await resolveLoggedInStaffDisplay();
+                                                                router.push(
+                                                                  '/attendance/staff-transfer',
+                                                                  extra: {
+                                                                    'staff': StaffEntity(
+                                                                      id: 0,
+                                                                      name:
+                                                                          display
+                                                                              .fullName
+                                                                              .isNotEmpty
+                                                                          ? display.fullName
+                                                                          : 'My Attendance',
+                                                                      primaryRoomId:
+                                                                          0,
+                                                                      photoUuid:
+                                                                          display
+                                                                              .profilePhotoUrl
+                                                                              .isNotEmpty
+                                                                          ? display.profilePhotoUrl
+                                                                          : null,
+                                                                      staffCode:
+                                                                          display
+                                                                              .staffCode
+                                                                              .isNotEmpty
+                                                                          ? display.staffCode
+                                                                          : _loggedInStaffCode,
+                                                                    ),
+                                                                  },
+                                                                );
+                                                              } else {
+                                                                router.push(
+                                                                  '/attendance/staff-selection-transfer',
+                                                                );
+                                                              }
+                                                            },
+                                                    ),
+                                                  ),
+                                                  SizedBox(width: spacing),
+                                                  Expanded(
+                                                    child: AttendancePopupActionButton(
+                                                      icon:
+                                                          MediaRes.Mark_absent,
+                                                      label: 'Absent',
+                                                      iconSize: buttonSize,
+                                                      fontSize: fontSize,
+                                                      onTap:
+                                                          isAbsentDisabledForStaff
+                                                          ? null
+                                                          : () async {
+                                                              final navigator =
+                                                                  Navigator.of(
+                                                                    context,
+                                                                    rootNavigator:
+                                                                        true,
+                                                                  );
+                                                              final router =
+                                                                  GoRouter.of(
+                                                                    context,
+                                                                  );
+                                                              navigator.pop();
+                                                              if (_isTeacherStaffPersona ==
+                                                                      true &&
+                                                                  _loggedInStaffCode
+                                                                      .isNotEmpty) {
+                                                                final display =
+                                                                    await resolveLoggedInStaffDisplay();
+                                                                router.push(
+                                                                  '/attendance/staff-mark-absent',
+                                                                  extra: {
+                                                                    'staff': StaffEntity(
+                                                                      id: 0,
+                                                                      name:
+                                                                          display
+                                                                              .fullName
+                                                                              .isNotEmpty
+                                                                          ? display.fullName
+                                                                          : 'My Attendance',
+                                                                      primaryRoomId:
+                                                                          0,
+                                                                      photoUuid:
+                                                                          display
+                                                                              .profilePhotoUrl
+                                                                              .isNotEmpty
+                                                                          ? display.profilePhotoUrl
+                                                                          : null,
+                                                                      staffCode:
+                                                                          display
+                                                                              .staffCode
+                                                                              .isNotEmpty
+                                                                          ? display.staffCode
+                                                                          : _loggedInStaffCode,
+                                                                    ),
+                                                                  },
+                                                                );
+                                                              } else {
+                                                                router.push(
+                                                                  '/attendance/staff-selection-mark-absent',
+                                                                );
+                                                              }
+                                                            },
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            // Show "View Attendance" button:
+                                            // - Admin: View Attendance (all staff list)
+                                            // - Teacher persona: View My Attendance (self-only profile)
+                                            if (isAdmin ||
+                                                _isTeacherStaffPersona ==
+                                                    true) ...[
+                                              SizedBox(
+                                                height: isTablet ? 20 : 16,
+                                              ),
+                                              AttendancePopupViewButton(
+                                                onTap: () =>
+                                                    _handleViewAttendanceTap(
+                                                      context,
+                                                      isStaffTab: true,
+                                                    ),
+                                                isTablet: isTablet,
+                                                label:
+                                                    _isTeacherStaffPersona ==
+                                                        true
+                                                    ? 'View My Attendance'
+                                                    : 'View Attendance',
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
                               ],
                       ),
@@ -605,12 +1222,102 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     );
   }
 
-  Widget _buildStudentAttendanceTab(
-    BuildContext context,
-    bool isAdmin,
-    bool isParent,
-    bool isTablet,
-  ) {
+  Future<void> _handleViewAttendanceTap(
+    BuildContext context, {
+    required bool isStaffTab,
+  }) async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    // Captured before popping the popup — the popup's own context is
+    // defunct once it's removed.
+    final router = GoRouter.of(context);
+    navigator.pop();
+    if (isStaffTab) {
+      if (_isTeacherStaffPersona == true) {
+        // Staff persona: only allow viewing own attendance profile. Open it
+        // IN-PLACE inside the app shell via the router (the same way the
+        // admin case below does) so the bottom nav stays functional and
+        // tapping again while already on the page doesn't stack a duplicate
+        // detached page — `router.go` to the same location replaces rather
+        // than pushes.
+        final display = await resolveLoggedInStaffDisplay();
+        final staffCode = display.staffCode.trim();
+        if (staffCode.isEmpty) {
+          return;
+        }
+        final uri = Uri(
+          path: '${StaffAttendanceProfile.routeName}-by-code',
+          queryParameters: {
+            'code': staffCode,
+            'name': display.fullName.isNotEmpty ? display.fullName : '-',
+          },
+        );
+        router.go(uri.toString());
+      } else {
+        // Admin: open the staff attendance tabbed view inside the app
+        // shell (via the router) so the bottom navigation bar stays
+        // functional, instead of pushing a detached new screen.
+        router.go(StaffAttendanceTabbedView.routeName);
+      }
+    } else {
+      if (_isParentRole) {
+        await _openParentStudentAttendanceProfile(navigator.context);
+        return;
+      }
+      // Open the student attendance tabbed view inside the app shell
+      // (via the router) so the bottom navigation bar stays functional,
+      // instead of pushing a detached new screen.
+      router.go(StudentAttendanceTabbedView.routeName);
+    }
+  }
+
+  Future<void> _openParentStudentAttendanceProfile(BuildContext context) async {
+    final profile = await buildParentChildAttendanceProfile(context);
+    if (profile == null || !context.mounted) return;
+    // GoRouter holdout (documented): deliberate deterministic branch-navigator / fade / dedup flow (see app_router.dart popAllShellBranchNavigators docs) — kept imperative.
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: StudentAttendanceProfile.routeName),
+        builder: (_) => profile,
+      ),
+    );
+  }
+
+  double _getTabHeight({
+    required bool isAdmin,
+    required bool isParent,
+    required bool isTablet,
+    required double maxAvailableHeight,
+  }) {
+    // Calculate required height for content
+    final buttonRowHeight = isTablet ? 100.0 : 80.0;
+    final viewButtonHeight =
+        (isParent || isAdmin || _isTeacherStaffPersona == true)
+        ? (isTablet ? 76.0 : 64.0)
+        : 0.0;
+    final padding = isTablet ? 32.0 : 24.0;
+    final calculatedHeight = buttonRowHeight + viewButtonHeight + padding;
+
+    // Use calculated height but don't exceed available space
+    return calculatedHeight.clamp(80.0, maxAvailableHeight.clamp(80.0, 300.0));
+  }
+}
+
+class _StudentAttendanceTabView extends StatelessWidget {
+  const _StudentAttendanceTabView({
+    required this.isAdmin,
+    required this.isParent,
+    required this.isTablet,
+    required this.onViewAttendanceTap,
+  });
+
+  final bool isAdmin;
+  final bool isParent;
+  final bool isTablet;
+  final VoidCallback onViewAttendanceTap;
+
+  @override
+  Widget build(BuildContext context) {
     final disableStudentSignInOut =
         !AttendancePermissionService.hasPermissionToManageStudentAttendance(
           context,
@@ -820,8 +1527,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
             if (isAdmin || isParent) ...[
               SizedBox(height: isTablet ? 20 : 16),
               AttendancePopupViewButton(
-                onTap: () =>
-                    _handleViewAttendanceTap(context, isStaffTab: false),
+                onTap: onViewAttendanceTap,
                 isTablet: isTablet,
                 label: isParent
                     ? 'View My Child Attendance'
@@ -832,525 +1538,6 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
         ),
       ),
     );
-  }
-
-  Widget _buildStaffAttendanceTab(
-    BuildContext context,
-    bool isAdmin,
-    bool isTablet,
-  ) {
-    final roleProvider = context.watch<RoleCubit>();
-    final geofenceState = context.watch<GeofenceCubit>().state;
-    final bool isStaff = roleProvider.isStaff;
-    // Self-service gating only applies to the staff persona's own
-    // Sign-In/Sign-Out/Transfer/Mark-Absent; the admin staff-selection flow
-    // (StaffSelectionSignInForm etc.) is unaffected.
-    final StaffAttendanceActionAvailability availability = _todayGate
-        .availabilityWithGeofence(geofenceState.isWithinGeofence);
-    final bool selfActionsLoading = isStaff && _isTodayStatusLoading;
-    final bool isSignInDisabled =
-        isStaff && (selfActionsLoading || !availability.signInEnabled);
-    final bool isSignOutDisabled =
-        isStaff && (selfActionsLoading || !availability.signOutEnabled);
-    final bool isTransferDisabledForStaff =
-        isStaff && (selfActionsLoading || !availability.transferEnabled);
-    final bool isAbsentDisabledForStaff =
-        isStaff && (selfActionsLoading || !availability.absentEnabled);
-
-    final buttonSize = isTablet ? 40.0 : 36.0;
-    final fontSize = isTablet ? 14.0 : 12.0;
-    final horizontalPadding = isTablet ? 16.0 : 12.0;
-    final verticalPadding = isTablet ? 16.0 : 12.0;
-    final spacing = isTablet ? 16.0 : 8.0;
-
-    // For very small screens, use wrap layout
-    final useWrap = ResponsiveHelper(context).isNarrow;
-
-    return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: horizontalPadding,
-          vertical: verticalPadding,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (useWrap)
-              Wrap(
-                alignment: WrapAlignment.spaceEvenly,
-                spacing: spacing,
-                runSpacing: spacing,
-                children: [
-                  AttendancePopupActionButton(
-                    icon: MediaRes.Sign_in,
-                    label: 'Sign-in',
-                    iconSize: buttonSize,
-                    fontSize: fontSize,
-                    onTap: isSignInDisabled
-                        ? null
-                        : () async {
-                            final navigator = Navigator.of(
-                              context,
-                              rootNavigator: true,
-                            );
-                            final router = GoRouter.of(context);
-                            navigator.pop();
-                            if (_isTeacherStaffPersona == true &&
-                                _loggedInStaffCode.isNotEmpty) {
-                              final display =
-                                  await resolveLoggedInStaffDisplay();
-                              router.push(
-                                '/attendance/staff-sign-in',
-                                extra: {
-                                  'staff': StaffEntity(
-                                    id: 0,
-                                    name: display.fullName.isNotEmpty
-                                        ? display.fullName
-                                        : 'My Attendance',
-                                    primaryRoomId: 0,
-                                    photoUuid:
-                                        display.profilePhotoUrl.isNotEmpty
-                                        ? display.profilePhotoUrl
-                                        : null,
-                                    staffCode: display.staffCode.isNotEmpty
-                                        ? display.staffCode
-                                        : _loggedInStaffCode,
-                                  ),
-                                },
-                              );
-                            } else {
-                              router.push(
-                                '/attendance/staff-selection-sign-in',
-                              );
-                            }
-                          },
-                  ),
-                  AttendancePopupActionButton(
-                    icon: MediaRes.Sign_out,
-                    label: 'Sign-Out',
-                    iconSize: buttonSize,
-                    fontSize: fontSize,
-                    onTap: isSignOutDisabled
-                        ? null
-                        : () async {
-                            final navigator = Navigator.of(
-                              context,
-                              rootNavigator: true,
-                            );
-                            final router = GoRouter.of(context);
-                            navigator.pop();
-                            if (_isTeacherStaffPersona == true &&
-                                _loggedInStaffCode.isNotEmpty) {
-                              final display =
-                                  await resolveLoggedInStaffDisplay();
-                              router.push(
-                                '/attendance/staff-sign-out',
-                                extra: {
-                                  'staff': StaffEntity(
-                                    id: 0,
-                                    name: display.fullName.isNotEmpty
-                                        ? display.fullName
-                                        : 'My Attendance',
-                                    primaryRoomId: 0,
-                                    photoUuid:
-                                        display.profilePhotoUrl.isNotEmpty
-                                        ? display.profilePhotoUrl
-                                        : null,
-                                    staffCode: display.staffCode.isNotEmpty
-                                        ? display.staffCode
-                                        : _loggedInStaffCode,
-                                  ),
-                                },
-                              );
-                            } else {
-                              router.push(
-                                '/attendance/staff-selection-sign-out',
-                              );
-                            }
-                          },
-                  ),
-                  AttendancePopupActionButton(
-                    icon: MediaRes.transfer,
-                    label: 'Transfer',
-                    iconSize: buttonSize,
-                    fontSize: fontSize,
-                    onTap: isTransferDisabledForStaff
-                        ? null
-                        : () async {
-                            final navigator = Navigator.of(
-                              context,
-                              rootNavigator: true,
-                            );
-                            final router = GoRouter.of(context);
-                            navigator.pop();
-                            if (_isTeacherStaffPersona == true &&
-                                _loggedInStaffCode.isNotEmpty) {
-                              final display =
-                                  await resolveLoggedInStaffDisplay();
-                              router.push(
-                                '/attendance/staff-transfer',
-                                extra: {
-                                  'staff': StaffEntity(
-                                    id: 0,
-                                    name: display.fullName.isNotEmpty
-                                        ? display.fullName
-                                        : 'My Attendance',
-                                    primaryRoomId: 0,
-                                    photoUuid:
-                                        display.profilePhotoUrl.isNotEmpty
-                                        ? display.profilePhotoUrl
-                                        : null,
-                                    staffCode: display.staffCode.isNotEmpty
-                                        ? display.staffCode
-                                        : _loggedInStaffCode,
-                                  ),
-                                },
-                              );
-                            } else {
-                              router.push(
-                                '/attendance/staff-selection-transfer',
-                              );
-                            }
-                          },
-                  ),
-                  AttendancePopupActionButton(
-                    icon: MediaRes.Mark_absent,
-                    label: 'Absent',
-                    iconSize: buttonSize,
-                    fontSize: fontSize,
-                    onTap: isAbsentDisabledForStaff
-                        ? null
-                        : () async {
-                            final navigator = Navigator.of(
-                              context,
-                              rootNavigator: true,
-                            );
-                            final router = GoRouter.of(context);
-                            navigator.pop();
-                            if (_isTeacherStaffPersona == true &&
-                                _loggedInStaffCode.isNotEmpty) {
-                              final display =
-                                  await resolveLoggedInStaffDisplay();
-                              router.push(
-                                '/attendance/staff-mark-absent',
-                                extra: {
-                                  'staff': StaffEntity(
-                                    id: 0,
-                                    name: display.fullName.isNotEmpty
-                                        ? display.fullName
-                                        : 'My Attendance',
-                                    primaryRoomId: 0,
-                                    photoUuid:
-                                        display.profilePhotoUrl.isNotEmpty
-                                        ? display.profilePhotoUrl
-                                        : null,
-                                    staffCode: display.staffCode.isNotEmpty
-                                        ? display.staffCode
-                                        : _loggedInStaffCode,
-                                  ),
-                                },
-                              );
-                            } else {
-                              router.push(
-                                '/attendance/staff-selection-mark-absent',
-                              );
-                            }
-                          },
-                  ),
-                ],
-              )
-            else
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  Expanded(
-                    child: AttendancePopupActionButton(
-                      icon: MediaRes.Sign_in,
-                      label: 'Sign-in',
-                      iconSize: buttonSize,
-                      fontSize: fontSize,
-                      onTap: isSignInDisabled
-                          ? null
-                          : () async {
-                              final navigator = Navigator.of(
-                                context,
-                                rootNavigator: true,
-                              );
-                              final router = GoRouter.of(context);
-                              navigator.pop();
-                              if (_isTeacherStaffPersona == true &&
-                                  _loggedInStaffCode.isNotEmpty) {
-                                final display =
-                                    await resolveLoggedInStaffDisplay();
-                                router.push(
-                                  '/attendance/staff-sign-in',
-                                  extra: {
-                                    'staff': StaffEntity(
-                                      id: 0,
-                                      name: display.fullName.isNotEmpty
-                                          ? display.fullName
-                                          : 'My Attendance',
-                                      primaryRoomId: 0,
-                                      photoUuid:
-                                          display.profilePhotoUrl.isNotEmpty
-                                          ? display.profilePhotoUrl
-                                          : null,
-                                      staffCode: display.staffCode.isNotEmpty
-                                          ? display.staffCode
-                                          : _loggedInStaffCode,
-                                    ),
-                                  },
-                                );
-                              } else {
-                                router.push(
-                                  '/attendance/staff-selection-sign-in',
-                                );
-                              }
-                            },
-                    ),
-                  ),
-                  SizedBox(width: spacing),
-                  Expanded(
-                    child: AttendancePopupActionButton(
-                      icon: MediaRes.Sign_out,
-                      label: 'Sign-Out',
-                      iconSize: buttonSize,
-                      fontSize: fontSize,
-                      onTap: isSignOutDisabled
-                          ? null
-                          : () async {
-                              final navigator = Navigator.of(
-                                context,
-                                rootNavigator: true,
-                              );
-                              final router = GoRouter.of(context);
-                              navigator.pop();
-                              if (_isTeacherStaffPersona == true &&
-                                  _loggedInStaffCode.isNotEmpty) {
-                                final display =
-                                    await resolveLoggedInStaffDisplay();
-                                router.push(
-                                  '/attendance/staff-sign-out',
-                                  extra: {
-                                    'staff': StaffEntity(
-                                      id: 0,
-                                      name: display.fullName.isNotEmpty
-                                          ? display.fullName
-                                          : 'My Attendance',
-                                      primaryRoomId: 0,
-                                      photoUuid:
-                                          display.profilePhotoUrl.isNotEmpty
-                                          ? display.profilePhotoUrl
-                                          : null,
-                                      staffCode: display.staffCode.isNotEmpty
-                                          ? display.staffCode
-                                          : _loggedInStaffCode,
-                                    ),
-                                  },
-                                );
-                              } else {
-                                router.push(
-                                  '/attendance/staff-selection-sign-out',
-                                );
-                              }
-                            },
-                    ),
-                  ),
-                  SizedBox(width: spacing),
-                  Expanded(
-                    child: AttendancePopupActionButton(
-                      icon: MediaRes.transfer,
-                      label: 'Transfer',
-                      iconSize: buttonSize,
-                      fontSize: fontSize,
-                      onTap: isTransferDisabledForStaff
-                          ? null
-                          : () async {
-                              final navigator = Navigator.of(
-                                context,
-                                rootNavigator: true,
-                              );
-                              final router = GoRouter.of(context);
-                              navigator.pop();
-                              if (_isTeacherStaffPersona == true &&
-                                  _loggedInStaffCode.isNotEmpty) {
-                                final display =
-                                    await resolveLoggedInStaffDisplay();
-                                router.push(
-                                  '/attendance/staff-transfer',
-                                  extra: {
-                                    'staff': StaffEntity(
-                                      id: 0,
-                                      name: display.fullName.isNotEmpty
-                                          ? display.fullName
-                                          : 'My Attendance',
-                                      primaryRoomId: 0,
-                                      photoUuid:
-                                          display.profilePhotoUrl.isNotEmpty
-                                          ? display.profilePhotoUrl
-                                          : null,
-                                      staffCode: display.staffCode.isNotEmpty
-                                          ? display.staffCode
-                                          : _loggedInStaffCode,
-                                    ),
-                                  },
-                                );
-                              } else {
-                                router.push(
-                                  '/attendance/staff-selection-transfer',
-                                );
-                              }
-                            },
-                    ),
-                  ),
-                  SizedBox(width: spacing),
-                  Expanded(
-                    child: AttendancePopupActionButton(
-                      icon: MediaRes.Mark_absent,
-                      label: 'Absent',
-                      iconSize: buttonSize,
-                      fontSize: fontSize,
-                      onTap: isAbsentDisabledForStaff
-                          ? null
-                          : () async {
-                              final navigator = Navigator.of(
-                                context,
-                                rootNavigator: true,
-                              );
-                              final router = GoRouter.of(context);
-                              navigator.pop();
-                              if (_isTeacherStaffPersona == true &&
-                                  _loggedInStaffCode.isNotEmpty) {
-                                final display =
-                                    await resolveLoggedInStaffDisplay();
-                                router.push(
-                                  '/attendance/staff-mark-absent',
-                                  extra: {
-                                    'staff': StaffEntity(
-                                      id: 0,
-                                      name: display.fullName.isNotEmpty
-                                          ? display.fullName
-                                          : 'My Attendance',
-                                      primaryRoomId: 0,
-                                      photoUuid:
-                                          display.profilePhotoUrl.isNotEmpty
-                                          ? display.profilePhotoUrl
-                                          : null,
-                                      staffCode: display.staffCode.isNotEmpty
-                                          ? display.staffCode
-                                          : _loggedInStaffCode,
-                                    ),
-                                  },
-                                );
-                              } else {
-                                router.push(
-                                  '/attendance/staff-selection-mark-absent',
-                                );
-                              }
-                            },
-                    ),
-                  ),
-                ],
-              ),
-            // Show "View Attendance" button:
-            // - Admin: View Attendance (all staff list)
-            // - Teacher persona: View My Attendance (self-only profile)
-            if (isAdmin || _isTeacherStaffPersona == true) ...[
-              SizedBox(height: isTablet ? 20 : 16),
-              AttendancePopupViewButton(
-                onTap: () =>
-                    _handleViewAttendanceTap(context, isStaffTab: true),
-                isTablet: isTablet,
-                label: _isTeacherStaffPersona == true
-                    ? 'View My Attendance'
-                    : 'View Attendance',
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _handleViewAttendanceTap(
-    BuildContext context, {
-    required bool isStaffTab,
-  }) async {
-    final navigator = Navigator.of(context, rootNavigator: true);
-    // Captured before popping the popup — the popup's own context is
-    // defunct once it's removed.
-    final router = GoRouter.of(context);
-    navigator.pop();
-    if (isStaffTab) {
-      if (_isTeacherStaffPersona == true) {
-        // Staff persona: only allow viewing own attendance profile. Open it
-        // IN-PLACE inside the app shell via the router (the same way the
-        // admin case below does) so the bottom nav stays functional and
-        // tapping again while already on the page doesn't stack a duplicate
-        // detached page — `router.go` to the same location replaces rather
-        // than pushes.
-        final display = await resolveLoggedInStaffDisplay();
-        final staffCode = display.staffCode.trim();
-        if (staffCode.isEmpty) {
-          return;
-        }
-        final uri = Uri(
-          path: '${StaffAttendanceProfile.routeName}-by-code',
-          queryParameters: {
-            'code': staffCode,
-            'name': display.fullName.isNotEmpty ? display.fullName : '-',
-          },
-        );
-        router.go(uri.toString());
-      } else {
-        // Admin: open the staff attendance tabbed view inside the app
-        // shell (via the router) so the bottom navigation bar stays
-        // functional, instead of pushing a detached new screen.
-        router.go(StaffAttendanceTabbedView.routeName);
-      }
-    } else {
-      if (_isParentRole) {
-        await _openParentStudentAttendanceProfile(navigator.context);
-        return;
-      }
-      // Open the student attendance tabbed view inside the app shell
-      // (via the router) so the bottom navigation bar stays functional,
-      // instead of pushing a detached new screen.
-      router.go(StudentAttendanceTabbedView.routeName);
-    }
-  }
-
-  Future<void> _openParentStudentAttendanceProfile(BuildContext context) async {
-    final profile = await buildParentChildAttendanceProfile(context);
-    if (profile == null || !context.mounted) return;
-    // GoRouter holdout (documented): deliberate deterministic branch-navigator / fade / dedup flow (see app_router.dart popAllShellBranchNavigators docs) — kept imperative.
-    Navigator.push(
-      context,
-      MaterialPageRoute<void>(
-        settings: const RouteSettings(name: StudentAttendanceProfile.routeName),
-        builder: (_) => profile,
-      ),
-    );
-  }
-
-  double _getTabHeight({
-    required bool isAdmin,
-    required bool isParent,
-    required bool isTablet,
-    required double maxAvailableHeight,
-  }) {
-    // Calculate required height for content
-    final buttonRowHeight = isTablet ? 100.0 : 80.0;
-    final viewButtonHeight =
-        (isParent || isAdmin || _isTeacherStaffPersona == true)
-        ? (isTablet ? 76.0 : 64.0)
-        : 0.0;
-    final padding = isTablet ? 32.0 : 24.0;
-    final calculatedHeight = buttonRowHeight + viewButtonHeight + padding;
-
-    // Use calculated height but don't exceed available space
-    return calculatedHeight.clamp(80.0, maxAvailableHeight.clamp(80.0, 300.0));
   }
 }
 

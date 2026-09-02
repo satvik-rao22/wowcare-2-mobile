@@ -709,9 +709,547 @@ class _StaffAttendanceDailyViewScreenState
                               ),
                             )
                           else if (_showAbsentOnly)
-                            _buildAbsentStaffList(absentState)
+                            Builder(
+                              builder: (context) {
+                                if (absentState.items.isEmpty) {
+                                  return Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(
+                                        AppSpacing.lg,
+                                      ),
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.person_off_outlined,
+                                            size: 48,
+                                            color: AppColors
+                                                .attendanceEmptyStateIconColor,
+                                          ),
+                                          const SizedBox(height: AppSpacing.md),
+                                          AppText.body(
+                                            'No absent staff found for the selected date',
+                                            style: AppTextStyles.body.copyWith(
+                                              color: AppColors
+                                                  .attendanceDialogHintTextColor,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                final items = absentState.items;
+
+                                return Column(
+                                  children: items.asMap().entries.map((entry) {
+                                    final index = entry.key;
+                                    final it = entry.value;
+                                    final roomName =
+                                        _staffAbsentToggleClassroomDisplay(it);
+                                    final absenceDate = it.absenceDate;
+                                    final absentTime =
+                                        it.markedAbsentTime?.formatted12h ?? '';
+                                    final staff = StaffAbsentCardData(
+                                      id: it.staffCode,
+                                      staffCode: it.staffCode,
+                                      name: it.staffName,
+                                      photoUuid: null,
+                                      roomName: roomName,
+                                      absentTime: absentTime,
+                                      absentBy: it.markedAbsentByName,
+                                      note: it.absenceNote,
+                                      staffId: index,
+                                      roomId: 0,
+                                      schoolId: 0,
+                                      startDate: absenceDate,
+                                      endDate: absenceDate,
+                                      hasSignIn: false,
+                                      expectedToday: true,
+                                      signInTime: null,
+                                      signOutTime: null,
+                                      markAbsentMethod:
+                                          _mapAbsentMethodStringToEnum(
+                                            it.markAbsentMethod,
+                                          ),
+                                    );
+                                    return StaffAbsentCard(
+                                      staff: staff,
+                                      index: index,
+                                      isExpanded: _expandedAbsentIndex == index,
+                                      onTap: () {
+                                        setState(() {
+                                          _expandedAbsentIndex =
+                                              _expandedAbsentIndex == index
+                                              ? null
+                                              : index;
+                                        });
+                                      },
+                                      onView: () {
+                                        context
+                                            .push(
+                                              StaffAttendanceProfile.routeName,
+                                              extra: {
+                                                'staffCode': staff.id,
+                                                'staffId': staff.staffId,
+                                                'staffName': staff.name,
+                                                'staffPhotoUuid':
+                                                    staff.photoUuid,
+                                                'roomName': staff.roomName,
+                                                'isSignedIn': staff.hasSignIn,
+                                                'isAbsent': true,
+                                                'isExpectedToday':
+                                                    staff.expectedToday,
+                                                'isPresentToday': false,
+                                                'profileStatus': 'A',
+                                                'initialShowAbsentDays': true,
+                                              },
+                                            )
+                                            .then((_) {
+                                              if (mounted) {
+                                                refreshAfterReturningFromAttendanceFlow();
+                                              }
+                                            });
+                                      },
+                                    );
+                                  }).toList(),
+                                );
+                              },
+                            )
                           else
-                            _buildStaffListFromState(state),
+                            Builder(
+                              builder: (context) {
+                                _staffMembers.clear();
+
+                                for (final item in state.items) {
+                                  // Compute effective sign-in/sign-out display for transfer sequences.
+                                  String? effectiveSignIn;
+                                  String? effectiveSignOut;
+                                  StaffAttendanceTime? effectiveSignInClock;
+                                  StaffAttendanceTime? effectiveSignOutClock;
+                                  bool transferSignIn = false;
+                                  bool transferSignOut = false;
+                                  final int seq = item.sequenceNumber ?? 1;
+                                  final int totalSeq =
+                                      item.totalSequenceCount ?? 1;
+
+                                  if (totalSeq <= 1) {
+                                    effectiveSignIn = item.formattedSignInTime;
+                                    effectiveSignOut =
+                                        item.formattedSignOutTime;
+                                    effectiveSignInClock = item.signedInTime;
+                                    effectiveSignOutClock = item.signedOutTime;
+                                  } else {
+                                    final isFirst = seq == 1;
+                                    final isLast = seq == totalSeq;
+
+                                    if (isFirst && !isLast) {
+                                      effectiveSignIn =
+                                          item.formattedSignInTime;
+                                      effectiveSignOut =
+                                          item.nextActionTime?.formattedTime;
+                                      effectiveSignInClock = item.signedInTime;
+                                      effectiveSignOutClock =
+                                          item.nextActionTime;
+                                      transferSignOut =
+                                          effectiveSignOut != null;
+                                    } else if (!isFirst && !isLast) {
+                                      effectiveSignIn =
+                                          item.transferTime?.formattedTime;
+                                      effectiveSignOut =
+                                          item.nextActionTime?.formattedTime;
+                                      effectiveSignInClock = item.transferTime;
+                                      effectiveSignOutClock =
+                                          item.nextActionTime;
+                                      transferSignIn = effectiveSignIn != null;
+                                      transferSignOut =
+                                          effectiveSignOut != null;
+                                    } else if (isLast) {
+                                      effectiveSignIn = isFirst
+                                          ? item.formattedSignInTime
+                                          : item.transferTime?.formattedTime;
+                                      effectiveSignOut =
+                                          item.formattedSignOutTime;
+                                      effectiveSignInClock = isFirst
+                                          ? item.signedInTime
+                                          : item.transferTime;
+                                      effectiveSignOutClock =
+                                          item.signedOutTime;
+                                      transferSignIn =
+                                          !isFirst && effectiveSignIn != null;
+                                    }
+                                  }
+
+                                  final day = DateTime(
+                                    _selectedDate.year,
+                                    _selectedDate.month,
+                                    _selectedDate.day,
+                                  );
+                                  final startMoment =
+                                      dateAtStaffAttendanceClock(
+                                        day,
+                                        effectiveSignInClock,
+                                      );
+                                  final endMoment = dateAtStaffAttendanceClock(
+                                    day,
+                                    effectiveSignOutClock,
+                                  );
+                                  final attendedTimeDisplay =
+                                      attendedLabelFromMoments(
+                                        startMoment,
+                                        endMoment,
+                                      );
+
+                                  final String? rawDesignation =
+                                      item.designation.isNotEmpty
+                                      ? item.designation.first
+                                      : null;
+                                  final String? formattedDesignation =
+                                      _formatDesignation(rawDesignation);
+
+                                  final String effectiveClassroomCode =
+                                      (item.isTransfer == true &&
+                                          (item.toClassroomCode ?? '')
+                                              .trim()
+                                              .isNotEmpty)
+                                      ? item.toClassroomCode!.trim()
+                                      : item.classroomCode.trim();
+
+                                  _staffMembers.add(
+                                    StaffAttendanceCardData(
+                                      attendanceRecordCode:
+                                          item.attendanceRecordCode,
+                                      id: item.staffCode,
+                                      staffName: item.staffName,
+                                      staffPhotoUuid: null,
+                                      designationName: formattedDesignation,
+                                      roomName: _classroomDisplay(
+                                        // Transfer rows may populate `toClassroom*` instead of `classroom*`.
+                                        classroomCode:
+                                            effectiveClassroomCode.isNotEmpty
+                                            ? effectiveClassroomCode
+                                            : item.classroomCode,
+                                        classroomName:
+                                            (item.isTransfer == true &&
+                                                (item.toClassroomName ?? '')
+                                                    .trim()
+                                                    .isNotEmpty)
+                                            ? item.toClassroomName!
+                                            : item.classroomName,
+                                      ),
+                                      classroomCode:
+                                          effectiveClassroomCode.isNotEmpty
+                                          ? effectiveClassroomCode
+                                          : null,
+                                      expectedToday: item.isExpectedToday,
+                                      hasSignIn: item.hasSignIn,
+                                      signInTime:
+                                          effectiveSignIn ??
+                                          item.formattedSignInTime,
+                                      signOutTime:
+                                          effectiveSignOut ??
+                                          item.formattedSignOutTime,
+                                      signInBy:
+                                          _normalizeByName(item.signedInBy) ??
+                                          (_isKioskOrPinMethod(
+                                                item.signedInMethod,
+                                              )
+                                              ? 'Kiosk'
+                                              : null),
+                                      signOutBy:
+                                          _normalizeByName(item.signedOutBy) ??
+                                          (transferSignOut
+                                              ? _loggedInUserName
+                                              : null) ??
+                                          (_isKioskOrPinMethod(
+                                                item.signedOutMethod,
+                                              )
+                                              ? 'Kiosk'
+                                              : null) ??
+                                          // Auto sign-out has no person: the API sends
+                                          // signedOutMethod=SYSTEM with an empty signedOutBy. Show
+                                          // "System" (web parity) instead of falling through to the
+                                          // card's own "Unknown" placeholder.
+                                          (_isSystemMethod(item.signedOutMethod)
+                                              ? 'System'
+                                              : null),
+                                      // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
+                                      signInMethod: _resolveSignMethodForDisplay(
+                                        method: item.signedInMethod,
+                                        hasRecordedTime:
+                                            (effectiveSignIn ??
+                                                    item.formattedSignInTime)
+                                                ?.trim()
+                                                .isNotEmpty ==
+                                            true,
+                                      ),
+                                      signOutMethod: _resolveSignMethodForDisplay(
+                                        method: item.signedOutMethod,
+                                        hasRecordedTime:
+                                            (effectiveSignOut ??
+                                                    item.formattedSignOutTime)
+                                                ?.trim()
+                                                .isNotEmpty ==
+                                            true,
+                                      ),
+                                      staffId: 0,
+                                      roomId: 0,
+                                      schoolId: 0,
+                                      sequenceNumber: item.sequenceNumber,
+                                      totalSequenceCount:
+                                          item.totalSequenceCount,
+                                      isTransferSignIn: transferSignIn,
+                                      isTransferSignOut: transferSignOut,
+                                      attendedTimeDisplay: attendedTimeDisplay,
+                                      notExpectedComment:
+                                          item.notExpectedComment,
+                                    ),
+                                  );
+                                }
+
+                                final filtered = _getFilteredStaff();
+
+                                if (filtered.isEmpty) {
+                                  return Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(
+                                        AppSpacing.lg,
+                                      ),
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.people_outline,
+                                            size: 48,
+                                            color: AppColors
+                                                .attendanceEmptyStateIconColor,
+                                          ),
+                                          const SizedBox(height: AppSpacing.md),
+                                          AppText.body(
+                                            'No staff attendance records found for the selected date',
+                                            style: AppTextStyles.body.copyWith(
+                                              color: AppColors
+                                                  .attendanceDialogHintTextColor,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                // Editing/deleting attendance records requires a STAFF_ATTENDANCE write.
+                                // Editing specifically (as opposed to self sign-in/out) is further
+                                // restricted server-side to SCHOOL_ADMIN/ORGANIZATION_ADMIN personas, so
+                                // hide the Edit action unless both checks pass (the card omits a null
+                                // callback); Delete keeps the original module-only gate.
+                                final canWriteStaffAttendance = context
+                                    .read<RoleCubit>()
+                                    .canWriteModule(
+                                      AppAccessModules.staffAttendance,
+                                    );
+                                final canEditAttendance =
+                                    canWriteStaffAttendance &&
+                                    _isStaffAdminPersona;
+                                return Column(
+                                  children: filtered.asMap().entries.map((
+                                    entry,
+                                  ) {
+                                    final index = entry.key;
+                                    final staff = entry.value;
+                                    return StaffAttendanceCard(
+                                      staff: staff,
+                                      index: index,
+                                      isExpanded: _expandedStaffIndex == index,
+                                      onTap: () {
+                                        setState(() {
+                                          _expandedStaffIndex =
+                                              _expandedStaffIndex == index
+                                              ? null
+                                              : index;
+                                        });
+                                      },
+                                      onEdit: !canEditAttendance
+                                          ? null
+                                          : () async {
+                                              await context.push(
+                                                '/dashboard/staff-edit-attendance-form',
+                                                extra: {
+                                                  'staffAttendance': staff,
+                                                  'attendanceDate':
+                                                      _selectedDate,
+                                                },
+                                              );
+                                              if (mounted) {
+                                                refreshAfterReturningFromAttendanceFlow();
+                                              }
+                                            },
+                                      onDelete: !canWriteStaffAttendance
+                                          ? null
+                                          : () {
+                                              showModalBottomSheet(
+                                                context: context,
+                                                isScrollControlled: true,
+                                                backgroundColor:
+                                                    AppColors.transparentColor,
+                                                builder: (ctx) {
+                                                  return DeleteConfirmationBottomSheet(
+                                                    name: staff.staffName,
+                                                    type: 'attendance',
+                                                    onDelete: () async {
+                                                      Navigator.of(ctx).pop();
+                                                      if (staff.attendanceRecordCode ==
+                                                              null ||
+                                                          staff
+                                                              .attendanceRecordCode!
+                                                              .isEmpty) {
+                                                        CoreUtils.showTopSnackBarFromSnackBar(
+                                                          context: context,
+                                                          snackBar: const SnackBar(
+                                                            content: Text(
+                                                              'Unable to delete: missing attendance record code.',
+                                                            ),
+                                                            backgroundColor:
+                                                                AppColors
+                                                                    .errorColor,
+                                                          ),
+                                                        );
+                                                        return;
+                                                      }
+
+                                                      try {
+                                                        final normalizedAttendanceCode =
+                                                            _resolveStaffDeleteAttendanceRecordCode(
+                                                              card: staff,
+                                                              allItems:
+                                                                  state.items,
+                                                            );
+                                                        if (normalizedAttendanceCode ==
+                                                                null ||
+                                                            normalizedAttendanceCode
+                                                                .isEmpty) {
+                                                          CoreUtils.showTopSnackBarFromSnackBar(
+                                                            context: context,
+                                                            snackBar: const SnackBar(
+                                                              content: Text(
+                                                                'Unable to delete: invalid attendance record code.',
+                                                              ),
+                                                              backgroundColor:
+                                                                  AppColors
+                                                                      .errorColor,
+                                                            ),
+                                                          );
+                                                          return;
+                                                        }
+
+                                                        final staffCode =
+                                                            await _deleteCubit
+                                                                .resolveStaffCode();
+                                                        if (staffCode.isEmpty) {
+                                                          if (!context.mounted)
+                                                            return;
+                                                          CoreUtils.showTopSnackBarFromSnackBar(
+                                                            context: context,
+                                                            snackBar: const SnackBar(
+                                                              content: Text(
+                                                                'Unable to resolve staffCode. Please re-login.',
+                                                              ),
+                                                              backgroundColor:
+                                                                  AppColors
+                                                                      .errorColor,
+                                                            ),
+                                                          );
+                                                          return;
+                                                        }
+
+                                                        await _deleteCubit.delete(
+                                                          attendanceRecordCode:
+                                                              normalizedAttendanceCode,
+                                                          staffCode: staffCode,
+                                                        );
+
+                                                        if (!context.mounted)
+                                                          return;
+                                                        CoreUtils.showTopSnackBarFromSnackBar(
+                                                          context: context,
+                                                          snackBar: const SnackBar(
+                                                            content: Text(
+                                                              'Attendance deleted',
+                                                            ),
+                                                            backgroundColor:
+                                                                AppColors
+                                                                    .successColor,
+                                                          ),
+                                                        );
+                                                        _loadAttendanceData(
+                                                          context,
+                                                          reset: true,
+                                                        );
+                                                      } catch (e) {
+                                                        if (!context.mounted)
+                                                          return;
+                                                        final message =
+                                                            ApiErrorHandler.extractErrorMessage(
+                                                              e,
+                                                            );
+                                                        CoreUtils.showTopSnackBarFromSnackBar(
+                                                          context: context,
+                                                          snackBar: SnackBar(
+                                                            content: Text(
+                                                              message,
+                                                            ),
+                                                            backgroundColor:
+                                                                AppColors
+                                                                    .errorColor,
+                                                          ),
+                                                        );
+                                                      }
+                                                    },
+                                                    onCancel: () {
+                                                      Navigator.of(ctx).pop();
+                                                    },
+                                                  );
+                                                },
+                                              );
+                                            },
+                                      onView: () {
+                                        context
+                                            .push(
+                                              StaffAttendanceProfile.routeName,
+                                              extra: {
+                                                'staffCode': staff.id,
+                                                'staffId': staff.staffId,
+                                                'staffName': staff.staffName,
+                                                'staffPhotoUuid':
+                                                    staff.staffPhotoUuid,
+                                                'designationName':
+                                                    staff.designationName,
+                                                'roomName': staff.roomName,
+                                                'isSignedIn': staff.hasSignIn,
+                                                'isAbsent': false,
+                                                'isExpectedToday':
+                                                    staff.expectedToday,
+                                                'isPresentToday':
+                                                    staff.hasSignIn,
+                                                'profileStatus': 'A',
+                                              },
+                                            )
+                                            .then((_) {
+                                              if (mounted) {
+                                                refreshAfterReturningFromAttendanceFlow();
+                                              }
+                                            });
+                                      },
+                                    );
+                                  }).toList(),
+                                );
+                              },
+                            ),
                         ],
                       ),
                     ),
@@ -798,336 +1336,6 @@ class _StaffAttendanceDailyViewScreenState
     }
   }
 
-  Widget _buildStaffListFromState(StaffAttendanceDailyState state) {
-    _staffMembers.clear();
-
-    for (final item in state.items) {
-      // Compute effective sign-in/sign-out display for transfer sequences.
-      String? effectiveSignIn;
-      String? effectiveSignOut;
-      StaffAttendanceTime? effectiveSignInClock;
-      StaffAttendanceTime? effectiveSignOutClock;
-      bool transferSignIn = false;
-      bool transferSignOut = false;
-      final int seq = item.sequenceNumber ?? 1;
-      final int totalSeq = item.totalSequenceCount ?? 1;
-
-      if (totalSeq <= 1) {
-        effectiveSignIn = item.formattedSignInTime;
-        effectiveSignOut = item.formattedSignOutTime;
-        effectiveSignInClock = item.signedInTime;
-        effectiveSignOutClock = item.signedOutTime;
-      } else {
-        final isFirst = seq == 1;
-        final isLast = seq == totalSeq;
-
-        if (isFirst && !isLast) {
-          effectiveSignIn = item.formattedSignInTime;
-          effectiveSignOut = item.nextActionTime?.formattedTime;
-          effectiveSignInClock = item.signedInTime;
-          effectiveSignOutClock = item.nextActionTime;
-          transferSignOut = effectiveSignOut != null;
-        } else if (!isFirst && !isLast) {
-          effectiveSignIn = item.transferTime?.formattedTime;
-          effectiveSignOut = item.nextActionTime?.formattedTime;
-          effectiveSignInClock = item.transferTime;
-          effectiveSignOutClock = item.nextActionTime;
-          transferSignIn = effectiveSignIn != null;
-          transferSignOut = effectiveSignOut != null;
-        } else if (isLast) {
-          effectiveSignIn = isFirst
-              ? item.formattedSignInTime
-              : item.transferTime?.formattedTime;
-          effectiveSignOut = item.formattedSignOutTime;
-          effectiveSignInClock = isFirst
-              ? item.signedInTime
-              : item.transferTime;
-          effectiveSignOutClock = item.signedOutTime;
-          transferSignIn = !isFirst && effectiveSignIn != null;
-        }
-      }
-
-      final day = DateTime(
-        _selectedDate.year,
-        _selectedDate.month,
-        _selectedDate.day,
-      );
-      final startMoment = dateAtStaffAttendanceClock(day, effectiveSignInClock);
-      final endMoment = dateAtStaffAttendanceClock(day, effectiveSignOutClock);
-      final attendedTimeDisplay = attendedLabelFromMoments(
-        startMoment,
-        endMoment,
-      );
-
-      final String? rawDesignation = item.designation.isNotEmpty
-          ? item.designation.first
-          : null;
-      final String? formattedDesignation = _formatDesignation(rawDesignation);
-
-      final String effectiveClassroomCode =
-          (item.isTransfer == true &&
-              (item.toClassroomCode ?? '').trim().isNotEmpty)
-          ? item.toClassroomCode!.trim()
-          : item.classroomCode.trim();
-
-      _staffMembers.add(
-        StaffAttendanceCardData(
-          attendanceRecordCode: item.attendanceRecordCode,
-          id: item.staffCode,
-          staffName: item.staffName,
-          staffPhotoUuid: null,
-          designationName: formattedDesignation,
-          roomName: _classroomDisplay(
-            // Transfer rows may populate `toClassroom*` instead of `classroom*`.
-            classroomCode: effectiveClassroomCode.isNotEmpty
-                ? effectiveClassroomCode
-                : item.classroomCode,
-            classroomName:
-                (item.isTransfer == true &&
-                    (item.toClassroomName ?? '').trim().isNotEmpty)
-                ? item.toClassroomName!
-                : item.classroomName,
-          ),
-          classroomCode: effectiveClassroomCode.isNotEmpty
-              ? effectiveClassroomCode
-              : null,
-          expectedToday: item.isExpectedToday,
-          hasSignIn: item.hasSignIn,
-          signInTime: effectiveSignIn ?? item.formattedSignInTime,
-          signOutTime: effectiveSignOut ?? item.formattedSignOutTime,
-          signInBy:
-              _normalizeByName(item.signedInBy) ??
-              (_isKioskOrPinMethod(item.signedInMethod) ? 'Kiosk' : null),
-          signOutBy:
-              _normalizeByName(item.signedOutBy) ??
-              (transferSignOut ? _loggedInUserName : null) ??
-              (_isKioskOrPinMethod(item.signedOutMethod) ? 'Kiosk' : null) ??
-              // Auto sign-out has no person: the API sends
-              // signedOutMethod=SYSTEM with an empty signedOutBy. Show
-              // "System" (web parity) instead of falling through to the
-              // card's own "Unknown" placeholder.
-              (_isSystemMethod(item.signedOutMethod) ? 'System' : null),
-          // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
-          signInMethod: _resolveSignMethodForDisplay(
-            method: item.signedInMethod,
-            hasRecordedTime:
-                (effectiveSignIn ?? item.formattedSignInTime)
-                    ?.trim()
-                    .isNotEmpty ==
-                true,
-          ),
-          signOutMethod: _resolveSignMethodForDisplay(
-            method: item.signedOutMethod,
-            hasRecordedTime:
-                (effectiveSignOut ?? item.formattedSignOutTime)
-                    ?.trim()
-                    .isNotEmpty ==
-                true,
-          ),
-          staffId: 0,
-          roomId: 0,
-          schoolId: 0,
-          sequenceNumber: item.sequenceNumber,
-          totalSequenceCount: item.totalSequenceCount,
-          isTransferSignIn: transferSignIn,
-          isTransferSignOut: transferSignOut,
-          attendedTimeDisplay: attendedTimeDisplay,
-          notExpectedComment: item.notExpectedComment,
-        ),
-      );
-    }
-
-    final filtered = _getFilteredStaff();
-
-    if (filtered.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.people_outline,
-                size: 48,
-                color: AppColors.attendanceEmptyStateIconColor,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              AppText.body(
-                'No staff attendance records found for the selected date',
-                style: AppTextStyles.body.copyWith(
-                  color: AppColors.attendanceDialogHintTextColor,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Editing/deleting attendance records requires a STAFF_ATTENDANCE write.
-    // Editing specifically (as opposed to self sign-in/out) is further
-    // restricted server-side to SCHOOL_ADMIN/ORGANIZATION_ADMIN personas, so
-    // hide the Edit action unless both checks pass (the card omits a null
-    // callback); Delete keeps the original module-only gate.
-    final canWriteStaffAttendance = context.read<RoleCubit>().canWriteModule(
-      AppAccessModules.staffAttendance,
-    );
-    final canEditAttendance = canWriteStaffAttendance && _isStaffAdminPersona;
-    return Column(
-      children: filtered.asMap().entries.map((entry) {
-        final index = entry.key;
-        final staff = entry.value;
-        return StaffAttendanceCard(
-          staff: staff,
-          index: index,
-          isExpanded: _expandedStaffIndex == index,
-          onTap: () {
-            setState(() {
-              _expandedStaffIndex = _expandedStaffIndex == index ? null : index;
-            });
-          },
-          onEdit: !canEditAttendance
-              ? null
-              : () async {
-                  await context.push(
-                    '/dashboard/staff-edit-attendance-form',
-                    extra: {
-                      'staffAttendance': staff,
-                      'attendanceDate': _selectedDate,
-                    },
-                  );
-                  if (mounted) {
-                    refreshAfterReturningFromAttendanceFlow();
-                  }
-                },
-          onDelete: !canWriteStaffAttendance
-              ? null
-              : () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: AppColors.transparentColor,
-                    builder: (ctx) {
-                      return DeleteConfirmationBottomSheet(
-                        name: staff.staffName,
-                        type: 'attendance',
-                        onDelete: () async {
-                          Navigator.of(ctx).pop();
-                          if (staff.attendanceRecordCode == null ||
-                              staff.attendanceRecordCode!.isEmpty) {
-                            CoreUtils.showTopSnackBarFromSnackBar(
-                              context: context,
-                              snackBar: const SnackBar(
-                                content: Text(
-                                  'Unable to delete: missing attendance record code.',
-                                ),
-                                backgroundColor: AppColors.errorColor,
-                              ),
-                            );
-                            return;
-                          }
-
-                          try {
-                            final normalizedAttendanceCode =
-                                _resolveStaffDeleteAttendanceRecordCode(
-                                  card: staff,
-                                  allItems: state.items,
-                                );
-                            if (normalizedAttendanceCode == null ||
-                                normalizedAttendanceCode.isEmpty) {
-                              CoreUtils.showTopSnackBarFromSnackBar(
-                                context: context,
-                                snackBar: const SnackBar(
-                                  content: Text(
-                                    'Unable to delete: invalid attendance record code.',
-                                  ),
-                                  backgroundColor: AppColors.errorColor,
-                                ),
-                              );
-                              return;
-                            }
-
-                            final staffCode = await _deleteCubit
-                                .resolveStaffCode();
-                            if (staffCode.isEmpty) {
-                              if (!context.mounted) return;
-                              CoreUtils.showTopSnackBarFromSnackBar(
-                                context: context,
-                                snackBar: const SnackBar(
-                                  content: Text(
-                                    'Unable to resolve staffCode. Please re-login.',
-                                  ),
-                                  backgroundColor: AppColors.errorColor,
-                                ),
-                              );
-                              return;
-                            }
-
-                            await _deleteCubit.delete(
-                              attendanceRecordCode: normalizedAttendanceCode,
-                              staffCode: staffCode,
-                            );
-
-                            if (!context.mounted) return;
-                            CoreUtils.showTopSnackBarFromSnackBar(
-                              context: context,
-                              snackBar: const SnackBar(
-                                content: Text('Attendance deleted'),
-                                backgroundColor: AppColors.successColor,
-                              ),
-                            );
-                            _loadAttendanceData(context, reset: true);
-                          } catch (e) {
-                            if (!context.mounted) return;
-                            final message = ApiErrorHandler.extractErrorMessage(
-                              e,
-                            );
-                            CoreUtils.showTopSnackBarFromSnackBar(
-                              context: context,
-                              snackBar: SnackBar(
-                                content: Text(message),
-                                backgroundColor: AppColors.errorColor,
-                              ),
-                            );
-                          }
-                        },
-                        onCancel: () {
-                          Navigator.of(ctx).pop();
-                        },
-                      );
-                    },
-                  );
-                },
-          onView: () {
-            context
-                .push(
-                  StaffAttendanceProfile.routeName,
-                  extra: {
-                    'staffCode': staff.id,
-                    'staffId': staff.staffId,
-                    'staffName': staff.staffName,
-                    'staffPhotoUuid': staff.staffPhotoUuid,
-                    'designationName': staff.designationName,
-                    'roomName': staff.roomName,
-                    'isSignedIn': staff.hasSignIn,
-                    'isAbsent': false,
-                    'isExpectedToday': staff.expectedToday,
-                    'isPresentToday': staff.hasSignIn,
-                    'profileStatus': 'A',
-                  },
-                )
-                .then((_) {
-                  if (mounted) {
-                    refreshAfterReturningFromAttendanceFlow();
-                  }
-                });
-          },
-        );
-      }).toList(),
-    );
-  }
-
   String? _normalizeByName(String? raw) {
     final value = raw?.trim();
     if (value == null || value.isEmpty) return null;
@@ -1212,102 +1420,6 @@ class _StaffAttendanceDailyViewScreenState
     final fromCard = card.attendanceRecordCode?.trim();
     if (fromCard == null || fromCard.isEmpty) return null;
     return fromCard;
-  }
-
-  Widget _buildAbsentStaffList(StaffAttendanceAbsentToggleState absentState) {
-    if (absentState.items.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.person_off_outlined,
-                size: 48,
-                color: AppColors.attendanceEmptyStateIconColor,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              AppText.body(
-                'No absent staff found for the selected date',
-                style: AppTextStyles.body.copyWith(
-                  color: AppColors.attendanceDialogHintTextColor,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final items = absentState.items;
-
-    return Column(
-      children: items.asMap().entries.map((entry) {
-        final index = entry.key;
-        final it = entry.value;
-        final roomName = _staffAbsentToggleClassroomDisplay(it);
-        final absenceDate = it.absenceDate;
-        final absentTime = it.markedAbsentTime?.formatted12h ?? '';
-        final staff = StaffAbsentCardData(
-          id: it.staffCode,
-          staffCode: it.staffCode,
-          name: it.staffName,
-          photoUuid: null,
-          roomName: roomName,
-          absentTime: absentTime,
-          absentBy: it.markedAbsentByName,
-          note: it.absenceNote,
-          staffId: index,
-          roomId: 0,
-          schoolId: 0,
-          startDate: absenceDate,
-          endDate: absenceDate,
-          hasSignIn: false,
-          expectedToday: true,
-          signInTime: null,
-          signOutTime: null,
-          markAbsentMethod: _mapAbsentMethodStringToEnum(it.markAbsentMethod),
-        );
-        return StaffAbsentCard(
-          staff: staff,
-          index: index,
-          isExpanded: _expandedAbsentIndex == index,
-          onTap: () {
-            setState(() {
-              _expandedAbsentIndex = _expandedAbsentIndex == index
-                  ? null
-                  : index;
-            });
-          },
-          onView: () {
-            context
-                .push(
-                  StaffAttendanceProfile.routeName,
-                  extra: {
-                    'staffCode': staff.id,
-                    'staffId': staff.staffId,
-                    'staffName': staff.name,
-                    'staffPhotoUuid': staff.photoUuid,
-                    'roomName': staff.roomName,
-                    'isSignedIn': staff.hasSignIn,
-                    'isAbsent': true,
-                    'isExpectedToday': staff.expectedToday,
-                    'isPresentToday': false,
-                    'profileStatus': 'A',
-                    'initialShowAbsentDays': true,
-                  },
-                )
-                .then((_) {
-                  if (mounted) {
-                    refreshAfterReturningFromAttendanceFlow();
-                  }
-                });
-          },
-        );
-      }).toList(),
-    );
   }
 }
 
