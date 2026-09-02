@@ -9,12 +9,34 @@ class RegularizationFixtures {
 
   /// The unresolved soft sign-out shown in the next-day gate.
   static MissedSignout get pendingGate => MissedSignout(
-        recordCode: 'STAR_DEMO_1',
+        attendanceCode: 'STAR_DEMO_1',
         attendanceDate: DateTime(2026, 6, 23),
         softSignOutAt: _at(23, 17, 30),
         signInAt: _at(23, 7, 37),
         classroomName: '4-Indigo-Classroom',
       );
+
+  /// Bulk sign-in gate: the admin selected 50 staff and these 10 still have an
+  /// unresolved past day, so they can't be signed in until it's closed.
+  static List<MissedSignout> get bulkSignInGate {
+    const names = [
+      'Sara Malik', 'Leo Martins', 'Aisha Rahman', 'Tomas Neuman',
+      'Grace Adeyemi', 'Ravi Menon', 'Elena Petrova', 'Kwame Boateng',
+      'Yuki Tanaka', 'Nora Halvorsen',
+    ];
+    return [
+      for (var i = 0; i < names.length; i++)
+        MissedSignout(
+          attendanceCode: 'STAR_BULK_$i',
+          staffCode: 'STF_BULK_$i',
+          staffName: names[i],
+          attendanceDate: DateTime(2026, 6, 23),
+          softSignOutAt: _at(23, 17, 30),
+          signInAt: _at(23, 7, 30 + i),
+          classroomName: '4-Indigo-Classroom',
+        ),
+    ];
+  }
 
   /// Admin inbox — pending requests from staff.
   static List<RegularizationRequest> get adminInbox => [

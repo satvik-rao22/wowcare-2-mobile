@@ -11,13 +11,18 @@ This spec matches the client already implemented in module `attendance_regulariz
 
 ## 1. Problem statement
 
-Staff frequently **forget to sign out** — or an admin signs them in (e.g. bulk / on their behalf) and no sign-out ever happens. Today that leaves an **open attendance row**:
+Staff frequently **forget to sign out** — or an admin signs them in (e.g. bulk / on their behalf) and no sign-out ever happens. **Two** things can be true of that row on a past day, and both need regularizing:
 
 ```
-status = 'SIGNED_IN', signed_out_at = NULL, total_worked_minutes = NULL
+status = 'SIGNED_IN',  signed_out_at = NULL                                  -- still open (scheduler off, or hasn't fired)
+status = 'SIGNED_OUT', signed_out_method = SYSTEM, total_worked_minutes = 0  -- scheduler auto-closed it on a guessed time
 ```
 
-Nothing auto-closes it. The day therefore contributes **zero** counted time and silently sits incomplete.
+The second case exists because the school's auto sign-out scheduler, when enabled, eventually closes the row itself — writing `signed_out_at`, `status = 'SIGNED_OUT'` and `signed_out_method = SYSTEM`. **A scheduler close is not a staff-confirmed sign-out**, so it must hit the same gate rather than being treated as done.
+
+> **Backend prerequisite.** `AutoSignOutExecutionService` currently computes and writes `total_worked_minutes` when it auto-closes a row. On the `SYSTEM` path it must write **`0`** instead. Three reasons: the day stays uncounted (§8.1), the staff **sees 0 hours** — which is the nudge to raise the request — and the row matches the detection condition below. **Keep `signed_out_at` as written** — the scheduler's guess is the best `suggestedSignOutAt` for the gate sheet. *(Tracked as a change to `AutoSignOutExecutionService`, outside this doc's API surface.)*
+
+Either way — still open, or auto-closed on a guess — the day silently sits incomplete until a human confirms or corrects it.
 
 Regularization makes this explicit and correctable:
 
@@ -38,6 +43,7 @@ Regularization makes this explicit and correctable:
 - Detecting open past sessions and exposing them (the "gate").
 - A regularization request lifecycle (raise → approve/modify → apply → recompute), incl. **cancel**.
 - Staff self-service (raise, list, cancel), **admin raise-on-behalf (auto-approved)**, and admin approval (single approve/modify + **multi-select bulk approve**).
+- **Bulk sign-in**: batch gate check + batch raise, so an admin signing in many staff at once can clear several blocked staff in one action (§5.1c).
 - Applying the approved sign-out onto `staff_attendance_record` and recomputing overtime.
 
 **Out of scope (v1) — model must not preclude**
@@ -61,10 +67,10 @@ Auth reuses the existing interceptor + `X-Organization-Code` / `X-School-Code` h
 
 | Term | Meaning |
 |---|---|
-| **Open session** | An attendance row with `status = 'SIGNED_IN'` and `signed_out_at IS NULL`. |
+| **Open session** | A day not genuinely closed by a human: either `status = 'SIGNED_IN'` with no `signed_out_at`, **or** closed by the scheduler (`signed_out_method = SYSTEM`, `total_worked_minutes = 0`). |
 | **Missed sign-out** | An **open session on a past day** (`attendance_date < today`, school-local). The unit of regularization. |
 | **Gate** | The mandatory blocker before the next sign-in (staff *or* admin-on-behalf): the staff's single open missed sign-out must be raised first. |
-| **Suggested sign-out time** | A default pre-filled in the sheet, computed from the school's schedule (working-hours end for that weekday). **Not stored on the attendance row** — there is no system auto-close. |
+| **Suggested sign-out time** | The time pre-filled in the sheet: the scheduler's own `signed_out_at` if it auto-closed the row, else the school schedule's closing time for that weekday, else a 19:00 local cap. |
 | **Confirm** | Submitted with the suggested time unchanged. Staff-raised → still a **PENDING** request (admin must see it); admin-raised → auto-approved. |
 | **Correction** | A different actual time (+ required reason). Staff-raised → **PENDING**; admin-raised → auto-approved. |
 | **Apply** | On approval (or immediately, for admin-raised), write the sign-out onto the attendance row and recompute the day. |
@@ -88,6 +94,20 @@ Auth reuses the existing interceptor + `X-Organization-Code` / `X-School-Code` h
 
 ### 5.1b Admin — signing in a staff who never signed out
 The admin hits the same gate with admin-flavoured copy ("Sign-out missing", names the staff, "your correction is approved automatically"). They set/confirm the sign-out, save, and can then sign the staff in. This is the normal path for admin-driven / bulk sign-ins.
+
+### 5.1c Admin — bulk sign-in when several staff are blocked
+
+The gate is per-staff, but **bulk sign-in is per-batch** — one admin action can hit many blocked staff at once (worst case: a school's very first morning, when no gate has ever run). The flow must not degrade into N sequential mandatory sheets.
+
+1. Before signing in, the client checks **all selected staff in one call** (§9.1b).
+2. **Unblocked staff sign in immediately** — they are not held up by someone else's open day.
+3. The blocked staff appear on **one consolidated sheet**, each row pre-filled with that person's suggested sign-out time. The admin either:
+   - **Close all N & sign them in** — one tap; each row is raised and (being admin-raised) auto-approved (§8.2b), then those staff are signed in; or
+   - **corrects individual rows** first (marked "edited", with undo), with one shared reason covering whoever was corrected; or
+   - **Skips** — the unblocked staff still sign in; the blocked ones are left for later.
+4. The batch raise goes through **one call** (§9.2b), not N.
+
+> **Cold start.** On a school's first day, a large share of staff may be blocked at once. After that the gate keeps it to the day's stragglers. Expect this and don't treat it as a defect.
 
 ### 5.2 Staff — my regularizations
 - List of the staff's requests with status (`Pending` / `Approved` / `Cancelled`), requested time, reason, decision info.
@@ -135,7 +155,7 @@ Store the workflow in its own table, and denormalize only read-optimizers onto `
 | `school_code` | string | |
 | `staff_code` | string | |
 | `attendance_date` | date | School-local calendar date being corrected |
-| `target_record_code` | string **NOT NULL** | FK → `staff_attendance_record.code` — the open row being closed. Enforceable FK, because every request targets an existing row (see §7.4) |
+| `attendance_code` | string **NOT NULL** | FK → `staff_attendance_record.code` — the open row being closed. Enforceable FK, because every request targets an existing row (see §7.4) |
 | `current_classroom_code` | string, nullable | Context (room of the open session) |
 | `suggested_sign_out_at` | timestamptz, nullable | The default shown to the raiser (from school schedule); context + basis for `confirmed_suggested_time` |
 | `requested_sign_out_at` | timestamptz | What the raiser asked for |
@@ -157,8 +177,8 @@ Store the workflow in its own table, and denormalize only read-optimizers onto `
 **Indexes**
 - `(school_code, status)` — admin inbox.
 - `(staff_code, status)` — staff list + gate.
-- `(target_record_code)` — join back to the row.
-- Partial unique `(target_record_code) WHERE status = 'PENDING'` — one active request per open row (idempotent raise).
+- `(attendance_code)` — join back to the row.
+- Partial unique `(attendance_code) WHERE status = 'PENDING'` — one active request per open row (idempotent raise).
 
 > **Single-purpose table, generic name.** The table intentionally models **only missed sign-out** (§7.5). Keep the **name generic** (`staff_attendance_regularization`, *not* `staff_missed_signout_request`): the name is the expensive thing to change when more correction kinds arrive; a `type` column is not.
 
@@ -170,11 +190,11 @@ Add:
 
 | Column | Type | Notes |
 |---|---|---|
-| `signed_out_method` | int enum | **Add a value for `REGULARIZED`** (admin-applied correction). Written on apply. |
+| `signed_out_method` | int enum | **Add a value for `REGULARIZED`** (admin-applied correction). Written on apply — when the row was previously auto-closed by the scheduler (`SYSTEM`), approval **overwrites** it. An approved regularization is always the final, authoritative sign-out method for that row, never the scheduler's guess. **This overwrite is what clears the gate.** |
 | `is_regularized` | bool, default false | True once a correction is applied. |
 | `regularization_code` | string, nullable | Back-pointer to the applied `staff_attendance_regularization.code`. |
 
-> No `is_provisional` column is needed: an open row already has `signed_out_at = NULL` and `total_worked_minutes = NULL`, so it is naturally uncounted until apply.
+> No `is_provisional` column is needed. "Not yet regularized" is already expressed by the row itself: either `signed_out_at IS NULL`, or `signed_out_method = SYSTEM` (which approval overwrites to `REGULARIZED`). `is_regularized` is the denormalized shortcut for reads.
 
 ### 7.4 Why `applied_sign_out_at` must be stored (not derived)
 
@@ -192,7 +212,7 @@ Scope is **missed sign-out only**, so the following are **intentionally not colu
 
 | Excluded | Why it's out | Cost to add later |
 |---|---|---|
-| `type` | Single-valued for this scope — a column with one possible value carries zero information, and forces an enum to be kept in sync across DB / backend / client for no benefit. Its absence also lets `target_record_code` be **NOT NULL + FK**. | **Trivial, lossless:** `ADD COLUMN type VARCHAR NOT NULL DEFAULT 'MISSED_SIGN_OUT'` — every existing row is correct by definition, no backfill logic. |
+| `type` | Single-valued for this scope — a column with one possible value carries zero information, and forces an enum to be kept in sync across DB / backend / client for no benefit. Its absence also lets `attendance_code` be **NOT NULL + FK**. | **Trivial, lossless:** `ADD COLUMN type VARCHAR NOT NULL DEFAULT 'MISSED_SIGN_OUT'` — every existing row is correct by definition, no backfill logic. |
 | `requested_sign_in_at` | Only meaningful for missed-sign-in / time-correction. Would be 100% NULL. | Trivial: add as nullable. |
 | `applied_sign_in_at` | Same. | Trivial: add as nullable. |
 | `decided_by_name` | **Derived data.** Names live in the user service; a stored copy goes stale on rename and violates single-source-of-truth. Resolve `decided_by_code` → name at read time into the DTO. | Not needed — it's a read concern, not storage. |
@@ -204,14 +224,17 @@ Scope is **missed sign-out only**, so the following are **intentionally not colu
 
 **Do NOT extend this trimming to:** `applied_sign_out_at` (§7.4), `suggested_sign_out_at` / `confirmed_suggested_time` (drop both and you can no longer tell "accepted the suggestion" from "corrected it"), `raised_by_role` / `auto_approved` (they distinguish a reviewed approval from an auto-approved admin one — the audit integrity of §8.2b), and `reason` / `decision_note` (free text, not derivable).
 
-**Deferred correction kinds.** Missed **sign-in** / **full-day** would have *no attendance row yet*, so they'd need `target_record_code` nullable and an apply path that **creates** a row. That is a schema change *plus* new business logic — treat it as a separate feature, not something today's columns should pre-empt. It remains the main reason the workflow lives in its own table (§11).
+**Deferred correction kinds.** Missed **sign-in** / **full-day** would have *no attendance row yet*, so they'd need `attendance_code` nullable and an apply path that **creates** a row. That is a schema change *plus* new business logic — treat it as a separate feature, not something today's columns should pre-empt. It remains the main reason the workflow lives in its own table (§11).
 
 ---
 
 ## 8. Business rules (locked)
 
 ### 8.1 Accounting — excluded until approved  *(Decision 1 ✔)*
-- An open past session (missed sign-out) counts as **0** everywhere (`/staff-overtime-records/profile` shows the day `needsAttention = true`, no regular/overtime/break credited). This is automatic because `total_worked_minutes` is NULL / no `signed_out_at`.
+- An unresolved past session counts as **0** everywhere: `/staff-overtime-records/profile` credits no regular/overtime/break for that day and returns `needsAttention = true`.
+- Two mechanisms hold this together, and **both** are required:
+  1. the scheduler writes `total_worked_minutes = 0` on a `SYSTEM` close (§1 prerequisite), so the stored value already reads zero; and
+  2. **the overtime calculation must skip days whose row is `signed_out_method = SYSTEM AND is_regularized = false`** — otherwise a recompute from `signed_in_at` → `signed_out_at` would silently re-credit the guessed hours and the staff would never see the 0 that prompts them to act.
 - On **apply** (approval), write `signed_out_at`, recompute `total_worked_minutes`, and re-run overtime `calculate` for `(staff, date)`.
 
 ### 8.2 Staff-raised: confirm still needs approval  *(Decision 2 ✔ — NO auto-approve)*
@@ -230,6 +253,7 @@ Scope is **missed sign-out only**, so the following are **intentionally not colu
 - Guard response: `409 REGULARIZATION_REQUIRED` carrying the unresolved open session(s) so the client can open the gate sheet directly.
 - Once the request exists, sign-in is allowed: staff-raised stays `PENDING` (approval not required to sign in — don't block staff on admin latency); admin-raised is already approved.
 - Because of this guard, at most **one** unresolved missed sign-out can exist per staff at any time (§5.1 invariant).
+- **Bulk sign-in is partial-success, never all-or-nothing:** sign in everyone who passes, and return the blocked staff (with their open session) in the response so the client can open the consolidated sheet (§5.1c). Failing the whole batch because one person forgot to sign out is not acceptable.
 
 ### 8.4 No reject  *(Decision 4 ✔)*
 - Admin actions are **approve** (± modify) or **leave pending**. There is **no reject** path or enum value. For anything an admin would want to reject, they ask the staff to **cancel** the request (`CANCELLED`).
@@ -239,12 +263,12 @@ Scope is **missed sign-out only**, so the following are **intentionally not colu
 - Safe assumption: schools close **before 19:00** local; use it as the default cap when schedule settings are missing. Reject times past the day's cap (protects against a corrected time crossing into the next day).
 
 ### 8.6 Uniqueness / idempotency
-- At most **one PENDING** request per `target_record_code` (partial unique). A repeat raise returns the existing PENDING request (idempotent) rather than a duplicate.
+- At most **one PENDING** request per `attendance_code` (partial unique). A repeat raise returns the existing PENDING request (idempotent) rather than a duplicate.
 - Approve is idempotent: approving an already-`APPROVED` request is a no-op returning current state.
 
 ### 8.7 Apply (on approval), atomically
 1. Set `status = APPROVED`, `decided_by_code`, `decided_at`, `decision_note`, and **`applied_sign_out_at`** (= the admin-modified time if provided, else `requested_sign_out_at`). Persist it — never re-derive it from the attendance row later (§7.4).
-2. Update the target `staff_attendance_record` (always exists — `target_record_code` is NOT NULL): `signed_out_at = applied_sign_out_at`, `signed_out_by_code = <approver>`, `signed_out_method = REGULARIZED`, `status = SIGNED_OUT`, recompute `total_worked_minutes`, `is_regularized = true`, `regularization_code = <code>`.
+2. Update the target `staff_attendance_record` (always exists — `attendance_code` is NOT NULL): `signed_out_at = applied_sign_out_at`, `signed_out_by_code = <approver>`, `signed_out_method = REGULARIZED`, `status = SIGNED_OUT`, recompute `total_worked_minutes`, `is_regularized = true`, `regularization_code = <code>`.
 3. Recompute overtime for `(staff_code, attendance_date)`.
 
 ### 8.8 Authorization
@@ -261,7 +285,16 @@ Under `attendance-ms`, base `/api/v1`. UTC ISO-8601 in payloads (+ `timeZone` fo
 ```
 GET /staff-attendance-regularizations/open-sessions?staffCode={code}
 ```
-Detection: `status='SIGNED_IN' AND signed_out_at IS NULL AND attendance_date < {today, school-local} AND deleted_at IS NULL`.
+**Detection**
+```sql
+(
+     (status = 'SIGNED_IN'  AND signed_out_at IS NULL)
+  OR (status = 'SIGNED_OUT' AND signed_out_method = SYSTEM AND total_worked_minutes = 0)
+)
+AND attendance_date < {today, school-local}
+AND deleted_at IS NULL
+```
+The second branch depends on the §1 prerequisite — the scheduler must write `total_worked_minutes = 0` for it to match. Note `signed_out_method = SYSTEM` is what makes this unambiguous: a genuine sub-minute session (staff signs in and straight back out) also has 0 minutes but a human sign-out method, so it is never gated.
 ```json
 {
   "success": true,
@@ -278,7 +311,32 @@ Detection: `status='SIGNED_IN' AND signed_out_at IS NULL AND attendance_date < {
   ]
 }
 ```
-`suggestedSignOutAt` is computed from the school schedule (≤ 19:00 local by default).
+`suggestedSignOutAt` resolution order: **1)** the scheduler's `signed_out_at` if the row was SYSTEM-closed · **2)** the school schedule's closing time for that weekday · **3)** a 19:00 local fallback cap.
+
+### 9.1b Batch gate check — admin (bulk sign-in)
+```
+POST /staff-attendance-regularizations/open-sessions/batch
+{ "staffCodes": ["STF_A", "STF_B", "STF_C"] }
+```
+Same detection as §9.1, evaluated for many staff in **one** round trip — the single-staff GET would mean 50 calls before a 50-person bulk sign-in.
+
+```json
+{
+  "success": true,
+  "data": {
+    "blocked": [
+      { "staffCode": "STF_A", "staffName": "Sara Malik",
+        "attendanceCode": "STAR_...", "attendanceDate": "2026-06-23",
+        "signedInAt": "2026-06-23T11:00:00Z",
+        "suggestedSignOutAt": "2026-06-23T21:30:00Z",
+        "classroomCode": "CLS_...", "hasPendingRequest": false }
+    ],
+    "clear": ["STF_B", "STF_C"]
+  }
+}
+```
+- `blocked` carries `staffName` so the sheet can list people without a second lookup (resolved at read time, §7.5).
+- `clear` lets the client sign those staff in straight away.
 
 ### 9.2 Raise a request — staff
 ```
@@ -288,7 +346,7 @@ POST /staff-attendance-regularizations
 {
   "staffCode": "STF_...",
   "attendanceDate": "2026-08-03",
-  "targetRecordCode": "STAR_...",
+  "attendanceCode": "STAR_...",
   "requestedSignOutAt": "2026-08-03T22:30:00Z",
   "confirmedSuggestedTime": false,
   "reason": "stayed for parent meeting",
@@ -301,6 +359,31 @@ POST /staff-attendance-regularizations
 - **Same endpoint for admins.** The server decides from the authenticated role: staff → `PENDING`; admin → created **and auto-approved/applied** (§8.2b). The response `status` tells the client which happened, so it can say "sent for approval" vs. "applied".
 - No `type` field — this endpoint only handles missed sign-out (§7.5).
 - `timeZone` **is required in the payload** even though it is not a column: the server needs it to convert the wall-clock time to UTC (§7.5, §10.1).
+
+### 9.2b Batch raise — admin (bulk sign-in)
+```
+POST /staff-attendance-regularizations/raise-batch
+{
+  "timeZone": "America/New_York",
+  "reason": "forgot to sign out",
+  "items": [
+    { "staffCode": "STF_A", "attendanceCode": "STAR_A", "attendanceDate": "2026-06-23",
+      "requestedSignOutAt": "2026-06-23T21:30:00Z", "confirmedSuggestedTime": true },
+    { "staffCode": "STF_B", "attendanceCode": "STAR_B", "attendanceDate": "2026-06-23",
+      "requestedSignOutAt": "2026-06-23T22:15:00Z", "confirmedSuggestedTime": false }
+  ]
+}
+```
+- **Admin-only.** Each item follows §8.2b: created **and** auto-approved + applied.
+- One shared `reason` applies to every item (per-item `reason` may override).
+- Same validation per item as §9.2 (§8.5 window, reason required when corrected).
+- Idempotent per item (§8.6): an item already having a PENDING/APPROVED request is **skipped**, not an error.
+- Mirrors `approve-selected` (§9.7) in shape:
+```json
+{ "success": true,
+  "data": { "applied": 9, "skipped": [ { "attendanceCode": "STAR_C", "reason": "already resolved" } ] } }
+```
+- Each applied item runs the §8.7 apply + recompute; batching the recompute is acceptable.
 
 ### 9.3 List my requests — staff
 ```
@@ -399,7 +482,8 @@ Keep `suggested_sign_out_at`, `requested_sign_out_at`, and `applied_sign_out_at`
 - `RegularizationRequest` (`RegStatus` = pending/approved/cancelled; **no** `RegType`, **no** `requestedSignInAt`) → §7.2 row.
 - Single sheet `reg_resolve_sheet` → §9.2 (confirm/correct in one submit; returns `confirmedSoftTime`). `byAdmin: true` + `staffName` switches it to admin-raise copy ("Sign-out missing", "approved automatically", **Save sign-out**) for §8.2b. There is **no** multi-day sheet — the §5.1 invariant makes it unnecessary.
 - Admin decision sheet `reg_decision_sheet` → §9.7 (approve + optional modify + note; **no reject**).
-- Admin inbox multi-select + "Approve selected (N)" → §9.8.
+- Admin inbox multi-select + "Approve selected (N)" → §9.7.
+- Bulk sign-in gate sheet `reg_bulk_signin_gate_sheet` (+ row `reg_staff_time_row`) → §9.1b + §9.2b. Lists the blocked staff, one tap closes all, `Skip` lets the unblocked staff sign in. Returns `List<RegBulkGateItem>`.
 
 `attendance_v2` already consumes `sign-in`/`sign-out`, `staff-attendance-records/daily/{code}` (PATCH), `staff-overtime-records/{profile,calculate}` — regularization plugs into the same rows + recompute path.
 ```

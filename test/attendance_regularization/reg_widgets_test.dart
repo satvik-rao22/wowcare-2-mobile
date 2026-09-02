@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/modules/attendance_regularization/data/fixtures/regularization_fixtures.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/screens/reg_admin_inbox_screen.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/screens/reg_staff_list_screen.dart';
+import 'package:wowcare/modules/attendance_regularization/presentation/widgets/reg_bulk_signin_gate_sheet.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/widgets/reg_resolve_sheet.dart';
 
 void main() {
@@ -174,5 +175,83 @@ void main() {
     expect(find.text('Finish yesterday first'), findsNothing);
     expect(find.text('Confirm & submit'), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  group('bulk sign-in gate', () {
+    Widget harness(void Function(List<RegBulkGateItem>?) onResult) =>
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () async => onResult(
+                    await showRegBulkSignInGateSheet(
+                      context,
+                      blocked: RegularizationFixtures.bulkSignInGate,
+                      otherCount: 40,
+                    ),
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        );
+
+    testWidgets('lists the blocked staff and closes all in one tap',
+        (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      List<RegBulkGateItem>? result;
+      await tester.pumpWidget(harness((r) => result = r));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      // Header names the blocked count and reassures about the rest.
+      expect(find.text('10 staff need yesterday closed'), findsOneWidget);
+      expect(find.text('40 others will sign in normally'), findsOneWidget);
+      // Staff are listed by name (sorted), each with its own row.
+      expect(find.text('Aisha Rahman'), findsOneWidget);
+      // Nothing corrected yet, so the reason is optional.
+      expect(find.text('(optional)'), findsOneWidget);
+
+      await tester.tap(find.text('Close all 10 & sign them in'));
+      await tester.pumpAndSettle();
+
+      expect(result, isNotNull);
+      expect(result!.length, 10);
+      expect(result!.every((i) => i.confirmedSuggestedTime), isTrue);
+      // Defaults to the suggested school end time (17:30).
+      expect(result!.first.signOutLocal.hour, 17);
+      expect(result!.first.signOutLocal.minute, 30);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('skip returns nothing so the other staff still sign in',
+        (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      List<RegBulkGateItem>? result;
+      var called = false;
+      await tester.pumpWidget(harness((r) {
+        result = r;
+        called = true;
+      }));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Skip — sign in the other 40'));
+      await tester.pumpAndSettle();
+
+      expect(called, isTrue);
+      expect(result, isNull);
+      expect(tester.takeException(), isNull);
+    });
   });
 }

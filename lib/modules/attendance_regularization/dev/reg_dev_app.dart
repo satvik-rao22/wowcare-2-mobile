@@ -6,6 +6,7 @@ import 'package:wowcare/modules/attendance_v2/core/theme/av2_text_styles.dart';
 import '../data/fixtures/regularization_fixtures.dart';
 import '../presentation/screens/reg_admin_inbox_screen.dart';
 import '../presentation/screens/reg_staff_list_screen.dart';
+import '../presentation/widgets/reg_bulk_signin_gate_sheet.dart';
 import '../presentation/widgets/reg_resolve_sheet.dart';
 
 /// Standalone preview of the regularization screens/widgets (static data):
@@ -63,6 +64,15 @@ class _DevMenu extends StatelessWidget {
                   mandatory: true,
                   byAdmin: true,
                   staffName: 'Mohan Sonone',
+                );
+              }),
+              const SizedBox(height: Av2Spacing.sm),
+              _btn(context, 'Bulk sign-in gate — 10 of 50 blocked (admin)',
+                  () async {
+                await showRegBulkSignInGateSheet(
+                  context,
+                  blocked: RegularizationFixtures.bulkSignInGate,
+                  otherCount: 40,
                 );
               }),
               const SizedBox(height: Av2Spacing.sm),
