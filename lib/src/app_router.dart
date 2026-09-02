@@ -45,6 +45,28 @@ import 'package:wowcare/presentation/features/availability/view/individual_movem
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
 import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
+import 'package:wowcare/presentation/features/billing/view/create_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/select_students_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/selected_students_receipt_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/generate_statement_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/pay_now_amount_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/pay_now_authorize_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/auto_pay_payment_methods_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/transaction_details_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/receive_payment_issue_refund_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/add_credit_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/view_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/view_receipt_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/send_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/billing_settings/add_discount_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/billing_settings/edit_discount_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/general_ledger/ledger_detail_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/general_ledger/edit_ledger_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/general_ledger/create_ledger_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/auto_pay_token_webview.dart';
+import 'package:wowcare/presentation/features/billing/widgets/general_ledger/add_transaction_dialog.dart';
+import 'package:wowcare/presentation/features/reports/view/report_file_viewer_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/views/screens/classroom_screen.dart';
@@ -1546,6 +1568,207 @@ final GoRouter appRouter = GoRouter(
               studentCode: q['studentCode'],
             ),
           ),
+        );
+      },
+    ),
+
+    // ── Billing drill-down screens (Mandate 1: GoRouter everywhere) ──────────
+    // Every billing screen that used to be pushed via MaterialPageRoute is
+    // registered here as a root-level overlay route (same pattern as the
+    // /attendance/* selection forms above): pushed via `context.push` over the
+    // shell, each reads its arguments from `state.extra` cast to the matching
+    // typed args class from billing_route_args.dart. Return values propagate
+    // back to the awaiting `context.push` when the screen pops (context.pop /
+    // Navigator.pop both complete the go_router push future).
+    GoRoute(
+      path: CreateInvoiceScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as CreateInvoiceArgs;
+        return CreateInvoiceScreen(
+          selectedStudents: args.selectedStudents,
+          initialInvoiceData: args.initialInvoiceData,
+        );
+      },
+    ),
+    GoRoute(
+      path: SelectStudentsScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra as SelectStudentsArgs?;
+        return SelectStudentsScreen(
+          invoiceData: args?.invoiceData,
+          onNext: args?.onNext,
+        );
+      },
+    ),
+    GoRoute(
+      path: SelectedStudentsReceiptScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as SelectedStudentsReceiptArgs;
+        return SelectedStudentsReceiptScreen(
+          selectedStudents: args.selectedStudents,
+          invoiceData: args.invoiceData,
+          onStudentRemoved: args.onStudentRemoved,
+          isConfirmation: args.isConfirmation,
+          onSubmit: args.onSubmit,
+        );
+      },
+    ),
+    GoRoute(
+      path: TransactionDetailsScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra as TransactionDetailsArgs?;
+        return TransactionDetailsScreen(
+          transaction: args?.transaction,
+          ownerType: args?.ownerType,
+          ownerCode: args?.ownerCode,
+          familyName: args?.familyName,
+        );
+      },
+    ),
+    GoRoute(
+      path: ReceivePaymentIssueRefundScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as ReceivePaymentRefundArgs;
+        return ReceivePaymentIssueRefundScreen(
+          transaction: args.transaction,
+          isRefund: args.isRefund,
+          studentCode: args.studentCode,
+          ownerType: args.ownerType,
+          ownerCode: args.ownerCode,
+        );
+      },
+    ),
+    GoRoute(
+      path: AddCreditScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra as AddCreditArgs?;
+        return AddCreditScreen(
+          ownerType: args?.ownerType,
+          ownerCode: args?.ownerCode,
+          studentCode: args?.studentCode,
+          familyName: args?.familyName,
+        );
+      },
+    ),
+    GoRoute(
+      path: GenerateStatementScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as GenerateStatementArgs;
+        return GenerateStatementScreen(
+          cubit: args.cubit,
+          subscriberCode: args.subscriberCode,
+          ownerType: args.ownerType,
+          familyChildren: args.familyChildren,
+        );
+      },
+    ),
+    GoRoute(
+      path: ViewInvoiceScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as ViewInvoiceArgs;
+        return ViewInvoiceScreen(transaction: args.transaction);
+      },
+    ),
+    GoRoute(
+      path: ViewReceiptScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as ViewReceiptArgs;
+        return ViewReceiptScreen(
+          transaction: args.transaction,
+          viewType: args.viewType,
+        );
+      },
+    ),
+    GoRoute(
+      path: SendInvoiceScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as SendInvoiceArgs;
+        return SendInvoiceScreen(transaction: args.transaction);
+      },
+    ),
+    GoRoute(
+      path: PayNowAmountScreen.routeName,
+      builder: (context, state) => const PayNowAmountScreen(),
+    ),
+    GoRoute(
+      path: PayNowAuthorizeScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as PayNowAuthorizeArgs;
+        return PayNowAuthorizeScreen(
+          method: args.method,
+          amount: args.amount,
+          charges: args.charges,
+          settings: args.settings,
+        );
+      },
+    ),
+    GoRoute(
+      path: AutoPayPaymentMethodsScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra as AutoPayPaymentMethodsArgs?;
+        return AutoPayPaymentMethodsScreen(isPicker: args?.isPicker ?? false);
+      },
+    ),
+    GoRoute(
+      // Preserves the original `fullscreenDialog: true` presentation.
+      path: AutoPayTokenWebView.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra! as AutoPayTokenWebViewArgs;
+        return MaterialPage<dynamic>(
+          key: state.pageKey,
+          name: state.matchedLocation,
+          fullscreenDialog: true,
+          child: AutoPayTokenWebView(payload: args.payload),
+        );
+      },
+    ),
+    GoRoute(
+      path: AddDiscountScreen.routeName,
+      builder: (context, state) => const AddDiscountScreen(),
+    ),
+    GoRoute(
+      path: EditDiscountScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as EditDiscountArgs;
+        return EditDiscountScreen(discount: args.discount);
+      },
+    ),
+    GoRoute(
+      path: LedgerDetailScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as LedgerDetailArgs;
+        return LedgerDetailScreen(ledger: args.ledger);
+      },
+    ),
+    GoRoute(
+      path: EditLedgerScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as EditLedgerArgs;
+        return EditLedgerScreen(ledger: args.ledger);
+      },
+    ),
+    GoRoute(
+      path: CreateLedgerScreen.routeName,
+      builder: (context, state) => const CreateLedgerScreen(),
+    ),
+    GoRoute(
+      path: AddTransactionScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as AddTransactionArgs;
+        return AddTransactionScreen(
+          ledgerCode: args.ledgerCode,
+          onSave: args.onSave,
+        );
+      },
+    ),
+    GoRoute(
+      path: ReportFileViewerArgs.routeName,
+      builder: (context, state) {
+        final args = state.extra! as ReportFileViewerArgs;
+        return ReportFileViewerScreen(
+          fileData: args.fileData,
+          fileName: args.fileName,
+          fileType: args.fileType,
         );
       },
     ),

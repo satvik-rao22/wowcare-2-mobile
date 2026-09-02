@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/util/billing_school_time.dart';
 
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/logger_service.dart';

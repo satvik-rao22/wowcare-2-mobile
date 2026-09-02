@@ -55,32 +55,17 @@ class StudentAttendanceProfileAbsentToggleRecord extends Equatable {
   /// `m['classroomName'] as String?` (nullable; screen trims + falls back)
   final String? classroomName;
 
-  factory StudentAttendanceProfileAbsentToggleRecord.fromJson(
-    Map<String, dynamic> m,
-  ) {
-    return StudentAttendanceProfileAbsentToggleRecord(
-      absenceDate: m['absenceDate'] as String? ?? '',
-      markedAbsentTime: m['markedAbsentTime'],
-      markedAbsentByName: m['markedAbsentByName'],
-      markedAbsentBy: m['markedAbsentBy'],
-      absenceNote: m['absenceNote'] as String? ?? '',
-      markAbsentMethod: m['markAbsentMethod'] as String?,
-      classroomCode: m['classroomCode'] as String?,
-      classroomName: m['classroomName'] as String?,
-    );
-  }
-
   @override
   List<Object?> get props => [
-        absenceDate,
-        markedAbsentTime,
-        markedAbsentByName,
-        markedAbsentBy,
-        absenceNote,
-        markAbsentMethod,
-        classroomCode,
-        classroomName,
-      ];
+    absenceDate,
+    markedAbsentTime,
+    markedAbsentByName,
+    markedAbsentBy,
+    absenceNote,
+    markAbsentMethod,
+    classroomCode,
+    classroomName,
+  ];
 }
 
 class StudentAttendanceProfileAbsentToggleResponse extends Equatable {
@@ -95,29 +80,6 @@ class StudentAttendanceProfileAbsentToggleResponse extends Equatable {
   /// `data.records.content` parsed into typed records.
   final List<StudentAttendanceProfileAbsentToggleRecord> records;
 
-  factory StudentAttendanceProfileAbsentToggleResponse.fromJson(
-    Map<String, dynamic> json,
-  ) {
-    final root = json['data'] as Map<String, dynamic>? ?? {};
-    final agg = root['aggregations'] as Map<String, dynamic>? ?? {};
-    final recordsMap = root['records'] as Map<String, dynamic>? ?? {};
-    final content = recordsMap['content'] as List<dynamic>? ?? const [];
-
-    return StudentAttendanceProfileAbsentToggleResponse(
-      absentDays: agg['absentDays'] as int? ?? 0,
-      records: content
-          .map(
-            (e) => StudentAttendanceProfileAbsentToggleRecord.fromJson(
-              e as Map<String, dynamic>,
-            ),
-          )
-          .toList(),
-    );
-  }
-
   @override
-  List<Object?> get props => [
-        absentDays,
-        records,
-      ];
+  List<Object?> get props => [absentDays, records];
 }

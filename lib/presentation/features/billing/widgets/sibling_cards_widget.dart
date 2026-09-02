@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -37,16 +38,16 @@ class SiblingCardsWidget extends StatelessWidget {
   /// Family billing totals from the ledger (paid / net paid / refunded / …).
   Widget _statsSection() {
     final items = <List<dynamic>>[
-      ['Paid', paid, const Color(0xFF2E9E5B)],
-      ['Net Paid', netPaid, AppColors.themeColor],
-      ['Refunded', refunded, const Color(0xFFE08600)],
-      ['Unpaid', unpaid, const Color(0xFFD64545)],
-      ['In Process', inProcess, const Color(0xFF6F8CFF)],
+      [BillingStrings.paid, paid, const Color(0xFF2E9E5B)],
+      [BillingStrings.netPaid, netPaid, AppColors.themeColor],
+      [BillingStrings.refunded, refunded, const Color(0xFFE08600)],
+      [BillingStrings.unpaid, unpaid, const Color(0xFFD64545)],
+      [BillingStrings.inProcess, inProcess, AppColors.billingAccentBlue],
     ];
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
+        color: AppColors.billingSurfaceLight,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.cardBorderColor),
       ),
@@ -81,7 +82,7 @@ class SiblingCardsWidget extends StatelessWidget {
           Text(
             label,
             style: AppTextStyles.value.copyWith(
-              color: const Color(0xff573353),
+              color: AppColors.billingTextColor,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -141,7 +142,7 @@ class SiblingCardsWidget extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: AppTextStyles.value.copyWith(
-                                  color: const Color(0xff573353),
+                                  color: AppColors.billingTextColor,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -153,7 +154,7 @@ class SiblingCardsWidget extends StatelessWidget {
                                   overflow: TextOverflow.ellipsis,
                                   style: AppTextStyles.value.copyWith(
                                     fontSize: 12,
-                                    color: const Color(0xff573353),
+                                    color: AppColors.billingTextColor,
                                   ),
                                 ),
                             ],
@@ -183,10 +184,10 @@ class SiblingCardsWidget extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Current\nBalance',
+                          BillingStrings.currentBalance,
                           textAlign: TextAlign.center,
                           style: AppTextStyles.title.copyWith(
-                            color: const Color(0xff573353),
+                            color: AppColors.billingTextColor,
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
                           ),
@@ -201,7 +202,7 @@ class SiblingCardsWidget extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         CustomButtonLayout(
-                          confirmButtonLabel: 'Pay Now',
+                          confirmButtonLabel: BillingStrings.payNow,
                           onPressedConfirm: onPayNow,
                           showCancelButton: false,
                           isForm: false,
@@ -209,7 +210,7 @@ class SiblingCardsWidget extends StatelessWidget {
                         ),
                         const SizedBox(height: 10),
                         CustomButtonLayout(
-                          confirmButtonLabel: 'Auto Pay',
+                          confirmButtonLabel: BillingStrings.autoPay,
                           onPressedConfirm: onAutoPay,
                           showCancelButton: false,
                           isForm: false,

@@ -1,32 +1,23 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_remove_tile.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_staff_transfer_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_transfer_request.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_transfer_submit_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_transfer_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_persona_resolver.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
-import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'staff_entity.dart';
@@ -72,6 +63,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     return _selectedStaff.length == 1 &&
         (_selectedStaff.first.staffCode ?? '').trim() == code;
   }
+
   // The staff member's latest/current classroom code. Seeded from the
   // entity (transfer-list API) for an instant first paint, then overridden
   // by today's transfer-form-list lookup (see
@@ -105,29 +97,23 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
   @override
   void dispose() {
     _submitCubit.close();
+    _classroomCubit.close();
     super.dispose();
   }
 
   Future<void> _loadPersonaFlags() async {
     String? schoolIana;
     try {
-      schoolIana = await SchoolTimezoneResolver.resolveForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-        apiClient: serviceLocator<ApiClient>(),
-      );
+      schoolIana = await _submitCubit.resolveFreshSchoolTimeZone();
     } catch (_) {}
 
     final isAdmin = await _resolveIsStaffAdminPersona();
-    final currentStaffCode = (await serviceLocator<StorageService>()
-                .getString(StorageKeys.staffCode) ??
-            '')
-        .trim();
+    final currentStaffCode = await _submitCubit.resolveCurrentStaffCode();
     if (!mounted) return;
     setState(() {
       _schoolIana = schoolIana;
       _isStaffAdminPersona = isAdmin;
-      _currentStaffCode =
-          currentStaffCode.isNotEmpty ? currentStaffCode : null;
+      _currentStaffCode = currentStaffCode.isNotEmpty ? currentStaffCode : null;
       final now = ServerTimeService.instance.now();
       _selectedTransferDate = now;
       _selectedTransferTime = TimeOfDay(hour: now.hour, minute: now.minute);
@@ -184,7 +170,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     var resolved = '';
     try {
       final today = fmt(ServerTimeService.instance.now());
-      final page = await serviceLocator<GetStaffTransferFormListUseCase>()(
+      final page = await _submitCubit.fetchTransferFormList(
         fromAbsenceDate: today,
         toAbsenceDate: today,
         search: selectedStaffCode,
@@ -206,7 +192,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       // Last resort only — this is the staff's static default classroom,
       // not necessarily where they currently are.
       try {
-        final profile = await serviceLocator<GetStaffProfileUseCase>()(
+        final profile = await _submitCubit.fetchStaffProfile(
           staffCode: selectedStaffCode,
           forEditStaff: true,
         );
@@ -229,38 +215,8 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     });
   }
 
-  Future<bool> _resolveIsStaffAdminPersona() async {
-    // RoleCubit's active persona is the canonical, persona-switch-aware
-    // signal — staffType/roles in storage can lag a beat after a persona
-    // switch and misresolve a staff/teacher persona as admin (see
-    // AttendancePopup._loadStaffPersonaFlags for the same fix).
-    if (mounted) {
-      return !context.read<RoleCubit>().isStaff;
-    }
-
-    final storage = serviceLocator<StorageService>();
-    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-        .trim()
-        .toUpperCase();
-
-    if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
-      return true;
-    }
-
-    final rolesJson = await storage.getString(StorageKeys.roles);
-    if (rolesJson == null || rolesJson.trim().isEmpty) return false;
-
-    try {
-      final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
-      return roles.any((r) {
-        if (r is! Map<String, dynamic>) return false;
-        final roleCode = (r['role'] ?? '').toString().toUpperCase();
-        return roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN';
-      });
-    } catch (_) {
-      return false;
-    }
-  }
+  Future<bool> _resolveIsStaffAdminPersona() =>
+      resolveIsStaffAdminPersonaForView(context, mounted: mounted);
 
   /// Resolves the human-readable name of the staff member's LATEST current
   /// classroom for display.
@@ -419,10 +375,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       for (final code in staffCodes) code: toClassroomCode,
     };
 
-    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
-    );
+    final schoolTimeZone = await _submitCubit.resolveFreshSchoolTimeZone();
     final schoolToday = SchoolZoneDateTime.schoolCalendarTodayOnly(
       schoolTimeZone,
     );
@@ -502,7 +455,10 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
           // whatever screen this action was started from.
           Navigator.of(context).pop();
         } else {
-          redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
+          redirectToAttendanceDaily(
+            context,
+            StaffAttendanceTabbedView.routeName,
+          );
         }
       }
     } catch (e) {
@@ -592,8 +548,9 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                             childAspectRatio: 3.5,
                           ),
                       itemCount: _selectedStaff.length,
-                      itemBuilder: (context, index) => RemoveStaffTile(
-                        staff: _selectedStaff[index],
+                      itemBuilder: (context, index) => AttendanceRemoveTile(
+                        name: _selectedStaff[index].name,
+                        photoUuid: _selectedStaff[index].photoUuid ?? '',
                         canRemove: _selectedStaff.length > 1,
                         onRemove: () => _removeStaff(_selectedStaff[index]),
                       ),
@@ -614,7 +571,8 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                               isTime: false,
                               fetchInitialTime: false,
                               initialDate: _selectedTransferDate,
-                              isDisabled: _isStaffAdminPersona != true || _isSelfTarget,
+                              isDisabled:
+                                  _isStaffAdminPersona != true || _isSelfTarget,
                               onDateSelected: (date) {
                                 setState(() {
                                   final iana = _schoolIana;
@@ -624,7 +582,9 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                                         )
                                       : DateTime(
                                           ServerTimeService.instance.now().year,
-                                          ServerTimeService.instance.now().month,
+                                          ServerTimeService.instance
+                                              .now()
+                                              .month,
                                           ServerTimeService.instance.now().day,
                                         );
                                   final picked = DateTime(
@@ -649,7 +609,8 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                             const AppText.label('Time'),
                             const SizedBox(height: AppSpacing.xs),
                             IgnorePointer(
-                              ignoring: _isStaffAdminPersona != true || _isSelfTarget,
+                              ignoring:
+                                  _isStaffAdminPersona != true || _isSelfTarget,
                               child: GradientTimePickerField(
                                 time: _selectedTransferTime,
                                 onTimeSelected: (t) {
@@ -680,13 +641,15 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                                 vertical: AppSpacing.s14,
                               ),
                               decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade300),
+                                border: Border.all(
+                                  color: AppColors.attendanceBorderLightColor,
+                                ),
                                 borderRadius: AppRadius.allSm,
-                                color: const Color.fromRGBO(177, 175, 233, 0.1),
+                                color: AppColors.fieldBackgroundColor,
                               ),
                               child: AppText.value(
                                 currentClassroom,
-                                style: TextStyle(
+                                style: AppTextStyles.value.copyWith(
                                   color: AppColors.primaryColor.withValues(
                                     alpha: 0.5,
                                   ),
@@ -734,67 +697,6 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-class RemoveStaffTile extends StatelessWidget {
-  final StaffEntity staff;
-  final bool canRemove;
-  final VoidCallback onRemove;
-
-  const RemoveStaffTile({
-    super.key,
-    required this.staff,
-    required this.canRemove,
-    required this.onRemove,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: AppSpacing.xs),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.themeColor),
-        borderRadius: BorderRadius.circular(AppRadius.r10),
-        color: const Color.fromRGBO(249, 245, 250, 1),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                DocumentImageWidget(
-                  fileUuid: staff.photoUuid ?? '',
-                  name: staff.name,
-                  size: 30,
-                  fontSize: 12,
-                ),
-                const SizedBox(width: AppSpacing.s6),
-                Flexible(
-                  child: Text(
-                    staff.name,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                    softWrap: false,
-                    style: const TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (canRemove)
-            GestureDetector(
-              onTap: onRemove,
-              child: SvgPicture.asset(MediaRes.delete_icon),
-            ),
-        ],
       ),
     );
   }

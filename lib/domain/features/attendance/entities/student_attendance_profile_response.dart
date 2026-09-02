@@ -90,50 +90,27 @@ class StudentAttendanceProfileRecord extends Equatable {
   /// `m['notExpectedComment'] as String? ?? ''`
   final String notExpectedComment;
 
-  factory StudentAttendanceProfileRecord.fromJson(Map<String, dynamic> m) {
-    return StudentAttendanceProfileRecord(
-      attendanceDate: m['attendanceDate'] as String? ?? '',
-      sequenceNumber: m['sequenceNumber'] as int? ?? 1,
-      totalSequenceCount: m['totalSequenceCount'] as int? ?? 1,
-      signedInTime: m['signedInTime'],
-      signedOutTime: m['signedOutTime'],
-      transferTime: m['transferTime'],
-      nextActionTime: m['nextActionTime'],
-      classroomName: m['classroomName'] as String?,
-      classroomCode: m['classroomCode'] as String?,
-      signedOutMethod: m['signedOutMethod'] as String?,
-      transferredBy: m['transferredBy'] as String? ?? '',
-      signedInBy: m['signedInBy'] as String? ?? '',
-      signedOutBy: m['signedOutBy'] as String? ?? '',
-      attendedTime: m['attendedTime'] as String? ?? '',
-      attendedHours: m['attendedHours'] as int? ?? 0,
-      attendedMinutes: m['attendedMinutes'] as int? ?? 0,
-      signedInMethod: m['signedInMethod'] as String?,
-      notExpectedComment: m['notExpectedComment'] as String? ?? '',
-    );
-  }
-
   @override
   List<Object?> get props => [
-        attendanceDate,
-        sequenceNumber,
-        totalSequenceCount,
-        signedInTime,
-        signedOutTime,
-        transferTime,
-        nextActionTime,
-        classroomName,
-        classroomCode,
-        signedOutMethod,
-        transferredBy,
-        signedInBy,
-        signedOutBy,
-        attendedTime,
-        attendedHours,
-        attendedMinutes,
-        signedInMethod,
-        notExpectedComment,
-      ];
+    attendanceDate,
+    sequenceNumber,
+    totalSequenceCount,
+    signedInTime,
+    signedOutTime,
+    transferTime,
+    nextActionTime,
+    classroomName,
+    classroomCode,
+    signedOutMethod,
+    transferredBy,
+    signedInBy,
+    signedOutBy,
+    attendedTime,
+    attendedHours,
+    attendedMinutes,
+    signedInMethod,
+    notExpectedComment,
+  ];
 }
 
 class StudentAttendanceProfileResponse extends Equatable {
@@ -152,29 +129,6 @@ class StudentAttendanceProfileResponse extends Equatable {
   /// `data.records.content` parsed into typed records.
   final List<StudentAttendanceProfileRecord> records;
 
-  factory StudentAttendanceProfileResponse.fromJson(Map<String, dynamic> json) {
-    final root = json['data'] as Map<String, dynamic>? ?? {};
-    final agg = root['aggregations'] as Map<String, dynamic>? ?? {};
-    final recordsMap = root['records'] as Map<String, dynamic>? ?? {};
-    final content = recordsMap['content'] as List<dynamic>? ?? const [];
-
-    return StudentAttendanceProfileResponse(
-      attendedDays: agg['attendedDays'] as int? ?? 0,
-      totalAttendedTime: agg['totalAttendedTime'] as String? ?? '',
-      records: content
-          .map(
-            (e) => StudentAttendanceProfileRecord.fromJson(
-              e as Map<String, dynamic>,
-            ),
-          )
-          .toList(),
-    );
-  }
-
   @override
-  List<Object?> get props => [
-        attendedDays,
-        totalAttendedTime,
-        records,
-      ];
+  List<Object?> get props => [attendedDays, totalAttendedTime, records];
 }

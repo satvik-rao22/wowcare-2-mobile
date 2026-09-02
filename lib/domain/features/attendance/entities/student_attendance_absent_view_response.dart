@@ -9,10 +9,11 @@ import 'package:equatable/equatable.dart';
 /// page fields (`content` / `last` / `number`) and each record's fields inside
 /// its own `_applyPagePayload(...)`.
 ///
-/// Those exact casts/defaults now live here so the screen consumes typed
-/// values. [toJson] reconstructs the same key shape the screen used to cache
-/// verbatim, so the cache round-trip (write [toJson], read [fromJson]) stays
-/// byte-faithful.
+/// Those exact casts/defaults now live in the paired
+/// `StudentAttendanceAbsentViewResponseModel` (data layer) so this entity
+/// stays a pure typed value — the model's `toJson`/`fromJson` reconstruct the
+/// same key shape the screen used to cache verbatim, so the cache round-trip
+/// stays byte-faithful.
 
 /// A single absent-student record inside the paged `content` list.
 class StudentAbsentViewRecord extends Equatable {
@@ -56,46 +57,18 @@ class StudentAbsentViewRecord extends Equatable {
   /// `m['absenceNote'] as String?`
   final String? absenceNote;
 
-  factory StudentAbsentViewRecord.fromJson(Map<String, dynamic> m) {
-    return StudentAbsentViewRecord(
-      absenceDate: m['absenceDate'] as String? ?? '',
-      classroomName: m['classroomName'] as String?,
-      classroomCode: m['classroomCode'] as String?,
-      studentCode: m['studentCode'] as String? ?? '',
-      studentName: m['studentName'] as String? ?? '',
-      absentDays: m['absentDays'] as int? ?? 0,
-      markedAbsentTime: m['markedAbsentTime'],
-      markedAbsentByName: m['markedAbsentByName'] as String? ?? '',
-      absenceNote: m['absenceNote'] as String?,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'absenceDate': absenceDate,
-      'classroomName': classroomName,
-      'classroomCode': classroomCode,
-      'studentCode': studentCode,
-      'studentName': studentName,
-      'absentDays': absentDays,
-      'markedAbsentTime': markedAbsentTime,
-      'markedAbsentByName': markedAbsentByName,
-      'absenceNote': absenceNote,
-    };
-  }
-
   @override
   List<Object?> get props => [
-        absenceDate,
-        classroomName,
-        classroomCode,
-        studentCode,
-        studentName,
-        absentDays,
-        markedAbsentTime,
-        markedAbsentByName,
-        absenceNote,
-      ];
+    absenceDate,
+    classroomName,
+    classroomCode,
+    studentCode,
+    studentName,
+    absentDays,
+    markedAbsentTime,
+    markedAbsentByName,
+    absenceNote,
+  ];
 }
 
 class StudentAttendanceAbsentViewResponse extends Equatable {
@@ -113,30 +86,6 @@ class StudentAttendanceAbsentViewResponse extends Equatable {
 
   /// `root['number'] as int?` (screen applies its own `?? _studentsPage`).
   final int? number;
-
-  factory StudentAttendanceAbsentViewResponse.fromJson(
-    Map<String, dynamic> json,
-  ) {
-    final root = json['data'] as Map<String, dynamic>? ?? {};
-    return StudentAttendanceAbsentViewResponse(
-      content: (root['content'] as List? ?? const [])
-          .map((e) =>
-              StudentAbsentViewRecord.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      last: root['last'] as bool?,
-      number: root['number'] as int?,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'data': <String, dynamic>{
-        'content': content.map((r) => r.toJson()).toList(),
-        'last': last,
-        'number': number,
-      },
-    };
-  }
 
   @override
   List<Object?> get props => [content, last, number];

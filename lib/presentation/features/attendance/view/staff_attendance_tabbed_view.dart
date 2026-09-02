@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
@@ -14,7 +15,6 @@ import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_daily_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_custom_view.dart';
@@ -33,12 +33,11 @@ import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dar
 import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'dart:convert';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class StaffAttendanceTabbedView extends StatefulWidget {
   const StaffAttendanceTabbedView({
@@ -102,7 +101,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     // Shared app-session singleton (registered in di.dart) — `startWatching`
     // is idempotent, so re-calling it here on mount keeps badges fresh
     // without opening a second, duplicate set of Firestore listeners.
-    _unreadBadgeCubit = serviceLocator<UnreadBadgeCubit>()..startWatching();
+    _unreadBadgeCubit = context.read<UnreadBadgeCubit>()..startWatching();
     _tabController = TabController(
       length: 3,
       vsync: this,
@@ -113,7 +112,9 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   }
 
   Future<void> _initPersonaFlags() async {
-    _isParentRole = await _resolveIsParentSession();
+    _isParentRole = await AttendancePermissionService.resolveIsParentSession(
+      context,
+    );
     if (!_isParentRole) {
       await _loadStaffPersonaFlags();
     } else {
@@ -121,49 +122,6 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       _loggedInStaffCode = '';
     }
     if (mounted) setState(() {});
-  }
-
-  Future<bool> _resolveIsParentSession() async {
-    final roleCubit = context.read<RoleCubit>();
-    // Once RoleCubit has resolved the ACTIVE persona, it is authoritative —
-    // trust it even when false. A dual-role account (e.g. SCHOOL_ADMIN +
-    // GUARDIAN) has 'GUARDIAN' somewhere in its full roles list regardless of
-    // which persona is currently active, so scanning that list below would
-    // wrongly flip an admin who switched profiles back to the guardian view.
-    // Only fall through to the best-effort scan while RoleCubit is still
-    // bootstrapping (no active persona resolved yet).
-    if (roleCubit.hasResolvedAccess) return roleCubit.isParent;
-    if (roleCubit.isParent) return true;
-    try {
-      final storage = serviceLocator<StorageService>();
-      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
-          .trim();
-      if (rolesJson.isNotEmpty) {
-        final decoded = jsonDecode(rolesJson);
-        if (decoded is List) {
-          for (final role in decoded) {
-            if (role is! Map) continue;
-            final roleName = (role['role'] ?? '')
-                .toString()
-                .toUpperCase()
-                .trim();
-            if (roleName.contains('PARENT') || roleName.contains('GUARDIAN')) {
-              return true;
-            }
-          }
-        }
-      }
-      final loginContext = await storage.getJson(StorageKeys.loginContext);
-      final raw = jsonEncode(
-        loginContext ?? const <String, dynamic>{},
-      ).toUpperCase();
-      if (raw.contains('PARENT') || raw.contains('GUARDIAN')) {
-        return true;
-      }
-    } catch (_) {
-      return false;
-    }
-    return false;
   }
 
   Future<void> _loadStaffPersonaFlags() async {
@@ -218,7 +176,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     super.build(context);
     final responsive = ResponsiveHelper(context);
     final mediaQuery = MediaQuery.of(context);
-    final contentPadding = ResponsiveSizing.contentPadding(context);
+    final contentPadding = ResponsiveHelper(context).contentPadding;
     final safeAreaTop = mediaQuery.padding.top;
     final appBarHeight = AppBar().preferredSize.height; // kToolbarHeight
 
@@ -258,24 +216,19 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                   indicator: const UnderlineTabIndicator(
                     borderSide: BorderSide(color: AppColors.themeColor),
                   ),
-                  dividerColor: Colors.transparent,
+                  dividerColor: AppColors.transparentColor,
                   indicatorPadding: EdgeInsets.only(
                     bottom: responsive.isTablet ? 10 : 8,
                   ),
                   tabAlignment: TabAlignment.start,
                   isScrollable: true,
-                  labelStyle: TextStyle(
-                    fontFamily: Fonts.manrope,
-                    color: Colors.black,
-                    fontSize: responsive.isTablet ? 18 : 16,
-                    fontWeight: FontWeight.w600,
+                  labelStyle: AppTextStyles.attendanceTabLabelSelected(
+                    isTablet: responsive.isTablet,
                   ),
-                  unselectedLabelStyle: TextStyle(
-                    fontFamily: Fonts.manrope,
-                    color: AppColors.primaryColor.withValues(alpha: 0.5),
-                    fontSize: responsive.isTablet ? 18 : 16,
-                    fontWeight: FontWeight.w400,
-                  ),
+                  unselectedLabelStyle:
+                      AppTextStyles.attendanceTabLabelUnselected(
+                        isTablet: responsive.isTablet,
+                      ),
                 ),
                 tabs: const [
                   Tab(text: 'Daily'),
@@ -297,19 +250,19 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                   bottom: true,
                   child: GradientBackground(
                     child: Padding(
-                      padding: ResponsiveSizing.contentPadding(context),
+                      padding: ResponsiveHelper(context).contentPadding,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding: const EdgeInsets.only(top: AppSpacing.xxs, bottom: AppSpacing.xs),
+                            padding: const EdgeInsets.only(
+                              top: AppSpacing.xxs,
+                              bottom: AppSpacing.xs,
+                            ),
                             child: Text(
                               'Staff Attendance',
-                              style: TextStyle(
-                                fontFamily: Fonts.manrope,
-                                fontSize: responsive.isTablet ? 22 : 18,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primaryColor,
+                              style: AppTextStyles.attendanceScreenTitle(
+                                isTablet: responsive.isTablet,
                               ),
                             ),
                           ),
@@ -410,7 +363,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
 
   void _showActionMenu(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
-    final contentPadding = ResponsiveSizing.contentPadding(context);
+    final contentPadding = ResponsiveHelper(context).contentPadding;
     final safeAreaTop = mediaQuery.padding.top;
     final appBarHeight = AppBar().preferredSize.height;
     final bool isTablet = ResponsiveHelper(context).isTabletCompact;
@@ -429,14 +382,14 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       barrierDismissible: true,
       builder: (BuildContext context) {
         return Dialog(
-          backgroundColor: Colors.transparent,
+          backgroundColor: AppColors.transparentColor,
           elevation: 0,
           // Pin to the top-right so the menu sits flush below the + button
           // instead of being vertically centered in the inset band.
           alignment: Alignment.topRight,
           insetPadding: EdgeInsets.only(
             top: floatingButtonTop + floatingButtonSize,
-            left: mediaQuery.size.width * 0.75,
+            left: ResponsiveHelper(context).screenWidth * 0.75,
             right: floatingButtonRight,
           ),
           child: Container(
@@ -446,7 +399,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
               gradient: AppColors.buildPrimaryGradient(),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
+                  color: AppColors.attendanceCardShadowColor,
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -457,58 +410,43 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
               constraints: const BoxConstraints(maxHeight: 400),
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.cardColor,
                 borderRadius: BorderRadius.circular(AppRadius.r10),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildMenuItem(context, MediaRes.Sign_in, 'Sign-in'),
+                  _StaffMenuItem(
+                    svgPath: MediaRes.Sign_in,
+                    label: 'Sign-in',
+                    onTap: () => _onStaffActionTap(context, 'Sign-in'),
+                  ),
                   const SizedBox(height: AppSpacing.s5),
-                  _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out'),
+                  _StaffMenuItem(
+                    svgPath: MediaRes.Sign_out,
+                    label: 'Sign-Out',
+                    onTap: () => _onStaffActionTap(context, 'Sign-Out'),
+                  ),
                   const SizedBox(height: AppSpacing.s5),
                   if (!(_isTeacherStaffPersona ?? false))
-                    _buildMenuItem(context, MediaRes.transfer, 'Transfer'),
+                    _StaffMenuItem(
+                      svgPath: MediaRes.transfer,
+                      label: 'Transfer',
+                      onTap: () => _onStaffActionTap(context, 'Transfer'),
+                    ),
                   if (!(_isTeacherStaffPersona ?? false))
                     const SizedBox(height: AppSpacing.s5),
-                  _buildMenuItem(context, MediaRes.Mark_absent, 'Absent'),
+                  _StaffMenuItem(
+                    svgPath: MediaRes.Mark_absent,
+                    label: 'Absent',
+                    onTap: () => _onStaffActionTap(context, 'Absent'),
+                  ),
                 ],
               ),
             ),
           ),
         );
       },
-    );
-  }
-
-  Widget _buildMenuItem(BuildContext context, String svgPath, String label) {
-    return InkWell(
-      onTap: () => _onStaffActionTap(context, label),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
-            decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: SvgPicture.asset(svgPath, height: 24, width: 24),
-          ),
-          const SizedBox(height: AppSpacing.s5),
-          Text(
-            label,
-            maxLines: 1,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              fontFamily: 'Manrope',
-              color: AppColors.primaryColor,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -544,36 +482,32 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       if (!mounted) return;
       switch (label) {
         case 'Sign-in':
-          context.push(
-            '/attendance/staff-sign-in',
-            extra: {'staff': staff},
-          ).then((_) {
-            if (mounted) _refreshAllAfterAttendanceFlow();
-          });
+          context
+              .push('/attendance/staff-sign-in', extra: {'staff': staff})
+              .then((_) {
+                if (mounted) _refreshAllAfterAttendanceFlow();
+              });
           break;
         case 'Sign-Out':
-          context.push(
-            '/attendance/staff-sign-out',
-            extra: {'staff': staff},
-          ).then((_) {
-            if (mounted) _refreshAllAfterAttendanceFlow();
-          });
+          context
+              .push('/attendance/staff-sign-out', extra: {'staff': staff})
+              .then((_) {
+                if (mounted) _refreshAllAfterAttendanceFlow();
+              });
           break;
         case 'Transfer':
-          context.push(
-            '/attendance/staff-transfer',
-            extra: {'staff': staff},
-          ).then((_) {
-            if (mounted) _refreshAllAfterAttendanceFlow();
-          });
+          context
+              .push('/attendance/staff-transfer', extra: {'staff': staff})
+              .then((_) {
+                if (mounted) _refreshAllAfterAttendanceFlow();
+              });
           break;
         case 'Absent':
-          context.push(
-            '/attendance/staff-mark-absent',
-            extra: {'staff': staff},
-          ).then((_) {
-            if (mounted) _refreshAllAfterAttendanceFlow();
-          });
+          context
+              .push('/attendance/staff-mark-absent', extra: {'staff': staff})
+              .then((_) {
+                if (mounted) _refreshAllAfterAttendanceFlow();
+              });
           break;
       }
       return;
@@ -601,5 +535,40 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
         });
         break;
     }
+  }
+}
+
+class _StaffMenuItem extends StatelessWidget {
+  const _StaffMenuItem({
+    required this.svgPath,
+    required this.label,
+    required this.onTap,
+  });
+
+  final String svgPath;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
+            decoration: BoxDecoration(
+              color: AppColors.attendanceInfoHighlightColor,
+              shape: BoxShape.circle,
+            ),
+            child: SvgPicture.asset(svgPath, height: 24, width: 24),
+          ),
+          const SizedBox(height: AppSpacing.s5),
+          Text(label, maxLines: 1, style: AppTextStyles.body),
+        ],
+      ),
+    );
   }
 }

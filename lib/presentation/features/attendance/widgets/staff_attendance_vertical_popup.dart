@@ -6,6 +6,8 @@ import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 typedef StaffAttendanceActionTap = void Function(String actionLabel);
 
@@ -64,8 +66,9 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
           elevation: 0,
           insetPadding: EdgeInsets.only(
             top: topPosition ?? 100,
-            bottom: bottomPosition ?? MediaQuery.of(context).size.height * 0.45,
-            left: leftPosition ?? MediaQuery.of(context).size.width * 0.75,
+            bottom:
+                bottomPosition ?? ResponsiveHelper(context).screenHeight * 0.45,
+            left: leftPosition ?? ResponsiveHelper(context).screenWidth * 0.75,
             right: rightPosition ?? 16,
           ),
           child: StaffAttendanceVerticalPopupOnly(
@@ -77,37 +80,6 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildMenuItem(BuildContext context, String svgPath, String label) {
-    return InkWell(
-      onTap: () => Navigator.pop(context),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
-            decoration: BoxDecoration(
-              color: AppColors.attendanceInfoHighlightColor,
-              shape: BoxShape.circle,
-            ),
-            child: SvgPicture.asset(svgPath, height: AppDimensions.iconMd, width: AppDimensions.iconMd),
-          ),
-          const SizedBox(height: AppSpacing.s5),
-          Text(
-            label,
-            maxLines: 1,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              fontFamily: 'Manrope',
-              color: AppColors.primaryColor,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -148,13 +120,16 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
         // Upper bound only. The Column (mainAxisSize.min) sizes to its content,
         // so this must stay ABOVE the 4 items' height or the last action
         // ("Absent") gets cropped. The scroll view guards tiny screens.
-        maxHeight: MediaQuery.of(context).size.height * 0.9,
+        maxHeight: ResponsiveHelper(context).screenHeight * 0.9,
       ),
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
       decoration: BoxDecoration(
         color: AppColors.cardColor,
         borderRadius: AppRadius.allMd,
-        border: Border.all(color: AppColors.classroomStudentTabColor, width: AppDimensions.borderThick),
+        border: Border.all(
+          color: AppColors.classroomStudentTabColor,
+          width: AppDimensions.borderThick,
+        ),
         boxShadow: [
           BoxShadow(
             color: AppColors.attendanceCardShadowColor,
@@ -167,28 +142,75 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildMenuItem(context, MediaRes.Sign_in, 'Sign-in'),
+            _StaffPopupMenuItem(
+              svgPath: MediaRes.Sign_in,
+              label: 'Sign-in',
+              isDisabled: disabledActions.contains('Sign-in'),
+              disabledReason: disabledReasons['Sign-in'],
+              onTap: () {
+                Navigator.pop(context);
+                onActionTap?.call('Sign-in');
+              },
+            ),
             const SizedBox(height: AppSpacing.s5),
-            _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out'),
+            _StaffPopupMenuItem(
+              svgPath: MediaRes.Sign_out,
+              label: 'Sign-Out',
+              isDisabled: disabledActions.contains('Sign-Out'),
+              disabledReason: disabledReasons['Sign-Out'],
+              onTap: () {
+                Navigator.pop(context);
+                onActionTap?.call('Sign-Out');
+              },
+            ),
             const SizedBox(height: AppSpacing.s5),
-            _buildMenuItem(context, MediaRes.transfer, 'Transfer'),
+            _StaffPopupMenuItem(
+              svgPath: MediaRes.transfer,
+              label: 'Transfer',
+              isDisabled: disabledActions.contains('Transfer'),
+              disabledReason: disabledReasons['Transfer'],
+              onTap: () {
+                Navigator.pop(context);
+                onActionTap?.call('Transfer');
+              },
+            ),
             const SizedBox(height: AppSpacing.s5),
-            _buildMenuItem(context, MediaRes.Mark_absent, 'Absent'),
+            _StaffPopupMenuItem(
+              svgPath: MediaRes.Mark_absent,
+              label: 'Absent',
+              isDisabled: disabledActions.contains('Absent'),
+              disabledReason: disabledReasons['Absent'],
+              onTap: () {
+                Navigator.pop(context);
+                onActionTap?.call('Absent');
+              },
+            ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildMenuItem(BuildContext context, String svgPath, String label) {
-    final isDisabled = disabledActions.contains(label);
+class _StaffPopupMenuItem extends StatelessWidget {
+  const _StaffPopupMenuItem({
+    required this.svgPath,
+    required this.label,
+    required this.isDisabled,
+    required this.disabledReason,
+    required this.onTap,
+  });
+
+  final String svgPath;
+  final String label;
+  final bool isDisabled;
+  final String? disabledReason;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
     final Widget item = InkWell(
-      onTap: isDisabled
-          ? null
-          : () {
-              Navigator.pop(context);
-              onActionTap?.call(label);
-            },
+      onTap: isDisabled ? null : onTap,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -201,28 +223,23 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
                 color: AppColors.attendanceInfoHighlightColor,
                 shape: BoxShape.circle,
               ),
-              child: SvgPicture.asset(svgPath, height: AppDimensions.iconMd, width: AppDimensions.iconMd),
+              child: SvgPicture.asset(
+                svgPath,
+                height: AppDimensions.iconMd,
+                width: AppDimensions.iconMd,
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.s5),
           Opacity(
             opacity: isDisabled ? 0.5 : 1,
-            child: Text(
-              label,
-              maxLines: 1,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                fontFamily: 'Manrope',
-                color: AppColors.primaryColor,
-              ),
-            ),
+            child: Text(label, maxLines: 1, style: AppTextStyles.body),
           ),
         ],
       ),
     );
 
-    final reason = disabledReasons[label];
+    final reason = disabledReason;
     if (!isDisabled || reason == null || reason.isEmpty) {
       return item;
     }

@@ -3,10 +3,12 @@ import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/cubit/general_ledger_cubit.dart';
-import 'package:wowcare/presentation/features/billing/widgets/general_ledger/ledger_detail_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/general_ledger/ledger_detail_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -14,8 +16,9 @@ import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/ledger_card.dart';
-import 'package:wowcare/presentation/features/billing/widgets/general_ledger/edit_ledger_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
+import 'package:wowcare/presentation/features/billing/view/general_ledger/edit_ledger_screen.dart';
+import 'package:wowcare/presentation/features/billing/model/ledger_account_model.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -84,16 +87,16 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
   }
 
   void _onView(LedgerAccountModel ledger) {
-    unawaited(Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => LedgerDetailScreen(ledger: ledger),
-      ),
+    unawaited(context.push(
+      LedgerDetailScreen.routeName,
+      extra: LedgerDetailArgs(ledger: ledger),
     ));
   }
 
   Future<void> _onEdit(LedgerAccountModel ledger) async {
-    final LedgerAccountModel? updated = await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => EditLedgerScreen(ledger: ledger)),
+    final LedgerAccountModel? updated = await context.push<LedgerAccountModel>(
+      EditLedgerScreen.routeName,
+      extra: EditLedgerArgs(ledger: ledger),
     );
     if (updated == null) return;
     _cubit.updateLedger(updated);
@@ -116,7 +119,8 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
           if (!mounted) return;
           Navigator.of(ctx).pop();
           _showResult(ok,
-              success: 'Ledger deactivated.', fail: 'Failed to deactivate.');
+              success: BillingStrings.ledgerDeactivated,
+              fail: BillingStrings.failedToDeactivate);
         },
       ),
     );
@@ -139,7 +143,8 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
           if (!mounted) return;
           Navigator.of(ctx).pop();
           _showResult(ok,
-              success: 'Ledger reactivated.', fail: 'Failed to reactivate.');
+              success: BillingStrings.ledgerReactivated,
+              fail: BillingStrings.failedToReactivate);
         },
       ),
     );
@@ -162,7 +167,8 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
           if (!mounted) return;
           Navigator.of(ctx).pop();
           _showResult(ok,
-              success: 'Ledger deleted.', fail: 'Failed to delete.');
+              success: BillingStrings.ledgerDeleted,
+              fail: BillingStrings.failedToDelete);
         },
       ),
     );
@@ -207,7 +213,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
                         Expanded(
                           child: CustomSearchBar(
                             controller: _searchController,
-                            hintText: 'Search Ledger',
+                            hintText: BillingStrings.searchLedger,
                             onChanged: (q) {
                               _cubit.setSearchQuery(q);
                               _cubit.applySearch();
@@ -224,7 +230,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
                       children: [
                         Expanded(
                           child: CustomDropdown(
-                            hintText: 'All Categories',
+                            hintText: BillingStrings.allCategories,
                             items: _categories,
                             selectedItem: _selectedCategory,
                             onSelect: (value) {
@@ -238,12 +244,12 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             const Text(
-                              'Show inactive',
+                              BillingStrings.showInactive,
                               style: TextStyle(
                                 fontFamily: 'Manrope',
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
-                                color: Color(0xff573353),
+                                color: AppColors.billingTextColor,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -279,7 +285,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
                               .withValues(alpha: 0.5)),
                       const SizedBox(height: 12),
                       Text(
-                        'Failed to load ledgers.',
+                        BillingStrings.failedToLoadLedgers,
                         textAlign: TextAlign.center,
                         style: AppTextStyles.title.copyWith(
                             fontSize: 15,
@@ -288,7 +294,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
                       const SizedBox(height: 8),
                       TextButton(
                           onPressed: _cubit.loadInitial,
-                          child: const Text('Retry')),
+                          child: const Text(BillingStrings.retry)),
                     ],
                   ),
                 )
@@ -305,7 +311,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
                               .withValues(alpha: 0.3)),
                       const SizedBox(height: 12),
                       Text(
-                        'No ledger accounts match the current filters.',
+                        BillingStrings.noLedgerAccountsMatch,
                         textAlign: TextAlign.center,
                         style: AppTextStyles.title.copyWith(
                             fontSize: 15,
@@ -314,7 +320,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
                       const SizedBox(height: 8),
                       TextButton(
                           onPressed: _clearFilters,
-                          child: const Text('Reset filters')),
+                          child: const Text(BillingStrings.resetFilters)),
                     ],
                   ),
                 )

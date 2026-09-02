@@ -1,8 +1,11 @@
 import 'dart:async' show unawaited;
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/util/billing_school_time.dart';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/billing_events.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 // import 'package:wowcare/presentation/features/billing/widgets/subsidies/subsidies_section.dart'; // Subsidies not implemented yet
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -11,19 +14,20 @@ import 'package:wowcare/presentation/features/billing/view/Accounting/students.d
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_dialog.dart';
-import 'package:wowcare/presentation/features/billing/widgets/select_students_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/select_students_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_action_dialog.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/receive_payment_issue_refund_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
-import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
+import 'package:wowcare/presentation/features/billing/model/student_models.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transactions_section.dart';
 import 'package:wowcare/presentation/features/billing/widgets/analytics/analytics_section.dart';
-import 'package:wowcare/presentation/features/billing/widgets/general_ledger/create_ledger_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/general_ledger/create_ledger_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/general_ledger_section.dart';
-import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
+import 'package:wowcare/presentation/features/billing/model/ledger_account_model.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_settings/billing_settings_section.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/core/util/school_switch_events.dart';
 
 class BillingScreen extends StatefulWidget {
   const BillingScreen({super.key});
@@ -35,15 +39,15 @@ class BillingScreen extends StatefulWidget {
 }
 
 class _BillingScreenState extends State<BillingScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SchoolSwitchReloadMixin {
   static const List<String> _tabs = <String>[
-    'Student(s)',
-    'Transactions',
+    BillingStrings.studentS,
+    BillingStrings.transactions,
     // 'Recurring Plans',
-    'General Ledger',
+    BillingStrings.generalLedger,
     // 'Subsidies', // Not implemented yet - hidden for all personas
-    'Analytics',
-    'Billing Settings',
+    BillingStrings.analytics,
+    BillingStrings.billingSettings,
   ];
   final ValueNotifier<LedgerAccountModel?> _ledgerCreationNotifier =
       ValueNotifier<LedgerAccountModel?>(null);
@@ -115,6 +119,19 @@ class _BillingScreenState extends State<BillingScreen>
         _analyticsRefreshFn?.call();
         break;
     }
+  }
+
+  /// On an org/school switch, re-fetch EVERY tab (not just the visible one) so
+  /// no billing tab keeps showing the previous school's invoices / ledger /
+  /// analytics after the switch (BILL-INV-01). Tabs not yet built load fresh on
+  /// first visit; already-built ones refetch under the now-current school.
+  @override
+  void onSchoolSwitched() {
+    if (!mounted) return;
+    _studentsRefreshFn?.call();
+    _transactionsRefreshFn?.call();
+    _ledgerRefreshFn?.call();
+    _analyticsRefreshFn?.call();
   }
 
   void _onScroll() => _maybeLoadNextPage();
@@ -208,12 +225,12 @@ class _BillingScreenState extends State<BillingScreen>
                             children: [
                               Expanded(
                                 child: Text(
-                                  'Billing',
+                                  BillingStrings.billing,
                                   style: TextStyle(
                                     fontFamily: 'Manrope',
                                     fontSize: titleFontSize,
                                     fontWeight: FontWeight.w600,
-                                    color: const Color(0xff573353),
+                                    color: AppColors.billingTextColor,
                                     height: titleLineHeight,
                                   ),
                                   textAlign: TextAlign.left,
@@ -230,14 +247,10 @@ class _BillingScreenState extends State<BillingScreen>
                                     onTap: () async {
                                       final bool isGeneralLedgerTab =
                                           controller.index ==
-                                              _tabs.indexOf('General Ledger');
+                                              _tabs.indexOf(BillingStrings.generalLedger);
                                       if (isGeneralLedgerTab) {
-                                        final result =
-                                            await Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                const CreateLedgerScreen(),
-                                          ),
+                                        final result = await context.push(
+                                          CreateLedgerScreen.routeName,
                                         );
                                         if (result is LedgerAccountModel) {
                                           _ledgerCreationNotifier.value =
@@ -247,7 +260,7 @@ class _BillingScreenState extends State<BillingScreen>
                                       }
                                       final bool isTransactionsTab =
                                           controller.index ==
-                                              _tabs.indexOf('Transactions');
+                                              _tabs.indexOf(BillingStrings.transactions);
                                       if (isTransactionsTab) {
                                         showDialog<void>(
                                           context: context,
@@ -256,36 +269,32 @@ class _BillingScreenState extends State<BillingScreen>
                                             onSelectCreateInvoice: () {
                                               unawaited(Navigator.of(ctx)
                                                   .maybePop());
-                                              unawaited(Navigator.of(context)
-                                                  .push(MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const SelectStudentsScreen(),
-                                              )));
+                                              unawaited(context.push(
+                                                SelectStudentsScreen.routeName,
+                                              ));
                                             },
                                             onSelectReceivePayment: () {
                                               unawaited(Navigator.of(ctx)
                                                   .maybePop());
-                                              unawaited(Navigator.of(context)
-                                                  .push(MaterialPageRoute(
-                                                builder: (_) =>
-                                                    SelectStudentsScreen(
+                                              unawaited(context.push(
+                                                SelectStudentsScreen.routeName,
+                                                extra: SelectStudentsArgs(
                                                   onNext: (selCtx, students) {
-                                                    Navigator.of(selCtx)
-                                                        .pushReplacement(
-                                                      MaterialPageRoute(
-                                                        builder: (_) =>
-                                                            ReceivePaymentIssueRefundScreen(
-                                                          transaction:
-                                                              _buildReceivePaymentTransaction(
-                                                                  students),
-                                                          studentCode: students
-                                                              .first.code,
-                                                        ),
+                                                    selCtx.pushReplacement(
+                                                      ReceivePaymentIssueRefundScreen
+                                                          .routeName,
+                                                      extra:
+                                                          ReceivePaymentRefundArgs(
+                                                        transaction:
+                                                            _buildReceivePaymentTransaction(
+                                                                students),
+                                                        studentCode:
+                                                            students.first.code,
                                                       ),
                                                     );
                                                   },
                                                 ),
-                                              )));
+                                              ));
                                             },
                                           ),
                                         );
@@ -297,11 +306,9 @@ class _BillingScreenState extends State<BillingScreen>
                                           onSelectOneTime: () {
                                             unawaited(
                                                 Navigator.of(ctx).maybePop());
-                                            unawaited(Navigator.of(context)
-                                                .push(MaterialPageRoute(
-                                              builder: (_) =>
-                                                  const SelectStudentsScreen(),
-                                            )));
+                                            unawaited(context.push(
+                                              SelectStudentsScreen.routeName,
+                                            ));
                                           },
                                           onSelectRecurring: () {
                                             unawaited(
@@ -319,7 +326,7 @@ class _BillingScreenState extends State<BillingScreen>
                           // Scrollable TabBar (horizontal only)
                           Container(
                             decoration: BoxDecoration(
-                              color: Colors.transparent,
+                              color: AppColors.transparentColor,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             padding: const EdgeInsets.symmetric(
@@ -329,12 +336,12 @@ class _BillingScreenState extends State<BillingScreen>
                             child: Row(
                               children: [
                                 IconButton(
-                                  tooltip: 'Scroll tabs',
+                                  tooltip: BillingStrings.scrollTabs,
                                   padding: EdgeInsets.zero,
                                   visualDensity: VisualDensity.compact,
                                   constraints: const BoxConstraints.tightFor(width: 26, height: 32),
                                   splashRadius: 14,
-                                  icon: const Icon(Icons.chevron_left, color: Color(0xff573353), size: 25),
+                                  icon: const Icon(Icons.chevron_left, color: AppColors.billingTextColor, size: 25),
                                   onPressed: () {
                                     final int current = controller.index;
                                     if (current > 0) {
@@ -349,8 +356,8 @@ class _BillingScreenState extends State<BillingScreen>
                                     labelPadding: EdgeInsets.zero,
                                     tabAlignment: TabAlignment.start,
                                     labelColor: AppColors.themeColor,
-                                    unselectedLabelColor: const Color(0xff573353),
-                                    dividerColor: Colors.transparent,
+                                    unselectedLabelColor: AppColors.billingTextColor,
+                                    dividerColor: AppColors.transparentColor,
                                     indicatorSize: TabBarIndicatorSize.label,
                                     indicator: UnderlineTabIndicator(
                                       borderSide: BorderSide(
@@ -380,12 +387,12 @@ class _BillingScreenState extends State<BillingScreen>
                                   ),
                                 ),
                                 IconButton(
-                                  tooltip: 'Scroll tabs',
+                                  tooltip: BillingStrings.scrollTabs,
                                   padding: EdgeInsets.zero,
                                   visualDensity: VisualDensity.compact,
                                   constraints: const BoxConstraints.tightFor(width: 26, height: 32),
                                   splashRadius: 14,
-                                  icon: const Icon(Icons.chevron_right, color: Color(0xff573353), size: 25),
+                                  icon: const Icon(Icons.chevron_right, color: AppColors.billingTextColor, size: 25),
                                   onPressed: () {
                                     final int current = controller.index;
                                     if (current < _tabs.length - 1) {

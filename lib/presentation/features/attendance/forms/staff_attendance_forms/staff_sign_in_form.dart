@@ -1,36 +1,27 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_remove_tile.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_staff_absent_form_list_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/delete_staff_absence_record_usecase.dart';
-import 'package:wowcare/domain/features/attendance/entities/staff_attendance_absent.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_sign_in_request.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_submit_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_submit_state.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_gate_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_gate_state.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_sign_in_submit_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_sign_in_submit_state.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_sign_in_gate_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_sign_in_gate_state.dart';
 import 'staff_entity.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
@@ -180,111 +171,6 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     return resolveStaffCodeForLoggedInUser();
   }
 
-  bool _absenceDateMatchesCalendarDay(
-    String absenceDateRaw,
-    String targetYyyyMmDd,
-  ) {
-    final trimmed = absenceDateRaw.trim();
-    if (trimmed.isEmpty) return false;
-    if (trimmed.length >= 10 && trimmed.substring(0, 10) == targetYyyyMmDd) {
-      return true;
-    }
-    try {
-      final dt = DateTime.parse(trimmed).toLocal();
-      final norm =
-          '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
-      return norm == targetYyyyMmDd;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  /// Admin override sign-in: for staff marked absent on
-  /// [attendanceDateYyyyMmDd], delete their absence record first so the day
-  /// isn't left with both an ABSENT record and a sign-in. Only ever called
-  /// for the admin persona (see call site in [_handleSubmit]) — self-service
-  /// staff sign-in never reaches this, matching [StaffAttendanceGate]'s rule
-  /// that an absent staff member cannot recover their own day.
-  Future<void> _deleteTodaysAbsenceRecordsBeforeAdminSignIn({
-    required String attendanceDateYyyyMmDd,
-    required String actingStaffCode,
-    required List<StaffEntity> targets,
-  }) async {
-    final allItems = <StaffAttendanceAbsentItem>[];
-
-    // The absent-form-list lookup is a best-effort PRE-step: it exists only
-    // to clear a same-day absence record before signing the staff member in.
-    // If it fails, do NOT abort the whole sign-in — skip the deletion and
-    // let the sign-in POST run; the backend is the actionable source of
-    // truth if a stale absence record does end up blocking it.
-    try {
-      var page = 0;
-      const pageSize = 200;
-      while (true) {
-        final absentPage =
-            await serviceLocator<GetStaffAbsentFormListUseCase>()(
-          fromAbsenceDate: attendanceDateYyyyMmDd,
-          toAbsenceDate: attendanceDateYyyyMmDd,
-          page: page,
-          size: pageSize,
-        );
-        allItems.addAll(absentPage.items);
-        if (!absentPage.hasMore) break;
-        page++;
-        if (page > 100) break;
-      }
-    } catch (e) {
-      AppLogger.d(
-        '[StaffSignIn] absent-form-list lookup failed ($e); '
-        'proceeding to sign-in without clearing absence records',
-      );
-      return;
-    }
-
-    final processedStaffCodes = <String>{};
-    for (final s in targets) {
-      final sc = (s.staffCode ?? '').trim();
-      if (sc.isEmpty || processedStaffCodes.contains(sc)) continue;
-
-      final matches = allItems.where((it) {
-        if (it.staffCode.trim() != sc) return false;
-        return _absenceDateMatchesCalendarDay(
-          it.absenceDate,
-          attendanceDateYyyyMmDd,
-        );
-      }).toList();
-
-      if (matches.isEmpty) continue;
-
-      final withCode = matches
-          .where((it) => (it.absenceRecordCode ?? '').trim().isNotEmpty)
-          .toList();
-      if (withCode.isEmpty) {
-        throw Exception(
-          'Cannot sign in ${s.name}: marked absent for this day but the '
-          'absence record could not be resolved. Refresh and try again.',
-        );
-      }
-
-      final room = (s.classroomCode ?? '').trim();
-      var chosen = withCode.first;
-      if (room.isNotEmpty) {
-        final byRoom = withCode
-            .where((it) => it.classroomCode.trim() == room)
-            .toList();
-        if (byRoom.isNotEmpty) {
-          chosen = byRoom.first;
-        }
-      }
-
-      await serviceLocator<DeleteStaffAbsenceRecordUseCase>()(
-        absenceRecordCode: chosen.absenceRecordCode!.trim(),
-        staffCode: actingStaffCode,
-      );
-      processedStaffCodes.add(sc);
-    }
-  }
-
   Future<void> _handleSubmit() async {
     if (_submitInFlight) return;
     final selectedStaff = _gateCubit.state.selectedStaff;
@@ -329,10 +215,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
 
     final isStaffAdmin = _gateCubit.state.isStaffAdminPersona ?? false;
 
-    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
-    );
+    final schoolTimeZone = await _gateCubit.resolveFreshSchoolTimeZone();
 
     // Teachers:
     // - can only sign in for themselves
@@ -405,7 +288,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     } else {
       GeofenceState? geofenceState;
       try {
-        geofenceState = serviceLocator<GeofenceCubit>().state;
+        geofenceState = context.read<GeofenceCubit>().state;
       } catch (_) {
         geofenceState = null;
       }
@@ -524,10 +407,18 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       // Self-service (non-admin / QR) sign-in never runs this — an absent
       // staff member cannot recover their own day this way.
       if (isStaffAdmin) {
-        await _deleteTodaysAbsenceRecordsBeforeAdminSignIn(
+        await _submitCubit.clearTodaysAbsenceRecordsBeforeSignIn(
           attendanceDateYyyyMmDd: attendanceDate,
           actingStaffCode: staffCode,
-          targets: List<StaffEntity>.from(selectedStaff),
+          targets: selectedStaff
+              .map(
+                (s) => (
+                  staffCode: (s.staffCode ?? '').trim(),
+                  classroomCode: (s.classroomCode ?? '').trim(),
+                  name: s.name,
+                ),
+              )
+              .toList(),
         );
       }
 
@@ -535,7 +426,8 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         request: request,
         isSelf: useSelfEndpoint,
       );
-      final isAlreadySignedIn = !result.success &&
+      final isAlreadySignedIn =
+          !result.success &&
           result.message.toLowerCase().contains('already signed');
       final success = result.success || isAlreadySignedIn;
       var message = result.message;
@@ -586,8 +478,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     } catch (e) {
       if (!mounted) return;
       final errorMessage = ApiErrorHandler.extractErrorMessage(e);
-      final isAlreadySignedIn =
-          errorMessage.toLowerCase().contains('already signed');
+      final isAlreadySignedIn = errorMessage.toLowerCase().contains(
+        'already signed',
+      );
       if (isAlreadySignedIn) {
         AttendanceEvents.notifyChanged();
         CoreUtils.showTopSnackBarFromSnackBar(
@@ -648,10 +541,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         context.go('/dashboard');
       }
     } else {
-      redirectToAttendanceDaily(
-        context,
-        StaffAttendanceTabbedView.routeName,
-      );
+      redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
     }
   }
 
@@ -685,15 +575,18 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                       shrinkWrap: true,
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 14,
-                        mainAxisSpacing: 14,
-                        childAspectRatio: 3.5,
-                      ),
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 14,
+                            mainAxisSpacing: 14,
+                            childAspectRatio: 3.5,
+                          ),
                       itemCount: selectedStaff.length,
-                      itemBuilder: (context, index) => _buildStaffCard(
-                        selectedStaff[index],
+                      itemBuilder: (context, index) => AttendanceRemoveTile(
+                        name: selectedStaff[index].name,
+                        photoUuid: selectedStaff[index].photoUuid ?? '',
+                        horizontalPadding: AppSpacing.sm,
                         canRemove: selectedStaff.length > 1,
+                        onRemove: () => _removeStaff(selectedStaff[index]),
                       ),
                     ),
                   const SizedBox(height: AppSpacing.lg),
@@ -728,8 +621,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                                   date.month,
                                   date.day,
                                 );
-                                final clamped =
-                                    picked.isAfter(today) ? today : date;
+                                final clamped = picked.isAfter(today)
+                                    ? today
+                                    : date;
                                 _gateCubit.setSelectedDate(clamped);
                                 unawaited(_runGate());
                               },
@@ -766,71 +660,28 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
             ),
             bottomBar:
                 BlocBuilder<StaffSignInSubmitCubit, StaffSignInSubmitState>(
-              bloc: _submitCubit,
-              builder: (context, submitState) {
-                final hasUnexpected = _gateCubit.hasUnexpectedAmongSelected();
-                final disabled =
-                    (submitState is StaffSignInSubmitInProgress) ||
+                  bloc: _submitCubit,
+                  builder: (context, submitState) {
+                    final hasUnexpected = _gateCubit
+                        .hasUnexpectedAmongSelected();
+                    final disabled =
+                        (submitState is StaffSignInSubmitInProgress) ||
                         gate.unexpectedGateLoading ||
                         (hasUnexpected && !gate.unexpectedSignInAcknowledged);
-                return CustomButtonLayout(
-                  confirmButtonLabel: 'Sign-In',
-                  onPressedConfirm: disabled ? null : _handleSubmit,
-                  showCancelButton: widget.isKiosk,
-                  onPressedCancel: widget.isKiosk
-                      ? () {
-                          context.go('/kiosk');
-                        }
-                      : null,
-                );
-              },
-            ),
+                    return CustomButtonLayout(
+                      confirmButtonLabel: 'Sign-In',
+                      onPressedConfirm: disabled ? null : _handleSubmit,
+                      showCancelButton: widget.isKiosk,
+                      onPressedCancel: widget.isKiosk
+                          ? () {
+                              context.go('/kiosk');
+                            }
+                          : null,
+                    );
+                  },
+                ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildStaffCard(StaffEntity staff, {required bool canRemove}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.themeColor),
-        borderRadius: BorderRadius.circular(AppRadius.r10),
-        color: const Color.fromRGBO(249, 245, 250, 1),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                DocumentImageWidget(
-                  fileUuid: staff.photoUuid ?? '',
-                  name: staff.name,
-                  size: 30,
-                  fontSize: 12,
-                ),
-                const SizedBox(width: AppSpacing.s6),
-                Flexible(
-                  child: AppText.value(
-                    staff.name,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (canRemove)
-            GestureDetector(
-              onTap: () => _removeStaff(staff),
-              child: SvgPicture.asset(MediaRes.delete_icon),
-            ),
-        ],
       ),
     );
   }

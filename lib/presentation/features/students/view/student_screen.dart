@@ -300,8 +300,8 @@ class _StudentScreenState extends State<StudentScreen> {
       if (!mounted) return;
 
       setState(() {
-        _activeCount = counts['activeCount'] ?? 0;
-        _upcomingCount = counts['upcomingCount'] ?? 0;
+        _activeCount = counts.activeCount;
+        _upcomingCount = counts.upcomingCount;
       });
     } catch (_) {
       // Non-critical for UI; keep defaults.
@@ -1238,8 +1238,7 @@ class _StudentScreenState extends State<StudentScreen> {
                     children: [
                       StudentActionPanel(
                         currentPanel: _currentPanel,
-                        activityStudentMaps:
-                            canShowActivities
+                        activityStudentMaps: canShowActivities
                             ? _activityStudentMaps(
                                 students,
                                 classroomCodeByName: {

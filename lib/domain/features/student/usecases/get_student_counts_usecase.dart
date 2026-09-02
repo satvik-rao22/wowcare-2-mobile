@@ -6,11 +6,9 @@ class GetStudentCountsUseCase {
 
   final StudentRepository _repository;
 
-  Future<Map<String, int>> call({
+  Future<({int activeCount, int upcomingCount, int enrolledCount})> call({
     required String schoolCode,
   }) {
     return _repository.getStudentCounts(schoolCode: schoolCode);
   }
 }
-
-

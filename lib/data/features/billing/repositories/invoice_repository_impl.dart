@@ -214,7 +214,8 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   @override
   Future<InvoicePaymentResultEntity> createPayment(
       InvoicePaymentParams params) async {
-    final m = await _dataSource.createPayment(_toPaymentRequest(params));
+    final m = await _dataSource.createPayment(_toPaymentRequest(params),
+        idempotencyKey: params.idempotencyKey);
     await _onBillingMutation();
     return _mapPaymentResult(m);
   }
@@ -222,7 +223,8 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   @override
   Future<InvoicePaymentResultEntity> createRefund(
       InvoicePaymentParams params) async {
-    final m = await _dataSource.createRefund(_toPaymentRequest(params));
+    final m = await _dataSource.createRefund(_toPaymentRequest(params),
+        idempotencyKey: params.idempotencyKey);
     await _onBillingMutation();
     return _mapPaymentResult(m);
   }
@@ -230,15 +232,18 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   @override
   Future<InvoicePaymentResultEntity> createCredit(
       CreateCreditParams params) async {
-    final m = await _dataSource.createCredit(CreateCreditRequestModel(
-      schoolCode: params.schoolCode,
-      amount: params.amount,
-      ownerType: params.ownerType,
-      ownerCode: params.ownerCode,
-      studentCode: params.studentCode,
-      reason: params.reason,
-      description: params.description,
-    ));
+    final m = await _dataSource.createCredit(
+      CreateCreditRequestModel(
+        schoolCode: params.schoolCode,
+        amount: params.amount,
+        ownerType: params.ownerType,
+        ownerCode: params.ownerCode,
+        studentCode: params.studentCode,
+        reason: params.reason,
+        description: params.description,
+      ),
+      idempotencyKey: params.idempotencyKey,
+    );
     await _onBillingMutation();
     return _mapPaymentResult(m);
   }

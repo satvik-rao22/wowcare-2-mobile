@@ -1,74 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_remove_tile.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'dart:convert';
-import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_transfer_request.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_transfer_submit_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_transfer_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/classroom_visibility.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
-
-// Student entity for Transfer UI & API payload
-class StudentEntity {
-  final int id;
-  final String studentCode;
-  final String fullName;
-  final int roomId;
-  final String roomName;
-  final String photoUuid;
-  final List<TagEntity> tags;
-  final String classroomCode;
-
-  StudentEntity({
-    required this.id,
-    required this.studentCode,
-    required this.fullName,
-    required this.roomId,
-    required this.roomName,
-    this.photoUuid = '',
-    this.tags = const [],
-    this.classroomCode = '',
-  });
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is StudentEntity &&
-          runtimeType == other.runtimeType &&
-          studentCode == other.studentCode;
-
-  @override
-  int get hashCode => studentCode.hashCode;
-}
-
-// Mock tag entity for UI-only implementation
-class TagEntity {
-  final String name;
-
-  TagEntity({required this.name});
-}
+export 'tag_entity.dart';
+import 'student_entity.dart';
+export 'student_entity.dart';
 
 class StudentTransferForm extends StatefulWidget {
   const StudentTransferForm({
@@ -149,36 +105,10 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     try {
       String? schoolIana;
       try {
-        schoolIana = await SchoolTimezoneResolver.resolveForCurrentSchool(
-          storage: serviceLocator<StorageService>(),
-          apiClient: serviceLocator<ApiClient>(),
-        );
+        schoolIana = await _submitCubit.resolveFreshSchoolTimeZone();
       } catch (_) {}
 
-      final storage = serviceLocator<StorageService>();
-      final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-          .trim();
-      // True for any staff-side login (school/org admin or regular staff);
-      // false for guardian/parent and kiosk-PIN access. Gates date/time editing.
-      bool isStaff = staffType.isNotEmpty;
-      if (!isStaff) {
-        final rolesJson = await storage.getString(StorageKeys.roles);
-        if (rolesJson != null && rolesJson.trim().isNotEmpty) {
-          final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
-          for (final r in roles) {
-            final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
-                .toString()
-                .toUpperCase();
-            if (roleCode.contains('GUARDIAN') ||
-                roleCode.contains('PARENT') ||
-                roleCode.contains('KIOSK')) {
-              continue;
-            }
-            isStaff = true;
-            break;
-          }
-        }
-      }
+      final isStaff = await _submitCubit.resolveIsStaffPersona();
       if (!mounted) return;
       setState(() {
         _schoolIana = schoolIana;
@@ -235,32 +165,17 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
 
   Future<void> _loadAvailableClassroomsFromApi() async {
     try {
-      final storageService = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
-      if (schoolCode.isEmpty) return;
-      final isScopedStaff = await isStudentAttendanceScopedStaffPersona(
-        storage: storageService,
-      );
-      final allowedCodes = isScopedStaff
-          ? (await resolveStudentAttendanceAllowedClassroomCodes(
-              storage: storageService,
-            )).map((e) => e.trim()).where((e) => e.isNotEmpty).toSet()
-          : const <String>{};
-
-      final getActiveClassroomsUseCase =
-          serviceLocator<GetActiveClassroomsUseCase>();
-      final classrooms = await getActiveClassroomsUseCase(
-        schoolCode: schoolCode,
-        onlyTypeClassroom: true,
-      );
+      final options = await _submitCubit.resolveTransferClassroomOptions();
+      if (options.schoolCode.isEmpty) return;
 
       final apiMap = <String, String>{
-        for (final classroom in classrooms)
+        for (final classroom in options.classrooms)
           if (classroom.name.trim().isNotEmpty &&
               classroom.code.trim().isNotEmpty &&
-              (!isScopedStaff ||
-                  allowedCodes.contains(classroom.code.trim())) &&
+              (!options.isScopedStaff ||
+                  options.allowedClassroomCodes.contains(
+                    classroom.code.trim(),
+                  )) &&
               isSelectableClassroomName(classroom.name))
             classroom.name: classroom.code,
       };
@@ -377,10 +292,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       _isSubmitting = true;
     });
 
-    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
-    );
+    final schoolTimeZone = await _submitCubit.resolveFreshSchoolTimeZone();
     final schoolToday = SchoolZoneDateTime.schoolCalendarTodayOnly(
       schoolTimeZone,
     );
@@ -507,7 +419,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
           Navigator.of(context).pop();
         } else {
           redirectToAttendanceDaily(
-              context, StudentAttendanceTabbedView.routeName);
+            context,
+            StudentAttendanceTabbedView.routeName,
+          );
         }
       }
     } catch (e) {
@@ -534,18 +448,14 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
       context,
     )) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
           child: Padding(
             padding: EdgeInsets.all(AppSpacing.xl),
             child: Text(
               'Access Denied: You must be inside geofence and signed in to manage student attendance.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.red,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTextStyles.title.copyWith(color: AppColors.errorColor),
             ),
           ),
         ),
@@ -569,8 +479,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                 childAspectRatio: 3.5,
               ),
               itemCount: currentStudents.length,
-              itemBuilder: (context, index) => RemoveStudentTile(
-                student: currentStudents[index],
+              itemBuilder: (context, index) => AttendanceRemoveTile(
+                name: currentStudents[index].fullName,
+                photoUuid: currentStudents[index].photoUuid ?? '',
                 onRemove: () => _removeStudent(currentStudents[index]),
               ),
             ),
@@ -659,13 +570,15 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                                 vertical: AppSpacing.s14,
                               ),
                               decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade300),
+                                border: Border.all(
+                                  color: AppColors.attendanceBorderLightColor,
+                                ),
                                 borderRadius: AppRadius.allSm,
-                                color: const Color.fromRGBO(177, 175, 233, 0.1),
+                                color: AppColors.fieldBackgroundColor,
                               ),
                               child: AppText.value(
                                 currentClassroom,
-                                style: TextStyle(
+                                style: AppTextStyles.value.copyWith(
                                   color: AppColors.primaryColor.withValues(
                                     alpha: 0.5,
                                   ),
@@ -691,9 +604,11 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                           vertical: AppSpacing.none,
                         ),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
+                          border: Border.all(
+                            color: AppColors.attendanceBorderLightColor,
+                          ),
                           borderRadius: AppRadius.allSm,
-                          color: const Color.fromRGBO(177, 175, 233, 0.1),
+                          color: AppColors.fieldBackgroundColor,
                         ),
                         child: DropdownButton<String>(
                           value: selectedClassroom,
@@ -702,11 +617,10 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                                 ? 'Select classroom'
                                 : 'No classroom available',
                           ),
-                          style: TextStyle(
+                          style: AppTextStyles.attendanceDropdownValue(
                             color: AppColors.primaryColor.withValues(
                               alpha: 0.5,
                             ),
-                            fontSize: 15,
                           ),
                           isExpanded: true,
                           icon: SvgPicture.asset(MediaRes.arrow_drop_down),
@@ -739,65 +653,6 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
         confirmButtonLabel: 'Submit',
         onPressedConfirm: _isSubmitting ? null : _handleSubmit,
         showCancelButton: false,
-      ),
-    );
-  }
-}
-
-class RemoveStudentTile extends StatelessWidget {
-  final StudentEntity student;
-  final VoidCallback onRemove;
-
-  const RemoveStudentTile({
-    super.key,
-    required this.student,
-    required this.onRemove,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xs, vertical: AppSpacing.xs),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.themeColor),
-        borderRadius: BorderRadius.circular(AppRadius.r10),
-        color: const Color.fromRGBO(249, 245, 250, 1),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                DocumentImageWidget(
-                  fileUuid: student.photoUuid,
-                  name: student.fullName,
-                  size: 30,
-                  fontSize: 12,
-                ),
-                const SizedBox(width: AppSpacing.s6),
-                Flexible(
-                  child: Text(
-                    student.fullName,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                    softWrap: false,
-                    style: const TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: onRemove,
-            child: SvgPicture.asset(MediaRes.delete_icon),
-          ),
-        ],
       ),
     );
   }

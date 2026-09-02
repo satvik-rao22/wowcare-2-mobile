@@ -1,5 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 
@@ -29,5 +35,39 @@ class AttendancePermissionService {
 
     final geofenceState = context.read<GeofenceCubit>().state;
     return geofenceState.isStaffSignedIn;
+  }
+
+  /// Resolves whether the current session is a parent/guardian one.
+  ///
+  /// Once `RoleCubit` has resolved the ACTIVE persona, it is authoritative —
+  /// trust it even when false. A dual-role account (e.g. SCHOOL_ADMIN +
+  /// GUARDIAN) has 'GUARDIAN' somewhere in its full roles list regardless of
+  /// which persona is currently active, so scanning that list would wrongly
+  /// flip an admin who switched profiles back to a guardian session. Only
+  /// falls through to the best-effort scan while `RoleCubit` is still
+  /// bootstrapping (no active persona resolved yet).
+  static Future<bool> resolveIsParentSession(BuildContext context) async {
+    final roleCubit = context.read<RoleCubit>();
+    if (roleCubit.hasResolvedAccess) return roleCubit.isParent;
+    if (roleCubit.isParent) return true;
+
+    try {
+      final storage = serviceLocator<StorageService>();
+      if (await resolveIsGuardianOrParentFromStorage(storage)) {
+        return true;
+      }
+
+      final loginContext = await storage.getJson(StorageKeys.loginContext);
+      final contextRaw = jsonEncode(
+        loginContext ?? const <String, dynamic>{},
+      ).toUpperCase();
+      if (contextRaw.contains('PARENT') || contextRaw.contains('GUARDIAN')) {
+        return true;
+      }
+    } catch (_) {
+      // Ignore parse/storage issues and keep non-parent fallback.
+    }
+
+    return false;
   }
 }

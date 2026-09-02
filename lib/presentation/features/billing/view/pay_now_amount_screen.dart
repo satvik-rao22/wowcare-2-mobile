@@ -9,9 +9,12 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/pay_now_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/pay_now_authorize_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/payment_settings_cubit.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/presentation/features/billing/view/auto_pay_payment_methods_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/pay_now_authorize_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -30,10 +33,16 @@ class PayNowAmountScreen extends StatefulWidget {
 }
 
 class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
-  static const Color _primary = Color(0xFF573353);
-  static const Color _accent = Color(0xFF6F8CFF);
+  static const Color _primary = AppColors.billingTextColor;
+  static const Color _accent = AppColors.billingAccentBlue;
 
   final PayNowCubit _cubit = serviceLocator<PayNowCubit>();
+
+  /// One idempotency key per amount-screen session. Minted lazily on the first
+  /// confirm and REUSED across re-confirms (e.g. the user pops back from the
+  /// authorize screen because the charge looked failed and confirms again), so
+  /// the backend dedupes instead of creating a second charge (BILL-PAY-02).
+  String? _pendingIdempotencyKey;
   final PaymentSettingsCubit _settingsCubit =
       serviceLocator<PaymentSettingsCubit>();
   final TextEditingController _currentController = TextEditingController();
@@ -89,7 +98,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                 state.currentAmount > 0 ? _money(state.currentAmount) : '';
           }
           return StaffFormLayout(
-            title: 'Pay Now',
+            title: BillingStrings.payNow,
             bottomBar: _buildBottomBar(state),
             child: state.isLoading
                 ? _buildLoading()
@@ -98,7 +107,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Payment Amount',
+                          BillingStrings.paymentAmount,
                           style: TextStyle(
                             fontFamily: 'Manrope',
                             fontSize: 20,
@@ -151,7 +160,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
-                  'Current Outstanding (Unpaid Balance)',
+                  BillingStrings.currentOutstandingUnpaidBalance,
                   style: TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: 15,
@@ -206,7 +215,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
               ),
               const SizedBox(width: 8),
               const Text(
-                'Custom Amount',
+                BillingStrings.customAmount,
                 style: TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: 15,
@@ -222,7 +231,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F9FA),
+              color: AppColors.billingSurfaceLight,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.grey.shade200),
             ),
@@ -238,7 +247,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Total Payment Amount:',
+                      BillingStrings.totalPaymentAmount,
                       style: TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: 15,
@@ -313,7 +322,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
             const Padding(
               padding: EdgeInsets.only(top: 6, left: 2),
               child: Text(
-                '*Amount exceeds outstanding.',
+                BillingStrings.amountExceedsOutstanding,
                 style: TextStyle(color: Colors.red, fontSize: 12),
               ),
             ),
@@ -335,7 +344,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
       fontFamily: 'Manrope',
       fontSize: responsive.inputFontSize,
       fontWeight: FontWeight.w600,
-      color: const Color(0xff573353),
+      color: AppColors.billingTextColor,
       height: 19 / 14,
     );
     return Container(
@@ -343,7 +352,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(
-          color: hasError ? AppColors.errorColor : const Color(0x66573353),
+          color: hasError ? AppColors.errorColor : AppColors.billingBorderDefault,
         ),
         borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
       ),
@@ -402,7 +411,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
             ),
             child: const Center(
               child: Text(
-                'Confirm',
+                BillingStrings.confirm,
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -426,10 +435,12 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
     // minted NOW (step 2) and fixed before the final Pay tap, so retries reuse
     // it and the backend dedupes double-submits / network retries.
     final double total = state.amount;
-    // Idempotency key: MOBILE-<uuid>-<guardianCode>. The uuid makes it unique
-    // per attempt; the guardian code is appended at the end.
+    // Idempotency key: MOBILE-<uuid>-<guardianCode>. Minted ONCE per screen
+    // session and reused across re-confirms so a retried charge dedupes rather
+    // than double-charging.
     final String guardian = state.guardianCode.trim();
-    final String idempotencyKey = 'MOBILE-${const Uuid().v4()}'
+    final String idempotencyKey = _pendingIdempotencyKey ??=
+        'MOBILE-${const Uuid().v4()}'
         '${guardian.isNotEmpty ? '-$guardian' : ''}';
     final charge = PayNowCharge(
       ownerType: state.ownerType,
@@ -443,10 +454,9 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
     );
 
     // Step 2: the Saved Payment Methods picker (AutoPay UI without auto-pay).
-    final method = await Navigator.of(context).push<PaymentMethodEntity>(
-      MaterialPageRoute(
-        builder: (_) => const AutoPayPaymentMethodsScreen(isPicker: true),
-      ),
+    final method = await context.push<PaymentMethodEntity>(
+      AutoPayPaymentMethodsScreen.routeName,
+      extra: const AutoPayPaymentMethodsArgs(isPicker: true),
     );
     if (!mounted || method == null) return;
     // Ensure the school payment settings have resolved before showing the
@@ -457,14 +467,13 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
     await (_settingsFuture ??= _settingsCubit.load());
     if (!mounted) return;
     // Step 3: review + authorize (real charge via the payment gateway).
-    final paid = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => PayNowAuthorizeScreen(
-          method: method,
-          amount: total,
-          charges: <PayNowCharge>[charge],
-          settings: _settingsCubit.state.settings,
-        ),
+    final paid = await context.push<bool>(
+      PayNowAuthorizeScreen.routeName,
+      extra: PayNowAuthorizeArgs(
+        method: method,
+        amount: total,
+        charges: <PayNowCharge>[charge],
+        settings: _settingsCubit.state.settings,
       ),
     );
     // A payment was made — dismiss the entry screen and signal the billing

@@ -1,29 +1,20 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_remove_tile.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
-import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/delete_student_absence_record_usecase.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_sign_in_request.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_state.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_gate_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_gate_state.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_in_submit_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_in_submit_state.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_in_gate_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_in_gate_state.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/unexpected_sign_in_attention_dialog.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -32,12 +23,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
@@ -45,39 +33,9 @@ import 'package:wowcare/presentation/features/attendance/util/attendance_redirec
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'student_entity.dart';
 
-// Student entity used for Sign-In UI & API payload
-class StudentEntity {
-  final int id;
-  final String studentCode;
-  final String fullName;
-  final int roomId;
-  final String roomName;
-  final String classroomCode;
-  final String? photoUuid;
-  final bool isExpectedToday;
-
-  StudentEntity({
-    required this.id,
-    required this.studentCode,
-    required this.fullName,
-    required this.roomId,
-    required this.roomName,
-    required this.classroomCode,
-    this.photoUuid,
-    this.isExpectedToday = true,
-  });
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is StudentEntity &&
-          runtimeType == other.runtimeType &&
-          studentCode == other.studentCode;
-
-  @override
-  int get hashCode => studentCode.hashCode;
-}
+export 'student_entity.dart';
 
 class StudentSignInForm extends StatefulWidget {
   const StudentSignInForm({
@@ -204,154 +162,6 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
 
   Future<String> _resolveStaffCode() => resolveStaffCodeForLoggedInUser();
 
-  bool _absenceDateMatchesCalendarDay(
-    String absenceDateRaw,
-    String targetYyyyMmDd,
-  ) {
-    final trimmed = absenceDateRaw.trim();
-    if (trimmed.isEmpty) return false;
-    if (trimmed.length >= 10 && trimmed.substring(0, 10) == targetYyyyMmDd) {
-      return true;
-    }
-    try {
-      final dt = DateTime.parse(trimmed).toLocal();
-      final norm =
-          '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
-      return norm == targetYyyyMmDd;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  /// Staff sign-in: for students marked absent on [attendanceDateYyyyMmDd],
-  /// delete absence records first (override sign-in).
-  Future<void> _deleteTodaysAbsenceRecordsBeforeStaffSignIn({
-    required String attendanceDateYyyyMmDd,
-    required String staffCode,
-    required List<StudentEntity> students,
-  }) async {
-    final allItems = <StudentAttendanceAbsentFormItem>[];
-
-    // The absent-form-list lookup is a best-effort PRE-step: it exists only to
-    // clear a same-day absence record before signing the student in. If it
-    // fails (e.g. the backend 500s on this endpoint), do NOT abort the whole
-    // sign-in — skip the deletion and let the sign-in POST run. Worst case the
-    // backend rejects the sign-in for a still-present absence record, which is a
-    // clear, actionable error; being unable to sign anyone in is worse.
-    try {
-      var page = 0;
-      const pageSize = 200;
-      while (true) {
-        final absentPage =
-            await serviceLocator<GetStudentAbsentFormListUseCase>()(
-          fromAbsenceDate: attendanceDateYyyyMmDd,
-          toAbsenceDate: attendanceDateYyyyMmDd,
-          page: page,
-          size: pageSize,
-        );
-        allItems.addAll(absentPage.items);
-        if (!absentPage.hasMore) break;
-        page++;
-        if (page > 100) break;
-      }
-    } catch (e) {
-      AppLogger.d(
-        '[StudentSignIn] absent-form-list lookup failed ($e); '
-        'proceeding to sign-in without clearing absence records',
-      );
-      return; // skip deletion, caller continues to the sign-in POST
-    }
-
-    final processedStudentCodes = <String>{};
-    for (final s in students) {
-      final sc = s.studentCode.trim();
-      if (sc.isEmpty || processedStudentCodes.contains(sc)) continue;
-
-      final matches = allItems.where((it) {
-        if (it.studentCode.trim() != sc) return false;
-        return _absenceDateMatchesCalendarDay(
-          it.absenceDate,
-          attendanceDateYyyyMmDd,
-        );
-      }).toList();
-
-      if (matches.isEmpty) continue;
-
-      final withCode = matches
-          .where((it) => (it.absenceRecordCode ?? '').trim().isNotEmpty)
-          .toList();
-      if (withCode.isEmpty) {
-        throw Exception(
-          'Cannot sign in ${s.fullName}: marked absent for '
-          'this day but the absence record could not be resolved. Refresh and try again.',
-        );
-      }
-
-      final room = s.classroomCode.trim();
-      StudentAttendanceAbsentFormItem chosen = withCode.first;
-      if (room.isNotEmpty) {
-        final byRoom = withCode
-            .where((it) => it.classroomCode.trim() == room)
-            .toList();
-        if (byRoom.isNotEmpty) {
-          chosen = byRoom.first;
-        }
-      }
-
-      await serviceLocator<DeleteStudentAbsenceRecordUseCase>()(
-        absenceRecordCode: chosen.absenceRecordCode!.trim(),
-        staffCode: staffCode,
-      );
-      processedStudentCodes.add(sc);
-    }
-  }
-
-  Future<bool> _resolveIsParentSession() async {
-    final roleCubit = context.read<RoleCubit>();
-    // Once RoleCubit has resolved the ACTIVE persona, it is authoritative —
-    // trust it even when false. A dual-role account (e.g. SCHOOL_ADMIN +
-    // GUARDIAN) has 'GUARDIAN' somewhere in its full roles list regardless of
-    // which persona is currently active, so scanning that list below would
-    // wrongly flip an admin who switched profiles back to a guardian sign-in.
-    // Only fall through to the best-effort scan while RoleCubit is still
-    // bootstrapping (no active persona resolved yet).
-    if (roleCubit.hasResolvedAccess) return roleCubit.isParent;
-    if (roleCubit.isParent) return true;
-
-    try {
-      final storage = serviceLocator<StorageService>();
-      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
-          .trim();
-      if (rolesJson.isNotEmpty) {
-        final decoded = jsonDecode(rolesJson);
-        if (decoded is List) {
-          for (final role in decoded) {
-            if (role is! Map) continue;
-            final roleName = (role['role'] ?? '')
-                .toString()
-                .toUpperCase()
-                .trim();
-            if (roleName.contains('PARENT') || roleName.contains('GUARDIAN')) {
-              return true;
-            }
-          }
-        }
-      }
-
-      final loginContext = await storage.getJson(StorageKeys.loginContext);
-      final contextRaw = jsonEncode(
-        loginContext ?? const <String, dynamic>{},
-      ).toUpperCase();
-      if (contextRaw.contains('PARENT') || contextRaw.contains('GUARDIAN')) {
-        return true;
-      }
-    } catch (_) {
-      // Ignore parse/storage issues and keep non-parent fallback.
-    }
-
-    return false;
-  }
-
   Future<void> _submitSignIn() async {
     final gateState = _gateCubit.state;
     if (_submitInFlight) return;
@@ -370,12 +180,11 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       return;
     }
 
-    final isParent = await _resolveIsParentSession();
-
-    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
+    final isParent = await AttendancePermissionService.resolveIsParentSession(
+      context,
     );
+
+    final schoolTimeZone = await _gateCubit.resolveFreshSchoolTimeZone();
 
     // Staff (admin or regular) pick school-local date/time; parents/kiosk use "now" in the school's zone.
     // Persona is resolved during initState (loadPersonaFlags) before any user
@@ -563,9 +372,12 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       pin: resolvedPin,
       attendanceDate: mode == StudentSignInMode.staff ? attendanceDate : null,
       staffCode: resolvedStaffCode,
-      classroomCode: mode == StudentSignInMode.staff ? defaultClassroomCode : null,
-      classroomCodeByStudentCode:
-          mode == StudentSignInMode.staff ? classroomCodeByStudentCode : null,
+      classroomCode: mode == StudentSignInMode.staff
+          ? defaultClassroomCode
+          : null,
+      classroomCodeByStudentCode: mode == StudentSignInMode.staff
+          ? classroomCodeByStudentCode
+          : null,
       occurredAtIso: mode == StudentSignInMode.staff
           ? occurredAt.toUtc().toIso8601String()
           : null,
@@ -580,10 +392,18 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       if (!isParent) {
         final staffCode = (request.staffCode ?? '').trim();
         if (staffCode.isNotEmpty) {
-          await _deleteTodaysAbsenceRecordsBeforeStaffSignIn(
+          await _submitCubit.clearTodaysAbsenceRecordsBeforeSignIn(
             attendanceDateYyyyMmDd: attendanceDate,
             staffCode: staffCode,
-            students: List<StudentEntity>.from(currentStudents),
+            students: currentStudents
+                .map(
+                  (s) => (
+                    studentCode: s.studentCode,
+                    classroomCode: s.classroomCode,
+                    fullName: s.fullName,
+                  ),
+                )
+                .toList(),
           );
         }
       }
@@ -617,7 +437,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
 
       if (success) {
         AttendanceEvents.notifyChanged();
-        serviceLocator<ParentChildCubit>().forceRefresh();
+        context.read<ParentChildCubit>().forceRefresh();
         if (widget.popOnSuccess) {
           widget.refreshCallback();
           if (context.canPop()) {
@@ -691,18 +511,14 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
       context,
     )) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
           child: Padding(
             padding: EdgeInsets.all(AppSpacing.xl),
             child: Text(
               'Access Denied: You must be inside geofence and signed in to manage student attendance.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.red,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTextStyles.title.copyWith(color: AppColors.errorColor),
             ),
           ),
         ),
@@ -730,15 +546,17 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                     shrinkWrap: true,
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 14,
-                      childAspectRatio: 3.5,
-                    ),
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 14,
+                          mainAxisSpacing: 14,
+                          childAspectRatio: 3.5,
+                        ),
                     itemCount: currentStudents.length,
-                    itemBuilder: (context, index) => RemoveStudentTile(
-                      student: currentStudents[index],
+                    itemBuilder: (context, index) => AttendanceRemoveTile(
+                      name: currentStudents[index].fullName,
+                      photoUuid: currentStudents[index].photoUuid ?? '',
                       onRemove: () => _removeStudent(currentStudents[index]),
+                      horizontalPadding: AppSpacing.sm,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
@@ -762,8 +580,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                                 // device calendar.
                                 final iana = gate.schoolIana;
                                 final today = iana != null && iana.isNotEmpty
-                                    ? SchoolZoneDateTime
-                                        .schoolCalendarTodayOnly(iana)
+                                    ? SchoolZoneDateTime.schoolCalendarTodayOnly(
+                                        iana,
+                                      )
                                     : DateTime(
                                         ServerTimeService.instance.now().year,
                                         ServerTimeService.instance.now().month,
@@ -810,83 +629,28 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
             ),
             bottomBar:
                 BlocBuilder<StudentSignInSubmitCubit, StudentSignInSubmitState>(
-              bloc: _submitCubit,
-              builder: (context, submitState) {
-                final hasUnexpected = _gateCubit.hasUnexpectedAmongSelected();
-                final disabled =
-                    (submitState is StudentSignInSubmitInProgress) ||
+                  bloc: _submitCubit,
+                  builder: (context, submitState) {
+                    final hasUnexpected = _gateCubit
+                        .hasUnexpectedAmongSelected();
+                    final disabled =
+                        (submitState is StudentSignInSubmitInProgress) ||
                         gate.unexpectedGateLoading ||
                         (hasUnexpected && !gate.unexpectedSignInAcknowledged);
-                return CustomButtonLayout(
-                  confirmButtonLabel: 'Sign-In',
-                  onPressedConfirm: disabled ? null : _submitSignIn,
-                  showCancelButton: widget.isKiosk,
-                  onPressedCancel: widget.isKiosk
-                      ? () {
-                          context.go('/kiosk');
-                        }
-                      : null,
-                );
-              },
-            ),
+                    return CustomButtonLayout(
+                      confirmButtonLabel: 'Sign-In',
+                      onPressedConfirm: disabled ? null : _submitSignIn,
+                      showCancelButton: widget.isKiosk,
+                      onPressedCancel: widget.isKiosk
+                          ? () {
+                              context.go('/kiosk');
+                            }
+                          : null,
+                    );
+                  },
+                ),
           );
         },
-      ),
-    );
-  }
-}
-
-// Simplified RemoveStudentTile widget for UI-only implementation
-class RemoveStudentTile extends StatelessWidget {
-  final StudentEntity student;
-  final VoidCallback onRemove;
-
-  const RemoveStudentTile({
-    super.key,
-    required this.student,
-    required this.onRemove,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.themeColor),
-        borderRadius: BorderRadius.circular(AppRadius.r10),
-        color: const Color.fromRGBO(249, 245, 250, 1),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                DocumentImageWidget(
-                  fileUuid: student.photoUuid ?? '',
-                  name: student.fullName,
-                  size: 30,
-                  fontSize: 12,
-                ),
-                const SizedBox(width: AppSpacing.s6),
-                Flexible(
-                  child: AppText.value(
-                    student.fullName,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: onRemove,
-            child: SvgPicture.asset(MediaRes.delete_icon),
-          ),
-        ],
       ),
     );
   }

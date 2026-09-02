@@ -17,6 +17,7 @@ import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 typedef StudentAttendanceActionTap = void Function(String actionLabel);
 
@@ -53,46 +54,48 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
     return BlocBuilder<GeofenceCubit, GeofenceState>(
       builder: (context, _) {
         return BlocBuilder<RoleCubit, RoleState>(
-          builder: (context, _) => _buildButton(context),
+          builder: (context, _) {
+            // Check permission using the shared service
+            final isStudentAttendanceAllowed =
+                AttendancePermissionService.hasPermissionToManageStudentAttendance(
+                  context,
+                );
+            final activeDisabledActions = Set<String>.from(disabledActions);
+            final activeReasons = Map<String, String>.from(disabledReasons);
+            if (!isStudentAttendanceAllowed) {
+              // STAFF persona that has not completed self sign-in: block
+              // every action and explain why. This reason takes precedence
+              // over status-based ones.
+              for (final action in const [
+                'Sign-in',
+                'Sign-Out',
+                'Transfer',
+                'Absent',
+              ]) {
+                activeDisabledActions.add(action);
+                activeReasons[action] =
+                    AttendancePermissionService.staffSelfSignInRequiredMessage;
+              }
+            }
+
+            // Use the shared GradientAddButton for consistent FAB styling.
+            // Mirror the responsive sizing used in StaffScreen by deriving
+            // tablet breakpoints from the current screen width.
+            final bool isTablet = ResponsiveHelper(context).isTabletCompact;
+            final bool isLargeTablet = ResponsiveHelper(context).isWide;
+
+            return GradientAddButton(
+              onTap: () => _showActionMenu(
+                context,
+                activeDisabledActions,
+                activeReasons,
+              ),
+              isTablet: isTablet,
+              isLargeTablet: isLargeTablet,
+            );
+          },
         );
       },
-    );
-  }
-
-  Widget _buildButton(BuildContext context) {
-    // Check permission using the shared service
-    final isStudentAttendanceAllowed =
-        AttendancePermissionService.hasPermissionToManageStudentAttendance(
-          context,
-        );
-    final activeDisabledActions = Set<String>.from(disabledActions);
-    final activeReasons = Map<String, String>.from(disabledReasons);
-    if (!isStudentAttendanceAllowed) {
-      // STAFF persona that has not completed self sign-in: block every action
-      // and explain why. This reason takes precedence over status-based ones.
-      for (final action in const [
-        'Sign-in',
-        'Sign-Out',
-        'Transfer',
-        'Absent',
-      ]) {
-        activeDisabledActions.add(action);
-        activeReasons[action] =
-            AttendancePermissionService.staffSelfSignInRequiredMessage;
-      }
-    }
-
-    // Use the shared GradientAddButton for consistent FAB styling.
-    // Mirror the responsive sizing used in StaffScreen by deriving
-    // tablet breakpoints from the current screen width.
-    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
-    final bool isLargeTablet = ResponsiveHelper(context).isWide;
-
-    return GradientAddButton(
-      onTap: () =>
-          _showActionMenu(context, activeDisabledActions, activeReasons),
-      isTablet: isTablet,
-      isLargeTablet: isLargeTablet,
     );
   }
 
@@ -116,7 +119,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
           alignment: Alignment.topRight,
           insetPadding: EdgeInsets.only(
             top: (topPosition ?? 100) + buttonSize,
-            left: leftPosition ?? MediaQuery.of(context).size.width * 0.75,
+            left: leftPosition ?? ResponsiveHelper(context).screenWidth * 0.75,
             right: rightPosition ?? 16,
           ),
           child: Container(
@@ -140,7 +143,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
                 // last action ("Absent") gets cropped. The dialog's own bounds
                 // (insetPadding.top) already handle the anchor offset, and the
                 // scroll view below guards genuinely tiny screens.
-                maxHeight: MediaQuery.of(context).size.height * 0.9,
+                maxHeight: ResponsiveHelper(context).screenHeight * 0.9,
               ),
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
               decoration: BoxDecoration(
@@ -151,37 +154,37 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                  _buildMenuItem(
-                    context,
-                    MediaRes.Sign_in,
-                    'Sign-in',
-                    activeDisabledActions,
-                    activeReasons,
-                  ),
-                  const SizedBox(height: AppSpacing.s5),
-                  _buildMenuItem(
-                    context,
-                    MediaRes.Sign_out,
-                    'Sign-Out',
-                    activeDisabledActions,
-                    activeReasons,
-                  ),
-                  const SizedBox(height: AppSpacing.s5),
-                  _buildMenuItem(
-                    context,
-                    MediaRes.transfer,
-                    'Transfer',
-                    activeDisabledActions,
-                    activeReasons,
-                  ),
-                  const SizedBox(height: AppSpacing.s5),
-                  _buildMenuItem(
-                    context,
-                    MediaRes.Mark_absent,
-                    'Absent',
-                    activeDisabledActions,
-                    activeReasons,
-                  ),
+                    _StudentPopupMenuItem(
+                      svgPath: MediaRes.Sign_in,
+                      label: 'Sign-in',
+                      isDisabled: activeDisabledActions.contains('Sign-in'),
+                      disabledReason: activeReasons['Sign-in'],
+                      onTap: () => _handleMenuItemTap(context, 'Sign-in'),
+                    ),
+                    const SizedBox(height: AppSpacing.s5),
+                    _StudentPopupMenuItem(
+                      svgPath: MediaRes.Sign_out,
+                      label: 'Sign-Out',
+                      isDisabled: activeDisabledActions.contains('Sign-Out'),
+                      disabledReason: activeReasons['Sign-Out'],
+                      onTap: () => _handleMenuItemTap(context, 'Sign-Out'),
+                    ),
+                    const SizedBox(height: AppSpacing.s5),
+                    _StudentPopupMenuItem(
+                      svgPath: MediaRes.transfer,
+                      label: 'Transfer',
+                      isDisabled: activeDisabledActions.contains('Transfer'),
+                      disabledReason: activeReasons['Transfer'],
+                      onTap: () => _handleMenuItemTap(context, 'Transfer'),
+                    ),
+                    const SizedBox(height: AppSpacing.s5),
+                    _StudentPopupMenuItem(
+                      svgPath: MediaRes.Mark_absent,
+                      label: 'Absent',
+                      isDisabled: activeDisabledActions.contains('Absent'),
+                      disabledReason: activeReasons['Absent'],
+                      onTap: () => _handleMenuItemTap(context, 'Absent'),
+                    ),
                   ],
                 ),
               ),
@@ -192,64 +195,13 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuItem(
-    BuildContext context,
-    String svgPath,
-    String label,
-    Set<String> activeDisabledActions,
-    Map<String, String> activeReasons,
-  ) {
-    final isDisabled = activeDisabledActions.contains(label);
-    final Widget item = InkWell(
-      onTap: isDisabled
-          ? null
-          : () {
-              Navigator.pop(context);
-              if (onActionTap != null) {
-                onActionTap!(label);
-                return;
-              }
-              _navigateToForm(context, label);
-            },
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Opacity(
-            opacity: isDisabled ? 0.45 : 1,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
-              decoration: BoxDecoration(
-                color: AppColors.attendanceInfoHighlightColor,
-                shape: BoxShape.circle,
-              ),
-              child: SvgPicture.asset(svgPath, height: AppDimensions.iconMd, width: AppDimensions.iconMd),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.s5),
-          Opacity(
-            opacity: isDisabled ? 0.5 : 1,
-            child: Text(
-              label,
-              maxLines: 1,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                fontFamily: 'Manrope',
-                color: AppColors.primaryColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    final reason = activeReasons[label];
-    if (!isDisabled || reason == null || reason.isEmpty) {
-      return item;
+  void _handleMenuItemTap(BuildContext context, String label) {
+    Navigator.pop(context);
+    if (onActionTap != null) {
+      onActionTap!(label);
+      return;
     }
-    // Disabled action: tapping the greyed-out item reveals why it is blocked.
-    return AppTooltip(message: reason, child: item);
+    _navigateToForm(context, label);
   }
 
   void _navigateToForm(BuildContext context, String label) {
@@ -281,5 +233,61 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
         refreshCallback();
       });
     }
+  }
+}
+
+class _StudentPopupMenuItem extends StatelessWidget {
+  const _StudentPopupMenuItem({
+    required this.svgPath,
+    required this.label,
+    required this.isDisabled,
+    required this.disabledReason,
+    required this.onTap,
+  });
+
+  final String svgPath;
+  final String label;
+  final bool isDisabled;
+  final String? disabledReason;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget item = InkWell(
+      onTap: isDisabled ? null : onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Opacity(
+            opacity: isDisabled ? 0.45 : 1,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
+              decoration: BoxDecoration(
+                color: AppColors.attendanceInfoHighlightColor,
+                shape: BoxShape.circle,
+              ),
+              child: SvgPicture.asset(
+                svgPath,
+                height: AppDimensions.iconMd,
+                width: AppDimensions.iconMd,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.s5),
+          Opacity(
+            opacity: isDisabled ? 0.5 : 1,
+            child: Text(label, maxLines: 1, style: AppTextStyles.body),
+          ),
+        ],
+      ),
+    );
+
+    final reason = disabledReason;
+    if (!isDisabled || reason == null || reason.isEmpty) {
+      return item;
+    }
+    // Disabled action: tapping the greyed-out item reveals why it is blocked.
+    return AppTooltip(message: reason, child: item);
   }
 }

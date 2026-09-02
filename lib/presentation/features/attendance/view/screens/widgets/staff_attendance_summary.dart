@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
-import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'attendance_summary_card_shimmer.dart';
 
 class StaffAttendanceSummary extends StatelessWidget {
   final int totalStaff;
@@ -35,13 +33,13 @@ class StaffAttendanceSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    
+
     if (isLoading) {
       return Column(
         children: [
-          _buildSummaryCardShimmer(context, responsive),
+          AttendanceSummaryCardShimmer(responsive: responsive),
           SizedBox(height: responsive.verticalSpacing / 2),
-          _buildSummaryCardShimmer(context, responsive),
+          AttendanceSummaryCardShimmer(responsive: responsive),
         ],
       );
     }
@@ -122,78 +120,6 @@ class StaffAttendanceSummary extends StatelessWidget {
               : null,
         ),
       ],
-    );
-  }
-
-  Widget _buildSummaryCardShimmer(BuildContext context, ResponsiveHelper responsive) {
-    return CustomSectionCard(
-      padding: EdgeInsets.symmetric(
-        horizontal: responsive.horizontalSpacing,
-        vertical: responsive.verticalSpacing / 2,
-      ),
-      child: Row(
-        children: [
-          Column(
-            children: [
-              Container(
-                width: 40,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: AppColors.attendanceBorderLightColor,
-                  borderRadius: AppRadius.allXs,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Container(
-                width: 80,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: AppColors.attendanceBorderLightColor,
-                  borderRadius: AppRadius.allXs,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(width: responsive.horizontalSpacing / 2),
-          Expanded(
-            child: Column(
-              children: [
-                Container(
-                  height: responsive.isTablet ? 24 : 20,
-                  decoration: BoxDecoration(
-                    color: AppColors.attendanceBorderLightColor,
-                    borderRadius: AppRadius.allPill,
-                  ),
-                ),
-                SizedBox(height: responsive.verticalSpacing / 2),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: responsive.isTablet ? 18 : 16,
-                        decoration: BoxDecoration(
-                          color: AppColors.attendanceBorderLightColor,
-                          borderRadius: AppRadius.allXs,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: responsive.horizontalSpacing / 4),
-                    Expanded(
-                      child: Container(
-                        height: responsive.isTablet ? 18 : 16,
-                        decoration: BoxDecoration(
-                          color: AppColors.attendanceBorderLightColor,
-                          borderRadius: AppRadius.allXs,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

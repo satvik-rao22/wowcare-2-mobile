@@ -159,7 +159,9 @@ class SchoolStatusCubit extends Cubit<SchoolStatusState> {
         _getSchoolFteUseCase(schoolCode: code, capacity: capacity.capacity),
       ]);
 
-      final studentCounts = results[0] as Map<String, int>;
+      final studentCounts =
+          results[0]
+              as ({int activeCount, int upcomingCount, int enrolledCount});
       final classroomCount = results[1] as ClassroomCount;
       final staffSummary = results[2] as StudentAttendanceExpectedSummary;
       final studentSummary = results[3] as StudentAttendanceExpectedSummary;
@@ -169,9 +171,9 @@ class SchoolStatusCubit extends Cubit<SchoolStatusState> {
         emit(
           SchoolStatusState.loaded(
             schoolCode: code,
-            activeCount: studentCounts['activeCount'] ?? 0,
-            upcomingCount: studentCounts['upcomingCount'] ?? 0,
-            enrolledCount: studentCounts['enrolledCount'] ?? 0,
+            activeCount: studentCounts.activeCount,
+            upcomingCount: studentCounts.upcomingCount,
+            enrolledCount: studentCounts.enrolledCount,
             capacity: capacity.capacity,
             minAgeMonths: capacity.minAgeMonths,
             maxAgeMonths: capacity.maxAgeMonths,

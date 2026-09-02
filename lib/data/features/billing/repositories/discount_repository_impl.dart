@@ -77,6 +77,7 @@ class DiscountRepositoryImpl implements DiscountRepository {
         price: m.price,
         status: m.status,
         school: m.school,
+        totalAmountDiscounted: m.totalAmountDiscounted,
       );
 
   DiscountRequestModel _toRequest(CreateDiscountParams p) =>

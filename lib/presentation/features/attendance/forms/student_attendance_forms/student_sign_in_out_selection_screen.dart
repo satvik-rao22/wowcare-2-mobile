@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/validate_qr_code_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/qr_code_validation_cubit.dart';
 import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
@@ -38,6 +37,8 @@ class StudentSignInOutSelectionScreen extends StatefulWidget {
 class _StudentSignInOutSelectionScreenState
     extends State<StudentSignInOutSelectionScreen> {
   bool _isValidating = false;
+  final QrCodeValidationCubit _qrCubit =
+      serviceLocator<QrCodeValidationCubit>();
 
   bool _isKioskMode() {
     return KioskAccessControl.isKioskModeActiveDirect();
@@ -57,18 +58,12 @@ class _StudentSignInOutSelectionScreenState
 
     setState(() => _isValidating = true);
     try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode))?.trim() ?? '';
-
       AppLogger.d(
         '[QR ATTENDANCE] Re-validating with useCase=${useCase.apiValue} '
         'for mixed-state selection',
       );
 
-      final validateUseCase = serviceLocator<ValidateQrCodeUseCase>();
-      final result = await validateUseCase(
-        schoolCode: schoolCode,
+      final result = await _qrCubit.validate(
         qrToken: widget.qrToken,
         useCase: useCase,
       );

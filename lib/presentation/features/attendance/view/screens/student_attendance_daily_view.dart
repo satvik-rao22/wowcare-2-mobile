@@ -25,25 +25,18 @@ import 'package:wowcare/presentation/features/attendance/view/screens/widgets/st
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_absent_card.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_shimmer.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
-import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_daily_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_absent_toggle_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_delete_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/student_attendance_daily_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/student_attendance_absent_toggle_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/student_attendance_delete_cubit.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_daily.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart'
     hide StudentAttendanceTime;
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
-import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
-import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_edit_attendance_form.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart'
@@ -134,16 +127,6 @@ class _StudentAttendanceDailyViewScreenState
   // screen more than once (stacking duplicate pages on the Navigator).
   bool _isFilterScreenOpen = false;
 
-  // Enrolled summary: same API as StudentScreen "Total Students" (active + upcoming headline).
-  int enrolled = 0;
-  int active = 0;
-  int upcoming = 0;
-  int expected = 0;
-  int present = 0;
-  int absent = 0;
-  int signedOut = 0;
-  int notMarked = 0;
-
   late final StudentAttendanceDailyCubit _cubit;
   late final StudentAttendanceAbsentToggleCubit _absentToggleCubit;
   late final ClassroomCubit _classroomCubit;
@@ -151,8 +134,6 @@ class _StudentAttendanceDailyViewScreenState
   /// Owns the delete-attendance call (View -> Cubit -> UseCase -> Repository).
   final StudentAttendanceDeleteCubit _deleteCubit =
       serviceLocator<StudentAttendanceDeleteCubit>();
-  final GetClassroomByCodeUseCase _getClassroomByCode =
-      serviceLocator<GetClassroomByCodeUseCase>();
   final Map<String, String> _absentToggleClassroomNameByCode = {};
   final Set<String> _absentToggleClassroomFetchInFlight = {};
 
@@ -272,44 +253,23 @@ class _StudentAttendanceDailyViewScreenState
     unawaited(_loadStudentCounts());
   }
 
-  Future<void> _loadStudentCounts() async {
-    try {
-      final storageService = serviceLocator<StorageService>();
-      final schoolCode =
-          await storageService.getString(StorageKeys.schoolCode) ?? '';
-      if (schoolCode.isEmpty) return;
+  /// Delegates to [StudentAttendanceDailyCubit.loadStudentCounts] (owns the
+  /// fetch), then mirrors the result into local state the header summary
+  /// reads directly.
+  // Counts live on StudentAttendanceDailyCubit's state; the BlocBuilder
+  // around StudentAttendanceSummary already rebuilds when they change, so
+  // this just needs to trigger the load.
+  Future<void> _loadStudentCounts() => _cubit.loadStudentCounts();
 
-      final useCase = serviceLocator<GetStudentCountsUseCase>();
-      final counts = await useCase(schoolCode: schoolCode);
-      if (!mounted) return;
-
-      final activeC = counts['activeCount'] ?? 0;
-      final upcomingC = counts['upcomingCount'] ?? 0;
-      setState(() {
-        active = activeC;
-        upcoming = upcomingC;
-        enrolled = activeC + upcomingC;
-      });
-    } catch (_) {
-      // Non-critical; keep existing values (same tolerance as StudentScreen).
-    }
-  }
-
-  /// Resolves whether the active school lets teachers do cross-class student
-  /// attendance. When enabled, flips this screen into admin-like mode and
-  /// reloads the classroom dropdown unscoped.
+  /// Delegates to [StudentAttendanceDailyCubit.resolveCrossClassFlag], then
+  /// mirrors the result and — when it just flipped on — reloads the
+  /// classroom dropdown unscoped, same as before.
   Future<void> _resolveCrossClassFlag() async {
-    try {
-      final enabled =
-          await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-            storage: serviceLocator<StorageService>(),
-          );
-      if (!mounted || !enabled || _allowCrossClass) return;
+    await _cubit.resolveCrossClassFlag();
+    if (!mounted) return;
+    if (_cubit.state.allowCrossClass && !_allowCrossClass) {
       setState(() => _allowCrossClass = true);
-      // Re-load the dropdown without staff scope now that we know it's allowed.
       _loadClassroomData();
-    } catch (_) {
-      // Non-critical: default (scoped) behaviour stays in effect.
     }
   }
 
@@ -325,51 +285,25 @@ class _StudentAttendanceDailyViewScreenState
     );
   }
 
+  /// Delegates to [StudentAttendanceDailyCubit.loadTagNameCodeMap] (owns the
+  /// fetch), then mirrors the result into local state the filter dropdown
+  /// reads directly.
   Future<void> _loadTagNameCodeMap() async {
     if (_isLoadingTagMap) return;
     setState(() {
       _isLoadingTagMap = true;
     });
-
-    try {
-      final storageService = serviceLocator<StorageService>();
-      final schoolCode =
-          await storageService.getString(StorageKeys.schoolCode) ?? '';
-      if (schoolCode.isEmpty) {
-        if (!mounted) return;
-        setState(() {
-          _isLoadingTagMap = false;
-        });
-        return;
-      }
-
-      final useCase = serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
-      final map = await useCase(schoolCode: schoolCode);
-      if (!mounted) return;
-      setState(() {
-        _tagNameToCode = map;
-        _isLoadingTagMap = false;
-      });
-    } catch (e) {
-      // Non-critical for filters; log but don't block UI
-      AppLogger.d('Failed to load tag name-to-code map: $e');
-      if (!mounted) return;
-      setState(() {
-        _isLoadingTagMap = false;
-      });
-    }
+    await _cubit.loadTagNameCodeMap();
+    if (!mounted) return;
+    setState(() {
+      _tagNameToCode = _cubit.state.tagNameToCode ?? _tagNameToCode;
+      _isLoadingTagMap = _cubit.state.isLoadingTagMap;
+    });
   }
 
   Future<void> _loadLoggedInUserName() async {
     try {
-      final storage = serviceLocator<StorageService>();
-      final displayName =
-          (await storage.getString(StorageKeys.displayName) ?? '').trim();
-      final username = (await storage.getString(StorageKeys.username) ?? '')
-          .trim();
-      final fallback = displayName.isNotEmpty
-          ? displayName
-          : (username.isNotEmpty ? username : '');
+      final fallback = await _cubit.resolveLoggedInUserName();
       if (!mounted || fallback.isEmpty) return;
       setState(() {
         _loggedInUserName = fallback;
@@ -385,6 +319,7 @@ class _StudentAttendanceDailyViewScreenState
     _cubit.close();
     _absentToggleCubit.close();
     _deleteCubit.close();
+    _classroomCubit.close();
     super.dispose();
   }
 
@@ -601,16 +536,13 @@ class _StudentAttendanceDailyViewScreenState
 
   Future<void> _fetchAbsentToggleClassroomName(String code) async {
     try {
-      final details = await _getClassroomByCode(code: code);
+      final name = await _cubit.fetchClassroomName(code);
       if (!mounted) return;
-      final name = details.name.trim();
-      if (name.isNotEmpty) {
+      if (name != null && name.isNotEmpty) {
         setState(() {
           _absentToggleClassroomNameByCode[code] = name;
         });
       }
-    } catch (_) {
-      // Keep showing classroom code when lookup fails.
     } finally {
       _absentToggleClassroomFetchInFlight.remove(code);
     }
@@ -883,44 +815,16 @@ class _StudentAttendanceDailyViewScreenState
 
   @override
   Widget build(BuildContext context) {
-    if (widget.contentOnly) {
-      return MultiBlocProvider(
-        providers: [
-          BlocProvider.value(value: _cubit),
-          BlocProvider.value(value: _absentToggleCubit),
-          BlocProvider.value(value: _classroomCubit),
-        ],
-        child: _buildContent(),
-      );
-    }
-
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider.value(value: _cubit),
-        BlocProvider.value(value: _absentToggleCubit),
-        BlocProvider.value(value: _classroomCubit),
-      ],
-      child: GlobalScaffold(
-        hasBackButton: true,
-        showCustomNavigationBar: true,
-        body: _buildContent(),
-      ),
-    );
-  }
-
-  Widget _buildContent() {
     final responsive = ResponsiveHelper(context);
-    final contentPadding = ResponsiveSizing.contentPadding(context);
+    final contentPadding = ResponsiveHelper(context).contentPadding;
 
     // Staff never see the summary count cards — even when the school enables
     // cross-class attendance (that flag only relaxes classroom scope, not
     // exposure of school-wide enrollment/expected counts).
     final bool hideSummaryCards = context.watch<RoleCubit>().isStaff;
 
-    return BlocListener<
-      StudentAttendanceAbsentToggleCubit,
-      StudentAttendanceAbsentToggleState
-    >(
+    final Widget
+    content = BlocListener<StudentAttendanceAbsentToggleCubit, StudentAttendanceAbsentToggleState>(
       listenWhen: (prev, curr) => prev.items != curr.items,
       listener: (context, state) {
         _prefetchAbsentToggleClassroomNames(state.items);
@@ -986,14 +890,14 @@ class _StudentAttendanceDailyViewScreenState
                         SizedBox(height: responsive.verticalSpacing / 4),
                         if (!hideSummaryCards) ...[
                           StudentAttendanceSummary(
-                            enrolled: enrolled,
-                            active: active,
-                            upcoming: upcoming,
-                            expected: state.expectedCount ?? expected,
-                            present: state.presentCount ?? present,
-                            absent: state.absentCount ?? absent,
-                            signedOut: state.signedOutCount ?? signedOut,
-                            notMarked: state.notMarkedCount ?? notMarked,
+                            enrolled: state.enrolledCount ?? 0,
+                            active: state.activeCount ?? 0,
+                            upcoming: state.upcomingCount ?? 0,
+                            expected: state.expectedCount ?? 0,
+                            present: state.presentCount ?? 0,
+                            absent: state.absentCount ?? 0,
+                            signedOut: state.signedOutCount ?? 0,
+                            notMarked: state.notMarkedCount ?? 0,
                             isLoading:
                                 state.isLoading ||
                                 state.isRefreshing ||
@@ -1031,7 +935,58 @@ class _StudentAttendanceDailyViewScreenState
                           SizedBox(height: responsive.verticalSpacing),
                         ],
                         // Filters row styled similar to StaffScreen: search, filter, date, clear all, show absent toggle
-                        _buildFilterCard(responsive),
+                        _StudentDailyFilterCard(
+                          hasActiveFilters:
+                              _statusLegendFilter != null ||
+                              _signInAtFilter != null ||
+                              _signOutAtFilter != null ||
+                              _isExpectedNotMarkedFilter == true ||
+                              _showAbsentOnly ||
+                              _studentFilters != null ||
+                              _selectedClassroomNames.isNotEmpty ||
+                              _selectedTagNames.isNotEmpty ||
+                              _searchController.text.trim().isNotEmpty,
+                          searchController: _searchController,
+                          selectedDate: _selectedDate,
+                          onFilterTap: _navigateToFilterScreen,
+                          onDateSelected: (date) {
+                            setState(() {
+                              _selectedDate = date;
+                            });
+                            // Date changes should still respect cache where available.
+                            _loadAttendanceData(reset: false);
+                          },
+                          onClearAll: () {
+                            setState(() {
+                              _searchController.clear();
+                              _selectedDate = attendanceSchoolToday();
+                              _statusLegendFilter = null;
+                              _studentFilters = null;
+                              _selectedClassroomNames = [];
+                              _selectedTagNames = [];
+                              _showAbsentOnly = false;
+                              _signInAtFilter = null;
+                              _signOutAtFilter = null;
+                              _isExpectedNotMarkedFilter = null;
+                            });
+                            _loadAttendanceData(reset: true);
+                          },
+                          showAbsentOnly: _showAbsentOnly,
+                          onShowAbsentToggle: (value) {
+                            setState(() {
+                              _showAbsentOnly = value;
+                              if (value) {
+                                _statusLegendFilter = 'Absent';
+                                _signInAtFilter = null;
+                                _signOutAtFilter = null;
+                                _isExpectedNotMarkedFilter = null;
+                              } else if (_statusLegendFilter == 'Absent') {
+                                _statusLegendFilter = null;
+                              }
+                            });
+                            _loadAttendanceData(reset: false);
+                          },
+                        ),
                         SizedBox(height: responsive.verticalSpacing),
                         // Error handling
                         if (errorMessage != null)
@@ -1058,7 +1013,7 @@ class _StudentAttendanceDailyViewScreenState
                                 Expanded(
                                   child: AppText.body(
                                     errorMessage,
-                                    style: TextStyle(
+                                    style: AppTextStyles.body.copyWith(
                                       color: AppColors.errorColor,
                                     ),
                                   ),
@@ -1092,7 +1047,9 @@ class _StudentAttendanceDailyViewScreenState
                                 ),
                                 child: AppText.body(
                                   'No absent students found for the selected date',
-                                  style: TextStyle(color: Colors.grey),
+                                  style: AppTextStyles.body.copyWith(
+                                    color: AppColors.attendanceMutedTextColor,
+                                  ),
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -1115,26 +1072,29 @@ class _StudentAttendanceDailyViewScreenState
                                   });
                                 },
                                 onView: () {
-                                  context.push(
-                                    StudentAttendanceProfile.routeName,
-                                    extra: {
-                                      'studentCode': student.id,
-                                      'studentId': student.studentId,
-                                      'studentName': student.name,
-                                      'studentPhotoUuid': student.photoUuid,
-                                      'roomName': student.roomName,
-                                      'isSignedIn': false,
-                                      'isAbsent': true,
-                                      'isExpectedToday': student.expectedToday,
-                                      'isPresentToday': false,
-                                      'profileStatus': 'A',
-                                      'initialShowAbsentDays': true,
-                                    },
-                                  ).then((_) {
-                                    if (mounted) {
-                                      refreshAfterReturningFromAttendanceFlow();
-                                    }
-                                  });
+                                  context
+                                      .push(
+                                        StudentAttendanceProfile.routeName,
+                                        extra: {
+                                          'studentCode': student.id,
+                                          'studentId': student.studentId,
+                                          'studentName': student.name,
+                                          'studentPhotoUuid': student.photoUuid,
+                                          'roomName': student.roomName,
+                                          'isSignedIn': false,
+                                          'isAbsent': true,
+                                          'isExpectedToday':
+                                              student.expectedToday,
+                                          'isPresentToday': false,
+                                          'profileStatus': 'A',
+                                          'initialShowAbsentDays': true,
+                                        },
+                                      )
+                                      .then((_) {
+                                        if (mounted) {
+                                          refreshAfterReturningFromAttendanceFlow();
+                                        }
+                                      });
                                 },
                               );
                             }).toList(),
@@ -1162,7 +1122,9 @@ class _StudentAttendanceDailyViewScreenState
                                 ),
                                 child: AppText.body(
                                   'No attendance records found for the selected date',
-                                  style: TextStyle(color: Colors.grey),
+                                  style: AppTextStyles.body.copyWith(
+                                    color: AppColors.attendanceMutedTextColor,
+                                  ),
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -1253,7 +1215,8 @@ class _StudentAttendanceDailyViewScreenState
                                     showModalBottomSheet(
                                       context: context,
                                       isScrollControlled: true,
-                                      backgroundColor: Colors.transparent,
+                                      backgroundColor:
+                                          AppColors.transparentColor,
                                       builder: (ctx) {
                                         return DeleteConfirmationBottomSheet(
                                           name: student.studentName,
@@ -1302,18 +1265,9 @@ class _StudentAttendanceDailyViewScreenState
                                                 return;
                                               }
 
-                                              final storageService =
-                                                  serviceLocator<
-                                                    StorageService
-                                                  >();
                                               final staffCode =
-                                                  (await storageService
-                                                              .getString(
-                                                                StorageKeys
-                                                                    .staffCode,
-                                                              ) ??
-                                                          '')
-                                                      .trim();
+                                                  await _deleteCubit
+                                                      .resolveStaffCode();
                                               if (staffCode.isEmpty) {
                                                 if (!context.mounted) return;
                                                 CoreUtils.showTopSnackBarFromSnackBar(
@@ -1370,29 +1324,32 @@ class _StudentAttendanceDailyViewScreenState
                                     );
                                   },
                                   onView: () {
-                                    context.push(
-                                      StudentAttendanceProfile.routeName,
-                                      extra: {
-                                        'studentCode':
-                                            student.studentCode ?? '',
-                                        'studentId': student.studentId,
-                                        'studentName': student.studentName,
-                                        'studentPhotoUuid':
-                                            student.studentPhotoUuid,
-                                        'roomName': student.roomName,
-                                        'isSignedIn': student.hasSignIn,
-                                        'isAbsent':
-                                            !student.hasSignIn &&
-                                            student.expectedToday,
-                                        'isExpectedToday': student.expectedToday,
-                                        'isPresentToday': student.hasSignIn,
-                                        'profileStatus': 'A',
-                                      },
-                                    ).then((_) {
-                                      if (mounted) {
-                                        refreshAfterReturningFromAttendanceFlow();
-                                      }
-                                    });
+                                    context
+                                        .push(
+                                          StudentAttendanceProfile.routeName,
+                                          extra: {
+                                            'studentCode':
+                                                student.studentCode ?? '',
+                                            'studentId': student.studentId,
+                                            'studentName': student.studentName,
+                                            'studentPhotoUuid':
+                                                student.studentPhotoUuid,
+                                            'roomName': student.roomName,
+                                            'isSignedIn': student.hasSignIn,
+                                            'isAbsent':
+                                                !student.hasSignIn &&
+                                                student.expectedToday,
+                                            'isExpectedToday':
+                                                student.expectedToday,
+                                            'isPresentToday': student.hasSignIn,
+                                            'profileStatus': 'A',
+                                          },
+                                        )
+                                        .then((_) {
+                                          if (mounted) {
+                                            refreshAfterReturningFromAttendanceFlow();
+                                          }
+                                        });
                                   },
                                 ),
                               );
@@ -1417,6 +1374,23 @@ class _StudentAttendanceDailyViewScreenState
           );
         },
       ),
+    );
+
+    final Widget body = widget.contentOnly
+        ? content
+        : GlobalScaffold(
+            hasBackButton: true,
+            showCustomNavigationBar: true,
+            body: content,
+          );
+
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider.value(value: _cubit),
+        BlocProvider.value(value: _absentToggleCubit),
+        BlocProvider.value(value: _classroomCubit),
+      ],
+      child: body,
     );
   }
 
@@ -1461,138 +1435,6 @@ class _StudentAttendanceDailyViewScreenState
     }
 
     return filtered;
-  }
-
-  Widget _buildFilterCard(ResponsiveHelper responsive) {
-    final hasActiveFilters =
-        _statusLegendFilter != null ||
-        _signInAtFilter != null ||
-        _signOutAtFilter != null ||
-        _isExpectedNotMarkedFilter == true ||
-        _showAbsentOnly ||
-        _studentFilters != null ||
-        _selectedClassroomNames.isNotEmpty ||
-        _selectedTagNames.isNotEmpty ||
-        _searchController.text.trim().isNotEmpty;
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: AppRadius.allMd,
-        color: AppColors.cardColor,
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: CustomSearchBar(
-                  controller: _searchController,
-                  hintText: 'Search Students',
-                ),
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _navigateToFilterScreen,
-                  borderRadius: AppRadius.allPill,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(AppSpacing.xs),
-                        child: SvgPicture.asset(
-                          MediaRes.filterIcon,
-                          height: 20,
-                        ),
-                      ),
-                      if (hasActiveFilters)
-                        Positioned(
-                          right: 2,
-                          top: 2,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Color.fromRGBO(179, 38, 30, 1),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              Expanded(
-                child: CustomDateTimeField(
-                  hasLabel: false,
-                  isRangePicker: false,
-                  isTime: false,
-                  fetchInitialTime: false,
-                  initialDate: _selectedDate,
-                  onDateSelected: (date) {
-                    setState(() {
-                      _selectedDate = date;
-                    });
-                    // Date changes should still respect cache where available.
-                    _loadAttendanceData(reset: false);
-                  },
-                ),
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              CustomClearAllChip(
-                onTap: hasActiveFilters
-                    ? () {
-                        setState(() {
-                          _searchController.clear();
-                          _selectedDate = attendanceSchoolToday();
-                          _statusLegendFilter = null;
-                          _studentFilters = null;
-                          _selectedClassroomNames = [];
-                          _selectedTagNames = [];
-                          _showAbsentOnly = false;
-                          _signInAtFilter = null;
-                          _signOutAtFilter = null;
-                          _isExpectedNotMarkedFilter = null;
-                        });
-                        _loadAttendanceData(reset: true);
-                      }
-                    : null,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Align(
-            alignment: Alignment.centerRight,
-            child: CustomToggle(
-              label: 'Show Absent',
-              isToggled: _showAbsentOnly,
-              onToggle: (value) {
-                setState(() {
-                  _showAbsentOnly = value;
-                  if (value) {
-                    _statusLegendFilter = 'Absent';
-                    _signInAtFilter = null;
-                    _signOutAtFilter = null;
-                    _isExpectedNotMarkedFilter = null;
-                  } else if (_statusLegendFilter == 'Absent') {
-                    _statusLegendFilter = null;
-                  }
-                });
-                _loadAttendanceData(reset: false);
-              },
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   void _navigateToFilterScreen() async {
@@ -1687,6 +1529,113 @@ class _StudentAttendanceDailyViewScreenState
           ],
           child: StudentScreen(incomingStatusFilter: normalized),
         ),
+      ),
+    );
+  }
+}
+
+class _StudentDailyFilterCard extends StatelessWidget {
+  const _StudentDailyFilterCard({
+    required this.hasActiveFilters,
+    required this.searchController,
+    required this.selectedDate,
+    required this.onFilterTap,
+    required this.onDateSelected,
+    required this.onClearAll,
+    required this.showAbsentOnly,
+    required this.onShowAbsentToggle,
+  });
+
+  final bool hasActiveFilters;
+  final TextEditingController searchController;
+  final DateTime selectedDate;
+  final VoidCallback onFilterTap;
+  final ValueChanged<DateTime> onDateSelected;
+  final VoidCallback onClearAll;
+  final bool showAbsentOnly;
+  final ValueChanged<bool> onShowAbsentToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.cardBorderColor),
+        borderRadius: AppRadius.allMd,
+        color: AppColors.cardColor,
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: CustomSearchBar(
+                  controller: searchController,
+                  hintText: 'Search Students',
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Material(
+                color: AppColors.transparentColor,
+                child: InkWell(
+                  onTap: onFilterTap,
+                  borderRadius: AppRadius.allPill,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(AppSpacing.xs),
+                        child: SvgPicture.asset(
+                          MediaRes.filterIcon,
+                          height: 20,
+                        ),
+                      ),
+                      if (hasActiveFilters)
+                        Positioned(
+                          right: 2,
+                          top: 2,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: AppColors.attendanceDangerAccentColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              Expanded(
+                child: CustomDateTimeField(
+                  hasLabel: false,
+                  isRangePicker: false,
+                  isTime: false,
+                  fetchInitialTime: false,
+                  initialDate: selectedDate,
+                  onDateSelected: onDateSelected,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              CustomClearAllChip(onTap: hasActiveFilters ? onClearAll : null),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Align(
+            alignment: Alignment.centerRight,
+            child: CustomToggle(
+              label: 'Show Absent',
+              isToggled: showAbsentOnly,
+              onToggle: onShowAbsentToggle,
+            ),
+          ),
+        ],
       ),
     );
   }

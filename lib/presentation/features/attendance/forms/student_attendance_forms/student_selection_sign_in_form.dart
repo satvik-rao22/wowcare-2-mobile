@@ -5,19 +5,17 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
-import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_selection_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_in_selection_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_select_all_row.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_selectable_person_tile.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'guardian_student_selection_scope.dart';
@@ -347,18 +345,9 @@ class _StudentSelectionSignInFormState
                   ),
                   const SizedBox(height: AppSpacing.sm),
                 ],
-                Row(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-                      child: CustomCheckbox(
-                        value: isSelectAllChecked,
-                        onChanged: (value) => _toggleSelectAll(value, students),
-                        borderColor: AppColors.themeColor,
-                      ),
-                    ),
-                    const AppText.body('Select All'),
-                  ],
+                AttendanceSelectAllRow(
+                  isChecked: isSelectAllChecked,
+                  onChanged: (value) => _toggleSelectAll(value, students),
                 ),
                 const SizedBox(height: AppSpacing.sm),
               ],
@@ -372,7 +361,9 @@ class _StudentSelectionSignInFormState
                           children: [
                             AppText.body(
                               state.studentsError ?? 'Failed to load students',
-                              style: const TextStyle(color: Colors.red),
+                              style: AppTextStyles.body.copyWith(
+                                color: AppColors.errorColor,
+                              ),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: AppSpacing.xs),
@@ -406,9 +397,12 @@ class _StudentSelectionSignInFormState
                           final student = students[index];
                           final isSelected = selectedStudents.contains(student);
 
-                          return StudentListItem(
-                            student: student,
+                          return AttendanceSelectablePersonTile(
+                            name: student.fullName,
+                            photoUuid: student.photoUuid ?? '',
+                            code: student.studentCode,
                             isSelected: isSelected,
+                            showOnlyAbsentAttendanceDot: true,
                             onSelectionChanged: (value) =>
                                 _toggleStudentSelection(
                                   student,
@@ -431,71 +425,6 @@ class _StudentSelectionSignInFormState
           ),
         );
       },
-    );
-  }
-}
-
-class StudentListItem extends StatelessWidget {
-  final StudentEntity student;
-  final bool isSelected;
-  final ValueChanged<bool?> onSelectionChanged;
-
-  const StudentListItem({
-    super.key,
-    required this.student,
-    required this.isSelected,
-    required this.onSelectionChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => onSelectionChanged(!isSelected),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.themeColor),
-          borderRadius: AppRadius.allSm,
-          color: isSelected
-              ? const Color.fromARGB(255, 249, 245, 250)
-              : Colors.white,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.only(right: AppSpacing.xxs),
-          child: Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: CustomCheckbox(
-                  borderColor: AppColors.themeColor,
-                  value: isSelected,
-                  onChanged: onSelectionChanged,
-                ),
-              ),
-              DocumentImageWidget(
-                fileUuid: student.photoUuid ?? '',
-                name: student.fullName,
-                studentCode: student.studentCode,
-                showOnlyAbsentAttendanceDot: true,
-                size: 32,
-                fontSize: 14,
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              Expanded(
-                child: EllipsisTooltipText(
-                  text: student.fullName,
-                  maxLines: 2,
-                  preferLongPress: true,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

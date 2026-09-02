@@ -1,40 +1,32 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_remove_tile.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_sign_out_request.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_out_submit_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_sign_out_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'staff_entity.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_persona_resolver.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 class StaffSignOutForm extends StatefulWidget {
   const StaffSignOutForm({
@@ -110,10 +102,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     // Load current staff code from storage (or use provided kiosk staffCode)
     final staffCode = widget.isKiosk && widget.staffCode != null
         ? widget.staffCode!.trim()
-        : (await serviceLocator<StorageService>().getString(
-                StorageKeys.staffCode,
-              ))?.trim() ??
-              '';
+        : await _submitCubit.resolveCurrentStaffCode();
     if (!mounted) return;
     setState(() {
       _currentStaffCode = staffCode.isNotEmpty ? staffCode : null;
@@ -172,19 +161,21 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
 
   /// Creates staff entity from storage (name, designation, code) or from kiosk params
   Future<void> _createStaffFromStorage() async {
-    final storage = serviceLocator<StorageService>();
+    // Kiosk mode never touches storage — the provided params are authoritative.
+    final storageDisplay = widget.isKiosk
+        ? null
+        : await _submitCubit.resolveCurrentStaffDisplay();
 
-    // For kiosk mode, use the provided staffCode
     final staffCode = widget.isKiosk && widget.staffCode != null
         ? widget.staffCode!.trim()
-        : (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+        : (storageDisplay?.staffCode ?? '');
 
     final displayName = widget.isKiosk
         ? (widget.staffName?.trim() ?? 'Staff')
-        : (await storage.getString(StorageKeys.displayName) ?? '').trim();
+        : (storageDisplay?.displayName ?? '');
     final designation = widget.isKiosk
         ? 'Staff'
-        : (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
+        : (storageDisplay?.designation ?? '');
 
     AppLogger.d(
       '[StaffSignOut] Kiosk=${widget.isKiosk}, DisplayName=$displayName, StaffName=${widget.staffName}',
@@ -214,10 +205,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
   Future<void> _loadPersonaFlags() async {
     String? iana;
     try {
-      iana = await SchoolTimezoneResolver.resolveForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-        apiClient: serviceLocator<ApiClient>(),
-      );
+      iana = await _submitCubit.resolveFreshSchoolTimeZone();
     } catch (_) {}
 
     final isAdmin = await _resolveIsStaffAdminPersona();
@@ -231,39 +219,8 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     });
   }
 
-  Future<bool> _resolveIsStaffAdminPersona() async {
-    // RoleCubit's active persona is the canonical, persona-switch-aware
-    // signal — staffType/roles in storage can lag a beat after a persona
-    // switch and misresolve a staff/teacher persona as admin (see
-    // AttendancePopup._loadStaffPersonaFlags for the same fix).
-    if (mounted) {
-      return !context.read<RoleCubit>().isStaff;
-    }
-
-    final storage = serviceLocator<StorageService>();
-    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-        .trim()
-        .toUpperCase();
-
-    if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
-      return true;
-    }
-
-    final rolesJson = await storage.getString(StorageKeys.roles);
-    if (rolesJson == null || rolesJson.trim().isEmpty) return false;
-
-    try {
-      final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
-      return roles.any((r) {
-        if (r is! Map<String, dynamic>) return false;
-        final roleCode = (r['role'] ?? '').toString().toUpperCase();
-        return roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN';
-      });
-    } catch (_) {
-      // Treat unknown as teacher.
-      return false;
-    }
-  }
+  Future<bool> _resolveIsStaffAdminPersona() =>
+      resolveIsStaffAdminPersonaForView(context, mounted: mounted);
 
   Future<String> _resolveStaffCode() async {
     // In kiosk mode, use the staff code from PIN verification
@@ -334,10 +291,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     final isStaffAdmin =
         _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
 
-    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
-    );
+    final schoolTimeZone = await _submitCubit.resolveFreshSchoolTimeZone();
 
     // Teachers can only sign out themselves and cannot modify time.
     late final DateTime occurredAt;
@@ -410,15 +364,15 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
 
     // QR scan is physical proof of presence — skip GPS geofence check.
     // Kiosk is a fixed location device — always within geofence.
-    // For GPS sign-out, read the singleton directly (form may be outside the
-    // dashboard BlocProvider tree when pushed via MaterialPageRoute).
+    // GeofenceCubit is provided above MaterialApp.router (app_bloc_providers),
+    // so context.read reaches it from any screen regardless of push mechanism.
     final bool withinGeofence;
     if (widget.qrToken.isNotEmpty || widget.isKiosk) {
       withinGeofence = true;
     } else {
       GeofenceState? geofenceState;
       try {
-        geofenceState = serviceLocator<GeofenceCubit>().state;
+        geofenceState = context.read<GeofenceCubit>().state;
       } catch (_) {
         geofenceState = null;
       }
@@ -565,10 +519,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         context.go('/dashboard');
       }
     } else {
-      redirectToAttendanceDaily(
-        context,
-        StaffAttendanceTabbedView.routeName,
-      );
+      redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
     }
   }
 
@@ -604,9 +555,12 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                   childAspectRatio: 3.5,
                 ),
                 itemCount: _selectedStaff.length,
-                itemBuilder: (context, index) => _buildStaffCard(
-                  _selectedStaff[index],
+                itemBuilder: (context, index) => AttendanceRemoveTile(
+                  name: _selectedStaff[index].name,
+                  photoUuid: _selectedStaff[index].photoUuid ?? '',
+                  horizontalPadding: AppSpacing.sm,
                   canRemove: _selectedStaff.length > 1,
+                  onRemove: () => _removeStaff(_selectedStaff[index]),
                 ),
               ),
             const SizedBox(height: AppSpacing.lg),
@@ -688,56 +642,6 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                 context.go('/kiosk');
               }
             : null,
-      ),
-    );
-  }
-
-  Widget _buildStaffCard(StaffEntity staff, {required bool canRemove}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.themeColor),
-        borderRadius: BorderRadius.circular(AppRadius.r10),
-        color: const Color.fromRGBO(249, 245, 250, 1),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                DocumentImageWidget(
-                  fileUuid: staff.photoUuid ?? '',
-                  name: staff.name,
-                  size: 30,
-                  fontSize: 12,
-                ),
-                const SizedBox(width: AppSpacing.s6),
-                Flexible(
-                  child: Text(
-                    staff.name,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                    softWrap: false,
-                    style: const TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (canRemove)
-            GestureDetector(
-              onTap: () => _removeStaff(staff),
-              child: SvgPicture.asset(MediaRes.delete_icon),
-            ),
-        ],
       ),
     );
   }

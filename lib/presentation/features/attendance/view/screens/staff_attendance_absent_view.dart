@@ -21,14 +21,12 @@ import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
-import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_absent_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_absent_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 
 // Dummy data model for UI-only implementation
 class _AbsentStaffModel {
@@ -70,15 +68,13 @@ class _AbsentStaffModel {
 }
 
 class StaffAttendanceAbsentView extends StatefulWidget {
-  const StaffAttendanceAbsentView({
-    super.key,
-    this.contentOnly = false,
-  });
+  const StaffAttendanceAbsentView({super.key, this.contentOnly = false});
 
   final bool contentOnly;
 
   @override
-  State<StaffAttendanceAbsentView> createState() => _StaffAttendanceAbsentViewState();
+  State<StaffAttendanceAbsentView> createState() =>
+      _StaffAttendanceAbsentViewState();
 }
 
 class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
@@ -92,12 +88,9 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
   int? _expandedStaffIndex;
-  bool _isClassroomDataReady = false;
 
   late final StaffAttendanceAbsentCubit _cubit;
   late final ClassroomCubit _classroomCubit;
-  final GetClassroomByCodeUseCase _getClassroomByCode =
-      serviceLocator<GetClassroomByCodeUseCase>();
   final Map<String, String> _classroomNameByCode = {};
   final Set<String> _classroomFetchInFlight = {};
   final List<_AbsentStaffModel> _absentStaff = [];
@@ -165,7 +158,6 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
       if (!mounted) return;
-      setState(() => _isClassroomDataReady = true);
       if (hadClassroomSelection) {
         _syncClassroomFilterCodes();
         if (_selectedClassroomCodes != null) {
@@ -182,11 +174,10 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
     }
 
     if (!mounted) return;
-    setState(() {
-      _isClassroomDataReady = !_classroomCubit.state.isLoading &&
-          _classroomCubit.state.classrooms.isNotEmpty;
-    });
-    if (hadClassroomSelection && _isClassroomDataReady) {
+    final isClassroomDataReady =
+        !_classroomCubit.state.isLoading &&
+        _classroomCubit.state.classrooms.isNotEmpty;
+    if (hadClassroomSelection && isClassroomDataReady) {
       _syncClassroomFilterCodes();
       if (_selectedClassroomCodes != null) {
         _loadAbsentStaff(reset: true);
@@ -201,6 +192,8 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     cancelSearchDebounce();
+    _cubit.close();
+    _classroomCubit.close();
     super.dispose();
   }
 
@@ -218,16 +211,13 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
 
   Future<void> _fetchClassroomName(String code) async {
     try {
-      final details = await _getClassroomByCode(code: code);
+      final name = await _cubit.fetchClassroomName(code);
       if (!mounted) return;
-      final name = details.name.trim();
-      if (name.isNotEmpty) {
+      if (name != null && name.isNotEmpty) {
         setState(() {
           _classroomNameByCode[code] = name;
         });
       }
-    } catch (_) {
-      // Keep code when lookup fails.
     } finally {
       _classroomFetchInFlight.remove(code);
     }
@@ -333,22 +323,10 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
 
   @override
   Widget build(BuildContext context) {
-    if (widget.contentOnly) {
-      return _buildContent();
-    }
-
-    return GlobalScaffold(
-      hasBackButton: true,
-      showCustomNavigationBar: true,
-      body: _buildContent(),
-    );
-  }
-
-  Widget _buildContent() {
     final responsive = ResponsiveHelper(context);
-    final contentPadding = ResponsiveSizing.contentPadding(context);
+    final contentPadding = ResponsiveHelper(context).contentPadding;
 
-    return MultiBlocProvider(
+    final Widget content = MultiBlocProvider(
       providers: [
         BlocProvider<StaffAttendanceAbsentCubit>.value(value: _cubit),
         BlocProvider<ClassroomCubit>.value(value: _classroomCubit),
@@ -359,239 +337,311 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
             previous.classrooms.isEmpty && current.classrooms.isNotEmpty,
         listener: (_, __) => _reloadIfPendingClassroomFilter(),
         child: BlocBuilder<StaffAttendanceAbsentCubit, StaffAttendanceAbsentState>(
-        builder: (context, state) {
-          final isInitialLoading = state.isLoading && state.items.isEmpty;
+          builder: (context, state) {
+            final isInitialLoading = state.isLoading && state.items.isEmpty;
 
-          // Map API items → UI model
-          _absentStaff
-            ..clear()
-            ..addAll(
-              state.items.map((it) {
-                final date = it.absenceDate.isNotEmpty
-                    ? DateTime.tryParse(it.absenceDate) ?? attendanceSchoolToday()
-                    : attendanceSchoolToday();
+            // Map API items → UI model
+            _absentStaff
+              ..clear()
+              ..addAll(
+                state.items.map((it) {
+                  final date = it.absenceDate.isNotEmpty
+                      ? DateTime.tryParse(it.absenceDate) ??
+                            attendanceSchoolToday()
+                      : attendanceSchoolToday();
 
-                final absentTime = it.markedAbsentTime?.formatted12h ?? '';
+                  final absentTime = it.markedAbsentTime?.formatted12h ?? '';
 
-                return _AbsentStaffModel(
-                  id: it.staffCode,
-                  name: it.staffName,
-                  photoUuid: null,
-                  roomName: _classroomDisplay(
-                    classroomCode: it.classroomCode,
-                    classroomName: it.classroomName,
-                  ),
-                  absentDays: it.absentDays,
-                  startDate: date,
-                  endDate: date,
-                  absentTime: absentTime,
-                  absentBy: it.markedAbsentByName,
-                  note: it.absenceNote,
-                  staffId: 0,
-                  roomId: 0,
-                  schoolId: 0,
-                  status: null,
-                  hasSignIn: false,
-                  expectedToday: true,
-                );
-              }),
-            );
+                  return _AbsentStaffModel(
+                    id: it.staffCode,
+                    name: it.staffName,
+                    photoUuid: null,
+                    roomName: _classroomDisplay(
+                      classroomCode: it.classroomCode,
+                      classroomName: it.classroomName,
+                    ),
+                    absentDays: it.absentDays,
+                    startDate: date,
+                    endDate: date,
+                    absentTime: absentTime,
+                    absentBy: it.markedAbsentByName,
+                    note: it.absenceNote,
+                    staffId: 0,
+                    roomId: 0,
+                    schoolId: 0,
+                    status: null,
+                    hasSignIn: false,
+                    expectedToday: true,
+                  );
+                }),
+              );
 
-          final filtered = _getFilteredStaff();
+            final filtered = _getFilteredStaff();
 
-          return CustomRefreshIndicator(
-            onRefresh: () async {
-              await _loadAbsentStaff(reset: false);
-            },
-            child: SingleChildScrollView(
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.symmetric(
-                horizontal: contentPadding.left,
-                vertical: responsive.verticalSpacing / 4,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: AppSpacing.xs),
-                  // Filters Section
-                  CustomSectionCard(
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: responsive.isTablet ? 3 : 2,
-                              child: CustomSearchBar(
-                                controller: _searchController,
-                                hintText: 'Search Staff',
+            return CustomRefreshIndicator(
+              onRefresh: () async {
+                await _loadAbsentStaff(reset: false);
+              },
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.symmetric(
+                  horizontal: contentPadding.left,
+                  vertical: responsive.verticalSpacing / 4,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: AppSpacing.xs),
+                    // Filters Section
+                    CustomSectionCard(
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: responsive.isTablet ? 3 : 2,
+                                child: CustomSearchBar(
+                                  controller: _searchController,
+                                  hintText: 'Search Staff',
+                                ),
                               ),
-                            ),
-                            SizedBox(width: responsive.horizontalSpacing / 2),
-                            Expanded(
-                              flex: responsive.isTablet ? 2 : 1,
-                              child: BlocBuilder<ClassroomCubit, ClassroomState>(
-                                builder: (context, classroomState) {
-                                  final items = classroomState.classrooms
-                                      .map((c) => c.name)
-                                      .toList();
-                                  final isLoading = classroomState.isLoading ||
-                                      !_isClassroomDataReady;
-                                  if (isLoading && items.isEmpty) {
-                                    return ShimmerLoader(
-                                      height: 40,
-                                      borderRadius: AppRadius.allMd,
-                                    );
-                                  }
+                              SizedBox(width: responsive.horizontalSpacing / 2),
+                              Expanded(
+                                flex: responsive.isTablet ? 2 : 1,
+                                child:
+                                    BlocBuilder<ClassroomCubit, ClassroomState>(
+                                      builder: (context, classroomState) {
+                                        final items = classroomState.classrooms
+                                            .map((c) => c.name)
+                                            .toList();
+                                        final isLoading =
+                                            classroomState.isLoading ||
+                                            classroomState.classrooms.isEmpty;
+                                        if (isLoading && items.isEmpty) {
+                                          return ShimmerLoader(
+                                            height: 40,
+                                            borderRadius: AppRadius.allMd,
+                                          );
+                                        }
 
-                                  return CustomMultiSelectDropdown(
-                                    hintText: 'Classroom',
-                                    items: items,
-                                    selectedItems: _selectedClassroomNames,
-                                    onChanged: (values) {
+                                        return CustomMultiSelectDropdown(
+                                          hintText: 'Classroom',
+                                          items: items,
+                                          selectedItems:
+                                              _selectedClassroomNames,
+                                          onChanged: (values) {
+                                            setState(() {
+                                              _selectedClassroomNames =
+                                                  List<String>.from(values);
+                                              _syncClassroomFilterCodes();
+                                            });
+                                            if (_selectedClassroomNames
+                                                    .isNotEmpty &&
+                                                _selectedClassroomCodes ==
+                                                    null) {
+                                              return;
+                                            }
+                                            _loadAbsentStaff(reset: true);
+                                          },
+                                        );
+                                      },
+                                    ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: responsive.verticalSpacing / 2),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: CustomDateTimeField(
+                                  hasLabel: false,
+                                  isRangePicker: true,
+                                  fetchInitialTime: true,
+                                  onRangeSelected: (start, end) {
+                                    if (end == null) {
                                       setState(() {
-                                        _selectedClassroomNames =
-                                            List<String>.from(values);
-                                        _syncClassroomFilterCodes();
+                                        _rangeStart = start;
+                                        _rangeEnd = null;
                                       });
-                                      if (_selectedClassroomNames.isNotEmpty &&
-                                          _selectedClassroomCodes == null) {
-                                        return;
-                                      }
-                                      _loadAbsentStaff(reset: true);
-                                    },
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: responsive.verticalSpacing / 2),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: CustomDateTimeField(
-                                hasLabel: false,
-                                isRangePicker: true,
-                                fetchInitialTime: true,
-                                onRangeSelected: (start, end) {
-                                  if (end == null) {
+                                      return;
+                                    }
+                                    if (start.isAfter(end)) {
+                                      CoreUtils.showTopSnackBarFromSnackBar(
+                                        context: context,
+                                        snackBar: SnackBar(
+                                          content: const Text(
+                                            'Start date cannot be after end date',
+                                          ),
+                                          backgroundColor: AppColors.errorColor,
+                                        ),
+                                      );
+                                      return;
+                                    }
                                     setState(() {
                                       _rangeStart = start;
-                                      _rangeEnd = null;
+                                      _rangeEnd = end;
                                     });
-                                    return;
-                                  }
-                                  if (start.isAfter(end)) {
-                                    CoreUtils.showTopSnackBarFromSnackBar(
-                                      context: context,
-                                      snackBar: 
-                                      SnackBar(
-                                        content: const Text('Start date cannot be after end date'),
-                                        backgroundColor: AppColors.errorColor,
-                                      ),
-                                    );
-                                    return;
-                                  }
+                                    _loadAbsentStaff(reset: true);
+                                  },
+                                ),
+                              ),
+                              SizedBox(width: responsive.horizontalSpacing / 2),
+                              CustomClearAllChip(
+                                onTap: () {
                                   setState(() {
-                                    _rangeStart = start;
-                                    _rangeEnd = end;
+                                    _searchController.clear();
+                                    _selectedClassroomNames = <String>[];
+                                    _selectedClassroomCodes = null;
+                                    final now = attendanceSchoolToday();
+                                    _rangeStart = DateTime(
+                                      now.year,
+                                      now.month,
+                                      1,
+                                    );
+                                    _rangeEnd = DateTime(
+                                      now.year,
+                                      now.month + 1,
+                                      0,
+                                    );
                                   });
                                   _loadAbsentStaff(reset: true);
                                 },
                               ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: responsive.verticalSpacing),
+                    // Content area
+                    if (isInitialLoading)
+                      Column(
+                        children: [
+                          ShimmerLoader(
+                            height: 100,
+                            margin: EdgeInsets.only(
+                              bottom: responsive.verticalSpacing / 2,
                             ),
-                            SizedBox(width: responsive.horizontalSpacing / 2),
-                            CustomClearAllChip(
+                            borderRadius: AppRadius.allLg,
+                          ),
+                          ...List.generate(
+                            6,
+                            (index) => const StaffAbsentCardShimmer(),
+                          ),
+                        ],
+                      )
+                    else if (filtered.isEmpty)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.xxl),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.person_off_outlined,
+                                size: 48,
+                                color: AppColors.attendanceEmptyStateIconColor,
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+                              AppText.body(
+                                'No absent staff found',
+                                style: AppTextStyles.body.copyWith(
+                                  color:
+                                      AppColors.attendanceDialogHintTextColor,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      Column(
+                        children: [
+                          ...filtered.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final staff = entry.value;
+                            return _AbsentStaffCardItem(
+                              staff: staff,
+                              index: index,
+                              isExpanded: _expandedStaffIndex == index,
                               onTap: () {
                                 setState(() {
-                                  _searchController.clear();
-                                  _selectedClassroomNames = <String>[];
-                                  _selectedClassroomCodes = null;
-                                  final now = attendanceSchoolToday();
-                                  _rangeStart = DateTime(now.year, now.month, 1);
-                                  _rangeEnd = DateTime(now.year, now.month + 1, 0);
+                                  _expandedStaffIndex =
+                                      _expandedStaffIndex == index
+                                      ? null
+                                      : index;
                                 });
-                                _loadAbsentStaff(reset: true);
                               },
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: responsive.verticalSpacing),
-                  // Content area
-                  if (isInitialLoading)
-                    Column(
-                      children: [
-                        ShimmerLoader(
-                          height: 100,
-                          margin: EdgeInsets.only(
-                              bottom: responsive.verticalSpacing / 2),
-                          borderRadius: AppRadius.allLg,
-                        ),
-                        ...List.generate(
-                          6,
-                          (index) => const StaffAbsentCardShimmer(),
-                        ),
-                      ],
-                    )
-                  else if (filtered.isEmpty)
-                    Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.xxl),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.person_off_outlined,
-                              size: 48,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                            AppText.body(
-                              'No absent staff found',
-                              style: TextStyle(
-                                color: Colors.grey[600],
+                              onView: () {
+                                context.push(
+                                  StaffAttendanceProfile.routeName,
+                                  extra: {
+                                    'staffCode': staff.id,
+                                    'staffId': staff.staffId,
+                                    'staffName': staff.name,
+                                    'staffPhotoUuid': staff.photoUuid,
+                                    'roomName': staff.roomName,
+                                    'isSignedIn': staff.hasSignIn,
+                                    'isAbsent': true,
+                                    'isExpectedToday': staff.expectedToday,
+                                    'isPresentToday': false,
+                                    'profileStatus': 'A',
+                                    'initialShowAbsentDays': true,
+                                  },
+                                );
+                              },
+                            );
+                          }).toList(),
+                          if (state.isLoadingMore)
+                            Padding(
+                              padding: EdgeInsets.all(
+                                responsive.verticalSpacing / 2,
                               ),
-                              textAlign: TextAlign.center,
+                              child: const PrimaryCircularLoader(),
                             ),
-                          ],
-                        ),
+                        ],
                       ),
-                    )
-                  else
-                    Column(
-                      children: [
-                        ...filtered.asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final staff = entry.value;
-                          return _buildAbsentStaffCard(staff, index);
-                        }).toList(),
-                        if (state.isLoadingMore)
-                          Padding(
-                            padding:
-                                EdgeInsets.all(responsive.verticalSpacing / 2),
-                            child: const PrimaryCircularLoader(),
-                          ),
-                      ],
-                    ),
-                  SizedBox(height: responsive.verticalSpacing),
-                ],
+                    SizedBox(height: responsive.verticalSpacing),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
-      ),
+            );
+          },
+        ),
       ),
     );
+
+    if (widget.contentOnly) {
+      return content;
+    }
+
+    return GlobalScaffold(
+      hasBackButton: true,
+      showCustomNavigationBar: true,
+      body: content,
+    );
   }
+}
 
-  Widget _buildAbsentStaffCard(_AbsentStaffModel staff, int index) {
-    final bool isExpanded = _expandedStaffIndex == index;
+class _AbsentStaffCardItem extends StatelessWidget {
+  const _AbsentStaffCardItem({
+    required this.staff,
+    required this.index,
+    required this.isExpanded,
+    required this.onTap,
+    required this.onView,
+  });
 
-    // Convert to StaffAbsentCardData
+  final _AbsentStaffModel staff;
+  final int index;
+  final bool isExpanded;
+  final VoidCallback onTap;
+  final VoidCallback onView;
+
+  @override
+  Widget build(BuildContext context) {
     final cardData = StaffAbsentCardData(
       id: staff.id,
       name: staff.name,
@@ -614,33 +664,8 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
       index: index,
       isExpanded: isExpanded,
       disableAttendanceStatusLookup: true,
-      onTap: () {
-        setState(() {
-          if (_expandedStaffIndex == index) {
-            _expandedStaffIndex = null;
-          } else {
-            _expandedStaffIndex = index;
-          }
-        });
-      },
-      onView: () {
-        context.push(
-          StaffAttendanceProfile.routeName,
-          extra: {
-            'staffCode': staff.id,
-            'staffId': staff.staffId,
-            'staffName': staff.name,
-            'staffPhotoUuid': staff.photoUuid,
-            'roomName': staff.roomName,
-            'isSignedIn': staff.hasSignIn,
-            'isAbsent': true,
-            'isExpectedToday': staff.expectedToday,
-            'isPresentToday': false,
-            'profileStatus': 'A',
-            'initialShowAbsentDays': true,
-          },
-        );
-      },
+      onTap: onTap,
+      onView: onView,
     );
   }
 }

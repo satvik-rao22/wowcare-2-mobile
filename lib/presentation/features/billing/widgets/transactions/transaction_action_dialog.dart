@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_dialog.dart'
     show BillingActionCard;
 
@@ -40,7 +41,7 @@ class TransactionActionDialog extends StatelessWidget {
                 children: [
                   const Expanded(
                     child: Text(
-                      'New Transaction',
+                      BillingStrings.newTransaction,
                       style: TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: 16,
@@ -55,19 +56,19 @@ class TransactionActionDialog extends StatelessWidget {
                     child: const Padding(
                       padding: EdgeInsets.all(6.0),
                       child:
-                          Icon(Icons.close, size: 18, color: Color(0x99573353)),
+                          Icon(Icons.close, size: 18, color: AppColors.billingTextMuted),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
               const Text(
-                'What would you like to do?',
+                BillingStrings.whatWouldYouLikeToDo,
                 style: TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: Color(0x99573353),
+                  color: AppColors.billingTextMuted,
                 ),
               ),
               const SizedBox(height: 16),
@@ -75,9 +76,9 @@ class TransactionActionDialog extends StatelessWidget {
                 children: [
                   Expanded(
                     child: BillingActionCard(
-                      title: 'Create\nInvoice',
+                      title: BillingStrings.createInvoiceAction,
                       subtitle:
-                          'Select student(s) and bill them with custom line items',
+                          BillingStrings.selectStudentSAndBillThem,
                       icon: Icons.receipt_long,
                       onTap: onSelectCreateInvoice,
                     ),
@@ -85,9 +86,9 @@ class TransactionActionDialog extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: BillingActionCard(
-                      title: 'Receive\nPayment',
+                      title: BillingStrings.receivePaymentCard,
                       subtitle:
-                          'Select student(s) and record a payment received',
+                          BillingStrings.selectStudentSAndRecordA,
                       icon: Icons.payments_outlined,
                       onTap: onSelectReceivePayment,
                     ),
@@ -100,9 +101,9 @@ class TransactionActionDialog extends StatelessWidget {
                   children: [
                     Expanded(
                       child: BillingActionCard(
-                        title: 'Add\nCredit',
+                        title: BillingStrings.addCreditAction,
                         subtitle:
-                            'Add account credit for this family',
+                            BillingStrings.addAccountCreditForThis,
                         icon: Icons.account_balance_wallet_outlined,
                         onTap: onSelectAddCredit,
                       ),

@@ -1,21 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
-import 'package:wowcare/presentation/features/billing/widgets/create_invoice_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
+import 'package:wowcare/presentation/features/billing/view/create_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
+import 'package:wowcare/presentation/features/billing/model/student_models.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/billing_transaction_card.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/send_invoice_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/view_receipt_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/send_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/receive_payment_issue_refund_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/transaction_details_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/view_receipt_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/view_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
@@ -155,7 +159,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                     padding: EdgeInsets.symmetric(vertical: 24),
                     child: Center(
                       child: Text(
-                        'No transactions match your filters.',
+                        BillingStrings.noTransactionsMatchYourFilters,
                         style: TextStyle(
                           fontFamily: 'Manrope',
                           fontSize: 15,
@@ -222,7 +226,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
               Expanded(
                 child: CustomSearchBar(
                   controller: _searchController,
-                  hintText: 'Search by student, ID, or description',
+                  hintText: BillingStrings.searchByStudentIdOrDescription,
                   onChanged: (value) => _cubit.setSearchQuery(value),
                 ),
               ),
@@ -283,7 +287,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   void _showMessageUnavailable() {
     CoreUtils.showTopSnackBar(
       context: context,
-      message: 'Messaging is not available yet.',
+      message: BillingStrings.messagingIsNotAvailableYet,
       isWarning: true,
     );
   }
@@ -293,12 +297,11 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   void _openEditInvoice(TransactionItem item) {
     final code = _invoiceCodeOrWarn(item);
     if (code == null) return;
-    Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => CreateInvoiceScreen(
-          selectedStudents: [Student(code: '', fullName: item.studentName)],
-          initialInvoiceData: <String, dynamic>{'invoiceCode': code},
-        ),
+    context.push<bool>(
+      CreateInvoiceScreen.routeName,
+      extra: CreateInvoiceArgs(
+        selectedStudents: [Student(code: '', fullName: item.studentName)],
+        initialInvoiceData: InvoiceDraft(invoiceCode: code),
       ),
     );
   }
@@ -309,7 +312,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
     if (code == null || code.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'This invoice cannot be modified.',
+        message: BillingStrings.thisInvoiceCannotBeModified,
         isWarning: true,
       );
       return null;
@@ -349,7 +352,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (sheetCtx) => DeleteConfirmationBottomSheet(
         name: name,
         type: type,
@@ -363,66 +366,57 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   }
 
   void _openSendInvoice(TransactionItem item) {
-    Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (context) => SendInvoiceScreen(transaction: item),
-      ),
+    context.push<bool>(
+      SendInvoiceScreen.routeName,
+      extra: SendInvoiceArgs(transaction: item),
     );
   }
 
   void _openReceivePayment(TransactionItem item) {
-    Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (context) =>
-            ReceivePaymentIssueRefundScreen(transaction: item),
-      ),
+    context.push<bool>(
+      ReceivePaymentIssueRefundScreen.routeName,
+      extra: ReceivePaymentRefundArgs(transaction: item),
     );
   }
 
   void _openIssueRefund(TransactionItem item) {
-    Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (context) => ReceivePaymentIssueRefundScreen(
-          transaction: item,
-          isRefund: true,
-        ),
+    context.push<bool>(
+      ReceivePaymentIssueRefundScreen.routeName,
+      extra: ReceivePaymentRefundArgs(
+        transaction: item,
+        isRefund: true,
       ),
     );
   }
 
   void _openTransactionDetails(TransactionItem item) {
     final familyCode = (item.familyCode ?? '').trim();
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => TransactionDetailsScreen(
-          transaction: item,
-          // When we know the family, load the real family ledger.
-          ownerType: familyCode.isNotEmpty ? 'FAMILY' : null,
-          ownerCode: familyCode.isNotEmpty ? familyCode : null,
-          familyName: item.studentName,
-        ),
+    context.push(
+      TransactionDetailsScreen.routeName,
+      extra: TransactionDetailsArgs(
+        transaction: item,
+        // When we know the family, load the real family ledger.
+        ownerType: familyCode.isNotEmpty ? 'FAMILY' : null,
+        ownerCode: familyCode.isNotEmpty ? familyCode : null,
+        familyName: item.studentName,
       ),
     );
   }
 
   void _openViewReceipt(TransactionItem item, String viewType) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ViewReceiptScreen(
-          transaction: item,
-          viewType: viewType,
-        ),
+    context.push(
+      ViewReceiptScreen.routeName,
+      extra: ViewReceiptArgs(
+        transaction: item,
+        viewType: viewType,
       ),
     );
   }
 
   void _openViewInvoice(TransactionItem item) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ViewInvoiceScreen(
-          transaction: item,
-        ),
-      ),
+    context.push(
+      ViewInvoiceScreen.routeName,
+      extra: ViewInvoiceArgs(transaction: item),
     );
   }
 }

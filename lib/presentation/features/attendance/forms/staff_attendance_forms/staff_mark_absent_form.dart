@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_remove_tile.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_mark_absent_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_mark_absent_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'staff_entity.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -108,192 +106,143 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
             prev.selectedStaff.isNotEmpty && curr.selectedStaff.isEmpty,
         listener: (context, _) => Navigator.pop(context),
         child: BlocBuilder<StaffMarkAbsentFormCubit, StaffMarkAbsentState>(
-          builder: (context, state) => _buildForm(context, state),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildForm(BuildContext context, StaffMarkAbsentState state) {
-    return StaffFormLayout(
-      title: 'Mark Absent',
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: AppSpacing.xs),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const AppText.label('Start Date'),
-                      const SizedBox(height: AppSpacing.xs),
-                      CustomDateTimeField(
-                        hasLabel: false,
-                        isRangePicker: false,
-                        isTime: false,
-                        fetchInitialTime: false,
-                        initialDate: state.startDate,
-                        isDisabled: state.isStaffAdminPersona != true || state.isSelfTarget,
-                        onDateSelected: _cubit.selectStartDate,
+          builder: (context, state) {
+            return StaffFormLayout(
+              title: 'Mark Absent',
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: AppSpacing.xs),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const AppText.label('Start Date'),
+                              const SizedBox(height: AppSpacing.xs),
+                              CustomDateTimeField(
+                                hasLabel: false,
+                                isRangePicker: false,
+                                isTime: false,
+                                fetchInitialTime: false,
+                                initialDate: state.startDate,
+                                isDisabled:
+                                    state.isStaffAdminPersona != true ||
+                                    state.isSelfTarget,
+                                onDateSelected: _cubit.selectStartDate,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.lg),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const AppText.label('End Date'),
+                              const SizedBox(height: AppSpacing.xs),
+                              CustomDateTimeField(
+                                hasLabel: false,
+                                isRangePicker: false,
+                                isTime: false,
+                                fetchInitialTime: false,
+                                initialDate: state.endDate,
+                                isDisabled:
+                                    state.isStaffAdminPersona != true ||
+                                    state.isSelfTarget,
+                                onDateSelected: _cubit.selectEndDate,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 28),
+                    if (state.selectedStaff.isNotEmpty) ...[
+                      GridView.builder(
+                        physics: const NeverScrollableScrollPhysics(),
+                        shrinkWrap: true,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 14,
+                              mainAxisSpacing: 14,
+                              childAspectRatio: 3.5,
+                            ),
+                        itemCount: state.selectedStaff.length,
+                        itemBuilder: (context, index) => AttendanceRemoveTile(
+                          name: state.selectedStaff[index].name,
+                          photoUuid: state.selectedStaff[index].photoUuid ?? '',
+                          canRemove: state.selectedStaff.length > 1,
+                          onRemove: () =>
+                              _cubit.removeStaff(state.selectedStaff[index]),
+                        ),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.lg),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const AppText.label('End Date'),
-                      const SizedBox(height: AppSpacing.xs),
-                      CustomDateTimeField(
-                        hasLabel: false,
-                        isRangePicker: false,
-                        isTime: false,
-                        fetchInitialTime: false,
-                        initialDate: state.endDate,
-                        isDisabled: state.isStaffAdminPersona != true || state.isSelfTarget,
-                        onDateSelected: _cubit.selectEndDate,
+                      const SizedBox(height: AppSpacing.lg),
+                      TextField(
+                        controller: _notesController,
+                        decoration: InputDecoration(
+                          hintText: 'Enter Absent Notes',
+                          hintStyle: AppTextStyles.body.copyWith(
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
+                            fontSize: 15,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.r10),
+                            borderSide: BorderSide(
+                              color: AppColors.inputBorderColor,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.r10),
+                            borderSide: BorderSide(
+                              color: AppColors.inputBorderColor,
+                              width: 1,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.r10),
+                            borderSide: BorderSide(
+                              color: AppColors.inputBorderColor,
+                              width: 2,
+                            ),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.r10),
+                            borderSide: const BorderSide(
+                              color: AppColors.errorColor,
+                              width: 1,
+                            ),
+                          ),
+                          focusedErrorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.r10),
+                            borderSide: const BorderSide(
+                              color: AppColors.errorColor,
+                              width: 2,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: AppColors.cardColor,
+                        ),
                       ),
+                      const SizedBox(height: AppSpacing.lg),
                     ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 28),
-            if (state.selectedStaff.isNotEmpty) ...[
-              GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  childAspectRatio: 3.5,
-                ),
-                itemCount: state.selectedStaff.length,
-                itemBuilder: (context, index) => RemoveStaffTile(
-                  staff: state.selectedStaff[index],
-                  canRemove: state.selectedStaff.length > 1,
-                  onRemove: () =>
-                      _cubit.removeStaff(state.selectedStaff[index]),
+                  ],
                 ),
               ),
-              const SizedBox(height: AppSpacing.lg),
-              TextField(
-                controller: _notesController,
-                decoration: InputDecoration(
-                  hintText: 'Enter Absent Notes',
-                  hintStyle: AppTextStyles.body.copyWith(
-                    color: const Color.fromRGBO(87, 51, 83, 0.5),
-                    fontSize: 15,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.r10),
-                    borderSide: const BorderSide(
-                      color: Color.fromRGBO(87, 51, 83, 0.4),
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.r10),
-                    borderSide: const BorderSide(
-                      color: Color.fromRGBO(87, 51, 83, 0.4),
-                      width: 1,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.r10),
-                    borderSide: const BorderSide(
-                      color: Color.fromRGBO(87, 51, 83, 0.4),
-                      width: 2,
-                    ),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.r10),
-                    borderSide: const BorderSide(color: Colors.red, width: 1),
-                  ),
-                  focusedErrorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.r10),
-                    borderSide: const BorderSide(color: Colors.red, width: 2),
-                  ),
-                  filled: true,
-                  fillColor: AppColors.cardColor,
-                ),
+              bottomBar: CustomButtonLayout(
+                confirmButtonLabel: 'Submit',
+                onPressedConfirm: _handleSubmit,
+                showCancelButton: false,
+                isLoading: state.isSubmitting,
               ),
-              const SizedBox(height: AppSpacing.lg),
-            ],
-          ],
+            );
+          },
         ),
-      ),
-      bottomBar: CustomButtonLayout(
-        confirmButtonLabel: 'Submit',
-        onPressedConfirm: _handleSubmit,
-        showCancelButton: false,
-        isLoading: state.isSubmitting,
-      ),
-    );
-  }
-}
-
-class RemoveStaffTile extends StatelessWidget {
-  final StaffEntity staff;
-  final bool canRemove;
-  final VoidCallback onRemove;
-
-  const RemoveStaffTile({
-    super.key,
-    required this.staff,
-    required this.canRemove,
-    required this.onRemove,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: AppSpacing.xs),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.themeColor),
-        borderRadius: BorderRadius.circular(AppRadius.r10),
-        color: const Color.fromRGBO(249, 245, 250, 1),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                DocumentImageWidget(
-                  fileUuid: staff.photoUuid ?? '',
-                  size: 30,
-                  name: staff.name,
-                  fontSize: 12,
-                ),
-                const SizedBox(width: AppSpacing.s6),
-                Flexible(
-                  child: Text(
-                    staff.name,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                    softWrap: false,
-                    style: const TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (canRemove)
-            GestureDetector(
-              onTap: onRemove,
-              child: SvgPicture.asset(MediaRes.delete_icon),
-            ),
-        ],
       ),
     );
   }
