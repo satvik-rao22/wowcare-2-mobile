@@ -34,6 +34,12 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
   static const Color _accent = Color(0xFF6F8CFF);
 
   final PayNowCubit _cubit = serviceLocator<PayNowCubit>();
+
+  /// One idempotency key per amount-screen session. Minted lazily on the first
+  /// confirm and REUSED across re-confirms (e.g. the user pops back from the
+  /// authorize screen because the charge looked failed and confirms again), so
+  /// the backend dedupes instead of creating a second charge (BILL-PAY-02).
+  String? _pendingIdempotencyKey;
   final PaymentSettingsCubit _settingsCubit =
       serviceLocator<PaymentSettingsCubit>();
   final TextEditingController _currentController = TextEditingController();
@@ -426,10 +432,12 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
     // minted NOW (step 2) and fixed before the final Pay tap, so retries reuse
     // it and the backend dedupes double-submits / network retries.
     final double total = state.amount;
-    // Idempotency key: MOBILE-<uuid>-<guardianCode>. The uuid makes it unique
-    // per attempt; the guardian code is appended at the end.
+    // Idempotency key: MOBILE-<uuid>-<guardianCode>. Minted ONCE per screen
+    // session and reused across re-confirms so a retried charge dedupes rather
+    // than double-charging.
     final String guardian = state.guardianCode.trim();
-    final String idempotencyKey = 'MOBILE-${const Uuid().v4()}'
+    final String idempotencyKey = _pendingIdempotencyKey ??=
+        'MOBILE-${const Uuid().v4()}'
         '${guardian.isNotEmpty ? '-$guardian' : ''}';
     final charge = PayNowCharge(
       ownerType: state.ownerType,
