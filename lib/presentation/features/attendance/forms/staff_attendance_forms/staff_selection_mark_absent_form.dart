@@ -37,12 +37,8 @@ class _StaffSelectionMarkAbsentFormState
   bool isSelectAllChecked = false;
   String? _selectedClassroomCode;
   List<String> _selectedTag = [];
-  List<StaffEntity> _filteredStaff = [];
   Set<StaffEntity> selectedStaff = {};
   final TextEditingController _searchController = TextEditingController();
-  bool _isLoading = false;
-
-  final List<StaffEntity> _allStaff = [];
 
   final Map<String, String> _classroomNameToCode = <String, String>{};
   final List<String> _designations = [
@@ -83,14 +79,11 @@ class _StaffSelectionMarkAbsentFormState
 
   void _onSearchChanged() => _loadStaff();
 
-  void _toggleSelectAll(bool? value) {
+  void _toggleSelectAll(bool? value, List<StaffEntity> visibleStaff) {
     if (value == null) return;
 
     setState(() {
       isSelectAllChecked = value;
-
-      final List<StaffEntity> visibleStaff = _getVisibleStaff();
-
       if (value) {
         selectedStaff.addAll(visibleStaff);
       } else {
@@ -99,7 +92,11 @@ class _StaffSelectionMarkAbsentFormState
     });
   }
 
-  void _toggleStaffSelection(StaffEntity staff, bool? value) {
+  void _toggleStaffSelection(
+    StaffEntity staff,
+    bool? value,
+    List<StaffEntity> visibleStaff,
+  ) {
     if (value == null) return;
 
     setState(() {
@@ -109,72 +106,42 @@ class _StaffSelectionMarkAbsentFormState
         selectedStaff.remove(staff);
       }
 
-      final visibleStaff = _getVisibleStaff();
       isSelectAllChecked = visibleStaff.every((s) => selectedStaff.contains(s));
     });
   }
 
-  List<StaffEntity> _getVisibleStaff() {
-    final selectedClassroomCode = _selectedClassroomCode;
-    return _filteredStaff.isEmpty &&
-            _searchController.text.isEmpty &&
-            (selectedClassroomCode == null || selectedClassroomCode.isEmpty) &&
-            _selectedTag.isEmpty
-        ? _allStaff
-        : _filteredStaff;
-  }
-
-  Widget _buildShimmerGrid() {
-    return const Center(child: PrimaryCircularLoader());
-  }
-
   /// Delegates the fetch to [StaffMarkAbsentSelectionCubit] (owns timezone
-  /// bootstrap, "today" resolution, and the raw API call). No client-side
-  /// designation filter here — the absent-form-list item doesn't expose a
-  /// designation list, matching the pre-cubit behavior exactly.
-  Future<void> _loadStaff() async {
-    if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-    });
-
+  /// bootstrap, "today" resolution, and the raw API call). Loading/error
+  /// state and the staff list are read reactively from the cubit in
+  /// [build] — this only triggers the fetch. No client-side designation
+  /// filter here — the absent-form-list item doesn't expose a designation
+  /// list, matching the pre-cubit behavior exactly.
+  Future<void> _loadStaff() {
     final selectedClassroomCode = _selectedClassroomCode;
     final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
     final searchText = _searchController.text.trim().isNotEmpty
         ? _searchController.text.trim()
         : null;
 
-    await _selectionCubit.loadStaff(
+    return _selectionCubit.loadStaff(
       classroomCode: selectedClassroomCode,
       tagCodes: tagCodes,
       search: searchText,
     );
-    if (!mounted) return;
+  }
 
-    final selectionState = _selectionCubit.state;
-    if (selectionState.errorMessage != null) {
-      setState(() {
-        _isLoading = false;
-      });
-      return;
-    }
-
-    final staffList = selectionState.allStaff;
-    setState(() {
-      _allStaff
-        ..clear()
-        ..addAll(staffList);
-      _filteredStaff = List.from(staffList);
-      _isLoading = false;
-    });
-
-    // Preselect based on initial staff codes if provided
+  /// Reacts to a fresh staff list: matches the pre-conversion behavior
+  /// exactly — re-applies the initialStaffCodes preselection on every load
+  /// when provided, then recomputes select-all.
+  void _onStaffChanged(List<StaffEntity> staff) {
     if (widget.initialStaffCodes != null &&
         widget.initialStaffCodes!.isNotEmpty) {
-      selectedStaff = _allStaff
+      selectedStaff = staff
           .where((e) => widget.initialStaffCodes!.contains(e.staffCode))
           .toSet();
     }
+    isSelectAllChecked =
+        staff.isNotEmpty && staff.every((s) => selectedStaff.contains(s));
   }
 
   void _handleNext() {
@@ -203,128 +170,154 @@ class _StaffSelectionMarkAbsentFormState
 
     return BlocProvider<ClassroomCubit>.value(
       value: _classroomCubit,
-      child: StaffFormLayout(
-        title: 'Mark Absent',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const AppText.subtitle('Select Staff'),
-            const SizedBox(height: AppSpacing.sm),
-            AttendanceSearchField(
-              controller: _searchController,
-              hintText: 'Search Staff',
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              children: [
-                Expanded(
-                  child: BlocBuilder<ClassroomCubit, ClassroomState>(
-                    builder: (context, state) {
-                      final classroomNames = state.classrooms
-                          .map((c) => c.name)
-                          .toList();
-                      if (_classroomNameToCode.isEmpty &&
-                          state.classrooms.isNotEmpty) {
-                        for (final c in state.classrooms) {
-                          _classroomNameToCode[c.name] = c.code;
-                        }
-                      }
-                      String? selectedName;
-                      for (final entry in _classroomNameToCode.entries) {
-                        if (entry.value == _selectedClassroomCode) {
-                          selectedName = entry.key;
-                          break;
-                        }
-                      }
-                      return CustomDropdown(
-                        hintText: 'Classroom',
-                        items: classroomNames,
-                        selectedItem: selectedName,
-                        onSelect: (value) {
-                          setState(() {
-                            _selectedClassroomCode = value == null
-                                ? null
-                                : _classroomNameToCode[value];
-                          });
-                          _loadStaff();
-                        },
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: CustomMultiSelectDropdown(
-                    hintText: 'Designation',
-                    items: _designations,
-                    selectedItems: _selectedTag,
-                    onChanged: (selectedItems) {
-                      setState(() {
-                        _selectedTag = selectedItems;
-                      });
-                      _loadStaff();
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.xs,
-                  ),
-                  child: CustomCheckbox(
-                    value: isSelectAllChecked,
-                    onChanged: _toggleSelectAll,
-                    borderColor: AppColors.themeColor,
-                  ),
-                ),
-                const AppText.body('Select All'),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Expanded(
-              child: _isLoading
-                  ? _buildShimmerGrid()
-                  : _getVisibleStaff().isEmpty
-                  ? const Center(child: AppText.body('No staff found'))
-                  : GridView.builder(
-                      shrinkWrap: false,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: isTablet ? 16 : 12,
-                        mainAxisSpacing: isTablet ? 16 : 12,
-                        mainAxisExtent: 72,
-                      ),
-                      itemCount: _getVisibleStaff().length,
-                      itemBuilder: (context, index) {
-                        final staff = _getVisibleStaff()[index];
-                        final isSelected = selectedStaff.contains(staff);
-
-                        return AttendanceStaffListItem(
-                          staff: staff,
-                          isSelected: isSelected,
-                          onSelectionChanged: (value) {
-                            _toggleStaffSelection(staff, value);
-                          },
-                        );
-                      },
+      child:
+          BlocConsumer<
+            StaffMarkAbsentSelectionCubit,
+            StaffMarkAbsentSelectionState
+          >(
+            bloc: _selectionCubit,
+            listenWhen: (previous, current) =>
+                previous.allStaff != current.allStaff,
+            listener: (context, state) {
+              setState(() {
+                _onStaffChanged(state.allStaff);
+              });
+            },
+            builder: (context, state) {
+              final visibleStaff = state.allStaff;
+              return StaffFormLayout(
+                title: 'Mark Absent',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const AppText.subtitle('Select Staff'),
+                    const SizedBox(height: AppSpacing.sm),
+                    AttendanceSearchField(
+                      controller: _searchController,
+                      hintText: 'Search Staff',
                     ),
-            ),
-          ],
-        ),
-        bottomBar: Padding(
-          padding: EdgeInsets.only(bottom: safeAreaBottom),
-          child: CustomButtonLayout(
-            confirmButtonLabel: 'Next',
-            onPressedConfirm: _handleNext,
-            showCancelButton: false,
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                            builder: (context, state) {
+                              final classroomNames = state.classrooms
+                                  .map((c) => c.name)
+                                  .toList();
+                              if (_classroomNameToCode.isEmpty &&
+                                  state.classrooms.isNotEmpty) {
+                                for (final c in state.classrooms) {
+                                  _classroomNameToCode[c.name] = c.code;
+                                }
+                              }
+                              String? selectedName;
+                              for (final entry
+                                  in _classroomNameToCode.entries) {
+                                if (entry.value == _selectedClassroomCode) {
+                                  selectedName = entry.key;
+                                  break;
+                                }
+                              }
+                              return CustomDropdown(
+                                hintText: 'Classroom',
+                                items: classroomNames,
+                                selectedItem: selectedName,
+                                onSelect: (value) {
+                                  setState(() {
+                                    _selectedClassroomCode = value == null
+                                        ? null
+                                        : _classroomNameToCode[value];
+                                  });
+                                  _loadStaff();
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: CustomMultiSelectDropdown(
+                            hintText: 'Designation',
+                            items: _designations,
+                            selectedItems: _selectedTag,
+                            onChanged: (selectedItems) {
+                              setState(() {
+                                _selectedTag = selectedItems;
+                              });
+                              _loadStaff();
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xs,
+                          ),
+                          child: CustomCheckbox(
+                            value: isSelectAllChecked,
+                            onChanged: (value) =>
+                                _toggleSelectAll(value, visibleStaff),
+                            borderColor: AppColors.themeColor,
+                          ),
+                        ),
+                        const AppText.body('Select All'),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Expanded(
+                      child: state.isLoading
+                          ? const Center(child: PrimaryCircularLoader())
+                          : visibleStaff.isEmpty
+                          ? const Center(child: AppText.body('No staff found'))
+                          : GridView.builder(
+                              shrinkWrap: false,
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 2,
+                                    crossAxisSpacing: isTablet ? 16 : 12,
+                                    mainAxisSpacing: isTablet ? 16 : 12,
+                                    mainAxisExtent: 72,
+                                  ),
+                              itemCount: visibleStaff.length,
+                              itemBuilder: (context, index) {
+                                final staff = visibleStaff[index];
+                                final isSelected = selectedStaff.contains(
+                                  staff,
+                                );
+
+                                return AttendanceStaffListItem(
+                                  staff: staff,
+                                  isSelected: isSelected,
+                                  onSelectionChanged: (value) {
+                                    _toggleStaffSelection(
+                                      staff,
+                                      value,
+                                      visibleStaff,
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+                bottomBar: Padding(
+                  padding: EdgeInsets.only(bottom: safeAreaBottom),
+                  child: CustomButtonLayout(
+                    confirmButtonLabel: 'Next',
+                    onPressedConfirm: _handleNext,
+                    showCancelButton: false,
+                  ),
+                ),
+              );
+            },
           ),
-        ),
-      ),
     );
   }
 }

@@ -53,11 +53,6 @@ class _StaffSelectionSignInFormState extends State<StaffSelectionSignInForm> {
     'KIOSK_USER',
   ];
 
-  List<StaffEntity> _filteredStaff = [];
-
-  bool _isLoading = false;
-  String? _errorMessage;
-
   late final StaffSignInSelectionCubit _selectionCubit;
   late final ClassroomCubit _classroomCubit;
 
@@ -81,39 +76,28 @@ class _StaffSelectionSignInFormState extends State<StaffSelectionSignInForm> {
   }
 
   /// Delegates the fetch to [StaffSignInSelectionCubit] (owns timezone
-  /// bootstrap, "today" resolution, and the raw API call), then applies the
-  /// same local designation/search post-filter as before — UI-derived
-  /// filtering on top of the fetch, not a data concern.
-  Future<void> _loadStaff() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
+  /// bootstrap, "today" resolution, and the raw API call). Loading/error
+  /// state is read reactively from the cubit in [build] — this only
+  /// triggers the fetch.
+  Future<void> _loadStaff() {
     final selectedClassroomCode = _selectedClassroomCode;
     final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
     final searchText = _searchController.text.trim().isNotEmpty
         ? _searchController.text.trim()
         : null;
 
-    await _selectionCubit.loadStaff(
+    return _selectionCubit.loadStaff(
       classroomCode: selectedClassroomCode,
       tagCodes: tagCodes,
       search: searchText,
     );
-    if (!mounted) return;
+  }
 
-    final selectionState = _selectionCubit.state;
-    if (selectionState.errorMessage != null) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = selectionState.errorMessage;
-      });
-      return;
-    }
-
-    // Apply local filter for Designation (in addition to backend)
-    List<StaffEntity> locallyFiltered = selectionState.staff;
+  /// Designation/search post-filter — UI-derived filtering on top of the
+  /// cubit's fetch, not a data concern (same as before the reactive
+  /// conversion).
+  List<StaffEntity> _applyLocalFilters(List<StaffEntity> staff) {
+    var locallyFiltered = staff;
     if (_selectedTag.isNotEmpty) {
       final selected = _selectedTag.map((e) => e.trim().toUpperCase()).toSet();
       locallyFiltered = locallyFiltered.where((s) {
@@ -121,44 +105,49 @@ class _StaffSelectionSignInFormState extends State<StaffSelectionSignInForm> {
         return selected.contains(d);
       }).toList();
     }
-    if (searchText != null && searchText.trim().isNotEmpty) {
+    final searchText = _searchController.text.trim();
+    if (searchText.isNotEmpty) {
       final q = searchText.toLowerCase();
       locallyFiltered = locallyFiltered
           .where((s) => s.name.toLowerCase().contains(q))
           .toList();
     }
+    return locallyFiltered;
+  }
 
-    // Preselect staff based on initial staff codes if provided
+  /// Reacts to a fresh staff list: matches the pre-conversion behavior
+  /// exactly — re-applies the initialStaffCodes preselection on every load
+  /// when provided, then recomputes select-all.
+  void _onStaffChanged(List<StaffEntity> filteredStaff) {
     if (widget.initialStaffCodes != null &&
         widget.initialStaffCodes!.isNotEmpty) {
-      selectedStaff = locallyFiltered
+      selectedStaff = filteredStaff
           .where((e) => widget.initialStaffCodes!.contains(e.staffCode))
           .toSet();
     }
-
-    setState(() {
-      _filteredStaff = List.from(locallyFiltered);
-      _isLoading = false;
-      isSelectAllChecked =
-          _filteredStaff.isNotEmpty &&
-          _filteredStaff.every((s) => selectedStaff.contains(s));
-    });
+    isSelectAllChecked =
+        filteredStaff.isNotEmpty &&
+        filteredStaff.every((s) => selectedStaff.contains(s));
   }
 
-  void _toggleSelectAll(bool? value) {
+  void _toggleSelectAll(bool? value, List<StaffEntity> filteredStaff) {
     if (value == null) return;
 
     setState(() {
       isSelectAllChecked = value;
       if (value) {
-        selectedStaff.addAll(_filteredStaff);
+        selectedStaff.addAll(filteredStaff);
       } else {
-        selectedStaff.removeAll(_filteredStaff);
+        selectedStaff.removeAll(filteredStaff);
       }
     });
   }
 
-  void _toggleStaffSelection(StaffEntity staff, bool? value) {
+  void _toggleStaffSelection(
+    StaffEntity staff,
+    bool? value,
+    List<StaffEntity> filteredStaff,
+  ) {
     if (value == null) return;
 
     setState(() {
@@ -168,7 +157,7 @@ class _StaffSelectionSignInFormState extends State<StaffSelectionSignInForm> {
         selectedStaff.remove(staff);
       }
 
-      isSelectAllChecked = _filteredStaff.every(
+      isSelectAllChecked = filteredStaff.every(
         (staff) => selectedStaff.contains(staff),
       );
     });
@@ -200,146 +189,164 @@ class _StaffSelectionSignInFormState extends State<StaffSelectionSignInForm> {
 
     return BlocProvider<ClassroomCubit>.value(
       value: _classroomCubit,
-      child: StaffFormLayout(
-        title: 'Sign-In',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const AppText.subtitle('Select Staff'),
-            const SizedBox(height: AppSpacing.sm),
-            AttendanceSearchField(
-              controller: _searchController,
-              hintText: 'Search Staff',
-              onChanged: (_) => _loadStaff(),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Row(
+      child: BlocConsumer<StaffSignInSelectionCubit, StaffSignInSelectionState>(
+        bloc: _selectionCubit,
+        listenWhen: (previous, current) => previous.staff != current.staff,
+        listener: (context, state) {
+          setState(() {
+            _onStaffChanged(_applyLocalFilters(state.staff));
+          });
+        },
+        builder: (context, state) {
+          final filteredStaff = _applyLocalFilters(state.staff);
+          return StaffFormLayout(
+            title: 'Sign-In',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: BlocBuilder<ClassroomCubit, ClassroomState>(
-                    builder: (context, state) {
-                      final classroomNames = state.classrooms
-                          .map((c) => c.name)
-                          .toList();
-                      if (_classroomNameToCode.isEmpty &&
-                          state.classrooms.isNotEmpty) {
-                        for (final c in state.classrooms) {
-                          _classroomNameToCode[c.name] = c.code;
-                        }
-                      }
-                      String? selectedName;
-                      for (final entry in _classroomNameToCode.entries) {
-                        if (entry.value == _selectedClassroomCode) {
-                          selectedName = entry.key;
-                          break;
-                        }
-                      }
-                      return CustomDropdown(
-                        hintText: 'Classroom',
-                        items: classroomNames,
-                        selectedItem: selectedName,
-                        onSelect: (value) {
+                const AppText.subtitle('Select Staff'),
+                const SizedBox(height: AppSpacing.sm),
+                AttendanceSearchField(
+                  controller: _searchController,
+                  hintText: 'Search Staff',
+                  onChanged: (_) => _loadStaff(),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: [
+                    Expanded(
+                      child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                        builder: (context, state) {
+                          final classroomNames = state.classrooms
+                              .map((c) => c.name)
+                              .toList();
+                          if (_classroomNameToCode.isEmpty &&
+                              state.classrooms.isNotEmpty) {
+                            for (final c in state.classrooms) {
+                              _classroomNameToCode[c.name] = c.code;
+                            }
+                          }
+                          String? selectedName;
+                          for (final entry in _classroomNameToCode.entries) {
+                            if (entry.value == _selectedClassroomCode) {
+                              selectedName = entry.key;
+                              break;
+                            }
+                          }
+                          return CustomDropdown(
+                            hintText: 'Classroom',
+                            items: classroomNames,
+                            selectedItem: selectedName,
+                            onSelect: (value) {
+                              setState(() {
+                                _selectedClassroomCode = value == null
+                                    ? null
+                                    : _classroomNameToCode[value];
+                              });
+                              _loadStaff();
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: CustomMultiSelectDropdown(
+                        hintText: 'Designation',
+                        items: _designations,
+                        selectedItems: _selectedTag,
+                        onChanged: (selectedItems) {
                           setState(() {
-                            _selectedClassroomCode = value == null
-                                ? null
-                                : _classroomNameToCode[value];
+                            _selectedTag = selectedItems;
                           });
                           _loadStaff();
                         },
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: CustomMultiSelectDropdown(
-                    hintText: 'Designation',
-                    items: _designations,
-                    selectedItems: _selectedTag,
-                    onChanged: (selectedItems) {
-                      setState(() {
-                        _selectedTag = selectedItems;
-                      });
-                      _loadStaff();
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.xs,
-                  ),
-                  child: CustomCheckbox(
-                    value: isSelectAllChecked,
-                    onChanged: _toggleSelectAll,
-                    borderColor: AppColors.themeColor,
-                  ),
-                ),
-                const AppText.body('Select All'),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: PrimaryCircularLoader())
-                  : _errorMessage != null
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          AppText.body(
-                            _errorMessage ?? 'Failed to load staff',
-                            style: const TextStyle(color: Colors.red),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: AppSpacing.xs),
-                          TextButton(
-                            onPressed: _loadStaff,
-                            child: const AppText.body('Retry'),
-                          ),
-                        ],
                       ),
-                    )
-                  : _filteredStaff.isEmpty
-                  ? const Center(child: AppText.body("No staff found"))
-                  : GridView.builder(
-                      shrinkWrap: false,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: isTablet ? 16 : 12,
-                        mainAxisSpacing: isTablet ? 16 : 12,
-                        mainAxisExtent: 72,
-                      ),
-                      itemCount: _filteredStaff.length,
-                      itemBuilder: (context, index) {
-                        final staff = _filteredStaff[index];
-                        final isSelected = selectedStaff.contains(staff);
-
-                        return AttendanceStaffListItem(
-                          staff: staff,
-                          isSelected: isSelected,
-                          onSelectionChanged: (value) =>
-                              _toggleStaffSelection(staff, value),
-                          showOnlyAbsentAttendanceDot: true,
-                        );
-                      },
                     ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xs,
+                      ),
+                      child: CustomCheckbox(
+                        value: isSelectAllChecked,
+                        onChanged: (value) =>
+                            _toggleSelectAll(value, filteredStaff),
+                        borderColor: AppColors.themeColor,
+                      ),
+                    ),
+                    const AppText.body('Select All'),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Expanded(
+                  child: state.isLoading
+                      ? const Center(child: PrimaryCircularLoader())
+                      : state.errorMessage != null
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              AppText.body(
+                                state.errorMessage ?? 'Failed to load staff',
+                                style: const TextStyle(color: Colors.red),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              TextButton(
+                                onPressed: _loadStaff,
+                                child: const AppText.body('Retry'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : filteredStaff.isEmpty
+                      ? const Center(child: AppText.body("No staff found"))
+                      : GridView.builder(
+                          shrinkWrap: false,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                crossAxisSpacing: isTablet ? 16 : 12,
+                                mainAxisSpacing: isTablet ? 16 : 12,
+                                mainAxisExtent: 72,
+                              ),
+                          itemCount: filteredStaff.length,
+                          itemBuilder: (context, index) {
+                            final staff = filteredStaff[index];
+                            final isSelected = selectedStaff.contains(staff);
+
+                            return AttendanceStaffListItem(
+                              staff: staff,
+                              isSelected: isSelected,
+                              onSelectionChanged: (value) =>
+                                  _toggleStaffSelection(
+                                    staff,
+                                    value,
+                                    filteredStaff,
+                                  ),
+                              showOnlyAbsentAttendanceDot: true,
+                            );
+                          },
+                        ),
+                ),
+              ],
             ),
-          ],
-        ),
-        bottomBar: Padding(
-          padding: EdgeInsets.only(bottom: safeAreaBottom),
-          child: CustomButtonLayout(
-            confirmButtonLabel: 'Next',
-            onPressedConfirm: _handleNext,
-            showCancelButton: false,
-          ),
-        ),
+            bottomBar: Padding(
+              padding: EdgeInsets.only(bottom: safeAreaBottom),
+              child: CustomButtonLayout(
+                confirmButtonLabel: 'Next',
+                onPressedConfirm: _handleNext,
+                showCancelButton: false,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
