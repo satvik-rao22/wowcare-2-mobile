@@ -88,6 +88,19 @@ void main() {
     await cubit.close();
   });
 
+  test('a non-empty malformed / zero / negative amount is rejected, not charged as 0',
+      () async {
+    for (final bad in ['abc', '0', '-5', '10.0.0']) {
+      final repo = _FakeRepo();
+      final cubit = _build(repo);
+      final r = await cubit.validateAndSave(
+          amount: bad, chequeNumber: '', isRefund: false, studentCode: 'STU-1');
+      expect(r, ReceivePaymentRefundResult.missingAmount, reason: 'amount="$bad"');
+      expect(repo.payments, isEmpty, reason: 'no charge for amount="$bad"');
+      await cubit.close();
+    }
+  });
+
   test('after success the key rotates — a later payment gets a fresh key',
       () async {
     final repo = _FakeRepo();

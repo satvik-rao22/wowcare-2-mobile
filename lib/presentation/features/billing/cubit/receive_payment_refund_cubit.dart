@@ -261,7 +261,11 @@ class ReceivePaymentRefundCubit extends Cubit<ReceivePaymentRefundState> {
     String? studentCode,
     String? narration,
   }) async {
-    if (amount.trim().isEmpty) {
+    // Reject an empty OR non-numeric OR non-positive amount rather than
+    // silently charging/refunding 0 (BILL-MONEY-05): a malformed amount string
+    // must never collapse to a 0 financial transaction.
+    final parsedAmount = double.tryParse(amount.trim());
+    if (parsedAmount == null || parsedAmount <= 0) {
       emit(state.copyWith(amountError: true));
       return ReceivePaymentRefundResult.missingAmount;
     }
@@ -281,7 +285,7 @@ class ReceivePaymentRefundCubit extends Cubit<ReceivePaymentRefundState> {
           '${isRefund ? 'refund' : 'pay'}:${studentCode ?? ownerCode ?? ''}';
       final params = InvoicePaymentParams(
         schoolCode: schoolCode,
-        amount: double.tryParse(amount.trim()) ?? 0,
+        amount: parsedAmount,
         date: AppTime.now(),
         ownerType: ownerType,
         ownerCode: ownerCode,
