@@ -1054,7 +1054,8 @@ class _AutoPayPaymentMethodsScreenState
     final type = isEcheck
         ? PaymentMethodType.echeck
         : PaymentMethodTypeX.fromApi(data['card_type']?.toString());
-    debugPrint('[AUTOPAY] one_time_token=$token (type=${type.apiValue})');
+    // Never log the one-time payment token — only the non-sensitive shape.
+    debugPrint('[AUTOPAY] tokenization result (type=${type.apiValue}, tokenPresent=${token.isNotEmpty})');
 
     final ok = await _cubit.addPaymentMethodFromToken(
       oneTimeToken: token,

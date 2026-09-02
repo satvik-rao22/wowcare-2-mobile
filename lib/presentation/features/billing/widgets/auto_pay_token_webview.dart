@@ -56,14 +56,17 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
   }
 
   void _handleCallback(dynamic data) {
-    // Surface the Forte-side response (incl. onetime_token) in app logs.
-    debugPrint('[AUTOPAY][WEBVIEW] autopayTokenCallback: $data');
+    // Log only the non-sensitive SHAPE of the tokenization result — never the
+    // one-time payment token itself, which must not reach device logs. The
+    // token is passed through in [data] to the caller, which forwards it to the
+    // backend; it is never logged.
     if (data is Map) {
       final tokenData = data['data'];
-      final token = tokenData is Map
-          ? (tokenData['onetime_token'] ?? tokenData['onetimeToken'])
-          : null;
-      debugPrint('[AUTOPAY][WEBVIEW] one_time_token: $token');
+      final hasToken = tokenData is Map &&
+          ((tokenData['onetime_token'] ?? tokenData['onetimeToken']) != null);
+      debugPrint('[AUTOPAY][WEBVIEW] tokenization callback (tokenPresent=$hasToken)');
+    } else {
+      debugPrint('[AUTOPAY][WEBVIEW] tokenization callback (no data)');
     }
     if (_hasPopped || !mounted) return;
     _hasPopped = true;
@@ -111,11 +114,9 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
               onLoadStop: (_, __) async {
                 await _injectPayload();
               },
-              onConsoleMessage: (controller, consoleMessage) {
-                // Forwards the HTML's `[AutoPay]` logs (incl. the Forte token
-                // response) into the Flutter console.
-                debugPrint('[AUTOPAY][WEBVIEW][JS] ${consoleMessage.message}');
-              },
+              // Deliberately NOT forwarding the webview's JS console into the
+              // Flutter log: the Forte page logs the tokenization response
+              // (including the one-time token), which must not reach app logs.
               onPermissionRequest: (controller, request) async {
                 return PermissionResponse(
                   resources: request.resources,
