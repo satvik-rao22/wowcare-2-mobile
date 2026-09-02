@@ -120,7 +120,7 @@ Match the house style so linking is mechanical rather than a rewrite.
 ## Verification
 
 - `flutter analyze lib/redesign` clean at the end of every phase.
-- Run on Android: `flutter run -t lib/redesign/main_redesign.dart --dart-define=ENVIRONMENT=DEV`. Web is broken in this repo and there is no macOS target. `dependency_overrides` stubs out ffmpeg locally and must be removed for a device build.
+- Run on Android: `flutter run -t lib/redesign/main_redesign.dart --dart-define=ENVIRONMENT=QA`. There is no `DEV` environment in this repo, whatever the earlier draft of this line said: the Gradle `copyGoogleServices` task resolves `android/app/firebase/<env>/google-services.json` and only `local`, `qa`, `uat` and `prod` exist. Web is broken in this repo and there is no macOS target. `dependency_overrides` stubs out ffmpeg locally and must be removed for a device build.
 - Screenshot every built screen and compare against its frame.
 - Widget tests per `core/widgets` component covering its states, cubit tests per feature. Nothing currently tests auth, dashboard, classroom, students, staff or profile, so there is no safety net to inherit; `test/presentation/features/reports/view/` is the only widget-test precedent. Add `bloc_test` and `mocktail` as dev deps when the first cubit test lands.
 - `git diff develop --stat -- lib` must show changes only under `lib/redesign/`. Check before every commit.

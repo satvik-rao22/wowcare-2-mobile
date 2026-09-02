@@ -43,6 +43,15 @@ class SurfaceBox extends StatelessWidget {
     if (clipContent && content != null) {
       content = ClipRRect(borderRadius: surface.borderRadius, child: content);
     }
+
+    // The alignment goes here rather than on the [Container], and the inset
+    // painter sits outside it. A Container's own `alignment` expands the box to
+    // its constraints while leaving the child shrink-wrapped, so a painter
+    // wrapping the child would cover only the child — a well drawn around its
+    // own label instead of around the surface.
+    if (alignment != null) {
+      content = Align(alignment: alignment!, child: content);
+    }
     if (surface.insets.isNotEmpty) {
       content = CustomPaint(
         painter: InsetShadowPainter(surface.insets, surface.borderRadius),
@@ -53,7 +62,6 @@ class SurfaceBox extends StatelessWidget {
     return Container(
       width: width,
       height: height,
-      alignment: alignment,
       decoration: surface.decoration,
       child: content,
     );
