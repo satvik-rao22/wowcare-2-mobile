@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/idempotency_key.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_entity.dart';
 import 'package:wowcare/domain/features/billing/usecases/create_payment_usecase.dart';
@@ -58,6 +59,34 @@ class ReceivePaymentRefundCubit extends Cubit<ReceivePaymentRefundState> {
   final CreateRefundUseCase _createRefund;
   final GetFamilyLedgerUseCase _getFamilyLedger;
   final StorageService _storage;
+
+  /// Single-flight guard: coalesces a rapid double-tap (or a re-fired callback /
+  /// rebuild) onto the ONE in-flight submission instead of firing a second
+  /// payment/refund. Cleared when the submission completes.
+  Future<ReceivePaymentRefundResult>? _inFlightSubmission;
+
+  /// Stable per-operation `Idempotency-Key`s, keyed by a logical operation id
+  /// (e.g. `pay:<studentCode>`). Minted once and REUSED across retries of the
+  /// same operation so the backend dedupes a duplicate charge/refund; cleared
+  /// only after a successful submission so a genuinely new payment gets a fresh
+  /// key. This is the financial idempotency the UI `isSubmitting` bool can't give.
+  final Map<String, String> _idempotencyKeys = <String, String>{};
+
+  String _idempotencyKeyFor(String opId) =>
+      _idempotencyKeys.putIfAbsent(opId, IdempotencyKey.generate);
+
+  Future<ReceivePaymentRefundResult> _singleFlight(
+    Future<ReceivePaymentRefundResult> Function() op,
+  ) {
+    final existing = _inFlightSubmission;
+    if (existing != null) return existing;
+    final future = op();
+    _inFlightSubmission = future;
+    future.whenComplete(() {
+      _inFlightSubmission = null;
+    }).ignore();
+    return future;
+  }
 
   /// Loads the list of payable students for the Custom Amount section. For a
   /// family (`ownerType == FAMILY` + a code) this is every sibling with their
@@ -115,7 +144,23 @@ class ReceivePaymentRefundCubit extends Cubit<ReceivePaymentRefundState> {
 
   /// Submits one payment per sibling for the entries in [amountsByCode] whose
   /// amount is greater than zero. Stops and reports failure on the first error.
+  /// Single-flighted so a double-tap can't fire two submissions.
   Future<ReceivePaymentRefundResult> submitPayments({
+    required Map<String, double> amountsByCode,
+    required String chequeNumber,
+    String? ownerType,
+    String? ownerCode,
+    String? narration,
+  }) =>
+      _singleFlight(() => _submitPaymentsImpl(
+            amountsByCode: amountsByCode,
+            chequeNumber: chequeNumber,
+            ownerType: ownerType,
+            ownerCode: ownerCode,
+            narration: narration,
+          ));
+
+  Future<ReceivePaymentRefundResult> _submitPaymentsImpl({
     required Map<String, double> amountsByCode,
     required String chequeNumber,
     String? ownerType,
@@ -153,8 +198,15 @@ class ReceivePaymentRefundCubit extends Cubit<ReceivePaymentRefundState> {
           method: state.selectedPaymentType,
           reference: chequeNumber.trim().isEmpty ? null : chequeNumber.trim(),
           narration: narration,
+          // Stable per-sibling key: a retry after a mid-loop failure re-sends the
+          // already-charged siblings with the SAME key, so the backend dedupes
+          // them instead of double-charging.
+          idempotencyKey: _idempotencyKeyFor('pay:${entry.key}'),
         ));
       }
+      // Whole submission succeeded — rotate keys so a genuinely new payment
+      // later gets fresh ones.
+      _idempotencyKeys.clear();
       if (isClosed) return ReceivePaymentRefundResult.success;
       emit(state.copyWith(isSubmitting: false));
       return ReceivePaymentRefundResult.success;
@@ -189,6 +241,25 @@ class ReceivePaymentRefundCubit extends Cubit<ReceivePaymentRefundState> {
     String? ownerCode,
     String? studentCode,
     String? narration,
+  }) =>
+      _singleFlight(() => _validateAndSaveImpl(
+            amount: amount,
+            chequeNumber: chequeNumber,
+            isRefund: isRefund,
+            ownerType: ownerType,
+            ownerCode: ownerCode,
+            studentCode: studentCode,
+            narration: narration,
+          ));
+
+  Future<ReceivePaymentRefundResult> _validateAndSaveImpl({
+    required String amount,
+    required String chequeNumber,
+    required bool isRefund,
+    String? ownerType,
+    String? ownerCode,
+    String? studentCode,
+    String? narration,
   }) async {
     if (amount.trim().isEmpty) {
       emit(state.copyWith(amountError: true));
@@ -206,6 +277,8 @@ class ReceivePaymentRefundCubit extends Cubit<ReceivePaymentRefundState> {
     try {
       final schoolCode =
           (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final opId =
+          '${isRefund ? 'refund' : 'pay'}:${studentCode ?? ownerCode ?? ''}';
       final params = InvoicePaymentParams(
         schoolCode: schoolCode,
         amount: double.tryParse(amount.trim()) ?? 0,
@@ -216,6 +289,7 @@ class ReceivePaymentRefundCubit extends Cubit<ReceivePaymentRefundState> {
         method: state.selectedPaymentType,
         reference: chequeNumber.trim().isEmpty ? null : chequeNumber.trim(),
         narration: narration,
+        idempotencyKey: _idempotencyKeyFor(opId),
       );
 
       if (isRefund) {
@@ -224,6 +298,7 @@ class ReceivePaymentRefundCubit extends Cubit<ReceivePaymentRefundState> {
         await _createPayment(params);
       }
 
+      _idempotencyKeys.clear();
       if (isClosed) return ReceivePaymentRefundResult.success;
       emit(state.copyWith(isSubmitting: false));
       return ReceivePaymentRefundResult.success;

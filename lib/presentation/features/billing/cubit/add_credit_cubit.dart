@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/idempotency_key.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_entity.dart';
 import 'package:wowcare/domain/features/billing/usecases/create_credit_usecase.dart';
@@ -22,12 +23,44 @@ class AddCreditCubit extends Cubit<AddCreditState> {
   final CreateCreditUseCase _createCredit;
   final StorageService _storage;
 
+  /// Single-flight guard + stable idempotency key for the credit POST — see
+  /// ReceivePaymentRefundCubit. Prevents a double-tap or a 401-replay from
+  /// posting a duplicate credit.
+  Future<AddCreditResult>? _inFlight;
+  String? _idempotencyKey;
+
   void clearAmountError() {
     if (state.amountError) emit(state.copyWith(amountError: false));
   }
 
   /// Validates the amount then posts the credit (`POST /invoices/credits`).
+  /// Single-flighted so a double-tap can't post two credits.
   Future<AddCreditResult> submit({
+    required String amount,
+    String? reason,
+    String? description,
+    String? ownerType,
+    String? ownerCode,
+    String? studentCode,
+  }) {
+    final existing = _inFlight;
+    if (existing != null) return existing;
+    final future = _submitImpl(
+      amount: amount,
+      reason: reason,
+      description: description,
+      ownerType: ownerType,
+      ownerCode: ownerCode,
+      studentCode: studentCode,
+    );
+    _inFlight = future;
+    future.whenComplete(() {
+      _inFlight = null;
+    }).ignore();
+    return future;
+  }
+
+  Future<AddCreditResult> _submitImpl({
     required String amount,
     String? reason,
     String? description,
@@ -46,6 +79,8 @@ class AddCreditCubit extends Cubit<AddCreditState> {
     try {
       final schoolCode =
           (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      // Mint once, reuse across retries; rotated after success.
+      final key = _idempotencyKey ??= IdempotencyKey.generate();
       await _createCredit(CreateCreditParams(
         schoolCode: schoolCode,
         amount: parsed,
@@ -54,7 +89,9 @@ class AddCreditCubit extends Cubit<AddCreditState> {
         studentCode: studentCode,
         reason: reason,
         description: description,
+        idempotencyKey: key,
       ));
+      _idempotencyKey = null;
       if (isClosed) return AddCreditResult.success;
       emit(state.copyWith(isSubmitting: false));
       return AddCreditResult.success;

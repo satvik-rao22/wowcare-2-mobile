@@ -227,6 +227,7 @@ class InvoicePaymentParams extends Equatable {
     this.method,
     this.reference,
     this.narration,
+    this.idempotencyKey,
   });
 
   final String schoolCode;
@@ -239,6 +240,11 @@ class InvoicePaymentParams extends Equatable {
   final String? reference;
   final String? narration;
 
+  /// Stable per-operation key sent as the `Idempotency-Key` header so the
+  /// backend dedupes a retried/replayed payment or refund. Kept stable across
+  /// retries of the SAME logical operation; the cubit rotates it after success.
+  final String? idempotencyKey;
+
   @override
   List<Object?> get props => [
         schoolCode,
@@ -250,6 +256,7 @@ class InvoicePaymentParams extends Equatable {
         method,
         reference,
         narration,
+        idempotencyKey,
       ];
 }
 
@@ -263,6 +270,7 @@ class CreateCreditParams extends Equatable {
     this.studentCode,
     this.reason,
     this.description,
+    this.idempotencyKey,
   });
 
   final String schoolCode;
@@ -273,6 +281,10 @@ class CreateCreditParams extends Equatable {
   final String? reason;
   final String? description;
 
+  /// Stable per-operation `Idempotency-Key` for the credit POST (see
+  /// [InvoicePaymentParams.idempotencyKey]).
+  final String? idempotencyKey;
+
   @override
   List<Object?> get props => [
         schoolCode,
@@ -282,6 +294,7 @@ class CreateCreditParams extends Equatable {
         studentCode,
         reason,
         description,
+        idempotencyKey,
       ];
 }
 

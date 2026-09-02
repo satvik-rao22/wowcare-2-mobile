@@ -1,5 +1,8 @@
 import 'package:dio/dio.dart';
+import 'package:wowcare/core/network/session_expired_interceptor.dart'
+    show kNoAutoReplayExtraKey;
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/idempotency_key.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/data/features/billing/models/family_ledger_models.dart';
@@ -70,11 +73,14 @@ abstract class InvoiceRemoteDataSource {
     required String guardianCode,
   });
   Future<InvoicePaymentResultModel> createPayment(
-      InvoicePaymentRequestModel request);
+      InvoicePaymentRequestModel request,
+      {String? idempotencyKey});
   Future<InvoicePaymentResultModel> createRefund(
-      InvoicePaymentRequestModel request);
+      InvoicePaymentRequestModel request,
+      {String? idempotencyKey});
   Future<InvoicePaymentResultModel> createCredit(
-      CreateCreditRequestModel request);
+      CreateCreditRequestModel request,
+      {String? idempotencyKey});
   Future<InvoiceResultModel> updateInvoice(
       String code, UpdateInvoiceRequestModel request);
   Future<void> deleteInvoice(String code);
@@ -250,32 +256,51 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
     return FamilyLedgerModel.fromJson(response.data ?? {});
   }
 
+  /// Options for a non-idempotent financial POST: send the stable
+  /// `Idempotency-Key` header (so the backend dedupes a retried/replayed
+  /// payment/refund/credit) and opt OUT of the shared 401-refresh auto-replay
+  /// (so the client never silently re-charges — the user re-authenticates and
+  /// retries with the SAME key, which dedupes).
+  Options _financialOptions(String? idempotencyKey) => Options(
+        extra: const {kNoAutoReplayExtraKey: true},
+        headers: {
+          if (idempotencyKey != null && idempotencyKey.isNotEmpty)
+            IdempotencyKey.headerName: idempotencyKey,
+        },
+      );
+
   @override
   Future<InvoicePaymentResultModel> createPayment(
-      InvoicePaymentRequestModel request) async {
+      InvoicePaymentRequestModel request,
+      {String? idempotencyKey}) async {
     final response = await _client.post<Map<String, dynamic>>(
       ApiPaths.url(ApiPaths.invoicePayments),
       data: request.toJson(),
+      options: _financialOptions(idempotencyKey),
     );
     return InvoicePaymentResultModel.fromJson(response.data ?? {});
   }
 
   @override
   Future<InvoicePaymentResultModel> createRefund(
-      InvoicePaymentRequestModel request) async {
+      InvoicePaymentRequestModel request,
+      {String? idempotencyKey}) async {
     final response = await _client.post<Map<String, dynamic>>(
       ApiPaths.url(ApiPaths.invoiceRefunds),
       data: request.toJson(),
+      options: _financialOptions(idempotencyKey),
     );
     return InvoicePaymentResultModel.fromJson(response.data ?? {});
   }
 
   @override
   Future<InvoicePaymentResultModel> createCredit(
-      CreateCreditRequestModel request) async {
+      CreateCreditRequestModel request,
+      {String? idempotencyKey}) async {
     final response = await _client.post<Map<String, dynamic>>(
       ApiPaths.url(ApiPaths.invoiceCredits),
       data: request.toJson(),
+      options: _financialOptions(idempotencyKey),
     );
     return InvoicePaymentResultModel.fromJson(response.data ?? {});
   }
