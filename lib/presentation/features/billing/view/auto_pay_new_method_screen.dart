@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/auto_pay_new_method_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -77,7 +78,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
     final years = List<String>.generate(20, (i) => '${currentYear + i}');
 
     return StaffFormLayout(
-      title: 'Set Auto Payment',
+      title: BillingStrings.setAutoPayment,
       bottomBar: Container(
         padding: EdgeInsets.only(
           bottom: (MediaQuery.of(context).padding.bottom > 0)
@@ -115,7 +116,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
             child: Opacity(
               opacity: _isSubmitEnabled ? 1 : 0.6,
               child: CustomButtonLayout(
-                confirmButtonLabel: 'Save details',
+                confirmButtonLabel: BillingStrings.saveDetails,
                 onPressedConfirm: _onSaveDetails,
                 showCancelButton: false,
                 isForm: false,
@@ -137,9 +138,9 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
                         CustomDropdown(
-                          label: 'Payment Method',
-                          hintText: 'Select Payment Method',
-                          items: const ['Visa', 'MasterCard', 'Discover', 'ACH'],
+                          label: BillingStrings.paymentMethod,
+                          hintText: BillingStrings.selectPaymentMethod,
+                          items: const [BillingStrings.visa, BillingStrings.masterCard, BillingStrings.discover, BillingStrings.ach],
                           selectedItem: _selectedPaymentMethodLabel(),
                           labelStyle: TextStyle(
                             fontFamily: 'Manrope',
@@ -169,10 +170,10 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                         if (_paymentMethod.isNotEmpty) _buildFeeMessage(),
                         if (_showCardFields) ...[
                           const SizedBox(height: 16),
-                          _buildLabel('Card Number', required: true),
+                          _buildLabel(BillingStrings.cardNumber, required: true),
                           _buildInput(
                             controller: _cardNumberController,
-                            hint: 'Enter card number',
+                            hint: BillingStrings.enterCardNumber,
                             keyboardType: TextInputType.number,
                             maxLength: 19,
                           ),
@@ -185,8 +186,8 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     CustomDropdown(
-                                      label: 'Expiration Month',
-                                      hintText: 'Month',
+                                      label: BillingStrings.expirationMonth,
+                                      hintText: BillingStrings.month,
                                       items: months,
                                       selectedItem:
                                           _expMonth.isEmpty ? null : _expMonth,
@@ -218,8 +219,8 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     CustomDropdown(
-                                      label: 'Expiration Year',
-                                      hintText: 'Year',
+                                      label: BillingStrings.expirationYear,
+                                      hintText: BillingStrings.year,
                                       items: years,
                                       selectedItem:
                                           _expYear.isEmpty ? null : _expYear,
@@ -248,10 +249,10 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          _buildLabel('CVV', required: true),
+                          _buildLabel(BillingStrings.cvv, required: true),
                           _buildInput(
                             controller: _cvvController,
-                            hint: 'Enter CVV',
+                            hint: BillingStrings.enterCvv,
                             keyboardType: TextInputType.number,
                             maxLength: 4,
                           ),
@@ -259,28 +260,28 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                         ],
                         if (_showEcheckFields) ...[
                           const SizedBox(height: 16),
-                          _buildLabel('Account Number', required: true),
+                          _buildLabel(BillingStrings.accountNumber, required: true),
                           _buildInput(
                             controller: _accountNumberController,
-                            hint: 'Enter account number',
+                            hint: BillingStrings.enterAccountNumber,
                             keyboardType: TextInputType.number,
                             maxLength: 17,
                           ),
                           _buildFieldError('accountNumber'),
                           const SizedBox(height: 12),
-                          _buildLabel('Routing Number', required: true),
+                          _buildLabel(BillingStrings.routingNumber, required: true),
                           _buildInput(
                             controller: _routingNumberController,
-                            hint: 'Enter routing number',
+                            hint: BillingStrings.enterRoutingNumber,
                             keyboardType: TextInputType.number,
                             maxLength: 9,
                           ),
                           _buildFieldError('routingNumber'),
                           const SizedBox(height: 12),
                           CustomDropdown(
-                            label: 'Account Type',
-                            hintText: 'Select Account Type',
-                            items: const ['Checking', 'Savings'],
+                            label: BillingStrings.accountType,
+                            hintText: BillingStrings.selectAccountType,
+                            items: const [BillingStrings.checking, BillingStrings.savings],
                             selectedItem: _selectedAccountTypeLabel(),
                             labelStyle: TextStyle(
                               fontFamily: 'Manrope',
@@ -327,7 +328,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                                 SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'Your current outstanding balance will be deducted automatically.',
+                                    BillingStrings.yourCurrentOutstandingBalance,
                                     style: TextStyle(
                                       fontFamily: 'Manrope',
                                       color: Color(0xFFD97706),
@@ -342,7 +343,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                         if (_isSaving)
                           const Center(
                             child: Text(
-                              'Please wait... Processing your payment information.',
+                              BillingStrings.pleaseWaitProcessingYour,
                               style: TextStyle(
                                 color: Color(0xFF718096),
                                 fontSize: 12,
@@ -459,10 +460,10 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
 
   String? _selectedPaymentMethodLabel() {
     const map = <String, String>{
-      'visa': 'Visa',
-      'mast': 'MasterCard',
-      'disc': 'Discover',
-      'echeck': 'ACH',
+      'visa': BillingStrings.visa,
+      'mast': BillingStrings.masterCard,
+      'disc': BillingStrings.discover,
+      'echeck': BillingStrings.ach,
     };
     return map[_paymentMethod];
   }
@@ -470,9 +471,9 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
   String? _selectedAccountTypeLabel() {
     switch (_accountType.toLowerCase()) {
       case 'checking':
-        return 'Checking';
+        return BillingStrings.checking;
       case 'savings':
-        return 'Savings';
+        return BillingStrings.savings;
       default:
         return null;
     }
@@ -480,12 +481,12 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
 
   Widget _buildFeeMessage() {
     final map = <String, String>{
-      'visa': 'Visa',
-      'mast': 'MasterCard',
-      'disc': 'Discover',
-      'echeck': 'ACH (Bank Transfer)',
+      'visa': BillingStrings.visa,
+      'mast': BillingStrings.masterCard,
+      'disc': BillingStrings.discover,
+      'echeck': BillingStrings.achBankTransfer,
     };
-    final methodLabel = map[_paymentMethod] ?? 'Card';
+    final methodLabel = map[_paymentMethod] ?? BillingStrings.card;
     final feeText = _paymentMethod == 'echeck'
         ? '$methodLabel - \$1.00 convenience fee will be applied'
         : '$methodLabel - 3% convenience fee will be applied';
@@ -528,7 +529,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
     if (!isValid) {
       final firstError = _fieldErrors.values.isNotEmpty
           ? _fieldErrors.values.first
-          : 'Please check the form fields.';
+          : BillingStrings.pleaseCheckTheForm;
       CoreUtils.showTopSnackBar(
         context: context,
         message: firstError,
@@ -542,7 +543,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
     if (!mounted) return;
     CoreUtils.showTopSnackBar(
       context: context,
-      message: 'Secure token created successfully.',
+      message: BillingStrings.secureTokenCreatedSuccessfully,
       isSuccess: true,
     );
   }

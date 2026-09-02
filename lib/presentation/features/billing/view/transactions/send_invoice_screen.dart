@@ -6,6 +6,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/usecases/issue_invoice_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/resend_invoice_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_profile_usecase.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -148,19 +149,19 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
       if (widget.transaction.refTable != 'Invoice') {
         return 'Not applicable - Transaction references ${widget.transaction.refTable}';
       }
-      return 'N/A';
+      return BillingStrings.na;
     }
 
     final startDate = _invoiceDetails!['startDate'];
     final endDate = _invoiceDetails!['endDate'];
 
     if (startDate == null && endDate == null) {
-      return 'Not specified in invoice';
+      return BillingStrings.notSpecifiedInInvoice;
     }
 
     try {
-      String startText = 'Not specified';
-      String endText = 'Not specified';
+      String startText = BillingStrings.notSpecified;
+      String endText = BillingStrings.notSpecified;
 
       if (startDate != null) {
         final startParsed = DateTime.parse(startDate.toString());
@@ -174,7 +175,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
 
       return '$startText - $endText';
     } catch (e) {
-      return 'Date format error';
+      return BillingStrings.dateFormatError;
     }
   }
 
@@ -200,7 +201,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
     if (code == null || code.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'This invoice cannot be sent.',
+        message: BillingStrings.invoiceCannotBeSent,
         isWarning: true,
       );
       return;
@@ -217,8 +218,8 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: _isDraft
-            ? 'Invoice sent successfully.'
-            : 'Invoice re-sent successfully.',
+            ? BillingStrings.invoiceSentSuccessfully
+            : BillingStrings.invoiceResentSuccessfully,
         isSuccess: true,
       );
       Navigator.pop(context, true);
@@ -238,7 +239,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
     return Row(
       children: [
         Text(
-          'Billed for : ',
+          BillingStrings.billedForColon,
           style: AppTextStyles.title.copyWith(
             fontSize: 16,
             color: AppColors.primaryColor,
@@ -268,7 +269,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
         Row(
           children: [
             Text(
-              'Invoice Number : ',
+              BillingStrings.invoiceNumberColon,
               style: TextStyle(
                 fontSize: 15,
                 color: AppColors.billingGreyMedium,
@@ -294,7 +295,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Text(
-                'Invoice Period : ',
+                BillingStrings.invoicePeriodColon,
                 style: TextStyle(
                   fontSize: 15,
                   color: AppColors.billingGreyMedium,
@@ -319,7 +320,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
         Row(
           children: [
             Text(
-              'Due Date : ',
+              BillingStrings.dueDateColon,
               style: TextStyle(
                 fontSize: 15,
                 color: AppColors.billingGreyMedium,
@@ -328,7 +329,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
             ),
             Text(
               _dueDateController.text.isEmpty
-                  ? 'Not set'
+                  ? BillingStrings.notSet
                   : _dueDateController.text,
               style: TextStyle(
                 fontSize: 15,
@@ -357,7 +358,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
               Expanded(
                 flex: 4,
                 child: Text(
-                  'Description',
+                  BillingStrings.description,
                   style: TextStyle(
                     fontSize: 15,
                     color: AppColors.billingGreyMedium,
@@ -369,7 +370,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
               Expanded(
                 flex: 2,
                 child: Text(
-                  'Amount',
+                  BillingStrings.amount,
                   style: TextStyle(
                     fontSize: 15,
                     color: AppColors.billingGreyMedium,
@@ -423,7 +424,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                 Expanded(
                   flex: 4,
                   child: Text(
-                    'Total Amount',
+                    BillingStrings.totalAmount,
                     style: TextStyle(
                       color: AppColors.primaryColor,
                       fontSize: 16,
@@ -455,7 +456,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
   @override
   Widget build(BuildContext context) {
     return StaffFormLayout(
-      title: 'Send Invoice',
+      title: BillingStrings.sendInvoice,
       bottomBar: _buildBottomBar(),
       child: SingleChildScrollView(
         child: Column(
@@ -501,7 +502,9 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                     ),
                   )
                 : Text(
-                    _isDraft ? 'Send Invoice' : 'Resend Invoice',
+                    _isDraft
+                        ? BillingStrings.sendInvoice
+                        : BillingStrings.resendInvoice,
                     style: TextStyle(
                       color: AppColors.billingButtonTextColor,
                       fontSize: 16,

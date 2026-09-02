@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
 
 class CreateInvoiceDialog extends StatelessWidget {
@@ -31,7 +32,7 @@ class CreateInvoiceDialog extends StatelessWidget {
                 children: [
                   const Expanded(
                     child: Text(
-                      'Create Invoice',
+                      BillingStrings.createInvoice,
                       style: TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: 16,
@@ -56,7 +57,7 @@ class CreateInvoiceDialog extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               const Text(
-                'Select the type of invoice you want to create:',
+                BillingStrings.selectTheTypeOfInvoice,
                 style: TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: 13,
@@ -66,9 +67,8 @@ class CreateInvoiceDialog extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               BillingActionCard(
-                title: 'One-Time Invoice',
-                subtitle:
-                    'Create a manual invoice for one or more students with custom line items',
+                title: BillingStrings.oneTimeInvoice,
+                subtitle: BillingStrings.createAManualInvoice,
                 icon: Icons.receipt_long,
                 onTap: onSelectOneTime,
               ),

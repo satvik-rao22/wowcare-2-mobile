@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/domain/features/billing/entities/ledger_transaction_entity.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -84,20 +85,20 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     );
 
     return StaffFormLayout(
-      title: 'Add Transaction',
+      title: BillingStrings.addTransaction,
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
           // ── Amount ──────────────────────────────────────────────────
           _buildInputField(
-            label: 'Amount',
-            hint: 'E.g. 100.00',
+            label: BillingStrings.amount,
+            hint: BillingStrings.eg10000,
             controller: _amountCtrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
             ],
-            error: _amountError ? '*Enter a valid amount.' : null,
+            error: _amountError ? BillingStrings.enterAValidAmount : null,
             labelStyle: labelStyle,
             responsive: responsive,
           ),
@@ -105,7 +106,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
           // ── Date ────────────────────────────────────────────────────
           CustomDateTimeField(
-            label: 'Date',
+            label: BillingStrings.date,
             hasLabel: true,
             isRequired: true,
             fetchInitialTime: false,
@@ -118,7 +119,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           if (_dateError) ...[
             const SizedBox(height: 4),
             const Text(
-              '*Date is required.',
+              BillingStrings.dateIsRequired,
               style: TextStyle(
                 fontFamily: 'Manrope',
                 fontSize: 12,
@@ -130,8 +131,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
           // ── Description ─────────────────────────────────────────────
           _buildInputField(
-            label: 'Description',
-            hint: 'Add Description',
+            label: BillingStrings.description,
+            hint: BillingStrings.addDescription,
             controller: _narrationCtrl,
             maxLines: 4,
             required: false,
@@ -163,7 +164,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           ),
         ),
         child: CustomButtonLayout(
-          confirmButtonLabel: 'Save',
+          confirmButtonLabel: BillingStrings.save,
           onPressedConfirm: _submit,
           showCancelButton: false,
           isForm: false,

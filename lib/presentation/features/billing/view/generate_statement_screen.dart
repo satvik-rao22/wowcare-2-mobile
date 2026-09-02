@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -145,7 +146,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
     if (error == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Statement generated successfully!',
+        message: BillingStrings.statementGeneratedSuccessfully,
         isSuccess: true,
       );
       Navigator.of(context).pop(true);
@@ -170,7 +171,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
     );
 
     return StaffFormLayout(
-      title: 'Generate Statement',
+      title: BillingStrings.generateStatement,
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
@@ -193,8 +194,8 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
 
           // ── Statement Type ────────────────────────────────────────────────
           CustomDropdown(
-            label: 'Statement Type',
-            hintText: 'Select Statement Type',
+            label: BillingStrings.statementType,
+            hintText: BillingStrings.selectStatementType,
             items: _kStatementTypes,
             selectedItem: _statementType,
             isRequired: true,
@@ -226,8 +227,8 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       CustomDropdown(
-                        label: 'Select Month',
-                        hintText: 'Month',
+                        label: BillingStrings.selectMonth,
+                        hintText: BillingStrings.month,
                         items: _kMonths,
                         selectedItem: _selectedMonth,
                         isRequired: true,
@@ -249,8 +250,8 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       CustomDropdown(
-                        label: 'Select Year',
-                        hintText: 'Year',
+                        label: BillingStrings.selectYear,
+                        hintText: BillingStrings.year,
                         items: _yearOptions,
                         selectedItem: _selectedYear,
                         isRequired: true,
@@ -271,8 +272,8 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
             SizedBox(height: vs),
           ] else if (_statementType == 'Yearly') ...[
             CustomDropdown(
-              label: 'Select Year',
-              hintText: 'Select Year',
+              label: BillingStrings.selectYear,
+              hintText: BillingStrings.selectYear,
               items: _yearOptions,
               selectedItem: _selectedYear,
               isRequired: true,
@@ -294,7 +295,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
                   text: TextSpan(
                     style: labelStyle,
                     children: [
-                      const TextSpan(text: 'Select Date Range'),
+                      const TextSpan(text: BillingStrings.selectDateRange),
                       TextSpan(
                         text: ' *',
                         style: AppTextStyles.small
@@ -307,7 +308,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
                 CustomDateTimeField(
                   hasLabel: false,
                   isRangePicker: true,
-                  label: 'Select Date Range',
+                  label: BillingStrings.selectDateRange,
                   fetchInitialTime: false,
                   isRequired: true,
                   onRangeSelected: (start, end) => setState(() {
@@ -344,7 +345,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text('Include Description', style: labelStyle),
+                Text(BillingStrings.includeDescription, style: labelStyle),
               ],
             ),
           ),
@@ -364,7 +365,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
                 maxLines: null,
                 keyboardType: TextInputType.multiline,
                 decoration: InputDecoration(
-                  hintText: 'Enter description…',
+                  hintText: BillingStrings.enterDescription,
                   hintStyle:
                       labelStyle.copyWith(color: AppColors.billingGrey),
                   border: InputBorder.none,
@@ -401,7 +402,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
           ),
         ),
         child: CustomButtonLayout(
-          confirmButtonLabel: 'Generate',
+          confirmButtonLabel: BillingStrings.generate,
           onPressedConfirm: _onGenerate,
           showCancelButton: false,
           isForm: false,
@@ -414,7 +415,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
   Widget _errorWidget() => Padding(
         padding: const EdgeInsets.only(top: 4, left: 2),
         child: Text(
-          '*This field is required.',
+          BillingStrings.thisFieldIsRequired,
           style: AppTextStyles.small.copyWith(color: AppColors.errorColor),
         ),
       );
@@ -494,7 +495,7 @@ class _SelectedStudentsCard extends StatelessWidget {
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 130),
                       child: Text(
-                        name.trim().isEmpty ? 'Student' : name.trim(),
+                        name.trim().isEmpty ? BillingStrings.student : name.trim(),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.value.copyWith(

@@ -9,6 +9,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/pay_now_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/pay_now_authorize_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/payment_settings_cubit.dart';
@@ -97,7 +98,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                 state.currentAmount > 0 ? _money(state.currentAmount) : '';
           }
           return StaffFormLayout(
-            title: 'Pay Now',
+            title: BillingStrings.payNow,
             bottomBar: _buildBottomBar(state),
             child: state.isLoading
                 ? _buildLoading()
@@ -106,7 +107,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Payment Amount',
+                          BillingStrings.paymentAmount,
                           style: TextStyle(
                             fontFamily: 'Manrope',
                             fontSize: 20,
@@ -159,7 +160,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
-                  'Current Outstanding (Unpaid Balance)',
+                  BillingStrings.currentOutstandingUnpaidBalance,
                   style: TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: 15,
@@ -214,7 +215,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
               ),
               const SizedBox(width: 8),
               const Text(
-                'Custom Amount',
+                BillingStrings.customAmount,
                 style: TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: 15,
@@ -246,7 +247,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Total Payment Amount:',
+                      BillingStrings.totalPaymentAmount,
                       style: TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: 15,
@@ -321,7 +322,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
             const Padding(
               padding: EdgeInsets.only(top: 6, left: 2),
               child: Text(
-                '*Amount exceeds outstanding.',
+                BillingStrings.amountExceedsOutstanding,
                 style: TextStyle(color: Colors.red, fontSize: 12),
               ),
             ),
@@ -410,7 +411,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
             ),
             child: const Center(
               child: Text(
-                'Confirm',
+                BillingStrings.confirm,
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,

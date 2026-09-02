@@ -4,6 +4,7 @@ import 'package:wowcare/presentation/features/billing/model/billing_route_args.d
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/transaction_details_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 
@@ -139,7 +140,7 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
           if (showBillingProfile)
             _PopupActionConfig(
               iconPath: MediaRes.profile_panel_icon,
-              label: 'Billing Profile',
+              label: BillingStrings.billingProfile,
               onTap: defaultBillingProfileTap,
             ),
         ];
@@ -150,19 +151,19 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
             return <_PopupActionConfig>[
               _PopupActionConfig(
                 iconPath: MediaRes.docsIcon,
-                label: 'View',
+                label: BillingStrings.view,
                 onTap: onViewTap,
               ),
               _PopupActionConfig(
                 iconPath: MediaRes.redirectArrowGradientIcon,
-                label: 'Send',
+                label: BillingStrings.send,
                 onTap: onResendTap,
                 // This SVG fills its viewBox; shrink it to match the others.
                 iconSize: 19,
               ),
               _PopupActionConfig(
                 iconPath: MediaRes.moreIcon,
-                label: 'More',
+                label: BillingStrings.more,
                 onTap: onMoreTap,
               ),
             ];
@@ -170,24 +171,24 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
             return <_PopupActionConfig>[
               _PopupActionConfig(
                 iconPath: MediaRes.docsIcon,
-                label: 'View',
+                label: BillingStrings.view,
                 onTap: onViewTap,
               ),
               _PopupActionConfig(
                 iconPath: MediaRes.redirectArrowGradientIcon,
-                label: 'Resend',
+                label: BillingStrings.resend,
                 onTap: onResendTap,
                 // This SVG fills its viewBox; shrink it to match the others.
                 iconSize: 19,
               ),
               _PopupActionConfig(
                 iconData: Icons.attach_money,
-                label: 'Receive Payment',
+                label: BillingStrings.receivePayment,
                 onTap: onReceivePaymentTap,
               ),
               _PopupActionConfig(
                 iconPath: MediaRes.moreIcon,
-                label: 'More',
+                label: BillingStrings.more,
                 onTap: onMoreTap,
               ),
             ];
@@ -199,17 +200,17 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
               if (canRefund)
                 _PopupActionConfig(
                   iconData: Icons.attach_money,
-                  label: 'Issue Refund',
+                  label: BillingStrings.issueRefund,
                   onTap: onIssueRefundTap,
                 ),
               _PopupActionConfig(
                 iconPath: MediaRes.docsIcon,
-                label: 'View',
+                label: BillingStrings.view,
                 onTap: onViewTap,
               ),
               _PopupActionConfig(
                 iconPath: MediaRes.moreIcon,
-                label: 'More',
+                label: BillingStrings.more,
                 onTap: onMoreTap,
               ),
             ];
@@ -218,12 +219,12 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
             return <_PopupActionConfig>[
               _PopupActionConfig(
                 iconPath: MediaRes.docsIcon,
-                label: 'View',
+                label: BillingStrings.view,
                 onTap: onViewTap,
               ),
               _PopupActionConfig(
                 iconData: Icons.delete_outline,
-                label: 'Delete',
+                label: BillingStrings.delete,
                 onTap: onDeleteTap,
               ),
             ];
@@ -396,13 +397,13 @@ class BillingMoreOptionsPopup extends StatelessWidget {
 
     final _PopupActionConfig editAction = _PopupActionConfig(
       iconPath: MediaRes.communicationIcon,
-      label: 'Edit',
+      label: BillingStrings.edit,
       onTap: onEditTap,
     );
 
     final _PopupActionConfig cancelAction = _PopupActionConfig(
       iconData: Icons.close,
-      label: 'Cancel',
+      label: BillingStrings.cancel,
       onTap: onCancelTap,
     );
 

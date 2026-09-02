@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
@@ -77,7 +78,7 @@ class AmountInvoicedStatBar extends StatefulWidget {
     required this.inProcessAmount,
     required this.outstandingAmount,
     this.refundedAmount = 0,
-    this.title = 'Amount Invoiced',
+    this.title = BillingStrings.amountInvoiced,
     this.onFilterTap,
     this.selectedFilter,
   });
@@ -122,35 +123,35 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
 
           // Keep Net Paid and Outstanding as the first-row items
           final netPaidItem = ProgressItemHelper(
-            label: labelFor('Net Paid', widget.netPaidAmount),
+            label: labelFor(BillingStrings.netPaid, widget.netPaidAmount),
             value: barValue(widget.netPaidAmount),
             color: Colors.greenAccent.shade100,
             filterValue: BillingSummaryFilter.netPaid.name,
           );
 
           final outstandingItem = ProgressItemHelper(
-            label: labelFor('Outstanding', widget.outstandingAmount),
+            label: labelFor(BillingStrings.outstanding, widget.outstandingAmount),
             value: barValue(widget.outstandingAmount),
             color: Colors.redAccent.shade100,
             filterValue: BillingSummaryFilter.outstanding.name,
           );
 
           final inProcessItem = ProgressItemHelper(
-            label: labelFor('In Process', widget.inProcessAmount),
+            label: labelFor(BillingStrings.inProcess, widget.inProcessAmount),
             value: barValue(widget.inProcessAmount),
             color: Colors.yellow,
             filterValue: BillingSummaryFilter.inProcess.name,
           );
 
           final refundItem = ProgressItemHelper(
-            label: labelFor('Refund', widget.refundedAmount),
+            label: labelFor(BillingStrings.refund, widget.refundedAmount),
             value: barValue(widget.refundedAmount),
             color: AppColors.refundLegendColor,
             filterValue: BillingSummaryFilter.refund.name,
           );
 
           final paidItem = ProgressItemHelper(
-            label: labelFor('Paid', widget.paidAmount),
+            label: labelFor(BillingStrings.paid, widget.paidAmount),
             value: barValue(widget.paidAmount),
             color: AppColors.paidLegendColor,
             filterValue: BillingSummaryFilter.paid.name,
@@ -225,7 +226,7 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
                     color: AppColors.primaryColor,
                   ),
                   label: Text(
-                    _isExpanded ? 'Show less' : 'Show more',
+                    _isExpanded ? BillingStrings.showLess : BillingStrings.showMore,
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
@@ -263,7 +264,7 @@ class _TotalOutstandingSummary extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Total Outstanding',
+                  BillingStrings.totalOutstanding,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
@@ -70,7 +71,7 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
                   const SizedBox(height: 8),
                   const Padding(
                     padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: AppText.title('Statements'),
+                    child: AppText.title(BillingStrings.statements),
                   ),
                   if (widget.familyChildren.isNotEmpty)
                     _FamilySiblingsCard(children: widget.familyChildren),
@@ -119,7 +120,7 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
               const SizedBox(height: 12),
               TextButton(
                 onPressed: () => widget.cubit.refresh(),
-                child: const Text('Retry'),
+                child: const Text(BillingStrings.retry),
               ),
             ],
           ),
@@ -137,7 +138,7 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
                   size: 48,
                   color: AppColors.primaryColor.withValues(alpha: 0.4)),
               const SizedBox(height: 16),
-              const AppText.value('No statements found'),
+              const AppText.value(BillingStrings.noStatementsFound),
             ],
           ),
         ),
@@ -170,7 +171,7 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Downloading statement PDF…'),
+        content: Text(BillingStrings.downloadingStatementPdf),
         duration: Duration(seconds: 2),
       ),
     );
@@ -195,7 +196,7 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
     if (bytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result.error ?? 'Unable to preview this statement.'),
+          content: Text(result.error ?? BillingStrings.unableToPreviewThisStatement),
           backgroundColor: Colors.red.shade700,
         ),
       );
@@ -318,7 +319,7 @@ class _DateFilterCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
             child: AppText.label(
-              'Select Date Range',
+              BillingStrings.selectDateRange,
               style: AppTextStyles.label.copyWith(
                 color: AppColors.billingGreyMedium,
               ),
@@ -330,7 +331,7 @@ class _DateFilterCard extends StatelessWidget {
               hasLabel: false,
               isRangePicker: true,
               initialDate: state.customStartDate,
-              label: 'Date Range',
+              label: BillingStrings.dateRange,
               fetchInitialTime: false,
               onRangeSelected: (start, end) =>
                   cubit.applyDateRange(start, end),
@@ -396,29 +397,29 @@ class _AdminStatementCard extends StatelessWidget {
       ),
       expandedChildren: [
         StaffCardDetailRow(
-          label: 'Statement Type',
+          label: BillingStrings.statementType,
           value: _formattedType,
         ),
         const SizedBox(height: 10),
         StaffCardDetailRow(
-          label: 'Generated On',
+          label: BillingStrings.generatedOn,
           value: statementDate != null
               ? DateUtilsNew.formatToReadableDate(statementDate)
               : '—',
         ),
         const SizedBox(height: 10),
         StaffCardDetailRow(
-          label: 'Period Start',
+          label: BillingStrings.periodStart,
           value: DateUtilsNew.formatToReadableDate(statement.periodStart),
         ),
         const SizedBox(height: 10),
         StaffCardDetailRow(
-          label: 'Period End',
+          label: BillingStrings.periodEnd,
           value: DateUtilsNew.formatToReadableDate(statement.periodEnd),
         ),
         const SizedBox(height: 10),
         StaffCardDetailRow(
-          label: 'Student Names',
+          label: BillingStrings.studentNames,
           value: studentNames.isNotEmpty ? studentNames : '—',
         ),
         const SizedBox(height: 16),
@@ -427,9 +428,9 @@ class _AdminStatementCard extends StatelessWidget {
           // ever one request per statement at a time), so the label stays
           // generic rather than claiming "Downloading…" while a View fetch
           // is actually what's in flight.
-          secondaryLabel: isDownloading ? 'Loading…' : 'View',
+          secondaryLabel: isDownloading ? BillingStrings.loading : BillingStrings.view,
           onSecondary: isDownloading ? null : onView,
-          primaryLabel: isDownloading ? 'Loading…' : 'Download',
+          primaryLabel: isDownloading ? BillingStrings.loading : BillingStrings.download,
           onPrimary: isDownloading ? null : onDownload,
         ),
       ],
@@ -455,7 +456,7 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = status.isEmpty
-        ? 'Statement'
+        ? BillingStrings.statement
         : status[0].toUpperCase() + status.substring(1).toLowerCase();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

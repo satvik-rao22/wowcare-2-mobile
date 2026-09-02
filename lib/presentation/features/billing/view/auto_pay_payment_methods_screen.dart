@@ -10,6 +10,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/auto_pay_methods_cubit.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/presentation/features/billing/widgets/auto_pay_token_webview.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -88,7 +89,7 @@ class _AutoPayPaymentMethodsScreenState
           _maybePositionToPrimary(state);
           return StaffFormLayout(
             title: widget.isPicker
-                ? 'Saved Payment Methods'
+                ? BillingStrings.savedPaymentMethods
                 : 'Auto Payment - ${state.autopayEnabled ? 'Enabled' : 'Disabled'}',
             child: SingleChildScrollView(
               child: Column(
@@ -130,12 +131,10 @@ class _AutoPayPaymentMethodsScreenState
       backgroundColor: AppColors.transparentColor,
       builder: (ctx) => ConfirmationBottomSheet(
         icon: Icons.autorenew,
-        title: 'Turn off Auto Payment?',
-        subtitle:
-            'Invoices will no longer be paid automatically. You can turn Auto '
-            'Payment back on anytime.',
-        confirmText: 'Turn Off',
-        cancelText: 'Keep On',
+        title: BillingStrings.turnOffAutoPayment,
+        subtitle: BillingStrings.invoicesWillNoLongerBe,
+        confirmText: BillingStrings.turnOff,
+        cancelText: BillingStrings.keepOn,
         onConfirm: () {
           confirmed = true;
           Navigator.of(ctx).pop();
@@ -188,7 +187,7 @@ class _AutoPayPaymentMethodsScreenState
                   children: [
                     const Flexible(
                       child: Text(
-                        'Auto Payment',
+                        BillingStrings.autoPayment,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -209,7 +208,7 @@ class _AutoPayPaymentMethodsScreenState
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        enabled ? 'Enabled' : 'Disabled',
+                        enabled ? BillingStrings.enabled : BillingStrings.disabled,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -222,7 +221,7 @@ class _AutoPayPaymentMethodsScreenState
                 ),
                 const SizedBox(height: 2),
                 const Text(
-                  'Automatically pay invoices using saved payment method.',
+                  BillingStrings.automaticallyPayInvoicesUsing,
                   style: TextStyle(fontSize: 12, color: Colors.black54),
                 ),
               ],
@@ -250,7 +249,7 @@ class _AutoPayPaymentMethodsScreenState
           child: Text.rich(
             TextSpan(
               children: [
-                const TextSpan(text: 'Saved Payment Methods'),
+                const TextSpan(text: BillingStrings.savedPaymentMethods),
                 WidgetSpan(
                   alignment: PlaceholderAlignment.middle,
                   child: Padding(
@@ -294,7 +293,7 @@ class _AutoPayPaymentMethodsScreenState
               size: 14, color: AppColors.successColor),
           const SizedBox(width: 6),
           Text(
-            'Secure & Encrypted',
+            BillingStrings.secureAndEncrypted,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -372,7 +371,7 @@ class _AutoPayPaymentMethodsScreenState
           const SizedBox(height: 12),
           const Center(
             child: Text(
-              'Saving your payment method...',
+              BillingStrings.savingYourPaymentMethod,
               style: TextStyle(color: Color(0xFF718096), fontSize: 12),
             ),
           ),
@@ -473,10 +472,10 @@ class _AutoPayPaymentMethodsScreenState
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               const SizedBox(width: 4),
-              if (m.autopay) _tag('AutoPay', _autopayTagBg, _autopayTagFg),
+              if (m.autopay) _tag(BillingStrings.autoPay, _autopayTagBg, _autopayTagFg),
               if (m.primary) ...[
                 if (m.autopay) const SizedBox(width: 6),
-                _tag('Primary', AppColors.billingSuccessBackground,
+                _tag(BillingStrings.primary, AppColors.billingSuccessBackground,
                     AppColors.successColor),
               ],
               const Spacer(),
@@ -627,14 +626,14 @@ class _AutoPayPaymentMethodsScreenState
             children: [
               Flexible(
                 child: _detailGroup(
-                  'Card Holder',
+                  BillingStrings.cardHolder,
                   (card?.nameOnCard ?? '').trim().isEmpty
                       ? '—'
                       : card!.nameOnCard!.toUpperCase(),
                 ),
               ),
               const SizedBox(width: 12),
-              _detailGroup('Expires', exp),
+              _detailGroup(BillingStrings.expires, exp),
             ],
           ),
         ],
@@ -660,7 +659,7 @@ class _AutoPayPaymentMethodsScreenState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'eCheck',
+                BillingStrings.echeck,
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
@@ -681,7 +680,7 @@ class _AutoPayPaymentMethodsScreenState
             children: [
               Expanded(
                 child: _detailGroup(
-                  'Account Holder Name',
+                  BillingStrings.accountHolderName,
                   e?.accountHolder ?? '—',
                   isDark: false,
                 ),
@@ -689,7 +688,7 @@ class _AutoPayPaymentMethodsScreenState
               const SizedBox(width: 12),
               Expanded(
                 child: _detailGroup(
-                  'Routing Number',
+                  BillingStrings.routingNumber,
                   e?.routingNumber ?? '—',
                   isDark: false,
                 ),
@@ -698,7 +697,7 @@ class _AutoPayPaymentMethodsScreenState
           ),
           const SizedBox(height: 12),
           _detailGroup(
-            'Last Four',
+            BillingStrings.lastFour,
             e?.last4 ?? m.last4 ?? '—',
             isDark: false,
           ),
@@ -709,25 +708,25 @@ class _AutoPayPaymentMethodsScreenState
 
   String _methodTitle(PaymentMethodEntity m) {
     if (m.label != null && m.label!.trim().isNotEmpty) return m.label!.trim();
-    if (m.isEcheck) return 'eCheck account';
+    if (m.isEcheck) return BillingStrings.echeckAccount;
     switch (m.methodType) {
       case PaymentMethodType.visa:
-        return 'Visa';
+        return BillingStrings.visa;
       case PaymentMethodType.mast:
-        return 'Mastercard';
+        return BillingStrings.mastercard;
       case PaymentMethodType.discover:
-        return 'Discover';
+        return BillingStrings.discover;
       default:
         final ct = (m.card?.cardType ?? '').trim();
-        return ct.isNotEmpty ? '$ct card' : 'Card';
+        return ct.isNotEmpty ? '$ct card' : BillingStrings.card;
     }
   }
 
   String _echeckAccountTypeLabel(String? accountType) {
     final lower = (accountType ?? '').toLowerCase();
-    if (lower == 'c' || lower.contains('checking')) return 'Checking';
-    if (lower == 's' || lower.contains('saving')) return 'Savings';
-    return accountType ?? 'Bank Account';
+    if (lower == 'c' || lower.contains('checking')) return BillingStrings.checking;
+    if (lower == 's' || lower.contains('saving')) return BillingStrings.savings;
+    return accountType ?? BillingStrings.bankAccount;
   }
 
   LinearGradient _cardGradient(String cardType) {
@@ -825,7 +824,7 @@ class _AutoPayPaymentMethodsScreenState
           Icon(Icons.credit_card_off_outlined, size: 36, color: Colors.grey),
           SizedBox(height: 8),
           Text(
-            'No saved payment methods yet.\nAdd a payment method below.',
+            BillingStrings.noSavedPaymentMethodsYet,
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.black54),
           ),
@@ -859,7 +858,7 @@ class _AutoPayPaymentMethodsScreenState
               const SizedBox(width: 8),
               Text(
                 state.canAddMore
-                    ? 'Add new payment method'
+                    ? BillingStrings.addNewPaymentMethod
                     : 'Maximum of ${state.maxMethods} methods reached',
                 style: TextStyle(
                   fontSize: 14,
@@ -932,7 +931,7 @@ class _AutoPayPaymentMethodsScreenState
                           ),
                         )
                       : Text(
-                          widget.isPicker ? 'Continue' : 'Save',
+                          widget.isPicker ? BillingStrings.continueLabel : BillingStrings.save,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 16,
@@ -950,7 +949,7 @@ class _AutoPayPaymentMethodsScreenState
               Icon(Icons.lock_outline, size: 14, color: Colors.grey.shade500),
               const SizedBox(width: 6),
               Text(
-                'Your payment information is secure and encrypted.',
+                BillingStrings.yourPaymentInformationIsSecure,
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
             ],
@@ -979,7 +978,7 @@ class _AutoPayPaymentMethodsScreenState
     if (ok) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'AutoPay settings saved',
+        message: BillingStrings.autoPaySettingsSaved,
         isSuccess: true,
       );
       Navigator.of(context).pop(true);
@@ -1002,7 +1001,7 @@ class _AutoPayPaymentMethodsScreenState
           if (ok) {
             CoreUtils.showTopSnackBar(
               context: context,
-              message: 'Payment method removed',
+              message: BillingStrings.paymentMethodRemoved,
               isSuccess: true,
             );
           }
@@ -1017,7 +1016,7 @@ class _AutoPayPaymentMethodsScreenState
     final result = await context.push<dynamic>(
       AutoPayTokenWebView.routeName,
       extra: AutoPayTokenWebViewArgs(
-        payload: _cubit.buildWebviewPayload(title: 'Add Payment Method'),
+        payload: _cubit.buildWebviewPayload(title: BillingStrings.addPaymentMethod),
       ),
     );
     if (!mounted || result is! Map) return;
@@ -1028,10 +1027,10 @@ class _AutoPayPaymentMethodsScreenState
           ? (error['response_description'] ??
                   error['response_text'] ??
                   error['error_message'] ??
-                  'Unable to add payment method. Please try again.')
+                  BillingStrings.unableToAddPaymentMethod)
               .toString()
           : (error?.toString() ??
-              'Unable to add payment method. Please try again.');
+              BillingStrings.unableToAddPaymentMethod);
       CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
       return;
     }
@@ -1043,7 +1042,7 @@ class _AutoPayPaymentMethodsScreenState
     if (token.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Invalid payment token received from Forte. Please try again.',
+        message: BillingStrings.invalidPaymentTokenReceived,
         isError: true,
       );
       return;
@@ -1068,7 +1067,7 @@ class _AutoPayPaymentMethodsScreenState
     if (ok) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Payment method added',
+        message: BillingStrings.paymentMethodAdded,
         isSuccess: true,
       );
     }
@@ -1086,7 +1085,7 @@ class _AutoPayPaymentMethodsScreenState
     if (!mounted || saved != true) return;
     CoreUtils.showTopSnackBar(
       context: context,
-      message: 'Payment method updated',
+      message: BillingStrings.paymentMethodUpdated,
       isSuccess: true,
     );
   }
@@ -1221,7 +1220,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                 ),
               ),
               const Text(
-                'Edit Payment Method',
+                BillingStrings.editPaymentMethod,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -1229,19 +1228,19 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                 ),
               ),
               const SizedBox(height: 16),
-              _label('Account Holder Name'),
+              _label(BillingStrings.accountHolderName),
               _field(
                 controller: _holder,
-                hint: 'ENTER ACCOUNT HOLDER NAME',
+                hint: BillingStrings.enterAccountHolderName,
                 formatters: _holderFormatters(),
                 capsAll: true,
               ),
               if (_isEcheck) ...[
                 const SizedBox(height: 14),
-                _label('Routing Number'),
+                _label(BillingStrings.routingNumber),
                 _field(
                   controller: _routing,
-                  hint: 'Enter routing number',
+                  hint: BillingStrings.enterRoutingNumber,
                   keyboardType: TextInputType.number,
                   formatters: [
                     FilteringTextInputFormatter.digitsOnly,
@@ -1250,10 +1249,10 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                 ),
                 const SizedBox(height: 14),
                 CustomDropdown(
-                  label: 'Account Type',
-                  hintText: 'Select Account Type',
-                  items: const ['Checking', 'Savings'],
-                  selectedItem: _accountType == 'savings' ? 'Savings' : 'Checking',
+                  label: BillingStrings.accountType,
+                  hintText: BillingStrings.selectAccountType,
+                  items: const [BillingStrings.checking, BillingStrings.savings],
+                  selectedItem: _accountType == 'savings' ? BillingStrings.savings : BillingStrings.checking,
                   labelStyle: _ddLabel,
                   showAsterisk: false,
                   labelBottomSpacing: 6,
@@ -1271,7 +1270,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                   children: [
                     Expanded(
                       child: CustomDropdown(
-                        label: 'Expiry Month',
+                        label: BillingStrings.expiryMonth,
                         hintText: 'MM',
                         items: months,
                         selectedItem:
@@ -1288,7 +1287,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: CustomDropdown(
-                        label: 'Expiry Year',
+                        label: BillingStrings.expiryYear,
                         hintText: 'YYYY',
                         items: years,
                         selectedItem:
@@ -1307,25 +1306,25 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
               ],
               const SizedBox(height: 16),
               _toggleRow(
-                title: 'Make Primary',
-                subtitle: 'Use this as the default payment method.',
+                title: BillingStrings.makePrimary,
+                subtitle: BillingStrings.useThisAsTheDefault,
                 value: _makePrimary,
                 // Already primary → can't be unset here; tapping explains how to
                 // change it (promote another card) instead of toggling.
                 lockedMessage: widget.method.primary
-                    ? 'This card is already primary. Set another card as primary to change it.'
+                    ? BillingStrings.thisCardIsAlreadyPrimary
                     : null,
                 onChanged: (v) => setState(() => _makePrimary = v),
               ),
               const SizedBox(height: 10),
               _toggleRow(
-                title: 'Use for AutoPay',
-                subtitle: 'Automatically deduct outstanding balances.',
+                title: BillingStrings.useForAutoPay,
+                subtitle: BillingStrings.automaticallyDeductOutstandingBalances,
                 value: _makeAutopay,
                 // Already the AutoPay card → no per-method unset; tapping explains
                 // to use another card for AutoPay.
                 lockedMessage: widget.method.autopay
-                    ? 'This card is already used for AutoPay. Set another card for AutoPay to change it.'
+                    ? BillingStrings.thisCardIsAlreadyUsed
                     : null,
                 onChanged: (v) => setState(() => _makeAutopay = v),
               ),
@@ -1356,7 +1355,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                                 ),
                               )
                             : const Text(
-                                'Save Changes',
+                                BillingStrings.saveChanges,
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 15,

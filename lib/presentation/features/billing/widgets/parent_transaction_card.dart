@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
@@ -70,19 +71,19 @@ class ParentTransactionCard extends StatelessWidget {
     switch (_type) {
       case 'invoice':
         return (
-          label: 'Invoice',
+          label: BillingStrings.invoice,
           color: AppColors.billingInvoiceBadgeColor,
           textColor: AppColors.secondaryColor,
         );
       case 'refund':
         return (
-          label: 'Refund',
+          label: BillingStrings.refund,
           color: AppColors.billingRefundBadgeColor,
           textColor: AppColors.billingGreyDark,
         );
       default:
         return (
-          label: 'Payment',
+          label: BillingStrings.payment,
           color: AppColors.billingPaymentBadgeColor,
           textColor: AppColors.secondaryColor,
         );
@@ -122,39 +123,39 @@ class ParentTransactionCard extends StatelessWidget {
     if (transaction.method.isNotEmpty && _type != 'invoice') {
       expanded
         ..add(StaffCardDetailRow(
-          label: 'Payment Method',
+          label: BillingStrings.paymentMethod,
           value: transaction.method,
         ))
         ..add(const SizedBox(height: 10));
     }
     expanded.add(StaffCardDetailRow(
-      label: 'Status',
+      label: BillingStrings.status,
       value: _formatStatus(transaction.status),
     ));
     expanded.add(const SizedBox(height: 10));
     if (transaction.description.isNotEmpty) {
       expanded.add(StaffCardDetailRow(
-        label: 'Description',
+        label: BillingStrings.description,
         value: transaction.description,
       ));
       expanded.add(const SizedBox(height: 10));
     }
     if (transaction.items.isNotEmpty) {
       expanded.add(StaffCardDetailRow(
-        label: 'Items',
+        label: BillingStrings.items,
         value: transaction.items.join(', '),
       ));
       expanded.add(const SizedBox(height: 10));
     }
     expanded.add(StaffCardDetailRow(
-      label: 'Amount',
+      label: BillingStrings.amount,
       value: '\$${transaction.amount.toStringAsFixed(2)}',
     ));
     if (_type == 'payment') {
       expanded
         ..add(const SizedBox(height: 16))
         ..add(StaffCardActions(
-          primaryLabel: 'View Receipt',
+          primaryLabel: BillingStrings.viewReceipt,
           onPrimary: () => context.push(
             ViewReceiptScreen.routeName,
             extra: ViewReceiptArgs(
@@ -167,7 +168,7 @@ class ParentTransactionCard extends StatelessWidget {
       expanded
         ..add(const SizedBox(height: 16))
         ..add(StaffCardActions(
-          primaryLabel: 'View Invoice',
+          primaryLabel: BillingStrings.viewInvoice,
           onPrimary: () => context.push(
             ViewInvoiceScreen.routeName,
             extra: ViewInvoiceArgs(
@@ -255,7 +256,7 @@ class ParentStatementCard extends StatelessWidget {
     this.onView,
   });
 
-  String get _title => studentNames.isNotEmpty ? studentNames : 'Statement';
+  String get _title => studentNames.isNotEmpty ? studentNames : BillingStrings.statement;
 
   String get _formattedType => statement.statementType.isEmpty
       ? '—'
@@ -284,7 +285,7 @@ class ParentStatementCard extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           _Badge(
-            label: 'Statement',
+            label: BillingStrings.statement,
             color: AppColors.billingPaymentBadgeColor,
             textColor: AppColors.secondaryColor,
           ),
@@ -292,19 +293,19 @@ class ParentStatementCard extends StatelessWidget {
       ),
       expandedChildren: [
         StaffCardDetailRow(
-          label: 'Statement Type',
+          label: BillingStrings.statementType,
           value: _formattedType,
         ),
         const SizedBox(height: 10),
         StaffCardDetailRow(
-          label: 'Generated On',
+          label: BillingStrings.generatedOn,
           value: generatedAt != null
               ? DateUtilsNew.formatToReadableDate(generatedAt)
               : '—',
         ),
         const SizedBox(height: 10),
         StaffCardDetailRow(
-          label: 'Statement Period',
+          label: BillingStrings.statementPeriod,
           value:
               '${DateUtilsNew.formatToReadableDate(statement.periodStart)} - ${DateUtilsNew.formatToReadableDate(statement.periodEnd)}',
         ),
@@ -313,9 +314,9 @@ class ParentStatementCard extends StatelessWidget {
           // Both actions share the same fetch-in-flight flag, so the label
           // stays generic rather than claiming "Downloading…" while a View
           // fetch is actually what's in flight.
-          secondaryLabel: isDownloading ? 'Loading…' : 'View',
+          secondaryLabel: isDownloading ? BillingStrings.loading : BillingStrings.view,
           onSecondary: isDownloading ? null : onView,
-          primaryLabel: isDownloading ? 'Loading…' : 'Download',
+          primaryLabel: isDownloading ? BillingStrings.loading : BillingStrings.download,
           onPrimary: isDownloading ? null : onDownload,
         ),
       ],

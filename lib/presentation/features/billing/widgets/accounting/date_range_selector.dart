@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/date_range_cubit.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -73,7 +74,7 @@ class _AccountingDateRangeSelectorState
     if (_startDate != null && _endDate != null) {
       return '${_formatShort(_startDate!)} - ${_formatShort(_endDate!)}';
     }
-    return 'Select Date Range';
+    return BillingStrings.selectDateRange;
   }
 
   Future<void> _openPicker() async {
@@ -126,7 +127,7 @@ class _AccountingDateRangeSelectorState
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Select Date Range',
+                        BillingStrings.selectDateRange,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w400,

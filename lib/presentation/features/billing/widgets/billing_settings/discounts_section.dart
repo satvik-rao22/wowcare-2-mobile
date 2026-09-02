@@ -13,6 +13,7 @@ import 'package:wowcare/presentation/features/billing/view/billing_settings/add_
 import 'package:wowcare/presentation/features/billing/model/discount_account_model.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_settings/discount_card.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_settings/edit_discount_screen.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -93,8 +94,8 @@ class _DiscountsSectionState extends State<DiscountsSection> {
           if (!mounted) return;
           Navigator.of(ctx).pop();
           _showResult(ok,
-              success: 'Discount deactivated.',
-              fail: 'Failed to deactivate.');
+              success: BillingStrings.discountDeactivated,
+              fail: BillingStrings.failedToDeactivate);
         },
       ),
     );
@@ -117,8 +118,8 @@ class _DiscountsSectionState extends State<DiscountsSection> {
           if (!mounted) return;
           Navigator.of(ctx).pop();
           _showResult(ok,
-              success: 'Discount reactivated.',
-              fail: 'Failed to reactivate.');
+              success: BillingStrings.discountReactivated,
+              fail: BillingStrings.failedToReactivate);
         },
       ),
     );
@@ -141,8 +142,8 @@ class _DiscountsSectionState extends State<DiscountsSection> {
           if (!mounted) return;
           Navigator.of(ctx).pop();
           _showResult(ok,
-              success: 'Discount deleted.',
-              fail: 'Failed to delete.');
+              success: BillingStrings.discountDeleted,
+              fail: BillingStrings.failedToDelete);
         },
       ),
     );
@@ -176,7 +177,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Discounts Configuration',
+                      BillingStrings.discountsConfiguration,
                       style: TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: isTablet ? 20.0 : 16.0,
@@ -197,7 +198,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                   children: [
                     CustomSearchBar(
                       controller: _searchController,
-                      hintText: 'Search discounts...',
+                      hintText: BillingStrings.searchDiscounts,
                       onChanged: _cubit.setSearchQuery,
                     ),
                     const SizedBox(height: 10),
@@ -206,7 +207,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                         CustomClearAllChip(onTap: _clearFilters),
                         const Spacer(),
                         CustomToggle(
-                          label: 'Show inactive',
+                          label: BillingStrings.showInactive,
                           isToggled: showInactive,
                           labelOnLeftSide: true,
                           labelStyle: const TextStyle(
@@ -244,7 +245,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                           color: AppColors.errorColor.withValues(alpha: 0.5)),
                       const SizedBox(height: 12),
                       Text(
-                        'Failed to load discounts.',
+                        BillingStrings.failedToLoadDiscounts,
                         textAlign: TextAlign.center,
                         style: AppTextStyles.title.copyWith(
                             fontSize: 15,
@@ -253,7 +254,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                       const SizedBox(height: 8),
                       TextButton(
                           onPressed: _cubit.loadInitial,
-                          child: const Text('Retry')),
+                          child: const Text(BillingStrings.retry)),
                     ],
                   ),
                 )
@@ -270,7 +271,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                               .withValues(alpha: 0.3)),
                       const SizedBox(height: 12),
                       Text(
-                        'No discounts found.',
+                        BillingStrings.noDiscountsFound,
                         textAlign: TextAlign.center,
                         style: AppTextStyles.title.copyWith(
                             fontSize: 15,
@@ -348,7 +349,7 @@ class _AddDiscountButton extends StatelessWidget {
             Icon(Icons.add, color: Colors.white, size: 18),
             SizedBox(width: 4),
             Text(
-              'Add Discount',
+              BillingStrings.addDiscount,
               style: TextStyle(
                 fontFamily: 'Manrope',
                 fontSize: 14,

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/select_students_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -68,7 +69,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
               );
 
           return StaffFormLayout(
-            title: 'Select Students',
+            title: BillingStrings.selectStudents,
             bottomBar: _buildBottomBar(context),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -88,7 +89,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                           Expanded(
                             child: CustomSearchBar(
                               controller: _searchController,
-                              hintText: 'Search Students',
+                              hintText: BillingStrings.searchStudents,
                               onChanged: (value) =>
                                   _cubit.setSearchQuery(value),
                             ),
@@ -104,7 +105,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                       ),
                       const SizedBox(height: 12),
                       CustomMultiSelectDropdown(
-                        hintText: 'Select Classroom',
+                        hintText: BillingStrings.selectClassroom,
                         items: state.classroomNames,
                         selectedItems: state.selectedClassroomNames,
                         showSelectAll: true,
@@ -116,7 +117,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                         children: [
                           Expanded(
                             child: CustomMultiSelectDropdown(
-                              hintText: 'Tags',
+                              hintText: BillingStrings.tags,
                               items: state.tagNames,
                               selectedItems: state.selectedTagNames,
                               showSelectAll: true,
@@ -126,7 +127,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: CustomMultiSelectDropdown(
-                              hintText: 'Status',
+                              hintText: BillingStrings.status,
                               items: _statusOptions,
                               selectedItems: [state.selectedStatus],
                               onChanged: (values) => _cubit.setStatus(values),
@@ -140,7 +141,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                 const SizedBox(height: 8),
                 CustomCheckbox(
                   value: areAllSelected,
-                  label: 'Select All',
+                  label: BillingStrings.selectAll,
                   labelStyle: const TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: 14,
@@ -172,7 +173,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                           : filtered.isEmpty
                               ? const Center(
                                   child: Text(
-                                    'No students found.',
+                                    BillingStrings.noStudentsFound,
                                     style: TextStyle(
                                       fontFamily: 'Manrope',
                                       fontSize: 14,
@@ -242,7 +243,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
             if (selectedStudents.isEmpty) {
               CoreUtils.showTopSnackBar(
                 context: context,
-                message: 'Please select at least one student.',
+                message: BillingStrings.pleaseSelectAtLeastOneStudent,
                 isWarning: true,
               );
               return;
@@ -264,7 +265,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
               CoreUtils.showTopSnackBar(
                 context: context,
                 message: _cubit.state.errorMessage ??
-                    'Could not verify students. Please try again.',
+                    BillingStrings.couldNotVerifyStudents,
                 isWarning: true,
               );
               return;
@@ -313,7 +314,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                   ),
                 )
               : const Text(
-                  'Next',
+                  BillingStrings.next,
                   style: TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: 16.0,

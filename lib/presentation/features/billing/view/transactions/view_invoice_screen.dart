@@ -6,6 +6,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_list_entity.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_invoice_by_code_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_profile_usecase.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -109,7 +110,7 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
   @override
   Widget build(BuildContext context) {
     return StaffFormLayout(
-      title: 'View Invoice',
+      title: BillingStrings.viewInvoice,
       bottomBar: _buildBottomBar(),
       child: SingleChildScrollView(
         child: Column(
@@ -134,7 +135,7 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         const Text(
-          'Billed for : ',
+          BillingStrings.billedForColon,
           style: TextStyle(
             color: AppColors.primaryColor,
             fontSize: 15,
@@ -178,13 +179,15 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
     // invoiceCode), so the screen never renders with no date at all.
     final rows = <Widget>[
       if (_invoiceNumberLabel != null)
-        _metaRow('Invoice Number', _invoiceNumberLabel!),
-      if (_dueDateLabel != null) _metaRow('Due Date', _dueDateLabel!),
+        _metaRow(BillingStrings.invoiceNumber, _invoiceNumberLabel!),
+      if (_dueDateLabel != null)
+        _metaRow(BillingStrings.dueDate, _dueDateLabel!),
       if (_invoicePeriodLabel != null)
-        _metaRow('Invoice Period', _invoicePeriodLabel!),
+        _metaRow(BillingStrings.invoicePeriod, _invoicePeriodLabel!),
     ];
     if (rows.isEmpty) {
-      rows.add(_metaRow('Invoice Date', _formatDate(widget.transaction.date)));
+      rows.add(_metaRow(
+          BillingStrings.invoiceDate, _formatDate(widget.transaction.date)));
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -237,7 +240,7 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
               Expanded(
                 flex: 4,
                 child: Text(
-                  'Description',
+                  BillingStrings.description,
                   style: TextStyle(
                     fontSize: 14,
                     color: AppColors.primaryColor.withValues(alpha: 0.6),
@@ -245,7 +248,7 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
                 ),
               ),
               Text(
-                'Amount',
+                BillingStrings.amount,
                 style: TextStyle(
                   fontSize: 14,
                   color: AppColors.primaryColor.withValues(alpha: 0.6),
@@ -288,7 +291,7 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Total Amount',
+                  BillingStrings.totalAmount,
                   style: TextStyle(
                     color: AppColors.primaryColor,
                     fontSize: 17,
@@ -329,7 +332,7 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
               ),
             ),
             child: Text(
-              'Send Invoice',
+              BillingStrings.sendInvoice,
               style: TextStyle(
                 color: AppColors.billingButtonTextColor,
                 fontSize: 16,

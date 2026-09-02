@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/transaction_card_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_student_vertical_popup.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
@@ -411,33 +412,33 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
 
     if (type == 'invoice') {
       content
-        ..add(_infoRow('Description', widget.transaction.displayDescription))
+        ..add(_infoRow(BillingStrings.description, widget.transaction.displayDescription))
         ..add(const SizedBox(height: 10))
-        ..add(_primaryButton('View Invoice', widget.onView));
+        ..add(_primaryButton(BillingStrings.viewInvoice, widget.onView));
     } else if (type == 'payment') {
       if (widget.transaction.paymentMode != null &&
           widget.transaction.paymentMode!.isNotEmpty) {
         content
-          ..add(_infoRow('Payment Method', widget.transaction.paymentMode!))
+          ..add(_infoRow(BillingStrings.paymentMethod, widget.transaction.paymentMode!))
           ..add(const SizedBox(height: 10));
       }
       content
-        ..add(_infoRow('Description', widget.transaction.displayDescription))
+        ..add(_infoRow(BillingStrings.description, widget.transaction.displayDescription))
         ..add(const SizedBox(height: 10))
-        ..add(_primaryButton('View Receipt', widget.onViewReceipt));
+        ..add(_primaryButton(BillingStrings.viewReceipt, widget.onViewReceipt));
     } else if (type == 'refund') {
       if (widget.transaction.paymentMode != null &&
           widget.transaction.paymentMode!.isNotEmpty) {
         content
-          ..add(_infoRow('Payment Method', widget.transaction.paymentMode!))
+          ..add(_infoRow(BillingStrings.paymentMethod, widget.transaction.paymentMode!))
           ..add(const SizedBox(height: 10));
       }
       content
-        ..add(_infoRow('Description', widget.transaction.displayDescription))
+        ..add(_infoRow(BillingStrings.description, widget.transaction.displayDescription))
         ..add(const SizedBox(height: 10))
-        ..add(_primaryButton('View Receipt', widget.onViewReceipt));
+        ..add(_primaryButton(BillingStrings.viewReceipt, widget.onViewReceipt));
     } else {
-      content.add(_primaryButton('View', widget.onView));
+      content.add(_primaryButton(BillingStrings.view, widget.onView));
     }
     return content;
   }
@@ -487,7 +488,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
-          'Student Name',
+          BillingStrings.studentName,
           style: AppTextStyles.small.copyWith(
             fontSize: 13,
             color: AppColors.billingTextColor,
@@ -519,11 +520,11 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
   String _badgeLabel(String type) {
     switch (type) {
       case 'invoice':
-        return 'Invoice';
+        return BillingStrings.invoice;
       case 'payment':
-        return 'Payment';
+        return BillingStrings.payment;
       case 'refund':
-        return 'Refund';
+        return BillingStrings.refund;
       default:
         return widget.transaction.transactionType;
     }
@@ -652,25 +653,25 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
 
   String _formatStatus(String status) {
     // Format status for display in badge
-    if (status.isEmpty) return 'Pending';
+    if (status.isEmpty) return BillingStrings.pending;
 
     // Common status mappings
     switch (status.toLowerCase()) {
       case 'sent':
       case 'invoice sent':
-        return 'Sent';
+        return BillingStrings.sent;
       case 'pending':
       case 'in progress':
-        return 'In Progress';
+        return BillingStrings.inProgress;
       case 'in_process':
       case 'in process':
-        return 'In Process';
+        return BillingStrings.inProcess;
       case 'paid':
       case 'completed':
-        return 'Paid';
+        return BillingStrings.paid;
       case 'cancelled':
       case 'canceled':
-        return 'Cancelled';
+        return BillingStrings.cancelled;
       default:
         // Capitalize first letter of each word, treating underscores as spaces
         // (e.g. backend's `IN_PROCESS` → `In Process`).

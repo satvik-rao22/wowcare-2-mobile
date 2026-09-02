@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/model/auto_pay_webview_payload.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
@@ -80,7 +81,7 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Payment Method'),
+        title: const Text(BillingStrings.addPaymentMethod),
         backgroundColor: AppColors.transparentColor,
         foregroundColor: Colors.white,
         elevation: 0,

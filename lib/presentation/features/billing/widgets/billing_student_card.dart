@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -153,7 +154,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
           final String paymentStatusText =
               widget.lastPaymentStatus.trim().isNotEmpty
                   ? widget.lastPaymentStatus
-                  : 'NOT PAID';
+                  : BillingStrings.notPaid;
           final bool hasInvoice = widget.lastInvoiceAmount > 0 ||
               widget.lastInvoiceSent.trim() != '-';
 
@@ -264,7 +265,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                                         MainAxisSize.min,
                                                     children: [
                                                       Text(
-                                                        'Payment',
+                                                        BillingStrings.payment,
                                                         style: TextStyle(
                                                           fontFamily: 'Manrope',
                                                           fontSize:
@@ -301,7 +302,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                                     ],
                                                   )
                                                 : Text(
-                                                    'Not setup',
+                                                    BillingStrings.notSetup,
                                                     style: TextStyle(
                                                       fontFamily: 'Manrope',
                                                       fontSize:
@@ -337,29 +338,29 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   _buildDetailRow(
-                                    label: 'Payment Method',
+                                    label: BillingStrings.paymentMethod,
                                     value: widget.paymentMethod,
                                     note: widget.paymentNote,
                                   ),
                                   const SizedBox(height: 10),
                                   _buildDetailRow(
-                                    label: 'Last Payment Status',
+                                    label: BillingStrings.lastPaymentStatus,
                                     value: paymentStatusText,
                                     valueColor: statusColor,
                                   ),
                                   const SizedBox(height: 10),
                                   _buildDetailRow(
-                                    label: 'Last Invoice',
+                                    label: BillingStrings.lastInvoice,
                                     value: hasInvoice
                                         ? '\$${widget.lastInvoiceAmount.toStringAsFixed(0)}'
-                                        : 'NO INVOICE',
+                                        : BillingStrings.noInvoice,
                                     note: hasInvoice
                                         ? 'SENT: ${widget.lastInvoiceSent}   DUE: ${widget.lastInvoiceDue}'
                                         : null,
                                   ),
                                   const SizedBox(height: 10),
                                   _buildDetailRow(
-                                    label: 'Open Balance',
+                                    label: BillingStrings.openBalance,
                                     value:
                                         '\$${widget.openBalance.toStringAsFixed(0)}',
                                   ),
@@ -381,7 +382,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                             padding: EdgeInsets.zero,
                                           ),
                                           child: const Text(
-                                            'View',
+                                            BillingStrings.view,
                                             style: TextStyle(
                                               fontFamily: 'Manrope',
                                               fontSize: 16,

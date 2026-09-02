@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
 import 'package:wowcare/presentation/features/billing/model/student_models.dart';
@@ -112,7 +113,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Invoice Details',
+                BillingStrings.invoiceDetails,
                 style: _ts(16, FontWeight.w700),
               ),
               const SizedBox(height: 12),
@@ -122,7 +123,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
               child: Row(
                 children: [
                   Text(
-                    'Due Date: ',
+                    BillingStrings.dueDate,
                     style: _ts(14, FontWeight.w400,
                         color: _text.withValues(alpha: 0.6)),
                   ),
@@ -139,7 +140,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
               child: Row(
                 children: [
                   Text(
-                    'Service Period: ',
+                    BillingStrings.servicePeriod,
                     style: TextStyle(
                       fontSize: 14,
                       color: AppColors.billingGreyMedium,
@@ -166,7 +167,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Internal Note:',
+                    BillingStrings.internalNoteLabel,
                     style: TextStyle(
                       fontSize: 14,
                       color: AppColors.billingGreyMedium,
@@ -192,7 +193,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
               Expanded(
                 flex: 3,
                 child: Text(
-                  'Description',
+                  BillingStrings.description,
                   style: _ts(15, FontWeight.w400,
                       color: _text.withValues(alpha: 0.6)),
                   textAlign: TextAlign.start,
@@ -201,7 +202,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
               Expanded(
                 flex: 1,
                 child: Text(
-                  'Amount',
+                  BillingStrings.amount,
                   style: _ts(15, FontWeight.w400,
                       color: _text.withValues(alpha: 0.6)),
                   textAlign: TextAlign.end,
@@ -277,7 +278,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12.0),
               child: Text(
-                'No students selected. Go back to add a student.',
+                BillingStrings.noStudentsSelectedGoBack,
                 style: _ts(14, FontWeight.w400,
                     color: _text.withValues(alpha: 0.6)),
               ),
@@ -308,7 +309,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                           Text(
                             student.tags.isNotEmpty
                                 ? '${student.tags.first.id} - ${student.tags.first.name} - ${student.roomName ?? 'N/A'}'
-                                : student.roomName ?? 'No details available',
+                                : student.roomName ?? BillingStrings.noDetailsAvailable,
                             style: _ts(14, FontWeight.w400,
                                 color: _text.withValues(alpha: 0.6)),
                           ),
@@ -347,7 +348,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
     if (isProcessing) return;
     if (_students.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add at least one student to the invoice.')),
+        const SnackBar(content: Text(BillingStrings.addAtLeastOneStudentToInvoice)),
       );
       return;
     }
@@ -376,7 +377,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     return StaffFormLayout(
-      title: widget.isConfirmation ? 'Invoice Receipt' : 'Invoice Preview',
+      title: widget.isConfirmation ? BillingStrings.invoiceReceipt : BillingStrings.invoicePreview,
       bottomBar: _buildBottomBar(),
       child: SingleChildScrollView(
         child: Column(
@@ -437,19 +438,19 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         child: widget.isConfirmation
-            ? gradientButton('Done', () => Navigator.of(context).pop())
+            ? gradientButton(BillingStrings.done, () => Navigator.of(context).pop())
             : Row(
                 children: [
                   Expanded(
                     child: gradientButton(
-                      'Save',
+                      BillingStrings.save,
                       (isProcessing || _students.isEmpty) ? null : _onSave,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: gradientButton(
-                      'Save and Send',
+                      BillingStrings.saveAndSend,
                       (isProcessing || _students.isEmpty)
                           ? null
                           : _onSaveAndSend,

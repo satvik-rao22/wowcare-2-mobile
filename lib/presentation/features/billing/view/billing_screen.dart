@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/billing_events.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 // import 'package:wowcare/presentation/features/billing/widgets/subsidies/subsidies_section.dart'; // Subsidies not implemented yet
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -40,13 +41,13 @@ class BillingScreen extends StatefulWidget {
 class _BillingScreenState extends State<BillingScreen>
     with SingleTickerProviderStateMixin, SchoolSwitchReloadMixin {
   static const List<String> _tabs = <String>[
-    'Student(s)',
-    'Transactions',
+    BillingStrings.studentS,
+    BillingStrings.transactions,
     // 'Recurring Plans',
-    'General Ledger',
+    BillingStrings.generalLedger,
     // 'Subsidies', // Not implemented yet - hidden for all personas
-    'Analytics',
-    'Billing Settings',
+    BillingStrings.analytics,
+    BillingStrings.billingSettings,
   ];
   final ValueNotifier<LedgerAccountModel?> _ledgerCreationNotifier =
       ValueNotifier<LedgerAccountModel?>(null);
@@ -224,7 +225,7 @@ class _BillingScreenState extends State<BillingScreen>
                             children: [
                               Expanded(
                                 child: Text(
-                                  'Billing',
+                                  BillingStrings.billing,
                                   style: TextStyle(
                                     fontFamily: 'Manrope',
                                     fontSize: titleFontSize,
@@ -246,7 +247,7 @@ class _BillingScreenState extends State<BillingScreen>
                                     onTap: () async {
                                       final bool isGeneralLedgerTab =
                                           controller.index ==
-                                              _tabs.indexOf('General Ledger');
+                                              _tabs.indexOf(BillingStrings.generalLedger);
                                       if (isGeneralLedgerTab) {
                                         final result = await context.push(
                                           CreateLedgerScreen.routeName,
@@ -259,7 +260,7 @@ class _BillingScreenState extends State<BillingScreen>
                                       }
                                       final bool isTransactionsTab =
                                           controller.index ==
-                                              _tabs.indexOf('Transactions');
+                                              _tabs.indexOf(BillingStrings.transactions);
                                       if (isTransactionsTab) {
                                         showDialog<void>(
                                           context: context,
@@ -335,7 +336,7 @@ class _BillingScreenState extends State<BillingScreen>
                             child: Row(
                               children: [
                                 IconButton(
-                                  tooltip: 'Scroll tabs',
+                                  tooltip: BillingStrings.scrollTabs,
                                   padding: EdgeInsets.zero,
                                   visualDensity: VisualDensity.compact,
                                   constraints: const BoxConstraints.tightFor(width: 26, height: 32),
@@ -386,7 +387,7 @@ class _BillingScreenState extends State<BillingScreen>
                                   ),
                                 ),
                                 IconButton(
-                                  tooltip: 'Scroll tabs',
+                                  tooltip: BillingStrings.scrollTabs,
                                   padding: EdgeInsets.zero,
                                   visualDensity: VisualDensity.compact,
                                   constraints: const BoxConstraints.tightFor(width: 26, height: 32),

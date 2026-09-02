@@ -5,6 +5,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/create_invoice_cubit.dart';
 import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
 import 'package:wowcare/presentation/features/billing/model/student_models.dart';
@@ -72,7 +73,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     if (_students.length <= 1) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'At least one student must be selected.',
+        message: BillingStrings.atLeastOneStudentMustBeSelected,
         isWarning: true,
       );
       return;
@@ -125,7 +126,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     if (!_validateRequiredFields()) return;
     if (_invoiceItems
         .every((item) => item.amountController.text.trim().isEmpty)) {
-      _showValidationMessage('Please enter at least one invoice item amount');
+      _showValidationMessage(BillingStrings.pleaseEnterAtLeastOneInvoiceItemAmount);
       return;
     }
 
@@ -177,7 +178,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     );
     if (!mounted) return false;
     if (!result.success) {
-      _showValidationMessage(result.error ?? 'Could not create the invoice.');
+      _showValidationMessage(result.error ?? BillingStrings.couldNotCreateTheInvoice);
       return false;
     }
     CoreUtils.showTopSnackBar(
@@ -200,7 +201,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           final isTablet = responsive.isTablet;
 
           return StaffFormLayout(
-            title: 'Create Invoice',
+            title: BillingStrings.createInvoice,
             bottomBar: _buildBottomBar(responsive),
             child: ListView(
               padding: EdgeInsets.zero,
@@ -212,7 +213,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 SizedBox(height: responsive.verticalSpacing),
                 _buildDateField(
                   responsive: responsive,
-                  label: 'Invoice Due Date',
+                  label: BillingStrings.invoiceDueDate,
                   value: _dueDate,
                   onSelected: _cubit.setDueDate,
                 ),
@@ -270,7 +271,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             child: TextButton(
               onPressed: isSubmitting ? null : _openPreview,
               child: Text(
-                'Preview Invoice',
+                BillingStrings.previewInvoice,
                 style: AppTextStyles.button(color: AppColors.billingCardColor)
                     .copyWith(fontSize: responsive.buttonFontSize),
               ),
@@ -313,7 +314,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Date of Service (Optional)', style: _formLabelStyle(responsive)),
+        Text(BillingStrings.dateOfServiceOptional, style: _formLabelStyle(responsive)),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -328,7 +329,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Text('to', style: _formLabelStyle(responsive)),
+              child: Text(BillingStrings.to, style: _formLabelStyle(responsive)),
             ),
             Expanded(
               child: _buildDateField(
@@ -355,7 +356,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           children: [
             Expanded(
               child: _requiredLabel(
-                'Invoice Items',
+                BillingStrings.invoiceItems,
                 TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: responsive.labelFontSize,
@@ -399,7 +400,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Total',
+                BillingStrings.total,
                 style: AppTextStyles.label.copyWith(
                   fontWeight: FontWeight.w600,
                   color: AppColors.billingTextColor,
@@ -452,7 +453,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             children: [
               Expanded(
                 child: Text(
-                  index == 0 ? 'Item 1' : 'Item ${index + 1}',
+                  index == 0 ? BillingStrings.item1 : 'Item ${index + 1}',
                   style: labelStyle.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
@@ -483,9 +484,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           ),
           const SizedBox(height: 12),
           CustomDropdown(
-            label: 'Type',
+            label: BillingStrings.type,
             showAsterisk: false,
-            hintText: 'Select type',
+            hintText: BillingStrings.selectType,
             items: typeOptions,
             selectedItem: safeTypeValue,
             isEnabled: !_isFormLocked,
@@ -498,7 +499,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           const SizedBox(height: 12),
           if (isCatalogType)
             CustomDropdown(
-              label: 'Item Description',
+              label: BillingStrings.itemDescription,
               showAsterisk: true,
               hintText: descriptionOptions.isEmpty
                   ? (_cubit.state.catalogLoaded
@@ -517,10 +518,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           else
             _ItemTextField(
               responsive: responsive,
-              label: 'Item Description',
+              label: BillingStrings.itemDescription,
               controller: item.descriptionController,
               enabled: !_isFormLocked,
-              hintText: 'Enter item description',
+              hintText: BillingStrings.enterItemDescription,
               onChanged: (value) =>
                   _updateInvoiceItem(index, description: value),
             ),
@@ -535,7 +536,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   flex: 3,
                   child: _ItemTextField(
                     responsive: responsive,
-                    label: 'Value',
+                    label: BillingStrings.value,
                     controller: item.valueController,
                     enabled: !_isFormLocked,
                     hintText: '0',
@@ -548,7 +549,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 Expanded(
                   flex: 2,
                   child: CustomDropdown(
-                    label: 'Type',
+                    label: BillingStrings.type,
                     showAsterisk: false,
                     hintText: '%',
                     items: const ['%', 'Flat'],
@@ -574,11 +575,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           // read-only (not editable) but kept white — not greyed out.
           _ItemTextField(
             responsive: responsive,
-            label: 'Amount',
+            label: BillingStrings.amount,
             controller: item.amountController,
             enabled: !_isFormLocked,
             readOnly: isCatalogType,
-            hintText: isCatalogType ? 'Auto-filled' : '\$0',
+            hintText: isCatalogType ? BillingStrings.autoFilled : '\$0',
             keyboardType: TextInputType.number,
             onChanged: (value) => _updateInvoiceItem(index, amount: value),
           ),
@@ -600,7 +601,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         icon: Icon(Icons.add,
             color: AppColors.billingButtonTextColor, size: 18),
         label: Text(
-          'Add Item',
+          BillingStrings.addItem,
           style: AppTextStyles.label.copyWith(
             fontSize: isTablet ? 15 : 13,
             fontWeight: FontWeight.w600,
@@ -623,7 +624,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Internal Note', style: _formLabelStyle(responsive)),
+        Text(BillingStrings.internalNote, style: _formLabelStyle(responsive)),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           decoration: BoxDecoration(
@@ -639,7 +640,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             minLines: 2,
             decoration: const InputDecoration(
               border: InputBorder.none,
-              hintText: 'Add internal note',
+              hintText: BillingStrings.addInternalNote,
               contentPadding:
                   EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
@@ -668,11 +669,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
   bool _validateRequiredFields() {
     if (_students.isEmpty) {
-      _showValidationMessage('Please keep at least one student.');
+      _showValidationMessage(BillingStrings.pleaseKeepAtLeastOneStudent);
       return false;
     }
     if (_dueDate == null) {
-      _showValidationMessage('Please select the invoice due date.');
+      _showValidationMessage(BillingStrings.pleaseSelectTheInvoiceDueDate);
       return false;
     }
 

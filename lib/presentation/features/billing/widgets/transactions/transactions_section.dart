@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -158,7 +159,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                     padding: EdgeInsets.symmetric(vertical: 24),
                     child: Center(
                       child: Text(
-                        'No transactions match your filters.',
+                        BillingStrings.noTransactionsMatchYourFilters,
                         style: TextStyle(
                           fontFamily: 'Manrope',
                           fontSize: 15,
@@ -225,7 +226,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
               Expanded(
                 child: CustomSearchBar(
                   controller: _searchController,
-                  hintText: 'Search by student, ID, or description',
+                  hintText: BillingStrings.searchByStudentIdOrDescription,
                   onChanged: (value) => _cubit.setSearchQuery(value),
                 ),
               ),
@@ -286,7 +287,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   void _showMessageUnavailable() {
     CoreUtils.showTopSnackBar(
       context: context,
-      message: 'Messaging is not available yet.',
+      message: BillingStrings.messagingIsNotAvailableYet,
       isWarning: true,
     );
   }
@@ -311,7 +312,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
     if (code == null || code.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'This invoice cannot be modified.',
+        message: BillingStrings.thisInvoiceCannotBeModified,
         isWarning: true,
       );
       return null;

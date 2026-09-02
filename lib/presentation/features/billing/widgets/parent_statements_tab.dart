@@ -5,6 +5,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
@@ -116,7 +117,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
     if (widget.subscriberCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Unable to generate statement: account details not loaded.',
+        message: BillingStrings.unableToGenerateStatement,
         isWarning: true,
       );
       return;
@@ -138,7 +139,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
     if (result == true) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Statement generated successfully!',
+        message: BillingStrings.statementGeneratedSuccessfully,
         isSuccess: true,
       );
       await _cubit.refresh();
@@ -154,7 +155,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
     if (!mounted) return;
     CoreUtils.showTopSnackBar(
       context: context,
-      message: 'Downloading statement PDF…',
+      message: BillingStrings.downloadingStatementPdf,
     );
     final error = await _cubit.downloadStatement(statement);
     if (!mounted || error == null) return;
@@ -174,7 +175,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
     if (bytes == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: result.error ?? 'Unable to preview this statement.',
+        message: result.error ?? BillingStrings.unableToPreviewThisStatement,
         isError: true,
       );
       return;
@@ -208,7 +209,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 AppText.label(
-                  'Select Date Range',
+                  BillingStrings.selectDateRange,
                   style: AppTextStyles.label.copyWith(
                     color: AppColors.billingGreyMedium,
                   ),
@@ -222,7 +223,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
               hasLabel: false,
               isRangePicker: true,
               initialDate: _customStartDate,
-              label: 'Date Range',
+              label: BillingStrings.dateRange,
               fetchInitialTime: false,
               onRangeSelected: (start, end) =>
                   _onDateRangeSelected(start, end),
@@ -248,7 +249,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
               .join(', ');
 
           final formattedChildren = widget.familyChildren.map((child) {
-            final name = child.name ?? child.fullName ?? 'Unknown';
+            final name = child.name ?? child.fullName ?? BillingStrings.unknown;
             final room = child.room ?? child.roomName ?? '';
             return BillingFamilyMember(
               name: name,
@@ -269,7 +270,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
                   const SizedBox(height: 8),
                   const Padding(
                     padding: EdgeInsets.all(8.0),
-                    child: Row(children: [AppText.title('Statements')]),
+                    child: Row(children: [AppText.title(BillingStrings.statements)]),
                   ),
                   Column(
                     children: [
@@ -322,7 +323,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
                             const SizedBox(height: 12),
                             TextButton(
                               onPressed: () => _cubit.refresh(),
-                              child: const Text('Retry'),
+                              child: const Text(BillingStrings.retry),
                             ),
                           ],
                         ),
@@ -341,13 +342,13 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
                                   .withValues(alpha: 0.5),
                             ),
                             const SizedBox(height: 16),
-                            AppText.value('No statements found'),
+                            AppText.value(BillingStrings.noStatementsFound),
                             const SizedBox(height: 8),
                             Text(
                               _customStartDate != null &&
                                       _customEndDate != null
-                                  ? 'No statements available for the selected date range'
-                                  : 'No statements available',
+                                  ? BillingStrings.noStatementsAvailableForSelectedDateRange
+                                  : BillingStrings.noStatementsAvailable,
                               style: AppTextStyles.body.copyWith(
                                 color: AppColors.primaryColor
                                     .withValues(alpha: 0.7),

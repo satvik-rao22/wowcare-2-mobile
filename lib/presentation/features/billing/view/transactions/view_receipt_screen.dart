@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -84,7 +85,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
         // Fall through
       }
     }
-    return 'Not available';
+    return BillingStrings.notAvailable;
   }
 
   Widget _buildInvoiceItemsTable() {
@@ -101,7 +102,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                 Expanded(
                   flex: 4,
                   child: Text(
-                    'Description',
+                    BillingStrings.description,
                     style: TextStyle(
                       fontSize: 15,
                       color: AppColors.billingGreyMedium,
@@ -112,7 +113,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                 Expanded(
                   flex: 2,
                   child: Text(
-                    'Mode',
+                    BillingStrings.mode,
                     style: TextStyle(
                       fontSize: 15,
                       color: AppColors.billingGreyMedium,
@@ -133,7 +134,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                 Expanded(
                   flex: 2,
                   child: Text(
-                    'Amount',
+                    BillingStrings.amount,
                     style: TextStyle(
                       fontSize: 15,
                       color: AppColors.billingGreyMedium,
@@ -209,7 +210,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                 Expanded(
                   flex: 4,
                   child: Text(
-                    'Description',
+                    BillingStrings.description,
                     style: TextStyle(
                       fontSize: 15,
                       color: AppColors.billingGreyMedium,
@@ -220,7 +221,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                 Expanded(
                   flex: 2,
                   child: Text(
-                    'Mode',
+                    BillingStrings.mode,
                     style: TextStyle(
                       fontSize: 15,
                       color: AppColors.billingGreyMedium,
@@ -241,7 +242,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                 Expanded(
                   flex: 2,
                   child: Text(
-                    'Amount',
+                    BillingStrings.amount,
                     style: TextStyle(
                       fontSize: 15,
                       color: AppColors.billingGreyMedium,
@@ -379,7 +380,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
             Expanded(
               flex: 4,
               child: Text(
-                'Description',
+                BillingStrings.description,
                 style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
                 textAlign: TextAlign.start,
               ),
@@ -387,7 +388,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
             Expanded(
               flex: 2,
               child: Text(
-                'Amount',
+                BillingStrings.amount,
                 style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
                 textAlign: TextAlign.end,
               ),
@@ -459,7 +460,9 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
     return Row(
       children: [
         Text(
-          widget.viewType == 'invoice' ? 'Billed For : ' : 'Payment For : ',
+          widget.viewType == 'invoice'
+              ? BillingStrings.billedForCapColon
+              : BillingStrings.paymentForColon,
           style: const TextStyle(
             color: AppColors.primaryColor,
             fontSize: 16,
@@ -504,7 +507,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   Text(
-                    'Invoice Number : ',
+                    BillingStrings.invoiceNumberColon,
                     style: TextStyle(
                       fontSize: 15,
                       color: AppColors.billingGreyMedium,
@@ -512,7 +515,8 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                     ),
                   ),
                   Text(
-                    _invoiceDetails!['invoiceNumber']?.toString() ?? 'N/A',
+                    _invoiceDetails!['invoiceNumber']?.toString() ??
+                        BillingStrings.na,
                     style: TextStyle(
                       fontSize: 15,
                       color: AppColors.billingGreyDark,
@@ -529,7 +533,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   Text(
-                    'Due Date : ',
+                    BillingStrings.dueDateColon,
                     style: TextStyle(
                       fontSize: 15,
                       color: AppColors.billingGreyMedium,
@@ -555,7 +559,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 Text(
-                  'Payment Date : ',
+                  BillingStrings.paymentDateColon,
                   style: TextStyle(
                     fontSize: 15,
                     color: Colors.grey.shade500,
@@ -597,7 +601,9 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
   @override
   Widget build(BuildContext context) {
     return StaffFormLayout(
-      title: widget.viewType == 'invoice' ? 'View Invoice' : 'View Receipt',
+      title: widget.viewType == 'invoice'
+          ? BillingStrings.viewInvoice
+          : BillingStrings.viewReceipt,
       bottomBar: const SizedBox.shrink(),
       child: SingleChildScrollView(
         child: Column(

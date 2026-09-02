@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -143,7 +144,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 AppText.label(
-                  'Select Date Range',
+                  BillingStrings.selectDateRange,
                   style: AppTextStyles.label.copyWith(
                     color: AppColors.billingGreyMedium,
                   ),
@@ -157,7 +158,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
               hasLabel: false,
               isRangePicker: true,
               initialDate: state.startDate,
-              label: 'Date Range',
+              label: BillingStrings.dateRange,
               fetchInitialTime: false,
               onRangeSelected: (start, end) => _cubit.setDateRange(start, end),
             ),
@@ -198,7 +199,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
         if (result == true) {
           CoreUtils.showTopSnackBar(
             context: context,
-            message: 'Auto Pay settings updated',
+            message: BillingStrings.autoPaySettingsUpdated,
             isSuccess: true,
           );
         }
@@ -220,7 +221,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
               padding: EdgeInsets.all(8.0),
               child: Row(
                 children: [
-                  AppText.title('Billing'),
+                  AppText.title(BillingStrings.billing),
                 ],
               ),
             ),
@@ -267,7 +268,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                       const SizedBox(height: 12),
                       TextButton(
                         onPressed: _cubit.load,
-                        child: const Text('Retry'),
+                        child: const Text(BillingStrings.retry),
                       ),
                     ],
                   ),
@@ -285,12 +286,12 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                         color: AppColors.primaryColor,
                       ),
                       const SizedBox(height: 16),
-                      const AppText.value('No records found'),
+                      const AppText.value(BillingStrings.noRecordsFound),
                       const SizedBox(height: 8),
                       Text(
                         state.hasDateRange
-                            ? 'No transactions available for the selected date range'
-                            : 'No transactions available',
+                            ? BillingStrings.noTransactionsAvailableForTheSelectedDateRange
+                            : BillingStrings.noTransactionsAvailable,
                         style: AppTextStyles.body.copyWith(
                           color: AppColors.primaryColor.withValues(alpha: 0.7),
                         ),
@@ -386,8 +387,8 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                     gradient: AppColors.buildPrimaryGradient(),
                   ),
                   tabs: const [
-                    Tab(text: 'Billing'),
-                    Tab(text: 'Statements'),
+                    Tab(text: BillingStrings.billing),
+                    Tab(text: BillingStrings.statements),
                   ],
                 ),
               ),

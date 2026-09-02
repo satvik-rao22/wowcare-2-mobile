@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
 
 class LedgerCard extends StatelessWidget {
@@ -38,7 +39,7 @@ class LedgerCard extends StatelessWidget {
       ),
       expandedChildren: [
         StaffCardDetailRow(
-          label: 'Type',
+          label: BillingStrings.type,
           valueWidget: ShaderMask(
             shaderCallback: (bounds) => AppColors.buildPrimaryGradient()
                 .createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
@@ -51,20 +52,20 @@ class LedgerCard extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         StaffCardDetailRow(
-          label: 'Open Balance',
+          label: BillingStrings.openBalance,
           value: '\$${openBalance.toStringAsFixed(0)}',
         ),
         const SizedBox(height: 16),
         Row(
           children: [
             Expanded(
-              child: _FilledActionButton(label: 'View', onTap: onView),
+              child: _FilledActionButton(label: BillingStrings.view, onTap: onView),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: isActive
-                  ? _FilledActionButton(label: 'Edit', onTap: onEdit)
-                  : _OutlineActionButton(label: 'Reactivate', onTap: onReactivate),
+                  ? _FilledActionButton(label: BillingStrings.edit, onTap: onEdit)
+                  : _OutlineActionButton(label: BillingStrings.reactivate, onTap: onReactivate),
             ),
           ],
         ),
@@ -72,8 +73,8 @@ class LedgerCard extends StatelessWidget {
         SizedBox(
           width: double.infinity,
           child: isActive
-              ? _OutlineActionButton(label: 'Deactivate', onTap: onDeactivate)
-              : _OutlineActionButton(label: 'Delete', onTap: onDelete),
+              ? _OutlineActionButton(label: BillingStrings.deactivate, onTap: onDeactivate)
+              : _OutlineActionButton(label: BillingStrings.delete, onTap: onDelete),
         ),
       ],
     );

@@ -6,6 +6,7 @@ import 'package:wowcare/presentation/features/billing/model/billing_route_args.d
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/billing_events.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/transaction_details_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
@@ -181,7 +182,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
     final students = _familyStudents();
     if (students.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No students found for this family.')),
+        const SnackBar(
+            content: Text(BillingStrings.noStudentsFoundForFamily)),
       );
       return;
     }
@@ -238,7 +240,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
 
   void _showMessageUnavailable() => CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Messaging is not available yet.',
+        message: BillingStrings.messagingNotAvailableYet,
         isWarning: true,
       );
 
@@ -271,7 +273,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
     if (code == null || code.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'This invoice cannot be modified.',
+        message: BillingStrings.invoiceCannotBeModified,
         isWarning: true,
       );
       return null;
@@ -286,7 +288,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
       item: item,
       type: 'invoice_cancel',
       action: () => _cubit.cancelInvoice(code),
-      successMessage: 'Invoice cancelled',
+      successMessage: BillingStrings.invoiceCancelled,
     );
   }
 
@@ -297,7 +299,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
       item: item,
       type: 'invoice_delete',
       action: () => _cubit.deleteInvoice(code),
-      successMessage: 'Invoice deleted',
+      successMessage: BillingStrings.invoiceDeleted,
     );
   }
 
@@ -446,8 +448,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                       fontSize: 16,
                     ),
                     tabs: const [
-                      Tab(text: 'Transactions'),
-                      Tab(text: 'Statements'),
+                      Tab(text: BillingStrings.transactions),
+                      Tab(text: BillingStrings.statements),
                     ],
                   ),
                 ),
@@ -527,7 +529,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                 ),
                 TextButton(
                   onPressed: () => _cubit.refresh(),
-                  child: const Text('Retry'),
+                  child: const Text(BillingStrings.retry),
                 ),
               ],
             ),
@@ -539,7 +541,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Family Transaction Summary',
+                BillingStrings.familyTransactionSummary,
                 style: TextStyle(
                   color: AppColors.primaryColor,
                   fontSize: 18,
@@ -574,7 +576,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                 ),
                 TextButton(
                   onPressed: () => _cubit.refresh(),
-                  child: const Text('Retry'),
+                  child: const Text(BillingStrings.retry),
                 ),
               ],
             ),
@@ -593,7 +595,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
             padding: EdgeInsets.all(24.0),
             child: Center(
               child: Text(
-                'No family transactions found',
+                BillingStrings.noFamilyTransactionsFound,
                 style: TextStyle(fontSize: 16, color: AppColors.billingTextColor),
               ),
             ),
@@ -664,7 +666,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                     child: GradientCircularProgress(
                       size: 40,
                       strokeWidth: 3,
-                      loadingText: 'Loading more...',
+                      loadingText: BillingStrings.loadingMore,
                     ),
                   ),
                 ),
@@ -744,7 +746,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
           border: Border.all(color: AppColors.cardBorderColor),
         ),
         child: const Text(
-          'No invoiced data available for this family.',
+          BillingStrings.noInvoicedDataAvailable,
           style: TextStyle(
             color: AppColors.primaryColor,
             fontFamily: 'Manrope',
@@ -762,7 +764,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
       inProcessAmount: _amountInProcess,
       outstandingAmount: _amountUnpaid,
       refundedAmount: _amountRefund,
-      title: 'Invoiced Amount',
+      title: BillingStrings.invoicedAmount,
     );
   }
 
@@ -891,7 +893,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
       text: TextSpan(
         children: [
           const TextSpan(
-            text: 'Parents: ',
+            text: BillingStrings.parents,
             style: TextStyle(
               fontWeight: FontWeight.w700,
               color: AppColors.billingTextColor,

@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/family_summary_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
@@ -151,7 +152,7 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
                     Expanded(
                       child: CustomSearchBar(
                         controller: _searchController,
-                        hintText: 'Search',
+                        hintText: BillingStrings.search,
                         onChanged: (value) =>
                             _familyCubit.setSearchQuery(value),
                       ),
@@ -203,7 +204,7 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
                           children: [
                             CustomToggle(
                               key: ValueKey(familyState.showOutstandingOnly),
-                              label: 'Show Total Outstanding',
+                              label: BillingStrings.showTotalOutstanding,
                               labelStyle: AppTextStyles.title.copyWith(
                                 fontSize: 15,
                                 color: AppColors.billingTextColor,
