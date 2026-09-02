@@ -13,9 +13,6 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -324,9 +321,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
   /// teacher is allowed cross-class access, exactly like an admin.
   Future<void> _resolveCrossClassPermission() async {
     try {
-      await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-      );
+      await _profileFetchCubit.resolveCrossClassEnabled();
       if (mounted) setState(() {});
     } catch (_) {
       // Non-critical: falls back to the signed-in gate.
@@ -380,14 +375,12 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
 
   Future<bool> _resolveIsParentSession() async {
     try {
-      final storage = serviceLocator<StorageService>();
       // IMPORTANT:
       // For multi-role users (e.g. ADMIN + GUARDIAN), we must respect the
       // *active* persona selected via switch-profile, not just the presence of
       // any guardian role in the account.
-      final activeRole =
-          (await storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
-      if (activeRole.isNotEmpty) {
+      final activeRole = await _profileFetchCubit.resolveActiveSchoolRole();
+      if (activeRole != null) {
         final upper = activeRole.toUpperCase();
         return upper.contains('PARENT') || upper.contains('GUARDIAN');
       }
@@ -413,9 +406,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
       // canonical, persona-switch-aware signal, so key off it directly.
       final isStaffPersona = context.read<RoleCubit>().isStaff;
 
-      final storage = serviceLocator<StorageService>();
-      var staffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
-          .trim();
+      var staffCode = await _profileFetchCubit.resolveStaffCodeFromStorage();
       if (staffCode.isEmpty) {
         staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
       }

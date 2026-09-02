@@ -1,5 +1,7 @@
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
+import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_profile_absent_toggle_query.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_profile_query.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_profile_absent_toggle_response.dart';
@@ -75,5 +77,29 @@ class StaffAttendanceProfileFetchCubit {
   /// Used by [_loadTodayStatus] to gate the action menu.
   Future<String?> fetchTodayStatus({required String staffCode}) {
     return _getStaffTodaySignInStatusUseCase(staffCode: staffCode);
+  }
+
+  /// Resolves the school's `allowTeacherCrossClassAttendance` flag.
+  Future<bool> resolveCrossClassEnabled() {
+    return AttendanceCrossClassResolver.isEnabledForCurrentSchool(
+      storage: _storageService,
+    );
+  }
+
+  /// The active school role string from storage, or null when absent —
+  /// used to detect a parent/guardian session without relying solely on
+  /// the (possibly not-yet-resolved) RoleCubit.
+  Future<String?> resolveActiveSchoolRole() async {
+    final role =
+        (await _storageService.getString(StorageKeys.activeSchoolRole) ?? '')
+            .trim();
+    return role.isEmpty ? null : role;
+  }
+
+  /// The logged-in staff member's own staff code, from storage only (no
+  /// RoleCubit/network fallback — the View layers that on top when empty).
+  Future<String> resolveStaffCodeFromStorage() async {
+    return (await _storageService.getString(StorageKeys.staffCode) ?? '')
+        .trim();
   }
 }
