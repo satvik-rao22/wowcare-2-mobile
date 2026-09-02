@@ -32,15 +32,12 @@ import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_absent_view_usecase.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_view_response.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_absent_fetch_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 
 // Dummy data model for UI-only implementation
 class _AbsentStudentModel {
@@ -125,8 +122,8 @@ class _StudentAttendanceAbsentViewState
   // Loading state for individual buttons
   final Map<int, bool> _loadingButtons = {};
   late final ClassroomCubit _classroomCubit;
-  final GetClassroomByCodeUseCase _getClassroomByCode =
-      serviceLocator<GetClassroomByCodeUseCase>();
+  final StudentAttendanceAbsentFetchCubit _fetchCubit =
+      serviceLocator<StudentAttendanceAbsentFetchCubit>();
   final Map<String, String> _classroomNameByCode = {};
   final Set<String> _classroomFetchInFlight = {};
 
@@ -173,8 +170,8 @@ class _StudentAttendanceAbsentViewState
     try {
       final enabled =
           await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-      );
+            storage: serviceLocator<StorageService>(),
+          );
       if (!mounted || !enabled || _allowCrossClass) return;
       setState(() => _allowCrossClass = true);
       _loadClassroomData();
@@ -245,12 +242,10 @@ class _StudentAttendanceAbsentViewState
       }
 
       // Load full name->code map for sending tagCodes to API
-      final getMap = serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
-      final map = await getMap(schoolCode: schoolCode);
+      final map = await _fetchCubit.fetchTagNameCodeMap(schoolCode: schoolCode);
 
       // Load just names for UI dropdown
-      final getNames = serviceLocator<GetTagNamesForSchoolUseCase>();
-      final names = await getNames(schoolCode: schoolCode);
+      final names = await _fetchCubit.fetchTagNames(schoolCode: schoolCode);
 
       if (!mounted) return;
       setState(() {
@@ -296,16 +291,13 @@ class _StudentAttendanceAbsentViewState
 
   Future<void> _fetchClassroomName(String code) async {
     try {
-      final details = await _getClassroomByCode(code: code);
+      final name = await _fetchCubit.fetchClassroomName(code);
       if (!mounted) return;
-      final name = details.name.trim();
-      if (name.isNotEmpty) {
+      if (name != null && name.isNotEmpty) {
         setState(() {
           _classroomNameByCode[code] = name;
         });
       }
-    } catch (_) {
-      // Keep code when lookup fails.
     } finally {
       _classroomFetchInFlight.remove(code);
     }
@@ -521,8 +513,7 @@ class _StudentAttendanceAbsentViewState
     final trimmedSearch = _searchQuery.trim();
 
     try {
-      final data =
-          await serviceLocator<GetStudentAttendanceAbsentViewUseCase>()(
+      final data = await _fetchCubit.fetchAbsentStudents(
         fromAbsenceDate: fromStr,
         toAbsenceDate: toStr,
         classroomCodes: classroomCodes,
