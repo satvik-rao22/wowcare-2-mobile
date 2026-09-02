@@ -191,6 +191,116 @@ class _AbsentDayModel {
   });
 }
 
+/// Formats many possible API time shapes into a clean 12-hour display ("hh:mm a").
+/// Supports:
+/// - Map: {hour, minute, second?, nano?}
+/// - "HH:mm", "HH:mm:ss", "HH:mm:ss.SSSSSS"
+/// - "h:mm:ss AM", "hh:mm:ss a"
+/// - ISO datetime strings (e.g. "2026-04-07T13:05:00.000Z")
+String _formatTime12h(dynamic value) {
+  if (value == null) return '';
+  final s = value.toString().trim();
+  if (s.isEmpty) return '';
+
+  try {
+    if (value is Map<String, dynamic>) {
+      final hour = value['hour'] as int? ?? 0;
+      final minute = value['minute'] as int? ?? 0;
+      final dt = DateTime(2000, 1, 1, hour, minute);
+      return DateFormat('hh:mm a').format(dt);
+    }
+
+    // Render ISO instants in the school's zone (not the device zone) so
+    // sign-in/out times match the backend regardless of where the user is.
+    final schoolDt = attendanceDisplayDateTimeFromIso(s);
+    if (schoolDt != null) {
+      return DateFormat('hh:mm a').format(schoolDt);
+    }
+
+    final amPmMatch = RegExp(
+      r'^\s*(\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?\s*([aApP][mM])\s*$',
+    ).firstMatch(s);
+    if (amPmMatch != null) {
+      final hour = int.parse(amPmMatch.group(1)!);
+      final minute = int.parse(amPmMatch.group(2)!);
+      final period = amPmMatch.group(4)!.toUpperCase();
+      int h24 = hour % 12;
+      if (period == 'PM') h24 += 12;
+      final dt = DateTime(2000, 1, 1, h24, minute);
+      return DateFormat('hh:mm a').format(dt);
+    }
+
+    final hms = s.split('.')[0];
+    final parts = hms.split(':');
+    if (parts.length >= 2) {
+      final hour = int.tryParse(parts[0]) ?? 0;
+      final minute = int.tryParse(parts[1]) ?? 0;
+      final dt = DateTime(2000, 1, 1, hour, minute);
+      return DateFormat('hh:mm a').format(dt);
+    }
+  } catch (_) {
+    // fall-through to raw string
+  }
+
+  return s;
+}
+
+String _formatAttendedTimeForCard(_AttendanceModel attendance) {
+  final inStr = attendance.signInTime.trim();
+  final outStr = attendance.signOutTime.trim();
+
+  if (inStr.isNotEmpty && outStr.isEmpty) {
+    return 'Not Yet Signed Out';
+  }
+
+  final day = DateTime(
+    attendance.date.year,
+    attendance.date.month,
+    attendance.date.day,
+  );
+  final start = parseFlexibleAttendanceMoment(day, inStr);
+  final end = parseFlexibleAttendanceMoment(day, outStr);
+  final label = attendedLabelFromMoments(start, end);
+  if (label != null && label.isNotEmpty) {
+    return label;
+  }
+  return '';
+}
+
+String formatTime(String time) {
+  if (time.trim().isEmpty) return 'Not Yet Signed Out';
+  return _formatTime12h(time);
+}
+
+bool _isKioskOrPinMethodEnum(ProfileAbsentMarkMethod? method) {
+  return method == ProfileAbsentMarkMethod.kiosk;
+}
+
+String _resolveSignInByDisplay(
+  String signInBy,
+  ProfileAbsentMarkMethod? method,
+) {
+  final name = signInBy.trim();
+  if (name.isNotEmpty) return name;
+  if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
+  return '';
+}
+
+String _resolveSignOutByDisplay(
+  String signOutBy,
+  ProfileAbsentMarkMethod? method,
+) {
+  final name = signOutBy.trim();
+  if (name.isNotEmpty) return name;
+  if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
+  return '';
+}
+
+/// Shows the full name (first + last), not just the first word.
+String getFirstName(String name) {
+  return name.trim();
+}
+
 class _StudentModel {
   final int id;
   final String name;
@@ -405,82 +515,6 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       return '$h12:$mm:00 $period';
     }
     return value.toString();
-  }
-
-  /// Formats many possible API time shapes into a clean 12-hour display ("hh:mm a").
-  /// Supports:
-  /// - Map: {hour, minute, second?, nano?}
-  /// - "HH:mm", "HH:mm:ss", "HH:mm:ss.SSSSSS"
-  /// - "h:mm:ss AM", "hh:mm:ss a"
-  /// - ISO datetime strings (e.g. "2026-04-07T13:05:00.000Z")
-  String _formatTime12h(dynamic value) {
-    if (value == null) return '';
-    final s = value.toString().trim();
-    if (s.isEmpty) return '';
-
-    try {
-      if (value is Map<String, dynamic>) {
-        final hour = value['hour'] as int? ?? 0;
-        final minute = value['minute'] as int? ?? 0;
-        final dt = DateTime(2000, 1, 1, hour, minute);
-        return DateFormat('hh:mm a').format(dt);
-      }
-
-      // Render ISO instants in the school's zone (not the device zone) so
-      // sign-in/out times match the backend regardless of where the user is.
-      final schoolDt = attendanceDisplayDateTimeFromIso(s);
-      if (schoolDt != null) {
-        return DateFormat('hh:mm a').format(schoolDt);
-      }
-
-      final amPmMatch = RegExp(
-        r'^\s*(\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?\s*([aApP][mM])\s*$',
-      ).firstMatch(s);
-      if (amPmMatch != null) {
-        final hour = int.parse(amPmMatch.group(1)!);
-        final minute = int.parse(amPmMatch.group(2)!);
-        final period = amPmMatch.group(4)!.toUpperCase();
-        int h24 = hour % 12;
-        if (period == 'PM') h24 += 12;
-        final dt = DateTime(2000, 1, 1, h24, minute);
-        return DateFormat('hh:mm a').format(dt);
-      }
-
-      final hms = s.split('.')[0];
-      final parts = hms.split(':');
-      if (parts.length >= 2) {
-        final hour = int.tryParse(parts[0]) ?? 0;
-        final minute = int.tryParse(parts[1]) ?? 0;
-        final dt = DateTime(2000, 1, 1, hour, minute);
-        return DateFormat('hh:mm a').format(dt);
-      }
-    } catch (_) {
-      // fall-through to raw string
-    }
-
-    return s;
-  }
-
-  String _formatAttendedTimeForCard(_AttendanceModel attendance) {
-    final inStr = attendance.signInTime.trim();
-    final outStr = attendance.signOutTime.trim();
-
-    if (inStr.isNotEmpty && outStr.isEmpty) {
-      return 'Not Yet Signed Out';
-    }
-
-    final day = DateTime(
-      attendance.date.year,
-      attendance.date.month,
-      attendance.date.day,
-    );
-    final start = parseFlexibleAttendanceMoment(day, inStr);
-    final end = parseFlexibleAttendanceMoment(day, outStr);
-    final label = attendedLabelFromMoments(start, end);
-    if (label != null && label.isNotEmpty) {
-      return label;
-    }
-    return '';
   }
 
   @override
@@ -1040,7 +1074,20 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                   ),
                   if (!isParentPersona) ...[
                     const SizedBox(width: AppSpacing.md),
-                    _buildPopupMenu(),
+                    StudentAttendanceVerticalPopUp(
+                      students: const [],
+                      refreshCallback: refreshData,
+                      disabledActions: <String>{
+                        if (!_canSignIn) 'Sign-in',
+                        if (!_canSignOut) 'Sign-Out',
+                        if (!_canTransfer) 'Transfer',
+                        if (!_canMarkAbsent) 'Absent',
+                      },
+                      disabledReasons: _isTodayStatusLoading
+                          ? const <String, String>{}
+                          : studentAttendanceDisabledReasons(_todayGate),
+                      onActionTap: _handleStudentAction,
+                    ),
                   ],
                 ],
               ),
@@ -1052,7 +1099,24 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                       ? const AttendanceProfileShimmer()
                       : Column(
                           children: [
-                            _buildStudentCard(),
+                            _StudentCard(
+                              student: student,
+                              activeStudentCode: _activeStudentCode,
+                              isParentPersona: isParentPersona,
+                              attendanceReport: attendanceReport,
+                              onPresentTap: () {
+                                context.push(
+                                  StudentAttendanceTabbedView.routeName,
+                                  extra: {'filter': 'Present'},
+                                );
+                              },
+                              onAbsentTap: () {
+                                context.push(
+                                  StudentAttendanceTabbedView.routeName,
+                                  extra: {'filter': 'Absent'},
+                                );
+                              },
+                            ),
                             const SizedBox(height: AppSpacing.md),
                             // Toggle for showing absent days
                             Row(
@@ -1076,7 +1140,20 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                               ],
                             ),
                             const SizedBox(height: AppSpacing.md),
-                            _buildAttendanceList(),
+                            _StudentAttendanceListSection(
+                              showAbsentDays: showAbsentDays,
+                              isAttendancesLoading: isAttendancesLoading,
+                              attendances: attendances,
+                              isAbsentDaysLoading: isAbsentDaysLoading,
+                              absentDays: absentDays,
+                              fallbackRoomName:
+                                  student?.roomName ?? widget.roomName,
+                              onExpandedIndexChanged: (value) {
+                                setState(() {
+                                  expandedIndex = value;
+                                });
+                              },
+                            ),
                           ],
                         );
                 },
@@ -1087,25 +1164,27 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       ),
     );
   }
+}
 
-  Widget _buildPopupMenu() {
-    return StudentAttendanceVerticalPopUp(
-      students: const [],
-      refreshCallback: refreshData,
-      disabledActions: <String>{
-        if (!_canSignIn) 'Sign-in',
-        if (!_canSignOut) 'Sign-Out',
-        if (!_canTransfer) 'Transfer',
-        if (!_canMarkAbsent) 'Absent',
-      },
-      disabledReasons: _isTodayStatusLoading
-          ? const <String, String>{}
-          : studentAttendanceDisabledReasons(_todayGate),
-      onActionTap: _handleStudentAction,
-    );
-  }
+class _StudentCard extends StatelessWidget {
+  const _StudentCard({
+    required this.student,
+    required this.activeStudentCode,
+    required this.isParentPersona,
+    required this.attendanceReport,
+    required this.onPresentTap,
+    required this.onAbsentTap,
+  });
 
-  Widget _buildStudentCard() {
+  final _StudentModel? student;
+  final String activeStudentCode;
+  final bool isParentPersona;
+  final _AttendanceReportModel? attendanceReport;
+  final VoidCallback onPresentTap;
+  final VoidCallback onAbsentTap;
+
+  @override
+  Widget build(BuildContext context) {
     if (student == null) return const SizedBox.shrink();
 
     final responsive = ResponsiveHelper(context);
@@ -1139,7 +1218,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                   name: currentStudent.name,
                   fontSize: 24,
                   // Drive status dot purely from attendance API using studentCode.
-                  studentCode: _activeStudentCode,
+                  studentCode: activeStudentCode,
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
@@ -1176,29 +1255,29 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       if (!currentStudent.isPhotoPermission)
-                                        _buildIconDetail(
+                                        _StudentIconDetail(
                                           MediaRes.cameraIcon,
                                           "No Photo Permission",
                                         ),
                                       if (currentStudent.medications.isNotEmpty)
-                                        _buildIconDetail(
+                                        _StudentIconDetail(
                                           MediaRes.healthIcon,
                                           currentStudent.medications,
                                         ),
                                       if (currentStudent.note.isNotEmpty)
-                                        _buildIconDetail(
+                                        _StudentIconDetail(
                                           MediaRes.docsIcon,
                                           currentStudent.note,
                                         ),
                                       if (currentStudent.allergies.isNotEmpty)
-                                        _buildIconDetail(
+                                        _StudentIconDetail(
                                           MediaRes.alertIcon,
                                           currentStudent.allergies,
                                         ),
                                       if (currentStudent
                                           .dietRestriction
                                           .isNotEmpty)
-                                        _buildIconDetail(
+                                        _StudentIconDetail(
                                           MediaRes.foodIcon2,
                                           currentStudent.dietRestriction,
                                         ),
@@ -1221,15 +1300,15 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                               mainAxisAlignment: MainAxisAlignment.start,
                               children: [
                                 if (!currentStudent.isPhotoPermission)
-                                  _buildIconItem(MediaRes.cameraIcon),
+                                  _StudentIconItem(MediaRes.cameraIcon),
                                 if (currentStudent.medications.isNotEmpty)
-                                  _buildIconItem(MediaRes.healthIcon),
+                                  _StudentIconItem(MediaRes.healthIcon),
                                 if (currentStudent.note.isNotEmpty)
-                                  _buildIconItem(MediaRes.docsIcon),
+                                  _StudentIconItem(MediaRes.docsIcon),
                                 if (currentStudent.allergies.isNotEmpty)
-                                  _buildIconItem(MediaRes.alertIcon),
+                                  _StudentIconItem(MediaRes.alertIcon),
                                 if (currentStudent.dietRestriction.isNotEmpty)
-                                  _buildIconItem(MediaRes.foodIcon2),
+                                  _StudentIconItem(MediaRes.foodIcon2),
                               ],
                             ),
                           ),
@@ -1241,149 +1320,100 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
               ],
             ),
             const SizedBox(height: AppSpacing.md),
-            _buildStats(),
+            _StudentStatsSection(
+              isParentPersona: isParentPersona,
+              attendedDays: attendanceReport?.attendedDays,
+              absentDays: attendanceReport?.absentDays,
+              totalAttendedHours: attendanceReport?.totalAttendedHours,
+              onPresentTap: onPresentTap,
+              onAbsentTap: onAbsentTap,
+            ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildIconItem(String icon) {
-    final bool isSvg = icon.toLowerCase().endsWith('.svg');
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.s2),
-      child: isSvg
-          ? SvgPicture.asset(icon, height: 20)
-          : Image.asset(icon, height: 20),
-    );
-  }
+class _StudentStatsSection extends StatelessWidget {
+  const _StudentStatsSection({
+    required this.isParentPersona,
+    required this.attendedDays,
+    required this.absentDays,
+    required this.totalAttendedHours,
+    required this.onPresentTap,
+    required this.onAbsentTap,
+  });
 
-  Widget _buildIconDetail(String iconPath, String detail) {
-    final bool isSvg = iconPath.toLowerCase().endsWith('.svg');
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-      child: Row(
-        children: [
-          isSvg
-              ? SvgPicture.asset(iconPath, height: 24)
-              : Image.asset(iconPath, height: 24),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: AppText.body(
-              detail,
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppColors.attendanceBodyText87Color,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  final bool isParentPersona;
+  final int? attendedDays;
+  final int? absentDays;
+  final String? totalAttendedHours;
+  final VoidCallback onPresentTap;
+  final VoidCallback onAbsentTap;
 
-  Widget _buildStats() {
-    final report = attendanceReport;
-    final isParentPersona = context.read<RoleCubit>().isParent;
-
-    if (report == null) {
-      return Column(
-        children: [
-          InkWell(
-            onTap: isParentPersona
-                ? null
-                : () {
-                    context.push(
-                      StudentAttendanceTabbedView.routeName,
-                      extra: {'filter': 'Present'},
-                    );
-                  },
-            child: AttendanceProfileStatItem(
-              icon: MediaRes.calenderClockIcon,
-              iconColor: AppColors.attendanceStatBlueColor,
-              label: 'Attended Days',
-              value: '',
-              valueColor: AppColors.attendanceStatGreenColor,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          AttendanceProfileAttendedHoursStat(totalAttendedHours: null),
-          const SizedBox(height: AppSpacing.md),
-          InkWell(
-            onTap: isParentPersona
-                ? null
-                : () {
-                    context.push(
-                      StudentAttendanceTabbedView.routeName,
-                      extra: {'filter': 'Absent'},
-                    );
-                  },
-            child: AttendanceProfileStatItem(
-              icon: MediaRes.calenderClockIcon,
-              iconColor: AppColors.attendanceStatBlueColor,
-              label: 'Absent Days',
-              value: '',
-              valueColor: AppColors.errorColor,
-            ),
-          ),
-        ],
-      );
-    }
-
+  @override
+  Widget build(BuildContext context) {
     return Column(
       children: [
         InkWell(
-          onTap: isParentPersona
-              ? null
-              : () {
-                  context.push(
-                    StudentAttendanceTabbedView.routeName,
-                    extra: {'filter': 'Present'},
-                  );
-                },
+          onTap: isParentPersona ? null : onPresentTap,
           child: AttendanceProfileStatItem(
             icon: MediaRes.calenderClockIcon,
             iconColor: AppColors.attendanceStatBlueColor,
             label: 'Attended Days',
-            value: '${report.attendedDays}',
+            value: attendedDays != null ? '$attendedDays' : '',
             valueColor: AppColors.attendanceStatGreenColor,
           ),
         ),
         const SizedBox(height: AppSpacing.md),
         AttendanceProfileAttendedHoursStat(
-          totalAttendedHours: report.totalAttendedHours,
+          totalAttendedHours: totalAttendedHours,
         ),
         const SizedBox(height: AppSpacing.md),
         InkWell(
-          onTap: isParentPersona
-              ? null
-              : () {
-                  context.push(
-                    StudentAttendanceTabbedView.routeName,
-                    extra: {'filter': 'Absent'},
-                  );
-                },
+          onTap: isParentPersona ? null : onAbsentTap,
           child: AttendanceProfileStatItem(
             icon: MediaRes.calenderClockIcon,
             iconColor: AppColors.attendanceStatBlueColor,
             label: 'Absent Days',
-            value: '${report.absentDays}',
+            value: absentDays != null ? '$absentDays' : '',
             valueColor: AppColors.errorColor,
           ),
         ),
       ],
     );
   }
+}
 
-  Widget _buildAttendanceList() {
+class _StudentAttendanceListSection extends StatelessWidget {
+  const _StudentAttendanceListSection({
+    required this.showAbsentDays,
+    required this.isAttendancesLoading,
+    required this.attendances,
+    required this.isAbsentDaysLoading,
+    required this.absentDays,
+    required this.fallbackRoomName,
+    required this.onExpandedIndexChanged,
+  });
+
+  final bool showAbsentDays;
+  final bool isAttendancesLoading;
+  final List<_AttendanceModel> attendances;
+  final bool isAbsentDaysLoading;
+  final List<_AbsentDayModel> absentDays;
+  final String fallbackRoomName;
+  final ValueChanged<int?> onExpandedIndexChanged;
+
+  @override
+  Widget build(BuildContext context) {
     if (showAbsentDays) {
-      return _buildAbsentDaysList();
-    } else {
-      return _buildPresentDaysList();
+      return _absentDaysList();
     }
+    return _presentDaysList();
   }
 
-  Widget _buildPresentDaysList() {
+  Widget _presentDaysList() {
     if (isAttendancesLoading) {
       return ListView.builder(
         shrinkWrap: true,
@@ -1416,12 +1446,17 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
 
     return Column(
       children: List.generate(attendances.length, (index) {
-        return _buildAttendanceItem(index);
+        return _StudentAttendanceItemCard(
+          attendance: attendances[index],
+          onExpansionChanged: (expanded) {
+            onExpandedIndexChanged(expanded ? index : null);
+          },
+        );
       }),
     );
   }
 
-  Widget _buildAbsentDaysList() {
+  Widget _absentDaysList() {
     if (isAbsentDaysLoading) {
       return ListView.builder(
         shrinkWrap: true,
@@ -1454,47 +1489,29 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
 
     return Column(
       children: List.generate(absentDays.length, (index) {
-        return _buildAbsentDayItem(index);
+        return _StudentAbsentDayItemCard(
+          absentDay: absentDays[index],
+          fallbackRoomName: fallbackRoomName,
+          onExpansionChanged: (expanded) {
+            onExpandedIndexChanged(expanded ? index + 1000 : null);
+          },
+        );
       }),
     );
   }
+}
 
-  String getFirstName(String name) {
-    // Show the full name (first + last), not just the first word.
-    return name.trim();
-  }
+class _StudentAttendanceItemCard extends StatelessWidget {
+  const _StudentAttendanceItemCard({
+    required this.attendance,
+    required this.onExpansionChanged,
+  });
 
-  String formatTime(String time) {
-    if (time.trim().isEmpty) return 'Not Yet Signed Out';
-    return _formatTime12h(time);
-  }
+  final _AttendanceModel attendance;
+  final ValueChanged<bool> onExpansionChanged;
 
-  bool _isKioskOrPinMethodEnum(ProfileAbsentMarkMethod? method) {
-    return method == ProfileAbsentMarkMethod.kiosk;
-  }
-
-  String _resolveSignInByDisplay(
-    String signInBy,
-    ProfileAbsentMarkMethod? method,
-  ) {
-    final name = signInBy.trim();
-    if (name.isNotEmpty) return name;
-    if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
-    return '';
-  }
-
-  String _resolveSignOutByDisplay(
-    String signOutBy,
-    ProfileAbsentMarkMethod? method,
-  ) {
-    final name = signOutBy.trim();
-    if (name.isNotEmpty) return name;
-    if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
-    return '';
-  }
-
-  Widget _buildAttendanceItem(int index) {
-    final attendance = attendances[index];
+  @override
+  Widget build(BuildContext context) {
     final collapsedText = _formatAttendedTimeForCard(attendance);
 
     return Padding(
@@ -1525,11 +1542,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           AppSpacing.md,
           AppSpacing.md,
         ),
-        onExpansionChanged: (expanded) {
-          setState(() {
-            expandedIndex = expanded ? index : null;
-          });
-        },
+        onExpansionChanged: onExpansionChanged,
         children: [
           Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: AppSpacing.md),
@@ -1586,10 +1599,21 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       ),
     );
   }
+}
 
-  Widget _buildAbsentDayItem(int index) {
-    final absentDay = absentDays[index];
+class _StudentAbsentDayItemCard extends StatelessWidget {
+  const _StudentAbsentDayItemCard({
+    required this.absentDay,
+    required this.fallbackRoomName,
+    required this.onExpansionChanged,
+  });
 
+  final _AbsentDayModel absentDay;
+  final String fallbackRoomName;
+  final ValueChanged<bool> onExpansionChanged;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: ExpansionTile(
@@ -1617,11 +1641,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           AppSpacing.md,
           AppSpacing.md,
         ),
-        onExpansionChanged: (expanded) {
-          setState(() {
-            expandedIndex = expanded ? index + 1000 : null;
-          });
-        },
+        onExpansionChanged: onExpansionChanged,
         children: [
           Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: AppSpacing.md),
@@ -1631,7 +1651,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
               if (absentDay.classroomName.isNotEmpty) {
                 return absentDay.classroomName;
               }
-              final fallback = student?.roomName ?? widget.roomName;
+              final fallback = fallbackRoomName;
               return (fallback.trim().isNotEmpty &&
                       fallback != '-' &&
                       fallback != '—')
@@ -1662,6 +1682,55 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           AttendanceProfileField(
             label: 'Absent Note',
             text: absentDay.note.isNotEmpty ? absentDay.note : '-',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StudentIconItem extends StatelessWidget {
+  const _StudentIconItem(this.icon);
+
+  final String icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isSvg = icon.toLowerCase().endsWith('.svg');
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.s2),
+      child: isSvg
+          ? SvgPicture.asset(icon, height: 20)
+          : Image.asset(icon, height: 20),
+    );
+  }
+}
+
+class _StudentIconDetail extends StatelessWidget {
+  const _StudentIconDetail(this.iconPath, this.detail);
+
+  final String iconPath;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isSvg = iconPath.toLowerCase().endsWith('.svg');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
+        children: [
+          isSvg
+              ? SvgPicture.asset(iconPath, height: 24)
+              : Image.asset(iconPath, height: 24),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: AppText.body(
+              detail,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.attendanceBodyText87Color,
+              ),
+            ),
           ),
         ],
       ),
