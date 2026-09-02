@@ -21,7 +21,6 @@ import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_absent_cubit.dart';
@@ -325,7 +324,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final contentPadding = ResponsiveSizing.contentPadding(context);
+    final contentPadding = ResponsiveHelper(context).contentPadding;
 
     final Widget content = MultiBlocProvider(
       providers: [

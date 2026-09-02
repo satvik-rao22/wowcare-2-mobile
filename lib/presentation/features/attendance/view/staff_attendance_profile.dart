@@ -21,7 +21,6 @@ import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_profile_fetch_cubit.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_profile_query.dart';
@@ -960,7 +959,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
 
   @override
   Widget build(BuildContext context) {
-    final contentPadding = ResponsiveSizing.contentPadding(context);
+    final contentPadding = ResponsiveHelper(context).contentPadding;
 
     return GlobalScaffold(
       hasBackButton: true,
@@ -1085,7 +1084,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
 
   void _showActionMenu(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
-    final contentPadding = ResponsiveSizing.contentPadding(context);
+    final contentPadding = ResponsiveHelper(context).contentPadding;
     final safeAreaTop = mediaQuery.padding.top;
     final appBarHeight = AppBar().preferredSize.height;
     final bool isTablet = ResponsiveHelper(context).isTabletCompact;

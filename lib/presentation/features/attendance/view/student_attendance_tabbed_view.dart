@@ -19,7 +19,6 @@ import 'package:wowcare/presentation/features/attendance/view/screens/student_at
 import 'package:wowcare/presentation/features/attendance/view/screens/student_attendance_absent_view.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
 
 class StudentAttendanceTabbedView extends StatefulWidget {
   const StudentAttendanceTabbedView({
@@ -134,7 +133,7 @@ class _StudentAttendanceTabbedViewState
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     final mediaQuery = MediaQuery.of(context);
-    final contentPadding = ResponsiveSizing.contentPadding(context);
+    final contentPadding = ResponsiveHelper(context).contentPadding;
     final safeAreaTop = mediaQuery.padding.top;
     final appBarHeight = AppBar().preferredSize.height; // kToolbarHeight
 

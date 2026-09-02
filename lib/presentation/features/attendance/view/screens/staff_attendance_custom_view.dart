@@ -17,7 +17,6 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_custom_cubit.dart';
@@ -279,7 +278,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final contentPadding = ResponsiveSizing.contentPadding(context);
+    final contentPadding = ResponsiveHelper(context).contentPadding;
 
     final Widget content = MultiBlocProvider(
       providers: [

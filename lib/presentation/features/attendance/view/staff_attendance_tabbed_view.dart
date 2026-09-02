@@ -34,7 +34,6 @@ import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dar
 import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
@@ -178,7 +177,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     super.build(context);
     final responsive = ResponsiveHelper(context);
     final mediaQuery = MediaQuery.of(context);
-    final contentPadding = ResponsiveSizing.contentPadding(context);
+    final contentPadding = ResponsiveHelper(context).contentPadding;
     final safeAreaTop = mediaQuery.padding.top;
     final appBarHeight = AppBar().preferredSize.height; // kToolbarHeight
 
@@ -257,7 +256,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                   bottom: true,
                   child: GradientBackground(
                     child: Padding(
-                      padding: ResponsiveSizing.contentPadding(context),
+                      padding: ResponsiveHelper(context).contentPadding,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -373,7 +372,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
 
   void _showActionMenu(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
-    final contentPadding = ResponsiveSizing.contentPadding(context);
+    final contentPadding = ResponsiveHelper(context).contentPadding;
     final safeAreaTop = mediaQuery.padding.top;
     final appBarHeight = AppBar().preferredSize.height;
     final bool isTablet = ResponsiveHelper(context).isTabletCompact;

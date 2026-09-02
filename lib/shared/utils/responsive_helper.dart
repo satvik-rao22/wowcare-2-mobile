@@ -40,4 +40,17 @@ class ResponsiveHelper {
   double get inputFieldHeight => isTablet ? 56.0 : 48.0;
   double get buttonHeight => isTablet ? 64.0 : 56.0;
   double get buttonFontSize => isTablet ? 20.0 : 18.0;
+
+  /// Desired outer content padding from app bar divider/edges. GlobalScaffold
+  /// applies 8px already; this returns the extra top/left needed.
+  ///
+  /// Ported verbatim from the legacy `ResponsiveSizing.contentPadding` (which
+  /// used its own 600px `isTablet`) so consolidating onto this helper does
+  /// NOT shift the visual breakpoint — uses [isTabletCompact], not the
+  /// canonical 768px [isTablet], to match exactly.
+  EdgeInsets get contentPadding {
+    final double desiredOuter = isTabletCompact ? 24 : 16;
+    final double extra = (desiredOuter - 8).clamp(0, 32).toDouble();
+    return EdgeInsets.fromLTRB(extra, extra, 8, 0);
+  }
 }

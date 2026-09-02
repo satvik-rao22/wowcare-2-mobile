@@ -25,7 +25,6 @@ import 'package:wowcare/presentation/features/attendance/view/screens/widgets/st
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_absent_card.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_shimmer.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/student_attendance_daily_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/student_attendance_absent_toggle_cubit.dart';
@@ -817,7 +816,7 @@ class _StudentAttendanceDailyViewScreenState
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final contentPadding = ResponsiveSizing.contentPadding(context);
+    final contentPadding = ResponsiveHelper(context).contentPadding;
 
     // Staff never see the summary count cards — even when the school enables
     // cross-class attendance (that flag only relaxes classroom scope, not
