@@ -195,6 +195,55 @@ Future<bool> resolveIsStaffAdminPersonaFromStorage() async {
   }
 }
 
+/// Parses the storage `roles` list into typed, uppercased role-code strings
+/// (e.g. `'SCHOOL_ADMIN'`, `'GUARDIAN'`), instead of leaving callers to
+/// `jsonDecode` + cast raw `Map`s themselves. Never throws — returns an
+/// empty list on missing or malformed data.
+Future<List<String>> resolveUserRoleCodesFromStorage(
+  StorageService storage,
+) async {
+  final rolesJson = await storage.getString(StorageKeys.roles);
+  if (rolesJson == null || rolesJson.trim().isEmpty) return const [];
+
+  try {
+    final decoded = jsonDecode(rolesJson);
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map>()
+        .map((r) => (r['role'] ?? '').toString().toUpperCase().trim())
+        .where((r) => r.isNotEmpty)
+        .toList();
+  } catch (_) {
+    return const [];
+  }
+}
+
+/// True if any role is a guardian/parent role.
+Future<bool> resolveIsGuardianOrParentFromStorage(
+  StorageService storage,
+) async {
+  final roleCodes = await resolveUserRoleCodesFromStorage(storage);
+  return roleCodes.any((r) => r.contains('PARENT') || r.contains('GUARDIAN'));
+}
+
+/// True when `staffType` is set, or any role is neither a guardian/parent
+/// nor a kiosk role — i.e. some staff-side role is present. Mirrors the
+/// login flow's "is this a staff-side session" check used across the
+/// student attendance forms.
+Future<bool> resolveIsStaffPersonaFromStorage(StorageService storage) async {
+  final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+      .trim();
+  if (staffType.isNotEmpty) return true;
+
+  final roleCodes = await resolveUserRoleCodesFromStorage(storage);
+  return roleCodes.any(
+    (r) =>
+        !r.contains('GUARDIAN') &&
+        !r.contains('PARENT') &&
+        !r.contains('KIOSK'),
+  );
+}
+
 class LoggedInStaffDisplay {
   const LoggedInStaffDisplay({
     required this.staffCode,

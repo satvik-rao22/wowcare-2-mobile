@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -167,29 +166,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       } catch (_) {}
 
       final storage = serviceLocator<StorageService>();
-      final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-          .trim();
       // True for any staff-side login (school/org admin or regular staff);
       // false for guardian/parent and kiosk-PIN access. Gates date/time editing.
-      bool isStaff = staffType.isNotEmpty;
-      if (!isStaff) {
-        final rolesJson = await storage.getString(StorageKeys.roles);
-        if (rolesJson != null && rolesJson.trim().isNotEmpty) {
-          final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
-          for (final r in roles) {
-            final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
-                .toString()
-                .toUpperCase();
-            if (roleCode.contains('GUARDIAN') ||
-                roleCode.contains('PARENT') ||
-                roleCode.contains('KIOSK')) {
-              continue;
-            }
-            isStaff = true;
-            break;
-          }
-        }
-      }
+      final isStaff = await resolveIsStaffPersonaFromStorage(storage);
       if (!mounted) return;
       setState(() {
         _schoolIana = iana;

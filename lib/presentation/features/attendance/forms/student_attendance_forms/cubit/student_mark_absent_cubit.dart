@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../../core/network/api_client.dart';
@@ -6,7 +5,6 @@ import '../../../../../../core/storage/storage_service.dart';
 import '../../../../../../core/util/school_timezone_resolver.dart';
 import '../../../../../../core/util/school_zone_datetime.dart';
 import '../../../../../../core/util/staff_code_resolver.dart';
-import '../../../../../../core/util/storage_keys.dart';
 import '../../../../../../domain/features/attendance/usecases/mark_students_absent_usecase.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 part 'student_mark_absent_state.dart';
@@ -50,28 +48,7 @@ class StudentMarkAbsentFormCubit extends Cubit<StudentMarkAbsentState> {
         );
       } catch (_) {}
 
-      final staffType =
-          (await _storageService.getString(StorageKeys.staffType) ?? '')
-              .trim()
-              .toUpperCase();
-      bool isAdmin =
-          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
-      if (!isAdmin) {
-        final rolesJson = await _storageService.getString(StorageKeys.roles);
-        if (rolesJson != null && rolesJson.trim().isNotEmpty) {
-          final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
-          for (final r in roles) {
-            final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
-                .toString()
-                .toUpperCase();
-            if (roleCode == 'SCHOOL_ADMIN' ||
-                roleCode == 'ORGANIZATION_ADMIN') {
-              isAdmin = true;
-              break;
-            }
-          }
-        }
-      }
+      final isAdmin = await resolveIsStaffAdminPersonaFromStorage();
       if (isClosed) return;
       final DateTime start = (schoolIana != null && schoolIana.isNotEmpty)
           ? SchoolZoneDateTime.schoolCalendarTodayOnly(schoolIana)

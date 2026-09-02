@@ -9,7 +9,6 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'dart:convert';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_transfer_request.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_transfer_submit_cubit.dart';
@@ -155,29 +154,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       } catch (_) {}
 
       final storage = serviceLocator<StorageService>();
-      final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-          .trim();
       // True for any staff-side login (school/org admin or regular staff);
       // false for guardian/parent and kiosk-PIN access. Gates date/time editing.
-      bool isStaff = staffType.isNotEmpty;
-      if (!isStaff) {
-        final rolesJson = await storage.getString(StorageKeys.roles);
-        if (rolesJson != null && rolesJson.trim().isNotEmpty) {
-          final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
-          for (final r in roles) {
-            final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
-                .toString()
-                .toUpperCase();
-            if (roleCode.contains('GUARDIAN') ||
-                roleCode.contains('PARENT') ||
-                roleCode.contains('KIOSK')) {
-              continue;
-            }
-            isStaff = true;
-            break;
-          }
-        }
-      }
+      final isStaff = await resolveIsStaffPersonaFromStorage(storage);
       if (!mounted) return;
       setState(() {
         _schoolIana = schoolIana;

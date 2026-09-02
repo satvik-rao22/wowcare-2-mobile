@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
@@ -52,22 +53,8 @@ class AttendancePermissionService {
 
     try {
       final storage = serviceLocator<StorageService>();
-      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
-          .trim();
-      if (rolesJson.isNotEmpty) {
-        final decoded = jsonDecode(rolesJson);
-        if (decoded is List) {
-          for (final role in decoded) {
-            if (role is! Map) continue;
-            final roleName = (role['role'] ?? '')
-                .toString()
-                .toUpperCase()
-                .trim();
-            if (roleName.contains('PARENT') || roleName.contains('GUARDIAN')) {
-              return true;
-            }
-          }
-        }
+      if (await resolveIsGuardianOrParentFromStorage(storage)) {
+        return true;
       }
 
       final loginContext = await storage.getJson(StorageKeys.loginContext);

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -7,7 +5,7 @@ import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
 
 import '../student_sign_in_form.dart' show StudentEntity;
@@ -62,26 +60,10 @@ class StudentSignInGateCubit extends Cubit<StudentSignInGateState> {
 
   Future<bool> _resolveIsStaffPersona() async {
     try {
-      final staffType = (await _storage.getString(StorageKeys.staffType) ?? '')
-          .trim();
-      if (staffType.isNotEmpty) return true;
-
-      final rolesJson = await _storage.getString(StorageKeys.roles);
-      if (rolesJson == null || rolesJson.trim().isEmpty) return false;
-      final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
-      for (final r in roles) {
-        final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
-            .toString()
-            .toUpperCase();
-        if (roleCode.contains('GUARDIAN') ||
-            roleCode.contains('PARENT') ||
-            roleCode.contains('KIOSK')) {
-          continue;
-        }
-        return true;
-      }
-    } catch (_) {}
-    return false;
+      return await resolveIsStaffPersonaFromStorage(_storage);
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Resolves the school timezone id, then re-seeds date/time. Mirrors the
@@ -106,9 +88,11 @@ class StudentSignInGateCubit extends Cubit<StudentSignInGateState> {
     );
   }
 
-  void setSelectedDate(DateTime date) => emit(state.copyWith(selectedDate: date));
+  void setSelectedDate(DateTime date) =>
+      emit(state.copyWith(selectedDate: date));
 
-  void setSelectedTime(TimeOfDay time) => emit(state.copyWith(selectedTime: time));
+  void setSelectedTime(TimeOfDay time) =>
+      emit(state.copyWith(selectedTime: time));
 
   /// Removes [student] from the working list. Returns true when the list is now
   /// empty (the View pops). When students remain and none are unexpected, the
@@ -174,7 +158,11 @@ class StudentSignInGateCubit extends Cubit<StudentSignInGateState> {
           unexpectedSignInAcknowledged: true,
         ),
       );
-      return (superseded: false, needsDialog: false, unexpectedNames: const <String>[]);
+      return (
+        superseded: false,
+        needsDialog: false,
+        unexpectedNames: const <String>[],
+      );
     }
 
     final token = ++_gateToken;
@@ -192,7 +180,11 @@ class StudentSignInGateCubit extends Cubit<StudentSignInGateState> {
         size: 500,
       );
       if (isClosed || token != _gateToken) {
-        return (superseded: true, needsDialog: false, unexpectedNames: const <String>[]);
+        return (
+          superseded: true,
+          needsDialog: false,
+          unexpectedNames: const <String>[],
+        );
       }
       final m = <String, bool>{};
       for (final item in page.items) {
@@ -201,13 +193,21 @@ class StudentSignInGateCubit extends Cubit<StudentSignInGateState> {
       emit(state.copyWith(expectedTodayFromApi: m));
     } catch (_) {
       if (isClosed || token != _gateToken) {
-        return (superseded: true, needsDialog: false, unexpectedNames: const <String>[]);
+        return (
+          superseded: true,
+          needsDialog: false,
+          unexpectedNames: const <String>[],
+        );
       }
       emit(state.copyWith(expectedTodayFromApi: const {}));
     }
 
     if (isClosed || token != _gateToken) {
-      return (superseded: true, needsDialog: false, unexpectedNames: const <String>[]);
+      return (
+        superseded: true,
+        needsDialog: false,
+        unexpectedNames: const <String>[],
+      );
     }
 
     final hasUnexpected = hasUnexpectedAmongSelected();
@@ -218,7 +218,11 @@ class StudentSignInGateCubit extends Cubit<StudentSignInGateState> {
           unexpectedGateLoading: false,
         ),
       );
-      return (superseded: false, needsDialog: false, unexpectedNames: const <String>[]);
+      return (
+        superseded: false,
+        needsDialog: false,
+        unexpectedNames: const <String>[],
+      );
     }
 
     emit(
