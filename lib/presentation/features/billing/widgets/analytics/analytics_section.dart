@@ -8,7 +8,7 @@ import 'package:wowcare/presentation/features/billing/cubit/analytics_cubit.dart
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/util/billing_school_time.dart';
 
 class AnalyticsSection extends StatelessWidget {
   const AnalyticsSection({super.key, this.onRegisterRefresh});

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
-import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
+import 'package:wowcare/presentation/features/billing/model/student_models.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';

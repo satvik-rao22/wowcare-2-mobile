@@ -7,7 +7,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/util/billing_school_time.dart';
 
 class AutoPayNewMethodScreen extends StatefulWidget {
   const AutoPayNewMethodScreen({super.key});

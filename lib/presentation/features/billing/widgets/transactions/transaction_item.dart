@@ -1,5 +1,5 @@
 import 'package:wowcare/domain/features/billing/entities/invoice_list_entity.dart';
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/util/billing_school_time.dart';
 
 class TransactionItem {
   TransactionItem({

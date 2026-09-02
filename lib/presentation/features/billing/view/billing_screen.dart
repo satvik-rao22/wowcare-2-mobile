@@ -1,5 +1,5 @@
 import 'dart:async' show unawaited;
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/util/billing_school_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/billing_events.dart';
@@ -11,16 +11,16 @@ import 'package:wowcare/presentation/features/billing/view/Accounting/students.d
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_dialog.dart';
-import 'package:wowcare/presentation/features/billing/widgets/select_students_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/select_students_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_action_dialog.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/receive_payment_issue_refund_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
-import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
+import 'package:wowcare/presentation/features/billing/model/student_models.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transactions_section.dart';
 import 'package:wowcare/presentation/features/billing/widgets/analytics/analytics_section.dart';
-import 'package:wowcare/presentation/features/billing/widgets/general_ledger/create_ledger_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/general_ledger/create_ledger_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/general_ledger_section.dart';
-import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
+import 'package:wowcare/presentation/features/billing/model/ledger_account_model.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_settings/billing_settings_section.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';

@@ -1,7 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/widgets.dart';
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/util/billing_school_time.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -17,7 +17,7 @@ import 'package:wowcare/domain/features/billing/usecases/get_discounts_usecase.d
 import 'package:wowcare/domain/features/billing/usecases/get_fee_structures_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_other_fees_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_subsidies_usecase.dart';
-import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
+import 'package:wowcare/presentation/features/billing/model/student_models.dart';
 
 part 'create_invoice_state.dart';
 

@@ -9,7 +9,7 @@ import 'package:wowcare/domain/features/billing/usecases/delete_ledger_usecase.d
 import 'package:wowcare/domain/features/billing/usecases/deactivate_ledger_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/reactivate_ledger_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_ledgers_usecase.dart';
-import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
+import 'package:wowcare/presentation/features/billing/model/ledger_account_model.dart';
 
 part 'general_ledger_state.dart';
 

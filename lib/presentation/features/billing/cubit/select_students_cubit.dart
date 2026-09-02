@@ -12,7 +12,7 @@ import 'package:wowcare/domain/features/student/entities/student.dart' as domain
 import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 
-import '../widgets/models/student_models.dart';
+import 'package:wowcare/presentation/features/billing/model/student_models.dart';
 
 part 'select_students_state.dart';
 

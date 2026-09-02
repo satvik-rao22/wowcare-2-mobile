@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/util/billing_school_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

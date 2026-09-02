@@ -11,7 +11,7 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/trans
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/util/billing_school_time.dart';
 
 class SendInvoiceScreen extends StatefulWidget {
   const SendInvoiceScreen({super.key, required this.transaction});

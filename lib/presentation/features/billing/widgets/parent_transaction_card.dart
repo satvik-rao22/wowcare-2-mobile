@@ -5,11 +5,11 @@ import 'package:wowcare/domain/features/billing/entities/billing_statement_entit
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/view_receipt_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/view_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/view_receipt_screen.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/date_utils.dart';
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/util/billing_school_time.dart';
 
 /// Transaction card backed by [FamilyLedgerTransactionEntity] from the API.
 class ParentTransactionCard extends StatelessWidget {

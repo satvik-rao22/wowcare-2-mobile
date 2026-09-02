@@ -5,7 +5,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/billing/entities/discount_entity.dart';
 import 'package:wowcare/domain/features/billing/usecases/create_discount_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/update_discount_usecase.dart';
-import 'package:wowcare/presentation/features/billing/widgets/billing_settings/discount_account_model.dart';
+import 'package:wowcare/presentation/features/billing/model/discount_account_model.dart';
 
 part 'discount_form_state.dart';
 

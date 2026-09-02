@@ -10,7 +10,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/usecases/create_discount_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/update_discount_usecase.dart';
 import 'package:wowcare/presentation/features/billing/cubit/discount_form_cubit.dart';
-import 'package:wowcare/presentation/features/billing/widgets/billing_settings/discount_account_model.dart';
+import 'package:wowcare/presentation/features/billing/model/discount_account_model.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';

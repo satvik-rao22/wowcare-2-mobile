@@ -9,17 +9,17 @@ import 'package:wowcare/presentation/features/billing/cubit/transaction_details_
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
 import 'package:wowcare/presentation/features/billing/widgets/admin_statements_tab.dart';
-import 'package:wowcare/presentation/features/billing/widgets/create_invoice_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/generate_statement_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/add_credit_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/create_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/generate_statement_screen.dart';
+import 'package:wowcare/presentation/features/billing/model/student_models.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/add_credit_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/billing_transaction_card.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/send_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/receive_payment_issue_refund_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/send_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_action_dialog.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/view_receipt_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/view_receipt_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/view_invoice_screen.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:shimmer/shimmer.dart';
@@ -27,7 +27,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/gradient_circular_progress.dart';
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/util/billing_school_time.dart';
 
 class TransactionDetailsScreen extends StatefulWidget {
   /// Optional source transaction (when opened from a transaction card).

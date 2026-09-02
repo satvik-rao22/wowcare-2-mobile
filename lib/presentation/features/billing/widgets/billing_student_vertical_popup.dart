@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/transaction_details_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 
 enum BillingPopupType { student, invoice, payment, refund }

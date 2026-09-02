@@ -6,7 +6,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/parent_statements_cubit.dart';
-import 'package:wowcare/presentation/features/billing/widgets/generate_statement_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/generate_statement_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_statements_widget.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_transaction_card.dart';
 import 'package:wowcare/presentation/features/reports/view/report_file_viewer_screen.dart';

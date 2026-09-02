@@ -9,7 +9,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/usecases/create_ledger_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/update_ledger_usecase.dart';
 import 'package:wowcare/presentation/features/billing/cubit/ledger_form_cubit.dart';
-import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
+import 'package:wowcare/presentation/features/billing/model/ledger_account_model.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';

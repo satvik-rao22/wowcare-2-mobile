@@ -1,4 +1,4 @@
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/util/billing_school_time.dart';
 
 /// Lightweight view models for the billing "Select Students" flow.
 ///

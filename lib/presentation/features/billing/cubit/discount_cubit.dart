@@ -8,7 +8,7 @@ import 'package:wowcare/domain/features/billing/usecases/get_discounts_usecase.d
 import 'package:wowcare/domain/features/billing/usecases/delete_discount_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/deactivate_discount_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/reactivate_discount_usecase.dart';
-import 'package:wowcare/presentation/features/billing/widgets/billing_settings/discount_account_model.dart';
+import 'package:wowcare/presentation/features/billing/model/discount_account_model.dart';
 
 part 'discount_state.dart';
 

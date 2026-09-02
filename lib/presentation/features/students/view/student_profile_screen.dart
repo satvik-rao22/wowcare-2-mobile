@@ -15,7 +15,7 @@ import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/transaction_details_screen.dart';
 import 'package:wowcare/domain/features/billing/entities/family_summary_entity.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_family_summary_usecase.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_documents_tab.dart';

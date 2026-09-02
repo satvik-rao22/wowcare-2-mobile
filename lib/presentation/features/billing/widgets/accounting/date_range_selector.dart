@@ -5,7 +5,7 @@ import 'package:wowcare/presentation/features/billing/cubit/date_range_cubit.dar
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/util/billing_school_time.dart';
 
 class AccountingDateRangeSelector extends StatefulWidget {
   const AccountingDateRangeSelector({

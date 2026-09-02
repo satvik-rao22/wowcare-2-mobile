@@ -6,7 +6,7 @@ import 'package:wowcare/domain/features/billing/entities/ledger_transaction_enti
 import 'package:wowcare/domain/features/billing/usecases/add_ledger_transaction_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_ledger_by_code_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_ledger_transactions_usecase.dart';
-import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
+import 'package:wowcare/presentation/features/billing/model/ledger_account_model.dart';
 
 part 'ledger_detail_state.dart';
 

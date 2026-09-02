@@ -10,7 +10,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/ledger_transaction_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/ledger_detail_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/add_transaction_dialog.dart';
-import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
+import 'package:wowcare/presentation/features/billing/model/ledger_account_model.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';

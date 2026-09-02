@@ -8,7 +8,7 @@ import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.d
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/family_summary_list.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/transaction_details_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';

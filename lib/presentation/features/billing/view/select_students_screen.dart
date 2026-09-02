@@ -10,9 +10,9 @@ import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/presentation/features/billing/widgets/create_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/create_invoice_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
+import 'package:wowcare/presentation/features/billing/model/student_models.dart';
 
 class SelectStudentsScreen extends StatefulWidget {
   const SelectStudentsScreen({Key? key, this.invoiceData, this.onNext})
