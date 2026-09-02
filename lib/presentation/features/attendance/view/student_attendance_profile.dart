@@ -1702,8 +1702,7 @@ class _StudentIconDetail extends StatelessWidget {
           Expanded(
             child: AppText.body(
               detail,
-              style: const TextStyle(
-                fontSize: 14,
+              style: AppTextStyles.body.copyWith(
                 color: AppColors.attendanceBodyText87Color,
               ),
             ),

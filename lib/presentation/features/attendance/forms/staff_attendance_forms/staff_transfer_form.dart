@@ -655,7 +655,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                               ),
                               child: AppText.value(
                                 currentClassroom,
-                                style: TextStyle(
+                                style: AppTextStyles.value.copyWith(
                                   color: AppColors.primaryColor.withValues(
                                     alpha: 0.5,
                                   ),

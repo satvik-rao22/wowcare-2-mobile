@@ -53,7 +53,9 @@ class AttendanceEditHeaderCard extends StatelessWidget {
                   const SizedBox(height: AppSpacing.xxs),
                   AppText.small(
                     subtitle!,
-                    style: const TextStyle(color: AppColors.secondaryColor),
+                    style: AppTextStyles.small.copyWith(
+                      color: AppColors.secondaryColor,
+                    ),
                   ),
                 ],
               ],

@@ -281,7 +281,7 @@ class _StaffSelectionSignInFormState extends State<StaffSelectionSignInForm> {
                             children: [
                               AppText.body(
                                 state.errorMessage ?? 'Failed to load staff',
-                                style: const TextStyle(
+                                style: AppTextStyles.body.copyWith(
                                   color: AppColors.errorColor,
                                 ),
                                 textAlign: TextAlign.center,

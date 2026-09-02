@@ -32,7 +32,7 @@ class AttendanceProfileValueCircle extends StatelessWidget {
       child: Center(
         child: AppText.body(
           text,
-          style: TextStyle(
+          style: AppTextStyles.body.copyWith(
             fontSize: 13,
             fontWeight: FontWeight.bold,
             color: color,

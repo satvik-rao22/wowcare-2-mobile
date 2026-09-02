@@ -828,13 +828,18 @@ class _CustomErrorWidget extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             AppText.title(
               'Error loading attendance data',
-              style: TextStyle(color: AppColors.errorColor, fontSize: 18),
+              style: AppTextStyles.title.copyWith(
+                color: AppColors.errorColor,
+                fontSize: 18,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.xs),
             AppText.body(
               message.isNotEmpty ? message : 'Please try again.',
-              style: TextStyle(color: AppColors.secondaryColor),
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.secondaryColor,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.md),
@@ -843,7 +848,7 @@ class _CustomErrorWidget extends StatelessWidget {
               icon: const Icon(Icons.refresh),
               label: AppText.body(
                 'Retry',
-                style: TextStyle(color: AppColors.cardColor),
+                style: AppTextStyles.body.copyWith(color: AppColors.cardColor),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.themeColor,
@@ -879,13 +884,18 @@ class _CustomEmptyWidget extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             AppText.title(
               'No attendance data found',
-              style: TextStyle(color: AppColors.secondaryColor, fontSize: 18),
+              style: AppTextStyles.title.copyWith(
+                color: AppColors.secondaryColor,
+                fontSize: 18,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.xs),
             AppText.body(
               'Try adjusting your search criteria or date range',
-              style: TextStyle(color: AppColors.secondaryColor),
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.secondaryColor,
+              ),
               textAlign: TextAlign.center,
             ),
           ],

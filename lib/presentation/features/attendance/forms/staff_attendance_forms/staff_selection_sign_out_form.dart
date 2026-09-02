@@ -284,7 +284,7 @@ class _StaffSelectionSignOutFormState extends State<StaffSelectionSignOutForm> {
                                   AppText.body(
                                     state.errorMessage ??
                                         'Failed to load staff',
-                                    style: const TextStyle(
+                                    style: AppTextStyles.body.copyWith(
                                       color: AppColors.errorColor,
                                     ),
                                     textAlign: TextAlign.center,

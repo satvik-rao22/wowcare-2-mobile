@@ -890,7 +890,9 @@ class _StudentAttendanceAbsentViewState
                       SizedBox(height: responsive.verticalSpacing / 2),
                       AppText.body(
                         errorMessage ?? 'Unable to load absent students.',
-                        style: TextStyle(color: AppColors.errorColor),
+                        style: AppTextStyles.body.copyWith(
+                          color: AppColors.errorColor,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       SizedBox(height: responsive.verticalSpacing / 2),
@@ -898,7 +900,9 @@ class _StudentAttendanceAbsentViewState
                         onPressed: () => _loadInitialData(reset: true),
                         child: AppText.body(
                           'Retry',
-                          style: TextStyle(color: AppColors.cardColor),
+                          style: AppTextStyles.body.copyWith(
+                            color: AppColors.cardColor,
+                          ),
                         ),
                       ),
                     ],
@@ -922,7 +926,9 @@ class _StudentAttendanceAbsentViewState
                           _absentStudents.isEmpty
                               ? 'No absent students found'
                               : 'No students match your filters',
-                          style: TextStyle(color: AppColors.secondaryColor),
+                          style: AppTextStyles.body.copyWith(
+                            color: AppColors.secondaryColor,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                       ],
