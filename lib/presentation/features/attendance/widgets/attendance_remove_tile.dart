@@ -20,11 +20,17 @@ class AttendanceRemoveTile extends StatelessWidget {
     required this.onRemove,
     this.horizontalPadding = AppSpacing.xs,
     this.deleteIconSize,
+    this.canRemove = true,
   });
 
   final String name;
   final String photoUuid;
   final VoidCallback onRemove;
+
+  /// The staff-side copies gated the delete affordance on there being more
+  /// than one selected staff member left; the student-side copies had no
+  /// such gate. Defaults to always-removable to match the student call sites.
+  final bool canRemove;
 
   /// The 4 pre-existing copies of this widget weren't byte-identical: two
   /// used AppSpacing.sm, two used AppSpacing.xs. Preserved per call site
@@ -73,16 +79,17 @@ class AttendanceRemoveTile extends StatelessWidget {
               ],
             ),
           ),
-          GestureDetector(
-            onTap: onRemove,
-            child: deleteIconSize != null
-                ? SvgPicture.asset(
-                    MediaRes.delete_icon,
-                    height: deleteIconSize,
-                    width: deleteIconSize,
-                  )
-                : SvgPicture.asset(MediaRes.delete_icon),
-          ),
+          if (canRemove)
+            GestureDetector(
+              onTap: onRemove,
+              child: deleteIconSize != null
+                  ? SvgPicture.asset(
+                      MediaRes.delete_icon,
+                      height: deleteIconSize,
+                      width: deleteIconSize,
+                    )
+                  : SvgPicture.asset(MediaRes.delete_icon),
+            ),
         ],
       ),
     );
