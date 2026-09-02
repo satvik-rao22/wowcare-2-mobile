@@ -520,6 +520,8 @@ import '../../presentation/features/billing/cubit/family_summary_cubit.dart';
 import '../../presentation/features/billing/cubit/transaction_details_cubit.dart';
 import '../../presentation/features/billing/cubit/receive_payment_refund_cubit.dart';
 import '../../presentation/features/billing/cubit/add_credit_cubit.dart';
+import '../../presentation/features/billing/cubit/view_invoice_cubit.dart';
+import '../../presentation/features/billing/cubit/send_invoice_cubit.dart';
 import '../../data/features/billing/datasources/auto_pay_remote_datasource.dart';
 import '../../data/features/billing/repositories/auto_pay_repository_impl.dart';
 import '../../domain/features/billing/repositories/auto_pay_repository.dart';
@@ -2781,6 +2783,19 @@ Future<void> configureDependencies({String? baseUrl}) async {
       cancelInvoice: serviceLocator<CancelInvoiceUseCase>(),
       deleteInvoice: serviceLocator<DeleteInvoiceUseCase>(),
       storage: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<ViewInvoiceCubit>(
+    () => ViewInvoiceCubit(
+      getStudentProfile: serviceLocator<GetStudentProfileUseCase>(),
+      getInvoiceByCode: serviceLocator<GetInvoiceByCodeUseCase>(),
+    ),
+  );
+  serviceLocator.registerFactory<SendInvoiceCubit>(
+    () => SendInvoiceCubit(
+      getStudentProfile: serviceLocator<GetStudentProfileUseCase>(),
+      issueInvoice: serviceLocator<IssueInvoiceUseCase>(),
+      resendInvoice: serviceLocator<ResendInvoiceUseCase>(),
     ),
   );
   serviceLocator.registerLazySingleton<BillingStatementsRemoteDataSource>(
