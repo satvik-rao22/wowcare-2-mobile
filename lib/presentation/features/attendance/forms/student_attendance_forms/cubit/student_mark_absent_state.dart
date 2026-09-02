@@ -1,39 +1,5 @@
 part of 'student_mark_absent_cubit.dart';
 
-/// UI-only student entity used by the attendance mark-absent form. Equality is
-/// by [studentCode] so list removal / selection works by identity of student.
-class StudentEntity {
-  final int id;
-  final String studentCode;
-  final String fullName;
-  final int roomId;
-  final String roomName;
-  final String classroomCode;
-  final String photoUuid;
-  final List<TagEntity> tags;
-
-  StudentEntity({
-    required this.id,
-    required this.studentCode,
-    required this.fullName,
-    required this.roomId,
-    required this.roomName,
-    required this.classroomCode,
-    this.photoUuid = '',
-    this.tags = const [],
-  });
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is StudentEntity &&
-          runtimeType == other.runtimeType &&
-          studentCode == other.studentCode;
-
-  @override
-  int get hashCode => studentCode.hashCode;
-}
-
 /// Immutable form state for [StudentMarkAbsentFormCubit].
 class StudentMarkAbsentState extends Equatable {
   const StudentMarkAbsentState({

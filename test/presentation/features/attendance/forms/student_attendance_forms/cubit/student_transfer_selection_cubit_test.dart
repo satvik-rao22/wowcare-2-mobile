@@ -46,6 +46,7 @@ StudentEntity _student(String code, {String room = 'Room A'}) => StudentEntity(
   fullName: 'Name $code',
   roomId: 0,
   roomName: room,
+  classroomCode: '',
 );
 
 void main() {
@@ -88,43 +89,46 @@ void main() {
       expect(cubit.state.selectedStudents, isEmpty);
     });
 
-    test('setStudentsSelected(true) adds all visible; (false) removes them', () {
-      final visible = [_student('A'), _student('B'), _student('C')];
+    test(
+      'setStudentsSelected(true) adds all visible; (false) removes them',
+      () {
+        final visible = [_student('A'), _student('B'), _student('C')];
 
-      cubit.setStudentsSelected(visible, true);
-      expect(cubit.state.selectedStudents, hasLength(3));
-      expect(
-        cubit.state.selectedStudents.map((s) => s.studentCode),
-        containsAll(<String>['A', 'B', 'C']),
-      );
+        cubit.setStudentsSelected(visible, true);
+        expect(cubit.state.selectedStudents, hasLength(3));
+        expect(
+          cubit.state.selectedStudents.map((s) => s.studentCode),
+          containsAll(<String>['A', 'B', 'C']),
+        );
 
-      // Deselect only a subset of the visible list.
-      cubit.setStudentsSelected([_student('A'), _student('C')], false);
-      expect(
-        cubit.state.selectedStudents.map((s) => s.studentCode).toList(),
-        <String>['B'],
-      );
-    });
+        // Deselect only a subset of the visible list.
+        cubit.setStudentsSelected([_student('A'), _student('C')], false);
+        expect(
+          cubit.state.selectedStudents.map((s) => s.studentCode).toList(),
+          <String>['B'],
+        );
+      },
+    );
 
-    test('removeStudentsWhere removes every student matching the predicate', () {
-      cubit.setStudentsSelected(
-        [
+    test(
+      'removeStudentsWhere removes every student matching the predicate',
+      () {
+        cubit.setStudentsSelected([
           _student('A', room: 'Room A'),
           _student('B', room: 'Room B'),
           _student('C', room: 'Room A'),
-        ],
-        true,
-      );
+        ], true);
 
-      // Remove everyone NOT in Room A (i.e. keep only Room A) — mirrors the
-      // View's old build-time prune `removeWhere((s) => !present)`.
-      cubit.removeStudentsWhere((s) => s.roomName != 'Room A');
+        // Remove everyone NOT in Room A (i.e. keep only Room A) — mirrors the
+        // View's old build-time prune `removeWhere((s) => !present)`.
+        cubit.removeStudentsWhere((s) => s.roomName != 'Room A');
 
-      expect(
-        cubit.state.selectedStudents.map((s) => s.studentCode).toSet(),
-        <String>{'A', 'C'},
-      );
-    });
+        expect(
+          cubit.state.selectedStudents.map((s) => s.studentCode).toSet(),
+          <String>{'A', 'C'},
+        );
+      },
+    );
 
     test('setSelectedClassrooms replaces the classroom filter', () {
       cubit.setSelectedClassrooms(['Room A']);

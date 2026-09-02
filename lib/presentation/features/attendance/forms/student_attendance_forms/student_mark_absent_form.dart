@@ -209,7 +209,7 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                   children: [
                     AttendanceRemoveTile(
                       name: student.fullName,
-                      photoUuid: student.photoUuid,
+                      photoUuid: student.photoUuid ?? '',
                       onRemove: () => _removeStudent(student),
                     ),
                     const SizedBox(height: AppSpacing.lg),

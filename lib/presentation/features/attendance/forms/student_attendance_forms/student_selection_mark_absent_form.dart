@@ -335,7 +335,7 @@ class _StudentSelectionMarkAbsentFormState
 
                           return AttendanceSelectablePersonTile(
                             name: student.fullName,
-                            photoUuid: student.photoUuid,
+                            photoUuid: student.photoUuid ?? '',
                             code: student.studentCode,
                             isSelected: isSelected,
                             onSelectionChanged: (value) {

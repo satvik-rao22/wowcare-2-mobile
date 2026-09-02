@@ -33,37 +33,9 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/domain/features/attendance/usecases/validate_qr_code_usecase.dart';
+import 'student_entity.dart';
 
-// Student entity for Sign-Out UI & API payload
-class StudentEntity {
-  final int id;
-  final String studentCode;
-  final String fullName;
-  final int roomId;
-  final String roomName;
-  final String photoUuid;
-  final String classroomCode;
-
-  StudentEntity({
-    required this.id,
-    required this.studentCode,
-    required this.fullName,
-    required this.roomId,
-    required this.roomName,
-    this.photoUuid = '',
-    required this.classroomCode,
-  });
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is StudentEntity &&
-          runtimeType == other.runtimeType &&
-          studentCode == other.studentCode;
-
-  @override
-  int get hashCode => studentCode.hashCode;
-}
+export 'student_entity.dart';
 
 class StudentSignOutForm extends StatefulWidget {
   const StudentSignOutForm({
@@ -547,7 +519,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
               itemCount: currentStudents.length,
               itemBuilder: (context, index) => AttendanceRemoveTile(
                 name: currentStudents[index].fullName,
-                photoUuid: currentStudents[index].photoUuid,
+                photoUuid: currentStudents[index].photoUuid ?? '',
                 onRemove: () => _removeStudent(currentStudents[index]),
                 horizontalPadding: AppSpacing.sm,
                 deleteIconSize: 18,

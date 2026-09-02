@@ -33,39 +33,9 @@ import 'package:wowcare/presentation/features/attendance/util/attendance_redirec
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'student_entity.dart';
 
-// Student entity used for Sign-In UI & API payload
-class StudentEntity {
-  final int id;
-  final String studentCode;
-  final String fullName;
-  final int roomId;
-  final String roomName;
-  final String classroomCode;
-  final String? photoUuid;
-  final bool isExpectedToday;
-
-  StudentEntity({
-    required this.id,
-    required this.studentCode,
-    required this.fullName,
-    required this.roomId,
-    required this.roomName,
-    required this.classroomCode,
-    this.photoUuid,
-    this.isExpectedToday = true,
-  });
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is StudentEntity &&
-          runtimeType == other.runtimeType &&
-          studentCode == other.studentCode;
-
-  @override
-  int get hashCode => studentCode.hashCode;
-}
+export 'student_entity.dart';
 
 class StudentSignInForm extends StatefulWidget {
   const StudentSignInForm({

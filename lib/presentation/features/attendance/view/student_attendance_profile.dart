@@ -29,6 +29,7 @@ import 'package:wowcare/presentation/features/attendance/widgets/student_attenda
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_entity.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
     as student_sign_in;
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_out_form.dart'
@@ -1007,76 +1008,37 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
 
     final classroomMap = await _loadClassroomNameToCodeMap();
     final classroomCode = (classroomMap[current.roomName] ?? '').trim();
-    final commonArgs = (
+    final entity = StudentEntity(
       id: current.id,
-      code: _activeStudentCode,
-      name: current.name,
+      studentCode: _activeStudentCode,
+      fullName: current.name,
+      roomId: 0,
       roomName: current.roomName,
-      photoUuid: current.photoUuid ?? '',
       classroomCode: classroomCode,
+      photoUuid: current.photoUuid ?? '',
+      isExpectedToday: current.isExpectedToday,
     );
 
     Widget? target;
     if (actionLabel == 'Sign-in') {
       target = student_sign_in.StudentSignInForm(
-        students: [
-          student_sign_in.StudentEntity(
-            id: commonArgs.id,
-            studentCode: commonArgs.code,
-            fullName: commonArgs.name,
-            roomId: 0,
-            roomName: commonArgs.roomName,
-            classroomCode: commonArgs.classroomCode,
-            photoUuid: commonArgs.photoUuid,
-            isExpectedToday: current.isExpectedToday,
-          ),
-        ],
+        students: [entity],
         refreshCallback: refreshData,
       );
     } else if (actionLabel == 'Sign-Out') {
       target = student_sign_out.StudentSignOutForm(
-        students: [
-          student_sign_out.StudentEntity(
-            id: commonArgs.id,
-            studentCode: commonArgs.code,
-            fullName: commonArgs.name,
-            roomId: 0,
-            roomName: commonArgs.roomName,
-            classroomCode: commonArgs.classroomCode,
-            photoUuid: commonArgs.photoUuid,
-          ),
-        ],
+        students: [entity],
         refreshCallback: refreshData,
       );
     } else if (actionLabel == 'Transfer') {
       target = student_transfer.StudentTransferForm(
-        students: [
-          student_transfer.StudentEntity(
-            id: commonArgs.id,
-            studentCode: commonArgs.code,
-            fullName: commonArgs.name,
-            roomId: 0,
-            roomName: commonArgs.roomName,
-            classroomCode: commonArgs.classroomCode,
-            photoUuid: commonArgs.photoUuid,
-          ),
-        ],
+        students: [entity],
         refreshCallback: refreshData,
         classroomNameToCode: classroomMap,
       );
     } else if (actionLabel == 'Absent') {
       target = student_absent.StudentMarkAbsentForm(
-        students: [
-          student_absent.StudentEntity(
-            id: commonArgs.id,
-            studentCode: commonArgs.code,
-            fullName: commonArgs.name,
-            roomId: 0,
-            roomName: commonArgs.roomName,
-            classroomCode: commonArgs.classroomCode,
-            photoUuid: commonArgs.photoUuid,
-          ),
-        ],
+        students: [entity],
         refreshCallback: refreshData,
       );
     }

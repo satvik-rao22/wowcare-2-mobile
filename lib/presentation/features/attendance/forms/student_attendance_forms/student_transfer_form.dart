@@ -25,41 +25,9 @@ import 'package:wowcare/presentation/features/attendance/util/attendance_permiss
 import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
-import 'tag_entity.dart';
 export 'tag_entity.dart';
-
-// Student entity for Transfer UI & API payload
-class StudentEntity {
-  final int id;
-  final String studentCode;
-  final String fullName;
-  final int roomId;
-  final String roomName;
-  final String photoUuid;
-  final List<TagEntity> tags;
-  final String classroomCode;
-
-  StudentEntity({
-    required this.id,
-    required this.studentCode,
-    required this.fullName,
-    required this.roomId,
-    required this.roomName,
-    this.photoUuid = '',
-    this.tags = const [],
-    this.classroomCode = '',
-  });
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is StudentEntity &&
-          runtimeType == other.runtimeType &&
-          studentCode == other.studentCode;
-
-  @override
-  int get hashCode => studentCode.hashCode;
-}
+import 'student_entity.dart';
+export 'student_entity.dart';
 
 class StudentTransferForm extends StatefulWidget {
   const StudentTransferForm({
@@ -532,7 +500,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
               itemCount: currentStudents.length,
               itemBuilder: (context, index) => AttendanceRemoveTile(
                 name: currentStudents[index].fullName,
-                photoUuid: currentStudents[index].photoUuid,
+                photoUuid: currentStudents[index].photoUuid ?? '',
                 onRemove: () => _removeStudent(currentStudents[index]),
               ),
             ),
