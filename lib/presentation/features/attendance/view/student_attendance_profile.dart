@@ -11,6 +11,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_profile_field.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_profile_stat_widgets.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
@@ -1048,7 +1049,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                 builder: (context) {
                   return isStudentLoading &&
                           (isAttendancesLoading || isAbsentDaysLoading)
-                      ? _buildAttendanceShimmer()
+                      ? const AttendanceProfileShimmer()
                       : Column(
                           children: [
                             _buildStudentCard(),
@@ -1297,7 +1298,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                       extra: {'filter': 'Present'},
                     );
                   },
-            child: _buildStatItem(
+            child: AttendanceProfileStatItem(
               icon: MediaRes.calenderClockIcon,
               iconColor: AppColors.attendanceStatBlueColor,
               label: 'Attended Days',
@@ -1306,7 +1307,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-          _buildAttendedHoursStat(report: null),
+          AttendanceProfileAttendedHoursStat(totalAttendedHours: null),
           const SizedBox(height: AppSpacing.md),
           InkWell(
             onTap: isParentPersona
@@ -1317,7 +1318,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                       extra: {'filter': 'Absent'},
                     );
                   },
-            child: _buildStatItem(
+            child: AttendanceProfileStatItem(
               icon: MediaRes.calenderClockIcon,
               iconColor: AppColors.attendanceStatBlueColor,
               label: 'Absent Days',
@@ -1340,7 +1341,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                     extra: {'filter': 'Present'},
                   );
                 },
-          child: _buildStatItem(
+          child: AttendanceProfileStatItem(
             icon: MediaRes.calenderClockIcon,
             iconColor: AppColors.attendanceStatBlueColor,
             label: 'Attended Days',
@@ -1349,7 +1350,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        _buildAttendedHoursStat(report: report),
+        AttendanceProfileAttendedHoursStat(
+          totalAttendedHours: report.totalAttendedHours,
+        ),
         const SizedBox(height: AppSpacing.md),
         InkWell(
           onTap: isParentPersona
@@ -1360,7 +1363,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                     extra: {'filter': 'Absent'},
                   );
                 },
-          child: _buildStatItem(
+          child: AttendanceProfileStatItem(
             icon: MediaRes.calenderClockIcon,
             iconColor: AppColors.attendanceStatBlueColor,
             label: 'Absent Days',
@@ -1369,131 +1372,6 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildStatItem({
-    required String icon,
-    required Color iconColor,
-    required String label,
-    required String value,
-    required Color valueColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        vertical: AppSpacing.s10,
-        horizontal: 15,
-      ),
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.attendanceCardBorderColor,
-          width: 1,
-        ),
-        borderRadius: AppRadius.allMd,
-      ),
-      child: Row(
-        children: [
-          SvgPicture.asset(
-            icon,
-            height: 22,
-            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          AppText.body(label, style: AppTextStyles.valueLarge),
-          const Spacer(),
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: valueColor, width: 1.5),
-            ),
-            child: Center(
-              child: AppText.body(
-                value,
-                style: AppTextStyles.title.copyWith(color: valueColor),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAttendedHoursStat({required _AttendanceReportModel? report}) {
-    int hours = 0;
-    int minutes = 0;
-
-    // Parse from raw string when available, expecting formats like "5 Hrs 30 Mins".
-    if (report != null && report.totalAttendedHours.isNotEmpty) {
-      final parts = report.totalAttendedHours.split(' ');
-      if (parts.length >= 4) {
-        hours = int.tryParse(parts[0]) ?? 0;
-        minutes = int.tryParse(parts[2]) ?? 0;
-      }
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        vertical: AppSpacing.s10,
-        horizontal: 15,
-      ),
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.attendanceCardBorderColor,
-          width: 1,
-        ),
-        borderRadius: AppRadius.allMd,
-      ),
-      child: Row(
-        children: [
-          SvgPicture.asset(
-            MediaRes.timerIcon,
-            height: 22,
-            colorFilter: const ColorFilter.mode(
-              AppColors.attendanceStatBlueColor,
-              BlendMode.srcIn,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          const AppText.body('Attended Hours', style: AppTextStyles.valueLarge),
-          const Spacer(),
-          Row(
-            children: [
-              _buildValueCircle(
-                text: '${hours}h',
-                color: AppColors.attendanceStatBlueColor,
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              _buildValueCircle(
-                text: '${minutes}m',
-                color: AppColors.attendanceStatBlueColor,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildValueCircle({required String text, required Color color}) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: color, width: 1.5),
-      ),
-      child: Center(
-        child: AppText.body(
-          text,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-      ),
     );
   }
 
@@ -1787,23 +1665,6 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildAttendanceShimmer() {
-    return Column(
-      children: [
-        ShimmerLoaderCard(
-          child: Container(height: 300, width: double.infinity),
-        ),
-        ListView.builder(
-          shrinkWrap: true,
-          itemCount: 3,
-          itemBuilder: (context, index) {
-            return const ShimmerLoaderCard(child: SizedBox(height: 50));
-          },
-        ),
-      ],
     );
   }
 }
