@@ -93,16 +93,6 @@ class _StaffAttendanceDailyViewScreenState
   // screen more than once (stacking duplicate pages on the Navigator).
   bool _isFilterScreenOpen = false;
 
-  // Total staff summary: same API as StaffScreen "Total Staff" (headline = active + upcoming).
-  int totalStaff = 0;
-  int active = 0;
-  int upcoming = 0;
-  int expected = 0;
-  int present = 0;
-  int absent = 0;
-  int signedOut = 0;
-  int notMarked = 0;
-
   // Staff data lists
   final List<StaffAttendanceCardData> _staffMembers = [];
   int? _expandedStaffIndex;
@@ -202,15 +192,10 @@ class _StaffAttendanceDailyViewScreenState
   /// Delegates to [StaffAttendanceDailyCubit.loadStaffCounts] (owns the
   /// fetch), then mirrors the result into local state the header summary
   /// reads directly.
-  Future<void> _loadStaffCounts() async {
-    await _cubit.loadStaffCounts();
-    if (!mounted) return;
-    setState(() {
-      active = _cubit.state.activeCount ?? active;
-      upcoming = _cubit.state.upcomingCount ?? upcoming;
-      totalStaff = _cubit.state.totalStaffCount ?? totalStaff;
-    });
-  }
+  // Counts live on StaffAttendanceDailyCubit's state; the BlocBuilder around
+  // StaffAttendanceSummary already rebuilds when they change, so this just
+  // needs to trigger the load.
+  Future<void> _loadStaffCounts() => _cubit.loadStaffCounts();
 
   Future<void> _loadClassroomData() async {
     // Transfers can involve non-CLASSROOM locations; load all types to maximize
@@ -633,14 +618,14 @@ class _StaffAttendanceDailyViewScreenState
                           const SizedBox(height: AppSpacing.xs),
                           // Summary Cards — expected stats from attendance API; staff totals from GetStaffCountUseCase
                           StaffAttendanceSummary(
-                            totalStaff: totalStaff,
-                            active: active,
-                            upcoming: upcoming,
-                            expected: state.expectedCount ?? expected,
-                            present: state.presentCount ?? present,
-                            absent: state.absentCount ?? absent,
-                            signedOut: state.signedOutCount ?? signedOut,
-                            notMarked: state.notMarkedCount ?? notMarked,
+                            totalStaff: state.totalStaffCount ?? 0,
+                            active: state.activeCount ?? 0,
+                            upcoming: state.upcomingCount ?? 0,
+                            expected: state.expectedCount ?? 0,
+                            present: state.presentCount ?? 0,
+                            absent: state.absentCount ?? 0,
+                            signedOut: state.signedOutCount ?? 0,
+                            notMarked: state.notMarkedCount ?? 0,
                             isLoading:
                                 (state.isLoading || state.isSummaryLoading) &&
                                 !_showAbsentOnly,

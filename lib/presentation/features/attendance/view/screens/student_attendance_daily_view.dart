@@ -130,16 +130,6 @@ class _StudentAttendanceDailyViewScreenState
   // screen more than once (stacking duplicate pages on the Navigator).
   bool _isFilterScreenOpen = false;
 
-  // Enrolled summary: same API as StudentScreen "Total Students" (active + upcoming headline).
-  int enrolled = 0;
-  int active = 0;
-  int upcoming = 0;
-  int expected = 0;
-  int present = 0;
-  int absent = 0;
-  int signedOut = 0;
-  int notMarked = 0;
-
   late final StudentAttendanceDailyCubit _cubit;
   late final StudentAttendanceAbsentToggleCubit _absentToggleCubit;
   late final ClassroomCubit _classroomCubit;
@@ -269,15 +259,10 @@ class _StudentAttendanceDailyViewScreenState
   /// Delegates to [StudentAttendanceDailyCubit.loadStudentCounts] (owns the
   /// fetch), then mirrors the result into local state the header summary
   /// reads directly.
-  Future<void> _loadStudentCounts() async {
-    await _cubit.loadStudentCounts();
-    if (!mounted) return;
-    setState(() {
-      active = _cubit.state.activeCount ?? active;
-      upcoming = _cubit.state.upcomingCount ?? upcoming;
-      enrolled = _cubit.state.enrolledCount ?? enrolled;
-    });
-  }
+  // Counts live on StudentAttendanceDailyCubit's state; the BlocBuilder
+  // around StudentAttendanceSummary already rebuilds when they change, so
+  // this just needs to trigger the load.
+  Future<void> _loadStudentCounts() => _cubit.loadStudentCounts();
 
   /// Delegates to [StudentAttendanceDailyCubit.resolveCrossClassFlag], then
   /// mirrors the result and — when it just flipped on — reloads the
@@ -914,14 +899,14 @@ class _StudentAttendanceDailyViewScreenState
                         SizedBox(height: responsive.verticalSpacing / 4),
                         if (!hideSummaryCards) ...[
                           StudentAttendanceSummary(
-                            enrolled: enrolled,
-                            active: active,
-                            upcoming: upcoming,
-                            expected: state.expectedCount ?? expected,
-                            present: state.presentCount ?? present,
-                            absent: state.absentCount ?? absent,
-                            signedOut: state.signedOutCount ?? signedOut,
-                            notMarked: state.notMarkedCount ?? notMarked,
+                            enrolled: state.enrolledCount ?? 0,
+                            active: state.activeCount ?? 0,
+                            upcoming: state.upcomingCount ?? 0,
+                            expected: state.expectedCount ?? 0,
+                            present: state.presentCount ?? 0,
+                            absent: state.absentCount ?? 0,
+                            signedOut: state.signedOutCount ?? 0,
+                            notMarked: state.notMarkedCount ?? 0,
                             isLoading:
                                 state.isLoading ||
                                 state.isRefreshing ||
