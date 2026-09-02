@@ -13,6 +13,7 @@ import 'package:wowcare/shared/common/widgets/gradient_background.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/student_attendance_daily_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/student_attendance_custom_view.dart';
@@ -224,7 +225,10 @@ class _StudentAttendanceTabbedViewState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding: const EdgeInsets.only(top: 4, bottom: 8),
+                            padding: const EdgeInsets.only(
+                              top: AppSpacing.xxs,
+                              bottom: AppSpacing.xs,
+                            ),
                             child: Text(
                               'Student Attendance',
                               style: TextStyle(

@@ -44,7 +44,7 @@ class AttendanceStaffListItem extends StatelessWidget {
           child: Row(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
                 child: CustomCheckbox(
                   borderColor: AppColors.themeColor,
                   value: isSelected,
