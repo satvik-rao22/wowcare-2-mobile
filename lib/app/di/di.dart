@@ -1373,6 +1373,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getTagNameCodeMapForSchoolUseCase: serviceLocator(),
       getTagNamesForSchoolUseCase: serviceLocator(),
       getClassroomByCodeUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+      cacheManager: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<GetStudentDocumentsUseCase>(
@@ -2235,6 +2237,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentAttendanceCustomUseCase: serviceLocator(),
       repository: serviceLocator(),
       getClassroomByCodeUseCase: serviceLocator(),
+      storageService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StaffAttendanceDailyCubit>(

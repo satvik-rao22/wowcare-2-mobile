@@ -1,7 +1,9 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
@@ -16,14 +18,26 @@ class StudentAttendanceCustomCubit extends Cubit<StudentAttendanceCustomState> {
     getStudentAttendanceCustomUseCase,
     required AttendanceRepository repository,
     required GetClassroomByCodeUseCase getClassroomByCodeUseCase,
+    required StorageService storageService,
   }) : _getStudentAttendanceCustomUseCase = getStudentAttendanceCustomUseCase,
        _repository = repository,
        _getClassroomByCodeUseCase = getClassroomByCodeUseCase,
+       _storage = storageService,
        super(const StudentAttendanceCustomState.initial());
 
   final GetStudentAttendanceCustomUseCase _getStudentAttendanceCustomUseCase;
   final AttendanceRepository _repository;
   final GetClassroomByCodeUseCase _getClassroomByCodeUseCase;
+  final StorageService _storage;
+
+  /// Resolves the school's teacher cross-class flag; when enabled, teachers
+  /// see every classroom in the filter (like an admin) instead of just
+  /// their own.
+  Future<bool> resolveCrossClassEnabled() {
+    return AttendanceCrossClassResolver.isEnabledForCurrentSchool(
+      storage: _storage,
+    );
+  }
 
   static const int _pageSize = 10;
 

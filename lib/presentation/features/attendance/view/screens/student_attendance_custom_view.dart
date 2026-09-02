@@ -20,9 +20,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
-import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/student_attendance_custom_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
@@ -125,10 +123,7 @@ class _StudentAttendanceCustomViewState
   /// classroom filter unscoped so teachers see every classroom.
   Future<void> _resolveCrossClassFlag() async {
     try {
-      final enabled =
-          await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-            storage: serviceLocator<StorageService>(),
-          );
+      final enabled = await _cubit.resolveCrossClassEnabled();
       if (!mounted || !enabled || _allowCrossClass) return;
       setState(() => _allowCrossClass = true);
       _loadClassroomData();

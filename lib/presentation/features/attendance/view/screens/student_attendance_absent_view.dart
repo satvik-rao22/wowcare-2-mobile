@@ -28,9 +28,6 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
-import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_view_response.dart';
 import 'package:wowcare/data/features/attendance/models/student_attendance_absent_view_response_model.dart';
@@ -135,7 +132,7 @@ class _StudentAttendanceAbsentViewState
   @override
   void initState() {
     super.initState();
-    _cacheManager = CacheManager(serviceLocator<StorageService>());
+    _cacheManager = _fetchCubit.cacheManager;
     _initializeDefaultRange();
     _searchController.addListener(_onSearchChanged);
     widget.refreshNotifier?.addListener(_onRefreshRequested);
@@ -169,10 +166,7 @@ class _StudentAttendanceAbsentViewState
   /// classroom filter unscoped so teachers see every classroom.
   Future<void> _resolveCrossClassFlag() async {
     try {
-      final enabled =
-          await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-            storage: serviceLocator<StorageService>(),
-          );
+      final enabled = await _fetchCubit.resolveCrossClassEnabled();
       if (!mounted || !enabled || _allowCrossClass) return;
       setState(() => _allowCrossClass = true);
       _loadClassroomData();
@@ -230,8 +224,7 @@ class _StudentAttendanceAbsentViewState
       _isLoadingTagMap = true;
     });
     try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
+      final schoolCode = await _fetchCubit.resolveSchoolCode();
       if (schoolCode.isEmpty) {
         setState(() {
           _isLoadingTagMap = false;
@@ -418,9 +411,7 @@ class _StudentAttendanceAbsentViewState
     // classroom's absent students (or a stale unscoped/admin payload from an
     // earlier session on the same device) straight into a restricted view.
     if (!reset) {
-      final scoped = await isStudentAttendanceScopedStaffPersona(
-        storage: serviceLocator<StorageService>(),
-      );
+      final scoped = await _fetchCubit.resolveIsScopedStaffPersona();
       if (!mounted) return;
 
       if (!scoped) {
@@ -542,9 +533,7 @@ class _StudentAttendanceAbsentViewState
       // (or this same user after their access changes) could otherwise read
       // back a payload that doesn't reflect their current classroom scope.
       if (_studentsPage == 0) {
-        final scoped = await isStudentAttendanceScopedStaffPersona(
-          storage: serviceLocator<StorageService>(),
-        );
+        final scoped = await _fetchCubit.resolveIsScopedStaffPersona();
         if (!mounted) return;
         if (!scoped) {
           final from = _rangeStart ?? attendanceSchoolToday();
