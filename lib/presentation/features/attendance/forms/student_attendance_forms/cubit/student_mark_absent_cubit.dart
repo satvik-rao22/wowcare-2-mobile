@@ -7,6 +7,8 @@ import '../../../../../../core/util/school_zone_datetime.dart';
 import '../../../../../../core/util/staff_code_resolver.dart';
 import '../../../../../../domain/features/attendance/usecases/mark_students_absent_usecase.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
+import '../tag_entity.dart';
+export '../tag_entity.dart';
 part 'student_mark_absent_state.dart';
 
 /// Cubit for [StudentMarkAbsentForm].

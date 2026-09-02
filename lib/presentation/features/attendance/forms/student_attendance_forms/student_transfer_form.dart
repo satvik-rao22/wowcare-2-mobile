@@ -25,6 +25,8 @@ import 'package:wowcare/presentation/features/attendance/util/attendance_permiss
 import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
+import 'tag_entity.dart';
+export 'tag_entity.dart';
 
 // Student entity for Transfer UI & API payload
 class StudentEntity {
@@ -57,13 +59,6 @@ class StudentEntity {
 
   @override
   int get hashCode => studentCode.hashCode;
-}
-
-// Mock tag entity for UI-only implementation
-class TagEntity {
-  final String name;
-
-  TagEntity({required this.name});
 }
 
 class StudentTransferForm extends StatefulWidget {

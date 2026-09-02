@@ -34,13 +34,6 @@ class StudentEntity {
   int get hashCode => studentCode.hashCode;
 }
 
-/// UI-only tag entity used by the attendance mark-absent form.
-class TagEntity {
-  final String name;
-
-  TagEntity({required this.name});
-}
-
 /// Immutable form state for [StudentMarkAbsentFormCubit].
 class StudentMarkAbsentState extends Equatable {
   const StudentMarkAbsentState({
@@ -101,11 +94,11 @@ class StudentMarkAbsentState extends Equatable {
 
   @override
   List<Object?> get props => [
-        students,
-        startDate,
-        endDate,
-        schoolIana,
-        isStaffAdminPersona,
-        isSubmitting,
-      ];
+    students,
+    startDate,
+    endDate,
+    schoolIana,
+    isStaffAdminPersona,
+    isSubmitting,
+  ];
 }
