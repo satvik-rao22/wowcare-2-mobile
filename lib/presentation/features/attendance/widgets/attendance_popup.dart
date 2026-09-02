@@ -20,14 +20,14 @@ import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_profile_fetch_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_profile_fetch_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 
@@ -66,11 +66,11 @@ Future<Widget?> buildParentChildAttendanceProfile(BuildContext context) async {
     var isSignedIn = false;
 
     try {
-      final useCase = serviceLocator<GetStudentSignOutFormListUseCase>();
+      final fetchCubit = serviceLocator<StudentAttendanceProfileFetchCubit>();
       final now = ServerTimeService.instance.now();
       final date =
           '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-      final page = await useCase(
+      final page = await fetchCubit.fetchSignOutFormList(
         fromAttendanceDate: date,
         toAttendanceDate: date,
         page: 0,
@@ -273,6 +273,8 @@ class AttendancePopupOverlay extends StatefulWidget {
 class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     with TickerProviderStateMixin {
   late TabController _tabController;
+  final StaffAttendanceProfileFetchCubit _profileFetchCubit =
+      serviceLocator<StaffAttendanceProfileFetchCubit>();
   bool _isParentRole = false;
   bool?
   _isTeacherStaffPersona; // When true: skip staff selection and use self forms.
@@ -442,8 +444,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
       _isTodayStatusLoading = true;
     });
     try {
-      final useCase = serviceLocator<GetStaffTodaySignInStatusUseCase>();
-      final status = await useCase(staffCode: staffCode);
+      final status = await _profileFetchCubit.fetchTodayStatus(
+        staffCode: staffCode,
+      );
       if (!mounted) return;
       setState(() {
         _todayStatusRaw = status;
