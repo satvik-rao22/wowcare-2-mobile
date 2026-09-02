@@ -1,0 +1,222 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/domain/features/attendance/entities/staff_attendance_profile_response.dart';
+
+void main() {
+  group('StaffAttendanceProfileResponse.fromJson fidelity', () {
+    test('parses a full present-days record identically to the old inline '
+        'screen code (data.records.content)', () {
+      // The staff_attendance_profile screen reads data.aggregations +
+      // data.records.content.
+      final raw = <String, dynamic>{
+        'data': {
+          'aggregations': {
+            'attendedDays': 5,
+            'totalAttendedTime': '12h 30m',
+            'absentDays': 2,
+          },
+          'records': {
+            'content': [
+              {
+                'attendanceDate': '2026-08-20',
+                'sequenceNumber': 2,
+                'totalSequenceCount': 3,
+                'signedInTime': '08:00:00',
+                'signedOutTime': '17:00:00',
+                'transferTime': '12:00:00',
+                'nextActionTime': '13:00:00',
+                'signedOutMethod': 'SYSTEM',
+                'transferredBy': ' Alice ',
+                'signedInBy': ' Bob ',
+                'signedOutBy': ' Carol ',
+                'classroomName': 'Sunflower',
+                'attendedTime': '9h 0m',
+                'attendedHours': 9,
+                'attendedMinutes': 0,
+                'signedInMethod': 'APP',
+                'notExpectedComment': ' late arrival ',
+              },
+            ],
+          },
+        },
+      };
+
+      final response = StaffAttendanceProfileResponse.fromJson(raw);
+
+      // --- Aggregations (attendedDays / totalAttendedTime / absentDays) ---
+      expect(response.attendedDays, 5);
+      expect(response.totalAttendedTime, '12h 30m');
+      expect(response.absentDays, 2);
+
+      expect(response.records.length, 1);
+      final r = response.records.single;
+
+      // Each field must equal what `m['key'] as T? ?? default` produced.
+      expect(r.attendanceDate, '2026-08-20');
+      expect(r.sequenceNumber, 2);
+      expect(r.totalSequenceCount, 3);
+      // Time fields are pass-through (raw) for _formatApiTime.
+      expect(r.signedInTime, '08:00:00');
+      expect(r.signedOutTime, '17:00:00');
+      expect(r.transferTime, '12:00:00');
+      expect(r.nextActionTime, '13:00:00');
+      expect(r.signedOutMethod, 'SYSTEM');
+      // The `?? ''` default is baked in; the screen keeps the .trim().
+      expect(r.transferredBy, ' Alice ');
+      expect(r.signedInBy, ' Bob ');
+      expect(r.signedOutBy, ' Carol ');
+      expect(r.classroomName, 'Sunflower');
+      expect(r.attendedTime, '9h 0m');
+      expect(r.attendedHours, 9);
+      expect(r.attendedMinutes, 0);
+      expect(r.signedInMethod, 'APP');
+      expect(r.notExpectedComment, ' late arrival ');
+    });
+
+    test('preserves object-shaped (Map) time payloads as raw values', () {
+      // _formatApiTime accepts {hour, minute, ...} maps, so the raw value must
+      // survive untouched rather than being coerced/dropped.
+      final raw = <String, dynamic>{
+        'data': {
+          'aggregations': {'attendedDays': 1, 'totalAttendedTime': '1h'},
+          'records': {
+            'content': [
+              {
+                'signedInTime': {'hour': 8, 'minute': 30},
+              },
+            ],
+          },
+        },
+      };
+
+      final response = StaffAttendanceProfileResponse.fromJson(raw);
+      final r = response.records.single;
+      expect(r.signedInTime, <String, dynamic>{'hour': 8, 'minute': 30});
+    });
+
+    test('missing per-record keys fall back to the screen defaults', () {
+      final raw = <String, dynamic>{
+        'data': {
+          'aggregations': <String, dynamic>{},
+          'records': {
+            'content': [<String, dynamic>{}],
+          },
+        },
+      };
+
+      final response = StaffAttendanceProfileResponse.fromJson(raw);
+
+      // Missing aggregation keys.
+      expect(response.attendedDays, 0);
+      expect(response.totalAttendedTime, '');
+      expect(response.absentDays, 0);
+
+      final r = response.records.single;
+      expect(r.attendanceDate, '');
+      expect(r.sequenceNumber, 1);
+      expect(r.totalSequenceCount, 1);
+      expect(r.signedInTime, isNull);
+      expect(r.signedOutTime, isNull);
+      expect(r.transferTime, isNull);
+      expect(r.nextActionTime, isNull);
+      expect(r.signedOutMethod, isNull);
+      expect(r.transferredBy, '');
+      expect(r.signedInBy, '');
+      expect(r.signedOutBy, '');
+      expect(r.classroomName, isNull);
+      expect(r.attendedTime, '');
+      expect(r.attendedHours, 0);
+      expect(r.attendedMinutes, 0);
+      expect(r.signedInMethod, isNull);
+      expect(r.notExpectedComment, '');
+    });
+
+    test('empty / missing containers yield zero aggregations and no records',
+        () {
+      // Completely empty top-level map.
+      final empty = StaffAttendanceProfileResponse.fromJson(
+        <String, dynamic>{},
+      );
+      expect(empty.attendedDays, 0);
+      expect(empty.totalAttendedTime, '');
+      expect(empty.absentDays, 0);
+      expect(empty.records, isEmpty);
+      // dailyPage is always produced (the cubit's parse path).
+      expect(empty.dailyPage.items, isEmpty);
+      expect(empty.dailyPage.attendedDays, 0);
+      expect(empty.dailyPage.totalAttendedHours, '');
+
+      // data present but without aggregations / records.
+      final partial = StaffAttendanceProfileResponse.fromJson(
+        <String, dynamic>{'data': <String, dynamic>{}},
+      );
+      expect(partial.attendedDays, 0);
+      expect(partial.totalAttendedTime, '');
+      expect(partial.absentDays, 0);
+      expect(partial.records, isEmpty);
+
+      // records present but no content list.
+      final noContent = StaffAttendanceProfileResponse.fromJson(
+        <String, dynamic>{
+          'data': {
+            'aggregations': {
+              'attendedDays': 3,
+              'totalAttendedTime': '3h',
+              'absentDays': 1,
+            },
+            'records': <String, dynamic>{},
+          },
+        },
+      );
+      expect(noContent.attendedDays, 3);
+      expect(noContent.totalAttendedTime, '3h');
+      expect(noContent.absentDays, 1);
+      expect(noContent.records, isEmpty);
+    });
+
+    test('dailyPage parses the pageable shape the dashboard cubit needs '
+        '(data.content + data.number / totalPages)', () {
+      // my_attendance_cubit feeds the whole raw payload to
+      // StaffAttendanceDailyPageModel.fromJson, which reads data.content and
+      // the page metadata — a DIFFERENT path than data.records.content.
+      final raw = <String, dynamic>{
+        'data': {
+          'aggregations': {
+            'attendedDays': 7,
+            'totalAttendedTime': '5 Hrs 30 Mins',
+          },
+          'content': [
+            {
+              'staffCode': 'STF_1',
+              'staffName': 'Dana Scully',
+              'classroomName': 'Room A',
+              'classroomCode': 'CLS_A',
+            },
+          ],
+          'number': 0,
+          'size': 10,
+          'totalPages': 2,
+          'totalElements': 15,
+        },
+      };
+
+      final response = StaffAttendanceProfileResponse.fromJson(raw);
+
+      final page = response.dailyPage;
+      expect(page.items.length, 1);
+      expect(page.items.first.staffName, 'Dana Scully');
+      expect(page.page, 0);
+      expect(page.size, 10);
+      expect(page.totalPages, 2);
+      expect(page.totalElements, 15);
+      // hasMore = pageNumber + 1 < totalPages.
+      expect(page.hasMore, isTrue);
+      expect(page.attendedDays, 7);
+      expect(page.totalAttendedHours, '5 Hrs 30 Mins');
+
+      // The two parse paths are independent: this payload has no
+      // data.records.content, so the present-days records are empty even
+      // though dailyPage.items is populated.
+      expect(response.records, isEmpty);
+    });
+  });
+}

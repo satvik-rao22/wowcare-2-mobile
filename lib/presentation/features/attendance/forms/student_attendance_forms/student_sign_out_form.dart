@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -13,7 +15,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_sign_out_request.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_out_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:geolocator/geolocator.dart';
@@ -122,6 +125,11 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
   bool _isSubmitting = false;
   bool? _isStaffPersona;
 
+  /// Owns the sign-out submit call (View -> Cubit -> UseCase -> Repository).
+  /// Eagerly resolved so [dispose] can always close it.
+  final StudentSignOutSubmitCubit _submitCubit =
+      serviceLocator<StudentSignOutSubmitCubit>();
+
   @override
   void initState() {
     super.initState();
@@ -129,6 +137,12 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       currentStudents = List.from(widget.students);
     }
     _loadPersonaFlags();
+  }
+
+  @override
+  void dispose() {
+    _submitCubit.close();
+    super.dispose();
   }
 
   void _removeStudent(StudentEntity student) {
@@ -394,18 +408,13 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       } catch (_) {}
     }
 
-    final payload = <String, dynamic>{
-      'studentCodes': studentCodes,
-      'method': signOutMethod,
-      'latitude': position?.latitude ?? 0,
-      'longitude': position?.longitude ?? 0,
-      'withinGeofence': withinGeofence,
-      'timeZone': schoolTimeZone,
-    };
-    // Include QR token if this is a QR scan
-    if (widget.isQrScan && widget.qrToken.isNotEmpty) {
-      payload['qrToken'] = widget.qrToken;
-    }
+    // Resolve persona-specific values (with the same guards as before), then
+    // assemble a typed StudentSignOutRequest whose toPayload() reproduces the
+    // exact payload map this form used to build.
+    final StudentSignOutMode mode;
+    String? resolvedGuardianCode;
+    String? resolvedPin;
+    String? resolvedStaffCode;
     if (isParent) {
       final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
       if (!mounted) return;
@@ -419,8 +428,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         );
         return;
       }
-      payload['guardianCode'] = guardianCode;
-      payload['pin'] = widget.pin ?? '';
+      mode = StudentSignOutMode.parent;
+      resolvedGuardianCode = guardianCode;
+      resolvedPin = widget.pin ?? '';
     } else {
       if (defaultClassroomCode.isEmpty) {
         CoreUtils.showTopSnackBarFromSnackBar(
@@ -446,30 +456,45 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
           );
           return;
         }
-        payload.addAll(<String, dynamic>{
-          'attendanceDate': attendanceDate,
-          'staffCode': staffCode,
-          'classroomCode': defaultClassroomCode,
-          'classroomCodeByStudentCode': classroomCodeByStudentCode,
-          'occurredAt': occurredAt.toUtc().toIso8601String(),
-        });
+        mode = StudentSignOutMode.staff;
+        resolvedStaffCode = staffCode;
       } else {
-        // KIOSK MODE: Use guardian code directly, no staff code needed
-        payload['method'] = 'PIN';
-        payload.addAll(<String, dynamic>{
-          'guardianCode': widget.guardianCode,
-          'pin': widget.pin,
-          'isExpected': true,
-        });
+        // KIOSK MODE: Use guardian code directly, no staff code needed.
+        mode = StudentSignOutMode.kiosk;
+        resolvedGuardianCode = widget.guardianCode;
+        resolvedPin = widget.pin;
       }
     }
 
+    final request = StudentSignOutRequest(
+      mode: mode,
+      studentCodes: studentCodes,
+      signOutMethod: signOutMethod,
+      latitude: position?.latitude ?? 0,
+      longitude: position?.longitude ?? 0,
+      withinGeofence: withinGeofence,
+      timeZone: schoolTimeZone,
+      qrToken: (widget.isQrScan && widget.qrToken.isNotEmpty)
+          ? widget.qrToken
+          : null,
+      guardianCode: resolvedGuardianCode,
+      pin: resolvedPin,
+      attendanceDate: mode == StudentSignOutMode.staff ? attendanceDate : null,
+      staffCode: resolvedStaffCode,
+      classroomCode:
+          mode == StudentSignOutMode.staff ? defaultClassroomCode : null,
+      classroomCodeByStudentCode:
+          mode == StudentSignOutMode.staff ? classroomCodeByStudentCode : null,
+      occurredAtIso: mode == StudentSignOutMode.staff
+          ? occurredAt.toUtc().toIso8601String()
+          : null,
+    );
+
     try {
-      final result = await serviceLocator<AttendanceRepository>()
-          .submitStudentSignOut(
-            payload: payload,
-            isParent: isParent || widget.isKiosk || widget.isQrScan,
-          );
+      final result = await _submitCubit.submit(
+        request: request,
+        isParent: isParent || widget.isKiosk || widget.isQrScan,
+      );
       final success = result.success;
       var message = result.message;
 
@@ -560,7 +585,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       return const Scaffold(
         body: Center(
           child: Padding(
-            padding: EdgeInsets.all(24.0),
+            padding: EdgeInsets.all(AppSpacing.xl),
             child: Text(
               'Access Denied: You must be inside geofence and signed in to manage student attendance.',
               textAlign: TextAlign.center,
@@ -604,7 +629,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
                 onRemove: () => _removeStudent(currentStudents[index]),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.lg),
             Row(
               children: [
                 Expanded(
@@ -612,7 +637,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const AppText.label('Date'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.xs),
                       CustomDateTimeField(
                         hasLabel: false,
                         isRangePicker: false,
@@ -646,13 +671,13 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 20),
+                const SizedBox(width: AppSpacing.lg),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const AppText.label('Time'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.xs),
                       IgnorePointer(
                         ignoring: !(_isStaffPersona ?? false),
                         child: GradientTimePickerField(
@@ -700,10 +725,13 @@ class RemoveStudentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.themeColor),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppRadius.r10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
       child: Row(
@@ -718,7 +746,7 @@ class RemoveStudentTile extends StatelessWidget {
                   size: 30,
                   fontSize: 12,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: AppSpacing.s6),
                 Flexible(
                   child: Text(
                     student.fullName,

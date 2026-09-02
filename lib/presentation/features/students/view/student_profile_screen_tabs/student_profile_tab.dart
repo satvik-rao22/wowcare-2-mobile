@@ -172,6 +172,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
   }
 
   Future<StudentProfileModel?> _loadProfileFresh(String studentCode) async {
+    // MVVM holdout (documented): getStudentProfile here needs the rich StudentProfileModel (status/dob/address/tags/fte/...); the domain StudentProfile entity is a narrow projection, so this read stays on the datasource until the entity is enriched (S6 typed-models).
     final dataSource = serviceLocator<StudentRemoteDataSource>();
     final model = await dataSource.getStudentProfile(studentCode);
     await _cacheManager.saveCache(

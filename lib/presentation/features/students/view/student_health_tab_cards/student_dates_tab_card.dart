@@ -6,7 +6,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/student/entities/student_physical_exam.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_physical_exam_cubit.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -42,6 +42,12 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
   late Future<List<StudentPhysicalExam>> _physicalExamFuture;
   bool _hasShownErrorSnackBar = false;
 
+  // Single cubit instance for this card — the serviceLocator registers the
+  // cubit as a factory, so holding one instance (rather than resolving per
+  // call) is what keeps its single-flight guard effective. Closed in dispose.
+  final StudentPhysicalExamCubit _examCubit =
+      serviceLocator<StudentPhysicalExamCubit>();
+
   /// Display format for the checkup-date field in the add/edit dialog,
   /// e.g. "Jun 02, 2027". The API payload is built from the raw DateTime.
   final DateFormat _displayFormatter = DateFormat('MMM dd, yyyy');
@@ -53,6 +59,12 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
     _physicalExamFuture = _buildPhysicalExamFuture();
   }
 
+  @override
+  void dispose() {
+    _examCubit.close();
+    super.dispose();
+  }
+
   Future<List<StudentPhysicalExam>> _buildPhysicalExamFuture({
     bool forceRefresh = false,
   }) async {
@@ -61,9 +73,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
       return const <StudentPhysicalExam>[];
     }
 
-    final repo = serviceLocator<StudentRepository>();
-    return repo.getStudentPhysicalExams(
-      studentCode: code,
+    return _examCubit.fetchPhysicalExams(
+      code,
       forceRefresh: forceRefresh,
     );
   }
@@ -382,18 +393,16 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
 
                                 setLocalState(() => isSaving = true);
                                 try {
-                                  final repo =
-                                      serviceLocator<StudentRepository>();
                                   if (examCode != null &&
                                       examCode.trim().isNotEmpty) {
-                                    await repo.updateStudentPhysicalExam(
+                                    await _examCubit.update(
                                       studentCode: studentCode,
                                       examCode: examCode.trim(),
                                       examDate: selectedDate!,
                                       status: statusApi,
                                     );
                                   } else {
-                                    await repo.addStudentPhysicalExam(
+                                    await _examCubit.add(
                                       studentCode: studentCode,
                                       examDate: selectedDate!,
                                       status: statusApi,

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 enum AbsentMarkMethod { gps, qr, kiosk, app, web }
@@ -70,10 +74,6 @@ class StudentAbsentCard extends StatefulWidget {
 }
 
 class _StudentAbsentCardState extends State<StudentAbsentCard> {
-  // Shared text tokens mirrored from StaffCard so attendance cards read with
-  // the same Manrope/plum visual identity.
-  static const Color _plum = Color(0xff573353);
-
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
@@ -81,7 +81,8 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
     final student = widget.student;
 
     final avatarSize = isTablet ? 52.0 : 50.0;
-    final headerPadding = EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16);
+    final headerPadding =
+        EdgeInsets.symmetric(horizontal: isTablet ? AppSpacing.xl : AppSpacing.md);
     final spacing = isTablet ? 16.0 : 9.0;
 
     return GestureDetector(
@@ -90,9 +91,12 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
         duration: const Duration(milliseconds: 200),
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.cardBorderColor, width: 1),
+          color: AppColors.cardColor,
+          borderRadius: AppRadius.allMd,
+          border: Border.all(
+            color: AppColors.cardBorderColor,
+            width: AppDimensions.hairline,
+          ),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -114,27 +118,19 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                   Expanded(
                     child: Text(
                       student.name,
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
+                      style: AppTextStyles.value.copyWith(
                         fontSize: isTablet ? 16 : 14,
-                        fontWeight: FontWeight.w500,
-                        color: _plum,
-                        height: 19 / 14,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.xs),
                   Flexible(
                     child: Text(
                       student.roomName,
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
+                      style: AppTextStyles.value.copyWith(
                         fontSize: isTablet ? 16 : 14,
-                        fontWeight: FontWeight.w500,
-                        color: _plum,
-                        height: 19 / 14,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -147,18 +143,18 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
             if (widget.isExpanded) ...[
               const Divider(
                 height: 1,
-                thickness: 1,
-                indent: 16,
-                endIndent: 16,
-                color: Color(0xFFE9ECEF),
+                thickness: AppDimensions.hairline,
+                indent: AppSpacing.md,
+                endIndent: AppSpacing.md,
+                color: AppColors.attendanceCardDividerColor,
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildDetailRow(context, 'Room', student.roomName),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.s10),
                     _buildDetailRow(
                       context,
                       'Absent Time',
@@ -167,14 +163,14 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                     ),
                     if (student.absentBy.isNotEmpty &&
                         student.absentBy != 'Unknown') ...[
-                      const SizedBox(height: 10),
+                      const SizedBox(height: AppSpacing.s10),
                       _buildDetailRow(context, 'Marked by', student.absentBy),
                     ],
                     if (student.note != null && student.note!.isNotEmpty) ...[
-                      const SizedBox(height: 10),
+                      const SizedBox(height: AppSpacing.s10),
                       _buildDetailRow(context, 'Note', student.note!),
                     ],
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.s10),
                     _buildDetailRow(
                       context,
                       'Start Date',
@@ -182,7 +178,7 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                           ? student.startDate.split('T')[0]
                           : 'N/A',
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.s10),
                     _buildDetailRow(
                       context,
                       'End Date',
@@ -191,10 +187,10 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                           : 'N/A',
                     ),
                     if (widget.onView != null) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.sm),
                       SizedBox(
                         width: double.infinity,
-                        height: 40,
+                        height: AppSpacing.xxxl,
                         child: _outlinedButton('View', widget.onView),
                       ),
                     ],
@@ -220,34 +216,22 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: _plum,
-              height: 16 / 13,
-            ),
+            style: AppTextStyles.label,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSpacing.xs),
         Expanded(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               if (method != null) ...[
                 _buildMethodIcon(method),
-                const SizedBox(width: 4),
+                const SizedBox(width: AppSpacing.xxs),
               ],
               Flexible(
                 child: Text(
                   value,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: _plum,
-                    height: 19 / 14,
-                  ),
+                  style: AppTextStyles.value,
                   textAlign: TextAlign.end,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
@@ -264,21 +248,17 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
     return OutlinedButton(
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
-        side: const BorderSide(color: Color(0xFF6C7FD8)),
+        side: const BorderSide(color: AppColors.attendanceActionAccentColor),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppRadius.allSm,
         ),
         padding: EdgeInsets.zero,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.cardColor,
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF6C7FD8),
-          height: 16 / 16,
+        style: AppTextStyles.title.copyWith(
+          color: AppColors.attendanceActionAccentColor,
         ),
       ),
     );

@@ -7,7 +7,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/student/entities/student_pickup.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_pickup_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
@@ -43,10 +43,21 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
   late Future<List<StudentPickup>> _pickupsFuture;
   bool _isMutating = false;
 
+  /// One cubit instance for this card so its single-flight delete guard spans
+  /// taps (serviceLocator registers it as a factory — a fresh call per tap
+  /// would not dedupe).
+  final StudentPickupCubit _pickupCubit = serviceLocator<StudentPickupCubit>();
+
   @override
   void initState() {
     super.initState();
     _pickupsFuture = _buildPickupsFuture();
+  }
+
+  @override
+  void dispose() {
+    _pickupCubit.close();
+    super.dispose();
   }
 
   Future<List<StudentPickup>> _buildPickupsFuture({bool forceRefresh = false}) {
@@ -54,11 +65,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
     if (code == null || code.isEmpty) {
       return Future.value(const <StudentPickup>[]);
     }
-    final repo = serviceLocator<StudentRepository>();
-    return repo.getStudentPickups(
-      studentCode: code,
-      forceRefresh: forceRefresh,
-    );
+    return _pickupCubit.fetchPickups(code, forceRefresh: forceRefresh);
   }
 
   Future<void> _handleRefresh() async {
@@ -107,10 +114,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                         onTap: () async {
                           final code = widget.studentCode ?? '';
                           if (code.isEmpty) return;
-                          final repo = serviceLocator<StudentRepository>();
-                          final current = await repo.getStudentPickups(
-                            studentCode: code,
-                          );
+                          final current = await _pickupCubit.fetchPickups(code);
                           if (current.length >= _maxPickupsPerStudent) {
                             if (!mounted) return;
                             CoreUtils.showTopSnackBar(
@@ -176,6 +180,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                     children: [
                       for (int i = 0; i < pickups.length; i++) ...[
                         _PickupCard(
+                          pickupCubit: _pickupCubit,
                           studentCode: widget.studentCode ?? '',
                           pickupCode: pickups[i].code ?? '',
                           clockPin: pickups[i].clockPin ?? '',
@@ -247,6 +252,7 @@ String _formatRelation(String relation) {
 
 class _PickupCard extends StatefulWidget {
   const _PickupCard({
+    required this.pickupCubit,
     required this.studentCode,
     required this.pickupCode,
     required this.clockPin,
@@ -267,6 +273,7 @@ class _PickupCard extends StatefulWidget {
     this.photoUrl,
     this.photoAssetCode,
   });
+  final StudentPickupCubit pickupCubit;
   final String studentCode;
   final String pickupCode;
   final String clockPin;
@@ -344,8 +351,7 @@ class _PickupCardState extends State<_PickupCard> {
             }
             widget.onSetLoading(true);
             try {
-              final repo = serviceLocator<StudentRepository>();
-              final message = await repo.deletePickup(
+              final message = await widget.pickupCubit.delete(
                 code: widget.pickupCode,
                 studentCode: widget.studentCode,
               );

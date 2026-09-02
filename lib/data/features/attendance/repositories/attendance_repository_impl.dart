@@ -5,9 +5,23 @@ import '../../../../core/util/attendance_events.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/school_timezone_resolver.dart';
 import '../../../../domain/features/attendance/entities/attendance_action_result.dart';
+import '../../../../domain/features/attendance/entities/student_transfer_request.dart';
+import '../../../../domain/features/attendance/entities/staff_transfer_request.dart';
+import '../../../../domain/features/attendance/entities/staff_attendance_daily_update_request.dart';
+import '../../../../domain/features/attendance/entities/staff_sign_in_request.dart';
+import '../../../../domain/features/attendance/entities/staff_sign_out_request.dart';
+import '../../../../domain/features/attendance/entities/student_sign_in_request.dart';
+import '../../../../domain/features/attendance/entities/student_sign_out_request.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_expected_summary.dart';
+import '../../../../domain/features/attendance/entities/student_attendance_profile_response.dart';
+import '../../../../domain/features/attendance/entities/staff_attendance_profile_response.dart';
+import '../../../../domain/features/attendance/entities/student_attendance_profile_absent_toggle_response.dart';
+import '../../../../domain/features/attendance/entities/staff_attendance_profile_absent_toggle_response.dart';
+import '../../../../domain/features/attendance/entities/student_attendance_absent_view_response.dart';
+import '../../../../domain/features/attendance/entities/attendance_profile_query.dart';
+import '../../../../domain/features/attendance/entities/attendance_profile_absent_toggle_query.dart';
 import '../../../../domain/features/attendance/entities/staff_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/staff_attendance_absent.dart'
     as staff_absent;
@@ -1525,10 +1539,11 @@ class AttendanceRepositoryImpl
 
   @override
   Future<AttendanceActionResult> submitStudentSignIn({
-    required Map<String, dynamic> payload,
+    required StudentSignInRequest request,
     required bool isParent,
+    String? idempotencyKey,
   }) async {
-    final body = Map<String, dynamic>.from(payload);
+    final body = request.toPayload();
     Map<String, dynamic>? queryParameters;
     if (isParent) {
       final g = (body['guardianCode'] ?? '').toString().trim();
@@ -1547,16 +1562,18 @@ class AttendanceRepositoryImpl
       body: body,
       queryParameters: queryParameters,
       isParent: isParent,
+      idempotencyKey: idempotencyKey,
     );
     return _attendanceActionResult(data, defaultMessage: 'Signed-In successfully');
   }
 
   @override
   Future<AttendanceActionResult> submitStudentSignOut({
-    required Map<String, dynamic> payload,
+    required StudentSignOutRequest request,
     required bool isParent,
+    String? idempotencyKey,
   }) async {
-    final body = Map<String, dynamic>.from(payload);
+    final body = request.toPayload();
     Map<String, dynamic>? queryParameters;
     if (isParent) {
       final g = (body['guardianCode'] ?? '').toString().trim();
@@ -1575,6 +1592,7 @@ class AttendanceRepositoryImpl
       body: body,
       queryParameters: queryParameters,
       isParent: isParent,
+      idempotencyKey: idempotencyKey,
     );
     return _attendanceActionResult(
       data,
@@ -1584,20 +1602,25 @@ class AttendanceRepositoryImpl
 
   @override
   Future<AttendanceActionResult> submitStudentTransfer({
-    required Map<String, dynamic> payload,
+    required StudentTransferRequest request,
+    String? idempotencyKey,
   }) async {
-    final body = Map<String, dynamic>.from(payload);
+    final body = request.toPayload();
     await applyStudentAllowedClassroomCodesToAttendanceBody(body, _storage);
-    final data = await _remoteDataSource.postStudentTransfer(body: body);
+    final data = await _remoteDataSource.postStudentTransfer(
+      body: body,
+      idempotencyKey: idempotencyKey,
+    );
     return _attendanceActionResult(data, defaultMessage: 'Transfer successfully');
   }
 
   @override
   Future<AttendanceActionResult> submitStaffSignIn({
-    required Map<String, dynamic> payload,
+    required StaffSignInRequest request,
     required bool isSelf,
+    String? idempotencyKey,
   }) async {
-    final body = Map<String, dynamic>.from(payload);
+    final body = request.toPayload();
     // The self sign-in endpoint does not accept allowedClassroomCodes — only
     // the admin bulk endpoint uses that field for classroom-scoped authorization.
     if (!isSelf) {
@@ -1606,22 +1629,28 @@ class AttendanceRepositoryImpl
     final data = await _remoteDataSource.postStaffSignIn(
       body: body,
       isSelf: isSelf,
+      idempotencyKey: idempotencyKey,
     );
     return _attendanceActionResult(data, defaultMessage: 'Signed-In successfully');
   }
 
   @override
   Future<AttendanceActionResult> submitStaffSignOut({
-    required Map<String, dynamic> payload,
+    required StaffSignOutRequest request,
     bool isSelf = false,
+    String? idempotencyKey,
   }) async {
-    final body = Map<String, dynamic>.from(payload);
+    final body = request.toPayload();
     // The self sign-out endpoint does not accept allowedClassroomCodes — only
     // the admin bulk endpoint uses that field for classroom-scoped authorization.
     if (!isSelf) {
       await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
     }
-    final data = await _remoteDataSource.postStaffSignOut(body: body, isSelf: isSelf);
+    final data = await _remoteDataSource.postStaffSignOut(
+      body: body,
+      isSelf: isSelf,
+      idempotencyKey: idempotencyKey,
+    );
     return _attendanceActionResult(
       data,
       defaultMessage: 'Signed-Out successfully',
@@ -1630,11 +1659,15 @@ class AttendanceRepositoryImpl
 
   @override
   Future<AttendanceActionResult> submitStaffTransfer({
-    required Map<String, dynamic> payload,
+    required StaffTransferRequest request,
+    String? idempotencyKey,
   }) async {
-    final body = Map<String, dynamic>.from(payload);
+    final body = request.toPayload();
     await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
-    final data = await _remoteDataSource.postStaffTransfer(body: body);
+    final data = await _remoteDataSource.postStaffTransfer(
+      body: body,
+      idempotencyKey: idempotencyKey,
+    );
     return _attendanceActionResult(
       data,
       defaultMessage: 'Transferred successfully',
@@ -1642,58 +1675,67 @@ class AttendanceRepositoryImpl
   }
 
   @override
-  Future<Map<String, dynamic>?> updateStaffAttendanceDailyRecord({
+  Future<void> updateStaffAttendanceDailyRecord({
     required String attendanceCode,
-    required Map<String, dynamic> body,
-  }) {
-    return _remoteDataSource.patchStaffAttendanceDailyRecord(
+    required StaffAttendanceDailyUpdateRequest request,
+  }) async {
+    // The datasource still returns the raw response map, but no caller consumes
+    // it — the patch succeeding (no throw) is the only signal callers use.
+    await _remoteDataSource.patchStaffAttendanceDailyRecord(
       rowCode: attendanceCode,
-      body: body,
+      body: request.toPayload(),
     );
   }
 
   @override
-  Future<Map<String, dynamic>?> fetchStudentAttendanceProfile({
-    required Map<String, dynamic> queryParameters,
-  }) =>
-      _remoteDataSource.getStudentAttendanceProfileRaw(
-        queryParameters: queryParameters,
-      );
+  Future<StudentAttendanceProfileResponse?> fetchStudentAttendanceProfile({
+    required AttendanceProfileQuery query,
+  }) async {
+    final raw = await _remoteDataSource.getStudentAttendanceProfileRaw(
+      queryParameters: query.toQueryParameters(),
+    );
+    return raw == null ? null : StudentAttendanceProfileResponse.fromJson(raw);
+  }
 
   @override
-  Future<Map<String, dynamic>?> fetchStudentAttendanceProfileAbsentToggle({
-    required Map<String, dynamic> queryParameters,
-  }) =>
-      _remoteDataSource.getStudentAttendanceProfileAbsentToggleRaw(
-        queryParameters: queryParameters,
-      );
+  Future<StudentAttendanceProfileAbsentToggleResponse?>
+  fetchStudentAttendanceProfileAbsentToggle({
+    required AttendanceProfileAbsentToggleQuery query,
+  }) async {
+    final raw = await _remoteDataSource
+        .getStudentAttendanceProfileAbsentToggleRaw(
+          queryParameters: query.toQueryParameters(),
+        );
+    return raw == null
+        ? null
+        : StudentAttendanceProfileAbsentToggleResponse.fromJson(raw);
+  }
 
   @override
-  Future<Map<String, dynamic>?> fetchStaffAttendanceProfile({
-    required Map<String, dynamic> queryParameters,
-  }) =>
-      _remoteDataSource.getStaffAttendanceProfileRaw(
-        queryParameters: queryParameters,
-      );
+  Future<StaffAttendanceProfileResponse?> fetchStaffAttendanceProfile({
+    required AttendanceProfileQuery query,
+  }) async {
+    final raw = await _remoteDataSource.getStaffAttendanceProfileRaw(
+      queryParameters: query.toQueryParameters(),
+    );
+    return raw == null ? null : StaffAttendanceProfileResponse.fromJson(raw);
+  }
 
   @override
-  Future<Map<String, dynamic>?> fetchStaffAttendanceProfileAbsentToggle({
-    required Map<String, dynamic> queryParameters,
-  }) =>
-      _remoteDataSource.getStaffAttendanceProfileAbsentToggleRaw(
-        queryParameters: queryParameters,
-      );
+  Future<StaffAttendanceProfileAbsentToggleResponse?>
+  fetchStaffAttendanceProfileAbsentToggle({
+    required AttendanceProfileAbsentToggleQuery query,
+  }) async {
+    final raw = await _remoteDataSource.getStaffAttendanceProfileAbsentToggleRaw(
+      queryParameters: query.toQueryParameters(),
+    );
+    return raw == null
+        ? null
+        : StaffAttendanceProfileAbsentToggleResponse.fromJson(raw);
+  }
 
   @override
-  Future<Map<String, dynamic>?> fetchStudentAttendanceAbsentView({
-    required Map<String, dynamic> queryParameters,
-  }) =>
-      _remoteDataSource.getStudentAttendanceAbsentViewRaw(
-        queryParameters: queryParameters,
-      );
-
-  @override
-  Future<Map<String, dynamic>?> getStudentAttendanceAbsentView({
+  Future<StudentAttendanceAbsentViewResponse?> getStudentAttendanceAbsentView({
     required String fromAbsenceDate,
     required String toAbsenceDate,
     List<String>? classroomCodes,
@@ -1737,9 +1779,12 @@ class AttendanceRepositoryImpl
     queryParameters['pageable.sort'] =
         sort ?? const <String>['studentName,asc'];
 
-    return _remoteDataSource.getStudentAttendanceAbsentViewRaw(
+    final raw = await _remoteDataSource.getStudentAttendanceAbsentViewRaw(
       queryParameters: queryParameters,
     );
+    return raw == null
+        ? null
+        : StudentAttendanceAbsentViewResponse.fromJson(raw);
   }
 
   @override

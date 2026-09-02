@@ -7,6 +7,8 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/attendance/models/student_attendance_models.dart';
+import 'package:wowcare/domain/features/attendance/entities/attendance_profile_query.dart';
+import 'package:wowcare/domain/features/attendance/entities/attendance_profile_absent_toggle_query.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 
 part 'my_attendance_state.dart';
@@ -255,14 +257,14 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
 
     try {
       final raw = await _repo.fetchStaffAttendanceProfile(
-        queryParameters: {
-          'staffCode': staffCode,
-          'fromAttendanceDate': _fmt(fromDate),
-          'toAttendanceDate': _fmt(toDate),
-          'page': page,
-          'size': _kPageSize,
-          'sort': 'attendanceDate,desc',
-        },
+        query: AttendanceProfileQuery(
+          staffCode: staffCode,
+          fromAttendanceDate: _fmt(fromDate),
+          toAttendanceDate: _fmt(toDate),
+          page: page,
+          size: _kPageSize,
+          sort: 'attendanceDate,desc',
+        ),
       );
 
       if (raw == null) {
@@ -270,7 +272,7 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
         return;
       }
 
-      final parsed = StaffAttendanceDailyPageModel.fromJson(raw);
+      final parsed = raw.dailyPage;
 
       // Aggregations from API response.
       String staffName = state.staffName;
@@ -344,14 +346,14 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
 
     try {
       final raw = await _repo.fetchStaffAttendanceProfileAbsentToggle(
-        queryParameters: {
-          'staffCode': staffCode,
-          'fromAbsenceDate': _fmt(fromDate),
-          'toAbsenceDate': _fmt(toDate),
-          'page': page,
-          'size': _kPageSize,
-          'sort': 'absenceDate,desc',
-        },
+        query: AttendanceProfileAbsentToggleQuery(
+          staffCode: staffCode,
+          fromAbsenceDate: _fmt(fromDate),
+          toAbsenceDate: _fmt(toDate),
+          page: page,
+          size: _kPageSize,
+          sort: 'absenceDate,desc',
+        ),
       );
 
       if (raw == null) {
@@ -359,7 +361,7 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
         return;
       }
 
-      final parsed = StaffAttendanceAbsentPageModel.fromJson(raw);
+      final parsed = raw.absentPage;
 
       final merged = append
           ? [...state.absentRecords, ...parsed.items]

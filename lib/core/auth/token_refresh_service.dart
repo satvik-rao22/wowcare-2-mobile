@@ -64,6 +64,9 @@ class TokenRefreshService {
   /// Secure-store key for the refresh token.
   static const String _kRefreshToken = 'auth_refresh_token';
 
+  /// Secure-store key for the access token.
+  static const String _kAccessToken = 'auth_access_token';
+
   Completer<String?>? _inFlight;
 
   /// One-shot guard for the legacy-session expiry backfill (see
@@ -73,31 +76,75 @@ class TokenRefreshService {
   StorageService get _storage => serviceLocator<StorageService>();
 
   // ── token storage ────────────────────────────────────────────────────────
+  //
+  // Both tokens live ONLY in [FlutterSecureStorage] (Keychain / EncryptedShared-
+  // Preferences). The reads below promote any value left in the legacy plaintext
+  // SharedPreferences store (from a session created before this change) into the
+  // secure store once and delete the plaintext copy — so existing users are not
+  // logged out on update, and no plaintext token is ever read again afterwards.
 
-  /// Persists the refresh token in the secure store. Also mirrored into
-  /// [StorageKeys.refreshToken] because the logout call and the session checks
-  /// still read it from there.
+  /// Persists the refresh token in the secure store.
   Future<void> saveRefreshToken(String token) async {
     final t = token.trim();
     if (t.isEmpty) return;
     try {
       await _secure.write(key: _kRefreshToken, value: t);
     } catch (e) {
-      AppLogger.d('[TokenRefresh] secure write failed: $e');
+      AppLogger.d('[TokenRefresh] secure refresh write failed: $e');
     }
-    await _storage.saveString(StorageKeys.refreshToken, t);
   }
 
-  /// Reads the refresh token, preferring the secure store and falling back to
-  /// SharedPreferences for sessions created before secure storage was added.
+  /// Reads the refresh token from the secure store, one-time migrating a legacy
+  /// plaintext value into it (then clearing the plaintext copy).
   Future<String> readRefreshToken() async {
     try {
       final secure = (await _secure.read(key: _kRefreshToken) ?? '').trim();
       if (secure.isNotEmpty) return secure;
     } catch (e) {
-      AppLogger.d('[TokenRefresh] secure read failed: $e');
+      AppLogger.d('[TokenRefresh] secure refresh read failed: $e');
     }
-    return (await _storage.getString(StorageKeys.refreshToken) ?? '').trim();
+    return _migrateLegacyPlaintext(StorageKeys.refreshToken, _kRefreshToken);
+  }
+
+  /// Persists the access token in the secure store.
+  Future<void> saveAccessToken(String token) async {
+    final t = token.trim();
+    if (t.isEmpty) return;
+    try {
+      await _secure.write(key: _kAccessToken, value: t);
+    } catch (e) {
+      AppLogger.d('[TokenRefresh] secure access write failed: $e');
+    }
+  }
+
+  /// Reads the access token from the secure store, one-time migrating a legacy
+  /// plaintext value into it (then clearing the plaintext copy).
+  Future<String> readAccessToken() async {
+    try {
+      final secure = (await _secure.read(key: _kAccessToken) ?? '').trim();
+      if (secure.isNotEmpty) return secure;
+    } catch (e) {
+      AppLogger.d('[TokenRefresh] secure access read failed: $e');
+    }
+    return _migrateLegacyPlaintext(StorageKeys.accessToken, _kAccessToken);
+  }
+
+  /// Promotes a legacy plaintext token ([plaintextKey]) into the secure store
+  /// ([secureKey]) exactly once, deletes the plaintext copy, and returns the
+  /// value. Returns '' when there is nothing to migrate.
+  Future<String> _migrateLegacyPlaintext(
+    String plaintextKey,
+    String secureKey,
+  ) async {
+    final legacy = (await _storage.getString(plaintextKey) ?? '').trim();
+    if (legacy.isEmpty) return '';
+    try {
+      await _secure.write(key: secureKey, value: legacy);
+      await _storage.remove(plaintextKey);
+    } catch (e) {
+      AppLogger.d('[TokenRefresh] legacy token migration failed: $e');
+    }
+    return legacy;
   }
 
   /// Records the absolute deadline for an `expiresIn` (seconds) duration.
@@ -113,8 +160,12 @@ class TokenRefreshService {
   Future<void> clear() async {
     try {
       await _secure.delete(key: _kRefreshToken);
+      await _secure.delete(key: _kAccessToken);
     } catch (_) {}
     await _storage.remove(StorageKeys.tokenExpiresAt);
+    // Purge any legacy plaintext copies from pre-migration sessions.
+    await _storage.remove(StorageKeys.accessToken);
+    await _storage.remove(StorageKeys.refreshToken);
   }
 
   // ── refresh ──────────────────────────────────────────────────────────────
@@ -196,7 +247,7 @@ class TokenRefreshService {
       return null;
     }
 
-    await _storage.saveString(StorageKeys.accessToken, newAccess);
+    await saveAccessToken(newAccess);
 
     // Invariant 4 — a rotated refresh token must survive. The jar
     // (CookieManager, attached in ApiClient) already captured any rotated
@@ -250,8 +301,7 @@ class TokenRefreshService {
   Future<bool> ensureFreshToken({
     Duration skew = const Duration(seconds: 60),
   }) async {
-    final accessToken =
-        (await _storage.getString(StorageKeys.accessToken) ?? '').trim();
+    final accessToken = await readAccessToken();
     if (accessToken.isEmpty) return false;
 
     final expiryMs = await _storage.getInt(StorageKeys.tokenExpiresAt);

@@ -1,8 +1,6 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -16,15 +14,13 @@ import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_document_cubit.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_document_upload_cubit.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_document.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'dart:io';
 
-class AddDocumentScreen extends StatefulWidget {
+class AddDocumentScreen extends StatelessWidget {
   const AddDocumentScreen({
     super.key,
     required this.staffCode,
@@ -54,18 +50,78 @@ class AddDocumentScreen extends StatefulWidget {
   final String? initialAssetCode;
 
   @override
-  _AddDocumentScreenState createState() => _AddDocumentScreenState();
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<StaffProfileCubit>(
+          create: (_) => serviceLocator<StaffProfileCubit>(),
+        ),
+        BlocProvider<StaffDocumentCubit>(
+          create: (_) => serviceLocator<StaffDocumentCubit>(),
+        ),
+        BlocProvider<StaffDocumentUploadCubit>(
+          create: (context) => StaffDocumentUploadCubit(
+            storageService: serviceLocator(),
+            imageUploadService: serviceLocator(),
+            staffProfileCubit: context.read<StaffProfileCubit>(),
+          ),
+        ),
+      ],
+      child: _AddDocumentScreenView(
+        staffCode: staffCode,
+        isEdit: isEdit,
+        documentUuid: documentUuid,
+        initialDocumentName: initialDocumentName,
+        initialDocumentType: initialDocumentType,
+        initialExpiryDate: initialExpiryDate,
+        initialFilePath: initialFilePath,
+        initialMimeType: initialMimeType,
+        initialFileSizeKb: initialFileSizeKb,
+        initialDocumentNotes: initialDocumentNotes,
+        initialAssetCode: initialAssetCode,
+      ),
+    );
+  }
 }
 
-class _AddDocumentScreenState extends State<AddDocumentScreen> {
+class _AddDocumentScreenView extends StatefulWidget {
+  const _AddDocumentScreenView({
+    required this.staffCode,
+    this.isEdit = false,
+    this.documentUuid,
+    this.initialDocumentName,
+    this.initialDocumentType,
+    this.initialExpiryDate,
+    this.initialFilePath,
+    this.initialMimeType,
+    this.initialFileSizeKb,
+    this.initialDocumentNotes,
+    this.initialAssetCode,
+  });
+
+  final String staffCode;
+  final bool isEdit;
+  final String? documentUuid;
+  final String? initialDocumentName;
+  final String? initialDocumentType;
+  final DateTime? initialExpiryDate;
+  final String? initialFilePath;
+  final String? initialMimeType;
+  final int? initialFileSizeKb;
+  final String? initialDocumentNotes;
+  final String? initialAssetCode;
+
+  @override
+  State<_AddDocumentScreenView> createState() => _AddDocumentScreenViewState();
+}
+
+class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
   final TextEditingController _documentNameController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
   String? _selectedDocumentType;
   DateTime? _selectedExpiryDate;
   String? _selectedFilePath;
   PlatformFile? _selectedFile;
-  bool _isUploadingFile = false;
-  int _uploadProgressPercent = 0;
   String? _uploadedAssetCode;
   String? _uploadedDocumentUrl;
   static const int _documentNameMaxLength = 100;
@@ -225,6 +281,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
         ),
       );
 
+      if (!mounted) return;
       if (result != null && result['date'] != null) {
         final selectedDate = result['date'] as DateTime;
         final now = AppTime.now();
@@ -259,6 +316,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
         allowMultiple: false,
       );
 
+      if (!mounted) return;
       if (result != null && result.files.isNotEmpty) {
         PlatformFile file = result.files.first;
         setState(() {
@@ -267,153 +325,19 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
           _uploadedAssetCode = null;
           _uploadedDocumentUrl = null;
         });
-        await _uploadSelectedFile(file);
+        await context.read<StaffDocumentUploadCubit>().uploadFile(
+          staffCode: widget.staffCode,
+          selectedFile: file,
+        );
       }
     } catch (e) {
       AppLogger.d('Error picking file: $e');
+      if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Error selecting file. Please try again.',
         isWarning: true,
       );
-    }
-  }
-
-  Future<void> _uploadSelectedFile(PlatformFile selectedFile) async {
-    try {
-      setState(() {
-        _isUploadingFile = true;
-        _uploadProgressPercent = 0;
-      });
-      final storage = serviceLocator<StorageService>();
-      // Use the document owner's own school/organization rather than the
-      // device's currently active school: an admin/staff can view a staff
-      // member whose home school differs from the active one (e.g. after a
-      // school switch, org-wide search, or a notification deep-link), and
-      // the upload-session endpoint 500s if the school doesn't own the staff
-      // code. Fall back to the active-school context if the profile lookup
-      // fails.
-      String schoolCode = '';
-      String organizationCode = '';
-      try {
-        final profile = await serviceLocator<StaffRepository>().getStaffProfile(
-          staffCode: widget.staffCode,
-        );
-        schoolCode = profile.schoolCode.trim();
-        organizationCode = profile.organizationCode.trim();
-      } catch (_) {
-        // Fall back below.
-      }
-      if (schoolCode.isEmpty) {
-        schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-            .trim();
-      }
-      if (organizationCode.isEmpty) {
-        organizationCode =
-            (await storage.getString(StorageKeys.organizationCode) ?? '')
-                .trim();
-      }
-      if (schoolCode.isEmpty || organizationCode.isEmpty) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Missing school or organization context',
-          isWarning: true,
-        );
-        return;
-      }
-      final selectedPath = selectedFile.path;
-      if (selectedPath == null || selectedPath.trim().isEmpty) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Selected file path is not available',
-          isWarning: true,
-        );
-        return;
-      }
-      final file = File(selectedPath);
-      if (!await file.exists()) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Selected file is not accessible',
-          isWarning: true,
-        );
-        return;
-      }
-      final mimeType = FilePickerUtils.getMimeType(selectedFile.extension);
-      final uploadService = serviceLocator<ImageUploadService>();
-      final uploadSession = await uploadService
-          .createStaffDocumentUploadSession(
-            staffCode: widget.staffCode,
-            schoolCode: schoolCode,
-            organizationCode: organizationCode,
-          );
-      final mediaType = mimeType.startsWith('image/')
-          ? 'IMAGE'
-          : mimeType.startsWith('video/')
-          ? 'VIDEO'
-          : 'DOCUMENT';
-      final presign = await uploadService.createAssetPresign(
-        sessionCode: uploadSession.sessionCode,
-        documentApiBasePath: uploadSession.documentApiBasePath,
-        fileName: selectedFile.name,
-        contentType: mimeType,
-        contentLengthBytes: selectedFile.size,
-        mediaType: mediaType,
-        ownerType: 'STAFF',
-        ownerCode: widget.staffCode,
-      );
-      await uploadService.uploadFileToPresignedUrl(
-        file: file,
-        presignedPutUrl: presign.presignedPutUrl,
-        requiredHeaders: presign.requiredHeaders,
-        fallbackContentType: mimeType,
-        onProgress: (_, __, percent) {
-          if (!mounted) return;
-          setState(() => _uploadProgressPercent = percent.clamp(0, 100));
-        },
-      );
-      await uploadService.completeAssetUpload(
-        sessionCode: uploadSession.sessionCode,
-        assetCode: presign.assetCode,
-        documentApiBasePath: uploadSession.documentApiBasePath,
-      );
-      await uploadService.waitUntilAssetsReady(
-        sessionCode: uploadSession.sessionCode,
-        expectedAssetCodes: <String>[presign.assetCode],
-      );
-      if (!mounted) return;
-      // Asset is processed & READY — finish the upload now so the loader stops
-      // and the "Add" button is enabled immediately. The delivery URL is only
-      // used for display and falls back to the file name, so resolve it in the
-      // background instead of keeping the spinner up.
-      setState(() {
-        _uploadedAssetCode = presign.assetCode;
-        _uploadedDocumentUrl = selectedFile.name;
-        _isUploadingFile = false;
-        _uploadProgressPercent = 0;
-      });
-      uploadService
-          .getMediaAssetUrlByCode(assetCode: presign.assetCode)
-          .then((resolvedUrl) {
-            final url = resolvedUrl.trim();
-            if (mounted && url.isNotEmpty) {
-              setState(() => _uploadedDocumentUrl = url);
-            }
-          })
-          .catchError((_) {});
-    } catch (e) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Failed to upload file: ${e.toString()}',
-        isError: true,
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isUploadingFile = false;
-          _uploadProgressPercent = 0;
-        });
-      }
     }
   }
 
@@ -423,24 +347,44 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
-    return BlocListener<StaffDocumentCubit, StaffDocumentState>(
-      listener: (context, state) {
-        if (state.isSuccess && state.message != null) {
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: state.message!,
-            isSuccess: true,
-          );
-          // Pop with success result to trigger refresh in parent
-          Navigator.pop(context, true);
-        } else if (state.isError && state.message != null) {
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: state.message!,
-            isError: true,
-          );
-        }
-      },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<StaffDocumentCubit, StaffDocumentState>(
+          listener: (context, state) {
+            if (state.isSuccess && state.message != null) {
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: state.message!,
+                isSuccess: true,
+              );
+              // Pop with success result to trigger refresh in parent
+              Navigator.pop(context, true);
+            } else if (state.isError && state.message != null) {
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: state.message!,
+                isError: true,
+              );
+            }
+          },
+        ),
+        BlocListener<StaffDocumentUploadCubit, StaffDocumentUploadState>(
+          listener: (context, state) {
+            if (state.isDone) {
+              setState(() {
+                _uploadedAssetCode = state.assetCode;
+                _uploadedDocumentUrl = state.documentUrl;
+              });
+            } else if (state.isError && state.errorMessage != null) {
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: state.errorMessage!,
+                isError: true,
+              );
+            }
+          },
+        ),
+      ],
       child: StaffFormLayout(
         title: widget.isEdit ? "Edit Document" : "Add Document",
         child: GestureDetector(
@@ -472,10 +416,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             top: 8,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.cardColor,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
+                color: AppColors.billingShadowColorLight,
                 offset: const Offset(0, -4),
                 blurRadius: 16,
               ),
@@ -487,12 +431,19 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
           ),
           child: BlocBuilder<StaffDocumentCubit, StaffDocumentState>(
             builder: (context, state) {
-              return CustomButtonLayout(
-                confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                onPressedConfirm: _addDocument,
-                showCancelButton: false,
-                isForm: false,
-                isLoading: state.isLoading || _isUploadingFile,
+              return BlocBuilder<
+                StaffDocumentUploadCubit,
+                StaffDocumentUploadState
+              >(
+                builder: (context, uploadState) {
+                  return CustomButtonLayout(
+                    confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                    onPressedConfirm: _addDocument,
+                    showCancelButton: false,
+                    isForm: false,
+                    isLoading: state.isLoading || uploadState.isUploading,
+                  );
+                },
               );
             },
           ),
@@ -507,7 +458,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
 
     return Column(
@@ -520,7 +471,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
               const TextSpan(text: 'Document'),
               const TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(color: AppColors.errorColor),
               ),
             ],
           ),
@@ -529,8 +480,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.cardColor,
+            border: Border.all(color: AppColors.inputBorderColor),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -541,7 +492,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             maxLength: _documentNameMaxLength,
             decoration: InputDecoration(
               hintText: 'E.g. Report Card',
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.billingGrey),
               border: InputBorder.none,
               counterText: '',
               contentPadding: EdgeInsets.symmetric(
@@ -571,7 +522,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
 
     return Column(
@@ -584,8 +535,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
           child: Container(
             constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0x66573353)),
+              color: AppColors.cardColor,
+              border: Border.all(color: AppColors.inputBorderColor),
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,
               ),
@@ -606,8 +557,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           : 'Select Date',
                       style: TextStyle(
                         color: _selectedExpiryDate == null
-                            ? Colors.grey
-                            : Colors.black,
+                            ? AppColors.billingGrey
+                            : AppColors.attendanceIconColor,
                         fontSize: responsive.inputFontSize,
                         fontFamily: 'Manrope',
                       ),
@@ -617,7 +568,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                     MediaRes.calender_icon,
                     height: responsive.isTablet ? 28.0 : 24.0,
                     colorFilter: const ColorFilter.mode(
-                      Color(0xff573353),
+                      AppColors.primaryColor,
                       BlendMode.srcIn,
                     ),
                   ),
@@ -632,87 +583,95 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
 
   Widget _buildFileUploadField() {
     final responsive = ResponsiveHelper(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            style: TextStyle(
-              fontSize: responsive.labelFontSize,
-              fontFamily: "Manrope",
-              fontWeight: FontWeight.w400,
-              color: AppColors.primaryColor,
+    return BlocBuilder<StaffDocumentUploadCubit, StaffDocumentUploadState>(
+      builder: (context, uploadState) {
+        final isUploadingFile = uploadState.isUploading;
+        final uploadProgressPercent = uploadState.progressPercent;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            RichText(
+              text: TextSpan(
+                style: TextStyle(
+                  fontSize: responsive.labelFontSize,
+                  fontFamily: "Manrope",
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.primaryColor,
+                ),
+                children: [
+                  const TextSpan(text: 'Upload Document'),
+                  const TextSpan(
+                    text: ' *',
+                    style: TextStyle(color: AppColors.errorColor),
+                  ),
+                ],
+              ),
             ),
-            children: [
-              const TextSpan(text: 'Upload Document'),
-              const TextSpan(
-                text: ' *',
-                style: TextStyle(color: Colors.red),
+            SizedBox(height: responsive.isTablet ? 8.0 : 4.0),
+            GestureDetector(
+              // Block re-picking while an upload is in flight.
+              onTap: isUploadingFile ? null : _selectFile,
+              child: Container(
+                height: responsive.inputFieldHeight,
+                padding: EdgeInsets.symmetric(
+                  horizontal: responsive.isTablet ? 20.0 : 16.0,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.inputBorderColor),
+                  borderRadius: BorderRadius.circular(
+                    responsive.isTablet ? 12.0 : 8.0,
+                  ),
+                  color: AppColors.cardColor,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        isUploadingFile
+                            ? 'Uploading… $uploadProgressPercent%'
+                            : (_selectedFilePath ?? 'Choose a File'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: (_selectedFilePath == null && !isUploadingFile)
+                              ? AppColors.billingGrey
+                              : AppColors.attendanceIconColor,
+                          fontSize: responsive.inputFontSize,
+                          fontFamily: 'Manrope',
+                        ),
+                      ),
+                    ),
+                    SvgPicture.asset(
+                      MediaRes.uploadIcon,
+                      height: responsive.isTablet ? 28.0 : 24.0,
+                      colorFilter: const ColorFilter.mode(
+                        AppColors.primaryColor,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (isUploadingFile) ...[
+              SizedBox(height: responsive.isTablet ? 10.0 : 8.0),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: (uploadProgressPercent / 100).clamp(0.0, 1.0),
+                  minHeight: 6,
+                  backgroundColor: AppColors.primaryColor.withValues(
+                    alpha: 34 / 255,
+                  ),
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    AppColors.themeColor,
+                  ),
+                ),
               ),
             ],
-          ),
-        ),
-        SizedBox(height: responsive.isTablet ? 8.0 : 4.0),
-        GestureDetector(
-          // Block re-picking while an upload is in flight.
-          onTap: _isUploadingFile ? null : _selectFile,
-          child: Container(
-            height: responsive.inputFieldHeight,
-            padding: EdgeInsets.symmetric(
-              horizontal: responsive.isTablet ? 20.0 : 16.0,
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0x66573353)),
-              borderRadius: BorderRadius.circular(
-                responsive.isTablet ? 12.0 : 8.0,
-              ),
-              color: Colors.white,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _isUploadingFile
-                        ? 'Uploading… $_uploadProgressPercent%'
-                        : (_selectedFilePath ?? 'Choose a File'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: (_selectedFilePath == null && !_isUploadingFile)
-                          ? Colors.grey
-                          : Colors.black,
-                      fontSize: responsive.inputFontSize,
-                      fontFamily: 'Manrope',
-                    ),
-                  ),
-                ),
-                SvgPicture.asset(
-                  MediaRes.uploadIcon,
-                  height: responsive.isTablet ? 28.0 : 24.0,
-                  colorFilter: const ColorFilter.mode(
-                    Color(0xff573353),
-                    BlendMode.srcIn,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (_isUploadingFile) ...[
-          SizedBox(height: responsive.isTablet ? 10.0 : 8.0),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: (_uploadProgressPercent / 100).clamp(0.0, 1.0),
-              minHeight: 6,
-              backgroundColor: const Color(0x22573353),
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                AppColors.themeColor,
-              ),
-            ),
-          ),
-        ],
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -722,7 +681,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
 
     return Column(
@@ -736,8 +695,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             maxHeight: responsive.inputFieldHeight * 4,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.cardColor,
+            border: Border.all(color: AppColors.inputBorderColor),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -749,7 +708,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(
               hintText: 'Add notes...',
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.billingGrey),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,

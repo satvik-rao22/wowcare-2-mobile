@@ -1,8 +1,10 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:mime/mime.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 /// Holds upload session asset codes keyed by local file path (one coordinator per screen).
@@ -22,7 +24,7 @@ class ActivityPhotoAttachmentState {
 
 /// Presign → PUT → complete → poll, then build attachment rows for activity creation.
 /// [bindingMode] must match the activity type (`PER_STUDENT` or `SHARED`).
-Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
+Future<List<ActivityAttachment>> uploadActivityPhotoAttachments({
   required ImageUploadService uploadService,
   required ActivityPhotoAttachmentState state,
   required List<File> files,
@@ -40,6 +42,7 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
   /// complete call, before the batched ready-poll — lets callers show
   /// granular "N/M uploaded" progress text alongside the overall percent.
   void Function(int completedCount, int totalCount)? onFileCompleted,
+  CancelToken? cancelToken,
 }) async {
   if (files.isEmpty) return const [];
 
@@ -79,6 +82,7 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
         activityTypeCode: activityTypeCode,
         bindingMode: bindingMode,
         studentCodes: studentCodes,
+        cancelToken: cancelToken,
       );
 
       final sessionAssetCodes = <String>[];
@@ -121,6 +125,7 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
           mediaType: 'IMAGE',
           ownerType: ownerType,
           ownerCode: ownerCode,
+          cancelToken: cancelToken,
         );
         await uploadService.uploadFileToPresignedUrl(
           file: photo,
@@ -136,11 +141,13 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
               setState(() => onOverallProgressPercent?.call(overallPercent));
             }
           },
+          cancelToken: cancelToken,
         );
         await uploadService.completeAssetUpload(
           sessionCode: uploadSession.sessionCode,
           assetCode: presign.assetCode,
           documentApiBasePath: uploadSession.documentApiBasePath,
+          cancelToken: cancelToken,
         );
         pendingAssetCodeByPath[photo.path] = presign.assetCode;
         sessionAssetCodes.add(presign.assetCode);
@@ -161,18 +168,20 @@ Future<List<Map<String, dynamic>>> uploadActivityPhotoAttachments({
     }
   }
 
-  final attachments = <Map<String, dynamic>>[];
+  final attachments = <ActivityAttachment>[];
   for (final photo in files) {
     final assetCode = state.assetCodeByPath[photo.path];
     if (assetCode != null && assetCode.isNotEmpty) {
       if (isShared) {
-        attachments.add({'assetCode': assetCode});
+        attachments.add(ActivityAttachment(assetCode: assetCode));
       } else {
-        attachments.add({
-          'assetCode': assetCode,
-          'studentCode': ownerCode,
-          'bindingMode': bindingMode,
-        });
+        attachments.add(
+          ActivityAttachment(
+            assetCode: assetCode,
+            studentCode: ownerCode,
+            bindingMode: bindingMode,
+          ),
+        );
       }
     }
   }

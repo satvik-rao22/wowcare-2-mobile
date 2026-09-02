@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -13,7 +15,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/domain/features/attendance/entities/staff_sign_out_request.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_out_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
@@ -77,6 +80,11 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
   _isStaffAdminPersona; // Admin can backdate (past) but not future; teacher is locked to "now".
   String? _currentStaffCode; // Current user's staff code
 
+  /// Owns the sign-out submit call (View -> Cubit -> UseCase -> Repository).
+  /// Eagerly resolved so [dispose] can always close it.
+  final StaffSignOutSubmitCubit _submitCubit =
+      serviceLocator<StaffSignOutSubmitCubit>();
+
   /// True when this form targets the logged-in user's own attendance record
   /// (My Attendance) rather than another staff member's. Self attendance can
   /// never have its date/time edited, even by an admin persona — only
@@ -122,6 +130,12 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     if (widget.qrToken.isNotEmpty || widget.isKiosk) {
       // QR token/kiosk PIN is passed to form and will be included in submission
     }
+  }
+
+  @override
+  void dispose() {
+    _submitCubit.close();
+    super.dispose();
   }
 
   /// Applies staff selection restrictions based on role
@@ -440,29 +454,31 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     // honored — only non-admins use the strictly-"now" self endpoint.
     final bool isSelfSignOut = !isStaffAdmin || isQrSignOut || widget.isKiosk;
 
-    final payload = <String, dynamic>{
-      'attendanceDate': attendanceDate,
-      'staffCode': staffCode,
-      'staffCodes': staffCodes,
-      'classroomCode': classroomCode,
-      'classroomCodeByStaffCode': classroomCodeByStaffCode,
-      'method': widget.isKiosk ? 'PIN' : signOutMethod,
-      'latitude': position?.latitude ?? 0,
-      'longitude': position?.longitude ?? 0,
-      'withinGeofence': withinGeofence,
-      'timeZone': schoolTimeZone,
-      'occurredAt': occurredAt.toUtc().toIso8601String(),
-    };
-    // Include QR token or pin
-    if (widget.isKiosk && widget.pin != null) {
-      payload['pin'] = widget.pin;
-    } else if (isQrSignOut) {
-      payload['qrToken'] = widget.qrToken;
-    }
+    // Assemble a typed StaffSignOutRequest whose toPayload() reproduces the
+    // exact payload map this form used to build (single shape; kiosk overrides
+    // the method to PIN and the pin/qrToken keys stay mutually exclusive).
+    final request = StaffSignOutRequest(
+      attendanceDate: attendanceDate,
+      staffCode: staffCode,
+      staffCodes: staffCodes,
+      classroomCode: classroomCode,
+      classroomCodeByStaffCode: classroomCodeByStaffCode,
+      signOutMethod: signOutMethod,
+      isKiosk: widget.isKiosk,
+      latitude: position?.latitude ?? 0,
+      longitude: position?.longitude ?? 0,
+      withinGeofence: withinGeofence,
+      timeZone: schoolTimeZone,
+      occurredAtIso: occurredAt.toUtc().toIso8601String(),
+      pin: widget.pin,
+      qrToken: isQrSignOut ? widget.qrToken : null,
+    );
 
     try {
-      final result = await serviceLocator<AttendanceRepository>()
-          .submitStaffSignOut(payload: payload, isSelf: isSelfSignOut);
+      final result = await _submitCubit.submit(
+        request: request,
+        isSelf: isSelfSignOut,
+      );
       final success = result.success;
       var message = result.message;
 
@@ -593,7 +609,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                   canRemove: _selectedStaff.length > 1,
                 ),
               ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.lg),
             Row(
               children: [
                 Expanded(
@@ -601,7 +617,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const AppText.label('Date'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.xs),
                       CustomDateTimeField(
                         hasLabel: false,
                         isRangePicker: false,
@@ -633,13 +649,13 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 20),
+                const SizedBox(width: AppSpacing.lg),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const AppText.label('Time'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.xs),
                       IgnorePointer(
                         // Teachers cannot modify time; submission will also
                         // force "now" for them. Admin personas can edit the
@@ -678,10 +694,13 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
 
   Widget _buildStaffCard(StaffEntity staff, {required bool canRemove}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.themeColor),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppRadius.r10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
       child: Row(
@@ -696,7 +715,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                   size: 30,
                   fontSize: 12,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: AppSpacing.s6),
                 Flexible(
                   child: Text(
                     staff.name,

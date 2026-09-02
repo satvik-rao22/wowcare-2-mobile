@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -14,12 +15,17 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/fetch_staff_attendance_profile_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/fetch_staff_attendance_profile_absent_toggle_usecase.dart';
+import 'package:wowcare/domain/features/attendance/entities/attendance_profile_query.dart';
+import 'package:wowcare/domain/features/attendance/entities/attendance_profile_absent_toggle_query.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
@@ -78,14 +84,14 @@ class _AttendanceField extends StatelessWidget {
               fontFamily: 'Manrope',
               fontSize: 13,
               fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 16 / 13,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: AppSpacing.md),
         Expanded(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -103,11 +109,11 @@ class _AttendanceField extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: AppSpacing.s6),
               ],
               if (markMethod != null) ...[
                 _methodIcon(markMethod!),
-                const SizedBox(width: 6),
+                const SizedBox(width: AppSpacing.s6),
               ],
               Flexible(
                 child: Text(
@@ -117,7 +123,7 @@ class _AttendanceField extends StatelessWidget {
                     fontFamily: 'Manrope',
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xff573353),
+                    color: AppColors.primaryColor,
                     height: 19 / 14,
                   ),
                 ),
@@ -602,7 +608,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     try {
       // forEditStaff:true hits /staff/{code}/profile, which carries name,
       // designation and primaryClassroom name.
-      final profile = await serviceLocator<StaffRepository>().getStaffProfile(
+      final profile = await serviceLocator<GetStaffProfileUseCase>()(
         staffCode: code,
         forEditStaff: true,
       );
@@ -650,55 +656,45 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     final fromStr = DateFormat('yyyy-MM-dd').format(from);
     final toStr = DateFormat('yyyy-MM-dd').format(to);
 
-    final queryParameters = <String, dynamic>{
-      'staffCode': widget.staffCode,
-      'fromAttendanceDate': fromStr,
-      'toAttendanceDate': toStr,
-      'page': 0,
-      'size': 10,
-      'sort': <String>['attendanceDate,desc'],
-    };
-
     final allowedClassroomCodes = await resolveAttendanceAllowedClassroomCodes(
       storage: serviceLocator<StorageService>(),
-    );
-    queryParameters['allowedClassroomCodes'] = List<String>.from(
-      allowedClassroomCodes,
     );
 
     try {
       // ---------- Load staff attendance profile (present days / summary) ----------
-      final data = await serviceLocator<AttendanceRepository>()
-          .fetchStaffAttendanceProfile(queryParameters: queryParameters);
-      if (data is Map<String, dynamic>) {
-        final root = data['data'] as Map<String, dynamic>? ?? {};
-        final aggJson = root['aggregations'] as Map<String, dynamic>? ?? {};
-        final recordsJson = root['records'] as Map<String, dynamic>? ?? {};
-        final content = recordsJson['content'] as List<dynamic>? ?? const [];
-
+      final data =
+          await serviceLocator<FetchStaffAttendanceProfileUseCase>()(
+        query: AttendanceProfileQuery(
+          staffCode: widget.staffCode,
+          fromAttendanceDate: fromStr,
+          toAttendanceDate: toStr,
+          page: 0,
+          size: 10,
+          sort: const ['attendanceDate,desc'],
+          allowedClassroomCodes: List<String>.from(allowedClassroomCodes),
+        ),
+      );
+      if (data != null) {
         // Aggregations
-        final attendedDays = (aggJson['attendedDays'] as int?) ?? 0;
-        final totalAttendedHours =
-            (aggJson['totalAttendedTime'] as String?) ?? '';
-        final initialAbsentDays = (aggJson['absentDays'] as int?) ?? 0;
+        final attendedDays = data.attendedDays;
+        final totalAttendedHours = data.totalAttendedTime;
+        final initialAbsentDays = data.absentDays;
 
         // Records
-        final loadedAttendances = content.map<_AttendanceModel>((e) {
-          final m = e as Map<String, dynamic>;
-
-          final dateStr = m['attendanceDate'] as String? ?? '';
+        final loadedAttendances = data.records.map<_AttendanceModel>((record) {
+          final dateStr = record.attendanceDate;
           final parsedDate = dateStr.isNotEmpty
               ? DateTime.tryParse(dateStr) ?? ServerTimeService.instance.now()
               : ServerTimeService.instance.now();
 
-          final int sequenceNumber = m['sequenceNumber'] as int? ?? 1;
-          final int totalSequenceCount = m['totalSequenceCount'] as int? ?? 1;
+          final int sequenceNumber = record.sequenceNumber;
+          final int totalSequenceCount = record.totalSequenceCount;
 
           // Keep raw times in 'hh:mm:ss a' format so existing duration parsing works.
-          final signedInRaw = _formatApiTime(m['signedInTime']);
-          final signedOutRaw = _formatApiTime(m['signedOutTime']);
-          final transferRaw = _formatApiTime(m['transferTime']);
-          final nextActionRaw = _formatApiTime(m['nextActionTime']);
+          final signedInRaw = _formatApiTime(record.signedInTime);
+          final signedOutRaw = _formatApiTime(record.signedOutTime);
+          final transferRaw = _formatApiTime(record.transferTime);
+          final nextActionRaw = _formatApiTime(record.nextActionTime);
 
           String effectiveSignIn = signedInRaw;
           String effectiveSignOut = signedOutRaw;
@@ -726,15 +722,15 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           }
 
           final signOutMethodEnum = _mapAbsentMethodStringToEnum(
-            m['signedOutMethod'] as String?,
+            record.signedOutMethod,
           );
           // On a classroom transfer the "sign in/out" for that segment is the
           // transfer itself, performed by `transferredBy`. The API leaves
           // signedInBy/signedOutBy empty on transfer records, so fall back to
           // transferredBy for the person's name.
-          final transferredBy = ((m['transferredBy'] as String?) ?? '').trim();
+          final transferredBy = record.transferredBy.trim();
 
-          final rawSignedInBy = ((m['signedInBy'] as String?) ?? '').trim();
+          final rawSignedInBy = record.signedInBy.trim();
           final signInByText = rawSignedInBy.isNotEmpty
               ? rawSignedInBy
               : (isTransferSignIn ? transferredBy : '');
@@ -742,7 +738,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           // Auto sign-out has no person: the API sends signedOutMethod=SYSTEM
           // with an empty signedOutBy. Show "System" (web parity) so the row
           // isn't blank; keep the real name / transfer person when present.
-          final rawSignedOutBy = ((m['signedOutBy'] as String?) ?? '').trim();
+          final rawSignedOutBy = record.signedOutBy.trim();
           final signOutByText = rawSignedOutBy.isNotEmpty
               ? rawSignedOutBy
               : (isTransferSignOut && transferredBy.isNotEmpty
@@ -755,20 +751,19 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             date: parsedDate,
             signInTime: effectiveSignIn,
             signOutTime: effectiveSignOut,
-            roomName: (m['classroomName'] as String?) ?? widget.roomName,
+            roomName: record.classroomName ?? widget.roomName,
             signInBy: signInByText,
             signOutBy: signOutByText,
-            attendedTime: (m['attendedTime'] as String?) ?? '',
-            attendedHours: (m['attendedHours'] as int?) ?? 0,
-            attendedMinutes: (m['attendedMinutes'] as int?) ?? 0,
+            attendedTime: record.attendedTime,
+            attendedHours: record.attendedHours,
+            attendedMinutes: record.attendedMinutes,
             isTransferSignIn: isTransferSignIn,
             isTransferSignOut: isTransferSignOut,
             signInMethod: _mapAbsentMethodStringToEnum(
-              m['signedInMethod'] as String?,
+              record.signedInMethod,
             ),
             signOutMethod: signOutMethodEnum,
-            notExpectedComment: ((m['notExpectedComment'] as String?) ?? '')
-                .trim(),
+            notExpectedComment: record.notExpectedComment.trim(),
           );
         }).toList();
 
@@ -792,39 +787,28 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       }
 
       // ---------- Load staff absent profile for toggle list ----------
-      final absentQueryParameters = <String, dynamic>{
-        'staffCode': widget.staffCode,
-        'fromAbsenceDate': fromStr,
-        'toAbsenceDate': toStr,
-        'page': 0,
-        'size': 10,
-        'sort': <String>['absenceDate,desc'],
-        // Swagger lists pageable as required for this endpoint.
-        // Keep both styles to remain backward compatible across environments.
-        'pageable.page': 0,
-        'pageable.size': 10,
-        'pageable.sort': <String>['absenceDate,desc'],
-      };
-
-      absentQueryParameters['allowedClassroomCodes'] = List<String>.from(
-        allowedClassroomCodes,
+      final absentData = await serviceLocator<
+          FetchStaffAttendanceProfileAbsentToggleUseCase>()(
+        query: AttendanceProfileAbsentToggleQuery(
+          staffCode: widget.staffCode,
+          fromAbsenceDate: fromStr,
+          toAbsenceDate: toStr,
+          page: 0,
+          size: 10,
+          sort: const ['absenceDate,desc'],
+          allowedClassroomCodes: List<String>.from(allowedClassroomCodes),
+          // Swagger lists pageable as required for this endpoint.
+          // Keep both styles to remain backward compatible across environments.
+          includePageableAliasParams: true,
+        ),
       );
+      if (absentData != null) {
+        final absentDaysCount = absentData.absentDays;
 
-      final absentData = await serviceLocator<AttendanceRepository>()
-          .fetchStaffAttendanceProfileAbsentToggle(
-            queryParameters: absentQueryParameters,
-          );
-      if (absentData is Map<String, dynamic>) {
-        final root = absentData['data'] as Map<String, dynamic>? ?? {};
-        final agg = root['aggregations'] as Map<String, dynamic>? ?? {};
-        final records = root['records'] as Map<String, dynamic>? ?? {};
-        final content = records['content'] as List<dynamic>? ?? const [];
-
-        final absentDaysCount = agg['absentDays'] as int? ?? 0;
-
-        final loadedAbsentDays = content.map<_AbsentDayModel>((e) {
-          final m = e as Map<String, dynamic>;
-          final dateStr = m['absenceDate'] as String? ?? '';
+        final loadedAbsentDays = absentData.records.map<_AbsentDayModel>((
+          record,
+        ) {
+          final dateStr = record.absenceDate;
           final date = dateStr.isNotEmpty
               ? DateTime.tryParse(dateStr) ?? ServerTimeService.instance.now()
               : ServerTimeService.instance.now();
@@ -832,17 +816,17 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           return _AbsentDayModel(
             startDate: date,
             endDate: date,
-            absentTime: _formatApiTime(m['markedAbsentTime']),
-            absentBy: (m['markedAbsentByName'] ?? m['markedAbsentBy'] ?? '')
+            absentTime: _formatApiTime(record.markedAbsentTime),
+            absentBy: (record.markedAbsentByName ?? record.markedAbsentBy ?? '')
                 .toString(),
-            note: m['absenceNote'] as String? ?? '',
+            note: record.absenceNote,
             markAbsentMethod: _mapAbsentMethodStringToEnum(
-              m['markAbsentMethod'] as String?,
+              record.markAbsentMethod,
             ),
             classroomName: () {
-              final name = (m['classroomName'] as String?)?.trim() ?? '';
+              final name = record.classroomName?.trim() ?? '';
               if (name.isNotEmpty) return name;
-              final code = (m['classroomCode'] as String?)?.trim() ?? '';
+              final code = record.classroomCode?.trim() ?? '';
               return code; // render-time fallback uses staff?.roomName
             }(),
           );
@@ -869,8 +853,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         }
       }
     } catch (error, stack) {
-      debugPrint('StaffAttendanceProfile API error: $error');
-      debugPrint('$stack');
+      AppLogger.d('StaffAttendanceProfile API error: $error');
+      AppLogger.d('$stack');
       if (!mounted) return;
       setState(() {
         isAttendancesLoading = false;
@@ -970,19 +954,19 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       isExpectedToday: widget.isExpectedToday,
     );
 
-    Widget? target;
+    String? path;
     if (actionLabel == 'Sign-in') {
-      target = StaffSignInForm(staff: entity);
+      path = '/attendance/staff-sign-in';
     } else if (actionLabel == 'Sign-Out') {
-      target = StaffSignOutForm(staff: entity);
+      path = '/attendance/staff-sign-out';
     } else if (actionLabel == 'Transfer') {
-      target = StaffTransferForm(staff: entity);
+      path = '/attendance/staff-transfer';
     } else if (actionLabel == 'Absent') {
-      target = StaffMarkAbsentForm(staff: entity);
+      path = '/attendance/staff-mark-absent';
     }
 
-    if (target == null || !mounted) return;
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => target!));
+    if (path == null || !mounted) return;
+    await context.push(path, extra: {'staff': entity});
     if (!mounted) return;
     await refreshData();
   }
@@ -1036,11 +1020,11 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                       },
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: AppSpacing.md),
                   _buildPopupMenu(),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
               Builder(
                 builder: (context) {
                   return isStaffLoading &&
@@ -1049,7 +1033,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                       : Column(
                           children: [
                             _buildStaffCard(),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: AppSpacing.md),
                             // Toggle for showing absent days
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1074,7 +1058,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: AppSpacing.md),
                             _buildAttendanceList(),
                           ],
                         );
@@ -1088,9 +1072,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   }
 
   Widget _buildPopupMenu() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth >= 600;
-    final isLargeTablet = screenWidth >= 900;
+    final isTablet = ResponsiveHelper(context).isTabletCompact;
+    final isLargeTablet = ResponsiveHelper(context).isWide;
 
     return GradientAddButton(
       onTap: () {
@@ -1107,9 +1090,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     final contentPadding = ResponsiveSizing.contentPadding(context);
     final safeAreaTop = mediaQuery.padding.top;
     final appBarHeight = AppBar().preferredSize.height;
-    final double screenWidth = mediaQuery.size.width;
-    final bool isTablet = screenWidth >= 600;
-    final bool isLargeTablet = screenWidth >= 900;
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
+    final bool isLargeTablet = ResponsiveHelper(context).isWide;
     final double floatingButtonSize = isLargeTablet
         ? 72.0
         : (isTablet ? 56.0 : 40.0);
@@ -1183,17 +1165,17 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           color: AppColors.primaryColor.withValues(alpha: 0.2),
           width: 0.5,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadius.allLg,
       ),
       elevation: 6,
       shadowColor: AppColors.primaryColor.withValues(alpha: 0.2),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.lg),
         child: Column(
           children: [
             Row(
               children: [
-                const SizedBox(width: 5),
+                const SizedBox(width: AppSpacing.s5),
                 DocumentImageWidget(
                   fileUuid: currentStaff.photoUuid ?? '',
                   size: 80,
@@ -1202,7 +1184,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                   // Drive status dot purely from attendance API using staffCode.
                   staffCode: widget.staffCode,
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.start,
@@ -1218,7 +1200,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                           letterSpacing: -0.6,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: AppSpacing.xxs),
                       // Staff persona: show the primary classroom name.
                       // Admin persona: show the designation, cleaned up
                       // (e.g. ASSISTANT_TEACHER -> Assistant Teacher) instead
@@ -1238,7 +1220,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             _buildStats(),
           ],
         ),
@@ -1273,9 +1255,9 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
               valueColor: const Color(0xFF4CAF50),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           _buildAttendedHoursStat(report: null),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           InkWell(
             onTap: _canOpenStaffTabbedViewFromStats
                 ? () {
@@ -1316,9 +1298,9 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             valueColor: const Color(0xFF4CAF50),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.md),
         _buildAttendedHoursStat(report: attendanceReport),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.md),
         InkWell(
           onTap: _canOpenStaffTabbedViewFromStats
               ? () {
@@ -1354,10 +1336,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.s10, horizontal: 15),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.black12, width: 1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.allMd,
       ),
       child: Row(
         children: [
@@ -1369,7 +1351,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
               BlendMode.srcIn,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.xs),
           const AppText.body(
             'Attended Hours',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
@@ -1381,7 +1363,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                 text: '${hours}h',
                 color: const Color(0xFF4285F4),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.xs),
               _buildValueCircle(
                 text: '${minutes}m',
                 color: const Color(0xFF4285F4),
@@ -1422,10 +1404,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     required Color valueColor,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.s10, horizontal: 15),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.black12, width: 1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.allMd,
       ),
       child: Row(
         children: [
@@ -1434,7 +1416,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             height: 22,
             colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.xs),
           AppText.body(
             label,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
@@ -1484,10 +1466,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
 
     if (attendances.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
           color: AppColors.cardColor,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppRadius.r14),
           border: Border.all(
             color: AppColors.primaryColor.withValues(alpha: 0.2),
           ),
@@ -1522,10 +1504,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
 
     if (absentDays.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
           color: AppColors.cardColor,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppRadius.r14),
           border: Border.all(
             color: AppColors.primaryColor.withValues(alpha: 0.2),
           ),
@@ -1580,7 +1562,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     final attendance = attendances[index];
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: ExpansionTile(
         title: AppText.body(
           DateFormat('MMM dd, yyyy').format(attendance.date),
@@ -1596,15 +1578,15 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           side: BorderSide(
             color: AppColors.primaryColor.withValues(alpha: 0.2),
           ),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppRadius.r14),
         ),
         shape: RoundedRectangleBorder(
           side: BorderSide(
             color: AppColors.primaryColor.withValues(alpha: 0.2),
           ),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppRadius.r14),
         ),
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        childrenPadding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.none, AppSpacing.md, AppSpacing.md),
         onExpansionChanged: (expanded) {
           setState(() {
             expandedIndex = expanded ? index : null;
@@ -1612,41 +1594,41 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         },
         children: [
           Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           _AttendanceField(label: 'Classroom', text: attendance.roomName),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           _AttendanceField(
             label: 'Sign In',
             text: formatTime(attendance.signInTime),
             showTransferIcon: attendance.isTransferSignIn,
             markMethod: attendance.signInMethod,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           _AttendanceField(
             label: 'Sign In By',
             text: _resolveSignInByDisplay(attendance.signInBy, attendance.signInMethod),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           _AttendanceField(
             label: 'Sign Out',
             text: formatTime(attendance.signOutTime),
             showTransferIcon: attendance.isTransferSignOut,
             markMethod: attendance.signOutMethod,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           _AttendanceField(
             label: 'Sign Out By',
             text: _resolveSignOutByDisplay(attendance.signOutBy, attendance.signOutMethod),
           ),
           if (_formatAttendedTimeForCard(attendance).trim().isNotEmpty) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             _AttendanceField(
               label: 'Attended Time',
               text: _formatAttendedTimeForCard(attendance),
             ),
           ],
           if (attendance.notExpectedComment.isNotEmpty) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             _AttendanceField(
               label: 'Comment',
               text: attendance.notExpectedComment,
@@ -1661,7 +1643,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     final absentDay = absentDays[index];
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: ExpansionTile(
         title: AppText.body(
           DateFormat('MMM dd, yyyy').format(absentDay.startDate),
@@ -1673,15 +1655,15 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           side: BorderSide(
             color: AppColors.primaryColor.withValues(alpha: 0.2),
           ),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppRadius.r14),
         ),
         shape: RoundedRectangleBorder(
           side: BorderSide(
             color: AppColors.primaryColor.withValues(alpha: 0.2),
           ),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppRadius.r14),
         ),
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        childrenPadding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.none, AppSpacing.md, AppSpacing.md),
         onExpansionChanged: (expanded) {
           setState(() {
             expandedIndex = expanded ? index + 1000 : null;
@@ -1689,7 +1671,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         },
         children: [
           Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           _AttendanceField(
             label: 'Classroom',
             text: () {
@@ -1704,24 +1686,24 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                   : '';
             }(),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           _AttendanceField(
             label: 'Date',
             text:
                 '${DateFormat('MMM dd, yyyy').format(absentDay.startDate)} - ${DateFormat('MMM dd, yyyy').format(absentDay.endDate)}',
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           _AttendanceField(
             label: 'Marked By',
             text: getFirstName(absentDay.absentBy),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           _AttendanceField(
             label: 'Marked Absent Time',
             text: formatTime(absentDay.absentTime),
             markMethod: absentDay.markAbsentMethod,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           _AttendanceField(
             label: 'Absent Note',
             text: absentDay.note.isNotEmpty ? absentDay.note : '-',

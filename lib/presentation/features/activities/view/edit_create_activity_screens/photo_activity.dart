@@ -3,6 +3,7 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
@@ -20,6 +21,8 @@ import '../../../../../core/storage/storage_service.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
+import '../../../../../domain/features/activity/entities/activity_attachment.dart';
+import '../../../../../domain/features/activity/entities/activity_parameter_value.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../cubit/activity_editor_cubit.dart';
@@ -144,7 +147,12 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
   List<String> _remainingExistingPhotoUrls = [];
   String? _remainingExistingVideoUrl;
   final Map<String, String> _uploadedAssetCodeByPath = {};
-  List<Map<String, dynamic>> _uploadedAttachments = [];
+
+  /// The upload context the [_uploadedAssetCodeByPath] cache belongs to. Retried
+  /// saves with the SAME context reuse the cache (no re-upload); a context
+  /// change clears it. See [_uploadAndBuildAttachments].
+  String? _uploadContextKey;
+  List<ActivityAttachment> _uploadedAttachments = [];
 
   bool get _hasMedia =>
       _photos.isNotEmpty ||
@@ -154,6 +162,10 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
 
   ActivityEditorCubit get _editor => context.read<ActivityEditorCubit>();
   late final ImageUploadService _uploadService;
+
+  /// Cancels any in-flight activity media upload when this screen is disposed,
+  /// so a large video PUT doesn't keep burning bandwidth after the user leaves.
+  final CancelToken _uploadCancelToken = CancelToken();
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   bool _isAdminApprovalRequired(ActivityItem activity) {
@@ -270,7 +282,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
     if (!_isAdminDesignation) return false;
     return canAdminApproveOrRejectActivityItem(
       _effectiveActivity,
-      isAdminPersona: true,
+      isAdminPersona: activeAdminPersona(context),
     );
   }
 
@@ -596,12 +608,16 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
         isSuccess: true,
       );
     } catch (error) {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ApiErrorHandler.extractErrorMessage(error),
-        isError: true,
-      );
+      // A cancellation (the screen was disposed mid-upload) is expected — don't
+      // surface it as an error. Non-cancel failures still show as before.
+      if (!(error is DioException && CancelToken.isCancel(error))) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ApiErrorHandler.extractErrorMessage(error),
+          isError: true,
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isUploadingMedia = false);
@@ -609,7 +625,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
     }
   }
 
-  Future<List<Map<String, dynamic>>> _uploadAndBuildAttachments({
+  Future<List<ActivityAttachment>> _uploadAndBuildAttachments({
     required String classroomCode,
     required String activityTypeCode,
     required String organizationCode,
@@ -625,24 +641,48 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
     if (mounted) {
       setState(() => _uploadTotalCount = media.length);
     }
-    // Asset codes are scoped to a specific upload session. Reusing a previous
-    // session's cached assetCode causes polling on a new session with no assets.
-    _uploadedAssetCodeByPath.clear();
     // Single student → PER_STUDENT, multiple → SHARED. Owner follows the same
     // rule: STUDENT/studentCode for per-student, CLASSROOM/classroomCode shared.
     final isShared = studentCodes.length > 1;
     final bindingMode = isShared ? 'SHARED' : 'PER_STUDENT';
     final ownerType = isShared ? 'CLASSROOM' : 'STUDENT';
     final ownerCode = isShared ? classroomCode : studentCodes.first;
-    final uploadSession = await _uploadService.createActivityUploadSession(
-      organizationCode: organizationCode,
-      schoolCode: schoolCode,
-      classroomCode: classroomCode,
-      activityTypeCode: activityTypeCode,
-      bindingMode: bindingMode,
-      studentCodes: studentCodes,
-    );
+    // Asset codes are session-scoped for POLLING but stay valid to LINK at
+    // create time. Keep the already-uploaded map across retries with the SAME
+    // upload context, so a Save retried after a partial failure reuses what
+    // already uploaded instead of re-uploading every file into a fresh session
+    // (which orphans the first set); clear it only when the context actually
+    // changes. Newly-uploaded files are polled against THIS run's session; the
+    // reused ones were already confirmed ready in the run that uploaded them.
+    final contextKey = [
+      organizationCode.trim(),
+      schoolCode.trim(),
+      classroomCode.trim(),
+      (studentCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+            ..sort())
+          .join(','),
+      activityTypeCode.trim(),
+      bindingMode,
+    ].join('|');
+    if (_uploadContextKey != contextKey) {
+      _uploadedAssetCodeByPath.clear();
+      _uploadContextKey = contextKey;
+    }
+    final needsUpload =
+        media.any((f) => !_uploadedAssetCodeByPath.containsKey(f.path));
+    final uploadSession = needsUpload
+        ? await _uploadService.createActivityUploadSession(
+            organizationCode: organizationCode,
+            schoolCode: schoolCode,
+            classroomCode: classroomCode,
+            activityTypeCode: activityTypeCode,
+            bindingMode: bindingMode,
+            studentCodes: studentCodes,
+            cancelToken: _uploadCancelToken,
+          )
+        : null;
     final uploadedCodes = <String>[];
+    final newlyUploadedCodes = <String>[];
     for (var i = 0; i < media.length; i++) {
       final file = media[i];
       final fileIndex = i + 1;
@@ -674,7 +714,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
         file,
       );
       final presign = await _uploadService.createAssetPresign(
-        sessionCode: uploadSession.sessionCode,
+        sessionCode: uploadSession!.sessionCode,
         documentApiBasePath: uploadSession.documentApiBasePath,
         fileName: generatedFileName,
         contentType: contentType,
@@ -683,6 +723,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
         mediaType: isVideo ? 'VIDEO' : 'IMAGE',
         ownerType: ownerType,
         ownerCode: ownerCode,
+        cancelToken: _uploadCancelToken,
       );
       await _uploadService.uploadFileToPresignedUrl(
         file: file,
@@ -696,36 +737,43 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
           final overallPercent = (overallFraction * 100).clamp(0, 100).round();
           setState(() => _uploadProgressPercent = overallPercent);
         },
+        cancelToken: _uploadCancelToken,
       );
       await _uploadService.completeAssetUpload(
         sessionCode: uploadSession.sessionCode,
         assetCode: presign.assetCode,
         documentApiBasePath: uploadSession.documentApiBasePath,
+        cancelToken: _uploadCancelToken,
       );
       if (mounted) {
         setState(() => _uploadCompletedCount = fileIndex);
       }
       _uploadedAssetCodeByPath[file.path] = presign.assetCode;
       uploadedCodes.add(presign.assetCode);
+      newlyUploadedCodes.add(presign.assetCode);
     }
 
     if (mounted) {
       setState(() => _uploadProgressPercent = 100);
     }
-    _startProcessingPoll(
-      sessionCode: uploadSession.sessionCode,
-      assetCodes: uploadedCodes,
-      persist: true,
-    );
+    // Poll only the codes uploaded in THIS run's session — reused codes were
+    // already confirmed ready and belong to a prior session.
+    if (uploadSession != null && newlyUploadedCodes.isNotEmpty) {
+      _startProcessingPoll(
+        sessionCode: uploadSession.sessionCode,
+        assetCodes: newlyUploadedCodes,
+        persist: true,
+      );
+    }
     return uploadedCodes.map((code) {
       if (isShared) {
-        return <String, dynamic>{'assetCode': code};
+        return ActivityAttachment(assetCode: code);
       }
-      return <String, dynamic>{
-        'assetCode': code,
-        'studentCode': ownerCode,
-        'bindingMode': bindingMode,
-      };
+      return ActivityAttachment(
+        assetCode: code,
+        studentCode: ownerCode,
+        bindingMode: bindingMode,
+      );
     }).toList();
   }
 
@@ -1005,53 +1053,53 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
               studentCodes: studentCodes,
             );
       final uploadAssetCodes = attachments
-          .map((row) => (row['assetCode'] ?? '').toString().trim())
+          .map((a) => a.assetCode.trim())
           .where((code) => code.isNotEmpty)
           .toList();
       final uploadPhotoCode = _findParameterCode(
         details.parameters,
         exactName: 'upload photo',
       );
-      final createParameterValues = <Map<String, dynamic>>[
+      final createParameterValues = <ActivityParameterValue>[
         if (_findParameterCode(details.parameters, exactName: 'date') != null)
-          {
-            'parameterCode': _findParameterCode(
+          ActivityParameterValue(
+            parameterCode: _findParameterCode(
               details.parameters,
               exactName: 'date',
-            ),
-            'value': localDate,
-          },
+            )!,
+            value: localDate,
+          ),
         if (_findParameterCode(details.parameters, exactName: 'time') != null)
-          {
-            'parameterCode': _findParameterCode(
+          ActivityParameterValue(
+            parameterCode: _findParameterCode(
               details.parameters,
               exactName: 'time',
-            ),
-            'value': localTime,
-          },
+            )!,
+            value: localTime,
+          ),
         if (_findParameterCode(details.parameters, contains: 'staff') != null)
-          {
-            'parameterCode': _findParameterCode(
+          ActivityParameterValue(
+            parameterCode: _findParameterCode(
               details.parameters,
               contains: 'staff',
-            ),
-            'value': staffPresentCode,
-          },
+            )!,
+            value: staffPresentCode,
+          ),
         if (descriptionTrim.isNotEmpty &&
             _findParameterCode(details.parameters, exactName: 'description') !=
                 null)
-          {
-            'parameterCode': _findParameterCode(
+          ActivityParameterValue(
+            parameterCode: _findParameterCode(
               details.parameters,
               exactName: 'description',
-            ),
-            'value': descriptionTrim,
-          },
+            )!,
+            value: descriptionTrim,
+          ),
         if (uploadPhotoCode != null && uploadAssetCodes.isNotEmpty)
-          {
-            'parameterCode': uploadPhotoCode,
-            'value': uploadAssetCodes.join(','),
-          },
+          ActivityParameterValue(
+            parameterCode: uploadPhotoCode,
+            value: uploadAssetCodes.join(','),
+          ),
       ];
 
       // Shared media flow (photos + videos): create one shared activity per attachment.
@@ -1222,7 +1270,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
         return;
       }
 
-      List<Map<String, dynamic>> newUploads = const [];
+      List<ActivityAttachment> newUploads = const [];
       if (_photos.isNotEmpty || _video != null) {
         newUploads = _uploadedAttachments.isNotEmpty
             ? _uploadedAttachments
@@ -1247,7 +1295,9 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
         existingRows: _detailAttachmentRows
             .map((e) => Map<String, dynamic>.from(e))
             .toList(),
-        newUploadRows: newUploads,
+        // Holdout: the PATCH/merge helper works on Map rows — convert the typed
+        // outbound attachments back to the wire Map shape at this boundary.
+        newUploadRows: newUploads.map((a) => a.toPayload()).toList(),
         remainingNormalizedDeliveryUrls: remainingNorm,
       );
       final patchAttachments = attachmentsForActivityPatchRequest(mergedRows);
@@ -1279,18 +1329,21 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
           .map((row) => (row['assetCode'] ?? '').toString().trim())
           .where((code) => code.isNotEmpty)
           .toList();
-      final parameterValues = <Map<String, dynamic>>[
-        if (dateCode != null) {'parameterCode': dateCode, 'value': localDate},
-        if (timeCode != null) {'parameterCode': timeCode, 'value': localTime},
+      final parameterValues = <ActivityParameterValue>[
+        if (dateCode != null)
+          ActivityParameterValue(parameterCode: dateCode, value: localDate),
+        if (timeCode != null)
+          ActivityParameterValue(parameterCode: timeCode, value: localTime),
         if (staffCodeParam != null)
-          {'parameterCode': staffCodeParam, 'value': staffPresentCode},
+          ActivityParameterValue(
+              parameterCode: staffCodeParam, value: staffPresentCode),
         if (descriptionCode != null && desc.isNotEmpty)
-          {'parameterCode': descriptionCode, 'value': desc},
+          ActivityParameterValue(parameterCode: descriptionCode, value: desc),
         if (uploadMediaCode != null && uploadAssetCodes.isNotEmpty)
-          {
-            'parameterCode': uploadMediaCode,
-            'value': uploadAssetCodes.join(','),
-          },
+          ActivityParameterValue(
+            parameterCode: uploadMediaCode,
+            value: uploadAssetCodes.join(','),
+          ),
       ];
 
       final targets = studentMapsForScopedActivityUpdate(
@@ -1391,6 +1444,11 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
   @override
   void dispose() {
     _mediaProcessingPollTimer?.cancel();
+    // Abort any in-flight media upload so a large video PUT doesn't keep
+    // running (and burning bandwidth) after the user leaves this screen.
+    if (!_uploadCancelToken.isCancelled) {
+      _uploadCancelToken.cancel('activity screen disposed');
+    }
     _descriptionController.dispose();
     super.dispose();
   }

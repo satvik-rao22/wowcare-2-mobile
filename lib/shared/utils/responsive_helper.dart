@@ -8,6 +8,13 @@ class ResponsiveHelper {
   bool get isTablet => MediaQuery.of(context).size.width >= 768;
   bool get isLargeTablet => MediaQuery.of(context).size.width >= 1024;
 
+  // Compact breakpoints preserved from the legacy ResponsiveSizing (tablet >=600)
+  // and the inline attendance literals (wide >=900). Kept verbatim so
+  // consolidating onto this single helper does NOT shift any existing visual
+  // breakpoint. Distinct from the canonical isTablet(768)/isLargeTablet(1024).
+  bool get isTabletCompact => MediaQuery.of(context).size.width >= 600;
+  bool get isWide => MediaQuery.of(context).size.width >= 900;
+
   double get containerWidth =>
       isLargeTablet ? 1200.0 : MediaQuery.of(context).size.width;
 

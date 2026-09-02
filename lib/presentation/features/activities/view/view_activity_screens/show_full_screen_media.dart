@@ -144,7 +144,9 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
         SnackBar(content: Text(e.type.message)),
       );
     } catch (e) {
-      debugPrint('Failed to download media: $e');
+      // Do not log the raw exception: a Dio/HTTP error stringifies the request
+      // URI, which here is a pre-signed media URL. Log only the error type.
+      debugPrint('Failed to download media (${e.runtimeType})');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

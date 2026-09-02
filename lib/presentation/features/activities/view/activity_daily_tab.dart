@@ -64,6 +64,8 @@ import 'activity_item.dart';
 
 export 'activity_item.dart';
 export 'activity_feed_card_permissions.dart';
+export '../utils/activity_item_edit_mappers.dart'
+    show activityItemFromActivityDetail, studentDataMapsForActivityEdit;
 export '../utils/activity_patch_attachments.dart'
     show attachmentUsableDeliveryUrl, attachmentRowHasUsableMedia;
 
@@ -232,6 +234,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
   bool _loadingFeed = false;
   bool _isFeedRequestInFlight = false;
   String? _lastFeedRequestKey;
+  int _feedGeneration = 0;
   DateTime? _lastFeedCompletedAt;
   bool _lastFeedCompletedWithError = false;
   String? _feedError;
@@ -1854,6 +1857,14 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     }
   }
 
+  /// Snapshot taken when a feed load starts; a response must be DISCARDED if the
+  /// widget is gone, a newer load has superseded this one (generation bumped by a
+  /// refresh / filter / date / classroom change), or the active school changed
+  /// mid-flight (live school switch). Prevents cross-school leakage and
+  /// last-to-return-wins races.
+  bool _isStaleFeedResponse(int gen, String? schoolAtStart) =>
+      !mounted || gen != _feedGeneration || _schoolCode != schoolAtStart;
+
   Future<void> _loadNextDailyFeedPage() async {
     if (_loadingMoreFeed || !_feedHasMore || _loadingFeed) return;
 
@@ -1887,6 +1898,8 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
 
     _loadingMoreFeed = true;
     if (mounted) setState(() {});
+    final feedGen = _feedGeneration;
+    final feedSchoolAtStart = school;
 
     try {
       final selectedStudentCode =
@@ -1974,13 +1987,15 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         ..._mapDailyFeedPageToItems(activityFeedPage),
       ]..sort(_compareActivityItemsByTimeDesc);
 
-      if (!mounted) return;
+      if (_isStaleFeedResponse(feedGen, feedSchoolAtStart)) return;
       setState(() {
         _activities.addAll(items);
-        _activities = groupMultiStudentFeedItems(
-          _activities,
-          attendanceRequireDateAndTimeMatch: false,
-        )..sort(_compareActivityItemsByTimeDesc);
+        _activities = dedupeActivitiesByStableId(
+          groupMultiStudentFeedItems(
+            _activities,
+            attendanceRequireDateAndTimeMatch: false,
+          )..sort(_compareActivityItemsByTimeDesc),
+        );
         _feedHasMore =
             (attendancePage?.hasMore ?? false) ||
             (absentPage?.hasMore ?? false) ||
@@ -1994,7 +2009,9 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
           showOnScreen: true,
           context: context,
         );
-        setState(() => _feedHasMore = false);
+        if (!_isStaleFeedResponse(feedGen, feedSchoolAtStart)) {
+          setState(() => _feedHasMore = false);
+        }
       }
     } finally {
       _loadingMoreFeed = false;
@@ -2072,6 +2089,8 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
 
     _isFeedRequestInFlight = true;
     _lastFeedRequestKey = requestKey;
+    final feedGen = ++_feedGeneration;
+    final feedSchoolAtStart = school;
 
     if (mounted) {
       setState(() {
@@ -2162,15 +2181,17 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         ..._mapDailyFeedPageToItems(merged),
       ]..sort(_compareActivityItemsByTimeDesc);
 
-      if (!mounted) {
+      if (_isStaleFeedResponse(feedGen, feedSchoolAtStart)) {
         _isFeedRequestInFlight = false;
         return;
       }
       setState(() {
-        _activities = groupMultiStudentFeedItems(
-          items,
-          attendanceRequireDateAndTimeMatch: false,
-        )..sort(_compareActivityItemsByTimeDesc);
+        _activities = dedupeActivitiesByStableId(
+          groupMultiStudentFeedItems(
+            items,
+            attendanceRequireDateAndTimeMatch: false,
+          )..sort(_compareActivityItemsByTimeDesc),
+        );
         _loadingFeed = false;
         _feedError = null;
         _feedHasMore =
@@ -2187,7 +2208,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         (_) => _maybeLoadNextDailyFeedPage(),
       );
     } catch (e) {
-      if (!mounted) {
+      if (_isStaleFeedResponse(feedGen, feedSchoolAtStart)) {
         _isFeedRequestInFlight = false;
         return;
       }
@@ -2232,6 +2253,8 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
 
     _loadingMoreFeed = true;
     if (mounted) setState(() {});
+    final feedGen = _feedGeneration;
+    final feedSchoolAtStart = school;
 
     try {
       StudentAttendanceDailyPage? attendancePage;
@@ -2313,13 +2336,15 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         ..._mapDailyFeedPageToItems(merged),
       ]..sort(_compareActivityItemsByTimeDesc);
 
-      if (!mounted) return;
+      if (_isStaleFeedResponse(feedGen, feedSchoolAtStart)) return;
       setState(() {
         _activities.addAll(items);
-        _activities = groupMultiStudentFeedItems(
-          _activities,
-          attendanceRequireDateAndTimeMatch: false,
-        )..sort(_compareActivityItemsByTimeDesc);
+        _activities = dedupeActivitiesByStableId(
+          groupMultiStudentFeedItems(
+            _activities,
+            attendanceRequireDateAndTimeMatch: false,
+          )..sort(_compareActivityItemsByTimeDesc),
+        );
         _feedHasMore =
             (attendancePage?.hasMore ?? false) ||
             (absentPage?.hasMore ?? false) ||
@@ -2333,7 +2358,9 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
           showOnScreen: true,
           context: context,
         );
-        setState(() => _feedHasMore = false);
+        if (!_isStaleFeedResponse(feedGen, feedSchoolAtStart)) {
+          setState(() => _feedHasMore = false);
+        }
       }
     } finally {
       _loadingMoreFeed = false;
@@ -2420,6 +2447,8 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
 
     _isFeedRequestInFlight = true;
     _lastFeedRequestKey = requestKey;
+    final feedGen = ++_feedGeneration;
+    final feedSchoolAtStart = school;
 
     if (mounted) {
       setState(() {
@@ -2509,15 +2538,17 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         ..._mapDailyFeedPageToItems(activityFeedPage),
       ]..sort(_compareActivityItemsByTimeDesc);
 
-      if (!mounted) {
+      if (_isStaleFeedResponse(feedGen, feedSchoolAtStart)) {
         _isFeedRequestInFlight = false;
         return;
       }
       setState(() {
-        _activities = groupMultiStudentFeedItems(
-          items,
-          attendanceRequireDateAndTimeMatch: false,
-        )..sort(_compareActivityItemsByTimeDesc);
+        _activities = dedupeActivitiesByStableId(
+          groupMultiStudentFeedItems(
+            items,
+            attendanceRequireDateAndTimeMatch: false,
+          )..sort(_compareActivityItemsByTimeDesc),
+        );
         _loadingFeed = false;
         _feedError = null;
         _feedHasMore =
@@ -2534,7 +2565,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         (_) => _maybeLoadNextDailyFeedPage(),
       );
     } catch (e) {
-      if (!mounted) {
+      if (_isStaleFeedResponse(feedGen, feedSchoolAtStart)) {
         _isFeedRequestInFlight = false;
         return;
       }
@@ -2661,8 +2692,20 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         message: state.message,
         isSuccess: true,
       );
-      // Approve/reject change the feed; delete does not refresh (matches prior).
-      if (state.action != ActivityModerationAction.delete) {
+      // Approve/reject change the feed → refetch authoritative data. Delete
+      // reconciles locally: remove the deleted card so it doesn't linger until
+      // a manual refresh (a full refetch would also drop it, but removing the
+      // one row avoids a feed round-trip).
+      if (state.action == ActivityModerationAction.delete) {
+        final removed = state.code.trim();
+        if (removed.isNotEmpty) {
+          setState(() {
+            _activities = _activities
+                .where((a) => (a.activityCode ?? '').trim() != removed)
+                .toList();
+          });
+        }
+      } else {
         _loadDailyFeed(refresh: true);
       }
     } else if (state is ActivityModerationFailure) {
@@ -6373,6 +6416,25 @@ List<ActivityItem> groupMultiStudentFeedItems(
   return out;
 }
 
+/// Removes duplicate feed rows that overlapping backend pages can produce.
+/// Keyed by (activityCode, studentCode) so a genuine multi-student activity
+/// whose per-student rows share an activityCode is NOT collapsed. Rows without
+/// a stable activityCode (e.g. attendance/absent-derived rows, which are merged
+/// separately by their own group key) are never deduped by code. Order-preserving.
+List<ActivityItem> dedupeActivitiesByStableId(List<ActivityItem> items) {
+  final seen = <String>{};
+  final out = <ActivityItem>[];
+  for (final it in items) {
+    final code = (it.activityCode ?? '').trim();
+    if (code.isEmpty) {
+      out.add(it);
+      continue;
+    }
+    if (seen.add('$code|${(it.studentCode ?? '').trim()}')) out.add(it);
+  }
+  return out;
+}
+
 String? activityApprovalStatusBadgeLabel(String? rawStatus) {
   final raw = (rawStatus ?? '').trim().toUpperCase();
   if (raw.isEmpty || raw == 'ACTIVE') return null;
@@ -6416,59 +6478,6 @@ Color activityApprovalStatusBadgeColor(String? rawStatus) {
     default:
       return const Color(0xFFE9E2F7);
   }
-}
-
-/// Rebuilds UI model from `GET /api/v1/activities/code/{code}` for edit prefetch.
-ActivityItem activityItemFromActivityDetail(
-  ActivityDetail detail, {
-  String? viewerDisplayName,
-}) {
-  return activityItemFromFeedRow(
-    ActivityFeedRow.fromActivityDetail(detail),
-    viewerDisplayName: viewerDisplayName,
-    activityTypeOptionCodeToLabel: activityFeedOptionLabelsForType(
-      detail.activityTypeCode,
-    ),
-  );
-}
-
-/// Maps [ActivityItem] to student maps used by create/edit activity screens.
-List<Map<String, dynamic>> studentDataMapsForActivityEdit(
-  ActivityItem activity,
-) {
-  final room = activity.classroomCode?.trim();
-  final refs = activity.studentActivityRefs;
-  if (refs != null && refs.isNotEmpty) {
-    return refs
-        .map(
-          (r) => <String, dynamic>{
-            'name': (r['name'] ?? '').trim().isEmpty
-                ? 'Student'
-                : (r['name'] ?? '').trim(),
-            if ((r['studentCode'] ?? '').trim().isNotEmpty)
-              'studentCode': r['studentCode']!.trim(),
-            if (room != null && room.isNotEmpty) 'classroomCode': room,
-            if ((r['activityCode'] ?? '').trim().isNotEmpty)
-              'activityCode': r['activityCode']!.trim(),
-          },
-        )
-        .toList();
-  }
-  final code = activity.studentCode?.trim();
-  final maps = <Map<String, dynamic>>[];
-  for (final name in activity.studentList) {
-    maps.add({
-      'name': name,
-      if (code != null && code.isNotEmpty) 'studentCode': code,
-      if (room != null && room.isNotEmpty) 'classroomCode': room,
-      if ((activity.activityCode ?? '').trim().isNotEmpty)
-        'activityCode': activity.activityCode!.trim(),
-    });
-  }
-  if (maps.isEmpty && activity.studentList.isEmpty) {
-    maps.add({'name': 'Student'});
-  }
-  return maps;
 }
 
 /// Student codes aligned (by index) to [activity.studentList], so feed-card

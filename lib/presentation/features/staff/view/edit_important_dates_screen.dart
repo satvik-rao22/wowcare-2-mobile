@@ -12,14 +12,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/presentation/features/staff/cubit/important_dates_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/data/features/staff/models/staff_important_dates_models.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_important_date.dart';
 
-class EditImportantDatesScreen extends StatefulWidget {
+class EditImportantDatesScreen extends StatelessWidget {
   const EditImportantDatesScreen({
     super.key,
     required this.staffCode,
@@ -41,11 +40,49 @@ class EditImportantDatesScreen extends StatefulWidget {
   final String? initialPhysicalCheckupStatus;
 
   @override
-  _EditImportantDatesScreenState createState() =>
-      _EditImportantDatesScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider<ImportantDatesCubit>(
+      create: (_) => serviceLocator<ImportantDatesCubit>(),
+      child: _EditImportantDatesScreenView(
+        staffCode: staffCode,
+        initialHireDate: initialHireDate,
+        initialCdaExaminationDate: initialCdaExaminationDate,
+        initialFirstAidCprExpirationDate: initialFirstAidCprExpirationDate,
+        initialBackgroundRecordCheckExpirationDate:
+            initialBackgroundRecordCheckExpirationDate,
+        initialPhysicalCheckupDate: initialPhysicalCheckupDate,
+        initialPhysicalCheckupStatus: initialPhysicalCheckupStatus,
+      ),
+    );
+  }
 }
 
-class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
+class _EditImportantDatesScreenView extends StatefulWidget {
+  const _EditImportantDatesScreenView({
+    required this.staffCode,
+    this.initialHireDate,
+    this.initialCdaExaminationDate,
+    this.initialFirstAidCprExpirationDate,
+    this.initialBackgroundRecordCheckExpirationDate,
+    this.initialPhysicalCheckupDate,
+    this.initialPhysicalCheckupStatus,
+  });
+
+  final String staffCode;
+  final DateTime? initialHireDate;
+  final DateTime? initialCdaExaminationDate;
+  final DateTime? initialFirstAidCprExpirationDate;
+  final DateTime? initialBackgroundRecordCheckExpirationDate;
+  final DateTime? initialPhysicalCheckupDate;
+  final String? initialPhysicalCheckupStatus;
+
+  @override
+  State<_EditImportantDatesScreenView> createState() =>
+      _EditImportantDatesScreenViewState();
+}
+
+class _EditImportantDatesScreenViewState
+    extends State<_EditImportantDatesScreenView> {
   late final ImportantDatesCubit _importantDatesCubit;
   DateTime? _selectedHireDate;
   DateTime? _selectedCdaExaminationDate;
@@ -76,15 +113,8 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
   /// Resolves the current school's timezone (cache/API) and rebuilds so any
   /// constraints derived from [_todayDateOnly] use the correct zone.
   Future<void> _warmSchoolTimezone() async {
-    try {
-      await SchoolTimezoneResolver.resolveForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-        apiClient: serviceLocator<ApiClient>(),
-      );
-      if (mounted) setState(() {});
-    } catch (_) {
-      // Keep the last-known zone.
-    }
+    await _importantDatesCubit.warmSchoolTimezone();
+    if (mounted) setState(() {});
   }
 
   DateTime _dateOnly(DateTime date) {
@@ -94,7 +124,7 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
   @override
   void initState() {
     super.initState();
-    _importantDatesCubit = serviceLocator<ImportantDatesCubit>();
+    _importantDatesCubit = context.read<ImportantDatesCubit>();
     _warmSchoolTimezone();
     // Prefill when editing
     _selectedHireDate = widget.initialHireDate;
@@ -128,12 +158,6 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
     } else {
       _selectedPhysicalCheckupStatus = null;
     }
-  }
-
-  @override
-  void dispose() {
-    _importantDatesCubit.close();
-    super.dispose();
   }
 
   void _saveImportantDates() {
@@ -222,54 +246,62 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
       }
     }
 
-    final dates = <Map<String, String>>[];
+    final dates = <StaffImportantDate>[];
 
     // Hire Date (optional)
     if (_selectedHireDate != null) {
-      dates.add({
-        'importantDateType': ImportantDateType.hireDate.value,
-        'dueDate': DateFormat('yyyy-MM-dd').format(_selectedHireDate!),
-        'completedDate': DateFormat('yyyy-MM-dd').format(_selectedHireDate!),
-      });
+      dates.add(
+        StaffImportantDate(
+          importantDateType: ImportantDateType.hireDate.value,
+          dueDate: DateFormat('yyyy-MM-dd').format(_selectedHireDate!),
+          completedDate: DateFormat('yyyy-MM-dd').format(_selectedHireDate!),
+        ),
+      );
     }
 
     // CDA Examination Date
     if (_selectedCdaExaminationDate != null) {
-      dates.add({
-        'importantDateType': ImportantDateType.cda.value,
-        'dueDate': DateFormat(
-          'yyyy-MM-dd',
-        ).format(_selectedCdaExaminationDate!),
-        'completedDate': DateFormat(
-          'yyyy-MM-dd',
-        ).format(_selectedCdaExaminationDate!),
-      });
+      dates.add(
+        StaffImportantDate(
+          importantDateType: ImportantDateType.cda.value,
+          dueDate: DateFormat(
+            'yyyy-MM-dd',
+          ).format(_selectedCdaExaminationDate!),
+          completedDate: DateFormat(
+            'yyyy-MM-dd',
+          ).format(_selectedCdaExaminationDate!),
+        ),
+      );
     }
 
     // First Aid/CPR Expiration Date (maps to FIRST_AID_CPR)
     if (_selectedFirstAidCprExpirationDate != null) {
-      dates.add({
-        'importantDateType': ImportantDateType.firstAidCpr.value,
-        'dueDate': DateFormat(
-          'yyyy-MM-dd',
-        ).format(_selectedFirstAidCprExpirationDate!),
-        'completedDate': DateFormat(
-          'yyyy-MM-dd',
-        ).format(_selectedFirstAidCprExpirationDate!),
-      });
+      dates.add(
+        StaffImportantDate(
+          importantDateType: ImportantDateType.firstAidCpr.value,
+          dueDate: DateFormat(
+            'yyyy-MM-dd',
+          ).format(_selectedFirstAidCprExpirationDate!),
+          completedDate: DateFormat(
+            'yyyy-MM-dd',
+          ).format(_selectedFirstAidCprExpirationDate!),
+        ),
+      );
     }
 
     // Background Record Check Expiration Date
     if (_selectedBackgroundRecordCheckExpirationDate != null) {
-      dates.add({
-        'importantDateType': ImportantDateType.brc.value,
-        'dueDate': DateFormat(
-          'yyyy-MM-dd',
-        ).format(_selectedBackgroundRecordCheckExpirationDate!),
-        'completedDate': DateFormat(
-          'yyyy-MM-dd',
-        ).format(_selectedBackgroundRecordCheckExpirationDate!),
-      });
+      dates.add(
+        StaffImportantDate(
+          importantDateType: ImportantDateType.brc.value,
+          dueDate: DateFormat(
+            'yyyy-MM-dd',
+          ).format(_selectedBackgroundRecordCheckExpirationDate!),
+          completedDate: DateFormat(
+            'yyyy-MM-dd',
+          ).format(_selectedBackgroundRecordCheckExpirationDate!),
+        ),
+      );
     }
 
     // Physical Checkup Date (API supports status: Scheduled | Completed)
@@ -277,19 +309,24 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
       final dueDate = DateFormat(
         'yyyy-MM-dd',
       ).format(_selectedPhysicalCheckupDate!);
-      final map = <String, String>{
-        'importantDateType': ImportantDateType.physicalCheckup.value,
-        'dueDate': dueDate,
-      };
+      String? completedDate;
+      String? status;
       if (_selectedPhysicalCheckupStatus == 'Completed') {
-        map['completedDate'] = dueDate;
-        map['status'] = 'COMPLETED';
+        completedDate = dueDate;
+        status = 'COMPLETED';
       } else if (_selectedPhysicalCheckupStatus == 'Scheduled') {
-        map['status'] = 'SCHEDULED';
+        status = 'SCHEDULED';
       } else if (_selectedPhysicalCheckupStatus == 'Due') {
-        map['status'] = 'DUE';
+        status = 'DUE';
       }
-      dates.add(map);
+      dates.add(
+        StaffImportantDate(
+          importantDateType: ImportantDateType.physicalCheckup.value,
+          dueDate: dueDate,
+          completedDate: completedDate,
+          status: status,
+        ),
+      );
     }
 
     _importantDatesCubit.updateImportantDates(
@@ -347,6 +384,7 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
         ),
       );
 
+      if (!mounted) return;
       if (result != null && result['date'] != null) {
         final selected = result['date'] as DateTime;
         final selectedOnly = _dateOnly(selected);
@@ -408,151 +446,144 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
-    return BlocProvider<ImportantDatesCubit>.value(
-      value: _importantDatesCubit,
-      child: BlocListener<ImportantDatesCubit, ImportantDatesState>(
-        listener: (context, state) {
-          if (state.isSuccess && state.message != null) {
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message: state.message!,
-              isSuccess: true,
-            );
-            Navigator.pop(context, true);
-          } else if (state.isError && state.message != null) {
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message: state.message!,
-              isError: true,
-            );
-          }
-        },
-        child: BlocBuilder<ImportantDatesCubit, ImportantDatesState>(
-          builder: (context, state) {
-            final isSubmitting = state.isLoading;
+    return BlocListener<ImportantDatesCubit, ImportantDatesState>(
+      listener: (context, state) {
+        if (state.isSuccess && state.message != null) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.message!,
+            isSuccess: true,
+          );
+          Navigator.pop(context, true);
+        } else if (state.isError && state.message != null) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.message!,
+            isError: true,
+          );
+        }
+      },
+      child: BlocBuilder<ImportantDatesCubit, ImportantDatesState>(
+        builder: (context, state) {
+          final isSubmitting = state.isLoading;
 
-            return StaffFormLayout(
-              title: "Edit Important Dates",
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _buildDateField("Hire Date", _selectedHireDate, 'hire'),
-                  SizedBox(height: responsive.verticalSpacing),
-                  _buildDateField(
-                    "CDA Examination Date",
-                    _selectedCdaExaminationDate,
-                    'cda',
+          return StaffFormLayout(
+            title: "Edit Important Dates",
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildDateField("Hire Date", _selectedHireDate, 'hire'),
+                SizedBox(height: responsive.verticalSpacing),
+                _buildDateField(
+                  "CDA Examination Date",
+                  _selectedCdaExaminationDate,
+                  'cda',
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                _buildDateField(
+                  "First Aid/CPR Expiration Date",
+                  _selectedFirstAidCprExpirationDate,
+                  'firstAid',
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                _buildDateField(
+                  "Background Record Check Expiration date",
+                  _selectedBackgroundRecordCheckExpirationDate,
+                  'background',
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                _buildDateField(
+                  "Physical Checkup Date",
+                  _selectedPhysicalCheckupDate,
+                  'physical',
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                CustomDropdown(
+                  label: "Physical Checkup Status",
+                  hintText: 'Select an option',
+                  items: _physicalCheckupStatusOptions,
+                  selectedItem: _selectedPhysicalCheckupStatus,
+                  labelStyle: TextStyle(
+                    fontSize: responsive.labelFontSize,
+                    fontFamily: "Manrope",
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.primaryColor,
                   ),
-                  SizedBox(height: responsive.verticalSpacing),
-                  _buildDateField(
-                    "First Aid/CPR Expiration Date",
-                    _selectedFirstAidCprExpirationDate,
-                    'firstAid',
-                  ),
-                  SizedBox(height: responsive.verticalSpacing),
-                  _buildDateField(
-                    "Background Record Check Expiration date",
-                    _selectedBackgroundRecordCheckExpirationDate,
-                    'background',
-                  ),
-                  SizedBox(height: responsive.verticalSpacing),
-                  _buildDateField(
-                    "Physical Checkup Date",
-                    _selectedPhysicalCheckupDate,
-                    'physical',
-                  ),
-                  SizedBox(height: responsive.verticalSpacing),
-                  CustomDropdown(
-                    label: "Physical Checkup Status",
-                    hintText: 'Select an option',
-                    items: _physicalCheckupStatusOptions,
-                    selectedItem: _selectedPhysicalCheckupStatus,
-                    labelStyle: TextStyle(
-                      fontSize: responsive.labelFontSize,
-                      fontFamily: "Manrope",
-                      fontWeight: FontWeight.w400,
-                      color: const Color(0xff573353),
-                    ),
-                    labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                    onSelect: (val) {
-                      setState(() {
-                        _selectedPhysicalCheckupStatus =
-                            val ?? _selectedPhysicalCheckupStatus;
-                      });
+                  labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                  onSelect: (val) {
+                    setState(() {
+                      _selectedPhysicalCheckupStatus =
+                          val ?? _selectedPhysicalCheckupStatus;
+                    });
 
-                      if (_selectedPhysicalCheckupDate == null) return;
-                      final today = _todayDateOnly();
-                      final pickedOnly = _dateOnly(
-                        _selectedPhysicalCheckupDate!,
+                    if (_selectedPhysicalCheckupDate == null) return;
+                    final today = _todayDateOnly();
+                    final pickedOnly = _dateOnly(_selectedPhysicalCheckupDate!);
+                    final statusUpper = (_selectedPhysicalCheckupStatus ?? '')
+                        .trim()
+                        .toUpperCase();
+                    final isDueScheduled =
+                        statusUpper == 'DUE' ||
+                        statusUpper == 'SCHEDULED' ||
+                        statusUpper == 'OVERDUE';
+
+                    if (isDueScheduled && pickedOnly.isBefore(today)) {
+                      setState(() => _selectedPhysicalCheckupDate = null);
+                      CoreUtils.showTopSnackBar(
+                        context: context,
+                        message:
+                            'For Due/Scheduled status, Physical Checkup Date must be today or future',
+                        isError: true,
                       );
-                      final statusUpper = (_selectedPhysicalCheckupStatus ?? '')
-                          .trim()
-                          .toUpperCase();
-                      final isDueScheduled =
-                          statusUpper == 'DUE' ||
-                          statusUpper == 'SCHEDULED' ||
-                          statusUpper == 'OVERDUE';
+                      return;
+                    }
 
-                      if (isDueScheduled && pickedOnly.isBefore(today)) {
-                        setState(() => _selectedPhysicalCheckupDate = null);
-                        CoreUtils.showTopSnackBar(
-                          context: context,
-                          message:
-                              'For Due/Scheduled status, Physical Checkup Date must be today or future',
-                          isError: true,
-                        );
-                        return;
-                      }
-
-                      if (statusUpper == 'COMPLETED' &&
-                          pickedOnly.isAfter(today)) {
-                        setState(() => _selectedPhysicalCheckupDate = null);
-                        CoreUtils.showTopSnackBar(
-                          context: context,
-                          message:
-                              'For Completed status, Physical Checkup Date must be today or past',
-                          isError: true,
-                        );
-                      }
-                    },
+                    if (statusUpper == 'COMPLETED' &&
+                        pickedOnly.isAfter(today)) {
+                      setState(() => _selectedPhysicalCheckupDate = null);
+                      CoreUtils.showTopSnackBar(
+                        context: context,
+                        message:
+                            'For Completed status, Physical Checkup Date must be today or past',
+                        isError: true,
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
+            bottomBar: Container(
+              padding: EdgeInsets.only(
+                bottom: safeAreaBottom,
+                left: 16,
+                right: 16,
+                top: 8,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.cardColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.billingShadowColorLight,
+                    offset: const Offset(0, -4),
+                    blurRadius: 16,
                   ),
-                  const SizedBox(height: 12),
                 ],
-              ),
-              bottomBar: Container(
-                padding: EdgeInsets.only(
-                  bottom: safeAreaBottom,
-                  left: 16,
-                  right: 16,
-                  top: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      offset: const Offset(0, -4),
-                      blurRadius: 16,
-                    ),
-                  ],
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                    topRight: Radius.circular(
-                      responsive.isTablet ? 40.0 : 24.0,
-                    ),
-                  ),
-                ),
-                child: CustomButtonLayout(
-                  confirmButtonLabel: 'Save',
-                  onPressedConfirm: isSubmitting ? null : _saveImportantDates,
-                  showCancelButton: false,
-                  isForm: false,
-                  isLoading: isSubmitting,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                 ),
               ),
-            );
-          },
-        ),
+              child: CustomButtonLayout(
+                confirmButtonLabel: 'Save',
+                onPressedConfirm: isSubmitting ? null : _saveImportantDates,
+                showCancelButton: false,
+                isForm: false,
+                isLoading: isSubmitting,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -567,7 +598,7 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
 
     return Column(
@@ -583,7 +614,7 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
             constraints: const BoxConstraints(minHeight: 40),
             width: double.infinity,
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F7FA),
+              color: AppColors.staffLightBackgroundColor,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Padding(

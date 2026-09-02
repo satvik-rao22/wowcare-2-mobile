@@ -8,7 +8,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/domain/features/student/entities/student_immunization.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_health_cubit.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -44,10 +44,20 @@ class _StudentImmunizationTabCardState
   bool _hasShownErrorSnackBar = false;
   final DateFormat _apiFormatter = DateFormat('yyyy-MM-dd');
 
+  /// One cubit instance for this card so its single-flight guard spans taps
+  /// (serviceLocator registers it as a factory — a fresh call would not dedupe).
+  final StudentHealthCubit _healthCubit = serviceLocator<StudentHealthCubit>();
+
   @override
   void initState() {
     super.initState();
     _immunizationFuture = _buildImmunizationFuture();
+  }
+
+  @override
+  void dispose() {
+    _healthCubit.close();
+    super.dispose();
   }
 
   DateTime? _parseIsoDate(String? iso) {
@@ -324,9 +334,7 @@ class _StudentImmunizationTabCardState
                                   final statusApi = _statusApiFromUi(statusUi);
                                   setLocalState(() => isSaving = true);
                                   try {
-                                    final repo =
-                                        serviceLocator<StudentRepository>();
-                                    await repo.updateStudentImmunizationRecord(
+                                    await _healthCubit.updateImmunization(
                                       studentCode: model.studentCode,
                                       record: model,
                                       date: selectedDate!,
@@ -346,11 +354,10 @@ class _StudentImmunizationTabCardState
                                     if (!mounted) return;
                                     setState(() {
                                       _immunizationFuture =
-                                          serviceLocator<StudentRepository>()
-                                              .getStudentImmunizations(
-                                                studentCode: model.studentCode,
-                                                forceRefresh: true,
-                                              );
+                                          _healthCubit.fetchImmunizations(
+                                            model.studentCode,
+                                            forceRefresh: true,
+                                          );
                                       _hasShownErrorSnackBar = false;
                                     });
                                   } catch (e) {
@@ -389,9 +396,8 @@ class _StudentImmunizationTabCardState
     if (code == null || code.isEmpty) {
       return const <StudentImmunization>[];
     }
-    final repo = serviceLocator<StudentRepository>();
     try {
-      return await repo.getStudentImmunizations(studentCode: code);
+      return await _healthCubit.fetchImmunizations(code);
     } catch (_) {
       rethrow;
     }
@@ -404,11 +410,10 @@ class _StudentImmunizationTabCardState
     return CustomRefreshIndicator(
       onRefresh: () async {
         setState(() {
-          _immunizationFuture = serviceLocator<StudentRepository>()
-              .getStudentImmunizations(
-                studentCode: widget.studentCode ?? '',
-                forceRefresh: true,
-              );
+          _immunizationFuture = _healthCubit.fetchImmunizations(
+            widget.studentCode ?? '',
+            forceRefresh: true,
+          );
           _hasShownErrorSnackBar = false;
         });
         try {

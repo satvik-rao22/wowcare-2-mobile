@@ -1,6 +1,7 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -134,10 +135,8 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
           studentName.toLowerCase()) {
         sameName = true;
       }
-      // Debug
-      AppLogger.d(
-        '[AddStudent] Returning to previous screen with studentName="$studentName"',
-      );
+      // Do NOT log the student name (PII).
+      AppLogger.d('[AddStudent] returning to previous screen after create');
       CoreUtils.showTopSnackBar(
         duration: sameName ? Duration(seconds: 2) : Duration(seconds: 4),
         context: context,
@@ -149,7 +148,9 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
         isSuccess: true,
       );
       final result = {'showPostAddPrompt': true, 'studentName': studentName};
-      AppLogger.d('[AddStudent] Navigator.pop result: ' + result.toString());
+      AppLogger.d(
+        '[AddStudent] Navigator.pop (result present=${result != null})',
+      );
       Navigator.pop(context, result);
     });
   }
@@ -493,56 +494,6 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class NameCapitalizationFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    String text = newValue.text;
-
-    // Remove trailing spaces
-    text = text.replaceFirst(
-      RegExp(r"\s+"),
-      ' ',
-    ); // collapse multiple spaces inside
-    text = text.replaceAll(RegExp(r"\s{2,}"), ' ');
-    text = text.replaceAll(RegExp(r"\s+\z"), '');
-
-    if (text.isEmpty) {
-      return newValue.copyWith(
-        text: text,
-        selection: const TextSelection.collapsed(offset: 0),
-      );
-    }
-
-    // Enforce first letter uppercase, remaining lowercase
-    final firstChar = text[0].toUpperCase();
-    final rest = text.length > 1 ? text.substring(1).toLowerCase() : '';
-    final formatted = firstChar + rest;
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
-
-class TrimFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final trimmed = newValue.text.trimLeft();
-    // Preserve caret at end for simplicity
-    return TextEditingValue(
-      text: trimmed,
-      selection: TextSelection.collapsed(offset: trimmed.length),
     );
   }
 }

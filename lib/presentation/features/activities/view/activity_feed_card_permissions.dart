@@ -1,4 +1,17 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../shared/common/app/cubit/role_cubit.dart';
 import 'activity_item.dart';
+
+/// True when the viewer's ACTIVE persona is an admin persona (not the staff
+/// persona). Reads the live RoleCubit so the current persona — not a once-read
+/// staffType — decides whether admin approve/reject actions are shown. A
+/// dual-role user currently acting as staff gets `false`.
+bool activeAdminPersona(BuildContext context) {
+  final role = context.read<RoleCubit>();
+  return role.isAdmin && !role.isStaff;
+}
 
 String normalizeApprovalStatus(String? rawStatus) {
   final raw = (rawStatus ?? '').trim().toUpperCase();

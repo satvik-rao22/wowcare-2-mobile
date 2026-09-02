@@ -30,8 +30,10 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/entities/student_settings.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_profile_cubit.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 
@@ -104,7 +106,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   final ScrollController _importantDatesScrollController = ScrollController();
   final ScrollController _documentsScrollController = ScrollController();
   late final CacheManager _cacheManager;
-  late Future<StudentHealthModel?> _healthFuture;
+
+  /// Routes the type-safe school-settings + header-health reads through the
+  /// MVVM cubit → use case → repository. Closed in [dispose].
+  final StudentProfileCubit _profileCubit =
+      serviceLocator<StudentProfileCubit>();
+  late Future<StudentHealth?> _healthFuture;
   late String _displayName;
   late String _displayClassroom;
 
@@ -201,8 +208,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
           .trim();
       if (school.isEmpty) return;
-      final settings = await serviceLocator<StudentRemoteDataSource>()
-          .getStudentSettings(schoolCode: school);
+      final settings = await _profileCubit.fetchSettings(school);
       if (!mounted) return;
       setState(() => _studentSettings = settings);
     } catch (e) {
@@ -246,6 +252,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     final code = (_activeStudentCode ?? '').trim();
     if (code.isEmpty || _displayName.trim().isNotEmpty) return;
     try {
+      // MVVM holdout (documented): getStudentProfile here needs the rich StudentProfileModel (status/dob/address/tags/fte/...); the domain StudentProfile entity is a narrow projection, so this read stays on the datasource until the entity is enriched (S6 typed-models).
       final profile = await serviceLocator<StudentRemoteDataSource>()
           .getStudentProfile(code);
       _onProfileChanged(profile);
@@ -256,10 +263,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   void _onProfileChanged(StudentProfileModel profile) {
     if (!mounted) return;
-    AppLogger.d(
-      '[ProfileHeader] student=${profile.code} name="${profile.fullName}" '
-      'classroom="${profile.classroom}"',
-    );
+    // Do NOT log the student code / name / classroom (PII).
+    AppLogger.d('[ProfileHeader] profile loaded');
     setState(() {
       final nextName = profile.fullName.trim();
       _displayName = nextName.isEmpty ? _displayName : nextName;
@@ -310,7 +315,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     });
   }
 
-  void _showHealthDetailsDialog(StudentHealthModel health) {
+  void _showHealthDetailsDialog(StudentHealth health) {
     final items = <Widget>[];
     void addLine(String text, Widget leading) {
       final t = text.trim();
@@ -413,14 +418,13 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     );
   }
 
-  Future<StudentHealthModel?> _buildHealthFuture() async {
+  Future<StudentHealth?> _buildHealthFuture() async {
     final code = _activeStudentCode;
     if (code == null || code.isEmpty) {
       return null;
     }
-    final dataSource = serviceLocator<StudentRemoteDataSource>();
     try {
-      return await dataSource.getStudentHealth(code: code);
+      return await _profileCubit.fetchHealth(code);
     } catch (e) {
       CoreUtils.logApiError(e.toString());
       return null;
@@ -469,6 +473,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   @override
   void dispose() {
     _parentChildSub?.cancel();
+    _profileCubit.close();
     _tabController.dispose();
     _profileScrollController.dispose();
     _healthScrollController.dispose();
@@ -585,6 +590,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
       DocumentImageWidget.clearProfilePhotoCache(studentCode: studentCode);
 
+      // MVVM holdout (documented): getStudentProfile here needs the rich StudentProfileModel (status/dob/address/tags/fte/...); the domain StudentProfile entity is a narrow projection, so this read stays on the datasource until the entity is enriched (S6 typed-models).
       final dataSource = serviceLocator<StudentRemoteDataSource>();
       final refreshed = await dataSource.getStudentProfile(studentCode);
       await _cacheManager.saveCache(
@@ -949,7 +955,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                         ),
                       ),
                       const SizedBox(height: 8),
-                      FutureBuilder<StudentHealthModel?>(
+                      FutureBuilder<StudentHealth?>(
                         future: _healthFuture,
                         builder: (context, snapshot) {
                           final health = snapshot.data;

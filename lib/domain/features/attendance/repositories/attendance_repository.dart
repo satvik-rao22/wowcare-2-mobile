@@ -1,10 +1,24 @@
 import '../entities/attendance_action_result.dart';
+import '../entities/student_transfer_request.dart';
+import '../entities/staff_transfer_request.dart';
+import '../entities/staff_attendance_daily_update_request.dart';
+import '../entities/staff_sign_in_request.dart';
+import '../entities/staff_sign_out_request.dart';
+import '../entities/student_sign_in_request.dart';
+import '../entities/student_sign_out_request.dart';
 import '../entities/student_attendance_daily.dart';
 import '../entities/student_attendance_custom.dart';
 import '../entities/staff_attendance_daily.dart';
 import '../entities/staff_attendance_absent.dart';
 import '../entities/student_attendance_absent_form.dart';
 import '../entities/student_attendance_expected_summary.dart';
+import '../entities/student_attendance_profile_response.dart';
+import '../entities/staff_attendance_profile_response.dart';
+import '../entities/student_attendance_profile_absent_toggle_response.dart';
+import '../entities/staff_attendance_profile_absent_toggle_response.dart';
+import '../entities/student_attendance_absent_view_response.dart';
+import '../entities/attendance_profile_query.dart';
+import '../entities/attendance_profile_absent_toggle_query.dart';
 import '../entities/qr_validation_result.dart';
 
 abstract class AttendanceRepository {
@@ -353,43 +367,51 @@ abstract class AttendanceRepository {
 
   /// Submits a student sign-in (parent or staff variant).
   Future<AttendanceActionResult> submitStudentSignIn({
-    required Map<String, dynamic> payload,
+    required StudentSignInRequest request,
     required bool isParent,
+    String? idempotencyKey,
   });
 
   /// Submits a student sign-out (parent or staff variant).
   Future<AttendanceActionResult> submitStudentSignOut({
-    required Map<String, dynamic> payload,
+    required StudentSignOutRequest request,
     required bool isParent,
+    String? idempotencyKey,
   });
 
   /// Submits a student classroom transfer.
   Future<AttendanceActionResult> submitStudentTransfer({
-    required Map<String, dynamic> payload,
+    required StudentTransferRequest request,
+    String? idempotencyKey,
   });
 
   /// Submits a staff sign-in (admin bulk or teacher-self variant).
   Future<AttendanceActionResult> submitStaffSignIn({
-    required Map<String, dynamic> payload,
+    required StaffSignInRequest request,
     required bool isSelf,
+    String? idempotencyKey,
   });
 
   /// Submits a staff sign-out.
   /// Set [isSelf] to true to use the self sign-out endpoint.
   Future<AttendanceActionResult> submitStaffSignOut({
-    required Map<String, dynamic> payload,
+    required StaffSignOutRequest request,
     bool isSelf = false,
+    String? idempotencyKey,
   });
 
   /// Submits a staff classroom transfer.
   Future<AttendanceActionResult> submitStaffTransfer({
-    required Map<String, dynamic> payload,
+    required StaffTransferRequest request,
+    String? idempotencyKey,
   });
 
   /// Patches a staff daily attendance record by its row code.
-  Future<Map<String, dynamic>?> updateStaffAttendanceDailyRecord({
+  ///
+  /// The backend response is not consumed by callers, so this returns `void`.
+  Future<void> updateStaffAttendanceDailyRecord({
     required String attendanceCode,
-    required Map<String, dynamic> body,
+    required StaffAttendanceDailyUpdateRequest request,
   });
 
   // --- Attendance profile / absent reads (raw response maps) ---
@@ -400,32 +422,29 @@ abstract class AttendanceRepository {
   // paging and allowed-classroom scope).
 
   /// GET student attendance profile (present-day summary + records).
-  Future<Map<String, dynamic>?> fetchStudentAttendanceProfile({
-    required Map<String, dynamic> queryParameters,
+  Future<StudentAttendanceProfileResponse?> fetchStudentAttendanceProfile({
+    required AttendanceProfileQuery query,
   });
 
   /// GET student attendance profile absent-toggle list.
-  Future<Map<String, dynamic>?> fetchStudentAttendanceProfileAbsentToggle({
-    required Map<String, dynamic> queryParameters,
+  Future<StudentAttendanceProfileAbsentToggleResponse?>
+  fetchStudentAttendanceProfileAbsentToggle({
+    required AttendanceProfileAbsentToggleQuery query,
   });
 
   /// GET staff attendance profile (present-day summary + records).
-  Future<Map<String, dynamic>?> fetchStaffAttendanceProfile({
-    required Map<String, dynamic> queryParameters,
+  Future<StaffAttendanceProfileResponse?> fetchStaffAttendanceProfile({
+    required AttendanceProfileQuery query,
   });
 
   /// GET staff attendance profile absent-toggle list.
-  Future<Map<String, dynamic>?> fetchStaffAttendanceProfileAbsentToggle({
-    required Map<String, dynamic> queryParameters,
-  });
-
-  /// GET student absent view list (paginated, filterable).
-  Future<Map<String, dynamic>?> fetchStudentAttendanceAbsentView({
-    required Map<String, dynamic> queryParameters,
+  Future<StaffAttendanceProfileAbsentToggleResponse?>
+  fetchStaffAttendanceProfileAbsentToggle({
+    required AttendanceProfileAbsentToggleQuery query,
   });
 
   /// GET student absent view with classroom filter + allowed scope applied.
-  Future<Map<String, dynamic>?> getStudentAttendanceAbsentView({
+  Future<StudentAttendanceAbsentViewResponse?> getStudentAttendanceAbsentView({
     required String fromAbsenceDate,
     required String toAbsenceDate,
     List<String>? classroomCodes,

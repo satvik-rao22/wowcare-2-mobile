@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:provider/provider.dart';
+import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:wowcare/data/features/auth/models/login_request_model.dart';
 import 'package:wowcare/data/features/auth/models/login_response_model.dart';
 import 'package:wowcare/data/features/auth/models/logout_request_model.dart';
@@ -329,11 +330,7 @@ class AuthCubit extends Cubit<AuthState> {
     final school = schoolCode.trim();
     if (org.isEmpty || school.isEmpty) return null;
 
-    final accessToken =
-        (await serviceLocator<StorageService>().getString(
-          StorageKeys.accessToken,
-        ) ??
-        '').trim();
+    final accessToken = await TokenRefreshService.instance.readAccessToken();
     if (accessToken.isEmpty) return null;
 
     List<Map<String, dynamic>> userDetails;
@@ -372,11 +369,7 @@ class AuthCubit extends Cubit<AuthState> {
     final org = organizationCode.trim();
     if (org.isEmpty) return const <String, String>{};
 
-    final accessToken =
-        (await serviceLocator<StorageService>().getString(
-          StorageKeys.accessToken,
-        ) ??
-        '').trim();
+    final accessToken = await TokenRefreshService.instance.readAccessToken();
     if (accessToken.isEmpty) return const <String, String>{};
 
     List<Map<String, dynamic>> userDetails;

@@ -15,6 +15,7 @@ import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../core/util/user_details_school_roles.dart';
+import '../../../../../domain/features/activity/entities/activity_parameter_value.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../cubit/activity_editor_cubit.dart';
@@ -211,7 +212,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
     if (!_isAdminDesignation) return false;
     return canAdminApproveOrRejectActivityItem(
       _effectiveActivity,
-      isAdminPersona: true,
+      isAdminPersona: activeAdminPersona(context),
     );
   }
 
@@ -438,7 +439,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
   /// Sends nap start / nap end as JSON booleans on matching BOOLEAN parameters.
   static void _appendNapStartEndBooleans(
     ActivityTypeDetails details,
-    List<Map<String, dynamic>> parameterValues,
+    List<ActivityParameterValue> parameterValues,
     bool isNapEnd,
   ) {
     final napStartFlag = !isNapEnd;
@@ -471,10 +472,12 @@ class _NapActivityViewState extends State<_NapActivityView> {
       return;
     }
     if (startCode != null && startCode.isNotEmpty) {
-      parameterValues.add({'parameterCode': startCode, 'value': napStartFlag});
+      parameterValues
+          .add(ActivityParameterValue(parameterCode: startCode, value: napStartFlag));
     }
     if (endCode != null && endCode.isNotEmpty) {
-      parameterValues.add({'parameterCode': endCode, 'value': napEndFlag});
+      parameterValues
+          .add(ActivityParameterValue(parameterCode: endCode, value: napEndFlag));
     }
   }
 
@@ -504,16 +507,16 @@ class _NapActivityViewState extends State<_NapActivityView> {
 
   void _appendRemindNap15IfNapStart(
     ActivityTypeDetails details,
-    List<Map<String, dynamic>> parameterValues,
+    List<ActivityParameterValue> parameterValues,
     bool isNapEnd,
   ) {
     if (isNapEnd) return;
     final code = _resolveRemindNap15ParamCode(details);
     if (code == null || code.isEmpty) return;
-    parameterValues.add({
-      'parameterCode': code,
-      'value': _remindCheckNapEvery15Minutes,
-    });
+    parameterValues.add(ActivityParameterValue(
+      parameterCode: code,
+      value: _remindCheckNapEvery15Minutes,
+    ));
   }
 
   Future<bool?> _resolveNapEndFromCurrentStatus({
@@ -747,19 +750,21 @@ class _NapActivityViewState extends State<_NapActivityView> {
       final activityDateIso = resolvedActivityTime.iso;
       final localTime = resolvedActivityTime.localTimeHms;
 
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+              parameterCode: staffParamCode, value: staffPresentCode),
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+              parameterCode: descParamCode, value: description),
       ];
 
       final isNapEnd = await _resolveNapEndForCreate(
@@ -915,19 +920,21 @@ class _NapActivityViewState extends State<_NapActivityView> {
       final localTime = resolvedActivityTime.localTimeHms;
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+              parameterCode: staffParamCode, value: staffPresentCode),
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+              parameterCode: descParamCode, value: description),
       ];
 
       _appendNapStartEndBooleans(

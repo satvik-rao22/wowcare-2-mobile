@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab_widgets.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_schedule_entry.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_schedule_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
 
-class EditScheduleScreen extends StatefulWidget {
+class EditScheduleScreen extends StatelessWidget {
   const EditScheduleScreen({
     super.key,
     required this.staffCode,
@@ -26,10 +28,32 @@ class EditScheduleScreen extends StatefulWidget {
   final List<ScheduleEntry> initialSchedules;
 
   @override
-  _EditScheduleScreenState createState() => _EditScheduleScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider<StaffScheduleCubit>(
+      create: (_) => serviceLocator<StaffScheduleCubit>(),
+      child: _EditScheduleScreenView(
+        staffCode: staffCode,
+        initialSchedules: initialSchedules,
+      ),
+    );
+  }
 }
 
-class _EditScheduleScreenState extends State<EditScheduleScreen> {
+class _EditScheduleScreenView extends StatefulWidget {
+  const _EditScheduleScreenView({
+    required this.staffCode,
+    this.initialSchedules = const [],
+  });
+
+  final String staffCode;
+  final List<ScheduleEntry> initialSchedules;
+
+  @override
+  State<_EditScheduleScreenView> createState() =>
+      _EditScheduleScreenViewState();
+}
+
+class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
   static const Map<String, String> _dayNameByApiKey = <String, String>{
     'MONDAY': 'Monday',
     'TUESDAY': 'Tuesday',
@@ -63,19 +87,28 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
   final Map<String, DaySchedule> _schedules = {};
   bool _copyToAllDays = false;
   String? _selectedDay;
-  bool _isSubmitting = false;
+  final ValueNotifier<bool> _isSubmitting = ValueNotifier<bool>(false);
 
   /// Weekday key `MONDAY` → school open/close in minutes from midnight.
   Map<String, (int startMin, int endMin)> _schoolMinutesByDay = {};
 
   String? _schoolHoursLoadError;
 
+  late final StaffScheduleCubit _scheduleCubit;
+
   @override
   void initState() {
     super.initState();
+    _scheduleCubit = context.read<StaffScheduleCubit>();
     // School schedule must load before we can derive _allDays — _initializeSchedules
     // is invoked from the resolver completion handler.
     _loadSchoolRegularSchedules();
+  }
+
+  @override
+  void dispose() {
+    _isSubmitting.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSchoolRegularSchedules() async {
@@ -93,8 +126,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
     }
 
     try {
-      final repo = serviceLocator<StaffRepository>();
-      final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
+      final days = await _scheduleCubit.fetchSchoolRegularSchedules(schoolCode);
       final map = <String, (int, int)>{};
       for (final d in days) {
         // Skip days the school is closed on (INACTIVE) or that aren't a
@@ -372,7 +404,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
   }
 
   Future<void> _saveSchedule() async {
-    if (_isSubmitting) return;
+    if (_isSubmitting.value) return;
 
     String _formatLocalTime(TimeOfDay time) {
       final h = time.hour.toString().padLeft(2, '0');
@@ -381,8 +413,8 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
     }
 
     // Build API payload for work and break schedules
-    final List<Map<String, dynamic>> workSchedules = [];
-    final List<Map<String, dynamic>> breakSchedules = [];
+    final List<StaffWorkScheduleEntry> workSchedules = [];
+    final List<StaffBreakScheduleEntry> breakSchedules = [];
 
     for (final day in _allDays) {
       final schedule = _schedules[day]!;
@@ -392,21 +424,25 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       final dayOfWeek = day.toUpperCase(); // MONDAY, TUESDAY, ...
 
       if (schedule.workStartTime != null && schedule.workEndTime != null) {
-        workSchedules.add({
-          'dayOfWeek': dayOfWeek,
-          // Backend expects java.time.LocalTime which deserializes from string (e.g. "12:05:00")
-          'workStartTime': _formatLocalTime(schedule.workStartTime!),
-          'workEndTime': _formatLocalTime(schedule.workEndTime!),
-        });
+        workSchedules.add(
+          StaffWorkScheduleEntry(
+            dayOfWeek: dayOfWeek,
+            // Backend expects java.time.LocalTime which deserializes from string (e.g. "12:05:00")
+            workStartTime: _formatLocalTime(schedule.workStartTime!),
+            workEndTime: _formatLocalTime(schedule.workEndTime!),
+          ),
+        );
       }
 
       if (schedule.breakStartTime != null && schedule.breakEndTime != null) {
-        breakSchedules.add({
-          'dayOfWeek': dayOfWeek,
-          'breakType': 'LUNCH',
-          'breakStartTime': _formatLocalTime(schedule.breakStartTime!),
-          'breakEndTime': _formatLocalTime(schedule.breakEndTime!),
-        });
+        breakSchedules.add(
+          StaffBreakScheduleEntry(
+            dayOfWeek: dayOfWeek,
+            breakType: 'LUNCH',
+            breakStartTime: _formatLocalTime(schedule.breakStartTime!),
+            breakEndTime: _formatLocalTime(schedule.breakEndTime!),
+          ),
+        );
       }
     }
 
@@ -431,13 +467,10 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       }
     }
 
-    setState(() {
-      _isSubmitting = true;
-    });
+    _isSubmitting.value = true;
 
     try {
-      final repository = serviceLocator<StaffRepository>();
-      final message = await repository.updateStaffSchedules(
+      final message = await _scheduleCubit.updateSchedules(
         staffCode: widget.staffCode,
         workSchedules: workSchedules,
         breakSchedules: breakSchedules,
@@ -465,11 +498,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
         isError: true,
       );
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+      _isSubmitting.value = false;
     }
   }
 
@@ -495,7 +524,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                 style: TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: 12,
-                  color: Colors.orange.shade800,
+                  color: AppColors.staffWarningBannerText,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -568,10 +597,10 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
           top: 8,
         ),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardColor,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha:0.05),
+              color: AppColors.billingShadowColorLight,
               offset: const Offset(0, -4),
               blurRadius: 16,
             ),
@@ -589,17 +618,22 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
               responsive.isTablet ? 16.0 : 8.0,
             ),
           ),
-          child: TextButton(
-            onPressed: _isSubmitting ? null : _saveSchedule,
-            child: Text(
-              'Save',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: responsive.buttonFontSize,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
+          child: ValueListenableBuilder<bool>(
+            valueListenable: _isSubmitting,
+            builder: (context, isSubmitting, _) {
+              return TextButton(
+                onPressed: isSubmitting ? null : _saveSchedule,
+                child: Text(
+                  'Save',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: responsive.buttonFontSize,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.cardColor,
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -618,13 +652,13 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isEnabled
-            ? AppColors.primaryColor.withValues(alpha:0.05)
-            : Colors.grey.shade50,
+            ? AppColors.primaryColor.withValues(alpha: 0.05)
+            : AppColors.staffVeryLightGrey,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isEnabled
-              ? AppColors.primaryColor.withValues(alpha:0.3)
-              : Colors.grey.shade300,
+              ? AppColors.primaryColor.withValues(alpha: 0.3)
+              : AppColors.attendanceBorderLightColor,
         ),
       ),
       child: Column(
@@ -639,7 +673,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                   fontFamily: 'Manrope',
                   fontSize: responsive.labelFontSize,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xff573353),
+                  color: AppColors.primaryColor,
                   decoration: isEnabled
                       ? TextDecoration.none
                       : TextDecoration.lineThrough,
@@ -648,7 +682,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
               isEnabled
                   ? IconButton(
                       icon: const Icon(Icons.close, size: 20),
-                      color: Colors.redAccent,
+                      color: AppColors.errorColor,
                       onPressed: () {
                         setState(() {
                           final curr = _schedules[day]!;
@@ -688,7 +722,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                 fontFamily: 'Manrope',
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade600,
+                color: AppColors.attendanceDialogHintTextColor,
               ),
             ),
           if (isEnabled) ...[
@@ -700,7 +734,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                   fontFamily: 'Manrope',
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
-                  color: Colors.blueGrey.shade700,
+                  color: AppColors.staffMutedBlueGreyText,
                 ),
               ),
             ],
@@ -749,7 +783,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                 fontFamily: 'Manrope',
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Color(0xff573353),
+                color: AppColors.primaryColor,
               ),
             ),
             const SizedBox(height: 8),

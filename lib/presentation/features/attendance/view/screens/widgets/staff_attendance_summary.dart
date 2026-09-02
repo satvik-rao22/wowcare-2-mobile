@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class StaffAttendanceSummary extends StatelessWidget {
@@ -137,17 +139,17 @@ class StaffAttendanceSummary extends StatelessWidget {
                 width: 40,
                 height: 24,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(4),
+                  color: AppColors.attendanceBorderLightColor,
+                  borderRadius: AppRadius.allXs,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.xs),
               Container(
                 width: 80,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(4),
+                  color: AppColors.attendanceBorderLightColor,
+                  borderRadius: AppRadius.allXs,
                 ),
               ),
             ],
@@ -159,8 +161,8 @@ class StaffAttendanceSummary extends StatelessWidget {
                 Container(
                   height: responsive.isTablet ? 24 : 20,
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(100),
+                    color: AppColors.attendanceBorderLightColor,
+                    borderRadius: AppRadius.allPill,
                   ),
                 ),
                 SizedBox(height: responsive.verticalSpacing / 2),
@@ -170,8 +172,8 @@ class StaffAttendanceSummary extends StatelessWidget {
                       child: Container(
                         height: responsive.isTablet ? 18 : 16,
                         decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(4),
+                          color: AppColors.attendanceBorderLightColor,
+                          borderRadius: AppRadius.allXs,
                         ),
                       ),
                     ),
@@ -180,8 +182,8 @@ class StaffAttendanceSummary extends StatelessWidget {
                       child: Container(
                         height: responsive.isTablet ? 18 : 16,
                         decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(4),
+                          color: AppColors.attendanceBorderLightColor,
+                          borderRadius: AppRadius.allXs,
                         ),
                       ),
                     ),

@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/src/app_router.dart' show dashboardBranchKey;
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -16,7 +18,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
@@ -24,18 +26,6 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_transfer_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_mark_absent_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_transfer_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_mark_absent_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
@@ -70,7 +60,7 @@ class AttendancePopupManager {
 
     showDialog(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: AppColors.attendancePopupBarrierColor,
       barrierDismissible: true,
       builder: (dialogContext) => MultiBlocProvider(
         providers: [
@@ -184,6 +174,7 @@ class AttendancePopupManager {
       // slide-from-right made it visibly stand out as "a different page was
       // pushed" instead of feeling like just another tab. A quick fade reads
       // much closer to a tab swap than a slide does.
+      // GoRouter holdout (documented): deliberate deterministic branch-navigator / fade / dedup flow (see app_router.dart popAllShellBranchNavigators docs) — kept imperative.
       navigatorState.push(_fadeRoute(
         settings: const RouteSettings(
           name: StudentAttendanceProfile.routeName,
@@ -461,7 +452,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     final mediaQuery = MediaQuery.of(context);
     final screenHeight = mediaQuery.size.height;
     final screenWidth = mediaQuery.size.width;
-    final isTablet = ResponsiveSizing.isTablet(context);
+    final isTablet = ResponsiveHelper(context).isTabletCompact;
     final navBarHeight = CustomNavigationBar.navBarHeight;
     // Use a default height if navBarHeight hasn't been measured yet
     final effectiveNavBarHeight = navBarHeight > 0 ? navBarHeight : 80.0;
@@ -474,7 +465,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     final maxPopupHeight = (screenHeight * 0.45).clamp(140.0, 350.0);
 
     return Dialog(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       elevation: 0,
       alignment: Alignment.bottomCenter,
       insetPadding: EdgeInsets.only(
@@ -483,8 +474,8 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
         bottom: bottomPadding,
       ),
       child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: AppColors.cardColor,
+        borderRadius: AppRadius.allLg,
         elevation: 4,
         child: ConstrainedBox(
           constraints: BoxConstraints(
@@ -511,7 +502,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   labelPadding: EdgeInsets.zero,
                   padding: EdgeInsets.symmetric(horizontal: isTablet ? 16 : 8),
                   labelStyle: TextStyle(
-                    color: Colors.black,
+                    color: AppColors.attendanceIconColor,
                     fontFamily: Fonts.manrope,
                     fontSize: isTablet ? 18 : 16,
                     fontWeight: FontWeight.w500,
@@ -631,12 +622,10 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                               context,
                               rootNavigator: true,
                             );
+                            final router = GoRouter.of(context);
                             navigator.pop();
-                            navigator.push(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const StudentSelectionSignInForm(),
-                              ),
+                            router.push(
+                              '/attendance/student-selection-sign-in',
                             );
                           },
                     context: context,
@@ -653,12 +642,10 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                               context,
                               rootNavigator: true,
                             );
+                            final router = GoRouter.of(context);
                             navigator.pop();
-                            navigator.push(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    const StudentSelectionSignOutForm(),
-                              ),
+                            router.push(
+                              '/attendance/student-selection-sign-out',
                             );
                           },
                     context: context,
@@ -676,12 +663,10 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                 context,
                                 rootNavigator: true,
                               );
+                              final router = GoRouter.of(context);
                               navigator.pop();
-                              navigator.push(
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const StudentSelectionTransferForm(),
-                                ),
+                              router.push(
+                                '/attendance/student-selection-transfer',
                               );
                             },
                       context: context,
@@ -699,12 +684,10 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                 context,
                                 rootNavigator: true,
                               );
+                              final router = GoRouter.of(context);
                               navigator.pop();
-                              navigator.push(
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const StudentSelectionMarkAbsentForm(),
-                                ),
+                              router.push(
+                                '/attendance/student-selection-mark-absent',
                               );
                             },
                       context: context,
@@ -728,12 +711,10 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                 context,
                                 rootNavigator: true,
                               );
+                              final router = GoRouter.of(context);
                               navigator.pop();
-                              navigator.push(
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const StudentSelectionSignInForm(),
-                                ),
+                              router.push(
+                                '/attendance/student-selection-sign-in',
                               );
                             },
                       context: context,
@@ -753,12 +734,10 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                 context,
                                 rootNavigator: true,
                               );
+                              final router = GoRouter.of(context);
                               navigator.pop();
-                              navigator.push(
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const StudentSelectionSignOutForm(),
-                                ),
+                              router.push(
+                                '/attendance/student-selection-sign-out',
                               );
                             },
                       context: context,
@@ -780,12 +759,10 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                   context,
                                   rootNavigator: true,
                                 );
+                                final router = GoRouter.of(context);
                                 navigator.pop();
-                                navigator.push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const StudentSelectionTransferForm(),
-                                  ),
+                                router.push(
+                                  '/attendance/student-selection-transfer',
                                 );
                               },
                         context: context,
@@ -805,12 +782,10 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                   context,
                                   rootNavigator: true,
                                 );
+                                final router = GoRouter.of(context);
                                 navigator.pop();
-                                navigator.push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const StudentSelectionMarkAbsentForm(),
-                                  ),
+                                router.push(
+                                  '/attendance/student-selection-mark-absent',
                                 );
                               },
                         context: context,
@@ -898,37 +873,34 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                               context,
                               rootNavigator: true,
                             );
+                            final router = GoRouter.of(context);
                             navigator.pop();
                             if (_isTeacherStaffPersona == true &&
                                 _loggedInStaffCode.isNotEmpty) {
                               final display =
                                   await resolveLoggedInStaffDisplay();
-                              navigator.push(
-                                MaterialPageRoute(
-                                  builder: (_) => StaffSignInForm(
-                                    staff: StaffEntity(
-                                      id: 0,
-                                      name: display.fullName.isNotEmpty
-                                          ? display.fullName
-                                          : 'My Attendance',
-                                      primaryRoomId: 0,
-                                      photoUuid:
-                                          display.profilePhotoUrl.isNotEmpty
-                                          ? display.profilePhotoUrl
-                                          : null,
-                                      staffCode: display.staffCode.isNotEmpty
-                                          ? display.staffCode
-                                          : _loggedInStaffCode,
-                                    ),
+                              router.push(
+                                '/attendance/staff-sign-in',
+                                extra: {
+                                  'staff': StaffEntity(
+                                    id: 0,
+                                    name: display.fullName.isNotEmpty
+                                        ? display.fullName
+                                        : 'My Attendance',
+                                    primaryRoomId: 0,
+                                    photoUuid:
+                                        display.profilePhotoUrl.isNotEmpty
+                                        ? display.profilePhotoUrl
+                                        : null,
+                                    staffCode: display.staffCode.isNotEmpty
+                                        ? display.staffCode
+                                        : _loggedInStaffCode,
                                   ),
-                                ),
+                                },
                               );
                             } else {
-                              navigator.push(
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const StaffSelectionSignInForm(),
-                                ),
+                              router.push(
+                                '/attendance/staff-selection-sign-in',
                               );
                             }
                           },
@@ -946,37 +918,34 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                               context,
                               rootNavigator: true,
                             );
+                            final router = GoRouter.of(context);
                             navigator.pop();
                             if (_isTeacherStaffPersona == true &&
                                 _loggedInStaffCode.isNotEmpty) {
                               final display =
                                   await resolveLoggedInStaffDisplay();
-                              navigator.push(
-                                MaterialPageRoute(
-                                  builder: (_) => StaffSignOutForm(
-                                    staff: StaffEntity(
-                                      id: 0,
-                                      name: display.fullName.isNotEmpty
-                                          ? display.fullName
-                                          : 'My Attendance',
-                                      primaryRoomId: 0,
-                                      photoUuid:
-                                          display.profilePhotoUrl.isNotEmpty
-                                          ? display.profilePhotoUrl
-                                          : null,
-                                      staffCode: display.staffCode.isNotEmpty
-                                          ? display.staffCode
-                                          : _loggedInStaffCode,
-                                    ),
+                              router.push(
+                                '/attendance/staff-sign-out',
+                                extra: {
+                                  'staff': StaffEntity(
+                                    id: 0,
+                                    name: display.fullName.isNotEmpty
+                                        ? display.fullName
+                                        : 'My Attendance',
+                                    primaryRoomId: 0,
+                                    photoUuid:
+                                        display.profilePhotoUrl.isNotEmpty
+                                        ? display.profilePhotoUrl
+                                        : null,
+                                    staffCode: display.staffCode.isNotEmpty
+                                        ? display.staffCode
+                                        : _loggedInStaffCode,
                                   ),
-                                ),
+                                },
                               );
                             } else {
-                              navigator.push(
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const StaffSelectionSignOutForm(),
-                                ),
+                              router.push(
+                                '/attendance/staff-selection-sign-out',
                               );
                             }
                           },
@@ -994,37 +963,34 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                               context,
                               rootNavigator: true,
                             );
+                            final router = GoRouter.of(context);
                             navigator.pop();
                             if (_isTeacherStaffPersona == true &&
                                 _loggedInStaffCode.isNotEmpty) {
                               final display =
                                   await resolveLoggedInStaffDisplay();
-                              navigator.push(
-                                MaterialPageRoute(
-                                  builder: (_) => StaffTransferForm(
-                                    staff: StaffEntity(
-                                      id: 0,
-                                      name: display.fullName.isNotEmpty
-                                          ? display.fullName
-                                          : 'My Attendance',
-                                      primaryRoomId: 0,
-                                      photoUuid:
-                                          display.profilePhotoUrl.isNotEmpty
-                                          ? display.profilePhotoUrl
-                                          : null,
-                                      staffCode: display.staffCode.isNotEmpty
-                                          ? display.staffCode
-                                          : _loggedInStaffCode,
-                                    ),
+                              router.push(
+                                '/attendance/staff-transfer',
+                                extra: {
+                                  'staff': StaffEntity(
+                                    id: 0,
+                                    name: display.fullName.isNotEmpty
+                                        ? display.fullName
+                                        : 'My Attendance',
+                                    primaryRoomId: 0,
+                                    photoUuid:
+                                        display.profilePhotoUrl.isNotEmpty
+                                        ? display.profilePhotoUrl
+                                        : null,
+                                    staffCode: display.staffCode.isNotEmpty
+                                        ? display.staffCode
+                                        : _loggedInStaffCode,
                                   ),
-                                ),
+                                },
                               );
                             } else {
-                              navigator.push(
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const StaffSelectionTransferForm(),
-                                ),
+                              router.push(
+                                '/attendance/staff-selection-transfer',
                               );
                             }
                           },
@@ -1042,37 +1008,34 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                               context,
                               rootNavigator: true,
                             );
+                            final router = GoRouter.of(context);
                             navigator.pop();
                             if (_isTeacherStaffPersona == true &&
                                 _loggedInStaffCode.isNotEmpty) {
                               final display =
                                   await resolveLoggedInStaffDisplay();
-                              navigator.push(
-                                MaterialPageRoute(
-                                  builder: (_) => StaffMarkAbsentForm(
-                                    staff: StaffEntity(
-                                      id: 0,
-                                      name: display.fullName.isNotEmpty
-                                          ? display.fullName
-                                          : 'My Attendance',
-                                      primaryRoomId: 0,
-                                      photoUuid:
-                                          display.profilePhotoUrl.isNotEmpty
-                                          ? display.profilePhotoUrl
-                                          : null,
-                                      staffCode: display.staffCode.isNotEmpty
-                                          ? display.staffCode
-                                          : _loggedInStaffCode,
-                                    ),
+                              router.push(
+                                '/attendance/staff-mark-absent',
+                                extra: {
+                                  'staff': StaffEntity(
+                                    id: 0,
+                                    name: display.fullName.isNotEmpty
+                                        ? display.fullName
+                                        : 'My Attendance',
+                                    primaryRoomId: 0,
+                                    photoUuid:
+                                        display.profilePhotoUrl.isNotEmpty
+                                        ? display.profilePhotoUrl
+                                        : null,
+                                    staffCode: display.staffCode.isNotEmpty
+                                        ? display.staffCode
+                                        : _loggedInStaffCode,
                                   ),
-                                ),
+                                },
                               );
                             } else {
-                              navigator.push(
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const StaffSelectionMarkAbsentForm(),
-                                ),
+                              router.push(
+                                '/attendance/staff-selection-mark-absent',
                               );
                             }
                           },
@@ -1097,37 +1060,34 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                 context,
                                 rootNavigator: true,
                               );
+                              final router = GoRouter.of(context);
                               navigator.pop();
                               if (_isTeacherStaffPersona == true &&
                                   _loggedInStaffCode.isNotEmpty) {
                                 final display =
                                     await resolveLoggedInStaffDisplay();
-                                navigator.push(
-                                  MaterialPageRoute(
-                                    builder: (_) => StaffSignInForm(
-                                      staff: StaffEntity(
-                                        id: 0,
-                                        name: display.fullName.isNotEmpty
-                                            ? display.fullName
-                                            : 'My Attendance',
-                                        primaryRoomId: 0,
-                                        photoUuid:
-                                            display.profilePhotoUrl.isNotEmpty
-                                            ? display.profilePhotoUrl
-                                            : null,
-                                        staffCode: display.staffCode.isNotEmpty
-                                            ? display.staffCode
-                                            : _loggedInStaffCode,
-                                      ),
+                                router.push(
+                                  '/attendance/staff-sign-in',
+                                  extra: {
+                                    'staff': StaffEntity(
+                                      id: 0,
+                                      name: display.fullName.isNotEmpty
+                                          ? display.fullName
+                                          : 'My Attendance',
+                                      primaryRoomId: 0,
+                                      photoUuid:
+                                          display.profilePhotoUrl.isNotEmpty
+                                          ? display.profilePhotoUrl
+                                          : null,
+                                      staffCode: display.staffCode.isNotEmpty
+                                          ? display.staffCode
+                                          : _loggedInStaffCode,
                                     ),
-                                  ),
+                                  },
                                 );
                               } else {
-                                navigator.push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const StaffSelectionSignInForm(),
-                                  ),
+                                router.push(
+                                  '/attendance/staff-selection-sign-in',
                                 );
                               }
                             },
@@ -1148,37 +1108,34 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                 context,
                                 rootNavigator: true,
                               );
+                              final router = GoRouter.of(context);
                               navigator.pop();
                               if (_isTeacherStaffPersona == true &&
                                   _loggedInStaffCode.isNotEmpty) {
                                 final display =
                                     await resolveLoggedInStaffDisplay();
-                                navigator.push(
-                                  MaterialPageRoute(
-                                    builder: (_) => StaffSignOutForm(
-                                      staff: StaffEntity(
-                                        id: 0,
-                                        name: display.fullName.isNotEmpty
-                                            ? display.fullName
-                                            : 'My Attendance',
-                                        primaryRoomId: 0,
-                                        photoUuid:
-                                            display.profilePhotoUrl.isNotEmpty
-                                            ? display.profilePhotoUrl
-                                            : null,
-                                        staffCode: display.staffCode.isNotEmpty
-                                            ? display.staffCode
-                                            : _loggedInStaffCode,
-                                      ),
+                                router.push(
+                                  '/attendance/staff-sign-out',
+                                  extra: {
+                                    'staff': StaffEntity(
+                                      id: 0,
+                                      name: display.fullName.isNotEmpty
+                                          ? display.fullName
+                                          : 'My Attendance',
+                                      primaryRoomId: 0,
+                                      photoUuid:
+                                          display.profilePhotoUrl.isNotEmpty
+                                          ? display.profilePhotoUrl
+                                          : null,
+                                      staffCode: display.staffCode.isNotEmpty
+                                          ? display.staffCode
+                                          : _loggedInStaffCode,
                                     ),
-                                  ),
+                                  },
                                 );
                               } else {
-                                navigator.push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const StaffSelectionSignOutForm(),
-                                  ),
+                                router.push(
+                                  '/attendance/staff-selection-sign-out',
                                 );
                               }
                             },
@@ -1199,37 +1156,34 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                 context,
                                 rootNavigator: true,
                               );
+                              final router = GoRouter.of(context);
                               navigator.pop();
                               if (_isTeacherStaffPersona == true &&
                                   _loggedInStaffCode.isNotEmpty) {
                                 final display =
                                     await resolveLoggedInStaffDisplay();
-                                navigator.push(
-                                  MaterialPageRoute(
-                                    builder: (_) => StaffTransferForm(
-                                      staff: StaffEntity(
-                                        id: 0,
-                                        name: display.fullName.isNotEmpty
-                                            ? display.fullName
-                                            : 'My Attendance',
-                                        primaryRoomId: 0,
-                                        photoUuid:
-                                            display.profilePhotoUrl.isNotEmpty
-                                            ? display.profilePhotoUrl
-                                            : null,
-                                        staffCode: display.staffCode.isNotEmpty
-                                            ? display.staffCode
-                                            : _loggedInStaffCode,
-                                      ),
+                                router.push(
+                                  '/attendance/staff-transfer',
+                                  extra: {
+                                    'staff': StaffEntity(
+                                      id: 0,
+                                      name: display.fullName.isNotEmpty
+                                          ? display.fullName
+                                          : 'My Attendance',
+                                      primaryRoomId: 0,
+                                      photoUuid:
+                                          display.profilePhotoUrl.isNotEmpty
+                                          ? display.profilePhotoUrl
+                                          : null,
+                                      staffCode: display.staffCode.isNotEmpty
+                                          ? display.staffCode
+                                          : _loggedInStaffCode,
                                     ),
-                                  ),
+                                  },
                                 );
                               } else {
-                                navigator.push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const StaffSelectionTransferForm(),
-                                  ),
+                                router.push(
+                                  '/attendance/staff-selection-transfer',
                                 );
                               }
                             },
@@ -1250,37 +1204,34 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                 context,
                                 rootNavigator: true,
                               );
+                              final router = GoRouter.of(context);
                               navigator.pop();
                               if (_isTeacherStaffPersona == true &&
                                   _loggedInStaffCode.isNotEmpty) {
                                 final display =
                                     await resolveLoggedInStaffDisplay();
-                                navigator.push(
-                                  MaterialPageRoute(
-                                    builder: (_) => StaffMarkAbsentForm(
-                                      staff: StaffEntity(
-                                        id: 0,
-                                        name: display.fullName.isNotEmpty
-                                            ? display.fullName
-                                            : 'My Attendance',
-                                        primaryRoomId: 0,
-                                        photoUuid:
-                                            display.profilePhotoUrl.isNotEmpty
-                                            ? display.profilePhotoUrl
-                                            : null,
-                                        staffCode: display.staffCode.isNotEmpty
-                                            ? display.staffCode
-                                            : _loggedInStaffCode,
-                                      ),
+                                router.push(
+                                  '/attendance/staff-mark-absent',
+                                  extra: {
+                                    'staff': StaffEntity(
+                                      id: 0,
+                                      name: display.fullName.isNotEmpty
+                                          ? display.fullName
+                                          : 'My Attendance',
+                                      primaryRoomId: 0,
+                                      photoUuid:
+                                          display.profilePhotoUrl.isNotEmpty
+                                          ? display.profilePhotoUrl
+                                          : null,
+                                      staffCode: display.staffCode.isNotEmpty
+                                          ? display.staffCode
+                                          : _loggedInStaffCode,
                                     ),
-                                  ),
+                                  },
                                 );
                               } else {
-                                navigator.push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const StaffSelectionMarkAbsentForm(),
-                                  ),
+                                router.push(
+                                  '/attendance/staff-selection-mark-absent',
                                 );
                               }
                             },
@@ -1322,15 +1273,18 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
       opacity: isDisabled ? 0.4 : 1.0,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.allSm,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xxs,
+            vertical: AppSpacing.xs,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               SvgPicture.asset(icon, height: iconSize, width: iconSize),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.xxs),
               Flexible(
                 child: Text(
                   label,
@@ -1402,24 +1356,24 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
           router.go(StudentAttendanceTabbedView.routeName);
         }
       },
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: AppRadius.allSm,
       child: Container(
         height: isTablet ? 56 : 48,
         width: double.infinity,
         margin: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 20),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppRadius.allSm,
           gradient: AppColors.buildSecondaryGradient(),
         ),
         padding: const EdgeInsets.all(1),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(7),
+            color: AppColors.cardColor,
+            borderRadius: BorderRadius.circular(AppRadius.r7),
           ),
           child: Center(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
               child: ShaderMask(
                 shaderCallback: (Rect bounds) =>
                     AppColors.buildSecondaryGradient().createShader(bounds),
@@ -1493,6 +1447,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
       }
 
       if (!context.mounted) return;
+      // GoRouter holdout (documented): deliberate deterministic branch-navigator / fade / dedup flow (see app_router.dart popAllShellBranchNavigators docs) — kept imperative.
       Navigator.push(
         context,
         MaterialPageRoute<void>(

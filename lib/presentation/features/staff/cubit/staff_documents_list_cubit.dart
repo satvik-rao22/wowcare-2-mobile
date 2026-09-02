@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/network/file_download_service.dart';
 
 import '../../../../domain/features/staff/entities/staff_document.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
@@ -12,22 +13,32 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
     required GetStaffDocumentsUseCase getStaffDocumentsUseCase,
     required DeleteStaffDocumentUseCase deleteStaffDocumentUseCase,
     required StaffRepository repository,
-  })  : _getStaffDocumentsUseCase = getStaffDocumentsUseCase,
-        _deleteStaffDocumentUseCase = deleteStaffDocumentUseCase,
-        _repository = repository,
-        super(const StaffDocumentsListState.initial());
+    FileDownloadService? fileDownloadService,
+  }) : _getStaffDocumentsUseCase = getStaffDocumentsUseCase,
+       _deleteStaffDocumentUseCase = deleteStaffDocumentUseCase,
+       _repository = repository,
+       _fileDownloadService = fileDownloadService ?? FileDownloadService(),
+       super(const StaffDocumentsListState.initial());
 
   final GetStaffDocumentsUseCase _getStaffDocumentsUseCase;
   final DeleteStaffDocumentUseCase _deleteStaffDocumentUseCase;
   final StaffRepository _repository;
+  final FileDownloadService _fileDownloadService;
+
+  /// Downloads a resolved document URL to [savePath]. Kept off the View (which
+  /// must not construct a Dio) and off the authenticated API client (the URL is
+  /// a pre-signed external link — see [FileDownloadService]).
+  Future<void> downloadFile(String url, String savePath) =>
+      _fileDownloadService.downloadToFile(url, savePath);
 
   static const int _pageSize = 10;
 
   Future<void> loadInitial(String staffCode, {bool? expired}) async {
     // Try cache first
     final cached = await (_repository is StaffRepositoryWithCache
-        ? (_repository as StaffRepositoryWithCache)
-            .loadCachedStaffDocuments(staffCode)
+        ? (_repository as StaffRepositoryWithCache).loadCachedStaffDocuments(
+            staffCode,
+          )
         : Future.value(null));
 
     if (cached != null && !isClosed) {
@@ -96,7 +107,7 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
   Future<void> loadNextPage(String staffCode, {bool? expired}) async {
     // Don't load next page if we're still loading initial data or if there's no more data
     if (state.isLoading || state.isLoadingMore || !state.hasMore) return;
-    
+
     // Don't load if we haven't loaded any pages yet (currentPage should be >= 0 after initial load)
     if (state.currentPage < 0) return;
 
@@ -132,7 +143,14 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
     }
   }
 
+  /// Document UUIDs whose delete is in flight — a second tap on the same
+  /// document while the first delete is still running is ignored, so the cubit
+  /// enforces single-flight independently of any UI disabling.
+  final Set<String> _deletingDocuments = <String>{};
+
   Future<String?> deleteDocument(String staffCode, String documentUuid) async {
+    if (_deletingDocuments.contains(documentUuid)) return null;
+    _deletingDocuments.add(documentUuid);
     try {
       final result = await _deleteStaffDocumentUseCase.call(
         documentUuid: documentUuid,
@@ -153,6 +171,8 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
       );
     } catch (e) {
       return ApiErrorHandler.extractErrorMessage(e);
+    } finally {
+      _deletingDocuments.remove(documentUuid);
     }
   }
 }
@@ -170,26 +190,26 @@ class StaffDocumentsListState extends Equatable {
   });
 
   const StaffDocumentsListState.initial()
-      : documents = const [],
-        isLoading = false,
-        isRefreshing = false,
-        isFromCache = false,
-        currentPage = 0,
-        hasMore = false,
-        isLoadingMore = false,
-        errorMessage = null;
+    : documents = const [],
+      isLoading = false,
+      isRefreshing = false,
+      isFromCache = false,
+      currentPage = 0,
+      hasMore = false,
+      isLoadingMore = false,
+      errorMessage = null;
 
   const StaffDocumentsListState.loaded({
     required List<StaffDocument> documents,
     required bool isFromCache,
     this.currentPage = 0,
     this.hasMore = false,
-  })  : documents = documents,
-        isLoading = false,
-        isRefreshing = false,
-        isFromCache = isFromCache,
-        isLoadingMore = false,
-        errorMessage = null;
+  }) : documents = documents,
+       isLoading = false,
+       isRefreshing = false,
+       isFromCache = isFromCache,
+       isLoadingMore = false,
+       errorMessage = null;
 
   final List<StaffDocument> documents;
   final bool isLoading;
@@ -224,14 +244,13 @@ class StaffDocumentsListState extends Equatable {
 
   @override
   List<Object?> get props => [
-        documents,
-        isLoading,
-        isRefreshing,
-        isFromCache,
-        currentPage,
-        hasMore,
-        isLoadingMore,
-        errorMessage,
-      ];
+    documents,
+    isLoading,
+    isRefreshing,
+    isFromCache,
+    currentPage,
+    hasMore,
+    isLoadingMore,
+    errorMessage,
+  ];
 }
-

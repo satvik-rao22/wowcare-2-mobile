@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_search_field.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
@@ -29,10 +32,12 @@ class StudentSelectionTransferForm extends StatefulWidget {
 
 class _StudentSelectionTransferFormState
     extends State<StudentSelectionTransferForm> {
+  // Selection business state (classrooms/tags/students) now lives in
+  // [StudentTransferSelectionCubit]'s state. `isSelectAllChecked` is a purely
+  // visual checkbox flag kept in the View (its value is deliberately NOT
+  // re-derived from the selection when filters change — preserving the
+  // original behaviour).
   bool isSelectAllChecked = false;
-  List<String> _selectedClassrooms = [];
-  List<String> _selectedTag = [];
-  Set<StudentEntity> selectedStudents = {};
   final TextEditingController _searchController = TextEditingController();
 
   late final StudentTransferSelectionCubit _cubit;
@@ -50,7 +55,7 @@ class _StudentSelectionTransferFormState
     // Staff persona: pre-select their primary classroom, if resolvable.
     final defaultClassroom = _cubit.state.defaultClassroomName;
     if (defaultClassroom != null) {
-      _selectedClassrooms = [defaultClassroom];
+      _cubit.seedDefaultClassroom(defaultClassroom);
     }
     await _loadStudents();
   }
@@ -79,8 +84,8 @@ class _StudentSelectionTransferFormState
     await _cubit.loadStudents(
       fromAttendanceDate: dateString,
       toAttendanceDate: dateString,
-      selectedClassroomNames: _selectedClassrooms,
-      selectedTagNames: _selectedTag,
+      selectedClassroomNames: _cubit.state.selectedClassroomNames,
+      selectedTagNames: _cubit.state.selectedTagNames,
     );
   }
 
@@ -104,7 +109,11 @@ class _StudentSelectionTransferFormState
   /// Client-side re-filter on top of the fetched (already server-narrowed)
   /// list: search text (never sent to the server here) plus a redundant-but-
   /// harmless classroom/tag re-check.
-  List<StudentEntity> _filterStudents(List<StudentEntity> allStudents) {
+  List<StudentEntity> _filterStudents(
+    List<StudentEntity> allStudents,
+    List<String> selectedClassrooms,
+    List<String> selectedTag,
+  ) {
     return allStudents.where((student) {
       bool matchesSearch = true;
       bool matchesRoom = true;
@@ -116,12 +125,12 @@ class _StudentSelectionTransferFormState
         );
       }
 
-      if (_selectedClassrooms.isNotEmpty) {
-        matchesRoom = _selectedClassrooms.contains(student.roomName);
+      if (selectedClassrooms.isNotEmpty) {
+        matchesRoom = selectedClassrooms.contains(student.roomName);
       }
 
-      if (_selectedTag.isNotEmpty) {
-        matchesTag = student.tags.any((tag) => _selectedTag.contains(tag.name));
+      if (selectedTag.isNotEmpty) {
+        matchesTag = student.tags.any((tag) => selectedTag.contains(tag.name));
       }
 
       return matchesSearch && matchesRoom && matchesTag;
@@ -131,13 +140,9 @@ class _StudentSelectionTransferFormState
   void _toggleSelectAll(bool? value, List<StudentEntity> visibleStudents) {
     if (value == null) return;
 
+    _cubit.setStudentsSelected(visibleStudents, value);
     setState(() {
       isSelectAllChecked = value;
-      if (value) {
-        selectedStudents.addAll(visibleStudents);
-      } else {
-        selectedStudents.removeAll(visibleStudents);
-      }
     });
   }
 
@@ -148,16 +153,12 @@ class _StudentSelectionTransferFormState
   ) {
     if (value == null) return;
 
+    // The tile always passes `value == !isSelected`, so a toggle reproduces
+    // the original explicit add/remove exactly.
+    _cubit.toggleStudent(student);
+    final selected = _cubit.state.selectedStudents;
     setState(() {
-      if (value) {
-        selectedStudents.add(student);
-      } else {
-        selectedStudents.remove(student);
-      }
-
-      isSelectAllChecked = visibleStudents.every(
-        (student) => selectedStudents.contains(student),
-      );
+      isSelectAllChecked = visibleStudents.every(selected.contains);
     });
   }
 
@@ -183,7 +184,7 @@ class _StudentSelectionTransferFormState
       return const Scaffold(
         body: Center(
           child: Padding(
-            padding: EdgeInsets.all(24.0),
+            padding: EdgeInsets.all(AppSpacing.xl),
             child: Text(
               'Access Denied: You must be inside geofence and signed in to manage student attendance.',
               textAlign: TextAlign.center,
@@ -208,10 +209,13 @@ class _StudentSelectionTransferFormState
       bloc: _cubit,
       builder: (context, state) {
         final allStudents = _mapStudents(state.students);
-        final visibleStudents = _filterStudents(allStudents);
-        selectedStudents.removeWhere(
-          (s) => !allStudents.any((e) => e.studentCode == s.studentCode),
+        final visibleStudents = _filterStudents(
+          allStudents,
+          state.selectedClassroomNames,
+          state.selectedTagNames,
         );
+        // Pruning of stale selections happens in the cubit's loadStudents (when
+        // the underlying list changes), not as a build-time side-effect.
 
         return StaffFormLayout(
           title: 'Transfer',
@@ -219,27 +223,12 @@ class _StudentSelectionTransferFormState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const AppText.subtitle('Select Students'),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.grey),
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search Students',
-                    hintStyle: AppTextStyles.body.copyWith(
-                      color: Colors.grey[700],
-                    ),
-                    border: InputBorder.none,
-                    icon: const Icon(Icons.search, color: Colors.grey),
-                  ),
-                ),
+              const SizedBox(height: AppSpacing.sm),
+              AttendanceSearchField(
+                controller: _searchController,
+                hintText: 'Search Students',
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               Row(
                 children: [
                   Expanded(
@@ -247,38 +236,34 @@ class _StudentSelectionTransferFormState
                     child: CustomMultiSelectDropdown(
                       hintText: 'Classroom',
                       items: state.classroomOptions,
-                      selectedItems: _selectedClassrooms,
+                      selectedItems: state.selectedClassroomNames,
                       onChanged: (selectedItems) {
                         if (state.isLoadingFilters) return;
-                        setState(() {
-                          _selectedClassrooms = selectedItems;
-                        });
+                        _cubit.setSelectedClassrooms(selectedItems);
                         _loadStudents();
                       },
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     flex: 4,
                     child: CustomMultiSelectDropdown(
                       hintText: 'Tags',
                       items: state.tagOptions,
-                      selectedItems: _selectedTag,
+                      selectedItems: state.selectedTagNames,
                       onChanged: (selectedItems) {
-                        setState(() {
-                          _selectedTag = selectedItems;
-                        });
+                        _cubit.setSelectedTags(selectedItems);
                         _loadStudents();
                       },
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               Row(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
                     child: CustomCheckbox(
                       borderColor: AppColors.themeColor,
                       value: isSelectAllChecked,
@@ -289,7 +274,7 @@ class _StudentSelectionTransferFormState
                   const AppText.body('Select All'),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.sm),
               Expanded(
                 child: state.isLoadingStudents
                     ? _buildShimmerGrid()
@@ -303,7 +288,7 @@ class _StudentSelectionTransferFormState
                               style: const TextStyle(color: Colors.red),
                               textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: AppSpacing.xs),
                             TextButton(
                               onPressed: _loadStudents,
                               child: const AppText.body('Retry'),
@@ -326,7 +311,9 @@ class _StudentSelectionTransferFormState
                         itemCount: visibleStudents.length,
                         itemBuilder: (context, index) {
                           final student = visibleStudents[index];
-                          final isSelected = selectedStudents.contains(student);
+                          final isSelected = state.selectedStudents.contains(
+                            student,
+                          );
 
                           return StudentListItem(
                             student: student,
@@ -349,6 +336,8 @@ class _StudentSelectionTransferFormState
             child: CustomButtonLayout(
               confirmButtonLabel: 'Next',
               onPressedConfirm: () {
+                final selectedStudents = state.selectedStudents;
+                final selectedClassrooms = state.selectedClassroomNames;
                 if (selectedStudents.isEmpty) {
                   CoreUtils.showTopSnackBarFromSnackBar(
                     context: context,
@@ -359,6 +348,7 @@ class _StudentSelectionTransferFormState
                   );
                   return;
                 } else {
+                  // GoRouter holdout (documented): carries a refreshCallback closure and a form-local StudentEntity list, which don't fit GoRouter's URL/extra model — kept as an imperative Navigator.push.
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -372,12 +362,12 @@ class _StudentSelectionTransferFormState
                         // single "current" room to exclude from the
                         // destination list, so leave it unset (same as when
                         // no classroom filter is applied at all).
-                        currentClassroomCode: _selectedClassrooms.length == 1
-                            ? state.classroomCodeByName[_selectedClassrooms
+                        currentClassroomCode: selectedClassrooms.length == 1
+                            ? state.classroomCodeByName[selectedClassrooms
                                   .single]
                             : null,
-                        currentClassroomName: _selectedClassrooms.length == 1
-                            ? _selectedClassrooms.single
+                        currentClassroomName: selectedClassrooms.length == 1
+                            ? selectedClassrooms.single
                             : null,
                       ),
                     ),
@@ -413,17 +403,17 @@ class StudentListItem extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           border: Border.all(color: AppColors.themeColor),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppRadius.allSm,
           color: isSelected
               ? const Color.fromARGB(255, 249, 245, 250)
               : Colors.white,
         ),
         child: Padding(
-          padding: const EdgeInsets.only(right: 4),
+          padding: const EdgeInsets.only(right: AppSpacing.xxs),
           child: Row(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
                 child: CustomCheckbox(
                   borderColor: AppColors.themeColor,
                   value: isSelected,
@@ -437,7 +427,7 @@ class StudentListItem extends StatelessWidget {
                 size: 32,
                 fontSize: 14,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.xs),
               Expanded(
                 child: EllipsisTooltipText(
                   text: student.fullName,

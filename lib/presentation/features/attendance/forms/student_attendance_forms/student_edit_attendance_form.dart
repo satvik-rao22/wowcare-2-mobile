@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -9,7 +11,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_card.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_edit_attendance_cubit.dart';
@@ -52,7 +54,7 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
   }
 
   void _handleCancel() {
-    Navigator.pop(context);
+    context.pop();
   }
 
   Future<void> _handleSubmit() async {
@@ -66,7 +68,7 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
           backgroundColor: AppColors.successColor,
         ),
       );
-      Navigator.pop(context, true);
+      context.pop(true);
     } else {
       final message = outcome.error != null
           ? ApiErrorHandler.extractErrorMessage(outcome.error)
@@ -100,7 +102,7 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
   }
 
   Widget _buildForm(BuildContext context, StudentEditAttendanceState state) {
-    final isTablet = ResponsiveSizing.isTablet(context);
+    final isTablet = ResponsiveHelper(context).isTabletCompact;
     final student = widget.studentAttendance;
     final titleName = student.studentName.isNotEmpty
         ? student.studentName
@@ -111,19 +113,19 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
       child: SingleChildScrollView(
         padding: EdgeInsets.symmetric(
           horizontal: isTablet ? 24 : 16,
-          vertical: 16,
+          vertical: AppSpacing.md,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildStudentHeaderCard(student),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.xl),
             _buildTimeSection(
               label: 'Sign-In Time',
               time: state.signInTime,
               onTimeChanged: _cubit.setSignInTime,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             _buildTimeSection(
               label: 'Sign-Out Time',
               time: state.signOutTime,
@@ -142,17 +144,20 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
 
   Widget _buildStudentHeaderCard(StudentAttendanceCardData student) {
     return CustomSectionCard(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
+      ),
       child: Row(
         children: [
-          const SizedBox(width: 4),
+          const SizedBox(width: AppSpacing.xxs),
           DocumentImageWidget(
             fileUuid: student.studentPhotoUuid ?? '',
             name: student.studentName,
             size: 36,
             fontSize: 14,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.xs),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,7 +167,7 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.xxs),
                 AppText.small(
                   student.roomName,
                   style: const TextStyle(
@@ -186,7 +191,7 @@ class _StudentEditAttendanceFormState extends State<StudentEditAttendanceForm> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AppText.label(label),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.xs),
         GradientTimePickerField(
           time: time,
           onTimeSelected: onTimeChanged,

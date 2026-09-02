@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -14,7 +15,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/students/util/profile_photo_background.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_create_cubit.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
@@ -87,6 +88,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
   bool _isChildCustody = true;
   File? _profilePhoto;
   bool _isSubmitting = false;
+
+  final StudentCreateCubit _createCubit = serviceLocator<StudentCreateCubit>();
 
   final List<String> _relationOptions = [
     'Mother',
@@ -175,6 +178,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     _emailController.dispose();
     _phoneController.dispose();
     _relationOtherController.dispose();
+    _createCubit.close();
     super.dispose();
   }
 
@@ -268,9 +272,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     required String schoolCode,
     required String studentCode,
   }) async {
-    final repo = serviceLocator<StudentRepository>();
     // Map display names back to guardian codes.
-    final nameCodeMap = await repo.getGuardianNameCodeMapForSchool(
+    final nameCodeMap = await _createCubit.fetchGuardianNameCodeMapForSchool(
       schoolCode: schoolCode,
     );
 
@@ -288,7 +291,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       final guardianCode = nameCodeMap[key];
       if (guardianCode == null || guardianCode.isEmpty) continue;
 
-      await repo.linkExistingGuardian(
+      await _createCubit.linkExistingGuardian(
         guardianCode: guardianCode,
         studentCode: studentCode,
         relation: relationEnum,
@@ -497,7 +500,6 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
               return;
             }
 
-            final repo = serviceLocator<StudentRepository>();
             final first = _firstNameController.text.trim();
             final last = _lastNameController.text.trim();
             final email = _emailController.text.trim().toLowerCase();
@@ -510,9 +512,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             // backend expects this whenever relationToStudent is OTHER.
             final relationshipDescription =
                 relationLabel == 'Other' &&
-                        _relationOtherController.text.trim().isNotEmpty
-                    ? _relationOtherController.text.trim()
-                    : null;
+                    _relationOtherController.text.trim().isNotEmpty
+                ? _relationOtherController.text.trim()
+                : null;
 
             final primaryContact = _isEmergencyContact;
             final legalCustody = _isChildCustody;
@@ -535,7 +537,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                 'legalCustody': legalCustody,
                 'updatedBy': loggedInUserCode.trim(),
               };
-              message = await repo.updateGuardian(
+              message = await _createCubit.updateGuardian(
                 code: guardianCode,
                 studentCode: studentCode,
                 fields: fields,
@@ -560,7 +562,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             } else {
               // Create guardian FIRST, then upload the photo in the background
               // using the new code (resolved inside the detached task).
-              final created = await repo.createGuardianUser(
+              final created = await _createCubit.createGuardianUser(
                 schoolCode: schoolCode,
                 studentCode: studentCode,
                 firstName: first,
@@ -568,7 +570,6 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                 email: email,
                 mobile: digits,
                 relationToStudent: relationToStudent,
-                relationshipDescription: relationshipDescription,
                 primaryContact: primaryContact,
                 legalCustody: legalCustody,
                 userCode: loggedInUserCode.trim().isEmpty
@@ -774,14 +775,14 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                       enableSearch: true,
                                       selectedItem:
                                           _selectedExistingParents.isEmpty
-                                              ? null
-                                              : _selectedExistingParents.first,
+                                          ? null
+                                          : _selectedExistingParents.first,
                                       onSelect: (selected) {
                                         setState(() {
                                           _selectedExistingParents =
                                               selected == null
-                                                  ? <String>[]
-                                                  : <String>[selected];
+                                              ? <String>[]
+                                              : <String>[selected];
                                         });
                                       },
                                     ),
@@ -1156,90 +1157,6 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class PhoneNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final newText = newValue.text;
-
-    if (newText.isEmpty) {
-      return newValue;
-    }
-
-    final digitsOnly = newText.replaceAll(RegExp(r'\D'), '');
-    final charCount = digitsOnly.length;
-
-    String formattedText;
-    if (charCount == 0) {
-      formattedText = '';
-    } else if (charCount <= 3) {
-      formattedText = '($digitsOnly';
-    } else if (charCount <= 6) {
-      formattedText =
-          '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3)}';
-    } else {
-      formattedText =
-          '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3, 6)}-${digitsOnly.substring(6)}';
-    }
-
-    return TextEditingValue(
-      text: formattedText,
-      selection: TextSelection.collapsed(offset: formattedText.length),
-    );
-  }
-}
-
-class NameCapitalizationFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    String text = newValue.text;
-
-    // Remove trailing spaces
-    text = text.replaceFirst(
-      RegExp(r"\s+"),
-      ' ',
-    ); // collapse multiple spaces inside
-    text = text.replaceAll(RegExp(r"\s{2,}"), ' ');
-    text = text.replaceAll(RegExp(r"\s+\z"), '');
-
-    if (text.isEmpty) {
-      return newValue.copyWith(
-        text: text,
-        selection: const TextSelection.collapsed(offset: 0),
-      );
-    }
-
-    // Enforce first letter uppercase, remaining lowercase
-    final firstChar = text[0].toUpperCase();
-    final rest = text.length > 1 ? text.substring(1).toLowerCase() : '';
-    final formatted = firstChar + rest;
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
-
-class TrimFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final trimmed = newValue.text.trimLeft();
-    return TextEditingValue(
-      text: trimmed,
-      selection: TextSelection.collapsed(offset: trimmed.length),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -13,6 +14,8 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -367,7 +370,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.xs),
                       // Filters Section
                       CustomSectionCard(
                         child: Column(
@@ -402,8 +405,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                                           if (isLoading && items.isEmpty) {
                                             return ShimmerLoader(
                                               height: 40,
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
+                                              borderRadius: AppRadius.allMd,
                                             );
                                           }
 
@@ -502,7 +504,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                               margin: EdgeInsets.only(
                                 bottom: responsive.verticalSpacing / 2,
                               ),
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: AppRadius.allLg,
                             ),
                             ...List.generate(
                               6,
@@ -511,7 +513,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                                 margin: EdgeInsets.only(
                                   bottom: responsive.verticalSpacing / 2,
                                 ),
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: AppRadius.allLg,
                               ),
                             ),
                           ],
@@ -519,7 +521,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                       else if (filtered.isEmpty)
                         Center(
                           child: Padding(
-                            padding: const EdgeInsets.all(32.0),
+                            padding: const EdgeInsets.all(AppSpacing.xxl),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -528,7 +530,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                                   size: 48,
                                   color: Colors.grey[400],
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: AppSpacing.md),
                                 AppText.body(
                                   'No staff attendance found',
                                   style: TextStyle(color: Colors.grey[600]),
@@ -639,13 +641,13 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                             fontFamily: 'Manrope',
                             fontSize: responsive.isTablet ? 16 : 14,
                             fontWeight: FontWeight.w500,
-                            color: const Color(0xff573353),
+                            color: AppColors.primaryColor,
                             height: 19 / 14,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSpacing.xs),
                       Flexible(
                         child: Text(
                           roomName,
@@ -653,7 +655,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                             fontFamily: 'Manrope',
                             fontSize: responsive.isTablet ? 16 : 14,
                             fontWeight: FontWeight.w500,
-                            color: const Color(0xff573353),
+                            color: AppColors.primaryColor,
                             height: 19 / 14,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -682,23 +684,21 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                   height: responsive.buttonHeight * 0.8,
                   child: CustomCancelButton(
                     onPressedCancel: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => StaffAttendanceProfile(
-                            staffCode: attendance.id,
-                            staffId: attendance.staffId,
-                            staffName: staffName,
-                            staffPhotoUuid: attendance.staffPhotoUuid,
-                            designationName: attendance.designationName,
-                            roomName: roomName,
-                            isSignedIn: attendance.hasSignIn,
-                            isAbsent: false,
-                            isExpectedToday: attendance.expectedToday,
-                            isPresentToday: attendance.hasSignIn,
-                            profileStatus: 'A',
-                          ),
-                        ),
+                      context.push(
+                        StaffAttendanceProfile.routeName,
+                        extra: {
+                          'staffCode': attendance.id,
+                          'staffId': attendance.staffId,
+                          'staffName': staffName,
+                          'staffPhotoUuid': attendance.staffPhotoUuid,
+                          'designationName': attendance.designationName,
+                          'roomName': roomName,
+                          'isSignedIn': attendance.hasSignIn,
+                          'isAbsent': false,
+                          'isExpectedToday': attendance.expectedToday,
+                          'isPresentToday': attendance.hasSignIn,
+                          'profileStatus': 'A',
+                        },
                       );
                     },
                     cancelButtonLabel: 'View',
@@ -728,7 +728,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
               fontFamily: 'Manrope',
               fontSize: 13,
               fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 16 / 13,
             ),
           ),
@@ -742,7 +742,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
               fontFamily: 'Manrope',
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 19 / 14,
             ),
             textAlign: TextAlign.end,

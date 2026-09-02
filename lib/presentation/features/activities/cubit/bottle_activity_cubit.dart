@@ -5,15 +5,17 @@ import 'package:flutter/material.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/activity/entities/activity_parameter_value.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../utils/activity_description_limits.dart';
 import '../utils/activity_patch_attachments.dart';
 import '../utils/activity_school_time.dart';
 import '../utils/activity_selected_date_prefill.dart';
 import '../utils/resolve_logged_in_staff_code.dart';
+import '../utils/activity_item_edit_mappers.dart'
+    show activityItemFromActivityDetail, studentDataMapsForActivityEdit;
 import '../view/activity_feed_card_permissions.dart';
-import '../view/activity_daily_tab.dart'
-    show ActivityItem, activityItemFromActivityDetail, studentDataMapsForActivityEdit;
+import '../view/activity_item.dart' show ActivityItem;
 import '../widgets/activity_edit_student_scope_checkboxes.dart';
 import 'activity_editor_cubit.dart';
 import 'activity_form_outcome.dart';
@@ -59,12 +61,12 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
   ActivityItem get effectiveActivity =>
       state.liveActivity ?? _activityData ?? ActivityItem.empty;
 
-  bool get showAdminApproveRejectActions {
+  bool showAdminApproveRejectActions({required bool isAdminPersona}) {
     if (!_isEdit || _readOnly) return false;
     if (!state.isAdminDesignation) return false;
     return canAdminApproveOrRejectActivityItem(
       effectiveActivity,
-      isAdminPersona: true,
+      isAdminPersona: isAdminPersona,
     );
   }
 
@@ -638,7 +640,7 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
         .toList();
   }
 
-  List<Map<String, dynamic>> _buildParameterValues(
+  List<ActivityParameterValue> _buildParameterValues(
     dynamic details,
     String description,
     String staffCode,
@@ -668,21 +670,24 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     final localTime = localTimeHms;
     final staffPresentCode = (_staffPresentCode ?? staffCode).trim();
 
-    return <Map<String, dynamic>>[
+    return <ActivityParameterValue>[
       if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-        {'parameterCode': dateParamCode, 'value': localDate},
+        ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
       if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-        {'parameterCode': timeParamCode, 'value': localTime},
+        ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
       if (staffParamCode != null &&
           staffParamCode.trim().isNotEmpty &&
           staffPresentCode.isNotEmpty)
-        {'parameterCode': staffParamCode, 'value': staffPresentCode},
+        ActivityParameterValue(
+            parameterCode: staffParamCode, value: staffPresentCode),
       if (descParamCode != null &&
           descParamCode.trim().isNotEmpty &&
           description.isNotEmpty)
-        {'parameterCode': descParamCode, 'value': description},
+        ActivityParameterValue(
+            parameterCode: descParamCode, value: description),
       if (amountParamCode != null && amountParamCode.trim().isNotEmpty)
-        {'parameterCode': amountParamCode, 'value': amountOz.toString()},
+        ActivityParameterValue(
+            parameterCode: amountParamCode, value: amountOz.toString()),
     ];
   }
 }

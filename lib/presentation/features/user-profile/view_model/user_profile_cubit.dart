@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:bloc/bloc.dart';
+import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../../core/storage/storage_service.dart';
@@ -236,8 +237,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
     try {
       var users = await readCachedUserAccessDetailsUsers(_storage);
       if (users.isEmpty) {
-        final token =
-            (await _storage.getString(StorageKeys.accessToken) ?? '').trim();
+        final token = await TokenRefreshService.instance.readAccessToken();
         if (token.isNotEmpty) {
           users = await _authRemoteDataSource.getUserDetails(
             accessToken: token,

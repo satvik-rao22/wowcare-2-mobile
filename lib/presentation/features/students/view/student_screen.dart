@@ -197,6 +197,7 @@ class _StudentScreenState extends State<StudentScreen> {
     // filter) — respect it.
     if (current != 'ACTIVE') return;
     try {
+      // MVVM holdout (documented): getStudentProfile here needs the rich StudentProfileModel (status/dob/address/tags/fte/...); the domain StudentProfile entity is a narrow projection, so this read stays on the datasource until the entity is enriched (S6 typed-models).
       final profile = await serviceLocator<StudentRemoteDataSource>()
           .getStudentProfile(code);
       if (!mounted) return;
@@ -243,9 +244,10 @@ class _StudentScreenState extends State<StudentScreen> {
 
   void _onSearchChanged() {
     final query = _searchController.text.trim();
-    context.read<StudentCubit>().updateSearch(query);
-    // Trigger search API on each keystroke without dropping rapid updates.
-    context.read<StudentCubit>().refresh(ignoreRefreshingGuard: true);
+    // Debounced in the cubit: the query updates immediately (superseding any
+    // in-flight request via the generation guard) and the network refresh fires
+    // once typing settles, instead of a full load per keystroke.
+    context.read<StudentCubit>().onSearchChanged(query);
   }
 
   Future<void> _loadTagNameCodeMap() async {
@@ -357,6 +359,7 @@ class _StudentScreenState extends State<StudentScreen> {
 
   Future<void> _openEditStudentDetails(String studentCode) async {
     try {
+      // MVVM holdout (documented): getStudentProfile here needs the rich StudentProfileModel (status/dob/address/tags/fte/...); the domain StudentProfile entity is a narrow projection, so this read stays on the datasource until the entity is enriched (S6 typed-models).
       final dataSource = serviceLocator<StudentRemoteDataSource>();
       final profile = await dataSource.getStudentProfile(studentCode);
       if (!mounted) return;
@@ -1205,6 +1208,12 @@ class _StudentScreenState extends State<StudentScreen> {
         final int selectedCount = _selectedDemo.where((e) => e).length;
         // Attendance + Activities are not allowed on inactive students.
         final bool hasInactiveSelected = _hasInactiveSelected(students);
+        // Computed ONCE per frame (it scans _selectedDemo/students); it was
+        // previously recomputed at three call sites below.
+        final bool canShowActivities = _canShowActivitiesButton(
+          selectedCount,
+          students,
+        );
 
         // Update selection list when students list changes
         if (_selectedDemo.length != students.length) {
@@ -1230,7 +1239,7 @@ class _StudentScreenState extends State<StudentScreen> {
                       StudentActionPanel(
                         currentPanel: _currentPanel,
                         activityStudentMaps:
-                            _canShowActivitiesButton(selectedCount, students)
+                            canShowActivities
                             ? _activityStudentMaps(
                                 students,
                                 classroomCodeByName: {
@@ -1256,11 +1265,7 @@ class _StudentScreenState extends State<StudentScreen> {
                           });
                         },
                         onActivitiesTap:
-                            (_canShowActivitiesButton(
-                                  selectedCount,
-                                  students,
-                                ) &&
-                                !hasInactiveSelected)
+                            (canShowActivities && !hasInactiveSelected)
                             ? () {
                                 setState(() {
                                   _showActivitiesPanel = !_showActivitiesPanel;
@@ -1363,8 +1368,7 @@ class _StudentScreenState extends State<StudentScreen> {
                         },
                         isProfileEnabled: selectedCount == 1,
                         activitiesEnabled:
-                            _canShowActivitiesButton(selectedCount, students) &&
-                            !hasInactiveSelected,
+                            canShowActivities && !hasInactiveSelected,
                         activitiesDisabledHint: hasInactiveSelected
                             ? 'You cannot record activities for inactive student.'
                             : (_hasCrossClassroomSelection(students)
@@ -1479,8 +1483,8 @@ class _StudentScreenState extends State<StudentScreen> {
                                 );
                                 if (!mounted) return;
                                 AppLogger.d(
-                                  '[StudentScreen] Received result from AddStudentWizardScreen: ' +
-                                      result.toString(),
+                                  '[StudentScreen] received AddStudentWizard result '
+                                  '(present=${result != null})',
                                 );
                                 if (result is Map &&
                                     (result['showPostAddPrompt'] == true)) {

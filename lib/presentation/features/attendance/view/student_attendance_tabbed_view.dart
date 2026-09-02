@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -104,7 +105,7 @@ class _StudentAttendanceTabbedViewState
       context.read<GeofenceCubit>().checkStaffSignInStatus();
     });
 
-    debugPrint(
+    AppLogger.d(
       '[StudentAttendanceTabbedView] initialized: '
       'filter=${widget.dailyIncomingFilter}, hasBackButton=${widget.hasBackButton}, '
       'routeName=${StudentAttendanceTabbedView.routeName}',
@@ -138,9 +139,8 @@ class _StudentAttendanceTabbedViewState
     final appBarHeight = AppBar().preferredSize.height; // kToolbarHeight
 
     // Match GradientAddButton responsive sizes (as used in StaffScreen)
-    final double screenWidth = mediaQuery.size.width;
-    final bool isTablet = screenWidth >= 600;
-    final bool isLargeTablet = screenWidth >= 900;
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
+    final bool isLargeTablet = ResponsiveHelper(context).isWide;
     final double floatingButtonSize = isLargeTablet
         ? 72.0
         : (isTablet ? 56.0 : 40.0);

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 
 typedef StaffAttendanceActionTap = void Function(String actionLabel);
@@ -41,11 +44,11 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
       width: 45,
       child: Material(
         color: AppColors.primaryColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.allMd,
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.allMd,
           onTap: () => _showActionMenu(context),
-          child: const Icon(Icons.more_vert, color: Colors.white),
+          child: const Icon(Icons.more_vert, color: AppColors.cardColor),
         ),
       ),
     );
@@ -57,7 +60,7 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
       barrierDismissible: true,
       builder: (BuildContext context) {
         return Dialog(
-          backgroundColor: Colors.transparent,
+          backgroundColor: AppColors.transparentColor,
           elevation: 0,
           insetPadding: EdgeInsets.only(
             top: topPosition ?? 100,
@@ -85,14 +88,14 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 5),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
             decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.1),
+              color: AppColors.attendanceInfoHighlightColor,
               shape: BoxShape.circle,
             ),
-            child: SvgPicture.asset(svgPath, height: 24, width: 24),
+            child: SvgPicture.asset(svgPath, height: AppDimensions.iconMd, width: AppDimensions.iconMd),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: AppSpacing.s5),
           Text(
             label,
             maxLines: 1,
@@ -147,14 +150,14 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
         // ("Absent") gets cropped. The scroll view guards tiny screens.
         maxHeight: MediaQuery.of(context).size.height * 0.9,
       ),
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.classroomStudentTabColor, width: 2),
+        color: AppColors.cardColor,
+        borderRadius: AppRadius.allMd,
+        border: Border.all(color: AppColors.classroomStudentTabColor, width: AppDimensions.borderThick),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: AppColors.attendanceCardShadowColor,
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -165,11 +168,11 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildMenuItem(context, MediaRes.Sign_in, 'Sign-in'),
-            const SizedBox(height: 5),
+            const SizedBox(height: AppSpacing.s5),
             _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out'),
-            const SizedBox(height: 5),
+            const SizedBox(height: AppSpacing.s5),
             _buildMenuItem(context, MediaRes.transfer, 'Transfer'),
-            const SizedBox(height: 5),
+            const SizedBox(height: AppSpacing.s5),
             _buildMenuItem(context, MediaRes.Mark_absent, 'Absent'),
           ],
         ),
@@ -193,15 +196,15 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
           Opacity(
             opacity: isDisabled ? 0.45 : 1,
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 5),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
               decoration: BoxDecoration(
-                color: Colors.blue.withValues(alpha: 0.1),
+                color: AppColors.attendanceInfoHighlightColor,
                 shape: BoxShape.circle,
               ),
-              child: SvgPicture.asset(svgPath, height: 24, width: 24),
+              child: SvgPicture.asset(svgPath, height: AppDimensions.iconMd, width: AppDimensions.iconMd),
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: AppSpacing.s5),
           Opacity(
             opacity: isDisabled ? 0.5 : 1,
             child: Text(

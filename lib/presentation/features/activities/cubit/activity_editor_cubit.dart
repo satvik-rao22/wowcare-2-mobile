@@ -1,6 +1,8 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_detail.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_type_details.dart';
 import 'package:wowcare/domain/features/activity/usecases/approve_activity_usecase.dart';
@@ -64,6 +66,31 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
       _getGuardianNameCodeMapForSchoolUseCase;
   final GetStaffTodaySignInStatusUseCase _getStaffTodaySignInStatusUseCase;
 
+  /// Keyed single-flight for the non-idempotent mutations. A second identical
+  /// submission that arrives while the first is still in flight (double-tap,
+  /// a re-fired callback, an upload-completion racing the submit) is coalesced
+  /// onto the SAME future instead of issuing a second create/update — the
+  /// data-layer guard the audit requires beyond the forms' own _isSubmitting
+  /// flag. Each form screen submits through a single editor instance, so this
+  /// per-instance map covers that screen's submissions.
+  final Map<String, Future<dynamic>> _inFlightMutations =
+      <String, Future<dynamic>>{};
+
+  Future<T> _singleFlight<T>(String key, Future<T> Function() op) {
+    final existing = _inFlightMutations[key];
+    if (existing != null) return existing as Future<T>;
+    final future = op();
+    _inFlightMutations[key] = future;
+    // Detach cleanup from the caller's future so an error flows ONLY through the
+    // caller (not double-reported as unhandled).
+    future.whenComplete(() {
+      if (identical(_inFlightMutations[key], future)) {
+        _inFlightMutations.remove(key);
+      }
+    }).ignore();
+    return future;
+  }
+
   Future<List<ActivitySetting>> getClassroomActivitySettings({
     required String classroomCode,
     bool refresh = false,
@@ -94,26 +121,29 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     String? napReminderUserCode,
     String? napReminderRole,
     bool? requireAdminApproval,
-    List<Map<String, dynamic>> parameterValues = const [],
-    List<Map<String, dynamic>> attachments = const [],
+    List<ActivityParameterValue> parameterValues = const [],
+    List<ActivityAttachment> attachments = const [],
   }) =>
-      _createActivityUseCase(
-        activityTypeCode: activityTypeCode,
-        classroomCode: classroomCode,
-        studentCodes: studentCodes,
-        staffCode: staffCode,
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-        activityDate: activityDate,
-        description: description,
-        napStart: napStart,
-        napEnd: napEnd,
-        napReminderEnabled: napReminderEnabled,
-        napReminderUserCode: napReminderUserCode,
-        napReminderRole: napReminderRole,
-        requireAdminApproval: requireAdminApproval,
-        parameterValues: parameterValues,
-        attachments: attachments,
+      _singleFlight(
+        'create:$activityTypeCode:$classroomCode:${studentCodes.join(',')}:$activityDate',
+        () => _createActivityUseCase(
+          activityTypeCode: activityTypeCode,
+          classroomCode: classroomCode,
+          studentCodes: studentCodes,
+          staffCode: staffCode,
+          schoolCode: schoolCode,
+          organizationCode: organizationCode,
+          activityDate: activityDate,
+          description: description,
+          napStart: napStart,
+          napEnd: napEnd,
+          napReminderEnabled: napReminderEnabled,
+          napReminderUserCode: napReminderUserCode,
+          napReminderRole: napReminderRole,
+          requireAdminApproval: requireAdminApproval,
+          parameterValues: parameterValues,
+          attachments: attachments,
+        ),
       );
 
   Future<String> updateActivity({
@@ -123,18 +153,21 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     required String staffCode,
     required String activityDate,
     required String description,
-    List<Map<String, dynamic>> parameterValues = const [],
+    List<ActivityParameterValue> parameterValues = const [],
     List<Map<String, dynamic>> attachments = const [],
   }) =>
-      _updateActivityUseCase(
-        code: code,
-        studentCodes: studentCodes,
-        applyToStudentCodes: applyToStudentCodes,
-        staffCode: staffCode,
-        activityDate: activityDate,
-        description: description,
-        parameterValues: parameterValues,
-        attachments: attachments,
+      _singleFlight(
+        'update:$code',
+        () => _updateActivityUseCase(
+          code: code,
+          studentCodes: studentCodes,
+          applyToStudentCodes: applyToStudentCodes,
+          staffCode: staffCode,
+          activityDate: activityDate,
+          description: description,
+          parameterValues: parameterValues,
+          attachments: attachments,
+        ),
       );
 
   Future<String> approveActivity({required String code}) =>
@@ -154,21 +187,24 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     required String activityDate,
     required String description,
     bool? requireAdminApproval,
-    required List<Map<String, dynamic>> attachments,
-    List<Map<String, dynamic>> parameterValues = const [],
+    required List<ActivityAttachment> attachments,
+    List<ActivityParameterValue> parameterValues = const [],
   }) =>
-      _createSharedActivitiesUseCase(
-        activityTypeCode: activityTypeCode,
-        classroomCode: classroomCode,
-        studentCodes: studentCodes,
-        staffCode: staffCode,
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-        activityDate: activityDate,
-        description: description,
-        requireAdminApproval: requireAdminApproval,
-        attachments: attachments,
-        parameterValues: parameterValues,
+      _singleFlight(
+        'createShared:$activityTypeCode:$classroomCode:${studentCodes.join(',')}:$activityDate',
+        () => _createSharedActivitiesUseCase(
+          activityTypeCode: activityTypeCode,
+          classroomCode: classroomCode,
+          studentCodes: studentCodes,
+          staffCode: staffCode,
+          schoolCode: schoolCode,
+          organizationCode: organizationCode,
+          activityDate: activityDate,
+          description: description,
+          requireAdminApproval: requireAdminApproval,
+          attachments: attachments,
+          parameterValues: parameterValues,
+        ),
       );
 
   /// Records a guardian/parent signature on an incident activity parameter.

@@ -15,7 +15,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_profile_edit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
@@ -26,7 +26,6 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -82,6 +81,13 @@ class EditStudentProfileDetailsScreen extends StatefulWidget {
 class _EditStudentProfileDetailsScreenState
     extends State<EditStudentProfileDetailsScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  // Single cubit instance that routes every read/write for this screen through
+  // use cases → repository, so the view never touches StudentRepository or
+  // StudentRemoteDataSource directly. Closed in dispose().
+  final StudentProfileEditCubit _profileEditCubit =
+      serviceLocator<StudentProfileEditCubit>();
+
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
@@ -290,10 +296,8 @@ class _EditStudentProfileDetailsScreenState
       final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
       if (schoolCode.isEmpty) return;
 
-      final repo = serviceLocator<StudentRepository>();
-
       // Always fetch from API (no cached student list for this dropdown).
-      final page = await repo.getStudentPage(
+      final page = await _profileEditCubit.fetchStudentPage(
         schoolCode: schoolCode,
         status: 'ACTIVE',
         page: 0,
@@ -362,43 +366,15 @@ class _EditStudentProfileDetailsScreenState
   Future<void> _loadGuardiansForCustody() async {
     try {
       if (widget.studentCode.trim().isEmpty) return;
-      final dataSource = serviceLocator<StudentRemoteDataSource>();
-      final guardians = await dataSource.getStudentGuardians(
-        studentCode: widget.studentCode,
+      final guardians = await _profileEditCubit.fetchGuardians(
+        widget.studentCode,
       );
-
-      String _guardianDisplayName(Map<String, dynamic> g) {
-        final first = (g['firstName'] ?? g['first_name'] ?? '')
-            .toString()
-            .trim();
-        final last = (g['lastName'] ?? g['last_name'] ?? '').toString().trim();
-        final full = '$first $last'.trim();
-        if (full.isNotEmpty) return full;
-        final direct = (g['fullName'] ?? g['name'] ?? '').toString().trim();
-        if (direct.isNotEmpty) return direct;
-        final user = g['user'];
-        if (user is Map<String, dynamic>) {
-          final uf = (user['firstName'] ?? user['first_name'] ?? '')
-              .toString()
-              .trim();
-          final ul = (user['lastName'] ?? user['last_name'] ?? '')
-              .toString()
-              .trim();
-          final ufull = '$uf $ul'.trim();
-          if (ufull.isNotEmpty) return ufull;
-          final uname = (user['fullName'] ?? user['name'] ?? '')
-              .toString()
-              .trim();
-          if (uname.isNotEmpty) return uname;
-        }
-        return '';
-      }
 
       final rawRows = <Map<String, dynamic>>[];
       for (final g in guardians) {
-        final base = _guardianDisplayName(g);
-        final code = (g['guardianCode'] ?? g['code'] ?? '').toString().trim();
-        final legalCustody = g['legalCustody'] == true;
+        final base = g.fullName.trim();
+        final code = g.guardianCode.trim();
+        final legalCustody = g.legalCustody;
         if (base.isEmpty || code.isEmpty) continue;
         rawRows.add(<String, dynamic>{
           'name': base,
@@ -445,6 +421,7 @@ class _EditStudentProfileDetailsScreenState
     _streetController.dispose();
     _cityController.dispose();
     _zipCodeController.dispose();
+    _profileEditCubit.close();
     super.dispose();
   }
 
@@ -694,8 +671,6 @@ class _EditStudentProfileDetailsScreenState
       // Map subsidy
       final subsidy = _selectedStateSubsidyOption == 'Yes';
 
-      final repository = serviceLocator<StudentRepository>();
-
       // 1) Core profile PATCH /api/v1/student/{code}/profile
       final genderApi = _genderApiFromDisplay(_selectedGender);
 
@@ -713,7 +688,7 @@ class _EditStudentProfileDetailsScreenState
         },
       };
 
-      final message = await repository.updateStudentProfile(
+      final message = await _profileEditCubit.updateProfile(
         code: widget.studentCode,
         fields: profilePayload,
       );
@@ -731,7 +706,7 @@ class _EditStudentProfileDetailsScreenState
         'addressType': 'CURRENT',
       };
 
-      await repository.updateStudentAddress(
+      await _profileEditCubit.updateAddress(
         studentCode: widget.studentCode,
         fields: addressPayload,
       );
@@ -746,7 +721,7 @@ class _EditStudentProfileDetailsScreenState
         final schoolCode =
             await storage.getString(StorageKeys.schoolCode) ?? '';
         if (schoolCode.isNotEmpty) {
-          await repository.updateStudentTags(
+          await _profileEditCubit.updateTags(
             studentCode: widget.studentCode,
             schoolCode: schoolCode,
             tagCodes: selectedTagCodes,
@@ -760,7 +735,7 @@ class _EditStudentProfileDetailsScreenState
           .where((code) => code.trim().isNotEmpty)
           .toList();
       if (siblingCodes.isNotEmpty) {
-        await repository.updateStudentSiblings(
+        await _profileEditCubit.updateSiblings(
           studentCode: widget.studentCode,
           siblingCodes: siblingCodes,
         );
@@ -798,7 +773,7 @@ class _EditStudentProfileDetailsScreenState
           if (desiredCustody == currentCustody) continue;
 
           final raw = _guardianRawByCode[code] ?? const {};
-          await repository.updateGuardian(
+          await _profileEditCubit.updateGuardian(
             code: code,
             studentCode: widget.studentCode,
             fields: <String, dynamic>{

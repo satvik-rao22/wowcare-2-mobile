@@ -1,29 +1,47 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
-import 'package:wowcare/domain/features/staff/usecases/get_important_dates_usecase.dart';
-import 'package:wowcare/presentation/features/staff/view/edit_important_dates_screen.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_important_date.dart';
+import 'package:wowcare/presentation/features/staff/cubit/important_dates_cubit.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab_widgets.dart';
 
-class StaffDatesTab extends StatefulWidget {
+class StaffDatesTab extends StatelessWidget {
   const StaffDatesTab({super.key, required this.staffCode});
 
   final String staffCode;
 
   @override
-  State<StaffDatesTab> createState() => _StaffDatesTabState();
+  Widget build(BuildContext context) {
+    return BlocProvider<ImportantDatesCubit>(
+      create: (_) => serviceLocator<ImportantDatesCubit>(),
+      child: _StaffDatesTabView(staffCode: staffCode),
+    );
+  }
 }
 
-class _StaffDatesTabState extends State<StaffDatesTab> {
+class _StaffDatesTabView extends StatefulWidget {
+  const _StaffDatesTabView({required this.staffCode});
+
+  final String staffCode;
+
+  @override
+  State<_StaffDatesTabView> createState() => _StaffDatesTabViewState();
+}
+
+class _StaffDatesTabViewState extends State<_StaffDatesTabView> {
   final DateFormat _displayFormatter = DateFormat('MMM dd, yyyy');
   final DateFormat _apiFormatter = DateFormat('yyyy-MM-dd');
 
@@ -32,11 +50,14 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
   final Map<String, String> _datesByType = {};
 
   /// Full list from API/cache for passing to edit screen and Physical Checkup display.
-  List<Map<String, String>> _importantDatesList = [];
+  List<StaffImportantDate> _importantDatesList = [];
+
+  late final ImportantDatesCubit _importantDatesCubit;
 
   @override
   void initState() {
     super.initState();
+    _importantDatesCubit = context.read<ImportantDatesCubit>();
     _loadDates();
   }
 
@@ -47,65 +68,36 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
     });
 
     try {
-      // Try cache first if useCache is true
-      if (useCache) {
-        final repository = serviceLocator<StaffRepository>();
-        if (repository is StaffRepositoryWithCache) {
-          final cached = await (repository as StaffRepositoryWithCache)
-              .loadCachedImportantDates(widget.staffCode);
-
-          if (cached != null && mounted) {
-            _datesByType.clear();
-            _importantDatesList = List.from(cached);
-            for (final date in cached) {
-              final type = (date['importantDateType'] ?? '').toUpperCase();
-              final dueDate = date['dueDate'] ?? '';
-              if (type.isEmpty || dueDate.isEmpty) continue;
-              _datesByType[type] = _formatDate(dueDate);
-            }
-
-            setState(() {
-              _isLoading = false;
-              _errorMessage = null;
-            });
-
-            // Don't hit API if cache is valid - return early
-            return;
-          }
-        }
-      }
-
-      // No cache or cache invalid - load from API
-      final useCase = serviceLocator<GetImportantDatesUseCase>();
-      final result = await useCase(staffCode: widget.staffCode);
+      // Cache-first read routed through the cubit (cached list when available,
+      // otherwise the API). Same transform for both sources, as before.
+      final dates = await _importantDatesCubit.fetchImportantDates(
+        widget.staffCode,
+        useCache: useCache,
+      );
 
       if (!mounted) return;
 
-      result.fold(
-        (failure) {
-          setState(() {
-            _isLoading = false;
-            _errorMessage = failure.message ?? 'Failed to load important dates';
-            _datesByType.clear();
-            _importantDatesList = [];
-          });
-        },
-        (dates) {
-          _datesByType.clear();
-          _importantDatesList = List.from(dates);
-          for (final date in dates) {
-            final type = (date['importantDateType'] ?? '').toUpperCase();
-            final dueDate = date['dueDate'] ?? '';
-            if (type.isEmpty || dueDate.isEmpty) continue;
-            _datesByType[type] = _formatDate(dueDate);
-          }
+      _datesByType.clear();
+      _importantDatesList = List.of(dates);
+      for (final date in dates) {
+        final type = date.importantDateType.toUpperCase();
+        final dueDate = date.dueDate;
+        if (type.isEmpty || dueDate.isEmpty) continue;
+        _datesByType[type] = _formatDate(dueDate);
+      }
 
-          setState(() {
-            _isLoading = false;
-            _errorMessage = null;
-          });
-        },
-      );
+      setState(() {
+        _isLoading = false;
+        _errorMessage = null;
+      });
+    } on Failure catch (failure) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = failure.message ?? 'Failed to load important dates';
+        _datesByType.clear();
+        _importantDatesList = [];
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -130,10 +122,10 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
     return _datesByType[type.toUpperCase()] ?? '';
   }
 
-  Map<String, String>? _getEntryByType(String type) {
+  StaffImportantDate? _getEntryByType(String type) {
     final key = type.toUpperCase();
     for (final e in _importantDatesList) {
-      if ((e['importantDateType'] ?? '').toUpperCase() == key) return e;
+      if (e.importantDateType.toUpperCase() == key) return e;
     }
     return null;
   }
@@ -176,9 +168,9 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
     const scheduledColor = Color.fromRGBO(30, 94, 255, 1);
     const scheduledBg = Color.fromRGBO(30, 94, 255, 0.12);
 
-    final statusUpper = (physical['status'] ?? '').toUpperCase();
-    final dueDate = (physical['dueDate'] ?? '').trim();
-    final completedDate = (physical['completedDate'] ?? '').trim();
+    final statusUpper = (physical.status ?? '').toUpperCase();
+    final dueDate = physical.dueDate.trim();
+    final completedDate = (physical.completedDate ?? '').trim();
     final bool isCompleted = statusUpper == 'COMPLETED';
     final bool showMore = !isCompleted;
     final cards = <Widget>[];
@@ -215,7 +207,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
           dueLabelBg = scheduledBg;
       }
       cards.add(
-        _PhysicalCard(
+        PhysicalCard(
           statusLabel: dueLabel,
           statusColor: dueLabelColor,
           statusBg: dueLabelBg,
@@ -233,7 +225,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
 
     if (completedDate.isNotEmpty) {
       cards.add(
-        _PhysicalCard(
+        PhysicalCard(
           statusLabel: 'Completed',
           statusColor: completedColor,
           statusBg: completedBg,
@@ -287,11 +279,10 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (context) {
-        final screenWidth = MediaQuery.of(context).size.width;
-        final isTablet = screenWidth > 600;
-        final isLargeTablet = screenWidth > 900;
+        final isTablet = ResponsiveHelper(context).isTabletCompact;
+        final isLargeTablet = ResponsiveHelper(context).isWide;
         final bottomSafe = MediaQuery.of(context).padding.bottom;
 
         final horizontalPadding = isLargeTablet
@@ -318,7 +309,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                     bottom: verticalPadding + bottomSafe,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.cardColor,
                     borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(borderRadius),
                       topRight: Radius.circular(borderRadius),
@@ -337,7 +328,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                 fontFamily: 'Manrope',
                                 fontSize: titleFontSize,
                                 fontWeight: FontWeight.w600,
-                                color: const Color(0xff573353),
+                                color: AppColors.primaryColor,
                               ),
                             ),
                           ),
@@ -355,7 +346,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                         Row(
                           children: [
                             Expanded(
-                              child: _DialogField(
+                              child: DialogField(
                                 label: 'Physical Checkup Date *',
                                 value: selectedDate != null
                                     ? _displayFormatter.format(selectedDate!)
@@ -431,7 +422,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                             ),
                             const SizedBox(width: 16),
                             Expanded(
-                              child: _DialogDropdown(
+                              child: DialogDropdown(
                                 label: 'Status *',
                                 value: statusUi,
                                 options: const [
@@ -490,7 +481,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                       else
                         Column(
                           children: [
-                            _DialogField(
+                            DialogField(
                               label: 'Physical Checkup Date *',
                               value: selectedDate != null
                                   ? _displayFormatter.format(selectedDate!)
@@ -564,7 +555,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                               },
                             ),
                             const SizedBox(height: 16),
-                            _DialogDropdown(
+                            DialogDropdown(
                               label: 'Status *',
                               value: statusUi,
                               options: const ['Due', 'Scheduled', 'Completed'],
@@ -659,7 +650,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                 Text(
                                   validationMessage,
                                   style: const TextStyle(
-                                    color: Colors.redAccent,
+                                    color: AppColors.errorColor,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -695,48 +686,54 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                         final existingCompleted =
                                             (_getEntryByType(
                                                       'PHYSICAL_CHECKUP',
-                                                    )?['completedDate'] ??
+                                                    )?.completedDate ??
                                                     '')
                                                 .trim();
-                                        final payload = <String, String>{
-                                          'importantDateType':
-                                              'PHYSICAL_CHECKUP',
-                                          'dueDate': dueIso,
-                                          'status': statusApi,
-                                          if (statusApi == 'COMPLETED')
-                                            'completedDate': dueIso
-                                          else if (existingCompleted.isNotEmpty)
-                                            'completedDate': existingCompleted,
-                                        };
+                                        final payload = StaffImportantDate(
+                                          importantDateType: 'PHYSICAL_CHECKUP',
+                                          dueDate: dueIso,
+                                          status: statusApi,
+                                          completedDate:
+                                              statusApi == 'COMPLETED'
+                                              ? dueIso
+                                              : (existingCompleted.isNotEmpty
+                                                    ? existingCompleted
+                                                    : null),
+                                        );
 
                                         setLocalState(() => isSaving = true);
                                         try {
-                                          final repo =
-                                              serviceLocator<StaffRepository>();
-                                          final msg = await repo
+                                          await _importantDatesCubit
                                               .updateImportantDates(
                                                 staffCode: widget.staffCode,
                                                 dates: [payload],
                                               );
                                           if (!context.mounted) return;
-                                          CoreUtils.showTopSnackBar(
-                                            context: context,
-                                            message: msg.isNotEmpty
-                                                ? msg
-                                                : 'Updated successfully',
-                                            isSuccess: true,
-                                          );
-                                          Navigator.of(context).pop();
-                                          await _loadDates(useCache: false);
-                                        } catch (e) {
-                                          if (!context.mounted) return;
-                                          CoreUtils.logApiError(e.toString());
-                                          CoreUtils.showTopSnackBar(
-                                            context: context,
-                                            message:
-                                                'Failed to update physical checkup. Please try again.',
-                                            isError: true,
-                                          );
+                                          final cubitState =
+                                              _importantDatesCubit.state;
+                                          if (cubitState.isSuccess) {
+                                            final msg =
+                                                cubitState.message ?? '';
+                                            CoreUtils.showTopSnackBar(
+                                              context: context,
+                                              message: msg.isNotEmpty
+                                                  ? msg
+                                                  : 'Updated successfully',
+                                              isSuccess: true,
+                                            );
+                                            Navigator.of(context).pop();
+                                            await _loadDates(useCache: false);
+                                          } else {
+                                            CoreUtils.logApiError(
+                                              cubitState.message ?? '',
+                                            );
+                                            CoreUtils.showTopSnackBar(
+                                              context: context,
+                                              message:
+                                                  'Failed to update physical checkup. Please try again.',
+                                              isError: true,
+                                            );
+                                          }
                                         } finally {
                                           if (context.mounted) {
                                             setLocalState(
@@ -784,7 +781,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                 top: Radius.circular(12),
                 bottom: Radius.circular(16),
               ),
-              color: Colors.white,
+              color: AppColors.cardColor,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -807,30 +804,29 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                         final firstAid = _getEntryByType('FIRST_AID_CPR');
                         final brc = _getEntryByType('BRC');
                         final physical = _getEntryByType('PHYSICAL_CHECKUP');
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => EditImportantDatesScreen(
-                              staffCode: widget.staffCode,
-                              initialHireDate: _parseIsoDate(hire?['dueDate']),
-                              initialCdaExaminationDate: _parseIsoDate(
-                                cda?['dueDate'],
-                              ),
-                              initialFirstAidCprExpirationDate: _parseIsoDate(
-                                firstAid?['dueDate'],
-                              ),
-                              initialBackgroundRecordCheckExpirationDate:
-                                  _parseIsoDate(brc?['dueDate']),
-                              initialPhysicalCheckupDate: _parseIsoDate(
-                                physical?['dueDate'],
-                              ),
-                              initialPhysicalCheckupStatus:
-                                  _apiStatusToDropdown(physical?['status']),
-                            ),
-                          ),
-                        ).then((_) {
-                          if (mounted) _loadDates(useCache: false);
-                        });
+                        context
+                            .push(
+                              '/dashboard/edit-important-dates-screen',
+                              extra: <String, dynamic>{
+                                'staffCode': widget.staffCode,
+                                'initialHireDate': _parseIsoDate(hire?.dueDate),
+                                'initialCdaExaminationDate': _parseIsoDate(
+                                  cda?.dueDate,
+                                ),
+                                'initialFirstAidCprExpirationDate':
+                                    _parseIsoDate(firstAid?.dueDate),
+                                'initialBackgroundRecordCheckExpirationDate':
+                                    _parseIsoDate(brc?.dueDate),
+                                'initialPhysicalCheckupDate': _parseIsoDate(
+                                  physical?.dueDate,
+                                ),
+                                'initialPhysicalCheckupStatus':
+                                    _apiStatusToDropdown(physical?.status),
+                              },
+                            )
+                            .then((_) {
+                              if (mounted) _loadDates(useCache: false);
+                            });
                       },
                       child: Container(
                         width: 38,
@@ -843,7 +839,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                         child: const Icon(
                           Icons.edit,
                           size: 22,
-                          color: Colors.white,
+                          color: AppColors.cardColor,
                         ),
                       ),
                     ),
@@ -856,28 +852,28 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                   Text(
                     _errorMessage!,
                     style: const TextStyle(
-                      color: Colors.redAccent,
+                      color: AppColors.errorColor,
                       fontSize: 14,
                     ),
                   )
                 else ...[
-                  _DateRow(
+                  DateRow(
                     label: 'Hire Date',
                     text: hireDate.isEmpty ? '' : hireDate,
                   ),
                   const SizedBox(height: 16),
-                  _DateRow(
+                  DateRow(
                     label: 'CDA Examination Date',
                     text: cdaDate.isEmpty ? 'No CDA Examination Date' : cdaDate,
                     showInfo: true,
                   ),
                   const SizedBox(height: 16),
-                  _DateRow(
+                  DateRow(
                     label: 'First Aid / CPR Expiration Date',
                     text: firstAidDate.isEmpty ? '' : firstAidDate,
                   ),
                   const SizedBox(height: 16),
-                  _DateRow(
+                  DateRow(
                     label: 'Background Record Check Expiration Date',
                     text: brcDate.isEmpty ? '' : brcDate,
                   ),
@@ -888,319 +884,6 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _DateRow extends StatelessWidget {
-  const _DateRow({
-    required this.label,
-    required this.text,
-    this.showInfo = false,
-  });
-  final String label;
-  final String text;
-  final bool showInfo;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  fontSize: 16,
-                  letterSpacing: 14 * (-3 / 100),
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (showInfo) ...[
-              const SizedBox(width: 6),
-              Tooltip(
-                message: 'Child Development Associate',
-                triggerMode: TooltipTriggerMode.tap,
-                preferBelow: true,
-                waitDuration: Duration(milliseconds: 50),
-                showDuration: Duration(seconds: 2),
-                verticalOffset: 6,
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryColor.withValues(alpha: 0.95),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                textStyle: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontFamily: 'Manrope',
-                  fontWeight: FontWeight.w600,
-                ),
-                child: Icon(
-                  Icons.info_outline,
-                  size: 22,
-                  color: AppColors.primaryColor,
-                ),
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          (() {
-            final t = text.trim();
-            final tl = t.toLowerCase();
-            if (t.isEmpty) return '-';
-            if (tl.contains('no cda')) return '-';
-            if (tl.contains('first aid') || tl.contains('cpr')) return '-';
-            if (tl.contains('background record')) return '-';
-            return text;
-          })(),
-          textAlign: TextAlign.left,
-          style: const TextStyle(
-            color: AppColors.primaryColor,
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PhysicalCard extends StatelessWidget {
-  const _PhysicalCard({
-    required this.statusLabel,
-    required this.statusColor,
-    required this.statusBg,
-    required this.date,
-    this.showMore = false,
-    this.onMore,
-  });
-
-  final String statusLabel;
-  final Color statusColor;
-  final Color statusBg;
-  final String date;
-  final bool showMore;
-  final VoidCallback? onMore;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.primaryColor.withValues(alpha: 0.2),
-        ),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: statusBg,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  statusLabel,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                    fontFamily: 'Manrope',
-                  ),
-                ),
-              ),
-              const Spacer(),
-              if (showMore)
-                IconButton(
-                  onPressed: onMore,
-                  icon: const Icon(
-                    Icons.more_horiz,
-                    color: AppColors.primaryColor,
-                  ),
-                  visualDensity: VisualDensity.compact,
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
-                  ),
-                ),
-            ],
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Checkup Date',
-                style: TextStyle(
-                  color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  letterSpacing: 14 * (-3 / 100),
-                ),
-              ),
-              Text(
-                date,
-                style: const TextStyle(
-                  color: AppColors.primaryColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DialogField extends StatelessWidget {
-  const _DialogField({
-    required this.label,
-    required this.value,
-    required this.suffix,
-    required this.onTap,
-  });
-
-  final String label;
-  final String value;
-  final Widget suffix;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: AppColors.primaryColor.withValues(alpha: 0.6),
-            fontFamily: 'Manrope',
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF4F4FB),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    value,
-                    style: const TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryColor,
-                    ),
-                  ),
-                ),
-                suffix,
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DialogDropdown extends StatelessWidget {
-  const _DialogDropdown({
-    required this.label,
-    required this.value,
-    required this.options,
-    required this.onChanged,
-  });
-
-  final String label;
-  final String value;
-  final List<String> options;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: AppColors.primaryColor.withValues(alpha: 0.6),
-            fontFamily: 'Manrope',
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF4F4FB),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value,
-              isExpanded: true,
-              icon: const Icon(
-                Icons.keyboard_arrow_down,
-                color: AppColors.primaryColor,
-              ),
-              items: options
-                  .map(
-                    (o) => DropdownMenuItem<String>(
-                      value: o,
-                      child: Text(
-                        o,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primaryColor,
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (v) {
-                if (v == null) return;
-                onChanged(v);
-              },
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

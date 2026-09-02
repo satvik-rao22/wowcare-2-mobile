@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -136,7 +138,7 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
       return const Scaffold(
         body: Center(
           child: Padding(
-            padding: EdgeInsets.all(24.0),
+            padding: EdgeInsets.all(AppSpacing.xl),
             child: Text(
               'Access Denied: You must be inside geofence and signed in to manage student attendance.',
               textAlign: TextAlign.center,
@@ -165,7 +167,7 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const AppText.label('Start Date'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.xs),
                       CustomDateTimeField(
                         hasLabel: false,
                         isRangePicker: false,
@@ -178,13 +180,13 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 20),
+                const SizedBox(width: AppSpacing.lg),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const AppText.label('End Date'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.xs),
                       CustomDateTimeField(
                         hasLabel: false,
                         isRangePicker: false,
@@ -213,7 +215,7 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                       student: student,
                       onRemove: () => _removeStudent(student),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: AppSpacing.lg),
                     TextField(
                       controller: notesControllers[student.studentCode],
                       decoration: InputDecoration(
@@ -223,33 +225,33 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                           fontSize: 15,
                         ),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(AppRadius.r10),
                           borderSide: const BorderSide(
                               color: Color.fromRGBO(87, 51, 83, 0.4)),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(AppRadius.r10),
                           borderSide: const BorderSide(
                             color: Color.fromRGBO(87, 51, 83, 0.4),
                             width: 1,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(AppRadius.r10),
                           borderSide: const BorderSide(
                             color: Color.fromRGBO(87, 51, 83, 0.4),
                             width: 2,
                           ),
                         ),
                         errorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(AppRadius.r10),
                           borderSide: const BorderSide(
                             color: Colors.red,
                             width: 1,
                           ),
                         ),
                         focusedErrorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(AppRadius.r10),
                           borderSide: const BorderSide(
                             color: Colors.red,
                             width: 2,
@@ -259,7 +261,7 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                         fillColor: AppColors.cardColor,
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: AppSpacing.lg),
                   ],
                 );
               },
@@ -291,14 +293,14 @@ class RemoveStudentTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 8,
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
         border: Border.all(
           color: AppColors.themeColor,
         ),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppRadius.r10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
       child: Row(
@@ -313,7 +315,7 @@ class RemoveStudentTile extends StatelessWidget {
                   name: student.fullName,
                   fontSize: 12,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: AppSpacing.s6),
                 Flexible(
                   child: Text(
                     student.fullName,

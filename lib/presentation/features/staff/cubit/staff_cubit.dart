@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:bloc/bloc.dart';
@@ -10,6 +12,12 @@ import '../../../../domain/features/staff/entities/staff_count.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../../../domain/features/staff/usecases/get_staff_count_usecase.dart';
+import '../../../../domain/features/staff/usecases/get_staff_profile_usecase.dart';
+import '../../../../domain/features/staff/usecases/activate_school_user_usecase.dart';
+import '../../../../domain/features/staff/usecases/deactivate_school_user_usecase.dart';
+import '../../../../domain/features/staff/usecases/activate_organization_admin_usecase.dart';
+import '../../../../domain/features/staff/usecases/deactivate_organization_admin_usecase.dart';
+import '../../../../domain/features/staff/usecases/delete_school_user_usecase.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../scheduling/utils/scheduling_cache_gate.dart';
 
@@ -19,23 +27,70 @@ class StaffCubit extends Cubit<StaffState> {
   StaffCubit({
     required GetStaffPageUseCase getStaffPageUseCase,
     required GetStaffCountUseCase getStaffCountUseCase,
+    required GetStaffProfileUseCase getStaffProfileUseCase,
+    required ActivateSchoolUserUseCase activateSchoolUserUseCase,
+    required DeactivateSchoolUserUseCase deactivateSchoolUserUseCase,
+    required ActivateOrganizationAdminUseCase activateOrganizationAdminUseCase,
+    required DeactivateOrganizationAdminUseCase
+    deactivateOrganizationAdminUseCase,
+    required DeleteSchoolUserUseCase deleteSchoolUserUseCase,
     required StaffRepository repository,
     required StorageService storageService,
   }) : _getStaffPageUseCase = getStaffPageUseCase,
        _getStaffCountUseCase = getStaffCountUseCase,
+       _getStaffProfileUseCase = getStaffProfileUseCase,
+       _activateSchoolUserUseCase = activateSchoolUserUseCase,
+       _deactivateSchoolUserUseCase = deactivateSchoolUserUseCase,
+       _activateOrganizationAdminUseCase = activateOrganizationAdminUseCase,
+       _deactivateOrganizationAdminUseCase = deactivateOrganizationAdminUseCase,
+       _deleteSchoolUserUseCase = deleteSchoolUserUseCase,
        _repository = repository,
        _storageService = storageService,
        super(const StaffState.initial());
 
   final GetStaffPageUseCase _getStaffPageUseCase;
   final GetStaffCountUseCase _getStaffCountUseCase;
+  final GetStaffProfileUseCase _getStaffProfileUseCase;
+  final ActivateSchoolUserUseCase _activateSchoolUserUseCase;
+  final DeactivateSchoolUserUseCase _deactivateSchoolUserUseCase;
+  final ActivateOrganizationAdminUseCase _activateOrganizationAdminUseCase;
+  final DeactivateOrganizationAdminUseCase _deactivateOrganizationAdminUseCase;
+  final DeleteSchoolUserUseCase _deleteSchoolUserUseCase;
   final StaffRepository _repository;
   final StorageService _storageService;
   String? _schoolCode;
   String? _organizationCode;
 
+  /// Coalesces per-keystroke searches so only the final keystroke in a burst
+  /// hits the list API. See [onSearchChanged].
+  Timer? _searchDebounce;
+
+  /// Delay before a settled search reaches the list API. Overridable in tests.
+  Duration searchDebounceDelay = const Duration(milliseconds: 350);
+
+  /// Monotonic query generation. Bumped whenever the logical query changes
+  /// (a new refresh, a search/filter change, or a detected school switch) so a
+  /// slower in-flight response for an older query/school is discarded instead
+  /// of clobbering the current one.
+  int _generation = 0;
+
   // How many staff records to load per page from the API
   static const int _pageSize = 10;
+
+  /// Appends [incoming] onto [existing], skipping any staff whose code is
+  /// already present (stable-identity dedup), so overlapping backend pages can't
+  /// show the same staff member twice. Original order is preserved.
+  static List<StaffMember> _appendDedupedByCode(
+    List<StaffMember> existing,
+    List<StaffMember> incoming,
+  ) {
+    final seen = existing.map((s) => s.code).toSet();
+    final result = List<StaffMember>.from(existing);
+    for (final s in incoming) {
+      if (seen.add(s.code)) result.add(s);
+    }
+    return result;
+  }
 
   String? _effectiveStatusFilter() {
     final raw = state.statusFilter;
@@ -44,10 +99,29 @@ class StaffCubit extends Cubit<StaffState> {
   }
 
   Future<String> _resolveSchoolCode() async {
-    if (_schoolCode != null) return _schoolCode!;
-    // Take school from login-context API (saved in storage) only.
-    _schoolCode = await _storageService.getString(StorageKeys.schoolCode) ?? '';
-    return _schoolCode!;
+    // Always read the live school from storage (never a stale memoized value):
+    // the cubit can outlive an in-place school switch (e.g. an FCM-driven switch
+    // on a still-mounted screen).
+    final fresh = await _storageService.getString(StorageKeys.schoolCode) ?? '';
+    if (_schoolCode != null && _schoolCode != fresh) {
+      // School switched under a live cubit: drop the memoized org code so it
+      // re-resolves for the new school, and supersede any in-flight response.
+      _organizationCode = null;
+      _generation++;
+    }
+    _schoolCode = fresh;
+    return fresh;
+  }
+
+  /// True when a response captured at [gen] under [schoolAtStart] is no longer
+  /// the active one — the cubit closed, a newer query superseded it, or the
+  /// active school changed while it was in flight. Callers must return without
+  /// emitting when this is true.
+  Future<bool> _isStaleResponse(int gen, String schoolAtStart) async {
+    if (isClosed || gen != _generation) return true;
+    final current =
+        await _storageService.getString(StorageKeys.schoolCode) ?? '';
+    return current != schoolAtStart;
   }
 
   Future<String> _resolveOrganizationCode() async {
@@ -119,6 +193,10 @@ class StaffCubit extends Cubit<StaffState> {
     // we drop it before emitting instead.
     final requestedStatus = _effectiveStatusFilter();
     final requestedSearch = state.searchQuery;
+    // This refresh owns a fresh generation; capture the school it runs under so
+    // a later school switch (or newer query) discards this response.
+    final gen = ++_generation;
+    final schoolAtStart = schoolCode;
 
     try {
       final organizationCode = await _resolveOrganizationCode();
@@ -176,14 +254,15 @@ class StaffCubit extends Cubit<StaffState> {
           attendanceStatuses: state.attendanceStatuses,
         );
 
-        items.addAll(secondPage.items);
+        items = _appendDedupedByCode(items, secondPage.items);
         currentPage = secondPage.page;
         hasMore = secondPage.hasMore;
       }
 
-      if (isClosed) return;
-      // Drop a stale result: the filter changed while this load was in flight,
-      // so a newer refresh owns the list now.
+      // Drop a stale result: a newer query/refresh or a school switch happened
+      // while this load was in flight. The legacy status/search checks are
+      // subsumed by the generation guard, which also covers the active school.
+      if (await _isStaleResponse(gen, schoolAtStart)) return;
       if (_effectiveStatusFilter() != requestedStatus) return;
       if (state.searchQuery != requestedSearch) return;
       emit(
@@ -200,7 +279,7 @@ class StaffCubit extends Cubit<StaffState> {
         ),
       );
     } catch (e) {
-      if (isClosed) return;
+      if (await _isStaleResponse(gen, schoolAtStart)) return;
       CoreUtils.logApiError(e.toString());
       emit(
         state.copyWith(
@@ -246,6 +325,11 @@ class StaffCubit extends Cubit<StaffState> {
 
     final schoolCode = await _resolveSchoolCode();
     final organizationCode = await _resolveOrganizationCode();
+    // load-more continues the CURRENT query — capture its generation (do not
+    // bump) and school so a refresh/filter/school change mid-flight discards
+    // this page instead of appending it into a now-different list.
+    final gen = _generation;
+    final schoolAtStart = schoolCode;
 
     emit(state.copyWith(isLoadingMore: true, errorMessage: null));
 
@@ -269,7 +353,7 @@ class StaffCubit extends Cubit<StaffState> {
         attendanceStatuses: state.attendanceStatuses,
       );
 
-      if (isClosed) return;
+      if (await _isStaleResponse(gen, schoolAtStart)) return;
 
       // ignore: avoid_print
       AppLogger.d(
@@ -279,14 +363,14 @@ class StaffCubit extends Cubit<StaffState> {
       );
       emit(
         state.copyWith(
-          items: [...state.items, ...page.items],
+          items: _appendDedupedByCode(state.items, page.items),
           currentPage: page.page,
           hasMore: page.hasMore,
           isLoadingMore: false,
         ),
       );
     } catch (e) {
-      if (isClosed) return;
+      if (await _isStaleResponse(gen, schoolAtStart)) return;
       emit(
         state.copyWith(
           isLoadingMore: false,
@@ -296,121 +380,148 @@ class StaffCubit extends Cubit<StaffState> {
     }
   }
 
+  /// In-flight staff mutations keyed by `action:staffCode`. A second call for
+  /// the same action+staff while the first is still running (a double-tap)
+  /// returns the SAME future instead of issuing a duplicate request — the cubit
+  /// enforces single-flight independently of any UI button-disabling.
+  final Map<String, Future<String>> _inFlightMutations = {};
+
+  Future<String> _singleFlightMutation(
+    String key,
+    Future<String> Function() operation,
+  ) {
+    final existing = _inFlightMutations[key];
+    if (existing != null) return existing;
+    final future = operation();
+    _inFlightMutations[key] = future;
+    future.whenComplete(() => _inFlightMutations.remove(key)).ignore();
+    return future;
+  }
+
   /// Deactivates a staff member (via school user deactivate API) and refreshes the list.
   /// Returns the success message from the backend. Errors are rethrown for UI to handle.
-  Future<String> deactivateStaff(String staffCode) async {
-    // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
-    final profile = await _repository.getStaffProfile(
-      staffCode: staffCode,
-      forEditStaff: true,
-    );
+  Future<String> deactivateStaff(String staffCode) {
+    return _singleFlightMutation('deactivate:$staffCode', () async {
+      // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
+      final profile = await _getStaffProfileUseCase(
+        staffCode: staffCode,
+        forEditStaff: true,
+      );
 
-    final staffTypeUpper = profile.staffType.toUpperCase().trim();
-    final schoolCode = profile.schoolCode.trim();
-    final bool schoolCodeMissing = schoolCode.isEmpty || schoolCode == '-';
-    final bool isOrganizationAdmin =
-        staffTypeUpper.contains('ORGANIZATION') &&
-        staffTypeUpper.contains('ADMIN');
+      final staffTypeUpper = profile.staffType.toUpperCase().trim();
+      final schoolCode = profile.schoolCode.trim();
+      final bool schoolCodeMissing = schoolCode.isEmpty || schoolCode == '-';
+      final bool isOrganizationAdmin =
+          staffTypeUpper.contains('ORGANIZATION') &&
+          staffTypeUpper.contains('ADMIN');
 
-    // Organization admins are deactivated via a different endpoint that
-    // does not take `schoolCode` or `role`.
-    if (isOrganizationAdmin || schoolCodeMissing) {
-      final message = await _repository.deactivateOrganizationAdmin(
+      // Organization admins are deactivated via a different endpoint that
+      // does not take `schoolCode` or `role`.
+      if (isOrganizationAdmin || schoolCodeMissing) {
+        final message = await _deactivateOrganizationAdminUseCase(
+          userCode: profile.userCode,
+          organizationCode: profile.organizationCode,
+        );
+        await refreshWithCacheReset();
+        return message;
+      }
+
+      // Map staffType from profile to backend role expected by school-users APIs.
+      // Backend role differs for school admins vs regular staff.
+      final role =
+          (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
+          ? 'SCHOOL_ADMIN'
+          : 'STAFF';
+
+      final message = await _deactivateSchoolUserUseCase(
         userCode: profile.userCode,
         organizationCode: profile.organizationCode,
+        schoolCode: schoolCode,
+        role: role,
       );
+
+      // Refresh the list so UI and cache reflect the updated status.
       await refreshWithCacheReset();
+
       return message;
-    }
-
-    // Map staffType from profile to backend role expected by school-users APIs.
-    // Backend role differs for school admins vs regular staff.
-    final role = (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
-        ? 'SCHOOL_ADMIN'
-        : 'STAFF';
-
-    final message = await _repository.deactivateSchoolUser(
-      userCode: profile.userCode,
-      organizationCode: profile.organizationCode,
-      schoolCode: schoolCode,
-      role: role,
-    );
-
-    // Refresh the list so UI and cache reflect the updated status.
-    await refreshWithCacheReset();
-
-    return message;
+    });
   }
 
   /// Activates a staff member (via school user activate API) and refreshes the list.
   /// Returns the success message from the backend. Errors are rethrown for UI to handle.
-  Future<String> activateStaff(String staffCode) async {
-    // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
-    final profile = await _repository.getStaffProfile(
-      staffCode: staffCode,
-      forEditStaff: true,
-    );
-
-    final staffTypeUpper = profile.staffType.toUpperCase().trim();
-    final schoolCode = profile.schoolCode.trim();
-    final bool schoolCodeMissing = schoolCode.isEmpty || schoolCode == '-';
-    final bool isOrganizationAdmin =
-        staffTypeUpper.contains('ORGANIZATION') &&
-        staffTypeUpper.contains('ADMIN');
-
-    if (isOrganizationAdmin || schoolCodeMissing) {
-      final message = await _repository.activateOrganizationAdmin(
-        userCode: profile.userCode,
-        organizationCode: profile.organizationCode,
+  Future<String> activateStaff(String staffCode) {
+    return _singleFlightMutation('activate:$staffCode', () async {
+      // First, load the staff profile to resolve userCode, organizationCode, and schoolCode.
+      final profile = await _getStaffProfileUseCase(
+        staffCode: staffCode,
+        forEditStaff: true,
       );
 
+      final staffTypeUpper = profile.staffType.toUpperCase().trim();
+      final schoolCode = profile.schoolCode.trim();
+      final bool schoolCodeMissing = schoolCode.isEmpty || schoolCode == '-';
+      final bool isOrganizationAdmin =
+          staffTypeUpper.contains('ORGANIZATION') &&
+          staffTypeUpper.contains('ADMIN');
+
+      if (isOrganizationAdmin || schoolCodeMissing) {
+        final message = await _activateOrganizationAdminUseCase(
+          userCode: profile.userCode,
+          organizationCode: profile.organizationCode,
+        );
+
+        await refreshWithCacheReset();
+        return message;
+      }
+
+      final role =
+          (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
+          ? 'SCHOOL_ADMIN'
+          : 'STAFF';
+
+      final message = await _activateSchoolUserUseCase(
+        userCode: profile.userCode,
+        organizationCode: profile.organizationCode,
+        schoolCode: schoolCode,
+        role: role,
+      );
+
+      // Refresh the list so UI and cache reflect the updated status.
       await refreshWithCacheReset();
+
       return message;
-    }
-
-    final role = (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
-        ? 'SCHOOL_ADMIN'
-        : 'STAFF';
-
-    final message = await _repository.activateSchoolUser(
-      userCode: profile.userCode,
-      organizationCode: profile.organizationCode,
-      schoolCode: schoolCode,
-      role: role,
-    );
-
-    // Refresh the list so UI and cache reflect the updated status.
-    await refreshWithCacheReset();
-
-    return message;
+    });
   }
 
   /// Permanently deletes a (deactivated) staff member via the school-user
   /// delete API and refreshes the list. Returns the success message from the
   /// backend. Errors are rethrown for the UI to handle.
-  Future<String> deleteStaff(String staffCode) async {
-    // Resolve userCode, organizationCode, schoolCode and role from the profile.
-    final profile = await _repository.getStaffProfile(
-      staffCode: staffCode,
-      forEditStaff: true,
-    );
+  Future<String> deleteStaff(String staffCode) {
+    return _singleFlightMutation('delete:$staffCode', () async {
+      // Resolve userCode, organizationCode, schoolCode and role from the profile.
+      final profile = await _getStaffProfileUseCase(
+        staffCode: staffCode,
+        forEditStaff: true,
+      );
 
-    final staffTypeUpper = profile.staffType.toUpperCase().trim();
-    final role = (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
-        ? 'SCHOOL_ADMIN'
-        : 'STAFF';
+      final staffTypeUpper = profile.staffType.toUpperCase().trim();
+      final role =
+          (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
+          ? 'SCHOOL_ADMIN'
+          : 'STAFF';
 
-    final message = await _repository.deleteSchoolUser(
-      userCode: profile.userCode,
-      organizationCode: profile.organizationCode,
-      schoolCode: profile.schoolCode.trim(),
-      role: role,
-    );
+      final message = await _deleteSchoolUserUseCase(
+        userCode: profile.userCode,
+        organizationCode: profile.organizationCode,
+        schoolCode: profile.schoolCode.trim(),
+        role: role,
+      );
 
-    // Refresh the list so UI and cache reflect the deletion.
-    await refreshWithCacheReset();
+      // Refresh the list so UI and cache reflect the deletion.
+      await refreshWithCacheReset();
 
-    return message;
+      return message;
+    });
   }
 
   /// Performs a lightweight search that only calls the staff list API (no count
@@ -420,7 +531,24 @@ class StaffCubit extends Cubit<StaffState> {
     await refresh(ignoreRefreshingGuard: true);
   }
 
+  /// Debounced search entry point for rapid typing. Applies the new query
+  /// immediately (via [updateSearch], which bumps the generation so any
+  /// in-flight response for the previous query is discarded) and coalesces the
+  /// list refresh so only the last keystroke in a [searchDebounceDelay] burst
+  /// reaches the API. A follow-up keystroke — including clearing to empty —
+  /// cancels the pending fetch.
+  void onSearchChanged(String query) {
+    updateSearch(query);
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(searchDebounceDelay, () {
+      if (isClosed) return;
+      refresh(ignoreRefreshingGuard: true);
+    });
+  }
+
   void updateSearch(String query) {
+    // A new search is a new logical query: supersede any in-flight response.
+    _generation++;
     emit(state.copyWith(searchQuery: query));
   }
 
@@ -438,6 +566,9 @@ class StaffCubit extends Cubit<StaffState> {
     final normalizedDesignation = (designation ?? '').trim();
     final normalizedSortBy = (sortBy ?? '').trim().toLowerCase();
 
+    // Filter changes reset the logical query: supersede any in-flight response
+    // so an older page/list can't append into or overwrite the new results.
+    _generation++;
     emit(
       state.copyWith(
         statusFilter: normalizedStatus.isEmpty ? '' : normalizedStatus,
@@ -492,5 +623,11 @@ class StaffCubit extends Cubit<StaffState> {
         .where((element) => element.code != code)
         .toList();
     emit(state.copyWith(items: updated));
+  }
+
+  @override
+  Future<void> close() {
+    _searchDebounce?.cancel();
+    return super.close();
   }
 }

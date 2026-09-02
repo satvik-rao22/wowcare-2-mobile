@@ -14,6 +14,7 @@ import '../../../../../core/storage/storage_service.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
+import '../../../../../domain/features/activity/entities/activity_parameter_value.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../cubit/activity_editor_cubit.dart';
@@ -184,7 +185,7 @@ class _MealActivityViewState extends State<_MealActivityView> {
     if (!_isAdminDesignation) return false;
     return canAdminApproveOrRejectActivityItem(
       _effectiveActivity,
-      isAdminPersona: true,
+      isAdminPersona: activeAdminPersona(context),
     );
   }
 
@@ -351,7 +352,7 @@ class _MealActivityViewState extends State<_MealActivityView> {
   }
 
   /// [selectedOptionCode] only for DROPDOWN / SELECT / MULTISELECT.
-  Map<String, dynamic>? _paramEntryForOption(
+  ActivityParameterValue? _paramEntryForOption(
     ActivityTypeParameter? param,
     String label,
   ) {
@@ -367,12 +368,13 @@ class _MealActivityViewState extends State<_MealActivityView> {
         if (ol.isNotEmpty && ol.toLowerCase() == v.toLowerCase()) {
           final oc = (o.optionCode ?? o.code).trim();
           if (oc.isNotEmpty) {
-            return {'parameterCode': param.code, 'selectedOptionCode': oc};
+            return ActivityParameterValue(
+                parameterCode: param.code, selectedOptionCode: oc);
           }
         }
       }
     }
-    return {'parameterCode': param.code, 'value': v};
+    return ActivityParameterValue(parameterCode: param.code, value: v);
   }
 
   ActivityTypeParameter? _findMealTypeParameter(
@@ -633,31 +635,31 @@ class _MealActivityViewState extends State<_MealActivityView> {
       final mealTypeParam = _findMealTypeParameter(details.parameters);
       final quantityParam = _findQuantityParameter(details.parameters);
 
-      Map<String, dynamic>? mealTypeEntry = _paramEntryForOption(
+      ActivityParameterValue? mealTypeEntry = _paramEntryForOption(
         mealTypeParam,
         _selectedMealType!.trim(),
       );
       if (mealTypeEntry == null && _selectedMealType!.trim().isNotEmpty) {
         final c = findParamCode('meal');
         if (c != null && c.trim().isNotEmpty) {
-          mealTypeEntry = {
-            'parameterCode': c,
-            'value': _selectedMealType!.trim(),
-          };
+          mealTypeEntry = ActivityParameterValue(
+            parameterCode: c,
+            value: _selectedMealType!.trim(),
+          );
         }
       }
 
-      Map<String, dynamic>? quantityEntry = _paramEntryForOption(
+      ActivityParameterValue? quantityEntry = _paramEntryForOption(
         quantityParam,
         _selectedQuantity!.trim(),
       );
       if (quantityEntry == null && _selectedQuantity!.trim().isNotEmpty) {
         final c = findParamCode('quant');
         if (c != null && c.trim().isNotEmpty) {
-          quantityEntry = {
-            'parameterCode': c,
-            'value': _selectedQuantity!.trim(),
-          };
+          quantityEntry = ActivityParameterValue(
+            parameterCode: c,
+            value: _selectedQuantity!.trim(),
+          );
         }
       }
 
@@ -667,19 +669,21 @@ class _MealActivityViewState extends State<_MealActivityView> {
       final localTime = resolvedActivityTime.localTimeHms;
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+              parameterCode: staffParamCode, value: staffPresentCode),
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+              parameterCode: descParamCode, value: description),
         if (mealTypeEntry != null) mealTypeEntry,
         if (quantityEntry != null) quantityEntry,
       ];
@@ -835,31 +839,31 @@ class _MealActivityViewState extends State<_MealActivityView> {
       final mealTypeParam = _findMealTypeParameter(details.parameters);
       final quantityParam = _findQuantityParameter(details.parameters);
 
-      Map<String, dynamic>? mealTypeEntry = _paramEntryForOption(
+      ActivityParameterValue? mealTypeEntry = _paramEntryForOption(
         mealTypeParam,
         _selectedMealType!.trim(),
       );
       if (mealTypeEntry == null && _selectedMealType!.trim().isNotEmpty) {
         final c = findParamCode('meal');
         if (c != null && c.trim().isNotEmpty) {
-          mealTypeEntry = {
-            'parameterCode': c,
-            'value': _selectedMealType!.trim(),
-          };
+          mealTypeEntry = ActivityParameterValue(
+            parameterCode: c,
+            value: _selectedMealType!.trim(),
+          );
         }
       }
 
-      Map<String, dynamic>? quantityEntry = _paramEntryForOption(
+      ActivityParameterValue? quantityEntry = _paramEntryForOption(
         quantityParam,
         _selectedQuantity!.trim(),
       );
       if (quantityEntry == null && _selectedQuantity!.trim().isNotEmpty) {
         final c = findParamCode('quant');
         if (c != null && c.trim().isNotEmpty) {
-          quantityEntry = {
-            'parameterCode': c,
-            'value': _selectedQuantity!.trim(),
-          };
+          quantityEntry = ActivityParameterValue(
+            parameterCode: c,
+            value: _selectedQuantity!.trim(),
+          );
         }
       }
 
@@ -869,19 +873,21 @@ class _MealActivityViewState extends State<_MealActivityView> {
       final localTime = resolvedActivityTime.localTimeHms;
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+              parameterCode: staffParamCode, value: staffPresentCode),
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+              parameterCode: descParamCode, value: description),
         if (mealTypeEntry != null) mealTypeEntry,
         if (quantityEntry != null) quantityEntry,
       ];

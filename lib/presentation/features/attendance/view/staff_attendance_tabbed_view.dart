@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -11,6 +12,8 @@ import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_background.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_daily_view.dart';
@@ -220,9 +223,8 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     final appBarHeight = AppBar().preferredSize.height; // kToolbarHeight
 
     // Match GradientAddButton responsive sizes (as used in StaffScreen)
-    final double screenWidth = mediaQuery.size.width;
-    final bool isTablet = screenWidth >= 600;
-    final bool isLargeTablet = screenWidth >= 900;
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
+    final bool isLargeTablet = ResponsiveHelper(context).isWide;
     final double floatingButtonSize = isLargeTablet
         ? 72.0
         : (isTablet ? 56.0 : 40.0);
@@ -300,7 +302,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding: const EdgeInsets.only(top: 4, bottom: 8),
+                            padding: const EdgeInsets.only(top: AppSpacing.xxs, bottom: AppSpacing.xs),
                             child: Text(
                               'Staff Attendance',
                               style: TextStyle(
@@ -411,9 +413,8 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     final contentPadding = ResponsiveSizing.contentPadding(context);
     final safeAreaTop = mediaQuery.padding.top;
     final appBarHeight = AppBar().preferredSize.height;
-    final double screenWidth = mediaQuery.size.width;
-    final bool isTablet = screenWidth >= 600;
-    final bool isLargeTablet = screenWidth >= 900;
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
+    final bool isLargeTablet = ResponsiveHelper(context).isWide;
     final double floatingButtonSize = isLargeTablet
         ? 72.0
         : (isTablet ? 56.0 : 40.0);
@@ -439,9 +440,9 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
             right: floatingButtonRight,
           ),
           child: Container(
-            padding: const EdgeInsets.all(2),
+            padding: const EdgeInsets.all(AppSpacing.s2),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: AppRadius.allMd,
               gradient: AppColors.buildPrimaryGradient(),
               boxShadow: [
                 BoxShadow(
@@ -454,22 +455,22 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
             child: Container(
               width: 50,
               constraints: const BoxConstraints(maxHeight: 400),
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(AppRadius.r10),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _buildMenuItem(context, MediaRes.Sign_in, 'Sign-in'),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: AppSpacing.s5),
                   _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out'),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: AppSpacing.s5),
                   if (!(_isTeacherStaffPersona ?? false))
                     _buildMenuItem(context, MediaRes.transfer, 'Transfer'),
                   if (!(_isTeacherStaffPersona ?? false))
-                    const SizedBox(height: 5),
+                    const SizedBox(height: AppSpacing.s5),
                   _buildMenuItem(context, MediaRes.Mark_absent, 'Absent'),
                 ],
               ),
@@ -488,14 +489,14 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 5),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
             decoration: BoxDecoration(
               color: Colors.blue.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: SvgPicture.asset(svgPath, height: 24, width: 24),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: AppSpacing.s5),
           Text(
             label,
             maxLines: 1,
@@ -543,35 +544,33 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       if (!mounted) return;
       switch (label) {
         case 'Sign-in':
-          Navigator.push<void>(
-            context,
-            MaterialPageRoute(builder: (_) => StaffSignInForm(staff: staff)),
+          context.push(
+            '/attendance/staff-sign-in',
+            extra: {'staff': staff},
           ).then((_) {
             if (mounted) _refreshAllAfterAttendanceFlow();
           });
           break;
         case 'Sign-Out':
-          Navigator.push<void>(
-            context,
-            MaterialPageRoute(builder: (_) => StaffSignOutForm(staff: staff)),
+          context.push(
+            '/attendance/staff-sign-out',
+            extra: {'staff': staff},
           ).then((_) {
             if (mounted) _refreshAllAfterAttendanceFlow();
           });
           break;
         case 'Transfer':
-          Navigator.push<void>(
-            context,
-            MaterialPageRoute(builder: (_) => StaffTransferForm(staff: staff)),
+          context.push(
+            '/attendance/staff-transfer',
+            extra: {'staff': staff},
           ).then((_) {
             if (mounted) _refreshAllAfterAttendanceFlow();
           });
           break;
         case 'Absent':
-          Navigator.push<void>(
-            context,
-            MaterialPageRoute(
-              builder: (_) => StaffMarkAbsentForm(staff: staff),
-            ),
+          context.push(
+            '/attendance/staff-mark-absent',
+            extra: {'staff': staff},
           ).then((_) {
             if (mounted) _refreshAllAfterAttendanceFlow();
           });
@@ -582,36 +581,22 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
 
     switch (label) {
       case 'Sign-in':
-        Navigator.push<void>(
-          context,
-          MaterialPageRoute(builder: (_) => const StaffSelectionSignInForm()),
-        ).then((_) {
+        context.push('/attendance/staff-selection-sign-in').then((_) {
           if (mounted) _refreshAllAfterAttendanceFlow();
         });
         break;
       case 'Sign-Out':
-        Navigator.push<void>(
-          context,
-          MaterialPageRoute(builder: (_) => const StaffSelectionSignOutForm()),
-        ).then((_) {
+        context.push('/attendance/staff-selection-sign-out').then((_) {
           if (mounted) _refreshAllAfterAttendanceFlow();
         });
         break;
       case 'Transfer':
-        Navigator.push<void>(
-          context,
-          MaterialPageRoute(builder: (_) => const StaffSelectionTransferForm()),
-        ).then((_) {
+        context.push('/attendance/staff-selection-transfer').then((_) {
           if (mounted) _refreshAllAfterAttendanceFlow();
         });
         break;
       case 'Absent':
-        Navigator.push<void>(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const StaffSelectionMarkAbsentForm(),
-          ),
-        ).then((_) {
+        context.push('/attendance/staff-selection-mark-absent').then((_) {
           if (mounted) _refreshAllAfterAttendanceFlow();
         });
         break;

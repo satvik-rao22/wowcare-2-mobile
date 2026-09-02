@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -8,7 +10,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_card.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -53,7 +55,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
   }
 
   void _handleCancel() {
-    Navigator.pop(context);
+    context.pop();
   }
 
   Future<void> _handleSubmit() async {
@@ -67,7 +69,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
           backgroundColor: AppColors.successColor,
         ),
       );
-      Navigator.pop(context, true);
+      context.pop(true);
     } else {
       final message = outcome.error != null
           ? ApiErrorHandler.extractErrorMessage(outcome.error)
@@ -100,7 +102,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
   }
 
   Widget _buildForm(BuildContext context, StaffEditAttendanceState state) {
-    final isTablet = ResponsiveSizing.isTablet(context);
+    final isTablet = ResponsiveHelper(context).isTabletCompact;
     final staff = widget.staffAttendance;
 
     final titleName = staff.staffName.isNotEmpty
@@ -112,20 +114,20 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
       child: SingleChildScrollView(
         padding: EdgeInsets.symmetric(
           horizontal: isTablet ? 24 : 16,
-          vertical: 16,
+          vertical: AppSpacing.md,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildStaffHeaderCard(staff),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.xl),
             _buildTimeSection(
               context: context,
               label: 'Sign-In Time',
               time: state.signInTime,
               onTimeChanged: _cubit.setSignInTime,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             _buildTimeSection(
               context: context,
               label: 'Sign-Out Time',
@@ -145,17 +147,20 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
 
   Widget _buildStaffHeaderCard(StaffAttendanceCardData staff) {
     return CustomSectionCard(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
+      ),
       child: Row(
         children: [
-          const SizedBox(width: 4),
+          const SizedBox(width: AppSpacing.xxs),
           DocumentImageWidget(
             fileUuid: staff.staffPhotoUuid ?? '',
             name: staff.staffName,
             size: 36,
             fontSize: 14,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.xs),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,7 +172,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
                 ),
                 if (staff.designationName != null &&
                     staff.designationName!.isNotEmpty) ...[
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.xxs),
                   AppText.small(
                     staff.designationName!,
                     style: const TextStyle(
@@ -193,7 +198,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AppText.label(label),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.xs),
         GradientTimePickerField(
           time: time,
           onTimeSelected: onTimeChanged,

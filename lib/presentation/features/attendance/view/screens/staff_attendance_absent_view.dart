@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -10,11 +11,14 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_absent_card.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
+import 'package:wowcare/presentation/features/attendance/util/debounced_search_mixin.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_shimmer.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -78,11 +82,11 @@ class StaffAttendanceAbsentView extends StatefulWidget {
 }
 
 class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
+    with DebouncedSearchMixin
     implements AttendanceTabRefresh {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
-  Timer? _searchDebounceTimer;
   List<String> _selectedClassroomNames = <String>[];
   List<String>? _selectedClassroomCodes;
   DateTime? _rangeStart;
@@ -196,7 +200,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
     _searchController.dispose();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
-    _searchDebounceTimer?.cancel();
+    cancelSearchDebounce();
     super.dispose();
   }
 
@@ -282,11 +286,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
       _searchQuery = newQuery;
     });
 
-    _searchDebounceTimer?.cancel();
-    _searchDebounceTimer = Timer(const Duration(milliseconds: 200), () {
-      if (!mounted) return;
-      _loadAbsentStaff(reset: true);
-    });
+    debounceSearch(() => _loadAbsentStaff(reset: true));
   }
 
   void _onScroll() {
@@ -413,7 +413,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.xs),
                   // Filters Section
                   CustomSectionCard(
                     child: Column(
@@ -440,7 +440,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
                                   if (isLoading && items.isEmpty) {
                                     return ShimmerLoader(
                                       height: 40,
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: AppRadius.allMd,
                                     );
                                   }
 
@@ -529,7 +529,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
                           height: 100,
                           margin: EdgeInsets.only(
                               bottom: responsive.verticalSpacing / 2),
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: AppRadius.allLg,
                         ),
                         ...List.generate(
                           6,
@@ -540,7 +540,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
                   else if (filtered.isEmpty)
                     Center(
                       child: Padding(
-                        padding: const EdgeInsets.all(32.0),
+                        padding: const EdgeInsets.all(AppSpacing.xxl),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -549,7 +549,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
                               size: 48,
                               color: Colors.grey[400],
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: AppSpacing.md),
                             AppText.body(
                               'No absent staff found',
                               style: TextStyle(
@@ -624,23 +624,21 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
         });
       },
       onView: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => StaffAttendanceProfile(
-              staffCode: staff.id,
-              staffId: staff.staffId,
-              staffName: staff.name,
-              staffPhotoUuid: staff.photoUuid,
-              roomName: staff.roomName,
-              isSignedIn: staff.hasSignIn,
-              isAbsent: true,
-              isExpectedToday: staff.expectedToday,
-              isPresentToday: false,
-              profileStatus: 'A',
-              initialShowAbsentDays: true,
-            ),
-          ),
+        context.push(
+          StaffAttendanceProfile.routeName,
+          extra: {
+            'staffCode': staff.id,
+            'staffId': staff.staffId,
+            'staffName': staff.name,
+            'staffPhotoUuid': staff.photoUuid,
+            'roomName': staff.roomName,
+            'isSignedIn': staff.hasSignIn,
+            'isAbsent': true,
+            'isExpectedToday': staff.expectedToday,
+            'isPresentToday': false,
+            'profileStatus': 'A',
+            'initialShowAbsentDays': true,
+          },
         );
       },
     );

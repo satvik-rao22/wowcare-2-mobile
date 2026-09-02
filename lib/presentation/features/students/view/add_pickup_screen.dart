@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -10,11 +11,11 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/relation_selector.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_pickup_cubit.dart';
 
 class AddPickupScreen extends StatefulWidget {
   const AddPickupScreen({
@@ -64,6 +65,11 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
 
   late final GetGuardianNamesForSchoolUseCase _getGuardianNamesForSchoolUseCase;
   late final StorageService _storageService;
+
+  /// One cubit instance for this screen so its single-flight mutation guard
+  /// spans taps (serviceLocator registers it as a factory — a fresh call per
+  /// tap would not dedupe).
+  final StudentPickupCubit _pickupCubit = serviceLocator<StudentPickupCubit>();
   bool get _isEditMode =>
       widget.pickupCode != null && widget.pickupCode!.trim().isNotEmpty;
   bool get _hasPrefillData =>
@@ -104,6 +110,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _relationController.dispose();
+    _pickupCubit.close();
     super.dispose();
   }
 
@@ -121,18 +128,15 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
       final names = await _getGuardianNamesForSchoolUseCase(
         schoolCode: schoolCode,
       );
-      final repo = serviceLocator<StudentRepository>();
-      final rawGuardians = await repo.getGuardiansRawForSchool(
-        schoolCode: schoolCode,
-      );
+      final rawGuardians = await _pickupCubit.fetchGuardiansRaw(schoolCode);
       final details = <String, Map<String, String>>{};
       for (final g in rawGuardians) {
-        final first = (g['firstName'] ?? '').toString().trim();
-        final last = (g['lastName'] ?? '').toString().trim();
-        final email = (g['email'] ?? '').toString().trim();
-        final mobile = (g['mobile'] ?? '').toString().trim();
-        final code = (g['code'] ?? '').toString().trim();
-        final display = '$first $last'.trim();
+        final first = g.firstName;
+        final last = g.lastName;
+        final email = g.email;
+        final mobile = g.mobile;
+        final code = g.code;
+        final display = g.fullName;
         if (display.isEmpty) continue;
         details[display] = <String, String>{
           'code': code,
@@ -209,8 +213,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
             .trim()
             .toUpperCase()
             .replaceAll(' ', '_');
-        final repo = serviceLocator<StudentRepository>();
-        final message = await repo.addPickup(
+        final message = await _pickupCubit.add(
           studentCode: widget.studentCode,
           firstName: first,
           lastName: last,
@@ -317,7 +320,6 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     try {
       final normalizedPhone = digits;
 
-      final repo = serviceLocator<StudentRepository>();
       final String message;
       if (_isEditLikeMode) {
         // Edit card flow must update existing pickup only.
@@ -326,7 +328,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
             'Pickup code is missing for edit. Please reopen the pickup card and try again.',
           );
         }
-        message = await repo.updatePickup(
+        message = await _pickupCubit.update(
           code: widget.pickupCode!.trim(),
           studentCode: widget.studentCode,
           firstName: first,
@@ -338,7 +340,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
           pickupType: 'CAREGIVER',
         );
       } else {
-        message = await repo.addPickup(
+        message = await _pickupCubit.add(
           studentCode: widget.studentCode,
           firstName: first,
           lastName: last,
@@ -712,83 +714,5 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
   String _toRelationEnum(String raw) {
     final normalized = raw.trim().toUpperCase().replaceAll(RegExp(r'\s+'), '_');
     return normalized.isEmpty ? 'OTHER' : normalized;
-  }
-}
-
-class PhoneNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final newText = newValue.text;
-
-    if (newText.isEmpty) {
-      return newValue;
-    }
-
-    final digitsOnly = newText.replaceAll(RegExp(r'\D'), '');
-    final charCount = digitsOnly.length;
-
-    String formattedText;
-    if (charCount == 0) {
-      formattedText = '';
-    } else if (charCount <= 3) {
-      formattedText = '($digitsOnly';
-    } else if (charCount <= 6) {
-      formattedText =
-          '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3)}';
-    } else {
-      formattedText =
-          '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3, 6)}-${digitsOnly.substring(6)}';
-    }
-
-    return TextEditingValue(
-      text: formattedText,
-      selection: TextSelection.collapsed(offset: formattedText.length),
-    );
-  }
-}
-
-class NameCapitalizationFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    String text = newValue.text;
-    text = text.replaceFirst(RegExp(r"\s+"), ' ');
-    text = text.replaceAll(RegExp(r"\s{2,}"), ' ');
-    text = text.replaceAll(RegExp(r"\s+\z"), '');
-
-    if (text.isEmpty) {
-      return newValue.copyWith(
-        text: text,
-        selection: const TextSelection.collapsed(offset: 0),
-      );
-    }
-
-    final firstChar = text[0].toUpperCase();
-    final rest = text.length > 1 ? text.substring(1).toLowerCase() : '';
-    final formatted = firstChar + rest;
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
-
-class TrimFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final trimmed = newValue.text.trimLeft();
-    return TextEditingValue(
-      text: trimmed,
-      selection: TextSelection.collapsed(offset: trimmed.length),
-    );
   }
 }

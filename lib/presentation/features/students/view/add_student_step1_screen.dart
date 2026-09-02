@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
@@ -19,9 +20,9 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/students/util/profile_photo_background.dart';
-import 'package:wowcare/domain/features/student/entities/student.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/domain/features/student/entities/student.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_create_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/utils/classroom_age_range.dart';
@@ -78,6 +79,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
   String? _calculatedAgeLabel;
   bool _isSubmitting = false;
 
+  final StudentCreateCubit _createCubit = serviceLocator<StudentCreateCubit>();
+
   final List<String> _statusOptions = ['Active', 'Upcoming'];
 
   bool get _isActive => (_selectedStatus ?? '').toLowerCase() == 'active';
@@ -106,6 +109,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
+    _createCubit.close();
     super.dispose();
   }
 
@@ -416,8 +420,6 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
       if (schoolCode.isEmpty) return true;
 
-      final repo = serviceLocator<StudentRepository>();
-
       String norm(String s) => s.trim().toLowerCase();
       final firstNorm = norm(firstName);
       final lastNorm = norm(lastName);
@@ -427,7 +429,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       int pageIndex = 0;
       bool hasMore = true;
       while (hasMore && pageIndex < _duplicateQueryMaxPages) {
-        final page = await repo.getStudentPage(
+        final page = await _createCubit.fetchStudentPage(
           schoolCode: schoolCode,
           firstName: firstName,
           lastName: lastName,
@@ -509,7 +511,6 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
     if (schoolCode.isEmpty) return <Student>[];
 
-    final repo = serviceLocator<StudentRepository>();
     String norm(String s) => s.trim().toLowerCase();
     final firstNorm = norm(firstName);
     final lastNorm = norm(lastName);
@@ -518,7 +519,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     int pageIndex = 0;
     bool hasMore = true;
     while (hasMore && pageIndex < _duplicateQueryMaxPages) {
-      final page = await repo.getStudentPage(
+      final page = await _createCubit.fetchStudentPage(
         schoolCode: schoolCode,
         lastName: lastName,
         page: pageIndex,
@@ -590,9 +591,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final organizationCode =
           await storage.getString(StorageKeys.organizationCode) ?? '';
 
-      final repo = serviceLocator<StudentRepository>();
-
-      final Student student = await repo.createStudent(
+      final Student student = await _createCubit.createStudent(
         schoolCode: schoolCode,
         firstName: firstName,
         lastName: lastName,
@@ -621,7 +620,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       // (POST /api/v1/student/{code}/add-sibling).
       if (siblingCodesToLink.isNotEmpty) {
         try {
-          await repo.addStudentSibling(
+          await _createCubit.addStudentSibling(
             studentCode: student.code,
             siblingCodes: siblingCodesToLink,
           );
@@ -709,7 +708,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       if (addAnother == true) {
         if (!mounted) return;
         final storage = serviceLocator<StorageService>();
-        final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
+        final schoolCode =
+            await storage.getString(StorageKeys.schoolCode) ?? '';
         if (!mounted) return;
 
         final nextParentResult = await Navigator.push<bool>(
@@ -789,7 +789,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     try {
       if (schedule is Map) {
         final storage = serviceLocator<StorageService>();
-        final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
+        final schoolCode =
+            await storage.getString(StorageKeys.schoolCode) ?? '';
         final rawSchedule = Map<String, dynamic>.from(schedule);
         final List<Map<String, dynamic>> payloadSchedule = [];
 
@@ -1324,55 +1325,6 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class NameCapitalizationFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    String text = newValue.text;
-
-    // Remove trailing spaces
-    text = text.replaceFirst(
-      RegExp(r"\s+"),
-      ' ',
-    ); // collapse multiple spaces inside
-    text = text.replaceAll(RegExp(r"\s{2,}"), ' ');
-    text = text.replaceAll(RegExp(r"\s+\z"), '');
-
-    if (text.isEmpty) {
-      return newValue.copyWith(
-        text: text,
-        selection: const TextSelection.collapsed(offset: 0),
-      );
-    }
-
-    // Enforce first letter uppercase, remaining lowercase
-    final firstChar = text[0].toUpperCase();
-    final rest = text.length > 1 ? text.substring(1).toLowerCase() : '';
-    final formatted = firstChar + rest;
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
-
-class TrimFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final trimmed = newValue.text.trimLeft();
-    return TextEditingValue(
-      text: trimmed,
-      selection: TextSelection.collapsed(offset: trimmed.length),
     );
   }
 }

@@ -197,6 +197,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
   bool _isFeedRequestInFlight = false;
   bool _forceAllClassroomsOnLoad = false;
   String? _lastFeedRequestKey;
+  int _feedGeneration = 0;
   String? _lastGlobalSelectedStudentCode;
   DateTime? _lastFeedCompletedAt;
   bool _lastFeedCompletedWithError = false;
@@ -496,8 +497,19 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         message: state.message,
         isSuccess: true,
       );
-      // Approve/reject change the feed; delete does not refresh (matches prior).
-      if (state.action != ActivityModerationAction.delete) {
+      // Approve/reject change the feed → refetch authoritative data. Delete
+      // reconciles locally: remove the deleted card so it doesn't linger until
+      // a manual refresh.
+      if (state.action == ActivityModerationAction.delete) {
+        final removed = state.code.trim();
+        if (removed.isNotEmpty) {
+          setState(() {
+            activities.removeWhere(
+              (a) => (a.activityCode ?? '').trim() == removed,
+            );
+          });
+        }
+      } else {
         _loadRangeFeed(refresh: true);
       }
     } else if (state is ActivityModerationFailure) {
@@ -1012,6 +1024,14 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     return _sortItemsByLatestFirst(_withClientFilters(out));
   }
 
+  /// Snapshot taken when a feed load starts; a response must be DISCARDED if the
+  /// widget is gone, a newer load has superseded this one (generation bumped by a
+  /// refresh / filter / date-range / classroom change), or the active school
+  /// changed mid-flight (live school switch). Prevents cross-school leakage and
+  /// last-to-return-wins races.
+  bool _isStaleFeedResponse(int gen, String? schoolAtStart) =>
+      !mounted || gen != _feedGeneration || _schoolCode != schoolAtStart;
+
   Future<void> _loadNextRangeFeedPage() async {
     if (_loadingMoreFeed || !_feedHasMore || _isFeedRequestInFlight) return;
 
@@ -1051,6 +1071,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
 
     _loadingMoreFeed = true;
     if (mounted) setState(() {});
+    final feedGen = _feedGeneration;
+    final feedSchoolAtStart = _schoolCode;
 
     try {
       final selectedStudentCode =
@@ -1138,7 +1160,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       ];
       final sortedItems = _sortItemsByLatestFirst(items);
 
-      if (!mounted) return;
+      if (_isStaleFeedResponse(feedGen, feedSchoolAtStart)) return;
       setState(() {
         activities.addAll(sortedItems);
         final grouped = _sortItemsByLatestFirst(
@@ -1149,7 +1171,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         );
         activities
           ..clear()
-          ..addAll(grouped);
+          ..addAll(dedupeActivitiesByStableId(grouped));
         _feedHasMore =
             (attendancePage?.hasMore ?? false) ||
             (absentPage?.hasMore ?? false) ||
@@ -1163,7 +1185,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
           showOnScreen: true,
           context: context,
         );
-        setState(() => _feedHasMore = false);
+        if (!_isStaleFeedResponse(feedGen, feedSchoolAtStart)) {
+          setState(() => _feedHasMore = false);
+        }
       }
     } finally {
       _loadingMoreFeed = false;
@@ -1224,6 +1248,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
 
     _isFeedRequestInFlight = true;
     _lastFeedRequestKey = requestKey;
+    final feedGen = ++_feedGeneration;
+    final feedSchoolAtStart = school;
 
     try {
       final signInAtFilter =
@@ -1320,7 +1346,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       ];
       final sortedItems = _sortItemsByLatestFirst(items);
 
-      if (!mounted) {
+      if (_isStaleFeedResponse(feedGen, feedSchoolAtStart)) {
         _isFeedRequestInFlight = false;
         return;
       }
@@ -1328,10 +1354,12 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         activities
           ..clear()
           ..addAll(
-            _sortItemsByLatestFirst(
-              groupMultiStudentFeedItems(
-                sortedItems,
-                attendanceRequireDateAndTimeMatch: true,
+            dedupeActivitiesByStableId(
+              _sortItemsByLatestFirst(
+                groupMultiStudentFeedItems(
+                  sortedItems,
+                  attendanceRequireDateAndTimeMatch: true,
+                ),
               ),
             ),
           );
@@ -1350,7 +1378,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         (_) => _maybeLoadNextRangeFeedPage(),
       );
     } catch (e) {
-      if (!mounted) {
+      if (_isStaleFeedResponse(feedGen, feedSchoolAtStart)) {
         _isFeedRequestInFlight = false;
         return;
       }
@@ -1387,6 +1415,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
 
     _loadingMoreFeed = true;
     if (mounted) setState(() {});
+    final feedGen = _feedGeneration;
+    final feedSchoolAtStart = school;
 
     try {
       final signInAtFilter =
@@ -1483,7 +1513,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       ];
       final sortedItems = _sortItemsByLatestFirst(items);
 
-      if (!mounted) return;
+      if (_isStaleFeedResponse(feedGen, feedSchoolAtStart)) return;
       setState(() {
         activities.addAll(sortedItems);
         final grouped = _sortItemsByLatestFirst(
@@ -1494,7 +1524,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         );
         activities
           ..clear()
-          ..addAll(grouped);
+          ..addAll(dedupeActivitiesByStableId(grouped));
         _feedHasMore =
             (attendancePage?.hasMore ?? false) ||
             (absentPage?.hasMore ?? false) ||
@@ -1508,7 +1538,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
           showOnScreen: true,
           context: context,
         );
-        setState(() => _feedHasMore = false);
+        if (!_isStaleFeedResponse(feedGen, feedSchoolAtStart)) {
+          setState(() => _feedHasMore = false);
+        }
       }
     } finally {
       _loadingMoreFeed = false;
@@ -2536,6 +2568,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
 
     _isFeedRequestInFlight = true;
     _lastFeedRequestKey = requestKey;
+    final feedGen = ++_feedGeneration;
+    final feedSchoolAtStart = _schoolCode;
 
     try {
       final signInAtFilter =
@@ -2630,14 +2664,14 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       ];
       final sortedItems = _sortItemsByLatestFirst(items);
 
-      if (!mounted) {
+      if (_isStaleFeedResponse(feedGen, feedSchoolAtStart)) {
         _isFeedRequestInFlight = false;
         return;
       }
       setState(() {
         activities
           ..clear()
-          ..addAll(sortedItems);
+          ..addAll(dedupeActivitiesByStableId(sortedItems));
         _feedError = null;
         _feedHasMore =
             (attendancePage?.hasMore ?? false) ||
@@ -2755,7 +2789,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         // Students/settings are non-blocking after the feed is shown.
       }
     } catch (e) {
-      if (!mounted) {
+      if (_isStaleFeedResponse(feedGen, feedSchoolAtStart)) {
         _isFeedRequestInFlight = false;
         return;
       }

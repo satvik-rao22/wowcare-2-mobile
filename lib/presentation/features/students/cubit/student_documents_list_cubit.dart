@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/network/file_download_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 
 import '../../../../domain/features/student/entities/student_document.dart';
@@ -12,14 +13,23 @@ class StudentDocumentsListCubit extends Cubit<StudentDocumentsListState> {
     required GetStudentDocumentsUseCase getStudentDocumentsUseCase,
     required DeleteStudentDocumentUseCase deleteStudentDocumentUseCase,
     required StudentRepository repository,
+    FileDownloadService? fileDownloadService,
   })  : _getStudentDocumentsUseCase = getStudentDocumentsUseCase,
         _deleteStudentDocumentUseCase = deleteStudentDocumentUseCase,
         _repository = repository,
+        _fileDownloadService = fileDownloadService ?? FileDownloadService(),
         super(const StudentDocumentsListState.initial());
 
   final GetStudentDocumentsUseCase _getStudentDocumentsUseCase;
   final DeleteStudentDocumentUseCase _deleteStudentDocumentUseCase;
   final StudentRepository _repository;
+  final FileDownloadService _fileDownloadService;
+
+  /// Downloads a resolved document URL to [savePath]. Kept off the View (which
+  /// must not construct a Dio) and off the authenticated API client (the URL is
+  /// a pre-signed external link — see [FileDownloadService]).
+  Future<void> downloadFile(String url, String savePath) =>
+      _fileDownloadService.downloadToFile(url, savePath);
 
   static const int _pageSize = 10;
 
@@ -121,7 +131,14 @@ class StudentDocumentsListCubit extends Cubit<StudentDocumentsListState> {
     }
   }
 
+  /// Document UUIDs whose delete is in flight — a second tap on the same
+  /// document while the first delete is still running is ignored, so the cubit
+  /// enforces single-flight independently of any UI disabling.
+  final Set<String> _deletingDocuments = <String>{};
+
   Future<String?> deleteDocument(String studentCode, String documentUuid) async {
+    if (_deletingDocuments.contains(documentUuid)) return null;
+    _deletingDocuments.add(documentUuid);
     try {
       final result = await _deleteStudentDocumentUseCase.call(
         documentUuid: documentUuid,
@@ -139,6 +156,8 @@ class StudentDocumentsListCubit extends Cubit<StudentDocumentsListState> {
       );
     } catch (e) {
       return ApiErrorHandler.extractErrorMessage(e);
+    } finally {
+      _deletingDocuments.remove(documentUuid);
     }
   }
 }

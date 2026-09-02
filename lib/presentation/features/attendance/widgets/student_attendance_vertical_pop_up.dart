@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_mark_absent_form.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
@@ -80,9 +85,8 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
     // Use the shared GradientAddButton for consistent FAB styling.
     // Mirror the responsive sizing used in StaffScreen by deriving
     // tablet breakpoints from the current screen width.
-    final screenWidth = MediaQuery.of(context).size.width;
-    final bool isTablet = screenWidth >= 600;
-    final bool isLargeTablet = screenWidth >= 900;
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
+    final bool isLargeTablet = ResponsiveHelper(context).isWide;
 
     return GradientAddButton(
       onTap: () =>
@@ -97,16 +101,15 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
     Set<String> activeDisabledActions,
     Map<String, String> activeReasons,
   ) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final bool isTablet = screenWidth >= 600;
-    final bool isLargeTablet = screenWidth >= 900;
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
+    final bool isLargeTablet = ResponsiveHelper(context).isWide;
     final double buttonSize = isLargeTablet ? 72.0 : (isTablet ? 56.0 : 40.0);
     showDialog(
       context: context,
       barrierDismissible: true,
       builder: (BuildContext context) {
         return Dialog(
-          backgroundColor: Colors.transparent,
+          backgroundColor: AppColors.transparentColor,
           elevation: 0,
           // Pin to the top-right so the menu sits flush below the + button
           // instead of being vertically centered in the inset band.
@@ -117,13 +120,13 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
             right: rightPosition ?? 16,
           ),
           child: Container(
-            padding: const EdgeInsets.all(2),
+            padding: const EdgeInsets.all(AppSpacing.s2),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: AppRadius.allMd,
               gradient: AppColors.buildPrimaryGradient(),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
+                  color: AppColors.attendanceCardShadowColor,
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -139,10 +142,10 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
                 // scroll view below guards genuinely tiny screens.
                 maxHeight: MediaQuery.of(context).size.height * 0.9,
               ),
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
+                color: AppColors.cardColor,
+                borderRadius: BorderRadius.circular(AppRadius.r10),
               ),
               child: SingleChildScrollView(
                 child: Column(
@@ -155,7 +158,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
                     activeDisabledActions,
                     activeReasons,
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: AppSpacing.s5),
                   _buildMenuItem(
                     context,
                     MediaRes.Sign_out,
@@ -163,7 +166,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
                     activeDisabledActions,
                     activeReasons,
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: AppSpacing.s5),
                   _buildMenuItem(
                     context,
                     MediaRes.transfer,
@@ -171,7 +174,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
                     activeDisabledActions,
                     activeReasons,
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: AppSpacing.s5),
                   _buildMenuItem(
                     context,
                     MediaRes.Mark_absent,
@@ -215,15 +218,15 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
           Opacity(
             opacity: isDisabled ? 0.45 : 1,
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 5),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
               decoration: BoxDecoration(
-                color: Colors.blue.withValues(alpha: 0.1),
+                color: AppColors.attendanceInfoHighlightColor,
                 shape: BoxShape.circle,
               ),
-              child: SvgPicture.asset(svgPath, height: 24, width: 24),
+              child: SvgPicture.asset(svgPath, height: AppDimensions.iconMd, width: AppDimensions.iconMd),
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: AppSpacing.s5),
           Opacity(
             opacity: isDisabled ? 0.5 : 1,
             child: Text(
@@ -256,28 +259,25 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
       return;
     }
 
-    Widget? form;
+    String? path;
 
     switch (label) {
       case 'Sign-in':
-        form = const StudentSelectionSignInForm();
+        path = '/attendance/student-selection-sign-in';
         break;
       case 'Sign-Out':
-        form = const StudentSelectionSignOutForm();
+        path = '/attendance/student-selection-sign-out';
         break;
       case 'Transfer':
-        form = const StudentSelectionTransferForm();
+        path = '/attendance/student-selection-transfer';
         break;
       case 'Absent':
-        form = const StudentSelectionMarkAbsentForm();
+        path = '/attendance/student-selection-mark-absent';
         break;
     }
 
-    if (form != null) {
-      Navigator.push<void>(
-        context,
-        MaterialPageRoute(builder: (_) => form!),
-      ).then((_) {
+    if (path != null) {
+      context.push(path).then((_) {
         refreshCallback();
       });
     }

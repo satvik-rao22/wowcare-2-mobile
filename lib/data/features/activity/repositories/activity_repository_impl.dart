@@ -3,13 +3,16 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import '../../../../core/util/activity_feed_invalidation.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/activity/entities/activity_asset_presign.dart';
+import '../../../../domain/features/activity/entities/activity_attachment.dart';
 import '../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
+import '../../../../domain/features/activity/entities/activity_parameter_value.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../../../domain/features/activity/entities/activity_type_summary.dart';
 import '../../../../domain/features/activity/entities/activity_upload_session.dart';
 import '../../../../domain/features/activity/repositories/activity_repository.dart';
+import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
 import '../datasources/activity_remote_datasource.dart';
 import '../models/activity_settings_models.dart';
 
@@ -225,7 +228,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
     required String staffCode,
     required String activityDate,
     required String description,
-    List<Map<String, dynamic>> parameterValues = const [],
+    List<ActivityParameterValue> parameterValues = const [],
     List<Map<String, dynamic>> attachments = const [],
   }) async {
     final message = await _remoteDataSource.updateActivity(
@@ -235,7 +238,9 @@ class ActivityRepositoryImpl implements ActivityRepository {
       staffCode: staffCode,
       activityDate: activityDate,
       description: description,
-      parameterValues: parameterValues,
+      // Typed parameter values converted to the wire Map shape here so the
+      // update datasource call — and the JSON on the wire — stay identical.
+      parameterValues: parameterValues.map((p) => p.toPayload()).toList(),
       attachments: attachments,
     );
     await ActivityFeedInvalidation.invalidate(_storageService);
@@ -309,13 +314,17 @@ class ActivityRepositoryImpl implements ActivityRepository {
     String? napReminderUserCode,
     String? napReminderRole,
     bool? requireAdminApproval,
-    List<Map<String, dynamic>> parameterValues = const [],
-    List<Map<String, dynamic>> attachments = const [],
+    List<ActivityParameterValue> parameterValues = const [],
+    List<ActivityAttachment> attachments = const [],
   }) async {
+    // Trim + drop-empty + de-duplicate student codes before both the payload and
+    // the binding-mode derivation: a repeated student must not inflate the
+    // request or flip bindingMode to SHARED for what is really one student.
+    final normalizedStudentCodes = _dedupedStudentCodes(studentCodes);
     final request = ActivityCreateRequestModel(
       activityTypeCode: activityTypeCode,
       classroomCode: classroomCode,
-      studentCodes: studentCodes,
+      studentCodes: normalizedStudentCodes,
       staffCode: staffCode,
       schoolCode: schoolCode,
       organizationCode: organizationCode,
@@ -328,14 +337,31 @@ class ActivityRepositoryImpl implements ActivityRepository {
       napReminderRole: napReminderRole,
       requireAdminApproval: requireAdminApproval,
       // v2 binding mode enum: PER_STUDENT (single), SHARED (multiple).
-      bindingMode: studentCodes.length > 1 ? 'SHARED' : 'PER_STUDENT',
-      parameterValues: parameterValues,
-      attachments: attachments,
+      bindingMode: normalizedStudentCodes.length > 1 ? 'SHARED' : 'PER_STUDENT',
+      // Typed parameter values converted to the wire Map shape here so
+      // ActivityCreateRequestModel — and the JSON on the wire — stay identical.
+      parameterValues: parameterValues.map((p) => p.toPayload()).toList(),
+      // Typed attachments converted to the wire Map shape here so
+      // ActivityCreateRequestModel — and the JSON on the wire — stay identical.
+      attachments: attachments.map((a) => a.toPayload()).toList(),
     );
 
     final message = await _remoteDataSource.createActivity(request: request);
     await ActivityFeedInvalidation.invalidate(_storageService);
     return message;
+  }
+
+  /// Order-preserving trim + drop-empty + de-duplicate for student codes.
+  /// Mirrors the datasource's normalization used on the update/feed paths so the
+  /// create/shared paths carry the same identity guarantees.
+  List<String> _dedupedStudentCodes(List<String> codes) {
+    final out = <String>[];
+    for (final c in codes) {
+      final v = c.trim();
+      if (v.isEmpty || out.contains(v)) continue;
+      out.add(v);
+    }
+    return out;
   }
 
   @override
@@ -349,13 +375,16 @@ class ActivityRepositoryImpl implements ActivityRepository {
     required String activityDate,
     required String description,
     bool? requireAdminApproval,
-    required List<Map<String, dynamic>> attachments,
-    List<Map<String, dynamic>> parameterValues = const [],
+    required List<ActivityAttachment> attachments,
+    List<ActivityParameterValue> parameterValues = const [],
   }) async {
+    // Trim + drop-empty + de-duplicate before payload and binding-mode (see
+    // createActivity): a duplicated single student must not become SHARED.
+    final normalizedStudentCodes = _dedupedStudentCodes(studentCodes);
     final payload = <String, dynamic>{
       'activityTypeCode': activityTypeCode,
       'classroomCode': classroomCode,
-      'studentCodes': studentCodes,
+      'studentCodes': normalizedStudentCodes,
       'staffCode': staffCode,
       'schoolCode': schoolCode,
       'organizationCode': organizationCode,
@@ -364,11 +393,17 @@ class ActivityRepositoryImpl implements ActivityRepository {
       // v2 binding mode enum: PER_STUDENT (single), SHARED (multiple) — must
       // match the asset owner the photo screen presigned (STUDENT vs CLASSROOM).
       // Previously hardcoded 'SHARED', which mismatched a single-student asset.
-      'bindingMode': studentCodes.length > 1 ? 'SHARED' : 'PER_STUDENT',
+      'bindingMode': normalizedStudentCodes.length > 1 ? 'SHARED' : 'PER_STUDENT',
       if (requireAdminApproval != null)
         'requireAdminApproval': requireAdminApproval,
-      if (parameterValues.isNotEmpty) 'parameterValues': parameterValues,
-      'attachments': attachments,
+      // Typed parameter values converted to the wire Map shape here so the
+      // shared payload JSON stays byte-for-byte identical (key present only
+      // when non-empty, exactly as before).
+      if (parameterValues.isNotEmpty)
+        'parameterValues': parameterValues.map((p) => p.toPayload()).toList(),
+      // Typed attachments converted to the wire Map shape here so the shared
+      // payload JSON stays byte-for-byte identical.
+      'attachments': attachments.map((a) => a.toPayload()).toList(),
     };
 
     final cards = await _remoteDataSource.createSharedActivities(payload: payload);
@@ -423,6 +458,25 @@ class ActivityRepositoryImpl implements ActivityRepository {
   @override
   Future<int> getPendingIncidentCount() {
     return _remoteDataSource.getPendingIncidentCount();
+  }
+
+  @override
+  Future<List<StudentAttendanceCustomItem>> getMarkActivityStudentList({
+    required String attendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    int page = 0,
+    int size = 200,
+    required String selectedClassroomCode,
+  }) {
+    return _remoteDataSource.getMarkActivityStudentList(
+      attendanceDate: attendanceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      page: page,
+      size: size,
+      selectedClassroomCode: selectedClassroomCode,
+    );
   }
 }
 

@@ -1,9 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -11,8 +12,10 @@ import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_absent_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/delete_staff_absence_record_usecase.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_absent.dart';
+import 'package:wowcare/domain/features/attendance/entities/staff_sign_in_request.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -23,9 +26,11 @@ import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_submit_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_submit_state.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_gate_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_gate_state.dart';
 import 'staff_entity.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
@@ -76,303 +81,92 @@ class StaffSignInForm extends StatefulWidget {
 }
 
 class _StaffSignInFormState extends State<StaffSignInForm> {
-  DateTime selectedDate = ServerTimeService.instance.now();
-  TimeOfDay selectedTime = ServerTimeService.instance.timeOfDayNow();
-  String? _schoolIana;
-  List<StaffEntity> _selectedStaff = [];
-  bool _isSubmitting = false;
-  bool? _isStaffAdminPersona; // Admin can change time to past, but not future.
-  bool?
-  _isAdminRole; // Determines if staff can select other staff or only themselves
-  Map<String, bool> _expectedTodayFromApi = {};
-  bool _unexpectedGateLoading = true;
-  bool _unexpectedSignInAcknowledged = false;
-  String _notExpectedComment = '';
-  int _unexpectedGateToken = 0;
-  String?
-  _currentStaffCode; // Current user's staff code - for self-only validation
+  /// Owns the sign-in submit call (View -> Cubit -> UseCase -> Repository).
+  /// Eagerly resolved so [dispose] can always close it.
+  final StaffSignInSubmitCubit _submitCubit =
+      serviceLocator<StaffSignInSubmitCubit>();
+
+  /// Owns ALL of the form's business state (date/time, school zone, persona,
+  /// current staff, unexpected-sign-in gate). The View is now stateless
+  /// (no `setState`) and reads everything via `BlocBuilder`. Dialog + navigation
+  /// stay here in the View — the cubit never touches [BuildContext].
+  final StaffSignInGateCubit _gateCubit =
+      serviceLocator<StaffSignInGateCubit>();
+
+  /// Pure re-entrancy guard for the submit handler — NOT UI state (the button's
+  /// disabled/spinner reads [_submitCubit]'s InProgress). This spans the whole
+  /// operation (pre-submit steps included), so a double-tap during the pre-step
+  /// window can't fire two submits — the guarantee the old local `_isSubmitting`
+  /// gave, which the submit cubit's InProgress (which starts only at submit())
+  /// does not cover.
+  bool _submitInFlight = false;
 
   @override
   void initState() {
     super.initState();
-    // Initialize with empty list - will be populated after role check
-    _selectedStaff = <StaffEntity>[];
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_initializeFormData());
     });
   }
 
-  String _naiveCalendarYyyyMmDd(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  @override
+  void dispose() {
+    _gateCubit.close();
+    _submitCubit.close();
+    super.dispose();
+  }
 
-  /// Initializes form data in proper order:
-  /// 1. Load current staff code from storage (or use provided kiosk staffCode)
-  /// 2. Initialize school/persona settings
-  /// 3. Pre-populate self if non-admin and no staff was resolved from widget params
-  ///    (covers both QR and GPS flows — regular staff can only sign in themselves)
+  /// Initializes form data in proper order (identical to the widget's original
+  /// orchestration, now driving the cubit):
+  /// 1. Load current staff code (kiosk staffCode, else storage)
+  /// 2. Initialize school/persona settings + selection restrictions
+  /// 3. Run the unexpected-sign-in gate (dialog + nav owned here)
+  /// 4. Pre-populate self if non-admin/QR/GPS/kiosk and no staff resolved yet
   Future<void> _initializeFormData() async {
-    // First: Load the current staff code
-    final staffCode = widget.isKiosk && widget.staffCode != null
-        ? widget.staffCode!.trim()
-        : (await serviceLocator<StorageService>().getString(
-                StorageKeys.staffCode,
-              ))?.trim() ??
-              '';
+    await _gateCubit.loadCurrentStaffCode(
+      isKiosk: widget.isKiosk,
+      kioskStaffCode: widget.staffCode,
+    );
     if (!mounted) return;
-    setState(() {
-      _currentStaffCode = staffCode.isNotEmpty ? staffCode : null;
-    });
+    // The View resolves the persona — RoleCubit's active persona is the
+    // canonical, persona-switch-aware signal and needs BuildContext.
+    final isStaffAdmin = !context.read<RoleCubit>().isStaff;
+    await _gateCubit.initializeSchoolAndPersona(
+      isStaffAdminPersona: isStaffAdmin,
+      staff: widget.staff,
+      staffList: widget.staffList,
+    );
+    if (!mounted) return;
+    await _runGate();
+    if (!mounted) return;
+    await _gateCubit.applyExtraSelfPrefill(
+      isKiosk: widget.isKiosk,
+      kioskStaffName: widget.staffName,
+      forceSelf: widget.forceSelf,
+      qrToken: widget.qrToken,
+    );
+  }
 
-    // Then: Initialize school and persona
-    await _initializeSchoolAndPersona();
-
-    // Non-admin staff (QR or GPS or KIOSK): if no staff pre-populated, pre-fill with self.
-    // Also applies to admin scanning QR or opening from GPS (forceSelf=true).
-    final isAdmin = _isAdminRole ?? false;
-    final isQrFlow = widget.qrToken.isNotEmpty;
-    final isKioskFlow = widget.isKiosk;
-    if (mounted &&
-        ((!isAdmin || isQrFlow || widget.forceSelf || isKioskFlow) &&
-            _selectedStaff.isEmpty &&
-            _currentStaffCode != null)) {
-      final displayName = isKioskFlow
-          ? (widget.staffName?.trim() ?? 'Staff')
-          : (await serviceLocator<StorageService>().getString(
-                  StorageKeys.displayName,
-                ))?.trim() ??
-                '';
-      AppLogger.d(
-        '[StaffSignIn] Kiosk=$isKioskFlow, DisplayName=$displayName, StaffName=${widget.staffName}',
+  /// Runs the cubit's expected-today fetch (token cancellation lives in the
+  /// cubit), then owns the dialog + navigation the cubit cannot: a superseded
+  /// resolve does nothing; a current result that needs the dialog shows it and
+  /// either acknowledges (confirm) or pops the screen (cancel).
+  Future<void> _runGate() async {
+    final outcome = await _gateCubit.resolveExpectedToday();
+    if (!mounted || outcome.superseded) return;
+    if (outcome.needsDialog) {
+      final result = await showUnexpectedSignInAttentionDialog(
+        context,
+        unexpectedFullNames: outcome.unexpectedNames,
+        forStaff: true,
       );
       if (!mounted) return;
-      setState(() {
-        _selectedStaff = [
-          StaffEntity(
-            id: 0,
-            name: displayName,
-            primaryRoomId: 0,
-            classroomCode: '',
-            classroomName: '',
-            photoUuid: '',
-            designation: 'Staff',
-            staffCode: _currentStaffCode,
-            isExpectedToday: true,
-          ),
-        ];
-      });
-    }
-  }
-
-  Future<void> _initializeSchoolAndPersona() async {
-    final z = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
-    );
-    if (!mounted) return;
-    setState(() {
-      _schoolIana = z;
-    });
-    _setCurrentDateTimeFromSchool();
-
-    // Check if user is admin - determines if staff selection is allowed
-    final isAdmin = await _resolveIsStaffAdminPersona();
-    final isAdminRole = await _checkIsAdminRole();
-    if (!mounted) return;
-    setState(() {
-      _isStaffAdminPersona = isAdmin;
-      _isAdminRole = isAdminRole;
-    });
-
-    // Apply staff selection restrictions based on role
-    _applyStaffSelectionRestrictions(isAdminRole);
-
-    await _runUnexpectedSignInGate();
-  }
-
-  /// Checks if the current user has admin role (director, admin, principal).
-  /// Regular staff can only sign in themselves after QR validation.
-  Future<bool> _checkIsAdminRole() async {
-    final storage = serviceLocator<StorageService>();
-    final role = (await storage.getString(StorageKeys.activeSchoolRole) ?? '')
-        .trim()
-        .toUpperCase();
-    return role.contains('DIRECTOR') ||
-        role.contains('ADMIN') ||
-        role.contains('PRINCIPAL');
-  }
-
-  /// Applies staff selection restrictions:
-  /// - Admin: Can select multiple staff members
-  /// - Regular Staff: Can ONLY sign in themselves (self-only)
-  void _applyStaffSelectionRestrictions(bool isAdmin) {
-    if (isAdmin) {
-      // Admin can sign in multiple staff members
-      if (widget.staffList != null && widget.staffList!.isNotEmpty) {
-        setState(() {
-          _selectedStaff = List<StaffEntity>.from(widget.staffList!);
-        });
-      } else if (widget.staff != null) {
-        setState(() {
-          _selectedStaff = <StaffEntity>[widget.staff!];
-        });
-      }
-    } else {
-      // Regular staff: SELF-ONLY sign-in after QR validation
-      // Find the current staff member from the staff list
-      StaffEntity? currentStaff;
-      if (_currentStaffCode != null &&
-          _currentStaffCode!.isNotEmpty &&
-          widget.staffList != null) {
-        try {
-          currentStaff = widget.staffList!.firstWhere(
-            (staff) => (staff.staffCode ?? '').trim() == _currentStaffCode,
-          );
-        } catch (_) {
-          // Staff not found in list
-          currentStaff = widget.staff;
-        }
+      if (result?.confirmed == true) {
+        _gateCubit.acknowledgeUnexpected(result?.comment ?? '');
       } else {
-        currentStaff = widget.staff;
-      }
-
-      if (currentStaff != null) {
-        setState(() {
-          _selectedStaff = <StaffEntity>[currentStaff!];
-        });
+        Navigator.of(context).pop();
       }
     }
-  }
-
-  void _setCurrentDateTimeFromSchool() {
-    final now = ServerTimeService.instance.now();
-    setState(() {
-      selectedDate = now;
-      selectedTime = TimeOfDay(hour: now.hour, minute: now.minute);
-    });
-  }
-
-  bool _hasUnexpectedAmongSelected() {
-    for (final s in _selectedStaff) {
-      final code = (s.staffCode ?? '').trim();
-      if (code.isEmpty) continue;
-      final expected = _expectedTodayFromApi[code] ?? s.isExpectedToday;
-      if (!expected) return true;
-    }
-    return false;
-  }
-
-  List<String> _unexpectedStaffFullNames() {
-    final out = <String>[];
-    for (final s in _selectedStaff) {
-      final code = (s.staffCode ?? '').trim();
-      if (code.isEmpty) continue;
-      final expected = _expectedTodayFromApi[code] ?? s.isExpectedToday;
-      if (!expected) out.add(s.name);
-    }
-    return out;
-  }
-
-  Future<void> _runUnexpectedSignInGate() async {
-    if (!mounted) return;
-    if (_selectedStaff.isEmpty) {
-      setState(() {
-        _unexpectedGateLoading = false;
-        _unexpectedSignInAcknowledged = true;
-      });
-      return;
-    }
-    final token = ++_unexpectedGateToken;
-    setState(() {
-      _unexpectedGateLoading = true;
-    });
-
-    final dateStr = _naiveCalendarYyyyMmDd(selectedDate);
-    try {
-      final map = await _fetchIsExpectedTodayFromSignInFormList(
-        attendanceDate: dateStr,
-      );
-      if (!mounted || token != _unexpectedGateToken) return;
-      setState(() {
-        _expectedTodayFromApi = map;
-      });
-    } catch (_) {
-      if (!mounted || token != _unexpectedGateToken) return;
-      setState(() {
-        _expectedTodayFromApi = {};
-      });
-    }
-
-    if (!mounted || token != _unexpectedGateToken) return;
-
-    if (!_hasUnexpectedAmongSelected()) {
-      setState(() {
-        _unexpectedSignInAcknowledged = true;
-        _unexpectedGateLoading = false;
-      });
-      return;
-    }
-
-    setState(() {
-      _unexpectedSignInAcknowledged = false;
-      _unexpectedGateLoading = false;
-    });
-
-    if (!mounted || token != _unexpectedGateToken) return;
-
-    final result = await showUnexpectedSignInAttentionDialog(
-      context,
-      unexpectedFullNames: _unexpectedStaffFullNames(),
-      forStaff: true,
-    );
-
-    if (!mounted || token != _unexpectedGateToken) return;
-
-    if (result?.confirmed == true) {
-      setState(() {
-        _unexpectedSignInAcknowledged = true;
-        _notExpectedComment = result?.comment ?? '';
-      });
-    } else {
-      Navigator.of(context).pop();
-    }
-  }
-
-  Future<bool> _resolveIsStaffAdminPersona() async {
-    // RoleCubit's active persona is the canonical, persona-switch-aware
-    // signal — staffType/roles in storage can lag a beat after a persona
-    // switch and misresolve a staff/teacher persona as admin (see
-    // AttendancePopup._loadStaffPersonaFlags for the same fix).
-    if (mounted) {
-      return !context.read<RoleCubit>().isStaff;
-    }
-
-    final storage = serviceLocator<StorageService>();
-    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-        .trim()
-        .toUpperCase();
-
-    if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
-      return true;
-    }
-
-    // Fallback: parse roles JSON if staffType isn't cached yet.
-    final rolesJson = await storage.getString(StorageKeys.roles);
-    if (rolesJson == null || rolesJson.trim().isEmpty) return false;
-
-    try {
-      final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
-      for (final r in roles) {
-        final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
-            .toString()
-            .toUpperCase();
-        if (roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN') {
-          return true;
-        }
-      }
-    } catch (_) {
-      // More restrictive default: treat unknown as teacher.
-    }
-    return false;
   }
 
   Future<String> _resolveStaffCode() async {
@@ -384,52 +178,6 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     }
     // Otherwise, resolve from logged-in user
     return resolveStaffCodeForLoggedInUser();
-  }
-
-  /// Loads `staffCode -> isExpectedToday` from the sign-in form list GET API
-  /// for the given calendar date (same contract as the list shown in selection UI).
-  Future<Map<String, bool>> _fetchIsExpectedTodayFromSignInFormList({
-    required String attendanceDate,
-  }) async {
-    final useCase = serviceLocator<GetStaffSignInFormListUseCase>();
-    final page = await useCase(
-      fromAttendanceDate: attendanceDate,
-      toAttendanceDate: attendanceDate,
-      page: 0,
-      size: 500,
-    );
-    return {
-      for (final item in page.items) item.staffCode: item.isExpectedToday,
-    };
-  }
-
-  bool _isExpectedTodayForStaffCode(String code, Map<String, bool> fromApi) {
-    final trimmed = code.trim();
-    if (trimmed.isEmpty) return true;
-    final apiValue = fromApi[trimmed];
-    if (apiValue != null) return apiValue;
-    for (final s in _selectedStaff) {
-      if ((s.staffCode ?? '').trim() == trimmed) {
-        return s.isExpectedToday;
-      }
-    }
-    return true;
-  }
-
-  /// OpenAPI defines a single [isExpectedToday] on the sign-in body (not a per-staff map).
-  /// For one target, use that staff's value. For multiple targets, use the common value if
-  /// all agree; if mixed, default to [true] (the API cannot express per-row flags).
-  bool _requestBodyIsExpectedToday({
-    required List<String> staffCodes,
-    required Map<String, bool> fromApi,
-  }) {
-    if (staffCodes.isEmpty) return true;
-    final vals = staffCodes
-        .map((c) => _isExpectedTodayForStaffCode(c, fromApi))
-        .toList();
-    final first = vals.first;
-    if (vals.every((v) => v == first)) return first;
-    return true;
   }
 
   bool _absenceDateMatchesCalendarDay(
@@ -462,7 +210,6 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     required String actingStaffCode,
     required List<StaffEntity> targets,
   }) async {
-    final repo = serviceLocator<AttendanceRepository>();
     final allItems = <StaffAttendanceAbsentItem>[];
 
     // The absent-form-list lookup is a best-effort PRE-step: it exists only
@@ -474,7 +221,8 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       var page = 0;
       const pageSize = 200;
       while (true) {
-        final absentPage = await repo.getStaffAbsentFormList(
+        final absentPage =
+            await serviceLocator<GetStaffAbsentFormListUseCase>()(
           fromAbsenceDate: attendanceDateYyyyMmDd,
           toAbsenceDate: attendanceDateYyyyMmDd,
           page: page,
@@ -529,7 +277,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         }
       }
 
-      await repo.deleteStaffAbsenceRecord(
+      await serviceLocator<DeleteStaffAbsenceRecordUseCase>()(
         absenceRecordCode: chosen.absenceRecordCode!.trim(),
         staffCode: actingStaffCode,
       );
@@ -538,8 +286,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
   }
 
   Future<void> _handleSubmit() async {
-    if (_isSubmitting) return;
-    if (_selectedStaff.isEmpty) {
+    if (_submitInFlight) return;
+    final selectedStaff = _gateCubit.state.selectedStaff;
+    if (selectedStaff.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: const SnackBar(
@@ -549,10 +298,6 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       );
       return;
     }
-
-    setState(() {
-      _isSubmitting = true;
-    });
 
     final staffCode = await _resolveStaffCode();
     if (!mounted) return;
@@ -564,15 +309,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
           backgroundColor: AppColors.warningColor,
         ),
       );
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
       return;
     }
 
-    final targetStaffCodes = _selectedStaff
+    final targetStaffCodes = selectedStaff
         .map((s) => (s.staffCode ?? '').trim())
         .where((c) => c.isNotEmpty)
         .toList();
@@ -584,16 +324,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
           backgroundColor: AppColors.warningColor,
         ),
       );
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
       return;
     }
 
-    final isStaffAdmin =
-        _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
+    final isStaffAdmin = _gateCubit.state.isStaffAdminPersona ?? false;
 
     final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
       storage: serviceLocator<StorageService>(),
@@ -620,11 +354,6 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
             backgroundColor: AppColors.warningColor,
           ),
         );
-        if (mounted) {
-          setState(() {
-            _isSubmitting = false;
-          });
-        }
         return;
       }
       occurredAt = SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
@@ -638,8 +367,8 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       // so the backend accepts the custom occurredAt.
       occurredAt = SchoolZoneDateTime.resolvePickedInstantUtc(
         schoolTimeZone,
-        selectedDate: selectedDate,
-        selectedTime: selectedTime,
+        selectedDate: _gateCubit.state.selectedDate,
+        selectedTime: _gateCubit.state.selectedTime,
       );
       attendanceDate = SchoolZoneDateTime.yyyyMmDdFromUtcInstant(
         occurredAt,
@@ -655,14 +384,17 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     // backend already rejects an actually-future sign-in; no need to
     // duplicate (and potentially misfire) that check here.
 
-    Map<String, bool> expectedFromApi = <String, bool>{};
+    // Re-fetch expected-today fresh at submit time (as the widget did), falling
+    // back to the gate's cached map on error.
+    Map<String, bool> expectedFromApi;
     try {
-      expectedFromApi = await _fetchIsExpectedTodayFromSignInFormList(
+      expectedFromApi = await _gateCubit.fetchExpectedToday(
         attendanceDate: attendanceDate,
       );
     } catch (_) {
-      // Fall back to cached gate data, then [StaffEntity.isExpectedToday] / true.
-      expectedFromApi = Map<String, bool>.from(_expectedTodayFromApi);
+      expectedFromApi = Map<String, bool>.from(
+        _gateCubit.state.expectedTodayFromApi,
+      );
     }
 
     // QR scan is physical proof of presence — skip GPS geofence check.
@@ -697,7 +429,6 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       }
     }
 
-    late final Map<String, dynamic> payload;
     final bool isQrSignIn = widget.qrToken.isNotEmpty;
     // The dashboard's personal sign-in card (forceSelf) is a GPS sign-in for
     // both admin and staff personas — only the admin bulk picker flow reports
@@ -716,34 +447,43 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     // endpoint always forces "now".
     final bool useSelfEndpoint = !isStaffAdmin || isQrSignIn;
 
+    // Resolve the values the two shapes share into locals (keeping every guard
+    // above), then assemble a typed StaffSignInRequest whose toPayload()
+    // reproduces the exact payload map this form used to build for each shape.
+    final double latitude = position?.latitude ?? 0;
+    final double longitude = position?.longitude ?? 0;
+    final String occurredAtIso = occurredAt.toUtc().toIso8601String();
+    final String notExpectedCommentRaw = _gateCubit.state.notExpectedComment;
+    final String? notExpectedComment = notExpectedCommentRaw.trim().isNotEmpty
+        ? notExpectedCommentRaw.trim()
+        : null;
+
+    final StaffSignInRequest request;
     if (useSelfEndpoint) {
       // Self sign-in: matches POST /staff-attendance-records/sign-in/self body.
-      payload = <String, dynamic>{
-        'staffCode': staffCode,
-        'method': widget.isKiosk ? 'PIN' : signInMethod,
-        'latitude': position?.latitude ?? 0,
-        'longitude': position?.longitude ?? 0,
-        'withinGeofence': withinGeofence,
-        'timeZone': schoolTimeZone,
-        'occurredAt': occurredAt.toUtc().toIso8601String(),
-        'isExpectedToday': _isExpectedTodayForStaffCode(
+      request = StaffSignInRequest(
+        mode: StaffSignInMode.self,
+        staffCode: staffCode,
+        signInMethod: signInMethod,
+        latitude: latitude,
+        longitude: longitude,
+        withinGeofence: withinGeofence,
+        timeZone: schoolTimeZone,
+        occurredAtIso: occurredAtIso,
+        isExpectedToday: _gateCubit.isExpectedTodayForStaffCode(
           staffCode,
           expectedFromApi,
         ),
-      };
-      if (widget.isKiosk && widget.pin != null) {
-        payload['pin'] = widget.pin;
-      } else if (isQrSignIn) {
-        payload['qrToken'] = widget.qrToken;
-      }
-      if (_notExpectedComment.trim().isNotEmpty) {
-        payload['notExpectedComment'] = _notExpectedComment.trim();
-      }
+        isKiosk: widget.isKiosk,
+        pin: widget.pin,
+        qrToken: isQrSignIn ? widget.qrToken : null,
+        notExpectedComment: notExpectedComment,
+      );
     } else {
       // Admin bulk sign-in: supports signing in other staff.
       final staffCodes = targetStaffCodes;
       final classroomCodeByStaffCode = <String, String>{
-        for (final s in _selectedStaff)
+        for (final s in selectedStaff)
           if ((s.staffCode ?? '').trim().isNotEmpty &&
               (s.classroomCode ?? '').trim().isNotEmpty)
             s.staffCode!.trim(): s.classroomCode!.trim(),
@@ -752,28 +492,32 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
           ? classroomCodeByStaffCode.values.first
           : '';
 
-      payload = <String, dynamic>{
-        'isExpectedToday': _requestBodyIsExpectedToday(
+      request = StaffSignInRequest(
+        mode: StaffSignInMode.adminBulk,
+        staffCode: staffCode,
+        signInMethod: signInMethod,
+        latitude: latitude,
+        longitude: longitude,
+        withinGeofence: withinGeofence,
+        timeZone: schoolTimeZone,
+        occurredAtIso: occurredAtIso,
+        isExpectedToday: _gateCubit.requestBodyIsExpectedToday(
           staffCodes: staffCodes,
           fromApi: expectedFromApi,
         ),
-        'attendanceDate': attendanceDate,
-        'staffCode': staffCode,
-        'staffCodes': staffCodes,
-        'classroomCode': classroomCode,
-        'classroomCodeByStaffCode': classroomCodeByStaffCode,
-        'method': signInMethod,
-        'latitude': position?.latitude ?? 0,
-        'longitude': position?.longitude ?? 0,
-        'withinGeofence': withinGeofence,
-        'timeZone': schoolTimeZone,
-        'occurredAt': occurredAt.toUtc().toIso8601String(),
-      };
-      if (_notExpectedComment.trim().isNotEmpty) {
-        payload['notExpectedComment'] = _notExpectedComment.trim();
-      }
+        attendanceDate: attendanceDate,
+        staffCodes: staffCodes,
+        classroomCode: classroomCode,
+        classroomCodeByStaffCode: classroomCodeByStaffCode,
+        notExpectedComment: notExpectedComment,
+      );
     }
 
+    // Submit state (spinner / button-disable) is driven by [_submitCubit], which
+    // emits InProgress at the start of submit() below and Success/Failure at the
+    // end. [_submitInFlight] is only a re-entrancy guard (covers the pre-steps
+    // too), never UI state.
+    _submitInFlight = true;
     try {
       // Admin-only override: clear same-day absence records for any
       // selected staff who were marked absent, before creating the sign-in.
@@ -783,12 +527,14 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         await _deleteTodaysAbsenceRecordsBeforeAdminSignIn(
           attendanceDateYyyyMmDd: attendanceDate,
           actingStaffCode: staffCode,
-          targets: List<StaffEntity>.from(_selectedStaff),
+          targets: List<StaffEntity>.from(selectedStaff),
         );
       }
 
-      final result = await serviceLocator<AttendanceRepository>()
-          .submitStaffSignIn(payload: payload, isSelf: useSelfEndpoint);
+      final result = await _submitCubit.submit(
+        request: request,
+        isSelf: useSelfEndpoint,
+      );
       final isAlreadySignedIn = !result.success &&
           result.message.toLowerCase().contains('already signed');
       final success = result.success || isAlreadySignedIn;
@@ -877,11 +623,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+      _submitInFlight = false;
     }
   }
 
@@ -914,137 +656,150 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
   }
 
   void _removeStaff(StaffEntity staff) {
-    setState(() {
-      _selectedStaff.remove(staff);
-      if (_selectedStaff.isEmpty) {
-        Navigator.pop(context);
-      }
-    });
+    final nowEmpty = _gateCubit.removeStaff(staff);
+    if (nowEmpty && mounted) {
+      Navigator.pop(context);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return StaffFormLayout(
-      title: 'Sign-In',
-      isKiosk: widget.isKiosk,
-      showKioskBackButton: widget.isKiosk,
-      showKioskLogoutMenu: widget.isKiosk,
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (_selectedStaff.isNotEmpty)
-              GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  childAspectRatio: 3.5,
-                ),
-                itemCount: _selectedStaff.length,
-                itemBuilder: (context, index) => _buildStaffCard(
-                  _selectedStaff[index],
-                  canRemove: _selectedStaff.length > 1,
-                ),
-              ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const AppText.label('Date'),
-                      const SizedBox(height: 8),
-                      CustomDateTimeField(
-                        hasLabel: false,
-                        isRangePicker: false,
-                        isTime: false,
-                        fetchInitialTime: false,
-                        initialDate: selectedDate,
-                        isDisabled: _isStaffAdminPersona != true,
-                        onDateSelected: (date) {
-                          setState(() {
-                            final iana = _schoolIana;
-                            final today = iana != null && iana.isNotEmpty
-                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(
-                                    iana,
-                                  )
-                                : DateTime(
-                                    ServerTimeService.instance.now().year,
-                                    ServerTimeService.instance.now().month,
-                                    ServerTimeService.instance.now().day,
-                                  );
-                            final picked = DateTime(
-                              date.year,
-                              date.month,
-                              date.day,
-                            );
-                            selectedDate = picked.isAfter(today) ? today : date;
-                          });
-                          _runUnexpectedSignInGate();
-                        },
+    return BlocProvider<StaffSignInGateCubit>.value(
+      value: _gateCubit,
+      child: BlocBuilder<StaffSignInGateCubit, StaffSignInGateState>(
+        builder: (context, gate) {
+          final selectedStaff = gate.selectedStaff;
+          return StaffFormLayout(
+            title: 'Sign-In',
+            isKiosk: widget.isKiosk,
+            showKioskBackButton: widget.isKiosk,
+            showKioskLogoutMenu: widget.isKiosk,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (selectedStaff.isNotEmpty)
+                    GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      shrinkWrap: true,
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 14,
+                        childAspectRatio: 3.5,
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                      itemCount: selectedStaff.length,
+                      itemBuilder: (context, index) => _buildStaffCard(
+                        selectedStaff[index],
+                        canRemove: selectedStaff.length > 1,
+                      ),
+                    ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Row(
                     children: [
-                      const AppText.label('Time'),
-                      const SizedBox(height: 8),
-                      IgnorePointer(
-                        // Teachers cannot modify time; submission will also
-                        // force "now" for them. Admin personas can edit the
-                        // time even for their own record.
-                        ignoring: _isStaffAdminPersona != true,
-                        child: GradientTimePickerField(
-                          time: selectedTime,
-                          onTimeSelected: (t) {
-                            setState(() {
-                              selectedTime = t;
-                            });
-                          },
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const AppText.label('Date'),
+                            const SizedBox(height: AppSpacing.xs),
+                            CustomDateTimeField(
+                              hasLabel: false,
+                              isRangePicker: false,
+                              isTime: false,
+                              fetchInitialTime: false,
+                              initialDate: gate.selectedDate,
+                              isDisabled: gate.isStaffAdminPersona != true,
+                              onDateSelected: (date) {
+                                final iana = gate.schoolIana;
+                                final today = iana != null && iana.isNotEmpty
+                                    ? SchoolZoneDateTime.schoolCalendarTodayOnly(
+                                        iana,
+                                      )
+                                    : DateTime(
+                                        ServerTimeService.instance.now().year,
+                                        ServerTimeService.instance.now().month,
+                                        ServerTimeService.instance.now().day,
+                                      );
+                                final picked = DateTime(
+                                  date.year,
+                                  date.month,
+                                  date.day,
+                                );
+                                final clamped =
+                                    picked.isAfter(today) ? today : date;
+                                _gateCubit.setSelectedDate(clamped);
+                                unawaited(_runGate());
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.lg),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const AppText.label('Time'),
+                            const SizedBox(height: AppSpacing.xs),
+                            IgnorePointer(
+                              // Teachers cannot modify time; submission will also
+                              // force "now" for them. Admin personas can edit the
+                              // time even for their own record.
+                              ignoring: gate.isStaffAdminPersona != true,
+                              child: GradientTimePickerField(
+                                time: gate.selectedTime,
+                                onTimeSelected: (t) {
+                                  _gateCubit.setSelectedTime(t);
+                                },
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ],
-        ),
-      ),
-      bottomBar: CustomButtonLayout(
-        confirmButtonLabel: 'Sign-In',
-        onPressedConfirm:
-            (_isSubmitting ||
-                _unexpectedGateLoading ||
-                (_hasUnexpectedAmongSelected() &&
-                    !_unexpectedSignInAcknowledged))
-            ? null
-            : _handleSubmit,
-        showCancelButton: widget.isKiosk,
-        onPressedCancel: widget.isKiosk
-            ? () {
-                context.go('/kiosk');
-              }
-            : null,
+            bottomBar:
+                BlocBuilder<StaffSignInSubmitCubit, StaffSignInSubmitState>(
+              bloc: _submitCubit,
+              builder: (context, submitState) {
+                final hasUnexpected = _gateCubit.hasUnexpectedAmongSelected();
+                final disabled =
+                    (submitState is StaffSignInSubmitInProgress) ||
+                        gate.unexpectedGateLoading ||
+                        (hasUnexpected && !gate.unexpectedSignInAcknowledged);
+                return CustomButtonLayout(
+                  confirmButtonLabel: 'Sign-In',
+                  onPressedConfirm: disabled ? null : _handleSubmit,
+                  showCancelButton: widget.isKiosk,
+                  onPressedCancel: widget.isKiosk
+                      ? () {
+                          context.go('/kiosk');
+                        }
+                      : null,
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }
 
   Widget _buildStaffCard(StaffEntity staff, {required bool canRemove}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.themeColor),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppRadius.r10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
       child: Row(
@@ -1059,7 +814,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                   size: 30,
                   fontSize: 12,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: AppSpacing.s6),
                 Flexible(
                   child: AppText.value(
                     staff.name,

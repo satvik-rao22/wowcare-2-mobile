@@ -1,6 +1,9 @@
 import 'dart:async' show unawaited;
+
+import 'package:wowcare/core/util/logger_service.dart';
 import 'dart:convert' show jsonDecode;
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -24,11 +27,13 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_delete_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_daily_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_absent_toggle_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_edit_attendance_form.dart';
@@ -44,6 +49,8 @@ import 'package:wowcare/domain/features/attendance/entities/staff_attendance_abs
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_attendance_summary_cubit.dart';
 
 class StaffAttendanceDailyViewScreen extends StatefulWidget {
   const StaffAttendanceDailyViewScreen({
@@ -106,6 +113,10 @@ class _StaffAttendanceDailyViewScreenState
   late final StaffAttendanceDailyCubit _cubit;
   late final StaffAttendanceAbsentToggleCubit _absentToggleCubit;
   late final ClassroomCubit _classroomCubit;
+
+  /// Owns the delete-attendance call (View -> Cubit -> UseCase -> Repository).
+  final StaffAttendanceDeleteCubit _deleteCubit =
+      serviceLocator<StaffAttendanceDeleteCubit>();
   String? _loggedInUserName;
   final GetClassroomByCodeUseCase _getClassroomByCode =
       serviceLocator<GetClassroomByCodeUseCase>();
@@ -304,6 +315,7 @@ class _StaffAttendanceDailyViewScreenState
     _searchController.dispose();
     _scrollController.dispose();
     _absentToggleCubit.close();
+    _deleteCubit.close();
     super.dispose();
   }
 
@@ -323,7 +335,7 @@ class _StaffAttendanceDailyViewScreenState
     final search = _searchQuery.isEmpty ? null : _searchQuery;
 
     if (_showAbsentOnly) {
-      debugPrint(
+      AppLogger.d(
         '[StaffDaily] Loading ABSENT toggle list | date=$_selectedDate | '
         'classrooms=$classroomCodes | tags=$tagCodes | search=$search | reset=$reset',
       );
@@ -346,7 +358,7 @@ class _StaffAttendanceDailyViewScreenState
       return;
     }
 
-    debugPrint(
+    AppLogger.d(
       '[StaffDaily] Loading DAILY list (non-absent) | date=$_selectedDate | '
       'classrooms=$classroomCodes | tags=$tagCodes | signInAtFilter=$_signInAtFilter | '
       'signOutAtFilter=$_signOutAtFilter | search=$search | reset=$reset',
@@ -559,6 +571,12 @@ class _StaffAttendanceDailyViewScreenState
   void _openStaffListWithIncomingFilter(String status) {
     final normalized = status.trim().toUpperCase();
     if (normalized != 'ACTIVE' && normalized != 'UPCOMING') return;
+    // GoRouter holdout (documented): pushes the SHARED StaffScreen wrapped in an
+    // attendance-specific MultiBlocProvider (StaffCubit..loadInitial +
+    // ClassroomCubit..loadActiveClassrooms(onlyTypeClassroom:false)). The
+    // existing /dashboard/staff route builds StaffScreen with different cubit
+    // init (incomingHighlightCode, no status filter) — converting would change
+    // that shared route's behaviour for non-attendance callers.
     Navigator.push<void>(
       context,
       MaterialPageRoute(
@@ -571,6 +589,12 @@ class _StaffAttendanceDailyViewScreenState
               create: (_) =>
                   serviceLocator<ClassroomCubit>()
                     ..loadActiveClassrooms(onlyTypeClassroom: false),
+            ),
+            BlocProvider<StaffProfileCubit>(
+              create: (_) => serviceLocator<StaffProfileCubit>(),
+            ),
+            BlocProvider<StaffAttendanceSummaryCubit>(
+              create: (_) => serviceLocator<StaffAttendanceSummaryCubit>(),
             ),
           ],
           child: StaffScreen(incomingStatusFilter: normalized),
@@ -662,7 +686,7 @@ class _StaffAttendanceDailyViewScreenState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const SizedBox(height: 8),
+                              const SizedBox(height: AppSpacing.xs),
                               // Summary Cards — expected stats from attendance API; staff totals from GetStaffCountUseCase
                               StaffAttendanceSummary(
                                 totalStaff: totalStaff,
@@ -757,6 +781,12 @@ class _StaffAttendanceDailyViewScreenState
     _isFilterScreenOpen = true;
 
     try {
+      // GoRouter holdout (documented): StaffFilterScreen is a SHARED screen
+      // (staff feature, used by non-attendance callers) that returns a consumed
+      // Map via Navigator.pop(result). Converting this caller to context.push
+      // would force the shared screen's pop semantics to change, risking the
+      // other callers — so this stays Navigator. It also carries the live
+      // _classroomCubit via BlocProvider.value, which must not be recreated.
       final result = await Navigator.push<Map<String, dynamic>?>(
         context,
         MaterialPageRoute(
@@ -810,10 +840,10 @@ class _StaffAttendanceDailyViewScreenState
     required bool hasActiveFilters,
   }) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.allMd,
         color: AppColors.cardColor,
       ),
       child: Column(
@@ -826,17 +856,17 @@ class _StaffAttendanceDailyViewScreenState
                   hintText: 'Search Staff',
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.xs),
               Material(
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: _navigateToFilterScreen,
-                  borderRadius: BorderRadius.circular(100),
+                  borderRadius: AppRadius.allPill,
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(AppSpacing.xs),
                         child: SvgPicture.asset(
                           MediaRes.filterIcon,
                           height: 20,
@@ -879,7 +909,7 @@ class _StaffAttendanceDailyViewScreenState
                   },
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.xs),
               CustomClearAllChip(
                 onTap: hasActiveFilters ? _clearAllFiltersAndSearch : null,
               ),
@@ -904,7 +934,7 @@ class _StaffAttendanceDailyViewScreenState
                     _statusLegendFilter = null;
                   }
                 });
-                debugPrint(
+                AppLogger.d(
                   '[StaffDaily] Show Absent toggled: $_showAbsentOnly',
                 );
                 _loadAttendanceData(context, reset: true);
@@ -1060,12 +1090,12 @@ class _StaffAttendanceDailyViewScreenState
     if (filtered.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.people_outline, size: 48, color: Colors.grey[400]),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
               AppText.body(
                 'No staff attendance records found for the selected date',
                 style: TextStyle(color: Colors.grey[600]),
@@ -1102,14 +1132,12 @@ class _StaffAttendanceDailyViewScreenState
           onEdit: !canEditAttendance
               ? null
               : () async {
-                  await Navigator.push<bool>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => StaffEditAttendanceForm(
-                        staffAttendance: staff,
-                        attendanceDate: _selectedDate,
-                      ),
-                    ),
+                  await context.push(
+                    '/dashboard/staff-edit-attendance-form',
+                    extra: {
+                      'staffAttendance': staff,
+                      'attendanceDate': _selectedDate,
+                    },
                   );
                   if (mounted) {
                     refreshAfterReturningFromAttendanceFlow();
@@ -1184,12 +1212,10 @@ class _StaffAttendanceDailyViewScreenState
                               return;
                             }
 
-                            await serviceLocator<AttendanceRepository>()
-                                .deleteStaffAttendanceRecord(
-                                  attendanceRecordCode:
-                                      normalizedAttendanceCode,
-                                  staffCode: staffCode,
-                                );
+                            await _deleteCubit.delete(
+                              attendanceRecordCode: normalizedAttendanceCode,
+                              staffCode: staffCode,
+                            );
 
                             if (!context.mounted) return;
                             CoreUtils.showTopSnackBarFromSnackBar(
@@ -1222,28 +1248,28 @@ class _StaffAttendanceDailyViewScreenState
                   );
                 },
           onView: () {
-            Navigator.push<void>(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StaffAttendanceProfile(
-                  staffCode: staff.id,
-                  staffId: staff.staffId,
-                  staffName: staff.staffName,
-                  staffPhotoUuid: staff.staffPhotoUuid,
-                  designationName: staff.designationName,
-                  roomName: staff.roomName,
-                  isSignedIn: staff.hasSignIn,
-                  isAbsent: false,
-                  isExpectedToday: staff.expectedToday,
-                  isPresentToday: staff.hasSignIn,
-                  profileStatus: 'A',
-                ),
-              ),
-            ).then((_) {
-              if (mounted) {
-                refreshAfterReturningFromAttendanceFlow();
-              }
-            });
+            context
+                .push(
+                  StaffAttendanceProfile.routeName,
+                  extra: {
+                    'staffCode': staff.id,
+                    'staffId': staff.staffId,
+                    'staffName': staff.staffName,
+                    'staffPhotoUuid': staff.staffPhotoUuid,
+                    'designationName': staff.designationName,
+                    'roomName': staff.roomName,
+                    'isSignedIn': staff.hasSignIn,
+                    'isAbsent': false,
+                    'isExpectedToday': staff.expectedToday,
+                    'isPresentToday': staff.hasSignIn,
+                    'profileStatus': 'A',
+                  },
+                )
+                .then((_) {
+                  if (mounted) {
+                    refreshAfterReturningFromAttendanceFlow();
+                  }
+                });
           },
         );
       }).toList(),
@@ -1340,7 +1366,7 @@ class _StaffAttendanceDailyViewScreenState
     if (absentState.items.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -1349,7 +1375,7 @@ class _StaffAttendanceDailyViewScreenState
                 size: 48,
                 color: Colors.grey[400],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
               AppText.body(
                 'No absent staff found for the selected date',
                 style: TextStyle(color: Colors.grey[600]),
@@ -1402,28 +1428,28 @@ class _StaffAttendanceDailyViewScreenState
             });
           },
           onView: () {
-            Navigator.push<void>(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StaffAttendanceProfile(
-                  staffCode: staff.id,
-                  staffId: staff.staffId,
-                  staffName: staff.name,
-                  staffPhotoUuid: staff.photoUuid,
-                  roomName: staff.roomName,
-                  isSignedIn: staff.hasSignIn,
-                  isAbsent: true,
-                  isExpectedToday: staff.expectedToday,
-                  isPresentToday: false,
-                  profileStatus: 'A',
-                  initialShowAbsentDays: true,
-                ),
-              ),
-            ).then((_) {
-              if (mounted) {
-                refreshAfterReturningFromAttendanceFlow();
-              }
-            });
+            context
+                .push(
+                  StaffAttendanceProfile.routeName,
+                  extra: {
+                    'staffCode': staff.id,
+                    'staffId': staff.staffId,
+                    'staffName': staff.name,
+                    'staffPhotoUuid': staff.photoUuid,
+                    'roomName': staff.roomName,
+                    'isSignedIn': staff.hasSignIn,
+                    'isAbsent': true,
+                    'isExpectedToday': staff.expectedToday,
+                    'isPresentToday': false,
+                    'profileStatus': 'A',
+                    'initialShowAbsentDays': true,
+                  },
+                )
+                .then((_) {
+                  if (mounted) {
+                    refreshAfterReturningFromAttendanceFlow();
+                  }
+                });
           },
         );
       }).toList(),

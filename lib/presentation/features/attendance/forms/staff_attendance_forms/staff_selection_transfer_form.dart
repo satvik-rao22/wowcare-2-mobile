@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_search_field.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_staff_list_item.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
-import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -215,19 +217,15 @@ class _StaffSelectionTransferFormState
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => StaffTransferForm(
-          staffList: selectedStaff.toList(),
-        ),
-      ),
+    context.push(
+      '/attendance/staff-transfer',
+      extra: {'staffList': selectedStaff.toList()},
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = ResponsiveSizing.isTablet(context);
+    final isTablet = ResponsiveHelper(context).isTabletCompact;
     final mediaQuery = MediaQuery.of(context);
     final safeAreaBottom = mediaQuery.padding.bottom;
 
@@ -239,28 +237,13 @@ class _StaffSelectionTransferFormState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const AppText.subtitle('Select Staff'),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: Colors.grey),
-            ),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search Staff',
-                hintStyle: AppTextStyles.body.copyWith(
-                  color: Colors.grey[700],
-                ),
-                border: InputBorder.none,
-                icon: const Icon(Icons.search, color: Colors.grey),
-              ),
-              onChanged: (_) => _loadStaff(),
-            ),
+          const SizedBox(height: AppSpacing.sm),
+          AttendanceSearchField(
+            controller: _searchController,
+            hintText: 'Search Staff',
+            onChanged: (_) => _loadStaff(),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
               Expanded(
@@ -294,7 +277,7 @@ class _StaffSelectionTransferFormState
                   },
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: CustomMultiSelectDropdown(
                   hintText: 'Designation',
@@ -310,11 +293,11 @@ class _StaffSelectionTransferFormState
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
                 child: CustomCheckbox(
                   value: isSelectAllChecked,
                   onChanged: _toggleSelectAll,
@@ -324,7 +307,7 @@ class _StaffSelectionTransferFormState
               const AppText.body('Select All'),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           Expanded(
             child: _isLoading
                 ? const Center(child: PrimaryCircularLoader())
@@ -338,7 +321,7 @@ class _StaffSelectionTransferFormState
                               style: const TextStyle(color: Colors.red),
                               textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: AppSpacing.xs),
                             TextButton(
                               onPressed: _loadStaff,
                               child: const AppText.body('Retry'),
@@ -363,7 +346,7 @@ class _StaffSelectionTransferFormState
                               final isSelected =
                                   selectedStaff.contains(staff);
 
-                              return StaffListItem(
+                              return AttendanceStaffListItem(
                                 staff: staff,
                                 isSelected: isSelected,
                                 onSelectionChanged: (value) =>
@@ -385,71 +368,5 @@ class _StaffSelectionTransferFormState
     ));
   }
 
-}
-
-class StaffListItem extends StatelessWidget {
-  final StaffEntity staff;
-  final bool isSelected;
-  final ValueChanged<bool?> onSelectionChanged;
-
-  const StaffListItem({
-    super.key,
-    required this.staff,
-    required this.isSelected,
-    required this.onSelectionChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => onSelectionChanged(!isSelected),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: AppColors.themeColor,
-          ),
-          borderRadius: BorderRadius.circular(8),
-          color: isSelected
-              ? const Color.fromARGB(255, 249, 245, 250)
-              : Colors.white,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.only(right: 4),
-          child: Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: CustomCheckbox(
-                  borderColor: AppColors.themeColor,
-                  value: isSelected,
-                  onChanged: onSelectionChanged,
-                ),
-              ),
-              DocumentImageWidget(
-                fileUuid: staff.photoUuid ?? '',
-                name: staff.name,
-                staffCode: staff.staffCode,
-                size: 32,
-                fontSize: 14,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: EllipsisTooltipText(
-                  text: staff.name,
-                  maxLines: 2,
-                  preferLongPress: true,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 

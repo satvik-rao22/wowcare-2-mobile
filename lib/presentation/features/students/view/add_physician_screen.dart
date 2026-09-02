@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_physician_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -50,6 +51,11 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
 
   bool _isSubmitting = false;
 
+  /// One cubit instance for this screen so its single-flight guard spans taps
+  /// (serviceLocator registers it as a factory — a fresh call would not dedupe).
+  final StudentPhysicianCubit _physicianCubit =
+      serviceLocator<StudentPhysicianCubit>();
+
   @override
   void initState() {
     super.initState();
@@ -79,6 +85,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
+    _physicianCubit.close();
     super.dispose();
   }
 
@@ -125,12 +132,12 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
       final storage = serviceLocator<StorageService>();
       final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
 
-      final studentRepo = serviceLocator<StudentRepository>();
+      final physicianCubit = _physicianCubit;
 
       if (widget.isEdit &&
           widget.physicianCode != null &&
           widget.physicianCode!.isNotEmpty) {
-        await studentRepo.updatePhysician(
+        await physicianCubit.update(
           code: widget.physicianCode!,
           studentCode: widget.studentCode,
           firstName: first,
@@ -142,7 +149,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
           specialty: null,
         );
       } else {
-        await studentRepo.addPhysician(
+        await physicianCubit.add(
           schoolCode: schoolCode,
           studentCode: widget.studentCode,
           firstName: first,
@@ -399,35 +406,6 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class PhoneNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    if (digits.isEmpty) {
-      return const TextEditingValue(text: '');
-    }
-
-    String formattedText;
-    if (digits.length <= 3) {
-      formattedText = '($digits';
-    } else if (digits.length <= 6) {
-      formattedText = '(${digits.substring(0, 3)}) ${digits.substring(3)}';
-    } else {
-      final d = digits.substring(0, 10);
-      formattedText =
-          '(${d.substring(0, 3)}) ${d.substring(3, 6)}-${d.substring(6)}';
-    }
-
-    return TextEditingValue(
-      text: formattedText,
-      selection: TextSelection.collapsed(offset: formattedText.length),
     );
   }
 }

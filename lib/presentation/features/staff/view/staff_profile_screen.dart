@@ -1,7 +1,4 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -18,18 +15,17 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 // import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_documents_tab.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_profile_photo_upload_cubit.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 
-class StaffProfileScreen extends StatefulWidget {
+class StaffProfileScreen extends StatelessWidget {
   static const String routeName = '/dashboard/staff-profile';
 
   const StaffProfileScreen({
@@ -76,12 +72,70 @@ class StaffProfileScreen extends StatefulWidget {
   final Map<String, String>? classroomNameByCode;
 
   @override
-  State<StaffProfileScreen> createState() => _StaffProfileScreenState();
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<StaffProfileCubit>(
+          create: (_) => serviceLocator<StaffProfileCubit>(),
+        ),
+        BlocProvider<StaffProfilePhotoUploadCubit>(
+          create: (_) => serviceLocator<StaffProfilePhotoUploadCubit>(),
+        ),
+      ],
+      child: _StaffProfileScreenView(
+        staffCode: staffCode,
+        name: name,
+        classroom: classroom,
+        designation: designation,
+        phoneNumber: phoneNumber,
+        userCode: userCode,
+        employmentStatus: employmentStatus,
+        classroomNames: classroomNames,
+        classroomNameByCode: classroomNameByCode,
+        initialTabIndex: initialTabIndex,
+        highlightCode: highlightCode,
+      ),
+    );
+  }
 }
 
-class _StaffProfileScreenState extends State<StaffProfileScreen>
+class _StaffProfileScreenView extends StatefulWidget {
+  const _StaffProfileScreenView({
+    required this.staffCode,
+    required this.name,
+    required this.classroom,
+    required this.designation,
+    required this.phoneNumber,
+    this.userCode = '',
+    this.employmentStatus,
+    this.classroomNames,
+    this.classroomNameByCode,
+    this.initialTabIndex = 0,
+    this.highlightCode,
+  });
+
+  final int initialTabIndex;
+  final String? highlightCode;
+  final String staffCode;
+  final String name;
+  final String userCode;
+  final String? employmentStatus;
+  final String classroom;
+  final String designation;
+  final String phoneNumber;
+  final List<String>? classroomNames;
+  final Map<String, String>? classroomNameByCode;
+
+  @override
+  State<_StaffProfileScreenView> createState() =>
+      _StaffProfileScreenViewState();
+}
+
+class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
     with TickerProviderStateMixin {
   late TabController _tabController;
+
+  late final StaffProfileCubit _staffProfileCubit;
 
   late String _displayName;
   late String _displayDesignation;
@@ -90,8 +144,6 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   String _profileUserCode = '';
   String? _schoolCode;
   String? _organizationCode;
-  bool _isUploadingProfilePhoto = false;
-  double _profilePhotoUploadPercent = 0;
 
   bool _isResolvingClassroom = false;
 
@@ -126,6 +178,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   @override
   void initState() {
     super.initState();
+    _staffProfileCubit = context.read<StaffProfileCubit>();
     _tabController = TabController(
       length: 3,
       vsync: this,
@@ -158,9 +211,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
     final code = widget.staffCode.trim();
     if (code.isEmpty || _displayName.trim().isNotEmpty) return;
     try {
-      final profile = await serviceLocator<StaffRepository>().getStaffProfile(
-        staffCode: code,
-      );
+      final profile = await _staffProfileCubit.fetchProfile(staffCode: code);
       if (!mounted) return;
       setState(() {
         final name = profile.fullName.trim();
@@ -347,6 +398,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       );
       final imagePath = picked?.path;
       if (imagePath == null || imagePath.isEmpty) return;
+      if (!mounted) return;
       final staffCode = widget.staffCode.trim();
       if (staffCode.isEmpty) {
         CoreUtils.showTopSnackBar(
@@ -360,6 +412,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
           (_organizationCode ?? '').trim().isEmpty) {
         await _loadUploadContext();
       }
+      if (!mounted) return;
       final schoolCode = (_schoolCode ?? '').trim();
       final organizationCode = (_organizationCode ?? '').trim();
       if (schoolCode.isEmpty || organizationCode.isEmpty) {
@@ -371,78 +424,25 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         return;
       }
 
-      setState(() => _isUploadingProfilePhoto = true);
-      setState(() => _profilePhotoUploadPercent = 0);
-      final uploadService = serviceLocator<ImageUploadService>();
-      final file = File(imagePath);
-      final sessionCode = await uploadService
-          .createStaffProfilePhotoUploadSession(
+      final finalizedUrl = await context
+          .read<StaffProfilePhotoUploadCubit>()
+          .uploadPhoto(
             staffCode: staffCode,
             schoolCode: schoolCode,
             organizationCode: organizationCode,
+            imagePath: imagePath,
           );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 15);
-      final lowerPath = imagePath.toLowerCase();
-      final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final mime = FilePickerUtils.getMimeType(
-        fileName.contains('.') ? fileName.split('.').last : '',
-      );
-      final contentType = mime.startsWith('image/') ? mime : 'image/jpeg';
-      final presign = await uploadService.createAssetPresign(
-        sessionCode: sessionCode,
-        documentApiBasePath: '/api/v1',
-        fileName: fileName.isNotEmpty
-            ? fileName
-            : 'staff-profile-photo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
-        contentType: contentType,
-        contentLengthBytes: await file.length(),
-        mediaType: 'IMAGE',
-        ownerType: 'STAFF',
-        ownerCode: staffCode,
-      );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 25);
-      await uploadService.uploadFileToPresignedUrl(
-        file: file,
-        presignedPutUrl: presign.presignedPutUrl,
-        requiredHeaders: presign.requiredHeaders,
-        fallbackContentType: contentType,
-        onSendProgress: (int sent, int total) {
-          if (!mounted || total <= 0) return;
-          final uploadPhasePercent = (sent / total).clamp(0.0, 1.0);
-          setState(() {
-            _profilePhotoUploadPercent = 25 + (uploadPhasePercent * 55);
-          });
-        },
-      );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 84);
-      await uploadService.completeAssetUpload(
-        sessionCode: sessionCode,
-        assetCode: presign.assetCode,
-        documentApiBasePath: '/api/v1',
-      );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 90);
-      await uploadService.waitUntilAssetsReady(
-        sessionCode: sessionCode,
-        expectedAssetCodes: <String>[presign.assetCode],
-      );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 100);
-      final finalizedUrl = await uploadService.finalizeStaffProfilePhoto(
-        staffCode: staffCode,
-        assetCode: presign.assetCode,
-      );
-      if (mounted) {
-        setState(() => _profilePhotoUploadPercent = 100);
-      }
 
       DocumentImageWidget.clearProfilePhotoCache(staffCode: staffCode);
-      final repo = serviceLocator<StaffRepository>();
-      final refreshed = await repo.getStaffProfile(staffCode: staffCode);
+      final refreshed = await _staffProfileCubit.fetchProfile(
+        staffCode: staffCode,
+      );
+      if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Profile photo updated successfully',
         isSuccess: true,
       );
-      if (!mounted) return;
       setState(() {
         _profilePhotoUrl = (refreshed.profilePhotoUrl).trim().isNotEmpty
             ? refreshed.profilePhotoUrl.trim()
@@ -451,6 +451,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         if (uc.isNotEmpty) _profileUserCode = uc;
       });
     } catch (e) {
+      if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Failed to update profile photo: $e',
@@ -458,10 +459,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       );
     } finally {
       if (mounted) {
-        setState(() {
-          _isUploadingProfilePhoto = false;
-          _profilePhotoUploadPercent = 0;
-        });
+        context.read<StaffProfilePhotoUploadCubit>().reset();
       }
     }
   }
@@ -480,13 +478,13 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
             child: TabBar(
               isScrollable: true,
               controller: _tabController,
-              dividerColor: Colors.transparent,
+              dividerColor: AppColors.transparentColor,
               indicator: const UnderlineTabIndicator(
                 borderSide: BorderSide(color: AppColors.themeColor),
               ),
               indicatorPadding: const EdgeInsets.only(bottom: 8),
               labelStyle: const TextStyle(
-                color: Colors.black,
+                color: AppColors.attendanceIconColor,
                 fontFamily: 'Manrope',
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
@@ -496,7 +494,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                 fontFamily: 'Manrope',
                 fontSize: 16,
               ),
-              labelColor: Colors.black,
+              labelColor: AppColors.attendanceIconColor,
               unselectedLabelColor: AppColors.primaryColor.withValues(
                 alpha: 0.5,
               ),
@@ -545,7 +543,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   Widget _buildStaffProfileCard(BuildContext context) {
     return Card(
       margin: EdgeInsets.zero,
-      color: Colors.white,
+      color: AppColors.cardColor,
       child: Column(
         children: [
           Padding(
@@ -554,143 +552,153 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
               children: [
                 GestureDetector(
                   onTap: _pickProfileImage,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      DocumentImageWidget(
-                        fileUuid: widget.staffCode,
-                        imageUrl: _profilePhotoUrl,
-                        // Use the resolved display name so the no-photo branch
-                        // renders the coloured initials avatar. On a deep-link
-                        // widget.name starts empty, which fell back to the grey
-                        // placeholder instead of initials.
-                        name: _displayName.trim().isNotEmpty
-                            ? _displayName
-                            : widget.name,
-                        staffCode: widget.staffCode,
-                        staffEmploymentStatus: widget.employmentStatus,
-                        size: 90,
-                        fontSize: 24,
-                      ),
-                      if (_isUploadingProfilePhoto)
-                        Positioned.fill(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xB3241631),
-                              borderRadius: BorderRadius.circular(45),
-                            ),
-                            child: Center(
+                  child: BlocBuilder<StaffProfilePhotoUploadCubit, StaffProfilePhotoUploadState>(
+                    builder: (context, uploadState) {
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          DocumentImageWidget(
+                            fileUuid: widget.staffCode,
+                            imageUrl: _profilePhotoUrl,
+                            // Use the resolved display name so the no-photo branch
+                            // renders the coloured initials avatar. On a deep-link
+                            // widget.name starts empty, which fell back to the grey
+                            // placeholder instead of initials.
+                            name: _displayName.trim().isNotEmpty
+                                ? _displayName
+                                : widget.name,
+                            staffCode: widget.staffCode,
+                            staffEmploymentStatus: widget.employmentStatus,
+                            size: 90,
+                            fontSize: 24,
+                          ),
+                          if (uploadState.isUploading)
+                            Positioned.fill(
                               child: Container(
-                                width: 72,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 7,
-                                ),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primaryColor.withValues(
-                                    alpha: 0.25,
-                                  ),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.22),
-                                  ),
+                                  color: AppColors.staffPhotoUploadOverlayColor,
+                                  borderRadius: BorderRadius.circular(45),
                                 ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      '${_profilePhotoUploadPercent.clamp(0, 100)}%',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
+                                child: Center(
+                                  child: Container(
+                                    width: 72,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 7,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primaryColor.withValues(
+                                        alpha: 0.25,
+                                      ),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: AppColors.cardColor.withValues(
+                                          alpha: 0.22,
+                                        ),
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(999),
-                                      child: LinearProgressIndicator(
-                                        value:
-                                            (_profilePhotoUploadPercent / 100)
-                                                .clamp(0.0, 1.0),
-                                        minHeight: 4,
-                                        backgroundColor: Colors.white
-                                            .withValues(alpha: 0.22),
-                                        valueColor:
-                                            const AlwaysStoppedAnimation<Color>(
-                                              AppColors.themeColor,
-                                            ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        SvgPicture.asset(
-                                          MediaRes.uploadIcon,
-                                          height: 10,
-                                          width: 10,
-                                          colorFilter: ColorFilter.mode(
-                                            Colors.white.withValues(
-                                              alpha: 0.92,
-                                            ),
-                                            BlendMode.srcIn,
+                                        Text(
+                                          '${uploadState.progressPercent.clamp(0, 100)}%',
+                                          style: const TextStyle(
+                                            color: AppColors.cardColor,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
                                           ),
                                         ),
-                                        const SizedBox(width: 3),
-                                        Text(
-                                          _profilePhotoUploadPercent >= 100
-                                              ? 'Finalizing'
-                                              : 'Uploading',
-                                          style: TextStyle(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.92,
-                                            ),
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
+                                        const SizedBox(height: 4),
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            999,
                                           ),
+                                          child: LinearProgressIndicator(
+                                            value:
+                                                (uploadState.progressPercent /
+                                                        100)
+                                                    .clamp(0.0, 1.0),
+                                            minHeight: 4,
+                                            backgroundColor: AppColors.cardColor
+                                                .withValues(alpha: 0.22),
+                                            valueColor:
+                                                const AlwaysStoppedAnimation<
+                                                  Color
+                                                >(AppColors.themeColor),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            SvgPicture.asset(
+                                              MediaRes.uploadIcon,
+                                              height: 10,
+                                              width: 10,
+                                              colorFilter: ColorFilter.mode(
+                                                AppColors.cardColor.withValues(
+                                                  alpha: 0.92,
+                                                ),
+                                                BlendMode.srcIn,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              uploadState.progressPercent >= 100
+                                                  ? 'Finalizing'
+                                                  : 'Uploading',
+                                              style: TextStyle(
+                                                color: AppColors.cardColor
+                                                    .withValues(alpha: 0.92),
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
-                                  ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          Positioned(
+                            right: -2,
+                            bottom: -2,
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: AppColors.cardColor,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.blackColor.withValues(
+                                      alpha: 0.08,
+                                    ),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Container(
+                                margin: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  gradient: AppColors.buildPrimaryGradient(),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt,
+                                  color: AppColors.cardColor,
+                                  size: 16,
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      Positioned(
-                        right: -2,
-                        bottom: -2,
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.08),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Container(
-                            margin: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              gradient: AppColors.buildPrimaryGradient(),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: const Icon(
-                              Icons.camera_alt,
-                              color: Colors.white,
-                              size: 16,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                        ],
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: 28),
@@ -727,13 +735,13 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.blue[50],
+                          color: AppColors.staffInfoBannerBg,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           _displayClassroom,
                           style: const TextStyle(
-                            color: Colors.blue,
+                            color: AppColors.staffInfoText,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -773,26 +781,21 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                 );
                 return;
               }
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  settings: const RouteSettings(
-                    name: StaffAttendanceProfile.routeName,
-                  ),
-                  builder: (_) => StaffAttendanceProfile(
-                    staffCode: code,
-                    staffId: 0,
-                    staffName: _displayName,
-                    staffPhotoUuid: null,
-                    designationName: widget.designation,
-                    roomName: _displayClassroom,
-                    isSignedIn: false,
-                    isAbsent: false,
-                    isExpectedToday: true,
-                    isPresentToday: false,
-                    profileStatus: 'A',
-                  ),
-                ),
+              context.push(
+                '/dashboard/staff-attendance-profile',
+                extra: <String, dynamic>{
+                  'staffCode': code,
+                  'staffId': 0,
+                  'staffName': _displayName,
+                  'staffPhotoUuid': null,
+                  'designationName': widget.designation,
+                  'roomName': _displayClassroom,
+                  'isSignedIn': false,
+                  'isAbsent': false,
+                  'isExpectedToday': true,
+                  'isPresentToday': false,
+                  'profileStatus': 'A',
+                },
               );
             },
           ),
@@ -848,11 +851,11 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                   asset,
                   height: 28,
                   colorFilter: const ColorFilter.mode(
-                    Colors.white,
+                    AppColors.cardColor,
                     BlendMode.srcIn,
                   ),
                 )
-              : Image.asset(asset, height: 28, color: Colors.white),
+              : Image.asset(asset, height: 28, color: AppColors.cardColor),
         ),
       ),
     );

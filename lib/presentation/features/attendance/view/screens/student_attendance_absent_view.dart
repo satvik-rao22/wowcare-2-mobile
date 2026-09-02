@@ -1,5 +1,8 @@
 import 'dart:async';
+
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -11,11 +14,14 @@ import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
+import 'package:wowcare/presentation/features/attendance/util/debounced_search_mixin.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_shimmer.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -26,7 +32,8 @@ import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_absent_view_usecase.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_view_response.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
@@ -87,11 +94,11 @@ class StudentAttendanceAbsentView extends StatefulWidget {
 
 class _StudentAttendanceAbsentViewState
     extends State<StudentAttendanceAbsentView>
+    with DebouncedSearchMixin
     implements AttendanceTabRefresh {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
-  Timer? _searchDebounceTimer;
   List<String> _selectedClassroomNames = <String>[];
   List<String>? _selectedClassroomCodes;
   List<String> _selectedTagNames = <String>[];
@@ -256,7 +263,7 @@ class _StudentAttendanceAbsentViewState
         _isLoadingTagMap = false;
       });
     } catch (e) {
-      debugPrint('Failed to load tag data: $e');
+      AppLogger.d('Failed to load tag data: $e');
       if (!mounted) return;
       setState(() {
         _isLoadingTagMap = false;
@@ -271,7 +278,7 @@ class _StudentAttendanceAbsentViewState
     _searchController.dispose();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
-    _searchDebounceTimer?.cancel();
+    cancelSearchDebounce();
     super.dispose();
   }
 
@@ -353,11 +360,7 @@ class _StudentAttendanceAbsentViewState
       _searchQuery = newQuery;
     });
 
-    _searchDebounceTimer?.cancel();
-    _searchDebounceTimer = Timer(const Duration(milliseconds: 200), () {
-      if (!mounted) return;
-      _triggerSearchReload();
-    });
+    debounceSearch(_triggerSearchReload);
   }
 
   void _triggerSearchReload() {
@@ -453,7 +456,10 @@ class _StudentAttendanceAbsentViewState
           final cachedPayload = await _cacheManager.loadCache(cacheKey);
           if (!mounted) return;
           if (cachedPayload != null) {
-            _applyPagePayload(cachedPayload, reset: true);
+            _applyPagePayload(
+              StudentAttendanceAbsentViewResponse.fromJson(cachedPayload),
+              reset: true,
+            );
             return;
           }
         }
@@ -515,21 +521,21 @@ class _StudentAttendanceAbsentViewState
     final trimmedSearch = _searchQuery.trim();
 
     try {
-      final data = await serviceLocator<AttendanceRepository>()
-          .getStudentAttendanceAbsentView(
-            fromAbsenceDate: fromStr,
-            toAbsenceDate: toStr,
-            classroomCodes: classroomCodes,
-            tagCodes: tagCodes,
-            search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
-            page: _studentsPage,
-            size: _pageSize,
-            sort: const <String>['studentName,asc'],
-          );
+      final data =
+          await serviceLocator<GetStudentAttendanceAbsentViewUseCase>()(
+        fromAbsenceDate: fromStr,
+        toAbsenceDate: toStr,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
+        page: _studentsPage,
+        size: _pageSize,
+        sort: const <String>['studentName,asc'],
+      );
 
       if (!mounted) return;
 
-      if (data is! Map<String, dynamic>) {
+      if (data == null) {
         setState(() {
           _isInitialLoadingStudents = false;
           _isLoadingStudents = false;
@@ -538,8 +544,6 @@ class _StudentAttendanceAbsentViewState
         });
         return;
       }
-
-      final root = data['data'] as Map<String, dynamic>? ?? {};
 
       // Cache first page keyed by filters so it can be reused on next load —
       // but only when this persona is unrestricted. A scoped staff member's
@@ -561,13 +565,13 @@ class _StudentAttendanceAbsentViewState
             tagCodes: tagCodes,
             search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
           );
-          await _cacheManager.saveCache(cacheKey, root);
+          await _cacheManager.saveCache(cacheKey, data.toJson());
         }
       }
 
-      _applyPagePayload(root, reset: reset);
+      _applyPagePayload(data, reset: reset);
     } catch (error) {
-      debugPrint('StudentAbsent API error: $error');
+      AppLogger.d('StudentAbsent API error: $error');
       if (!mounted) return;
       final message = ApiErrorHandler.extractErrorMessage(error);
       CoreUtils.showTopSnackBar(
@@ -635,10 +639,13 @@ class _StudentAttendanceAbsentViewState
   }
 
   /// Applies a paged API/cache payload to local state and list.
-  void _applyPagePayload(Map<String, dynamic> root, {required bool reset}) {
-    final content = root['content'] as List<dynamic>? ?? const [];
-    final last = root['last'] as bool? ?? true;
-    final number = root['number'] as int? ?? _studentsPage;
+  void _applyPagePayload(
+    StudentAttendanceAbsentViewResponse page, {
+    required bool reset,
+  }) {
+    final content = page.content;
+    final last = page.last ?? true;
+    final number = page.number ?? _studentsPage;
 
     String parseTime(dynamic value) {
       if (value == null) return '';
@@ -670,31 +677,30 @@ class _StudentAttendanceAbsentViewState
 
     final newData = content.asMap().entries.map<_AbsentStudentModel>((entry) {
       final indexInPage = entry.key;
-      final e = entry.value;
-      final m = e as Map<String, dynamic>;
+      final record = entry.value;
 
-      final absenceDateStr = m['absenceDate'] as String? ?? '';
+      final absenceDateStr = record.absenceDate;
       final absenceDate = absenceDateStr.isNotEmpty
           ? DateTime.tryParse(absenceDateStr) ?? attendanceSchoolToday()
           : attendanceSchoolToday();
 
-      final classroomName = (m['classroomName'] as String?)?.trim() ?? '';
-      final classroomCode = (m['classroomCode'] as String?)?.trim() ?? '';
+      final classroomName = record.classroomName?.trim() ?? '';
+      final classroomCode = record.classroomCode?.trim() ?? '';
       final roomDisplay = _classroomDisplay(
         classroomCode: classroomCode,
         classroomName: classroomName,
       );
 
       return _AbsentStudentModel(
-        id: (m['studentCode'] as String?) ?? '',
-        name: (m['studentName'] as String?) ?? '',
+        id: record.studentCode,
+        name: record.studentName,
         photoUuid: null,
         roomName: roomDisplay,
-        absentDays: (m['absentDays'] as int?) ?? 0,
+        absentDays: record.absentDays,
         startDate: absenceDate,
-        absentTime: parseTime(m['markedAbsentTime']),
-        absentBy: (m['markedAbsentByName'] as String?) ?? '',
-        note: (m['absenceNote'] as String?),
+        absentTime: parseTime(record.markedAbsentTime),
+        absentBy: record.markedAbsentByName,
+        note: record.absenceNote,
         // No numeric studentId available in this response - use a stable placeholder
         studentId: (number * _pageSize) + indexInPage,
         roomId: 0,
@@ -756,7 +762,7 @@ class _StudentAttendanceAbsentViewState
               SizedBox(height: responsive.verticalSpacing / 4),
               // Filter section
               CustomSectionCard(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(AppSpacing.sm),
                 child: Column(
                   children: [
                     // Row 1: Full-width Search Bar
@@ -770,7 +776,7 @@ class _StudentAttendanceAbsentViewState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.sm),
                     // Row 2: Date Range (70%) + Clear All (30%)
                     Row(
                       children: [
@@ -823,7 +829,7 @@ class _StudentAttendanceAbsentViewState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.sm),
                     // Row 3: Classroom (50%) + Tags (50%)
                     Row(
                       children: [
@@ -1037,14 +1043,14 @@ class _StudentAttendanceAbsentViewState
                             fontFamily: 'Manrope',
                             fontSize: responsive.isTablet ? 16 : 14,
                             fontWeight: FontWeight.w500,
-                            color: const Color(0xff573353),
+                            color: AppColors.primaryColor,
                             height: 19 / 14,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSpacing.xs),
                       Flexible(
                         child: Text(
                           student.roomName,
@@ -1052,7 +1058,7 @@ class _StudentAttendanceAbsentViewState
                             fontFamily: 'Manrope',
                             fontSize: responsive.isTablet ? 16 : 14,
                             fontWeight: FontWeight.w500,
-                            color: const Color(0xff573353),
+                            color: AppColors.primaryColor,
                             height: 19 / 14,
                           ),
                           maxLines: 1,
@@ -1096,7 +1102,7 @@ class _StudentAttendanceAbsentViewState
               ),
               SizedBox(height: responsive.verticalSpacing / 2),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
                 child: SizedBox(
                   width: double.infinity,
                   child: _loadingButtons[student.studentId] == true
@@ -1106,7 +1112,7 @@ class _StudentAttendanceAbsentViewState
                             color: AppColors.cardBorderColor.withValues(
                               alpha: 0.1,
                             ),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: AppRadius.allSm,
                             border: Border.all(
                               color: AppColors.cardBorderColor,
                               width: 1,
@@ -1114,8 +1120,8 @@ class _StudentAttendanceAbsentViewState
                           ),
                           child: const Center(
                             child: SizedBox(
-                              width: 20,
-                              height: 20,
+                              width: AppSpacing.lg,
+                              height: AppSpacing.lg,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation<Color>(
@@ -1128,23 +1134,21 @@ class _StudentAttendanceAbsentViewState
                       : CustomCancelButton(
                           cancelButtonLabel: 'View',
                           onPressedCancel: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => StudentAttendanceProfile(
-                                  studentCode: student.id,
-                                  studentId: student.studentId,
-                                  studentName: student.name,
-                                  studentPhotoUuid: student.photoUuid,
-                                  roomName: student.roomName,
-                                  isSignedIn: false,
-                                  isAbsent: true,
-                                  isExpectedToday: true,
-                                  isPresentToday: false,
-                                  profileStatus: 'A',
-                                  initialShowAbsentDays: true,
-                                ),
-                              ),
+                            context.push(
+                              StudentAttendanceProfile.routeName,
+                              extra: {
+                                'studentCode': student.id,
+                                'studentId': student.studentId,
+                                'studentName': student.name,
+                                'studentPhotoUuid': student.photoUuid,
+                                'roomName': student.roomName,
+                                'isSignedIn': false,
+                                'isAbsent': true,
+                                'isExpectedToday': true,
+                                'isPresentToday': false,
+                                'profileStatus': 'A',
+                                'initialShowAbsentDays': true,
+                              },
                             );
                           },
                         ),
@@ -1173,7 +1177,7 @@ class _StudentAttendanceAbsentViewState
               fontFamily: 'Manrope',
               fontSize: 13,
               fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 16 / 13,
             ),
           ),
@@ -1187,7 +1191,7 @@ class _StudentAttendanceAbsentViewState
               fontFamily: 'Manrope',
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 19 / 14,
             ),
             textAlign: TextAlign.end,

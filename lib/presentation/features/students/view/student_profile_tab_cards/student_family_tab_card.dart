@@ -9,7 +9,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_guardian_cubit.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -47,6 +47,12 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
   late Future<List<StudentGuardian>> _guardiansFuture;
   bool _isMutating = false;
 
+  /// One cubit instance for this card so its single-flight delete guard spans
+  /// taps (serviceLocator registers it as a factory — a fresh call per tap
+  /// would not dedupe).
+  final StudentGuardianCubit _guardianCubit =
+      serviceLocator<StudentGuardianCubit>();
+
   String _extractGuardianClockPin(StudentGuardian guardian) {
     final raw = (guardian.clockPin ?? '').trim();
     return raw.isEmpty ? '—' : raw;
@@ -78,6 +84,12 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     _guardiansFuture = _loadGuardians();
   }
 
+  @override
+  void dispose() {
+    _guardianCubit.close();
+    super.dispose();
+  }
+
   Future<List<StudentGuardian>> _loadGuardians({
     bool forceRefresh = false,
   }) async {
@@ -86,10 +98,10 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
       return const <StudentGuardian>[];
     }
 
-    // Use repository, which already applies caching via CacheManager.
-    final repo = serviceLocator<StudentRepository>();
-    return repo.getStudentGuardians(
-      studentCode: studentCode,
+    // Route through the cubit → use case → repository; the repository still
+    // applies caching via CacheManager.
+    return _guardianCubit.fetchGuardians(
+      studentCode,
       forceRefresh: forceRefresh,
     );
   }
@@ -106,8 +118,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
       return;
     }
 
-    final repo = serviceLocator<StudentRepository>();
-    final existing = await repo.getStudentGuardians(studentCode: studentCode);
+    final existing = await _guardianCubit.fetchGuardians(studentCode);
     if (existing.length >= _maxParentsPerStudent) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -224,8 +235,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
             if (_isMutating) return;
             setState(() => _isMutating = true);
             try {
-              final repo = serviceLocator<StudentRepository>();
-              final message = await repo.deleteGuardian(
+              final message = await _guardianCubit.delete(
                 code: guardianCode,
                 studentCode: studentCode,
               );

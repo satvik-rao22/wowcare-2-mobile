@@ -4,19 +4,37 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show compute;
 import '../../../core/util/app_time.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_logger.dart';
+import '../../../core/network/session_expired_interceptor.dart'
+    show kNoAutoReplayExtraKey;
 import '../../../core/util/api_constants.dart';
 import '../../../core/util/api_paths.dart';
 import '../../../core/util/logger_service.dart';
 import 'image_upload_models.dart';
 
+/// Isolate entry point: streams [path] through SHA-256 and returns the
+/// base64-encoded raw digest. Streaming means even a large video is hashed
+/// without loading it fully into memory. Top-level so it can run via `compute`.
+Future<String> _hashFileSha256Base64(String path) async {
+  final digest = await sha256.bind(File(path).openRead()).first;
+  return base64Encode(digest.bytes);
+}
+
 class ImageUploadService {
   ImageUploadService(this._apiClient);
 
   final ApiClient _apiClient;
+
+  /// Opts a request OUT of the shared 401-refresh auto-replay, so a token-refresh
+  /// replay cannot silently create a duplicate upload session / presigned asset /
+  /// completion. Applied to the non-idempotent upload mutations. See
+  /// [kNoAutoReplayExtraKey].
+  Options get _noReplayOptions =>
+      Options(extra: const {kNoAutoReplayExtraKey: true});
 
   /// Caches resolved delivery URLs by asset code so the same thumbnail is not
   /// re-resolved over the network every time its widget rebuilds (e.g. on list
@@ -59,6 +77,7 @@ class ImageUploadService {
     required String activityTypeCode,
     required String bindingMode,
     required List<String> studentCodes,
+    CancelToken? cancelToken,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.activitiesUploadSessions,
@@ -75,6 +94,8 @@ class ImageUploadService {
         'bindingMode': bindingMode,
         'studentCodes': studentCodes,
       },
+      options: _noReplayOptions,
+      cancelToken: cancelToken,
     );
 
     final body = response.data;
@@ -118,6 +139,7 @@ class ImageUploadService {
     required String mediaType,
     required String ownerType,
     required String ownerCode,
+    CancelToken? cancelToken,
   }) async {
     final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
     final path = ApiPaths.documentAssetPresignPath(
@@ -143,6 +165,8 @@ class ImageUploadService {
               },
             ],
           },
+          options: _noReplayOptions,
+          cancelToken: cancelToken,
         )
         .catchError((error) {
           if (error is DioException) {
@@ -211,6 +235,7 @@ class ImageUploadService {
     required String sessionCode,
     required String documentApiBasePath,
     required List<AssetPresignRequest> assets,
+    CancelToken? cancelToken,
   }) async {
     if (assets.isEmpty) return const [];
 
@@ -240,6 +265,8 @@ class ImageUploadService {
                 )
                 .toList(),
           },
+          options: _noReplayOptions,
+          cancelToken: cancelToken,
         )
         .catchError((error) {
           if (error is DioException) {
@@ -310,16 +337,19 @@ class ImageUploadService {
     return raw;
   }
 
-  Future<String> computeFileChecksumSha256(File file) async {
-    final bytes = await file.readAsBytes();
-    // S3 `x-amz-checksum-sha256` must be base64-encoded raw SHA-256 bytes.
-    return base64Encode(sha256.convert(bytes).bytes);
+  Future<String> computeFileChecksumSha256(File file) {
+    // Hash on a background isolate, streaming the file chunk-by-chunk, so a
+    // large video is neither read fully into memory nor hashed on the UI
+    // isolate (which froze the UI for big files). Returns the base64-encoded
+    // raw SHA-256 bytes S3 expects in `x-amz-checksum-sha256`.
+    return compute(_hashFileSha256Base64, file.path);
   }
 
   Future<void> completeAssetUpload({
     required String sessionCode,
     required String assetCode,
     required String documentApiBasePath,
+    CancelToken? cancelToken,
   }) async {
     final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
     final path = ApiPaths.documentAssetCompletePath(
@@ -329,7 +359,11 @@ class ImageUploadService {
     );
     final endpoint = '$origin$path';
 
-    await _apiClient.client.post<dynamic>(endpoint);
+    await _apiClient.client.post<dynamic>(
+      endpoint,
+      options: _noReplayOptions,
+      cancelToken: cancelToken,
+    );
   }
 
   Future<void> uploadFileToPresignedUrl({
@@ -339,9 +373,14 @@ class ImageUploadService {
     String fallbackContentType = 'image/jpeg',
     void Function(int sent, int total)? onSendProgress,
     void Function(int sentBytes, int totalBytes, int percent)? onProgress,
+    CancelToken? cancelToken,
   }) async {
     final uploadClient = Dio();
-    final bytes = await file.readAsBytes();
+    // Stream the file instead of reading it fully into memory: a large video
+    // (up to 200 MB) must not be buffered on the heap. We set Content-Length
+    // explicitly so the streamed PUT is sent with a known length (not chunked),
+    // which S3 requires.
+    final contentLength = await file.length();
     final headers = <String, dynamic>{};
     requiredHeaders.forEach((key, value) {
       final k = key.trim();
@@ -351,6 +390,7 @@ class ImageUploadService {
       }
     });
     headers.putIfAbsent('Content-Type', () => fallbackContentType);
+    headers[Headers.contentLengthHeader] = contentLength;
 
     final putUri = Uri.parse(presignedPutUrl);
     final logUrl = '${putUri.scheme}://${putUri.host}${putUri.path}';
@@ -358,7 +398,7 @@ class ImageUploadService {
       url: logUrl,
       method: 'PUT',
       headers: headers,
-      body: '<binary: ${bytes.length} bytes>',
+      body: '<binary: $contentLength bytes>',
     );
 
     // The presigned URL is valid for an hour (see AssetPresignResult), so a
@@ -372,7 +412,8 @@ class ImageUploadService {
       try {
         final response = await uploadClient.putUri<dynamic>(
           putUri,
-          data: bytes,
+          // Fresh stream per attempt — a stream can only be consumed once.
+          data: file.openRead(),
           options: Options(
             headers: headers,
             responseType: ResponseType.plain,
@@ -380,13 +421,13 @@ class ImageUploadService {
                 status != null && status >= 200 && status < 300,
           ),
           onSendProgress: (sent, total) {
-            final effectiveTotal =
-                (total > 0) ? total : (bytes.isNotEmpty ? bytes.length : 0);
+            final effectiveTotal = (total > 0) ? total : contentLength;
             if (effectiveTotal <= 0) return;
             final fraction = sent / effectiveTotal;
             final percent = (fraction * 100).clamp(0, 100).round();
             onProgress?.call(sent, effectiveTotal, percent);
           },
+          cancelToken: cancelToken,
         );
         ApiLogger.logResponse(
           url: logUrl,

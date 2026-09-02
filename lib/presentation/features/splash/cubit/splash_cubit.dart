@@ -179,7 +179,7 @@ class SplashCubit extends Cubit<SplashState> {
         // and ONE retry, before concluding the session is genuinely dead.
         await TokenRefreshService.instance.ensureFreshToken();
         final freshAccessToken =
-            (await _storage.getString(StorageKeys.accessToken) ?? '').trim();
+            await TokenRefreshService.instance.readAccessToken();
 
         Future<Map<String, dynamic>?> fetchContext(String token) async {
           try {

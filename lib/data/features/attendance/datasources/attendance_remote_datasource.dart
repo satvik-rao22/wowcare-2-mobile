@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:wowcare/core/util/idempotency_key.dart';
 import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
 import '../../../../core/util/attendance_classroom_scope.dart';
@@ -335,6 +336,7 @@ abstract class AttendanceRemoteDataSource {
     required Map<String, dynamic> body,
     Map<String, dynamic>? queryParameters,
     required bool isParent,
+    String? idempotencyKey,
   });
 
   /// Posts a student sign-out request (parent or staff endpoint).
@@ -342,17 +344,20 @@ abstract class AttendanceRemoteDataSource {
     required Map<String, dynamic> body,
     Map<String, dynamic>? queryParameters,
     required bool isParent,
+    String? idempotencyKey,
   });
 
   /// Posts a student classroom transfer request.
   Future<Map<String, dynamic>?> postStudentTransfer({
     required Map<String, dynamic> body,
+    String? idempotencyKey,
   });
 
   /// Posts a staff sign-in request (admin bulk or teacher-self endpoint).
   Future<Map<String, dynamic>?> postStaffSignIn({
     required Map<String, dynamic> body,
     required bool isSelf,
+    String? idempotencyKey,
   });
 
   /// Posts a staff sign-out request.
@@ -360,11 +365,13 @@ abstract class AttendanceRemoteDataSource {
   Future<Map<String, dynamic>?> postStaffSignOut({
     required Map<String, dynamic> body,
     bool isSelf = false,
+    String? idempotencyKey,
   });
 
   /// Posts a staff classroom transfer request.
   Future<Map<String, dynamic>?> postStaffTransfer({
     required Map<String, dynamic> body,
+    String? idempotencyKey,
   });
 
   /// Patches a staff daily attendance record identified by [rowCode].
@@ -1762,6 +1769,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     required Map<String, dynamic> body,
     Map<String, dynamic>? queryParameters,
     required bool isParent,
+    String? idempotencyKey,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       isParent
@@ -1773,6 +1781,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       endpoint,
       queryParameters: queryParameters,
       data: body,
+      options: idempotencyKey != null
+          ? Options(headers: {IdempotencyKey.headerName: idempotencyKey})
+          : null,
     );
     final data = response.data;
     return data is Map<String, dynamic> ? data : null;
@@ -1783,6 +1794,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     required Map<String, dynamic> body,
     Map<String, dynamic>? queryParameters,
     required bool isParent,
+    String? idempotencyKey,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       isParent
@@ -1794,6 +1806,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       endpoint,
       queryParameters: queryParameters,
       data: body,
+      options: idempotencyKey != null
+          ? Options(headers: {IdempotencyKey.headerName: idempotencyKey})
+          : null,
     );
     final data = response.data;
     return data is Map<String, dynamic> ? data : null;
@@ -1802,12 +1817,19 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   @override
   Future<Map<String, dynamic>?> postStudentTransfer({
     required Map<String, dynamic> body,
+    String? idempotencyKey,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAttendanceRecordsTransfer,
       ApiConstants.attendanceBaseUrl,
     );
-    final response = await _client.post<dynamic>(endpoint, data: body);
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: body,
+      options: idempotencyKey != null
+          ? Options(headers: {IdempotencyKey.headerName: idempotencyKey})
+          : null,
+    );
     final data = response.data;
     return data is Map<String, dynamic> ? data : null;
   }
@@ -1816,6 +1838,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   Future<Map<String, dynamic>?> postStaffSignIn({
     required Map<String, dynamic> body,
     required bool isSelf,
+    String? idempotencyKey,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       isSelf
@@ -1823,7 +1846,13 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
           : ApiPaths.staffAttendanceRecordsSignIn,
       ApiConstants.attendanceBaseUrl,
     );
-    final response = await _client.post<dynamic>(endpoint, data: body);
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: body,
+      options: idempotencyKey != null
+          ? Options(headers: {IdempotencyKey.headerName: idempotencyKey})
+          : null,
+    );
     final data = response.data;
     return data is Map<String, dynamic> ? data : null;
   }
@@ -1832,6 +1861,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   Future<Map<String, dynamic>?> postStaffSignOut({
     required Map<String, dynamic> body,
     bool isSelf = false,
+    String? idempotencyKey,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       isSelf
@@ -1839,7 +1869,13 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
           : ApiPaths.staffAttendanceRecordsSignOut,
       ApiConstants.attendanceBaseUrl,
     );
-    final response = await _client.post<dynamic>(endpoint, data: body);
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: body,
+      options: idempotencyKey != null
+          ? Options(headers: {IdempotencyKey.headerName: idempotencyKey})
+          : null,
+    );
     final data = response.data;
     return data is Map<String, dynamic> ? data : null;
   }
@@ -1847,12 +1883,19 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   @override
   Future<Map<String, dynamic>?> postStaffTransfer({
     required Map<String, dynamic> body,
+    String? idempotencyKey,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAttendanceRecordsTransfer,
       ApiConstants.attendanceBaseUrl,
     );
-    final response = await _client.post<dynamic>(endpoint, data: body);
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: body,
+      options: idempotencyKey != null
+          ? Options(headers: {IdempotencyKey.headerName: idempotencyKey})
+          : null,
+    );
     final data = response.data;
     return data is Map<String, dynamic> ? data : null;
   }

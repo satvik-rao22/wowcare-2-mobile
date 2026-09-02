@@ -1,7 +1,9 @@
+import '../entities/school_guardian_summary.dart';
 import '../entities/student.dart';
 import '../entities/student_documents_page.dart';
 import '../entities/student_guardian.dart';
 import '../entities/student_health.dart';
+import '../entities/student_health_update_request.dart';
 import '../entities/student_immunization.dart';
 import '../entities/student_important_dates.dart';
 import '../entities/student_physical_exam.dart';
@@ -21,6 +23,15 @@ abstract class StudentRepository {
   Future<List<StudentRegularScheduleEntry>> getStudentRegularSchedules({
     required String studentCode,
   });
+
+  /// Updates a student's regular schedule via the dedicated schedule API
+  /// (`PATCH /api/v1/regular-schedules`). Used by the add-student wizard.
+  Future<String> updateStudentRegularSchedules({
+    required String schoolCode,
+    required String studentCode,
+    required List<Map<String, dynamic>> schedule,
+  });
+
   Future<StudentPage> getStudentPage({
     required String schoolCode,
     String? code,
@@ -187,6 +198,10 @@ abstract class StudentRepository {
     required String schoolCode,
   });
 
+  /// Returns tag display names for a specific student via
+  /// `GET /api/v1/student-tags/{studentCode}`, with repository-level caching.
+  Future<List<String>> getStudentTagNames({required String studentCode});
+
   /// Students in [classroomCode] matching [tagCodes] for activity feeds.
   ///
   /// `POST /api/v1/student-tags/activity-filter`
@@ -321,7 +336,7 @@ abstract class StudentRepository {
 
   /// Raw guardians list for a school (includes email/mobile/code), used by UI
   /// flows that need full guardian details for dropdown selection.
-  Future<List<Map<String, dynamic>>> getGuardiansRawForSchool({
+  Future<List<SchoolGuardianSummary>> getGuardiansRawForSchool({
     required String schoolCode,
   });
 
@@ -372,7 +387,7 @@ abstract class StudentRepository {
   /// Updates a student's health details. Returns the updated health record.
   Future<StudentHealth> updateStudentHealth({
     required String studentCode,
-    required Map<String, dynamic> body,
+    required StudentHealthUpdateRequest request,
   });
 
   // --- Immunizations ---

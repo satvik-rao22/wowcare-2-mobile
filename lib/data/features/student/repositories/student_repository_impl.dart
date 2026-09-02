@@ -2,12 +2,14 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/cache_manager.dart';
+import '../../../../domain/features/student/entities/school_guardian_summary.dart';
 import '../../../../domain/features/student/entities/student.dart';
 import '../../../../domain/features/student/entities/student_settings.dart';
 import '../../../../domain/features/student/entities/student_document.dart';
 import '../../../../domain/features/student/entities/student_documents_page.dart';
 import '../../../../domain/features/student/entities/student_guardian.dart';
 import '../../../../domain/features/student/entities/student_health.dart';
+import '../../../../domain/features/student/entities/student_health_update_request.dart';
 import '../../../../domain/features/student/entities/student_immunization.dart';
 import '../../../../domain/features/student/entities/student_important_dates.dart';
 import '../../../../domain/features/student/entities/student_physical_exam.dart';
@@ -41,10 +43,13 @@ class StudentRepositoryImpl
   /// Raw guardians list for a school (includes email/mobile/code).
   /// Used by UI flows that need full guardian details.
   @override
-  Future<List<Map<String, dynamic>>> getGuardiansRawForSchool({
+  Future<List<SchoolGuardianSummary>> getGuardiansRawForSchool({
     required String schoolCode,
-  }) {
-    return _remoteDataSource.getGuardiansBySchool(schoolCode: schoolCode);
+  }) async {
+    final raw = await _remoteDataSource.getGuardiansBySchool(
+      schoolCode: schoolCode,
+    );
+    return raw.map(SchoolGuardianSummary.fromMap).toList();
   }
 
   String _timeToLabel(dynamic raw) {
@@ -124,6 +129,19 @@ class StudentRepositoryImpl
           );
         })
         .toList(growable: false);
+  }
+
+  @override
+  Future<String> updateStudentRegularSchedules({
+    required String schoolCode,
+    required String studentCode,
+    required List<Map<String, dynamic>> schedule,
+  }) {
+    return _remoteDataSource.updateStudentRegularSchedules(
+      schoolCode: schoolCode,
+      studentCode: studentCode,
+      schedule: schedule,
+    );
   }
 
   @override
@@ -804,11 +822,11 @@ class StudentRepositoryImpl
   @override
   Future<StudentHealth> updateStudentHealth({
     required String studentCode,
-    required Map<String, dynamic> body,
+    required StudentHealthUpdateRequest request,
   }) async {
     final model = await _remoteDataSource.updateStudentHealth(
       code: studentCode,
-      body: body,
+      body: request.toPayload(),
     );
 
     await _cacheManager.saveCache(

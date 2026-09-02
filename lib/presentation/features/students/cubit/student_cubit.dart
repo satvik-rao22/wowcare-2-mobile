@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -33,23 +35,84 @@ class StudentCubit extends Cubit<StudentState> {
   bool? _isScopedStaffPersona;
   List<String>? _allowedClassroomCodes;
 
+  /// Monotonic query generation. Bumped whenever the logical query changes
+  /// (a new refresh, a search/filter change, or a detected school switch) so a
+  /// slower in-flight response for an older query/school is discarded instead
+  /// of clobbering the current one.
+  int _generation = 0;
+
+  /// Debounce for search-as-you-type. Public so a test can shorten it.
+  Duration searchDebounceDelay = const Duration(milliseconds: 300);
+  Timer? _searchDebounce;
+
   // How many student records to load per page from the API
   static const int _pageSize = 15;
 
-  Future<String> _resolveSchoolCode() async {
-    if (_schoolCode != null) return _schoolCode!;
-    // Take school from login-context API (saved in storage) only.
-    _schoolCode = await _storageService.getString(StorageKeys.schoolCode) ?? '';
+  /// Search-as-you-type entry point: updates the query immediately (so the field
+  /// and the generation guard reflect the newest keystroke, superseding any
+  /// in-flight request) but DEBOUNCES the network refresh so rapid typing fires
+  /// a single settled request instead of one full load per keystroke.
+  void onSearchChanged(String query) {
+    updateSearch(query);
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(searchDebounceDelay, () {
+      refresh(ignoreRefreshingGuard: true);
+    });
+  }
 
-    // If schoolCode is still empty, surface a clear error instead of using any
-    // hard-coded fallback. Caller should ensure org/school selection is done.
-    if (_schoolCode!.trim().isEmpty) {
+  @override
+  Future<void> close() {
+    _searchDebounce?.cancel();
+    return super.close();
+  }
+
+  /// Appends [incoming] onto [existing], skipping any student whose code is
+  /// already present (stable-identity dedup), so overlapping backend pages can't
+  /// show the same student twice. Original order is preserved.
+  static List<Student> _appendDedupedByCode(
+    List<Student> existing,
+    List<Student> incoming,
+  ) {
+    final seen = existing.map((s) => s.code).toSet();
+    final result = List<Student>.from(existing);
+    for (final s in incoming) {
+      if (seen.add(s.code)) result.add(s);
+    }
+    return result;
+  }
+
+  Future<String> _resolveSchoolCode() async {
+    // Always read the live school from storage (never a stale memoized value):
+    // the cubit can outlive an in-place school switch (e.g. an FCM-driven
+    // switch on a still-mounted screen). Fail closed on an empty value rather
+    // than using any hard-coded fallback.
+    final fresh =
+        (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (fresh.isEmpty) {
       throw StateError(
         'School code is not set. Make sure login and school selection are completed.',
       );
     }
+    if (_schoolCode != null && _schoolCode != fresh) {
+      // School switched under a live cubit: drop the memoized persona scope so
+      // it re-resolves for the new school, and supersede any in-flight response.
+      _isScopedStaffPersona = null;
+      _allowedClassroomCodes = null;
+      _generation++;
+    }
+    _schoolCode = fresh;
+    return fresh;
+  }
 
-    return _schoolCode!;
+  /// True when a response captured at [gen] under [schoolAtStart] is no longer
+  /// the active one — the cubit closed, a newer query superseded it, or the
+  /// active school changed while it was in flight. Callers must return without
+  /// emitting when this is true.
+  Future<bool> _isStaleResponse(int gen, String schoolAtStart) async {
+    if (isClosed || gen != _generation) return true;
+    final current =
+        (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+    return current != schoolAtStart;
   }
 
   Future<void> _ensureClassroomScopeResolved() async {
@@ -203,6 +266,10 @@ class StudentCubit extends Cubit<StudentState> {
     // newer one just because it happened to land last — drop it instead.
     final requestedStatus = state.statusFilter;
     final requestedSearch = state.searchQuery;
+    // This refresh owns a fresh generation; capture the school it runs under so
+    // a later school switch (or newer query) discards this response.
+    final gen = ++_generation;
+    final schoolAtStart = schoolCode;
 
     try {
       final firstPageFuture = _getStudentPageUseCase(
@@ -249,14 +316,16 @@ class StudentCubit extends Cubit<StudentState> {
 
         if (isClosed) return;
 
-        items.addAll(secondPage.items);
+        items = _appendDedupedByCode(items, secondPage.items);
         currentPage = secondPage.page;
         hasMore = secondPage.hasMore;
       }
 
-      if (isClosed) return;
-      // Drop a stale result: the filter changed while this load was in flight,
-      // so a newer refresh owns the list now.
+      // Drop a stale result: a newer query/refresh or a school switch happened
+      // while this load was in flight, so this response no longer owns the list.
+      // (The legacy status/search checks are subsumed by the generation guard,
+      // which also covers every other filter and the active school.)
+      if (await _isStaleResponse(gen, schoolAtStart)) return;
       if (state.statusFilter != requestedStatus) return;
       if (state.searchQuery != requestedSearch) return;
 
@@ -271,7 +340,7 @@ class StudentCubit extends Cubit<StudentState> {
         ),
       );
     } catch (e) {
-      if (isClosed) return;
+      if (await _isStaleResponse(gen, schoolAtStart)) return;
       emit(
         state.copyWith(
           isLoading: false,
@@ -331,6 +400,12 @@ class StudentCubit extends Cubit<StudentState> {
       return;
     }
 
+    // load-more continues the CURRENT query — capture its generation (do not
+    // bump) and school so a refresh/filter/school change mid-flight discards
+    // this page instead of appending it into a now-different list.
+    final gen = _generation;
+    final schoolAtStart = schoolCode;
+
     emit(state.copyWith(isLoadingMore: true, errorMessage: null));
 
     try {
@@ -351,18 +426,18 @@ class StudentCubit extends Cubit<StudentState> {
         allowedClassroomCodes: _effectiveAllowedClassroomCodesForRequest(),
       );
 
-      if (isClosed) return;
+      if (await _isStaleResponse(gen, schoolAtStart)) return;
 
       emit(
         state.copyWith(
-          items: [...state.items, ...page.items],
+          items: _appendDedupedByCode(state.items, page.items),
           currentPage: page.page,
           hasMore: page.hasMore,
           isLoadingMore: false,
         ),
       );
     } catch (e) {
-      if (isClosed) return;
+      if (await _isStaleResponse(gen, schoolAtStart)) return;
       emit(
         state.copyWith(
           isLoadingMore: false,
@@ -373,6 +448,8 @@ class StudentCubit extends Cubit<StudentState> {
   }
 
   void updateSearch(String query) {
+    // A new search is a new logical query: supersede any in-flight response.
+    _generation++;
     emit(state.copyWith(searchQuery: query));
   }
 
@@ -386,6 +463,9 @@ class StudentCubit extends Cubit<StudentState> {
     List<String>? guardianCodes,
     List<String>? attendanceStatuses,
   }) {
+    // Filter changes reset the logical query: supersede any in-flight response
+    // so an older page/list can't append into or overwrite the new results.
+    _generation++;
     emit(
       state.copyWith(
         statusFilter: status,
@@ -400,36 +480,60 @@ class StudentCubit extends Cubit<StudentState> {
     );
   }
 
+  /// In-flight roster mutations keyed by `action:studentCode`. A second call for
+  /// the same action+student while the first is still running (a double-tap)
+  /// returns the SAME future instead of issuing a duplicate request — the cubit
+  /// enforces single-flight independently of any UI button-disabling.
+  final Map<String, Future<String>> _inFlightMutations = {};
+
+  Future<String> _singleFlightMutation(
+    String key,
+    Future<String> Function() operation,
+  ) {
+    final existing = _inFlightMutations[key];
+    if (existing != null) return existing;
+    final future = operation();
+    _inFlightMutations[key] = future;
+    future.whenComplete(() => _inFlightMutations.remove(key));
+    return future;
+  }
+
   /// Deactivates a student and refreshes the list. Returns backend message.
-  Future<String> deactivateStudent(String code) async {
-    final schoolCode = await _resolveSchoolCode();
-    final message = await _repository.deactivateStudent(
-      code: code,
-      schoolCode: schoolCode,
-    );
-    await refreshWithCacheReset();
-    return message;
+  Future<String> deactivateStudent(String code) {
+    return _singleFlightMutation('deactivate:$code', () async {
+      final schoolCode = await _resolveSchoolCode();
+      final message = await _repository.deactivateStudent(
+        code: code,
+        schoolCode: schoolCode,
+      );
+      await refreshWithCacheReset();
+      return message;
+    });
   }
 
   /// Reactivates a student and refreshes the list. Returns backend message.
-  Future<String> reactivateStudent(String code) async {
-    final schoolCode = await _resolveSchoolCode();
-    final message = await _repository.reactivateStudent(
-      code: code,
-      schoolCode: schoolCode,
-    );
-    await refreshWithCacheReset();
-    return message;
+  Future<String> reactivateStudent(String code) {
+    return _singleFlightMutation('reactivate:$code', () async {
+      final schoolCode = await _resolveSchoolCode();
+      final message = await _repository.reactivateStudent(
+        code: code,
+        schoolCode: schoolCode,
+      );
+      await refreshWithCacheReset();
+      return message;
+    });
   }
 
-  Future<String> deleteStudent(String code) async {
-    final schoolCode = await _resolveSchoolCode();
-    final message = await _repository.deleteStudent(
-      code: code,
-      schoolCode: schoolCode,
-    );
-    await refreshWithCacheReset();
-    return message;
+  Future<String> deleteStudent(String code) {
+    return _singleFlightMutation('delete:$code', () async {
+      final schoolCode = await _resolveSchoolCode();
+      final message = await _repository.deleteStudent(
+        code: code,
+        schoolCode: schoolCode,
+      );
+      await refreshWithCacheReset();
+      return message;
+    });
   }
 
   // To be called by add/edit/delete flows to keep cache + UI in sync

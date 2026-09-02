@@ -5,9 +5,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
-import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
-import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_tags_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -56,6 +54,7 @@ class _StudentTagsEditSheet extends StatefulWidget {
 }
 
 class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
+  final StudentTagsCubit _tagsCubit = serviceLocator<StudentTagsCubit>();
   bool _loading = true;
   bool _saving = false;
   List<String> _availableTagNames = const <String>[];
@@ -70,6 +69,12 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _tagsCubit.close();
+    super.dispose();
+  }
+
   Future<void> _load() async {
     try {
       var school = (widget.schoolCode ?? '').trim();
@@ -81,12 +86,8 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
       }
       _schoolCode = school;
 
-      final names = await serviceLocator<GetTagNamesForSchoolUseCase>()(
-        schoolCode: school,
-      );
-      final map = await serviceLocator<GetTagNameCodeMapForSchoolUseCase>()(
-        schoolCode: school,
-      );
+      final names = await _tagsCubit.fetchTagNamesForSchool(school);
+      final map = await _tagsCubit.fetchTagNameCodeMap(school);
       if (!mounted) return;
       setState(() {
         _availableTagNames = names;
@@ -127,8 +128,7 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
           .where((c) => c.trim().isNotEmpty)
           .toList();
 
-      final repo = serviceLocator<StudentRepository>();
-      final message = await repo.updateStudentTags(
+      final message = await _tagsCubit.updateTags(
         studentCode: widget.studentCode,
         schoolCode: school,
         tagCodes: tagCodes,

@@ -157,6 +157,18 @@ import '../../domain/features/staff/usecases/get_staff_documents_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import '../../domain/features/staff/usecases/get_important_dates_usecase.dart';
 import '../../domain/features/staff/usecases/update_important_dates_usecase.dart';
+import '../../domain/features/staff/usecases/get_school_regular_schedules_usecase.dart';
+import '../../domain/features/staff/usecases/update_staff_schedules_usecase.dart';
+import '../../domain/features/staff/usecases/update_staff_profile_usecase.dart';
+import '../../domain/features/staff/usecases/update_staff_address_usecase.dart';
+import '../../domain/features/staff/usecases/update_staff_allowed_classrooms_usecase.dart';
+import '../../domain/features/staff/usecases/update_staff_primary_classroom_usecase.dart';
+import '../../domain/features/staff/usecases/change_user_email_usecase.dart';
+import '../../domain/features/staff/usecases/activate_organization_admin_usecase.dart';
+import '../../domain/features/staff/usecases/deactivate_organization_admin_usecase.dart';
+import '../../domain/features/staff/usecases/activate_school_user_usecase.dart';
+import '../../domain/features/staff/usecases/deactivate_school_user_usecase.dart';
+import '../../domain/features/staff/usecases/delete_school_user_usecase.dart';
 import '../../domain/features/staff/usecases/create_school_user_usecase.dart';
 import '../../domain/features/student/repositories/student_repository.dart';
 import '../../domain/features/student/usecases/get_student_page_usecase.dart';
@@ -205,16 +217,73 @@ import '../../domain/features/attendance/usecases/get_staff_today_sign_in_status
 import '../../domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
 import '../../domain/features/attendance/usecases/update_student_attendance_record_usecase.dart';
+import '../../domain/features/attendance/usecases/submit_student_sign_in_usecase.dart';
+import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_cubit.dart';
+import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_gate_cubit.dart';
+import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_gate_cubit.dart';
+import '../../domain/features/attendance/usecases/submit_student_sign_out_usecase.dart';
+import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_out_submit_cubit.dart';
+import '../../domain/features/attendance/usecases/submit_student_transfer_usecase.dart';
+import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_transfer_submit_cubit.dart';
+import '../../domain/features/attendance/usecases/submit_staff_sign_in_usecase.dart';
+import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_submit_cubit.dart';
+import '../../domain/features/attendance/usecases/submit_staff_sign_out_usecase.dart';
+import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_out_submit_cubit.dart';
+import '../../domain/features/attendance/usecases/submit_staff_transfer_usecase.dart';
+import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_transfer_submit_cubit.dart';
+import '../../domain/features/attendance/usecases/delete_staff_attendance_record_usecase.dart';
+import '../../domain/features/attendance/usecases/delete_student_attendance_record_usecase.dart';
+import '../../domain/features/attendance/usecases/delete_student_absence_record_usecase.dart';
+import '../../domain/features/attendance/usecases/delete_staff_absence_record_usecase.dart';
+import '../../domain/features/attendance/usecases/fetch_student_attendance_profile_usecase.dart';
+import '../../domain/features/attendance/usecases/fetch_student_attendance_profile_absent_toggle_usecase.dart';
+import '../../domain/features/attendance/usecases/fetch_staff_attendance_profile_usecase.dart';
+import '../../domain/features/attendance/usecases/fetch_staff_attendance_profile_absent_toggle_usecase.dart';
+import '../../domain/features/attendance/usecases/get_student_attendance_absent_view_usecase.dart';
+import '../../presentation/features/attendance/cubit/staff_attendance_delete_cubit.dart';
+import '../../presentation/features/attendance/cubit/student_attendance_delete_cubit.dart';
 import '../../domain/features/student/usecases/get_student_documents_usecase.dart';
 import '../../domain/features/student/usecases/add_student_document_usecase.dart';
 import '../../domain/features/student/usecases/get_student_important_dates_usecase.dart';
 import '../../domain/features/student/usecases/update_student_important_dates_usecase.dart';
 import '../../domain/features/student/usecases/update_student_document_usecase.dart';
 import '../../domain/features/student/usecases/delete_student_document_usecase.dart';
+import '../../domain/features/student/usecases/get_student_physicians_usecase.dart';
+import '../../domain/features/student/usecases/add_physician_usecase.dart';
+import '../../domain/features/student/usecases/update_physician_usecase.dart';
+import '../../domain/features/student/usecases/delete_physician_usecase.dart';
+import '../../domain/features/student/usecases/get_student_pickups_usecase.dart';
+import '../../domain/features/student/usecases/add_pickup_usecase.dart';
+import '../../domain/features/student/usecases/update_pickup_usecase.dart';
+import '../../domain/features/student/usecases/delete_pickup_usecase.dart';
+import '../../domain/features/student/usecases/get_guardians_raw_for_school_usecase.dart';
+import '../../domain/features/student/usecases/get_student_guardians_usecase.dart';
+import '../../domain/features/student/usecases/delete_guardian_usecase.dart';
+import '../../domain/features/student/usecases/get_student_health_usecase.dart';
+import '../../domain/features/student/usecases/get_student_settings_usecase.dart';
+import '../../domain/features/student/usecases/update_student_health_usecase.dart';
+import '../../domain/features/student/usecases/get_student_immunizations_usecase.dart';
+import '../../domain/features/student/usecases/update_student_immunization_record_usecase.dart';
+import '../../domain/features/student/usecases/get_student_physical_exams_usecase.dart';
+import '../../domain/features/student/usecases/add_student_physical_exam_usecase.dart';
+import '../../domain/features/student/usecases/update_student_physical_exam_usecase.dart';
 import '../../domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_student_codes_for_activity_tag_filter_usecase.dart';
 import '../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import '../../domain/features/student/usecases/get_student_tag_names_usecase.dart';
+import '../../domain/features/student/usecases/update_student_tags_usecase.dart';
+import '../../domain/features/student/usecases/update_student_profile_usecase.dart';
+import '../../domain/features/student/usecases/update_student_address_usecase.dart';
+import '../../domain/features/student/usecases/update_student_siblings_usecase.dart';
+import '../../domain/features/student/usecases/update_guardian_usecase.dart';
+import '../../domain/features/student/usecases/create_student_usecase.dart';
+import '../../domain/features/student/usecases/create_guardian_user_usecase.dart';
+import '../../domain/features/student/usecases/link_existing_guardian_usecase.dart';
+import '../../domain/features/student/usecases/add_student_sibling_usecase.dart';
+import '../../domain/features/student/usecases/update_student_regular_schedules_usecase.dart';
+import '../../presentation/features/students/cubit/student_profile_edit_cubit.dart';
+import '../../presentation/features/students/cubit/student_create_cubit.dart';
 import '../../presentation/features/billing/cubit/select_students_cubit.dart';
 import '../../domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_immunization_settings_usecase.dart';
@@ -249,6 +318,7 @@ import '../../domain/features/activity/usecases/create_activity_upload_sessions_
 import '../../domain/features/activity/usecases/create_activity_asset_presign_usecase.dart';
 import '../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
 import '../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
+import '../../domain/features/activity/usecases/get_mark_activity_student_list_usecase.dart';
 import '../../domain/features/activity/usecases/get_nap_start_students_usecase.dart';
 import '../../data/features/activity/datasources/activity_remote_datasource.dart';
 import '../../data/features/activity/repositories/activity_repository_impl.dart';
@@ -260,7 +330,11 @@ import '../../presentation/features/staff/cubit/staff_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_document_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_documents_list_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_profile_cubit.dart';
+import '../../presentation/features/staff/cubit/staff_attendance_summary_cubit.dart';
+import '../../presentation/features/staff/cubit/staff_profile_photo_upload_cubit.dart';
 import '../../presentation/features/staff/cubit/important_dates_cubit.dart';
+import '../../presentation/features/staff/cubit/staff_schedule_cubit.dart';
+import '../../presentation/features/staff/cubit/staff_profile_edit_cubit.dart';
 import '../../presentation/features/staff/cubit/create_school_user_cubit.dart';
 import '../../presentation/features/students/cubit/student_cubit.dart';
 import '../../presentation/features/attendance/cubit/student_attendance_daily_cubit.dart';
@@ -277,6 +351,13 @@ import '../../presentation/features/attendance/cubit/staff_attendance_custom_cub
 import '../../presentation/features/attendance/cubit/staff_attendance_absent_cubit.dart';
 import '../../presentation/features/attendance/cubit/staff_attendance_absent_toggle_cubit.dart';
 import '../../presentation/features/students/cubit/student_documents_list_cubit.dart';
+import '../../presentation/features/students/cubit/student_physician_cubit.dart';
+import '../../presentation/features/students/cubit/student_tags_cubit.dart';
+import '../../presentation/features/students/cubit/student_pickup_cubit.dart';
+import '../../presentation/features/students/cubit/student_guardian_cubit.dart';
+import '../../presentation/features/students/cubit/student_health_cubit.dart';
+import '../../presentation/features/students/cubit/student_profile_cubit.dart';
+import '../../presentation/features/students/cubit/student_physical_exam_cubit.dart';
 import '../../presentation/features/students/cubit/student_document_cubit.dart';
 import '../../presentation/features/students/cubit/student_important_dates_cubit.dart';
 import '../../domain/features/communication/repositories/communication_repository.dart';
@@ -531,6 +612,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<ImageUploadService>(
     () => ImageUploadService(serviceLocator<ApiClient>()),
+  );
+  serviceLocator.registerFactory<StaffProfilePhotoUploadCubit>(
+    () => StaffProfilePhotoUploadCubit(imageUploadService: serviceLocator()),
   );
   serviceLocator.registerLazySingleton<ProfilePhotoUploader>(
     () => ProfilePhotoUploader(serviceLocator<ImageUploadService>()),
@@ -902,6 +986,42 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<UpdateImportantDatesUseCase>(
     () => UpdateImportantDatesUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetSchoolRegularSchedulesUseCase>(
+    () => GetSchoolRegularSchedulesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStaffSchedulesUseCase>(
+    () => UpdateStaffSchedulesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStaffProfileUseCase>(
+    () => UpdateStaffProfileUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStaffAddressUseCase>(
+    () => UpdateStaffAddressUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStaffAllowedClassroomsUseCase>(
+    () => UpdateStaffAllowedClassroomsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStaffPrimaryClassroomUseCase>(
+    () => UpdateStaffPrimaryClassroomUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ChangeUserEmailUseCase>(
+    () => ChangeUserEmailUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ActivateOrganizationAdminUseCase>(
+    () => ActivateOrganizationAdminUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeactivateOrganizationAdminUseCase>(
+    () => DeactivateOrganizationAdminUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ActivateSchoolUserUseCase>(
+    () => ActivateSchoolUserUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeactivateSchoolUserUseCase>(
+    () => DeactivateSchoolUserUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteSchoolUserUseCase>(
+    () => DeleteSchoolUserUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<CreateSchoolUserUseCase>(
     () => CreateSchoolUserUseCase(serviceLocator()),
   );
@@ -1046,6 +1166,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStaffTodaySignInStatusMapUseCase>(
     () => GetStaffTodaySignInStatusMapUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<StaffAttendanceSummaryCubit>(
+    () => StaffAttendanceSummaryCubit(
+      getStaffAttendanceExpectedSummaryUseCase: serviceLocator(),
+      getStaffTodaySignInStatusMapUseCase: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<GetStudentTodaySignInStatusUseCase>(
     () => GetStudentTodaySignInStatusUseCase(serviceLocator()),
   );
@@ -1054,6 +1180,93 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<UpdateStudentAttendanceRecordUseCase>(
     () => UpdateStudentAttendanceRecordUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SubmitStudentSignInUseCase>(
+    () => SubmitStudentSignInUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<StudentSignInSubmitCubit>(
+    () => StudentSignInSubmitCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<StudentSignInGateCubit>(
+    () => StudentSignInGateCubit(
+      getStudentSignInFormList:
+          serviceLocator<GetStudentSignInFormListUseCase>(),
+      storageService: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffSignInGateCubit>(
+    () => StaffSignInGateCubit(
+      getStaffSignInFormList: serviceLocator<GetStaffSignInFormListUseCase>(),
+      storageService: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+    ),
+  );
+  serviceLocator.registerFactory<SubmitStudentSignOutUseCase>(
+    () => SubmitStudentSignOutUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<StudentSignOutSubmitCubit>(
+    () => StudentSignOutSubmitCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SubmitStudentTransferUseCase>(
+    () => SubmitStudentTransferUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<StudentTransferSubmitCubit>(
+    () => StudentTransferSubmitCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SubmitStaffSignInUseCase>(
+    () => SubmitStaffSignInUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<StaffSignInSubmitCubit>(
+    () => StaffSignInSubmitCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SubmitStaffSignOutUseCase>(
+    () => SubmitStaffSignOutUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<StaffSignOutSubmitCubit>(
+    () => StaffSignOutSubmitCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SubmitStaffTransferUseCase>(
+    () => SubmitStaffTransferUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<StaffTransferSubmitCubit>(
+    () => StaffTransferSubmitCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteStaffAttendanceRecordUseCase>(
+    () => DeleteStaffAttendanceRecordUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<StaffAttendanceDeleteCubit>(
+    () => StaffAttendanceDeleteCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteStudentAttendanceRecordUseCase>(
+    () => DeleteStudentAttendanceRecordUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<StudentAttendanceDeleteCubit>(
+    () => StudentAttendanceDeleteCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteStudentAbsenceRecordUseCase>(
+    () => DeleteStudentAbsenceRecordUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteStaffAbsenceRecordUseCase>(
+    () => DeleteStaffAbsenceRecordUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<FetchStudentAttendanceProfileUseCase>(
+    () => FetchStudentAttendanceProfileUseCase(serviceLocator()),
+  );
+  serviceLocator
+      .registerFactory<FetchStudentAttendanceProfileAbsentToggleUseCase>(
+        () =>
+            FetchStudentAttendanceProfileAbsentToggleUseCase(serviceLocator()),
+      );
+  serviceLocator.registerFactory<FetchStaffAttendanceProfileUseCase>(
+    () => FetchStaffAttendanceProfileUseCase(serviceLocator()),
+  );
+  serviceLocator
+      .registerFactory<FetchStaffAttendanceProfileAbsentToggleUseCase>(
+        () => FetchStaffAttendanceProfileAbsentToggleUseCase(serviceLocator()),
+      );
+  serviceLocator.registerFactory<GetStudentAttendanceAbsentViewUseCase>(
+    () => GetStudentAttendanceAbsentViewUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetStudentDocumentsUseCase>(
     () => GetStudentDocumentsUseCase(serviceLocator()),
@@ -1073,6 +1286,63 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<DeleteStudentDocumentUseCase>(
     () => DeleteStudentDocumentUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetStudentPhysiciansUseCase>(
+    () => GetStudentPhysiciansUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<AddPhysicianUseCase>(
+    () => AddPhysicianUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdatePhysicianUseCase>(
+    () => UpdatePhysicianUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeletePhysicianUseCase>(
+    () => DeletePhysicianUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentPickupsUseCase>(
+    () => GetStudentPickupsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<AddPickupUseCase>(
+    () => AddPickupUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdatePickupUseCase>(
+    () => UpdatePickupUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeletePickupUseCase>(
+    () => DeletePickupUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetGuardiansRawForSchoolUseCase>(
+    () => GetGuardiansRawForSchoolUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentGuardiansUseCase>(
+    () => GetStudentGuardiansUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteGuardianUseCase>(
+    () => DeleteGuardianUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentHealthUseCase>(
+    () => GetStudentHealthUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentSettingsUseCase>(
+    () => GetStudentSettingsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStudentHealthUseCase>(
+    () => UpdateStudentHealthUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentImmunizationsUseCase>(
+    () => GetStudentImmunizationsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStudentImmunizationRecordUseCase>(
+    () => UpdateStudentImmunizationRecordUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentPhysicalExamsUseCase>(
+    () => GetStudentPhysicalExamsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<AddStudentPhysicalExamUseCase>(
+    () => AddStudentPhysicalExamUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStudentPhysicalExamUseCase>(
+    () => UpdateStudentPhysicalExamUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetGuardianNamesForSchoolUseCase>(
     () => GetGuardianNamesForSchoolUseCase(serviceLocator()),
   );
@@ -1081,6 +1351,39 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetTagNameCodeMapForSchoolUseCase>(
     () => GetTagNameCodeMapForSchoolUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentTagNamesUseCase>(
+    () => GetStudentTagNamesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStudentTagsUseCase>(
+    () => UpdateStudentTagsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStudentProfileUseCase>(
+    () => UpdateStudentProfileUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStudentAddressUseCase>(
+    () => UpdateStudentAddressUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStudentSiblingsUseCase>(
+    () => UpdateStudentSiblingsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateGuardianUseCase>(
+    () => UpdateGuardianUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateStudentUseCase>(
+    () => CreateStudentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateGuardianUserUseCase>(
+    () => CreateGuardianUserUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<LinkExistingGuardianUseCase>(
+    () => LinkExistingGuardianUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<AddStudentSiblingUseCase>(
+    () => AddStudentSiblingUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStudentRegularSchedulesUseCase>(
+    () => UpdateStudentRegularSchedulesUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetStudentCodesForActivityTagFilterUseCase>(
     () => GetStudentCodesForActivityTagFilterUseCase(serviceLocator()),
@@ -1138,6 +1441,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getTagNameCodeMapForSchoolUseCase:
           serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
       getNapStartStudentsUseCase: serviceLocator<GetNapStartStudentsUseCase>(),
+      getMarkActivityStudentListUseCase:
+          serviceLocator<GetMarkActivityStudentListUseCase>(),
       staffRepository: serviceLocator<StaffRepository>(),
     ),
   );
@@ -1240,8 +1545,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<ActivityFeedScopeCubit>(
     () => ActivityFeedScopeCubit(
-      getDailyActivityFeedUseCase: serviceLocator<GetDailyActivityFeedUseCase>(),
-      getRangeActivityFeedUseCase: serviceLocator<GetRangeActivityFeedUseCase>(),
+      getDailyActivityFeedUseCase:
+          serviceLocator<GetDailyActivityFeedUseCase>(),
+      getRangeActivityFeedUseCase:
+          serviceLocator<GetRangeActivityFeedUseCase>(),
       getActiveClassroomsUseCase: serviceLocator<GetActiveClassroomsUseCase>(),
       getActiveActivityTypesForSchoolUseCase:
           serviceLocator<GetActiveActivityTypesForSchoolUseCase>(),
@@ -1304,6 +1611,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetNapStartStudentsUseCase>(
     () => GetNapStartStudentsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetMarkActivityStudentListUseCase>(
+    () => GetMarkActivityStudentListUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetStudentClassroomListUseCase>(
     () => GetStudentClassroomListUseCase(serviceLocator()),
@@ -1634,6 +1944,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StaffCubit(
       getStaffPageUseCase: serviceLocator(),
       getStaffCountUseCase: serviceLocator(),
+      getStaffProfileUseCase: serviceLocator(),
+      activateSchoolUserUseCase: serviceLocator(),
+      deactivateSchoolUserUseCase: serviceLocator(),
+      activateOrganizationAdminUseCase: serviceLocator(),
+      deactivateOrganizationAdminUseCase: serviceLocator(),
+      deleteSchoolUserUseCase: serviceLocator(),
       repository: serviceLocator(),
       storageService: serviceLocator(),
     ),
@@ -1658,11 +1974,37 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
   serviceLocator.registerFactory<ImportantDatesCubit>(
-    () => ImportantDatesCubit(updateImportantDatesUseCase: serviceLocator()),
+    () => ImportantDatesCubit(
+      getImportantDatesUseCase: serviceLocator(),
+      updateImportantDatesUseCase: serviceLocator(),
+      staffRepository: serviceLocator(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffScheduleCubit>(
+    () => StaffScheduleCubit(
+      getSchoolRegularSchedulesUseCase: serviceLocator(),
+      updateStaffSchedulesUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffProfileEditCubit>(
+    () => StaffProfileEditCubit(
+      updateStaffProfileUseCase: serviceLocator(),
+      updateStaffAddressUseCase: serviceLocator(),
+      updateStaffAllowedClassroomsUseCase: serviceLocator(),
+      updateStaffPrimaryClassroomUseCase: serviceLocator(),
+      changeUserEmailUseCase: serviceLocator(),
+      activateOrganizationAdminUseCase: serviceLocator(),
+      deactivateOrganizationAdminUseCase: serviceLocator(),
+      activateSchoolUserUseCase: serviceLocator(),
+      deactivateSchoolUserUseCase: serviceLocator(),
+    ),
   );
   serviceLocator.registerFactory<CreateSchoolUserCubit>(
     () => CreateSchoolUserCubit(
       createSchoolUserUseCase: serviceLocator(),
+      getAllStaffUseCase: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );
@@ -1785,6 +2127,83 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentDocumentsUseCase: serviceLocator(),
       deleteStudentDocumentUseCase: serviceLocator(),
       repository: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentPhysicianCubit>(
+    () => StudentPhysicianCubit(
+      getStudentPhysiciansUseCase: serviceLocator(),
+      addPhysicianUseCase: serviceLocator(),
+      updatePhysicianUseCase: serviceLocator(),
+      deletePhysicianUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentProfileEditCubit>(
+    () => StudentProfileEditCubit(
+      getStudentPageUseCase: serviceLocator(),
+      getStudentGuardiansUseCase: serviceLocator(),
+      updateStudentProfileUseCase: serviceLocator(),
+      updateStudentAddressUseCase: serviceLocator(),
+      updateStudentTagsUseCase: serviceLocator(),
+      updateStudentSiblingsUseCase: serviceLocator(),
+      updateGuardianUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentCreateCubit>(
+    () => StudentCreateCubit(
+      getStudentPageUseCase: serviceLocator(),
+      getStudentProfileUseCase: serviceLocator(),
+      getGuardianNameCodeMapForSchoolUseCase: serviceLocator(),
+      createStudentUseCase: serviceLocator(),
+      createGuardianUserUseCase: serviceLocator(),
+      linkExistingGuardianUseCase: serviceLocator(),
+      addStudentSiblingUseCase: serviceLocator(),
+      updateGuardianUseCase: serviceLocator(),
+      updateStudentRegularSchedulesUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentTagsCubit>(
+    () => StudentTagsCubit(
+      getStudentTagNamesUseCase: serviceLocator(),
+      getTagNamesForSchoolUseCase: serviceLocator(),
+      getTagNameCodeMapForSchoolUseCase: serviceLocator(),
+      updateStudentTagsUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentPickupCubit>(
+    () => StudentPickupCubit(
+      getStudentPickupsUseCase: serviceLocator(),
+      getGuardiansRawForSchoolUseCase: serviceLocator(),
+      addPickupUseCase: serviceLocator(),
+      updatePickupUseCase: serviceLocator(),
+      deletePickupUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentGuardianCubit>(
+    () => StudentGuardianCubit(
+      getStudentGuardiansUseCase: serviceLocator(),
+      deleteGuardianUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentHealthCubit>(
+    () => StudentHealthCubit(
+      getStudentHealthUseCase: serviceLocator(),
+      updateStudentHealthUseCase: serviceLocator(),
+      getStudentImmunizationsUseCase: serviceLocator(),
+      updateStudentImmunizationRecordUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentProfileCubit>(
+    () => StudentProfileCubit(
+      getStudentSettingsUseCase: serviceLocator(),
+      getStudentHealthUseCase: serviceLocator(),
+      updateStudentRegularSchedulesUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentPhysicalExamCubit>(
+    () => StudentPhysicalExamCubit(
+      getStudentPhysicalExamsUseCase: serviceLocator(),
+      addStudentPhysicalExamUseCase: serviceLocator(),
+      updateStudentPhysicalExamUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentDocumentCubit>(
