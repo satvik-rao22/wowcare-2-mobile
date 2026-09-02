@@ -30,9 +30,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_delete_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_daily_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_absent_toggle_cubit.dart';
@@ -223,14 +221,7 @@ class _StaffAttendanceDailyViewScreenState
 
   Future<void> _loadLoggedInUserName() async {
     try {
-      final storage = serviceLocator<StorageService>();
-      final displayName =
-          (await storage.getString(StorageKeys.displayName) ?? '').trim();
-      final username = (await storage.getString(StorageKeys.username) ?? '')
-          .trim();
-      final fallback = displayName.isNotEmpty
-          ? displayName
-          : (username.isNotEmpty ? username : '');
+      final fallback = await _cubit.resolveLoggedInUserName();
       if (!mounted || fallback.isEmpty) return;
       setState(() {
         _loggedInUserName = fallback;

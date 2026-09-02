@@ -35,8 +35,6 @@ import 'package:wowcare/domain/features/attendance/entities/student_attendance_a
     hide StudentAttendanceTime;
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
@@ -306,14 +304,7 @@ class _StudentAttendanceDailyViewScreenState
 
   Future<void> _loadLoggedInUserName() async {
     try {
-      final storage = serviceLocator<StorageService>();
-      final displayName =
-          (await storage.getString(StorageKeys.displayName) ?? '').trim();
-      final username = (await storage.getString(StorageKeys.username) ?? '')
-          .trim();
-      final fallback = displayName.isNotEmpty
-          ? displayName
-          : (username.isNotEmpty ? username : '');
+      final fallback = await _cubit.resolveLoggedInUserName();
       if (!mounted || fallback.isEmpty) return;
       setState(() {
         _loggedInUserName = fallback;

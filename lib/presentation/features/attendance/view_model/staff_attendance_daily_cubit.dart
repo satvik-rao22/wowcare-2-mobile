@@ -193,6 +193,15 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
     }
   }
 
+  /// Resolves the logged-in user's display name (falling back to username)
+  /// for the header greeting. Returns '' when neither is available.
+  Future<String> resolveLoggedInUserName() async {
+    final displayName =
+        (await _storageService.getString(StorageKeys.displayName) ?? '').trim();
+    if (displayName.isNotEmpty) return displayName;
+    return (await _storageService.getString(StorageKeys.username) ?? '').trim();
+  }
+
   Future<void> loadNextPage() async {
     if (state.isLoading || state.isLoadingMore || !state.hasMore) return;
     if (state.currentPage < 0) return;
