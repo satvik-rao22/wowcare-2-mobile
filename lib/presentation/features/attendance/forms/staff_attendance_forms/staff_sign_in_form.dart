@@ -762,7 +762,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         'staffCodes': staffCodes,
         'classroomCode': classroomCode,
         'classroomCodeByStaffCode': classroomCodeByStaffCode,
-        'method': signInMethod,
+        'method': 'APP',// signInMethod,
         'latitude': position?.latitude ?? 0,
         'longitude': position?.longitude ?? 0,
         'withinGeofence': withinGeofence,

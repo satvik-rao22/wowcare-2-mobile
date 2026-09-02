@@ -27,6 +27,7 @@ class ApiHeaders {
     return {
       if (org.isNotEmpty) 'X-Organization-Code': org,
       if (school.isNotEmpty) 'X-School-Code': school,
+
     };
   }
 }
