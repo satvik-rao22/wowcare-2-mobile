@@ -465,7 +465,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               color: AppColors.primaryColor,
             ),
           ),

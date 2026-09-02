@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -108,7 +109,7 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               color: AppColors.primaryColor,
             ),
           ),
@@ -226,7 +227,7 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                fontFamily: 'Manrope',
+                fontFamily: Fonts.manrope,
                 color: AppColors.primaryColor,
               ),
             ),

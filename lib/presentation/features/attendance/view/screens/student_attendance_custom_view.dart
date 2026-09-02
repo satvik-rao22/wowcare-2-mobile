@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
@@ -727,7 +728,7 @@ class _StudentAttendanceCustomViewState
           child: Text(
             label,
             style: const TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               fontSize: 13,
               fontWeight: FontWeight.w400,
               color: AppColors.primaryColor,
@@ -740,7 +741,7 @@ class _StudentAttendanceCustomViewState
           child: Text(
             value,
             style: const TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: AppColors.primaryColor,
@@ -831,7 +832,7 @@ class _StudentAttendanceCustomViewState
                         child: Text(
                           studentName,
                           style: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: Fonts.manrope,
                             fontSize: responsive.isTablet ? 16 : 14,
                             fontWeight: FontWeight.w500,
                             color: AppColors.primaryColor,
@@ -846,7 +847,7 @@ class _StudentAttendanceCustomViewState
                         child: Text(
                           roomName,
                           style: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: Fonts.manrope,
                             fontSize: responsive.isTablet ? 16 : 14,
                             fontWeight: FontWeight.w500,
                             color: AppColors.primaryColor,

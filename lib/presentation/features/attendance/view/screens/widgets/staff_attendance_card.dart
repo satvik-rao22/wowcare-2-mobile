@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -190,7 +191,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                                   // without a height, so a base+copyWith would
                                   // inject height and change layout — left inline.
                                   style: TextStyle(
-                                    fontFamily: 'Manrope',
+                                    fontFamily: Fonts.manrope,
                                     fontSize: isTablet ? 13 : 12,
                                     fontWeight: FontWeight.w400,
                                     color: AppColors.primaryColor.withValues(

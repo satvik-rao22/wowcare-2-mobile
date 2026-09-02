@@ -14,6 +14,7 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -635,7 +636,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                         child: Text(
                           staffName,
                           style: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: Fonts.manrope,
                             fontSize: responsive.isTablet ? 16 : 14,
                             fontWeight: FontWeight.w500,
                             color: AppColors.primaryColor,
@@ -649,7 +650,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                         child: Text(
                           roomName,
                           style: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: Fonts.manrope,
                             fontSize: responsive.isTablet ? 16 : 14,
                             fontWeight: FontWeight.w500,
                             color: AppColors.primaryColor,
@@ -722,7 +723,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
           child: Text(
             label,
             style: const TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               fontSize: 13,
               fontWeight: FontWeight.w400,
               color: AppColors.primaryColor,
@@ -736,7 +737,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
           child: Text(
             value,
             style: const TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: AppColors.primaryColor,

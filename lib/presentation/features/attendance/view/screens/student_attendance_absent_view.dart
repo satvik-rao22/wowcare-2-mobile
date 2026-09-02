@@ -20,6 +20,7 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -1031,7 +1032,7 @@ class _StudentAttendanceAbsentViewState
                         child: Text(
                           student.name,
                           style: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: Fonts.manrope,
                             fontSize: responsive.isTablet ? 16 : 14,
                             fontWeight: FontWeight.w500,
                             color: AppColors.primaryColor,
@@ -1046,7 +1047,7 @@ class _StudentAttendanceAbsentViewState
                         child: Text(
                           student.roomName,
                           style: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: Fonts.manrope,
                             fontSize: responsive.isTablet ? 16 : 14,
                             fontWeight: FontWeight.w500,
                             color: AppColors.primaryColor,
@@ -1165,7 +1166,7 @@ class _StudentAttendanceAbsentViewState
           child: Text(
             label,
             style: const TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               fontSize: 13,
               fontWeight: FontWeight.w400,
               color: AppColors.primaryColor,
@@ -1179,7 +1180,7 @@ class _StudentAttendanceAbsentViewState
           child: Text(
             value,
             style: const TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: AppColors.primaryColor,
