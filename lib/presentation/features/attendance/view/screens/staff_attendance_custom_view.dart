@@ -25,6 +25,7 @@ import 'package:wowcare/presentation/features/attendance/util/attendance_school_
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_responsive_detail_row.dart';
 
 class StaffAttendanceCustomView extends StatefulWidget {
   const StaffAttendanceCustomView({super.key, this.contentOnly = false});
@@ -279,22 +280,10 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
 
   @override
   Widget build(BuildContext context) {
-    if (widget.contentOnly) {
-      return _buildContent();
-    }
-
-    return GlobalScaffold(
-      hasBackButton: true,
-      showCustomNavigationBar: true,
-      body: _buildContent(),
-    );
-  }
-
-  Widget _buildContent() {
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
 
-    return MultiBlocProvider(
+    final Widget content = MultiBlocProvider(
       providers: [
         BlocProvider<StaffAttendanceCustomCubit>.value(value: _cubit),
         BlocProvider<ClassroomCubit>.value(value: _classroomCubit),
@@ -544,7 +533,18 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                             ...filtered.asMap().entries.map((entry) {
                               final index = entry.key;
                               final attendance = entry.value;
-                              return _buildCustomStaffCard(attendance, index);
+                              return _CustomStaffCardItem(
+                                attendance: attendance,
+                                isExpanded: _customExpandedStaffIndex == index,
+                                onTap: () {
+                                  setState(() {
+                                    _customExpandedStaffIndex =
+                                        _customExpandedStaffIndex == index
+                                        ? null
+                                        : index;
+                                  });
+                                },
+                              );
                             }).toList(),
                           ],
                         ),
@@ -559,14 +559,33 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
         ),
       ),
     );
-  }
 
-  Widget _buildCustomStaffCard(
-    _CustomStaffAttendanceRow attendance,
-    int index,
-  ) {
+    if (widget.contentOnly) {
+      return content;
+    }
+
+    return GlobalScaffold(
+      hasBackButton: true,
+      showCustomNavigationBar: true,
+      body: content,
+    );
+  }
+}
+
+class _CustomStaffCardItem extends StatelessWidget {
+  const _CustomStaffCardItem({
+    required this.attendance,
+    required this.isExpanded,
+    required this.onTap,
+  });
+
+  final _CustomStaffAttendanceRow attendance;
+  final bool isExpanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final bool isExpanded = _customExpandedStaffIndex == index;
 
     final staffName = attendance.staffName.isNotEmpty
         ? attendance.staffName
@@ -584,15 +603,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
     final avatarSize = responsive.isTablet ? 52.0 : 44.0;
 
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          if (_customExpandedStaffIndex == index) {
-            _customExpandedStaffIndex = null;
-          } else {
-            _customExpandedStaffIndex = index;
-          }
-        });
-      },
+      onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
@@ -661,9 +672,17 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
               SizedBox(height: responsive.verticalSpacing / 2),
               Divider(height: 1, color: AppColors.cardBorderColor),
               SizedBox(height: responsive.verticalSpacing / 2),
-              _buildDetailRow(responsive, 'Attended Time', totalHours),
+              AttendanceResponsiveDetailRow(
+                responsive: responsive,
+                label: 'Attended Time',
+                value: totalHours,
+              ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildDetailRow(responsive, 'Attended Days', daysAttended),
+              AttendanceResponsiveDetailRow(
+                responsive: responsive,
+                label: 'Attended Days',
+                value: daysAttended,
+              ),
               SizedBox(height: responsive.verticalSpacing / 2),
               Padding(
                 padding: EdgeInsets.symmetric(
@@ -699,33 +718,6 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildDetailRow(
-    ResponsiveHelper responsive,
-    String label,
-    String value,
-  ) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: responsive.isTablet ? 2 : 1,
-          child: Text(label, style: AppTextStyles.label),
-        ),
-        SizedBox(width: responsive.horizontalSpacing / 2),
-        Expanded(
-          flex: responsive.isTablet ? 3 : 2,
-          child: Text(
-            value,
-            style: AppTextStyles.body,
-            textAlign: TextAlign.end,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
     );
   }
 }

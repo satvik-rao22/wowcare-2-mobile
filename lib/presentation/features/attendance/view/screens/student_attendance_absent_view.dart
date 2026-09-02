@@ -38,6 +38,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_absent_fetch_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_responsive_detail_row.dart';
 
 // Dummy data model for UI-only implementation
 class _AbsentStudentModel {
@@ -1092,37 +1093,37 @@ class _AbsentStudentCardItem extends StatelessWidget {
               SizedBox(height: responsive.verticalSpacing / 2),
               Divider(height: 1, color: AppColors.cardBorderColor),
               SizedBox(height: responsive.verticalSpacing / 2),
-              _AbsentStudentDetailRow(
+              AttendanceResponsiveDetailRow(
                 responsive: responsive,
                 label: 'Classroom',
                 value: student.roomName,
               ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _AbsentStudentDetailRow(
+              AttendanceResponsiveDetailRow(
                 responsive: responsive,
                 label: 'Absent Days',
                 value: '${student.absentDays} days',
               ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _AbsentStudentDetailRow(
+              AttendanceResponsiveDetailRow(
                 responsive: responsive,
                 label: 'Absent Date',
                 value: DateFormat('MMM dd, yyyy').format(student.startDate),
               ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _AbsentStudentDetailRow(
+              AttendanceResponsiveDetailRow(
                 responsive: responsive,
                 label: 'Absent Time',
                 value: student.absentTime,
               ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _AbsentStudentDetailRow(
+              AttendanceResponsiveDetailRow(
                 responsive: responsive,
                 label: 'Marked By',
                 value: student.absentBy,
               ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _AbsentStudentDetailRow(
+              AttendanceResponsiveDetailRow(
                 responsive: responsive,
                 label: 'Absent Note',
                 value: (student.note != null && student.note!.trim().isNotEmpty)
@@ -1170,42 +1171,6 @@ class _AbsentStudentCardItem extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _AbsentStudentDetailRow extends StatelessWidget {
-  const _AbsentStudentDetailRow({
-    required this.responsive,
-    required this.label,
-    required this.value,
-  });
-
-  final ResponsiveHelper responsive;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: responsive.isTablet ? 2 : 1,
-          child: Text(label, style: AppTextStyles.label),
-        ),
-        SizedBox(width: responsive.horizontalSpacing / 2),
-        Expanded(
-          flex: responsive.isTablet ? 3 : 2,
-          child: Text(
-            value,
-            style: AppTextStyles.body,
-            textAlign: TextAlign.end,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
     );
   }
 }
