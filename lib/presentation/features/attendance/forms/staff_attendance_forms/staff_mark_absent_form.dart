@@ -192,26 +192,24 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                 decoration: InputDecoration(
                   hintText: 'Enter Absent Notes',
                   hintStyle: AppTextStyles.body.copyWith(
-                    color: const Color.fromRGBO(87, 51, 83, 0.5),
+                    color: AppColors.primaryColor.withValues(alpha: 0.5),
                     fontSize: 15,
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppRadius.r10),
-                    borderSide: const BorderSide(
-                      color: Color.fromRGBO(87, 51, 83, 0.4),
-                    ),
+                    borderSide: BorderSide(color: AppColors.inputBorderColor),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppRadius.r10),
-                    borderSide: const BorderSide(
-                      color: Color.fromRGBO(87, 51, 83, 0.4),
+                    borderSide: BorderSide(
+                      color: AppColors.inputBorderColor,
                       width: 1,
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppRadius.r10),
-                    borderSide: const BorderSide(
-                      color: Color.fromRGBO(87, 51, 83, 0.4),
+                    borderSide: BorderSide(
+                      color: AppColors.inputBorderColor,
                       width: 2,
                     ),
                   ),
@@ -270,7 +268,7 @@ class RemoveStaffTile extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(AppRadius.r10),
-        color: const Color.fromRGBO(249, 245, 250, 1),
+        color: AppColors.attendanceSelectedTintColor,
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,

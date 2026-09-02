@@ -485,7 +485,7 @@ class _StudentAttendanceCustomViewState
             child: Container(
               height: 2,
               width: _getTabIndicatorWidth(selectedTab),
-              color: const Color(0xFF3B5BDB),
+              color: AppColors.attendanceTabIndicatorColor,
             ),
           ),
         ],
@@ -711,7 +711,9 @@ class _StudentAttendanceCustomViewState
         style: TextStyle(
           fontSize: 16,
           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-          color: isSelected ? const Color(0xFF222B45) : const Color(0xFF8F9BB3),
+          color: isSelected
+              ? AppColors.attendanceTabSelectedLabelColor
+              : AppColors.attendanceTabUnselectedLabelColor,
         ),
       ),
     );
@@ -796,7 +798,7 @@ class _StudentAttendanceCustomViewState
           border: Border.all(color: AppColors.cardBorderColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
+              color: AppColors.attendanceCardShadowLightColor,
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),

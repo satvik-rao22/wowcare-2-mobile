@@ -30,16 +30,21 @@ class AttendanceSearchField extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardColor,
         borderRadius: BorderRadius.circular(AppRadius.r15),
-        border: Border.all(color: Colors.grey),
+        border: Border.all(color: AppColors.attendanceMutedTextColor),
       ),
       child: TextField(
         controller: controller,
         onChanged: onChanged,
         decoration: InputDecoration(
           hintText: hintText,
-          hintStyle: AppTextStyles.body.copyWith(color: Colors.grey[700]),
+          hintStyle: AppTextStyles.body.copyWith(
+            color: AppColors.attendanceSearchHintColor,
+          ),
           border: InputBorder.none,
-          icon: const Icon(Icons.search, color: Colors.grey),
+          icon: const Icon(
+            Icons.search,
+            color: AppColors.attendanceMutedTextColor,
+          ),
         ),
       ),
     );

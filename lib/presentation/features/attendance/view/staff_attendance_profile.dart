@@ -1248,10 +1248,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                 : null,
             child: _buildStatItem(
               icon: MediaRes.calenderClockIcon,
-              iconColor: const Color(0xFF4285F4),
+              iconColor: AppColors.attendanceStatBlueColor,
               label: 'Attended Days',
               value: '',
-              valueColor: const Color(0xFF4CAF50),
+              valueColor: AppColors.attendanceStatGreenColor,
             ),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -1268,7 +1268,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                 : null,
             child: _buildStatItem(
               icon: MediaRes.calenderClockIcon,
-              iconColor: const Color(0xFF4285F4),
+              iconColor: AppColors.attendanceStatBlueColor,
               label: 'Absent Days',
               value: '',
               valueColor: AppColors.errorColor,
@@ -1291,10 +1291,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
               : null,
           child: _buildStatItem(
             icon: MediaRes.calenderClockIcon,
-            iconColor: const Color(0xFF4285F4),
+            iconColor: AppColors.attendanceStatBlueColor,
             label: 'Attended Days',
             value: '${attendanceReport!.attendedDays}',
-            valueColor: const Color(0xFF4CAF50),
+            valueColor: AppColors.attendanceStatGreenColor,
           ),
         ),
         const SizedBox(height: AppSpacing.md),
@@ -1311,7 +1311,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
               : null,
           child: _buildStatItem(
             icon: MediaRes.calenderClockIcon,
-            iconColor: const Color(0xFF4285F4),
+            iconColor: AppColors.attendanceStatBlueColor,
             label: 'Absent Days',
             value: '${attendanceReport!.absentDays}',
             valueColor: AppColors.errorColor,
@@ -1340,7 +1340,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         horizontal: 15,
       ),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12, width: 1),
+        border: Border.all(
+          color: AppColors.attendanceCardBorderColor,
+          width: 1,
+        ),
         borderRadius: AppRadius.allMd,
       ),
       child: Row(
@@ -1349,7 +1352,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             MediaRes.timerIcon,
             height: 22,
             colorFilter: const ColorFilter.mode(
-              Color(0xFF4285F4),
+              AppColors.attendanceStatBlueColor,
               BlendMode.srcIn,
             ),
           ),
@@ -1363,12 +1366,12 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             children: [
               _buildValueCircle(
                 text: '${hours}h',
-                color: const Color(0xFF4285F4),
+                color: AppColors.attendanceStatBlueColor,
               ),
               const SizedBox(width: AppSpacing.xs),
               _buildValueCircle(
                 text: '${minutes}m',
-                color: const Color(0xFF4285F4),
+                color: AppColors.attendanceStatBlueColor,
               ),
             ],
           ),
@@ -1411,7 +1414,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         horizontal: 15,
       ),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12, width: 1),
+        border: Border.all(
+          color: AppColors.attendanceCardBorderColor,
+          width: 1,
+        ),
         borderRadius: AppRadius.allMd,
       ),
       child: Row(

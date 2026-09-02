@@ -844,7 +844,7 @@ class _StaffAttendanceDailyViewScreenState
                             width: 8,
                             height: 8,
                             decoration: const BoxDecoration(
-                              color: Color.fromRGBO(179, 38, 30, 1),
+                              color: AppColors.attendanceDangerAccentColor,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -1058,7 +1058,11 @@ class _StaffAttendanceDailyViewScreenState
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.people_outline, size: 48, color: Colors.grey[400]),
+              Icon(
+                Icons.people_outline,
+                size: 48,
+                color: AppColors.attendanceEmptyStateIconColor,
+              ),
               const SizedBox(height: AppSpacing.md),
               AppText.body(
                 'No staff attendance records found for the selected date',
@@ -1333,7 +1337,7 @@ class _StaffAttendanceDailyViewScreenState
               Icon(
                 Icons.person_off_outlined,
                 size: 48,
-                color: Colors.grey[400],
+                color: AppColors.attendanceEmptyStateIconColor,
               ),
               const SizedBox(height: AppSpacing.md),
               AppText.body(

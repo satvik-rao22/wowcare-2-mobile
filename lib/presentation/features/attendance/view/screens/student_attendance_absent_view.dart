@@ -1002,7 +1002,7 @@ class _StudentAttendanceAbsentViewState
           border: Border.all(color: AppColors.cardBorderColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
+              color: AppColors.attendanceCardShadowLightColor,
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),

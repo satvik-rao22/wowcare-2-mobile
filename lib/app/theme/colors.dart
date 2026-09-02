@@ -283,6 +283,69 @@ class AppColors {
   static const Color attendancePopupBarrierColor = Color(
     0x8A000000,
   ); // Attendance popup dialog barrier (was Colors.black54)
+  static const Color attendanceEmptyStateIconColor = Color(
+    0xFFBDBDBD,
+  ); // "No data" empty-state icon (was Colors.grey[400])
+  static const Color attendanceMutedTextColor = Color(
+    0xFF9E9E9E,
+  ); // Muted text/border/icon tint (was bare Colors.grey)
+  static const Color attendanceCardBorderColor = Color(
+    0x1F000000,
+  ); // Thin 1px card border (was Colors.black12)
+  static const Color attendanceSearchHintColor = Color(
+    0xFF616161,
+  ); // Search field hint text (was Colors.grey[700])
+  static const Color attendanceBodyText87Color = Color(
+    0xDD000000,
+  ); // Body/detail text (was Colors.black87)
+  static const Color attendanceStatBlueColor = Color(
+    0xFF4285F4,
+  ); // Profile stat icon/value accent (was raw hex)
+  static const Color attendanceStatGreenColor = Color(
+    0xFF4CAF50,
+  ); // "Attended days" stat value (was raw hex)
+  static const Color attendanceTabIndicatorColor = Color(
+    0xFF3B5BDB,
+  ); // Custom-view tab indicator bar (was raw hex)
+  static const Color attendanceTabSelectedLabelColor = Color(
+    0xFF222B45,
+  ); // Custom-view selected tab label (was raw hex)
+  static const Color attendanceTabUnselectedLabelColor = Color(
+    0xFF8F9BB3,
+  ); // Custom-view unselected tab label (was raw hex)
+
+  /// Card-container box shadow, lighter than [attendanceCardShadowColor].
+  /// Same value as [billingShadowColor] — reused under an attendance-scoped
+  /// name so attendance files don't reference a billing-prefixed constant.
+  static final Color attendanceCardShadowLightColor = billingShadowColor;
+
+  /// Selected-row/tile background tint, used by every selectable list item
+  /// across the attendance selection forms (was
+  /// `Color.fromRGBO(249, 245, 250, 1)` / `Color.fromARGB(255, 249, 245, 250)`).
+  static const Color attendanceSelectedTintColor = Color.fromRGBO(
+    249,
+    245,
+    250,
+    1,
+  );
+
+  /// Distinct danger-red accent (was raw `Color.fromRGBO(179, 38, 30, 1)`),
+  /// separate from [errorColor] — not merged since the exact shade differs.
+  static const Color attendanceDangerAccentColor = Color.fromRGBO(
+    179,
+    38,
+    30,
+    1,
+  );
+
+  /// Light purple banner background (was raw
+  /// `Color.fromRGBO(243, 238, 250, 1)`).
+  static const Color attendanceInfoBannerBackgroundColor = Color.fromRGBO(
+    243,
+    238,
+    250,
+    1,
+  );
 
   /// General alias so `.withValues(alpha: ...)` derivatives still resolve
   /// through AppColors rather than a bare `Colors.black` literal.

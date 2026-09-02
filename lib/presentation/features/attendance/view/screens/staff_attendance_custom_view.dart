@@ -523,7 +523,8 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                                 Icon(
                                   Icons.people_outline,
                                   size: 48,
-                                  color: Colors.grey[400],
+                                  color:
+                                      AppColors.attendanceEmptyStateIconColor,
                                 ),
                                 const SizedBox(height: AppSpacing.md),
                                 AppText.body(
@@ -606,7 +607,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
           border: Border.all(color: AppColors.cardBorderColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
+              color: AppColors.attendanceCardShadowLightColor,
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),

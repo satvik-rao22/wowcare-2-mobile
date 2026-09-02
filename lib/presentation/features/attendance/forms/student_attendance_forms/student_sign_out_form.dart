@@ -668,7 +668,7 @@ class RemoveStudentTile extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(AppRadius.r10),
-        color: const Color.fromRGBO(249, 245, 250, 1),
+        color: AppColors.attendanceSelectedTintColor,
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,

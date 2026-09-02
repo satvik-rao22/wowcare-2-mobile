@@ -1048,7 +1048,9 @@ class _StudentAttendanceDailyViewScreenState
                                 ),
                                 child: AppText.body(
                                   'No absent students found for the selected date',
-                                  style: TextStyle(color: Colors.grey),
+                                  style: TextStyle(
+                                    color: AppColors.attendanceMutedTextColor,
+                                  ),
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -1121,7 +1123,9 @@ class _StudentAttendanceDailyViewScreenState
                                 ),
                                 child: AppText.body(
                                   'No attendance records found for the selected date',
-                                  style: TextStyle(color: Colors.grey),
+                                  style: TextStyle(
+                                    color: AppColors.attendanceMutedTextColor,
+                                  ),
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -1470,7 +1474,7 @@ class _StudentAttendanceDailyViewScreenState
                             width: 8,
                             height: 8,
                             decoration: const BoxDecoration(
-                              color: Color.fromRGBO(179, 38, 30, 1),
+                              color: AppColors.attendanceDangerAccentColor,
                               shape: BoxShape.circle,
                             ),
                           ),

@@ -556,7 +556,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
                               Icon(
                                 Icons.person_off_outlined,
                                 size: 48,
-                                color: Colors.grey[400],
+                                color: AppColors.attendanceEmptyStateIconColor,
                               ),
                               const SizedBox(height: AppSpacing.md),
                               AppText.body(

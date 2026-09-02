@@ -1392,7 +1392,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           Expanded(
             child: AppText.body(
               detail,
-              style: const TextStyle(fontSize: 14, color: Colors.black87),
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.attendanceBodyText87Color,
+              ),
             ),
           ),
         ],
@@ -1418,10 +1421,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                   },
             child: _buildStatItem(
               icon: MediaRes.calenderClockIcon,
-              iconColor: const Color(0xFF4285F4),
+              iconColor: AppColors.attendanceStatBlueColor,
               label: 'Attended Days',
               value: '',
-              valueColor: const Color(0xFF4CAF50),
+              valueColor: AppColors.attendanceStatGreenColor,
             ),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -1438,7 +1441,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                   },
             child: _buildStatItem(
               icon: MediaRes.calenderClockIcon,
-              iconColor: const Color(0xFF4285F4),
+              iconColor: AppColors.attendanceStatBlueColor,
               label: 'Absent Days',
               value: '',
               valueColor: AppColors.errorColor,
@@ -1461,10 +1464,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                 },
           child: _buildStatItem(
             icon: MediaRes.calenderClockIcon,
-            iconColor: const Color(0xFF4285F4),
+            iconColor: AppColors.attendanceStatBlueColor,
             label: 'Attended Days',
             value: '${report.attendedDays}',
-            valueColor: const Color(0xFF4CAF50),
+            valueColor: AppColors.attendanceStatGreenColor,
           ),
         ),
         const SizedBox(height: AppSpacing.md),
@@ -1481,7 +1484,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                 },
           child: _buildStatItem(
             icon: MediaRes.calenderClockIcon,
-            iconColor: const Color(0xFF4285F4),
+            iconColor: AppColors.attendanceStatBlueColor,
             label: 'Absent Days',
             value: '${report.absentDays}',
             valueColor: AppColors.errorColor,
@@ -1504,7 +1507,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         horizontal: 15,
       ),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12, width: 1),
+        border: Border.all(
+          color: AppColors.attendanceCardBorderColor,
+          width: 1,
+        ),
         borderRadius: AppRadius.allMd,
       ),
       child: Row(
@@ -1562,7 +1568,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         horizontal: 15,
       ),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12, width: 1),
+        border: Border.all(
+          color: AppColors.attendanceCardBorderColor,
+          width: 1,
+        ),
         borderRadius: AppRadius.allMd,
       ),
       child: Row(
@@ -1571,7 +1580,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             MediaRes.timerIcon,
             height: 22,
             colorFilter: const ColorFilter.mode(
-              Color(0xFF4285F4),
+              AppColors.attendanceStatBlueColor,
               BlendMode.srcIn,
             ),
           ),
@@ -1585,12 +1594,12 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             children: [
               _buildValueCircle(
                 text: '${hours}h',
-                color: const Color(0xFF4285F4),
+                color: AppColors.attendanceStatBlueColor,
               ),
               const SizedBox(width: AppSpacing.xs),
               _buildValueCircle(
                 text: '${minutes}m',
-                color: const Color(0xFF4285F4),
+                color: AppColors.attendanceStatBlueColor,
               ),
             ],
           ),
