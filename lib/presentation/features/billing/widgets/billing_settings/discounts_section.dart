@@ -1,6 +1,7 @@
 import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -164,7 +165,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
       child: BlocBuilder<DiscountCubit, DiscountState>(
         builder: (context, state) {
           final bool showInactive = state.statusFilter == 'INACTIVE';
-          final bool isTablet = MediaQuery.of(context).size.width > 600;
+          final bool isTablet = ResponsiveHelper(context).isTabletCompact;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

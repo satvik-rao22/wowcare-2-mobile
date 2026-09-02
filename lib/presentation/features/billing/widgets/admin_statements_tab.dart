@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/date_utils.dart';
@@ -367,7 +368,7 @@ class _AdminStatementCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = MediaQuery.of(context).size.width > 600;
+    final isTablet = ResponsiveHelper(context).isTabletCompact;
     final statementDate = statement.generatedAt;
 
     return StaffStyleCard(

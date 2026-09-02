@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
 /// Shared visual language for every billing card, inherited from
@@ -109,7 +110,7 @@ class _StaffStyleCardState extends State<StaffStyleCard> {
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = MediaQuery.of(context).size.width > 600;
+    final isTablet = ResponsiveHelper(context).isTabletCompact;
     return LayoutBuilder(
       builder: (context, constraints) {
         return IntrinsicHeight(

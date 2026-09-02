@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/presentation/features/billing/cubit/subsidies_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
@@ -32,7 +33,7 @@ class _SubsidyCardState extends State<SubsidyCard> {
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = MediaQuery.of(context).size.width > 600;
+    final isTablet = ResponsiveHelper(context).isTabletCompact;
     final item = widget.subsidy;
 
     return StaffStyleCard(

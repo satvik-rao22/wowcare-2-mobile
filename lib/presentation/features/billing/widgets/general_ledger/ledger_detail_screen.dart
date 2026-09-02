@@ -1,6 +1,7 @@
 import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
@@ -88,7 +89,7 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
     final double titleFontSize = ResponsiveSizing.titleFontSize(context);
     final double titleLineHeight = ResponsiveSizing.titleLineHeight(context);
     final EdgeInsets contentPadding = ResponsiveSizing.contentPadding(context);
-    final bool isTablet = MediaQuery.of(context).size.width >= 600;
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
 
     return BlocProvider<LedgerDetailCubit>.value(
       value: _cubit,
@@ -317,7 +318,7 @@ class _LedgerEntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = MediaQuery.of(context).size.width > 600;
+    final isTablet = ResponsiveHelper(context).isTabletCompact;
     final bool hasDebit = tx.debit != null && tx.debit! != 0;
     final bool hasCredit = tx.credit != null && tx.credit! != 0;
     final double amount =
