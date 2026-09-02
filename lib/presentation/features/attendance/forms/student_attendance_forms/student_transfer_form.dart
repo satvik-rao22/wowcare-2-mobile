@@ -23,7 +23,6 @@ import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
@@ -248,9 +247,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
             )).map((e) => e.trim()).where((e) => e.isNotEmpty).toSet()
           : const <String>{};
 
-      final getActiveClassroomsUseCase =
-          serviceLocator<GetActiveClassroomsUseCase>();
-      final classrooms = await getActiveClassroomsUseCase(
+      final classrooms = await _submitCubit.fetchActiveClassrooms(
         schoolCode: schoolCode,
         onlyTypeClassroom: true,
       );
@@ -507,7 +504,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
           Navigator.of(context).pop();
         } else {
           redirectToAttendanceDaily(
-              context, StudentAttendanceTabbedView.routeName);
+            context,
+            StudentAttendanceTabbedView.routeName,
+          );
         }
       }
     } catch (e) {
@@ -758,7 +757,9 @@ class RemoveStudentTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xs, vertical: AppSpacing.xs),
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(AppRadius.r10),

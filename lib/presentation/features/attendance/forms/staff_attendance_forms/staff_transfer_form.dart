@@ -12,7 +12,6 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_staff_transfer_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_transfer_request.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_transfer_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -23,7 +22,6 @@ import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
-import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -185,7 +183,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     var resolved = '';
     try {
       final today = fmt(ServerTimeService.instance.now());
-      final page = await serviceLocator<GetStaffTransferFormListUseCase>()(
+      final page = await _submitCubit.fetchTransferFormList(
         fromAbsenceDate: today,
         toAbsenceDate: today,
         search: selectedStaffCode,
@@ -207,7 +205,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       // Last resort only — this is the staff's static default classroom,
       // not necessarily where they currently are.
       try {
-        final profile = await serviceLocator<GetStaffProfileUseCase>()(
+        final profile = await _submitCubit.fetchStaffProfile(
           staffCode: selectedStaffCode,
           forEditStaff: true,
         );

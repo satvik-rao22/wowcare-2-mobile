@@ -2,8 +2,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/idempotency_key.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
+import 'package:wowcare/domain/features/attendance/entities/staff_attendance_daily.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_transfer_request.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_transfer_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_staff_transfer_usecase.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
+import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
 
 import 'staff_transfer_submit_state.dart';
 
@@ -16,12 +20,50 @@ import 'staff_transfer_submit_state.dart';
 /// centralises submit state, but the form keeps its exact success/navigation
 /// and catch behaviour, so nothing the user sees changes.
 class StaffTransferSubmitCubit extends Cubit<StaffTransferSubmitState> {
-  StaffTransferSubmitCubit(this._submitStaffTransfer)
-    : super(const StaffTransferSubmitInitial());
+  StaffTransferSubmitCubit(
+    this._submitStaffTransfer, {
+    required GetStaffTransferFormListUseCase getStaffTransferFormListUseCase,
+    required GetStaffProfileUseCase getStaffProfileUseCase,
+  }) : _getStaffTransferFormListUseCase = getStaffTransferFormListUseCase,
+       _getStaffProfileUseCase = getStaffProfileUseCase,
+       super(const StaffTransferSubmitInitial());
 
   final SubmitStaffTransferUseCase _submitStaffTransfer;
+  final GetStaffTransferFormListUseCase _getStaffTransferFormListUseCase;
+  final GetStaffProfileUseCase _getStaffProfileUseCase;
 
   String? _idempotencyKey;
+
+  /// Delegates to [GetStaffTransferFormListUseCase] — used by the View to
+  /// resolve a selected staff member's current classroom from today's
+  /// transfer-form list.
+  Future<StaffAttendanceDailyPage> fetchTransferFormList({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    String? search,
+    int page = 0,
+    int size = 10,
+  }) {
+    return _getStaffTransferFormListUseCase(
+      fromAbsenceDate: fromAbsenceDate,
+      toAbsenceDate: toAbsenceDate,
+      search: search,
+      page: page,
+      size: size,
+    );
+  }
+
+  /// Delegates to [GetStaffProfileUseCase] — the View's last-resort fallback
+  /// for a staff member's static default classroom.
+  Future<StaffProfile> fetchStaffProfile({
+    required String staffCode,
+    bool forEditStaff = true,
+  }) {
+    return _getStaffProfileUseCase(
+      staffCode: staffCode,
+      forEditStaff: forEditStaff,
+    );
+  }
 
   /// True while a submit is in flight.
   bool get isSubmitting => state is StaffTransferSubmitInProgress;

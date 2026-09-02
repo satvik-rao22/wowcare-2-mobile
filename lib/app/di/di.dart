@@ -1260,7 +1260,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => SubmitStudentTransferUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<StudentTransferSubmitCubit>(
-    () => StudentTransferSubmitCubit(serviceLocator()),
+    () => StudentTransferSubmitCubit(
+      serviceLocator(),
+      getActiveClassroomsUseCase: serviceLocator(),
+    ),
   );
   serviceLocator.registerFactory<SubmitStaffSignInUseCase>(
     () => SubmitStaffSignInUseCase(serviceLocator()),
@@ -1282,7 +1285,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => SubmitStaffTransferUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<StaffTransferSubmitCubit>(
-    () => StaffTransferSubmitCubit(serviceLocator()),
+    () => StaffTransferSubmitCubit(
+      serviceLocator(),
+      getStaffTransferFormListUseCase: serviceLocator(),
+      getStaffProfileUseCase: serviceLocator(),
+    ),
   );
   serviceLocator.registerFactory<DeleteStaffAttendanceRecordUseCase>(
     () => DeleteStaffAttendanceRecordUseCase(serviceLocator()),
