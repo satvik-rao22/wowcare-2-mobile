@@ -721,29 +721,14 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
       children: [
         Expanded(
           flex: responsive.isTablet ? 2 : 1,
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontFamily: Fonts.manrope,
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: AppColors.primaryColor,
-              height: 16 / 13,
-            ),
-          ),
+          child: Text(label, style: AppTextStyles.label),
         ),
         SizedBox(width: responsive.horizontalSpacing / 2),
         Expanded(
           flex: responsive.isTablet ? 3 : 2,
           child: Text(
             value,
-            style: const TextStyle(
-              fontFamily: Fonts.manrope,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primaryColor,
-              height: 19 / 14,
-            ),
+            style: AppTextStyles.body,
             textAlign: TextAlign.end,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,

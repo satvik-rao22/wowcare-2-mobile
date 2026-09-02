@@ -39,6 +39,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class StaffAttendanceTabbedView extends StatefulWidget {
   const StaffAttendanceTabbedView({
@@ -459,16 +460,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
             child: SvgPicture.asset(svgPath, height: 24, width: 24),
           ),
           const SizedBox(height: AppSpacing.s5),
-          Text(
-            label,
-            maxLines: 1,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              fontFamily: Fonts.manrope,
-              color: AppColors.primaryColor,
-            ),
-          ),
+          Text(label, maxLines: 1, style: AppTextStyles.body),
         ],
       ),
     );

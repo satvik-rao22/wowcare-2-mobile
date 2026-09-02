@@ -11,7 +11,6 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -68,13 +67,7 @@ class _AttendanceField extends StatelessWidget {
           width: 120,
           child: Text(
             label,
-            style: const TextStyle(
-              fontFamily: Fonts.manrope,
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: AppColors.primaryColor,
-              height: 16 / 13,
-            ),
+            style: AppTextStyles.label,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -107,13 +100,7 @@ class _AttendanceField extends StatelessWidget {
                 child: Text(
                   text,
                   textAlign: TextAlign.end,
-                  style: const TextStyle(
-                    fontFamily: Fonts.manrope,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primaryColor,
-                    height: 19 / 14,
-                  ),
+                  style: AppTextStyles.body,
                 ),
               ),
             ],
@@ -1536,11 +1523,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             child: Center(
               child: AppText.body(
                 value,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: valueColor,
-                ),
+                style: AppTextStyles.title.copyWith(color: valueColor),
               ),
             ),
           ),

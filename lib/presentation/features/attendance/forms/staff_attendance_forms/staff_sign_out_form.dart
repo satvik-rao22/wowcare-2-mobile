@@ -695,11 +695,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     softWrap: false,
-                    style: const TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: AppTextStyles.body,
                   ),
                 ),
               ],

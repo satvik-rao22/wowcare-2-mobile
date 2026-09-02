@@ -5,6 +5,7 @@ import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Selectable grid tile (checkbox + avatar + name) shared by the student
 /// selection forms (sign-in/sign-out/transfer/mark-absent). Deliberately
@@ -70,11 +71,7 @@ class AttendanceSelectablePersonTile extends StatelessWidget {
                   text: name,
                   maxLines: 2,
                   preferLongPress: true,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: AppTextStyles.sectionHeader,
                 ),
               ),
             ],

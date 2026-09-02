@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -18,6 +17,7 @@ import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 typedef StudentAttendanceActionTap = void Function(String actionLabel);
 
@@ -234,16 +234,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
           const SizedBox(height: AppSpacing.s5),
           Opacity(
             opacity: isDisabled ? 0.5 : 1,
-            child: Text(
-              label,
-              maxLines: 1,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                fontFamily: Fonts.manrope,
-                color: AppColors.primaryColor,
-              ),
-            ),
+            child: Text(label, maxLines: 1, style: AppTextStyles.body),
           ),
         ],
       ),

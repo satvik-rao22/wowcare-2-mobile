@@ -550,18 +550,14 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
       context,
     )) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
           child: Padding(
             padding: EdgeInsets.all(AppSpacing.xl),
             child: Text(
               'Access Denied: You must be inside geofence and signed in to manage student attendance.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.errorColor,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTextStyles.title.copyWith(color: AppColors.errorColor),
             ),
           ),
         ),

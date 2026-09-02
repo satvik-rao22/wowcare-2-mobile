@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 typedef StaffAttendanceActionTap = void Function(String actionLabel);
 
@@ -103,16 +103,7 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.s5),
-          Text(
-            label,
-            maxLines: 1,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              fontFamily: Fonts.manrope,
-              color: AppColors.primaryColor,
-            ),
-          ),
+          Text(label, maxLines: 1, style: AppTextStyles.body),
         ],
       ),
     );
@@ -221,16 +212,7 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
           const SizedBox(height: AppSpacing.s5),
           Opacity(
             opacity: isDisabled ? 0.5 : 1,
-            child: Text(
-              label,
-              maxLines: 1,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                fontFamily: Fonts.manrope,
-                color: AppColors.primaryColor,
-              ),
-            ),
+            child: Text(label, maxLines: 1, style: AppTextStyles.body),
           ),
         ],
       ),

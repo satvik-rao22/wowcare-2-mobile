@@ -7,6 +7,7 @@ import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import '../forms/staff_attendance_forms/staff_entity.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 /// Selectable staff row shared by the staff-attendance selection forms
 /// (sign-in, sign-out, transfer, mark-absent).
@@ -65,11 +66,7 @@ class AttendanceStaffListItem extends StatelessWidget {
                   text: staff.name,
                   maxLines: 2,
                   preferLongPress: true,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: AppTextStyles.sectionHeader,
                 ),
               ),
             ],
