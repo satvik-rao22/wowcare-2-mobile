@@ -45,8 +45,15 @@ class SelectStudentsCubit extends Cubit<SelectStudentsState> {
 
   static const int _pageSize = 300;
 
+  /// Monotonic fetch generation. Bumped whenever the student query changes (a
+  /// filter setter that refetches, or a re-[initialize]) so a slower in-flight
+  /// [_fetchStudents] response for an older filter can't overwrite a newer one.
+  int _generation = 0;
+
   /// Loads filter options (classrooms + tags) then the ACTIVE student list.
   Future<void> initialize() async {
+    _generation++;
+    if (isClosed) return;
     emit(state.copyWith(isLoading: true, errorMessage: null));
     try {
       _schoolCode =
@@ -62,6 +69,7 @@ class SelectStudentsCubit extends Cubit<SelectStudentsState> {
           if (c.name.trim().isNotEmpty) c.name.trim(): c.code.trim(),
       };
 
+      if (isClosed) return;
       emit(state.copyWith(
         classroomNames: classroomNameToCode.keys.toList(),
         classroomNameToCode: classroomNameToCode,
@@ -71,6 +79,7 @@ class SelectStudentsCubit extends Cubit<SelectStudentsState> {
 
       await _fetchStudents();
     } catch (e) {
+      if (isClosed) return;
       emit(state.copyWith(
         isLoading: false,
         errorMessage: ApiErrorHandler.extractErrorMessage(e),
@@ -80,6 +89,10 @@ class SelectStudentsCubit extends Cubit<SelectStudentsState> {
 
   /// Re-fetches ACTIVE students for the current classroom/tag selection.
   Future<void> _fetchStudents() async {
+    // Capture the current generation; an older filter's response is discarded
+    // if a newer setter bumped the generation while this request was in flight.
+    final gen = _generation;
+    if (isClosed) return;
     emit(state.copyWith(isLoading: true, errorMessage: null));
     try {
       final classroomCodes = state.selectedClassroomNames
@@ -108,12 +121,14 @@ class SelectStudentsCubit extends Cubit<SelectStudentsState> {
       final keptSelection =
           state.selectedStudentCodes.where(presentCodes.contains).toSet();
 
+      if (isClosed || gen != _generation) return;
       emit(state.copyWith(
         students: all,
         selectedStudentCodes: keptSelection,
         isLoading: false,
       ));
     } catch (e) {
+      if (isClosed || gen != _generation) return;
       emit(state.copyWith(
         isLoading: false,
         errorMessage: ApiErrorHandler.extractErrorMessage(e),
@@ -145,11 +160,14 @@ class SelectStudentsCubit extends Cubit<SelectStudentsState> {
       emit(state.copyWith(searchQuery: query));
 
   Future<void> setClassrooms(List<String> names) async {
+    // A new filter supersedes any in-flight fetch for the previous selection.
+    _generation++;
     emit(state.copyWith(selectedClassroomNames: names));
     await _fetchStudents();
   }
 
   Future<void> setTags(List<String> names) async {
+    _generation++;
     emit(state.copyWith(selectedTagNames: names));
     await _fetchStudents();
   }
@@ -159,11 +177,13 @@ class SelectStudentsCubit extends Cubit<SelectStudentsState> {
   Future<void> setStatus(List<String> names) async {
     final status = names.isEmpty ? 'Active' : names.last;
     if (status == state.selectedStatus) return;
+    _generation++;
     emit(state.copyWith(selectedStatus: status));
     await _fetchStudents();
   }
 
   Future<void> clearAll() async {
+    _generation++;
     emit(state.copyWith(
       searchQuery: '',
       selectedClassroomNames: const <String>[],
@@ -218,9 +238,11 @@ class SelectStudentsCubit extends Cubit<SelectStudentsState> {
         schoolCode: _schoolCode,
         studentCodes: studentCodes,
       );
+      if (isClosed) return null;
       emit(state.copyWith(isCheckingRecipients: false));
       return result;
     } catch (e) {
+      if (isClosed) return null;
       emit(state.copyWith(
         isCheckingRecipients: false,
         errorMessage: ApiErrorHandler.extractErrorMessage(e),

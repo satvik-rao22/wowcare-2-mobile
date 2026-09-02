@@ -34,27 +34,59 @@ class DiscountCubit extends Cubit<DiscountState> {
 
   String? _schoolCode;
 
+  /// Monotonic load generation. Bumped on a fresh load / filter change so a
+  /// superseded in-flight response is discarded; a load-MORE captures the
+  /// current generation without bumping.
+  int _generation = 0;
+
   Future<String> _resolveSchoolCode() async {
     _schoolCode ??=
         await _storageService.getString(StorageKeys.schoolCode) ?? '';
     return _schoolCode!;
   }
 
+  /// Appends [incoming] onto [existing], skipping any discount whose stable
+  /// [code] is already present (keep first per non-empty code) so overlapping
+  /// backend pages can't show the same discount twice. Code-less rows are kept.
+  static List<DiscountAccountModel> _appendDedupByCode(
+    List<DiscountAccountModel> existing,
+    List<DiscountAccountModel> incoming,
+  ) {
+    final seen =
+        existing.map((e) => e.code).where((c) => c.isNotEmpty).toSet();
+    final result = List<DiscountAccountModel>.from(existing);
+    for (final e in incoming) {
+      if (e.code.isEmpty) {
+        result.add(e);
+        continue;
+      }
+      if (seen.add(e.code)) result.add(e);
+    }
+    return result;
+  }
+
   // ─── Load ─────────────────────────────────────────────────────────────────
 
   Future<void> loadInitial() async {
     if (state.isLoading) return;
+    final gen = ++_generation;
     emit(state.copyWith(isLoading: true, errorMessage: () => null));
-    await _fetchPage(page: 0, reset: true);
+    await _fetchPage(page: 0, reset: true, gen: gen);
   }
 
   Future<void> loadNextPage() async {
     if (!state.hasMore || state.isLoadingMore) return;
+    // load-more continues the CURRENT query — capture, do not bump.
+    final gen = _generation;
     emit(state.copyWith(isLoadingMore: true));
-    await _fetchPage(page: state.currentPage + 1, reset: false);
+    await _fetchPage(page: state.currentPage + 1, reset: false, gen: gen);
   }
 
-  Future<void> _fetchPage({required int page, required bool reset}) async {
+  Future<void> _fetchPage({
+    required int page,
+    required bool reset,
+    required int gen,
+  }) async {
     try {
       final school = await _resolveSchoolCode();
       // `name` is intentionally not sent — this endpoint's backend ignores
@@ -65,11 +97,12 @@ class DiscountCubit extends Cubit<DiscountState> {
         status: state.statusFilter,
         page: page,
       );
+      // Drop a superseded response (a newer load/filter change bumped the gen).
+      if (isClosed || gen != _generation) return;
       final newItems =
           result.content.map(DiscountAccountModel.fromEntity).toList();
       final merged =
-          reset ? newItems : [...state.allDiscounts, ...newItems];
-      if (isClosed) return;
+          reset ? newItems : _appendDedupByCode(state.allDiscounts, newItems);
       emit(state.copyWith(
         allDiscounts: merged,
         isLoading: false,
@@ -79,7 +112,7 @@ class DiscountCubit extends Cubit<DiscountState> {
         errorMessage: () => null,
       ));
     } catch (e) {
-      if (isClosed) return;
+      if (isClosed || gen != _generation) return;
       emit(state.copyWith(
         isLoading: false,
         isLoadingMore: false,
