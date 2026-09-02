@@ -11,45 +11,6 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
-/// Demo statement data model for UI-only display
-class DemoStatement {
-  final String id;
-  final String studentName;
-  final String statementType; // e.g. 'Yearly', 'Monthly', 'Custom'
-  final DateTime generatedOn;
-  final DateTime periodFrom;
-  final DateTime periodTo;
-
-  const DemoStatement({
-    required this.id,
-    required this.studentName,
-    required this.statementType,
-    required this.generatedOn,
-    required this.periodFrom,
-    required this.periodTo,
-  });
-}
-
-/// Example demo statements – use these in your UI list/grid as needed
-final List<DemoStatement> demoStatements = [
-  DemoStatement(
-    id: 'st_001',
-    studentName: 'Lux Stud',
-    statementType: 'Yearly',
-    generatedOn: DateTime(2026, 1, 22),
-    periodFrom: DateTime(2026, 1, 1),
-    periodTo: DateTime(2026, 12, 31),
-  ),
-  DemoStatement(
-    id: 'st_002',
-    studentName: 'Lux Stud',
-    statementType: 'Monthly',
-    generatedOn: DateTime(2026, 1, 22),
-    periodFrom: DateTime(2026, 1, 1),
-    periodTo: DateTime(2026, 1, 31),
-  ),
-];
-
 /// Transaction card backed by [FamilyLedgerTransactionEntity] from the API.
 class ParentTransactionCard extends StatelessWidget {
   final FamilyLedgerTransactionEntity transaction;
