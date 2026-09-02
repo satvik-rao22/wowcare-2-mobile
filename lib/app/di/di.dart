@@ -243,6 +243,7 @@ import '../../domain/features/attendance/usecases/delete_student_absence_record_
 import '../../domain/features/attendance/usecases/delete_staff_absence_record_usecase.dart';
 import '../../domain/features/attendance/usecases/fetch_student_attendance_profile_usecase.dart';
 import '../../presentation/features/attendance/view_model/student_attendance_profile_fetch_cubit.dart';
+import '../../presentation/features/attendance/view_model/qr_code_validation_cubit.dart';
 import '../../presentation/features/attendance/view_model/staff_attendance_profile_fetch_cubit.dart';
 import '../../presentation/features/attendance/view_model/student_attendance_absent_fetch_cubit.dart';
 import '../../domain/features/attendance/usecases/fetch_student_attendance_profile_absent_toggle_usecase.dart';
@@ -2178,6 +2179,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<ValidateQrCodeUseCase>(
     () => ValidateQrCodeUseCase(serviceLocator<AttendanceRepository>()),
+  );
+  serviceLocator.registerFactory<QrCodeValidationCubit>(
+    () => QrCodeValidationCubit(
+      validateQrCodeUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
   );
   serviceLocator.registerFactory<QrValidationCubit>(
     () => QrValidationCubit(

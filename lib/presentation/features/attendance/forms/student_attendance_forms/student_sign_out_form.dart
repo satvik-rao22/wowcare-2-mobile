@@ -22,7 +22,6 @@ import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
@@ -33,6 +32,7 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/domain/features/attendance/usecases/validate_qr_code_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/qr_code_validation_cubit.dart';
 import 'student_entity.dart';
 
 export 'student_entity.dart';
@@ -94,6 +94,8 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
   /// Eagerly resolved so [dispose] can always close it.
   final StudentSignOutSubmitCubit _submitCubit =
       serviceLocator<StudentSignOutSubmitCubit>();
+  final QrCodeValidationCubit _qrCubit =
+      serviceLocator<QrCodeValidationCubit>();
 
   @override
   void initState() {
@@ -229,11 +231,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     // QR pre-check: validate token with GUARDIAN_SIGN_OUT before calling write API
     if (widget.isQrScan && widget.qrToken.isNotEmpty) {
       try {
-        final storage = serviceLocator<StorageService>();
-        final schoolCode =
-            (await storage.getString(StorageKeys.schoolCode))?.trim() ?? '';
-        final result = await serviceLocator<ValidateQrCodeUseCase>()(
-          schoolCode: schoolCode,
+        final result = await _qrCubit.validate(
           qrToken: widget.qrToken,
           useCase: QrAttendanceUseCase.guardianSignOut,
         );
