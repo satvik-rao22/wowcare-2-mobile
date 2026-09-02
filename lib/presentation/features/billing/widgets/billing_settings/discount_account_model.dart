@@ -13,6 +13,7 @@ class DiscountAccountModel {
     this.price,
     this.status,
     this.school,
+    this.totalAmountDiscounted = 0,
   });
 
   final String code;
@@ -26,6 +27,11 @@ class DiscountAccountModel {
   final double? price;
   final String? status;
   final String? school;
+
+  /// Lifetime amount actually deducted across invoices by this discount —
+  /// distinct from [deductionAmount], the fixed per-use deduction configured
+  /// for a `FIXED`-type discount (null for `PERCENTAGE`-type ones).
+  final double totalAmountDiscounted;
 
   bool get isActive => (status ?? 'ACTIVE') != 'INACTIVE';
 
@@ -42,6 +48,7 @@ class DiscountAccountModel {
         price: e.price,
         status: e.status,
         school: e.school,
+        totalAmountDiscounted: e.totalAmountDiscounted,
       );
 
   DiscountAccountModel copyWith({
@@ -56,6 +63,7 @@ class DiscountAccountModel {
     double? price,
     String? status,
     String? school,
+    double? totalAmountDiscounted,
   }) =>
       DiscountAccountModel(
         code: code ?? this.code,
@@ -69,5 +77,7 @@ class DiscountAccountModel {
         price: price ?? this.price,
         status: status ?? this.status,
         school: school ?? this.school,
+        totalAmountDiscounted:
+            totalAmountDiscounted ?? this.totalAmountDiscounted,
       );
 }

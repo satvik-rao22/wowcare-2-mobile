@@ -163,7 +163,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
       value: _cubit,
       child: BlocBuilder<DiscountCubit, DiscountState>(
         builder: (context, state) {
-          final bool showInactive = state.statusFilter == 'INACTIVE';
+          final bool showInactive = state.statusFilter != 'ACTIVE';
           final bool isTablet = MediaQuery.of(context).size.width > 600;
 
           return Column(
@@ -214,8 +214,13 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                             color: Color(0xff573353),
                           ),
                           onToggle: (v) {
-                            _cubit.setStatusFilter(
-                                v ? 'INACTIVE' : 'ACTIVE');
+                            // "Show inactive" is meant additively — both
+                            // active and inactive should show, not swap to
+                            // inactive-only — so a null filter (no `status`
+                            // query param) fetches every discount instead of
+                            // replacing the active list with just inactive
+                            // ones and losing the real active totals.
+                            _cubit.setStatusFilter(v ? null : 'ACTIVE');
                           },
                         ),
                       ],
@@ -293,8 +298,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                     child: DiscountCard(
                       name: d.name,
                       percentage: d.percentage,
-                      totalAmountDiscounted:
-                          d.deductionAmount ?? 0,
+                      totalAmountDiscounted: d.totalAmountDiscounted,
                       isActive: d.isActive,
                       onView: () {},
                       onEdit: d.isActive ? () => _onEdit(d) : null,

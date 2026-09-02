@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_remove_tile.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -209,8 +207,9 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
 
                 return Column(
                   children: [
-                    RemoveStudentTile(
-                      student: student,
+                    AttendanceRemoveTile(
+                      name: student.fullName,
+                      photoUuid: student.photoUuid,
                       onRemove: () => _removeStudent(student),
                     ),
                     const SizedBox(height: AppSpacing.lg),
@@ -273,63 +272,6 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
         onPressedConfirm: _handleSubmit,
         showCancelButton: false,
         isLoading: state.isSubmitting,
-      ),
-    );
-  }
-}
-
-class RemoveStudentTile extends StatelessWidget {
-  final StudentEntity student;
-  final VoidCallback onRemove;
-
-  const RemoveStudentTile({
-    super.key,
-    required this.student,
-    required this.onRemove,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.xs,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.themeColor),
-        borderRadius: BorderRadius.circular(AppRadius.r10),
-        color: AppColors.attendanceSelectedTintColor,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                DocumentImageWidget(
-                  fileUuid: student.photoUuid,
-                  size: 30,
-                  name: student.fullName,
-                  fontSize: 12,
-                ),
-                const SizedBox(width: AppSpacing.s6),
-                Flexible(
-                  child: Text(
-                    student.fullName,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                    softWrap: false,
-                    style: AppTextStyles.body,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: onRemove,
-            child: SvgPicture.asset(MediaRes.delete_icon),
-          ),
-        ],
       ),
     );
   }
