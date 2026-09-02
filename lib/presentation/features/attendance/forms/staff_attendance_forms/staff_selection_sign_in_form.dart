@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_search_field.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_select_all_row.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_staff_list_item.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -266,21 +266,9 @@ class _StaffSelectionSignInFormState extends State<StaffSelectionSignInForm> {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                Row(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.xs,
-                      ),
-                      child: CustomCheckbox(
-                        value: isSelectAllChecked,
-                        onChanged: (value) =>
-                            _toggleSelectAll(value, filteredStaff),
-                        borderColor: AppColors.themeColor,
-                      ),
-                    ),
-                    const AppText.body('Select All'),
-                  ],
+                AttendanceSelectAllRow(
+                  isChecked: isSelectAllChecked,
+                  onChanged: (value) => _toggleSelectAll(value, filteredStaff),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Expanded(

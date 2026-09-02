@@ -6,9 +6,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_select_all_row.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_selectable_person_tile.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -258,21 +258,9 @@ class _StudentSelectionTransferFormState
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
-              Row(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.xs,
-                    ),
-                    child: CustomCheckbox(
-                      borderColor: AppColors.themeColor,
-                      value: isSelectAllChecked,
-                      onChanged: (value) =>
-                          _toggleSelectAll(value, visibleStudents),
-                    ),
-                  ),
-                  const AppText.body('Select All'),
-                ],
+              AttendanceSelectAllRow(
+                isChecked: isSelectAllChecked,
+                onChanged: (value) => _toggleSelectAll(value, visibleStudents),
               ),
               const SizedBox(height: AppSpacing.sm),
               Expanded(

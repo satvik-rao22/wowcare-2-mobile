@@ -7,7 +7,6 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -15,6 +14,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_selection_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_select_all_row.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_selectable_person_tile.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -345,20 +345,9 @@ class _StudentSelectionSignInFormState
                   ),
                   const SizedBox(height: AppSpacing.sm),
                 ],
-                Row(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.xs,
-                      ),
-                      child: CustomCheckbox(
-                        value: isSelectAllChecked,
-                        onChanged: (value) => _toggleSelectAll(value, students),
-                        borderColor: AppColors.themeColor,
-                      ),
-                    ),
-                    const AppText.body('Select All'),
-                  ],
+                AttendanceSelectAllRow(
+                  isChecked: isSelectAllChecked,
+                  onChanged: (value) => _toggleSelectAll(value, students),
                 ),
                 const SizedBox(height: AppSpacing.sm),
               ],
