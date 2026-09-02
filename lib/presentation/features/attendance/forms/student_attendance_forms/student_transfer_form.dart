@@ -637,9 +637,11 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                                 vertical: AppSpacing.s14,
                               ),
                               decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade300),
+                                border: Border.all(
+                                  color: AppColors.attendanceBorderLightColor,
+                                ),
                                 borderRadius: AppRadius.allSm,
-                                color: const Color.fromRGBO(177, 175, 233, 0.1),
+                                color: AppColors.fieldBackgroundColor,
                               ),
                               child: AppText.value(
                                 currentClassroom,
@@ -669,9 +671,11 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                           vertical: AppSpacing.none,
                         ),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
+                          border: Border.all(
+                            color: AppColors.attendanceBorderLightColor,
+                          ),
                           borderRadius: AppRadius.allSm,
-                          color: const Color.fromRGBO(177, 175, 233, 0.1),
+                          color: AppColors.fieldBackgroundColor,
                         ),
                         child: DropdownButton<String>(
                           value: selectedClassroom,

@@ -561,7 +561,10 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
                               const SizedBox(height: AppSpacing.md),
                               AppText.body(
                                 'No absent staff found',
-                                style: TextStyle(color: Colors.grey[600]),
+                                style: const TextStyle(
+                                  color:
+                                      AppColors.attendanceDialogHintTextColor,
+                                ),
                                 textAlign: TextAlign.center,
                               ),
                             ],

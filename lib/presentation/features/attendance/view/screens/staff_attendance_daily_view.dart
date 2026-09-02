@@ -1062,7 +1062,9 @@ class _StaffAttendanceDailyViewScreenState
               const SizedBox(height: AppSpacing.md),
               AppText.body(
                 'No staff attendance records found for the selected date',
-                style: TextStyle(color: Colors.grey[600]),
+                style: const TextStyle(
+                  color: AppColors.attendanceDialogHintTextColor,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -1336,7 +1338,9 @@ class _StaffAttendanceDailyViewScreenState
               const SizedBox(height: AppSpacing.md),
               AppText.body(
                 'No absent staff found for the selected date',
-                style: TextStyle(color: Colors.grey[600]),
+                style: const TextStyle(
+                  color: AppColors.attendanceDialogHintTextColor,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],

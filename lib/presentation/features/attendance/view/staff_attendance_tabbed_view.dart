@@ -225,7 +225,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                   isScrollable: true,
                   labelStyle: TextStyle(
                     fontFamily: Fonts.manrope,
-                    color: Colors.black,
+                    color: AppColors.attendanceIconColor,
                     fontSize: responsive.isTablet ? 18 : 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -408,7 +408,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
               gradient: AppColors.buildPrimaryGradient(),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
+                  color: AppColors.attendanceCardShadowColor,
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -453,7 +453,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
           Container(
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
             decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.1),
+              color: AppColors.attendanceInfoHighlightColor,
               shape: BoxShape.circle,
             ),
             child: SvgPicture.asset(svgPath, height: 24, width: 24),

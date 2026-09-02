@@ -183,7 +183,7 @@ class _StudentAttendanceTabbedViewState
                   isScrollable: true,
                   labelStyle: TextStyle(
                     fontFamily: Fonts.manrope,
-                    color: Colors.black,
+                    color: AppColors.attendanceIconColor,
                     fontSize: responsive.isTablet ? 18 : 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -305,7 +305,7 @@ class _StudentAttendanceTabbedViewState
                 decoration: BoxDecoration(
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
+                      color: AppColors.attendanceCardShadowColor,
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),

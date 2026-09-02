@@ -527,7 +527,10 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                                 const SizedBox(height: AppSpacing.md),
                                 AppText.body(
                                   'No staff attendance found',
-                                  style: TextStyle(color: Colors.grey[600]),
+                                  style: const TextStyle(
+                                    color:
+                                        AppColors.attendanceDialogHintTextColor,
+                                  ),
                                   textAlign: TextAlign.center,
                                 ),
                               ],
