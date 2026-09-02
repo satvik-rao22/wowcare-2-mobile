@@ -2,11 +2,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
-import 'package:wowcare/domain/features/attendance/entities/staff_sign_out_request.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_sign_out_request.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
-import 'package:wowcare/domain/features/attendance/usecases/submit_staff_sign_out_usecase.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_out_submit_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_out_submit_state.dart';
+import 'package:wowcare/domain/features/attendance/usecases/submit_student_sign_out_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_out_submit_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_out_submit_state.dart';
 
 class _UnusedStorageService implements StorageService {
   @override
@@ -14,18 +14,14 @@ class _UnusedStorageService implements StorageService {
       throw UnimplementedError('${invocation.memberName} was not expected');
 }
 
-const _sampleRequest = StaffSignOutRequest(
-  attendanceDate: '2026-08-27',
-  staffCode: 'STF-1',
-  staffCodes: ['STF-1'],
-  classroomCode: 'CLS_1',
-  classroomCodeByStaffCode: {'STF-1': 'CLS_1'},
+const _request = StudentSignOutRequest(
+  mode: StudentSignOutMode.staff,
+  studentCodes: ['STU-1'],
   signOutMethod: 'APP',
   latitude: 0,
   longitude: 0,
   withinGeofence: false,
   timeZone: 'Asia/Kolkata',
-  occurredAtIso: '2026-08-27T09:00:00.000Z',
 );
 
 class _UnusedRepo implements AttendanceRepository {
@@ -34,35 +30,35 @@ class _UnusedRepo implements AttendanceRepository {
       throw UnimplementedError('${invocation.memberName} was not expected');
 }
 
-class _FakeSubmitUseCase extends SubmitStaffSignOutUseCase {
+class _FakeSubmitUseCase extends SubmitStudentSignOutUseCase {
   _FakeSubmitUseCase() : super(_UnusedRepo());
 
   AttendanceActionResult? resultToReturn;
   Object? errorToThrow;
   int calls = 0;
-  bool? lastIsSelf;
+  bool? lastIsParent;
 
   @override
   Future<AttendanceActionResult> call({
-    required StaffSignOutRequest request,
-    bool isSelf = false,
+    required StudentSignOutRequest request,
+    required bool isParent,
     String? idempotencyKey,
   }) async {
     calls++;
-    lastIsSelf = isSelf;
+    lastIsParent = isParent;
     if (errorToThrow != null) throw errorToThrow!;
     return resultToReturn!;
   }
 }
 
 void main() {
-  group('StaffSignOutSubmitCubit', () {
+  group('StudentSignOutSubmitCubit', () {
     late _FakeSubmitUseCase useCase;
-    late StaffSignOutSubmitCubit cubit;
+    late StudentSignOutSubmitCubit cubit;
 
     setUp(() {
       useCase = _FakeSubmitUseCase();
-      cubit = StaffSignOutSubmitCubit(
+      cubit = StudentSignOutSubmitCubit(
         useCase,
         storageService: _UnusedStorageService(),
         apiClient: ApiClient(baseUrl: 'http://unused'),
@@ -72,7 +68,7 @@ void main() {
     tearDown(() => cubit.close());
 
     test('initial state is Initial and isSubmitting is false', () {
-      expect(cubit.state, isA<StaffSignOutSubmitInitial>());
+      expect(cubit.state, isA<StudentSignOutSubmitInitial>());
       expect(cubit.isSubmitting, isFalse);
     });
 
@@ -88,21 +84,21 @@ void main() {
         final expectation = expectLater(
           cubit.stream,
           emitsInOrder([
-            isA<StaffSignOutSubmitInProgress>(),
-            isA<StaffSignOutSubmitSuccess>(),
+            isA<StudentSignOutSubmitInProgress>(),
+            isA<StudentSignOutSubmitSuccess>(),
           ]),
         );
 
-        final returned = await cubit.submit(
-          request: _sampleRequest,
-          isSelf: true,
-        );
+        final returned = await cubit.submit(request: _request, isParent: false);
 
         await expectation;
         expect(returned, same(result));
         expect(useCase.calls, 1);
-        expect(useCase.lastIsSelf, isTrue);
-        expect((cubit.state as StaffSignOutSubmitSuccess).result, same(result));
+        expect(useCase.lastIsParent, isFalse);
+        expect(
+          (cubit.state as StudentSignOutSubmitSuccess).result,
+          same(result),
+        );
       },
     );
 
@@ -115,14 +111,11 @@ void main() {
         );
         useCase.resultToReturn = result;
 
-        final returned = await cubit.submit(
-          request: _sampleRequest,
-          isSelf: false,
-        );
+        final returned = await cubit.submit(request: _request, isParent: true);
 
         expect(returned.success, isFalse);
-        expect(cubit.state, isA<StaffSignOutSubmitSuccess>());
-        expect(useCase.lastIsSelf, isFalse);
+        expect(cubit.state, isA<StudentSignOutSubmitSuccess>());
+        expect(useCase.lastIsParent, isTrue);
       },
     );
 
@@ -133,18 +126,18 @@ void main() {
       final expectation = expectLater(
         cubit.stream,
         emitsInOrder([
-          isA<StaffSignOutSubmitInProgress>(),
-          isA<StaffSignOutSubmitFailure>(),
+          isA<StudentSignOutSubmitInProgress>(),
+          isA<StudentSignOutSubmitFailure>(),
         ]),
       );
 
       await expectLater(
-        () => cubit.submit(request: _sampleRequest, isSelf: false),
+        () => cubit.submit(request: _request, isParent: false),
         throwsA(same(error)),
       );
 
       await expectation;
-      expect(cubit.state, isA<StaffSignOutSubmitFailure>());
+      expect(cubit.state, isA<StudentSignOutSubmitFailure>());
     });
   });
 }

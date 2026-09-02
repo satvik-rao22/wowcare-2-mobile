@@ -18,10 +18,10 @@ import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_submit_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_submit_state.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_gate_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_gate_state.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_sign_in_submit_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_sign_in_submit_state.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_sign_in_gate_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_sign_in_gate_state.dart';
 import 'staff_entity.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';

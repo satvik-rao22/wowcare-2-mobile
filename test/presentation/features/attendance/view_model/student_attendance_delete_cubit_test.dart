@@ -3,8 +3,8 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/delete_student_attendance_record_usecase.dart';
-import 'package:wowcare/presentation/features/attendance/cubit/attendance_delete_state.dart';
-import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_delete_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/attendance_delete_state.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/student_attendance_delete_cubit.dart';
 
 class _UnusedRepo implements AttendanceRepository {
   @override

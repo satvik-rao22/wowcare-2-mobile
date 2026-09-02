@@ -1,7 +1,7 @@
-part of 'staff_attendance_custom_cubit.dart';
+part of 'student_attendance_custom_cubit.dart';
 
-class StaffAttendanceCustomState extends Equatable {
-  const StaffAttendanceCustomState({
+class StudentAttendanceCustomState extends Equatable {
+  const StudentAttendanceCustomState({
     required this.items,
     required this.isLoading,
     required this.isRefreshing,
@@ -17,23 +17,23 @@ class StaffAttendanceCustomState extends Equatable {
     this.search,
   });
 
-  const StaffAttendanceCustomState.initial()
-      : items = const [],
-        isLoading = false,
-        isRefreshing = false,
-        isFromCache = false,
-        currentPage = 0,
-        hasMore = false,
-        isLoadingMore = false,
-        errorMessage = null,
-        fromDate = null,
-        toDate = null,
-        classroomCodes = null,
-        tagCodes = null,
-        search = null;
+  const StudentAttendanceCustomState.initial()
+    : items = const [],
+      isLoading = false,
+      isRefreshing = false,
+      isFromCache = false,
+      currentPage = 0,
+      hasMore = false,
+      isLoadingMore = false,
+      errorMessage = null,
+      fromDate = null,
+      toDate = null,
+      classroomCodes = null,
+      tagCodes = null,
+      search = null;
 
-  const StaffAttendanceCustomState.loaded({
-    required List<StaffAttendanceDailyItem> items,
+  const StudentAttendanceCustomState.loaded({
+    required List<StudentAttendanceCustomItem> items,
     required bool isFromCache,
     this.currentPage = 0,
     this.hasMore = false,
@@ -42,19 +42,19 @@ class StaffAttendanceCustomState extends Equatable {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     String? search,
-  })  : items = items,
-        isLoading = false,
-        isRefreshing = false,
-        isFromCache = isFromCache,
-        isLoadingMore = false,
-        errorMessage = null,
-        fromDate = fromDate,
-        toDate = toDate,
-        classroomCodes = classroomCodes,
-        tagCodes = tagCodes,
-        search = search;
+  }) : items = items,
+       isLoading = false,
+       isRefreshing = false,
+       isFromCache = isFromCache,
+       isLoadingMore = false,
+       errorMessage = null,
+       fromDate = fromDate,
+       toDate = toDate,
+       classroomCodes = classroomCodes,
+       tagCodes = tagCodes,
+       search = search;
 
-  final List<StaffAttendanceDailyItem> items;
+  final List<StudentAttendanceCustomItem> items;
   final bool isLoading;
   final bool isRefreshing;
   final bool isFromCache;
@@ -68,8 +68,8 @@ class StaffAttendanceCustomState extends Equatable {
   final List<String>? tagCodes;
   final String? search;
 
-  StaffAttendanceCustomState copyWith({
-    List<StaffAttendanceDailyItem>? items,
+  StudentAttendanceCustomState copyWith({
+    List<StudentAttendanceCustomItem>? items,
     bool? isLoading,
     bool? isRefreshing,
     bool? isFromCache,
@@ -83,7 +83,7 @@ class StaffAttendanceCustomState extends Equatable {
     List<String>? tagCodes,
     String? search,
   }) {
-    return StaffAttendanceCustomState(
+    return StudentAttendanceCustomState(
       items: items ?? this.items,
       isLoading: isLoading ?? this.isLoading,
       isRefreshing: isRefreshing ?? this.isRefreshing,
@@ -102,19 +102,18 @@ class StaffAttendanceCustomState extends Equatable {
 
   @override
   List<Object?> get props => [
-        items,
-        isLoading,
-        isRefreshing,
-        isFromCache,
-        currentPage,
-        hasMore,
-        isLoadingMore,
-        errorMessage,
-        fromDate,
-        toDate,
-        classroomCodes,
-        tagCodes,
-        search,
-      ];
+    items,
+    isLoading,
+    isRefreshing,
+    isFromCache,
+    currentPage,
+    hasMore,
+    isLoadingMore,
+    errorMessage,
+    fromDate,
+    toDate,
+    classroomCodes,
+    tagCodes,
+    search,
+  ];
 }
-

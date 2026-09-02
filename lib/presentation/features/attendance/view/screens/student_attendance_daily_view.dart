@@ -27,9 +27,9 @@ import 'package:wowcare/presentation/features/attendance/view/screens/widgets/st
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
-import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_daily_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_absent_toggle_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_delete_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/student_attendance_daily_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/student_attendance_absent_toggle_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/student_attendance_delete_cubit.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_daily.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart'
     hide StudentAttendanceTime;

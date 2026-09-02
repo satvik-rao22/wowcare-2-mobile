@@ -14,7 +14,7 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_selection_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_sign_in_selection_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'staff_entity.dart';

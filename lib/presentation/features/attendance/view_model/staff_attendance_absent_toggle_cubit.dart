@@ -11,13 +11,13 @@ class StaffAttendanceAbsentToggleCubit
     extends Cubit<StaffAttendanceAbsentToggleState> {
   StaffAttendanceAbsentToggleCubit({
     required GetStaffAttendanceAbsentToggleViewUseCase
-        getStaffAttendanceAbsentToggleViewUseCase,
-  })  : _getStaffAttendanceAbsentToggleViewUseCase =
-            getStaffAttendanceAbsentToggleViewUseCase,
-        super(const StaffAttendanceAbsentToggleState.initial());
+    getStaffAttendanceAbsentToggleViewUseCase,
+  }) : _getStaffAttendanceAbsentToggleViewUseCase =
+           getStaffAttendanceAbsentToggleViewUseCase,
+       super(const StaffAttendanceAbsentToggleState.initial());
 
   final GetStaffAttendanceAbsentToggleViewUseCase
-      _getStaffAttendanceAbsentToggleViewUseCase;
+  _getStaffAttendanceAbsentToggleViewUseCase;
 
   static const int _pageSize = 10;
 
@@ -43,17 +43,19 @@ class StaffAttendanceAbsentToggleCubit
   }) async {
     if (state.isRefreshing) return;
 
-    emit(state.copyWith(
-      isLoading: state.items.isEmpty,
-      isRefreshing: true,
-      errorMessage: null,
-      absenceDate: absenceDate,
-      classroomCodes: classroomCodes,
-      tagCodes: tagCodes,
-      search: search,
-      currentPage: 0,
-      hasMore: false,
-    ));
+    emit(
+      state.copyWith(
+        isLoading: state.items.isEmpty,
+        isRefreshing: true,
+        errorMessage: null,
+        absenceDate: absenceDate,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        search: search,
+        currentPage: 0,
+        hasMore: false,
+      ),
+    );
 
     try {
       final dateString = _formatDate(absenceDate);
@@ -69,22 +71,26 @@ class StaffAttendanceAbsentToggleCubit
 
       if (isClosed) return;
 
-      emit(StaffAttendanceAbsentToggleState.loaded(
-        items: firstPage.items,
-        currentPage: firstPage.page,
-        hasMore: firstPage.hasMore,
-        absenceDate: absenceDate,
-        classroomCodes: classroomCodes,
-        tagCodes: tagCodes,
-        search: search,
-      ));
+      emit(
+        StaffAttendanceAbsentToggleState.loaded(
+          items: firstPage.items,
+          currentPage: firstPage.page,
+          hasMore: firstPage.hasMore,
+          absenceDate: absenceDate,
+          classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
+          search: search,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoading: false,
-        isRefreshing: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -111,18 +117,22 @@ class StaffAttendanceAbsentToggleCubit
 
       if (isClosed) return;
 
-      emit(state.copyWith(
-        items: [...state.items, ...page.items],
-        currentPage: page.page,
-        hasMore: page.hasMore,
-        isLoadingMore: false,
-      ));
+      emit(
+        state.copyWith(
+          items: [...state.items, ...page.items],
+          currentPage: page.page,
+          hasMore: page.hasMore,
+          isLoadingMore: false,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoadingMore: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -130,4 +140,3 @@ class StaffAttendanceAbsentToggleCubit
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 }
-

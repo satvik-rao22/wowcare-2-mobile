@@ -10,8 +10,8 @@ import 'package:wowcare/domain/features/attendance/usecases/submit_staff_transfe
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_transfer_submit_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_transfer_submit_state.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_transfer_submit_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_transfer_submit_state.dart';
 
 class _UnusedStorageService implements StorageService {
   @override

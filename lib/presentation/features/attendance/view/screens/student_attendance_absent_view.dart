@@ -36,7 +36,7 @@ import 'package:wowcare/domain/features/attendance/entities/student_attendance_a
 import 'package:wowcare/data/features/attendance/models/student_attendance_absent_view_response_model.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_absent_fetch_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/student_attendance_absent_fetch_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_responsive_detail_row.dart';

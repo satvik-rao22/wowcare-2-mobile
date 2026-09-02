@@ -1,8 +1,8 @@
-part of 'student_edit_attendance_cubit.dart';
+part of 'staff_edit_attendance_cubit.dart';
 
-/// Immutable form state for [StudentEditAttendanceFormCubit].
-class StudentEditAttendanceState extends Equatable {
-  const StudentEditAttendanceState({
+/// Immutable form state for [StaffEditAttendanceFormCubit].
+class StaffEditAttendanceState extends Equatable {
+  const StaffEditAttendanceState({
     this.signInTime,
     this.signOutTime,
     this.schoolIana = SchoolTimezoneResolver.fallbackTimeZone,
@@ -21,13 +21,13 @@ class StudentEditAttendanceState extends Equatable {
   /// Whether a submission is currently in flight.
   final bool isSubmitting;
 
-  StudentEditAttendanceState copyWith({
+  StaffEditAttendanceState copyWith({
     TimeOfDay? signInTime,
     TimeOfDay? signOutTime,
     String? schoolIana,
     bool? isSubmitting,
   }) {
-    return StudentEditAttendanceState(
+    return StaffEditAttendanceState(
       signInTime: signInTime ?? this.signInTime,
       signOutTime: signOutTime ?? this.signOutTime,
       schoolIana: schoolIana ?? this.schoolIana,
@@ -36,5 +36,10 @@ class StudentEditAttendanceState extends Equatable {
   }
 
   @override
-  List<Object?> get props => [signInTime, signOutTime, schoolIana, isSubmitting];
+  List<Object?> get props => [
+    signInTime,
+    signOutTime,
+    schoolIana,
+    isSubmitting,
+  ];
 }

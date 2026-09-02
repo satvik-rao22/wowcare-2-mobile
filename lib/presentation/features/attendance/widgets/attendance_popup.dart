@@ -20,14 +20,14 @@ import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_profile_fetch_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/student_attendance_profile_fetch_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
-import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_profile_fetch_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_profile_fetch_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 

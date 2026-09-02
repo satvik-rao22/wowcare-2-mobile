@@ -11,7 +11,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_edit_form_widgets.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_card.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_edit_attendance_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_edit_attendance_cubit.dart';
 
 class StudentEditAttendanceForm extends StatefulWidget {
   const StudentEditAttendanceForm({

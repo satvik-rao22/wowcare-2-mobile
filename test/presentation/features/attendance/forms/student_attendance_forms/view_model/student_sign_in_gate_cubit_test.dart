@@ -5,7 +5,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_gate_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_in_gate_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
     show StudentEntity;
 
@@ -104,7 +104,10 @@ void main() {
 
     test('seedStudents populates the working list', () {
       cubit.seedStudents([_student('S1'), _student('S2')]);
-      expect(cubit.state.currentStudents.map((s) => s.studentCode), ['S1', 'S2']);
+      expect(cubit.state.currentStudents.map((s) => s.studentCode), [
+        'S1',
+        'S2',
+      ]);
     });
 
     test('setSelectedDate / setSelectedTime update state', () {
@@ -140,42 +143,54 @@ void main() {
       expect(cubit.state.notExpectedComment, '');
     });
 
-    test('hasUnexpected / names use expectedTodayFromApi over entity flag', () async {
-      cubit.seedStudents([_student('S1', expected: true)]);
-      // API says S1 is NOT expected today -> overrides the entity's true.
-      formList.expectedByCode = {'S1': false};
-      final outcome = await cubit.resolveExpectedToday();
-      expect(outcome.superseded, isFalse);
-      expect(outcome.needsDialog, isTrue);
-      expect(outcome.unexpectedNames, ['Name S1']);
-      expect(cubit.state.unexpectedGateLoading, isFalse);
-      expect(cubit.state.unexpectedSignInAcknowledged, isFalse);
-    });
+    test(
+      'hasUnexpected / names use expectedTodayFromApi over entity flag',
+      () async {
+        cubit.seedStudents([_student('S1', expected: true)]);
+        // API says S1 is NOT expected today -> overrides the entity's true.
+        formList.expectedByCode = {'S1': false};
+        final outcome = await cubit.resolveExpectedToday();
+        expect(outcome.superseded, isFalse);
+        expect(outcome.needsDialog, isTrue);
+        expect(outcome.unexpectedNames, ['Name S1']);
+        expect(cubit.state.unexpectedGateLoading, isFalse);
+        expect(cubit.state.unexpectedSignInAcknowledged, isFalse);
+      },
+    );
 
-    test('resolveExpectedToday: all expected -> no dialog, auto-acknowledged', () async {
-      cubit.seedStudents([_student('S1')]);
-      formList.expectedByCode = {'S1': true};
-      final outcome = await cubit.resolveExpectedToday();
-      expect(outcome.needsDialog, isFalse);
-      expect(cubit.state.unexpectedSignInAcknowledged, isTrue);
-      expect(cubit.state.unexpectedGateLoading, isFalse);
-    });
+    test(
+      'resolveExpectedToday: all expected -> no dialog, auto-acknowledged',
+      () async {
+        cubit.seedStudents([_student('S1')]);
+        formList.expectedByCode = {'S1': true};
+        final outcome = await cubit.resolveExpectedToday();
+        expect(outcome.needsDialog, isFalse);
+        expect(cubit.state.unexpectedSignInAcknowledged, isTrue);
+        expect(cubit.state.unexpectedGateLoading, isFalse);
+      },
+    );
 
-    test('resolveExpectedToday: empty list -> acknowledged, no fetch', () async {
-      final outcome = await cubit.resolveExpectedToday();
-      expect(outcome.needsDialog, isFalse);
-      expect(formList.calls, 0);
-      expect(cubit.state.unexpectedSignInAcknowledged, isTrue);
-      expect(cubit.state.unexpectedGateLoading, isFalse);
-    });
+    test(
+      'resolveExpectedToday: empty list -> acknowledged, no fetch',
+      () async {
+        final outcome = await cubit.resolveExpectedToday();
+        expect(outcome.needsDialog, isFalse);
+        expect(formList.calls, 0);
+        expect(cubit.state.unexpectedSignInAcknowledged, isTrue);
+        expect(cubit.state.unexpectedGateLoading, isFalse);
+      },
+    );
 
-    test('resolveExpectedToday: fetch error clears map but still gates', () async {
-      cubit.seedStudents([_student('S1', expected: false)]);
-      formList.throwOnCall = true;
-      final outcome = await cubit.resolveExpectedToday();
-      expect(cubit.state.expectedTodayFromApi, isEmpty);
-      // entity flag (false) makes S1 unexpected -> dialog.
-      expect(outcome.needsDialog, isTrue);
-    });
+    test(
+      'resolveExpectedToday: fetch error clears map but still gates',
+      () async {
+        cubit.seedStudents([_student('S1', expected: false)]);
+        formList.throwOnCall = true;
+        final outcome = await cubit.resolveExpectedToday();
+        expect(cubit.state.expectedTodayFromApi, isEmpty);
+        // entity flag (false) makes S1 unexpected -> dialog.
+        expect(outcome.needsDialog, isTrue);
+      },
+    );
   });
 }

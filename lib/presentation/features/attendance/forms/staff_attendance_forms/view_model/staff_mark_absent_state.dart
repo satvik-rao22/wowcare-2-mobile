@@ -79,12 +79,12 @@ class StaffMarkAbsentState extends Equatable {
 
   @override
   List<Object?> get props => [
-        selectedStaff,
-        startDate,
-        endDate,
-        schoolIana,
-        isStaffAdminPersona,
-        currentStaffCode,
-        isSubmitting,
-      ];
+    selectedStaff,
+    startDate,
+    endDate,
+    schoolIana,
+    isStaffAdminPersona,
+    currentStaffCode,
+    isSubmitting,
+  ];
 }

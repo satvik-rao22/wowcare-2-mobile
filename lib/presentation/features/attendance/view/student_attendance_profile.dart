@@ -22,7 +22,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_profile_query.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_profile_absent_toggle_query.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
-import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_profile_fetch_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/student_attendance_profile_fetch_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';

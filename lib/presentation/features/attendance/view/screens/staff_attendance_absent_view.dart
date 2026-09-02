@@ -24,7 +24,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
-import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_absent_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_absent_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';

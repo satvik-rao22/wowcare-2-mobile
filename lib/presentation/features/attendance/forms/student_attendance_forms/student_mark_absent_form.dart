@@ -10,7 +10,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_mark_absent_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_mark_absent_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
@@ -18,7 +18,7 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 
 // StudentEntity / TagEntity now live in the form's cubit library; re-export
 // them so existing callers that import this form keep resolving the types.
-export 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_mark_absent_cubit.dart'
+export 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_mark_absent_cubit.dart'
     show StudentEntity, TagEntity;
 
 class StudentMarkAbsentForm extends StatefulWidget {

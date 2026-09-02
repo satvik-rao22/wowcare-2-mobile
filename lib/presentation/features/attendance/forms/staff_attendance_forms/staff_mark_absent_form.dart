@@ -10,7 +10,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_mark_absent_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_mark_absent_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'staff_entity.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';

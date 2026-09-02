@@ -1,7 +1,7 @@
-part of 'student_attendance_absent_toggle_cubit.dart';
+part of 'staff_attendance_absent_toggle_cubit.dart';
 
-class StudentAttendanceAbsentToggleState extends Equatable {
-  const StudentAttendanceAbsentToggleState({
+class StaffAttendanceAbsentToggleState extends Equatable {
+  const StaffAttendanceAbsentToggleState({
     required this.items,
     required this.isLoading,
     required this.isRefreshing,
@@ -15,38 +15,38 @@ class StudentAttendanceAbsentToggleState extends Equatable {
     this.search,
   });
 
-  const StudentAttendanceAbsentToggleState.initial()
-      : items = const [],
-        isLoading = false,
-        isRefreshing = false,
-        currentPage = 0,
-        hasMore = false,
-        isLoadingMore = false,
-        errorMessage = null,
-        absenceDate = null,
-        classroomCodes = null,
-        tagCodes = null,
-        search = null;
+  const StaffAttendanceAbsentToggleState.initial()
+    : items = const [],
+      isLoading = false,
+      isRefreshing = false,
+      currentPage = 0,
+      hasMore = false,
+      isLoadingMore = false,
+      errorMessage = null,
+      absenceDate = null,
+      classroomCodes = null,
+      tagCodes = null,
+      search = null;
 
-  const StudentAttendanceAbsentToggleState.loaded({
-    required List<StudentAttendanceAbsentFormItem> items,
+  const StaffAttendanceAbsentToggleState.loaded({
+    required List<StaffAttendanceAbsentItem> items,
     this.currentPage = 0,
     this.hasMore = false,
     required DateTime absenceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
     String? search,
-  })  : items = items,
-        isLoading = false,
-        isRefreshing = false,
-        isLoadingMore = false,
-        errorMessage = null,
-        absenceDate = absenceDate,
-        classroomCodes = classroomCodes,
-        tagCodes = tagCodes,
-        search = search;
+  }) : items = items,
+       isLoading = false,
+       isRefreshing = false,
+       isLoadingMore = false,
+       errorMessage = null,
+       absenceDate = absenceDate,
+       classroomCodes = classroomCodes,
+       tagCodes = tagCodes,
+       search = search;
 
-  final List<StudentAttendanceAbsentFormItem> items;
+  final List<StaffAttendanceAbsentItem> items;
   final bool isLoading;
   final bool isRefreshing;
   final int currentPage;
@@ -58,8 +58,8 @@ class StudentAttendanceAbsentToggleState extends Equatable {
   final List<String>? tagCodes;
   final String? search;
 
-  StudentAttendanceAbsentToggleState copyWith({
-    List<StudentAttendanceAbsentFormItem>? items,
+  StaffAttendanceAbsentToggleState copyWith({
+    List<StaffAttendanceAbsentItem>? items,
     bool? isLoading,
     bool? isRefreshing,
     int? currentPage,
@@ -71,7 +71,7 @@ class StudentAttendanceAbsentToggleState extends Equatable {
     List<String>? tagCodes,
     String? search,
   }) {
-    return StudentAttendanceAbsentToggleState(
+    return StaffAttendanceAbsentToggleState(
       items: items ?? this.items,
       isLoading: isLoading ?? this.isLoading,
       isRefreshing: isRefreshing ?? this.isRefreshing,
@@ -88,17 +88,16 @@ class StudentAttendanceAbsentToggleState extends Equatable {
 
   @override
   List<Object?> get props => [
-        items,
-        isLoading,
-        isRefreshing,
-        currentPage,
-        hasMore,
-        isLoadingMore,
-        errorMessage,
-        absenceDate,
-        classroomCodes,
-        tagCodes,
-        search,
-      ];
+    items,
+    isLoading,
+    isRefreshing,
+    currentPage,
+    hasMore,
+    isLoadingMore,
+    errorMessage,
+    absenceDate,
+    classroomCodes,
+    tagCodes,
+    search,
+  ];
 }
-

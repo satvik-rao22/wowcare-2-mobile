@@ -8,8 +8,8 @@ import 'package:wowcare/domain/features/attendance/repositories/attendance_repos
 import 'package:wowcare/domain/features/attendance/usecases/delete_student_absence_record_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_student_sign_in_usecase.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_submit_state.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_in_submit_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_in_submit_state.dart';
 
 const _request = StudentSignInRequest(
   mode: StudentSignInMode.staff,

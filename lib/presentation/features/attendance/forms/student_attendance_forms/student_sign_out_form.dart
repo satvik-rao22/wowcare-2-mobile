@@ -11,7 +11,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_sign_out_request.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_out_submit_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_out_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:geolocator/geolocator.dart';

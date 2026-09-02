@@ -13,7 +13,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_selection_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_in_selection_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_select_all_row.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_selectable_person_tile.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';

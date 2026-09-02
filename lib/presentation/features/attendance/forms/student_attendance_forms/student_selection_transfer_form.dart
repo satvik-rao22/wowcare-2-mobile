@@ -14,7 +14,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_transfer_selection_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_transfer_selection_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'student_transfer_form.dart';
 

@@ -1,24 +1,22 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
-import 'package:wowcare/domain/features/attendance/entities/staff_attendance_absent.dart';
-import 'package:wowcare/domain/features/attendance/entities/staff_sign_in_request.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_sign_in_request.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
-import 'package:wowcare/domain/features/attendance/usecases/delete_staff_absence_record_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_staff_absent_form_list_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/submit_staff_sign_in_usecase.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_submit_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_sign_in_submit_state.dart';
+import 'package:wowcare/domain/features/attendance/usecases/delete_student_absence_record_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/submit_student_sign_in_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_in_submit_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_in_submit_state.dart';
 
-const _sampleRequest = StaffSignInRequest(
-  mode: StaffSignInMode.self,
-  staffCode: 'STF-1',
-  signInMethod: 'GPS',
+const _request = StudentSignInRequest(
+  mode: StudentSignInMode.staff,
+  studentCodes: ['STU-1'],
+  signInMethod: 'APP',
   latitude: 0,
   longitude: 0,
   withinGeofence: true,
   timeZone: 'Asia/Kolkata',
-  occurredAtIso: '2026-08-27T09:00:00.000Z',
-  isExpectedToday: true,
 );
 
 /// The use case's constructor needs a repository, but the fake overrides
@@ -29,22 +27,22 @@ class _UnusedRepo implements AttendanceRepository {
       throw UnimplementedError('${invocation.memberName} was not expected');
 }
 
-class _FakeSubmitUseCase extends SubmitStaffSignInUseCase {
+class _FakeSubmitUseCase extends SubmitStudentSignInUseCase {
   _FakeSubmitUseCase() : super(_UnusedRepo());
 
   AttendanceActionResult? resultToReturn;
   Object? errorToThrow;
   int calls = 0;
-  bool? lastIsSelf;
+  bool? lastIsParent;
 
   @override
   Future<AttendanceActionResult> call({
-    required StaffSignInRequest request,
-    required bool isSelf,
+    required StudentSignInRequest request,
+    required bool isParent,
     String? idempotencyKey,
   }) async {
     calls++;
-    lastIsSelf = isSelf;
+    lastIsParent = isParent;
     if (errorToThrow != null) throw errorToThrow!;
     return resultToReturn!;
   }
@@ -53,11 +51,12 @@ class _FakeSubmitUseCase extends SubmitStaffSignInUseCase {
 /// Fake absent-form-list lookup — returns an empty page by default so the
 /// pre-delete step (not exercised by these submit()-focused tests) is a
 /// no-op.
-class _FakeGetStaffAbsentFormListUseCase extends GetStaffAbsentFormListUseCase {
-  _FakeGetStaffAbsentFormListUseCase() : super(_UnusedRepo());
+class _FakeGetStudentAbsentFormListUseCase
+    extends GetStudentAbsentFormListUseCase {
+  _FakeGetStudentAbsentFormListUseCase() : super(_UnusedRepo());
 
   @override
-  Future<StaffAttendanceAbsentPage> call({
+  Future<StudentAttendanceAbsentFormPage> call({
     required String fromAbsenceDate,
     required String toAbsenceDate,
     List<String>? classroomCodes,
@@ -66,7 +65,7 @@ class _FakeGetStaffAbsentFormListUseCase extends GetStaffAbsentFormListUseCase {
     int page = 0,
     int size = 10,
   }) async {
-    return const StaffAttendanceAbsentPage(
+    return const StudentAttendanceAbsentFormPage(
       items: [],
       page: 0,
       size: 0,
@@ -77,9 +76,9 @@ class _FakeGetStaffAbsentFormListUseCase extends GetStaffAbsentFormListUseCase {
   }
 }
 
-class _FakeDeleteStaffAbsenceRecordUseCase
-    extends DeleteStaffAbsenceRecordUseCase {
-  _FakeDeleteStaffAbsenceRecordUseCase() : super(_UnusedRepo());
+class _FakeDeleteStudentAbsenceRecordUseCase
+    extends DeleteStudentAbsenceRecordUseCase {
+  _FakeDeleteStudentAbsenceRecordUseCase() : super(_UnusedRepo());
 
   @override
   Future<void> call({
@@ -89,23 +88,24 @@ class _FakeDeleteStaffAbsenceRecordUseCase
 }
 
 void main() {
-  group('StaffSignInSubmitCubit', () {
+  group('StudentSignInSubmitCubit', () {
     late _FakeSubmitUseCase useCase;
-    late StaffSignInSubmitCubit cubit;
+    late StudentSignInSubmitCubit cubit;
 
     setUp(() {
       useCase = _FakeSubmitUseCase();
-      cubit = StaffSignInSubmitCubit(
+      cubit = StudentSignInSubmitCubit(
         useCase,
-        getStaffAbsentFormListUseCase: _FakeGetStaffAbsentFormListUseCase(),
-        deleteStaffAbsenceRecordUseCase: _FakeDeleteStaffAbsenceRecordUseCase(),
+        getStudentAbsentFormListUseCase: _FakeGetStudentAbsentFormListUseCase(),
+        deleteStudentAbsenceRecordUseCase:
+            _FakeDeleteStudentAbsenceRecordUseCase(),
       );
     });
 
     tearDown(() => cubit.close());
 
     test('initial state is Initial and isSubmitting is false', () {
-      expect(cubit.state, isA<StaffSignInSubmitInitial>());
+      expect(cubit.state, isA<StudentSignInSubmitInitial>());
       expect(cubit.isSubmitting, isFalse);
     });
 
@@ -121,21 +121,21 @@ void main() {
         final expectation = expectLater(
           cubit.stream,
           emitsInOrder([
-            isA<StaffSignInSubmitInProgress>(),
-            isA<StaffSignInSubmitSuccess>(),
+            isA<StudentSignInSubmitInProgress>(),
+            isA<StudentSignInSubmitSuccess>(),
           ]),
         );
 
-        final returned = await cubit.submit(
-          request: _sampleRequest,
-          isSelf: true,
-        );
+        final returned = await cubit.submit(request: _request, isParent: false);
 
         await expectation;
         expect(returned, same(result));
         expect(useCase.calls, 1);
-        expect(useCase.lastIsSelf, isTrue);
-        expect((cubit.state as StaffSignInSubmitSuccess).result, same(result));
+        expect(useCase.lastIsParent, isFalse);
+        expect(
+          (cubit.state as StudentSignInSubmitSuccess).result,
+          same(result),
+        );
       },
     );
 
@@ -148,14 +148,11 @@ void main() {
         );
         useCase.resultToReturn = result;
 
-        final returned = await cubit.submit(
-          request: _sampleRequest,
-          isSelf: false,
-        );
+        final returned = await cubit.submit(request: _request, isParent: true);
 
         expect(returned.success, isFalse);
-        expect(cubit.state, isA<StaffSignInSubmitSuccess>());
-        expect(useCase.lastIsSelf, isFalse);
+        expect(cubit.state, isA<StudentSignInSubmitSuccess>());
+        expect(useCase.lastIsParent, isTrue);
       },
     );
 
@@ -166,18 +163,18 @@ void main() {
       final expectation = expectLater(
         cubit.stream,
         emitsInOrder([
-          isA<StaffSignInSubmitInProgress>(),
-          isA<StaffSignInSubmitFailure>(),
+          isA<StudentSignInSubmitInProgress>(),
+          isA<StudentSignInSubmitFailure>(),
         ]),
       );
 
       await expectLater(
-        () => cubit.submit(request: _sampleRequest, isSelf: true),
+        () => cubit.submit(request: _request, isParent: false),
         throwsA(same(error)),
       );
 
       await expectation;
-      expect(cubit.state, isA<StaffSignInSubmitFailure>());
+      expect(cubit.state, isA<StudentSignInSubmitFailure>());
     });
   });
 }

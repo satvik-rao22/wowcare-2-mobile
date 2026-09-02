@@ -24,10 +24,10 @@ class StaffEditAttendanceFormCubit extends Cubit<StaffEditAttendanceState> {
     required AttendanceRepository attendanceRepository,
     required StorageService storageService,
     required ApiClient apiClient,
-  })  : _attendanceRepository = attendanceRepository,
-        _storageService = storageService,
-        _apiClient = apiClient,
-        super(const StaffEditAttendanceState());
+  }) : _attendanceRepository = attendanceRepository,
+       _storageService = storageService,
+       _apiClient = apiClient,
+       super(const StaffEditAttendanceState());
 
   final AttendanceRepository _attendanceRepository;
   final StorageService _storageService;
@@ -61,15 +61,16 @@ class StaffEditAttendanceFormCubit extends Cubit<StaffEditAttendanceState> {
     final signOut = parseSchoolTimeOrNull(signOutRaw, schoolIana);
     _initialSignInTime = signIn;
     _initialSignOutTime = signOut;
-    emit(state.copyWith(
-      schoolIana: schoolIana,
-      signInTime: signIn,
-      signOutTime: signOut,
-    ));
+    emit(
+      state.copyWith(
+        schoolIana: schoolIana,
+        signInTime: signIn,
+        signOutTime: signOut,
+      ),
+    );
   }
 
-  void setSignInTime(TimeOfDay time) =>
-      emit(state.copyWith(signInTime: time));
+  void setSignInTime(TimeOfDay time) => emit(state.copyWith(signInTime: time));
 
   void setSignOutTime(TimeOfDay time) =>
       emit(state.copyWith(signOutTime: time));
@@ -100,7 +101,8 @@ class StaffEditAttendanceFormCubit extends Cubit<StaffEditAttendanceState> {
 
     final normalizedCode = attendanceCode.toUpperCase();
     final isTransferRecord =
-        normalizedCode.startsWith('STTR_') || normalizedCode.startsWith('SCTR_');
+        normalizedCode.startsWith('STTR_') ||
+        normalizedCode.startsWith('SCTR_');
 
     final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
       storage: _storageService,
@@ -108,9 +110,14 @@ class StaffEditAttendanceFormCubit extends Cubit<StaffEditAttendanceState> {
     );
 
     final date = _attendanceDate;
-    final signedInChanged = !sameTimeOfDay(state.signInTime, _initialSignInTime);
-    final signedOutChanged =
-        !sameTimeOfDay(state.signOutTime, _initialSignOutTime);
+    final signedInChanged = !sameTimeOfDay(
+      state.signInTime,
+      _initialSignInTime,
+    );
+    final signedOutChanged = !sameTimeOfDay(
+      state.signOutTime,
+      _initialSignOutTime,
+    );
 
     final signedInAt = signedInChanged
         ? SchoolZoneDateTime.utcFromSchoolWallClock(

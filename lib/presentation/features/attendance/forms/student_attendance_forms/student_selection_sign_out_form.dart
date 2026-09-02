@@ -15,7 +15,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_out_selection_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_out_selection_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'guardian_student_selection_scope.dart';
 import 'student_sign_out_form.dart';

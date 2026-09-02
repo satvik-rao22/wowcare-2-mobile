@@ -10,7 +10,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_transfer_request.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_transfer_submit_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_transfer_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/classroom_visibility.dart';
