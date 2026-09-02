@@ -1110,7 +1110,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           alignment: Alignment.topRight,
           insetPadding: EdgeInsets.only(
             top: floatingButtonTop + floatingButtonSize + 8,
-            left: mediaQuery.size.width * 0.75,
+            left: ResponsiveHelper(context).screenWidth * 0.75,
             right: floatingButtonRight,
           ),
           child: StaffAttendanceVerticalPopupOnly(

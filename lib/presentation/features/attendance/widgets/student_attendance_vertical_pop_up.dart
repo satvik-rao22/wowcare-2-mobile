@@ -116,7 +116,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
           alignment: Alignment.topRight,
           insetPadding: EdgeInsets.only(
             top: (topPosition ?? 100) + buttonSize,
-            left: leftPosition ?? MediaQuery.of(context).size.width * 0.75,
+            left: leftPosition ?? ResponsiveHelper(context).screenWidth * 0.75,
             right: rightPosition ?? 16,
           ),
           child: Container(
@@ -140,7 +140,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
                 // last action ("Absent") gets cropped. The dialog's own bounds
                 // (insetPadding.top) already handle the anchor offset, and the
                 // scroll view below guards genuinely tiny screens.
-                maxHeight: MediaQuery.of(context).size.height * 0.9,
+                maxHeight: ResponsiveHelper(context).screenHeight * 0.9,
               ),
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
               decoration: BoxDecoration(
@@ -151,37 +151,37 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                  _buildMenuItem(
-                    context,
-                    MediaRes.Sign_in,
-                    'Sign-in',
-                    activeDisabledActions,
-                    activeReasons,
-                  ),
-                  const SizedBox(height: AppSpacing.s5),
-                  _buildMenuItem(
-                    context,
-                    MediaRes.Sign_out,
-                    'Sign-Out',
-                    activeDisabledActions,
-                    activeReasons,
-                  ),
-                  const SizedBox(height: AppSpacing.s5),
-                  _buildMenuItem(
-                    context,
-                    MediaRes.transfer,
-                    'Transfer',
-                    activeDisabledActions,
-                    activeReasons,
-                  ),
-                  const SizedBox(height: AppSpacing.s5),
-                  _buildMenuItem(
-                    context,
-                    MediaRes.Mark_absent,
-                    'Absent',
-                    activeDisabledActions,
-                    activeReasons,
-                  ),
+                    _buildMenuItem(
+                      context,
+                      MediaRes.Sign_in,
+                      'Sign-in',
+                      activeDisabledActions,
+                      activeReasons,
+                    ),
+                    const SizedBox(height: AppSpacing.s5),
+                    _buildMenuItem(
+                      context,
+                      MediaRes.Sign_out,
+                      'Sign-Out',
+                      activeDisabledActions,
+                      activeReasons,
+                    ),
+                    const SizedBox(height: AppSpacing.s5),
+                    _buildMenuItem(
+                      context,
+                      MediaRes.transfer,
+                      'Transfer',
+                      activeDisabledActions,
+                      activeReasons,
+                    ),
+                    const SizedBox(height: AppSpacing.s5),
+                    _buildMenuItem(
+                      context,
+                      MediaRes.Mark_absent,
+                      'Absent',
+                      activeDisabledActions,
+                      activeReasons,
+                    ),
                   ],
                 ),
               ),
@@ -223,7 +223,11 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
                 color: AppColors.attendanceInfoHighlightColor,
                 shape: BoxShape.circle,
               ),
-              child: SvgPicture.asset(svgPath, height: AppDimensions.iconMd, width: AppDimensions.iconMd),
+              child: SvgPicture.asset(
+                svgPath,
+                height: AppDimensions.iconMd,
+                width: AppDimensions.iconMd,
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.s5),

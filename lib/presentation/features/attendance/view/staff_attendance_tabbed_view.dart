@@ -398,7 +398,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
           alignment: Alignment.topRight,
           insetPadding: EdgeInsets.only(
             top: floatingButtonTop + floatingButtonSize,
-            left: mediaQuery.size.width * 0.75,
+            left: ResponsiveHelper(context).screenWidth * 0.75,
             right: floatingButtonRight,
           ),
           child: Container(

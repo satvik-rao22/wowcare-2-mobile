@@ -484,8 +484,8 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     final isParent = _isParentRole;
     final isTeacherPersona = _isTeacherStaffPersona == true;
     final mediaQuery = MediaQuery.of(context);
-    final screenHeight = mediaQuery.size.height;
-    final screenWidth = mediaQuery.size.width;
+    final screenHeight = ResponsiveHelper(context).screenHeight;
+    final screenWidth = ResponsiveHelper(context).screenWidth;
     final isTablet = ResponsiveHelper(context).isTabletCompact;
     final navBarHeight = CustomNavigationBar.navBarHeight;
     // Use a default height if navBarHeight hasn't been measured yet
@@ -578,7 +578,6 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                   isAdmin,
                                   isParent,
                                   isTablet,
-                                  screenWidth,
                                 ),
                               ]
                             : [
@@ -587,13 +586,11 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                                   isAdmin,
                                   isParent,
                                   isTablet,
-                                  screenWidth,
                                 ),
                                 _buildStaffAttendanceTab(
                                   context,
                                   isAdmin,
                                   isTablet,
-                                  screenWidth,
                                 ),
                               ],
                       ),
@@ -613,7 +610,6 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     bool isAdmin,
     bool isParent,
     bool isTablet,
-    double screenWidth,
   ) {
     final disableStudentSignInOut =
         !AttendancePermissionService.hasPermissionToManageStudentAttendance(
@@ -626,7 +622,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     final spacing = isTablet ? 16.0 : 8.0;
 
     // For very small screens, use wrap layout
-    final useWrap = screenWidth < 360;
+    final useWrap = ResponsiveHelper(context).isNarrow;
 
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),
@@ -850,7 +846,6 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     BuildContext context,
     bool isAdmin,
     bool isTablet,
-    double screenWidth,
   ) {
     final roleProvider = context.watch<RoleCubit>();
     final geofenceState = context.watch<GeofenceCubit>().state;
@@ -877,7 +872,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     final spacing = isTablet ? 16.0 : 8.0;
 
     // For very small screens, use wrap layout
-    final useWrap = screenWidth < 360;
+    final useWrap = ResponsiveHelper(context).isNarrow;
 
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),
