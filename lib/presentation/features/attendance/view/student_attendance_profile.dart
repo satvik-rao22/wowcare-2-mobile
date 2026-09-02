@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -18,14 +19,11 @@ import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/attendance/entities/attendance_profile_query.dart';
-import 'package:wowcare/domain/features/attendance/entities/attendance_profile_absent_toggle_query.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/student_attendance_profile_fetch_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
@@ -42,8 +40,6 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
-
-enum ProfileAbsentMarkMethod { gps, qr, kiosk, app, web, system }
 
 /// Builds the small method-tooltip icon for [AttendanceProfileField]'s
 /// [AttendanceProfileField.methodIcon] slot. Kept local (rather than shared
@@ -135,61 +131,6 @@ Widget _absentMethodIcon(ProfileAbsentMarkMethod method) {
   }
 }
 
-// Dummy data models for UI-only implementation
-class _AttendanceModel {
-  final DateTime date;
-  final String signInTime;
-  final String signOutTime;
-  final String roomName;
-  final String signInBy;
-  final String signOutBy;
-  final String attendedTime;
-  final int attendedHours;
-  final int attendedMinutes;
-  final bool isTransferSignIn;
-  final bool isTransferSignOut;
-  final ProfileAbsentMarkMethod? signInMethod;
-  final ProfileAbsentMarkMethod? signOutMethod;
-  final String notExpectedComment;
-
-  _AttendanceModel({
-    required this.date,
-    required this.signInTime,
-    required this.signOutTime,
-    required this.roomName,
-    required this.signInBy,
-    required this.signOutBy,
-    this.attendedTime = '',
-    this.attendedHours = 0,
-    this.attendedMinutes = 0,
-    this.isTransferSignIn = false,
-    this.isTransferSignOut = false,
-    this.signInMethod,
-    this.signOutMethod,
-    this.notExpectedComment = '',
-  });
-}
-
-class _AbsentDayModel {
-  final DateTime startDate;
-  final DateTime endDate;
-  final String absentTime;
-  final String absentBy;
-  final String note;
-  final ProfileAbsentMarkMethod? markAbsentMethod;
-  final String classroomName;
-
-  _AbsentDayModel({
-    required this.startDate,
-    required this.endDate,
-    required this.absentTime,
-    required this.absentBy,
-    required this.note,
-    this.markAbsentMethod,
-    this.classroomName = '',
-  });
-}
-
 /// Formats many possible API time shapes into a clean 12-hour display ("hh:mm a").
 /// Supports:
 /// - Map: {hour, minute, second?, nano?}
@@ -244,7 +185,7 @@ String _formatTime12h(dynamic value) {
   return s;
 }
 
-String _formatAttendedTimeForCard(_AttendanceModel attendance) {
+String _formatAttendedTimeForCard(StudentProfileAttendanceRecord attendance) {
   final inStr = attendance.signInTime.trim();
   final outStr = attendance.signOutTime.trim();
 
@@ -300,71 +241,6 @@ String getFirstName(String name) {
   return name.trim();
 }
 
-class _StudentModel {
-  final int id;
-  final String name;
-  final String? photoUuid;
-  final String roomName;
-  final bool isSignedIn;
-  final bool isAbsent;
-  final bool isExpectedToday;
-  final bool isPresentToday;
-  final String profileStatus;
-  final bool isPhotoPermission;
-  final String medications;
-  final String note;
-  final String allergies;
-  final String dietRestriction;
-
-  _StudentModel({
-    required this.id,
-    required this.name,
-    this.photoUuid,
-    required this.roomName,
-    this.isSignedIn = false,
-    this.isAbsent = false,
-    this.isExpectedToday = true,
-    this.isPresentToday = false,
-    this.profileStatus = 'A',
-    this.isPhotoPermission = true,
-    this.medications = '',
-    this.note = '',
-    this.allergies = '',
-    this.dietRestriction = '',
-  });
-
-  _StudentModel copyWith({String? name, String? roomName, String? photoUuid}) {
-    return _StudentModel(
-      id: id,
-      name: name ?? this.name,
-      photoUuid: photoUuid ?? this.photoUuid,
-      roomName: roomName ?? this.roomName,
-      isSignedIn: isSignedIn,
-      isAbsent: isAbsent,
-      isExpectedToday: isExpectedToday,
-      isPresentToday: isPresentToday,
-      profileStatus: profileStatus,
-      isPhotoPermission: isPhotoPermission,
-      medications: medications,
-      note: note,
-      allergies: allergies,
-      dietRestriction: dietRestriction,
-    );
-  }
-}
-
-class _AttendanceReportModel {
-  final int attendedDays;
-  final String totalAttendedHours;
-  final int absentDays;
-
-  _AttendanceReportModel({
-    required this.attendedDays,
-    required this.totalAttendedHours,
-    required this.absentDays,
-  });
-}
-
 class StudentAttendanceProfile extends StatefulWidget {
   static const String routeName = '/dashboard/student-attendance-profile';
 
@@ -411,168 +287,48 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
 
   DateTime _endOfMonth(DateTime date) => DateTime(date.year, date.month + 1, 0);
 
-  ProfileAbsentMarkMethod? _mapAbsentMethodStringToEnum(String? method) {
-    if (method == null) return null;
-    switch (method.trim().toUpperCase()) {
-      case 'GPS':
-        return ProfileAbsentMarkMethod.gps;
-      case 'PIN':
-      case 'KIOSK':
-        return ProfileAbsentMarkMethod.kiosk;
-      case 'QR':
-        return ProfileAbsentMarkMethod.qr;
-      case 'APP':
-        return ProfileAbsentMarkMethod.app;
-      case 'WEB':
-        return ProfileAbsentMarkMethod.web;
-      case 'SYSTEM':
-        return ProfileAbsentMarkMethod.system;
-      default:
-        return null;
-    }
-  }
-
-  DateTime? _startDate;
-  DateTime? _endDate;
-  bool isAttendancesLoading = false;
-  bool isAbsentDaysLoading = false;
-  bool isStudentLoading = false;
-  bool showAbsentDays = false;
-
-  List<_AttendanceModel> attendances = [];
-  List<_AbsentDayModel> absentDays = [];
-  _StudentModel? student;
-  _AttendanceReportModel? attendanceReport;
-
-  late String _activeStudentCode;
-  ParentChildCubit? _parentChildProvider;
-  StreamSubscription<ParentChildState>? _parentChildSub;
-  String? _todayStatusRaw;
-  bool _isTodayStatusLoading = false;
-
-  /// Owns every raw fetch call this screen makes (View -> Cubit -> UseCase ->
-  /// Repository); see the cubit's doc comment for why this is a thin
-  /// fetch-wrapping seam rather than a full state-owning cubit.
+  /// Owns every fetch call this screen makes AND the loaded/loading state
+  /// (View -> Cubit -> UseCase -> Repository). See the cubit's doc comment
+  /// for the full state-ownership split: pure data lives here; anything
+  /// needing [BuildContext] (permission checks, the ParentChildCubit stream
+  /// subscription) stays in this View.
   final StudentAttendanceProfileFetchCubit _profileCubit =
       serviceLocator<StudentAttendanceProfileFetchCubit>();
 
-  String _resolveClassroomNameByCode(
-    String? classroomCode,
-    Map<String, String> codeToNameMap,
-    String fallback,
-  ) {
-    final code = (classroomCode ?? '').trim();
-    if (code.isEmpty) return fallback;
-    return codeToNameMap[code] ?? fallback;
-  }
-
-  /// Resolves [student] header classroom when it holds a **code** (common for
-  /// guardian flows: [ParentChildRef.classroom] / [Student.classroom]) using
-  /// active classrooms from the API ([_loadClassroomCodeToNameMap]).
-  void _applyResolvedClassroomHeaderName(Map<String, String> codeToNameMap) {
-    final current = student;
-    if (current == null || !mounted) return;
-    final raw = current.roomName.trim();
-    final resolved = _resolveClassroomNameByCode(
-      raw.isEmpty ? null : raw,
-      codeToNameMap,
-      raw.isEmpty ? '—' : raw,
-    );
-    if (resolved == current.roomName) return;
-    setState(() {
-      student = _StudentModel(
-        id: current.id,
-        name: current.name,
-        photoUuid: current.photoUuid,
-        roomName: resolved,
-        isSignedIn: current.isSignedIn,
-        isAbsent: current.isAbsent,
-        isExpectedToday: current.isExpectedToday,
-        isPresentToday: current.isPresentToday,
-        profileStatus: current.profileStatus,
-        isPhotoPermission: current.isPhotoPermission,
-        medications: current.medications,
-        note: current.note,
-        allergies: current.allergies,
-        dietRestriction: current.dietRestriction,
-      );
-    });
-  }
-
-  /// Helper to format API time (either a string or {hour, minute, ...} map)
-  /// into 'hh:mm:ss a' format for further formatting / calculations.
-  String _formatApiTime(dynamic value) {
-    if (value == null) return '';
-    if (value is String) return value;
-    if (value is Map<String, dynamic>) {
-      final hour = value['hour'] as int? ?? 0;
-      final minute = value['minute'] as int? ?? 0;
-      final h12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-      final period = hour >= 12 ? 'PM' : 'AM';
-      final mm = minute.toString().padLeft(2, '0');
-      return '$h12:$mm:00 $period';
-    }
-    return value.toString();
-  }
+  ParentChildCubit? _parentChildProvider;
+  StreamSubscription<ParentChildState>? _parentChildSub;
 
   @override
   void initState() {
     super.initState();
-    showAbsentDays = widget.initialShowAbsentDays;
-    _activeStudentCode = widget.studentCode.trim();
     final now = ServerTimeService.instance.now();
-    _startDate = _startOfMonth(now);
-    _endDate = _endOfMonth(now);
-
-    // Initialize student model
-    student = _StudentModel(
-      id: widget.studentId,
-      name: widget.studentName,
-      photoUuid: widget.studentPhotoUuid,
+    _profileCubit.seedFromWidget(
+      studentId: widget.studentId,
+      studentName: widget.studentName,
+      studentPhotoUuid: widget.studentPhotoUuid,
       roomName: widget.roomName,
       isSignedIn: widget.isSignedIn,
       isAbsent: widget.isAbsent,
       isExpectedToday: widget.isExpectedToday,
       isPresentToday: widget.isPresentToday,
       profileStatus: widget.profileStatus,
-      isPhotoPermission: true,
-      medications: '',
-      note: '',
-      allergies: '',
-      dietRestriction: '',
+      activeStudentCode: widget.studentCode.trim(),
+      startDate: _startOfMonth(now),
+      endDate: _endOfMonth(now),
     );
+    if (widget.initialShowAbsentDays) {
+      _profileCubit.toggleShowAbsentDays(true);
+    }
 
     // Load data from API
-    _loadData();
+    _profileCubit.loadData(fallbackRoomName: widget.roomName);
     // Deep-link (e.g. ATTENDANCE_NOT_MARKED) opens this screen with only a
     // studentCode — the attendance API doesn't return the student's name, so
     // the header would show empty. Fetch the student's identity by code.
-    _ensureHeaderIdentityLoaded();
-  }
-
-  /// Fills the header name + classroom when opened by code without them
-  /// (notification deep-link). No-op for normal navigation that already
-  /// supplied [studentName].
-  Future<void> _ensureHeaderIdentityLoaded() async {
-    if (widget.studentName.trim().isNotEmpty) return;
-    final code = _activeStudentCode.trim();
-    if (code.isEmpty) return;
-    try {
-      final profile = await _profileCubit.fetchStudentProfile(code: code);
-      if (!mounted) return;
-      final current = student;
-      if (current == null) return;
-      final name = profile.fullName.trim();
-      final classroom = (profile.classroomName ?? '').trim();
-      setState(() {
-        student = current.copyWith(
-          name: name.isNotEmpty ? name : current.name,
-          roomName: classroom.isNotEmpty ? classroom : current.roomName,
-        );
-      });
-    } catch (_) {
-      // Header stays as-is; attendance data still loads.
-    }
+    _profileCubit.ensureHeaderIdentityLoaded(
+      studentName: widget.studentName,
+      activeStudentCode: widget.studentCode.trim(),
+    );
   }
 
   @override
@@ -589,6 +345,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   @override
   void dispose() {
     _parentChildSub?.cancel();
+    _profileCubit.close();
     super.dispose();
   }
 
@@ -596,354 +353,55 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     if (!widget.syncWithParentChildSelection) return;
     final child = _parentChildProvider?.selectedChild;
     final code = child?.code.trim() ?? '';
-    if (code.isEmpty || code == _activeStudentCode) return;
-    _applyParentChildSelection(child!);
-  }
-
-  Future<void> _applyParentChildSelection(ParentChildRef child) async {
-    String roomName = child.classroom.trim().isNotEmpty ? child.classroom : '—';
-    var isSignedIn = false;
-
-    try {
-      final now = ServerTimeService.instance.now();
-      final date =
-          '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-      final signedInPage = await _profileCubit.fetchSignOutFormList(
-        fromAttendanceDate: date,
-        toAttendanceDate: date,
-        page: 0,
-        size: 200,
-      );
-      final selected = signedInPage.items.where(
-        (i) => i.studentCode.trim() == child.code.trim(),
-      );
-      if (selected.isNotEmpty) {
-        final row = selected.first;
-        roomName = row.classroomName.trim().isNotEmpty
-            ? row.classroomName
-            : roomName;
-        isSignedIn = row.hasSignIn && !row.hasSignOut;
-      }
-    } catch (_) {
-      // Parents may not have sign-out form list access; keep classroom from child ref.
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _activeStudentCode = child.code.trim();
-      student = _StudentModel(
-        id: widget.studentId,
-        name: child.name,
-        photoUuid: null,
-        roomName: roomName,
-        isSignedIn: isSignedIn,
-        isAbsent: student?.isAbsent ?? false,
-        isExpectedToday: student?.isExpectedToday ?? true,
-        isPresentToday: student?.isPresentToday ?? false,
-        profileStatus: student?.profileStatus ?? widget.profileStatus,
-        isPhotoPermission: student?.isPhotoPermission ?? true,
-        medications: student?.medications ?? '',
-        note: student?.note ?? '',
-        allergies: student?.allergies ?? '',
-        dietRestriction: student?.dietRestriction ?? '',
-      );
-    });
-    await _loadData();
-  }
-
-  Future<void> _loadData() async {
-    if (_activeStudentCode.isEmpty) {
-      setState(() {
-        isAttendancesLoading = false;
-        isAbsentDaysLoading = false;
-        isStudentLoading = false;
-      });
-      return;
-    }
-
-    setState(() {
-      isAttendancesLoading = true;
-      isAbsentDaysLoading = true;
-      isStudentLoading = true;
-    });
-
-    // Load today's status first so action menu enablement is correct.
-    await _loadTodayStatus();
-
-    final from = _startDate ?? ServerTimeService.instance.now();
-    final to = _endDate ?? from;
-
-    final fromStr = DateFormat('yyyy-MM-dd').format(from);
-    final toStr = DateFormat('yyyy-MM-dd').format(to);
-
-    final allowedClassroomCodes = await _profileCubit
-        .resolveAllowedClassroomCodes();
-
-    try {
-      final codeToNameMap = await _loadClassroomCodeToNameMap();
-      _applyResolvedClassroomHeaderName(codeToNameMap);
-      // --------- Load attendance (present days / summary) ----------
-      final profileData = await _profileCubit.fetchProfileData(
-        query: AttendanceProfileQuery(
-          studentCode: _activeStudentCode,
-          fromAttendanceDate: fromStr,
-          toAttendanceDate: toStr,
-          page: 0,
-          size: 100,
-          sort: const ['attendanceDate,desc'],
-          allowedClassroomCodes: List<String>.from(allowedClassroomCodes),
-        ),
-      );
-      if (profileData != null) {
-        final attendedDays = profileData.attendedDays;
-        final totalAttendedTime = profileData.totalAttendedTime;
-
-        final List<_AttendanceModel> loadedAttendances = [];
-
-        for (final record in profileData.records) {
-          final dateStr = record.attendanceDate;
-          final date = dateStr.isNotEmpty
-              ? DateTime.tryParse(dateStr) ?? ServerTimeService.instance.now()
-              : ServerTimeService.instance.now();
-
-          final int sequenceNumber = record.sequenceNumber;
-          final int totalSequenceCount = record.totalSequenceCount;
-
-          final signedInDisplay = _formatApiTime(record.signedInTime);
-          final signedOutDisplay = _formatApiTime(record.signedOutTime);
-          final transferDisplay = _formatApiTime(record.transferTime);
-          final nextActionDisplay = _formatApiTime(record.nextActionTime);
-
-          String effectiveSignIn = signedInDisplay;
-          String effectiveSignOut = signedOutDisplay;
-          bool isTransferSignIn = false;
-          bool isTransferSignOut = false;
-
-          if (totalSequenceCount > 1) {
-            final isFirst = sequenceNumber == 1;
-            final isLast = sequenceNumber == totalSequenceCount;
-
-            if (isFirst && !isLast) {
-              effectiveSignIn = signedInDisplay;
-              effectiveSignOut = nextActionDisplay;
-              isTransferSignOut = effectiveSignOut.isNotEmpty;
-            } else if (!isFirst && !isLast) {
-              effectiveSignIn = transferDisplay;
-              effectiveSignOut = nextActionDisplay;
-              isTransferSignIn = effectiveSignIn.isNotEmpty;
-              isTransferSignOut = effectiveSignOut.isNotEmpty;
-            } else if (isLast) {
-              effectiveSignIn = isFirst ? signedInDisplay : transferDisplay;
-              effectiveSignOut = signedOutDisplay;
-              isTransferSignIn = !isFirst && effectiveSignIn.isNotEmpty;
-            }
-          }
-
-          final fallbackClassroom = record.classroomName ?? widget.roomName;
-          final resolvedClassroomName = _resolveClassroomNameByCode(
-            record.classroomCode,
-            codeToNameMap,
-            fallbackClassroom,
-          );
-
-          final signOutMethodEnum = _mapAbsentMethodStringToEnum(
-            record.signedOutMethod,
-          );
-          // On a classroom transfer the "sign in/out" for that segment is the
-          // transfer itself, performed by `transferredBy`. The API leaves
-          // signedInBy/signedOutBy empty on transfer records, so fall back to
-          // transferredBy for the person's name.
-          final transferredBy = record.transferredBy.trim();
-
-          final rawSignedInBy = record.signedInBy.trim();
-          final signInByText = rawSignedInBy.isNotEmpty
-              ? rawSignedInBy
-              : (isTransferSignIn ? transferredBy : '');
-
-          // Auto sign-out has no person: the API sends signedOutMethod=SYSTEM
-          // with an empty signedOutBy. Show "System" (web parity) so the row
-          // isn't blank; keep the real name / transfer person when present.
-          final rawSignedOutBy = record.signedOutBy.trim();
-          final signOutByText = rawSignedOutBy.isNotEmpty
-              ? rawSignedOutBy
-              : (isTransferSignOut && transferredBy.isNotEmpty
-                    ? transferredBy
-                    : (signOutMethodEnum == ProfileAbsentMarkMethod.system
-                          ? 'System'
-                          : ''));
-
-          loadedAttendances.add(
-            _AttendanceModel(
-              date: date,
-              signInTime: effectiveSignIn,
-              signOutTime: effectiveSignOut,
-              roomName: resolvedClassroomName,
-              signInBy: signInByText,
-              signOutBy: signOutByText,
-              attendedTime: record.attendedTime,
-              attendedHours: record.attendedHours,
-              attendedMinutes: record.attendedMinutes,
-              isTransferSignIn: isTransferSignIn,
-              isTransferSignOut: isTransferSignOut,
-              signInMethod: _mapAbsentMethodStringToEnum(record.signedInMethod),
-              signOutMethod: signOutMethodEnum,
-              notExpectedComment: record.notExpectedComment.trim(),
-            ),
-          );
-        }
-
-        setState(() {
-          attendanceReport = _AttendanceReportModel(
-            attendedDays: attendedDays,
-            totalAttendedHours: totalAttendedTime,
-            // Absent days count will be updated from absent profile API below.
-            absentDays: attendanceReport?.absentDays ?? 0,
-          );
-          attendances = loadedAttendances;
-          isAttendancesLoading = false;
-        });
-      } else {
-        setState(() {
-          isAttendancesLoading = false;
-        });
-      }
-
-      // --------- Load absent days for toggle list (profile/absent/toggle) ----------
-      final absentData = await _profileCubit.fetchAbsentToggleData(
-        query: AttendanceProfileAbsentToggleQuery(
-          studentCode: _activeStudentCode,
-          fromAbsenceDate: fromStr,
-          toAbsenceDate: toStr,
-          page: 0,
-          size: 100,
-          sort: const ['absenceDate,desc'],
-          allowedClassroomCodes: List<String>.from(allowedClassroomCodes),
-          // Swagger lists pageable as required for this endpoint.
-          // Keep both styles to remain backward compatible across environments.
-          includePageableAliasParams: true,
-        ),
-      );
-
-      if (absentData != null) {
-        final absentDaysCount = absentData.absentDays;
-
-        final List<_AbsentDayModel> loadedAbsentDays = [];
-
-        for (final record in absentData.records) {
-          final dateStr = record.absenceDate;
-          final date = dateStr.isNotEmpty
-              ? DateTime.tryParse(dateStr) ?? ServerTimeService.instance.now()
-              : ServerTimeService.instance.now();
-
-          loadedAbsentDays.add(
-            _AbsentDayModel(
-              startDate: date,
-              endDate: date,
-              absentTime: _formatApiTime(record.markedAbsentTime),
-              absentBy:
-                  (record.markedAbsentByName ?? record.markedAbsentBy ?? '')
-                      .toString(),
-              note: record.absenceNote,
-              markAbsentMethod: _mapAbsentMethodStringToEnum(
-                record.markAbsentMethod,
-              ),
-              classroomName: _resolveClassroomNameByCode(
-                record.classroomCode,
-                codeToNameMap,
-                record.classroomName?.trim() ?? '',
-                // render-time fallback uses student?.roomName
-              ),
-            ),
-          );
-        }
-
-        if (!mounted) return;
-        setState(() {
-          attendanceReport = _AttendanceReportModel(
-            attendedDays: attendanceReport?.attendedDays ?? 0,
-            totalAttendedHours: attendanceReport?.totalAttendedHours ?? '',
-            absentDays: absentDaysCount,
-          );
-          absentDays = loadedAbsentDays;
-          isAbsentDaysLoading = false;
-          isStudentLoading = false;
-        });
-      } else {
-        if (!mounted) return;
-        setState(() {
-          isAbsentDaysLoading = false;
-          isStudentLoading = false;
-        });
-      }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        isAttendancesLoading = false;
-        isAbsentDaysLoading = false;
-        isStudentLoading = false;
-      });
-    }
+    if (code.isEmpty || code == _profileCubit.state.activeStudentCode) return;
+    _profileCubit.applyParentChildSelection(
+      childCode: child!.code,
+      childName: child.name,
+      childClassroom: child.classroom,
+      studentId: widget.studentId,
+      defaultProfileStatus: widget.profileStatus,
+    );
   }
 
   Future<void> refreshData() async {
-    await _loadData();
-  }
-
-  Future<void> _loadTodayStatus() async {
-    final code = _activeStudentCode.trim();
-    if (code.isEmpty) return;
-    if (!mounted) return;
-    setState(() {
-      _isTodayStatusLoading = true;
-    });
-    try {
-      final status = await _profileCubit.fetchTodayStatus(studentCode: code);
-      if (!mounted) return;
-      setState(() {
-        _todayStatusRaw = status;
-        _isTodayStatusLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      // On error, disable actions to avoid allowing invalid flows.
-      setState(() {
-        _todayStatusRaw = null;
-        _isTodayStatusLoading = false;
-      });
-    }
+    await _profileCubit.loadData(
+      fallbackRoomName:
+          _profileCubit.state.student?.roomName ?? widget.roomName,
+    );
   }
 
   bool get _isActiveProfile {
-    final status = (student?.profileStatus ?? widget.profileStatus)
-        .toUpperCase();
+    final status =
+        (_profileCubit.state.student?.profileStatus ?? widget.profileStatus)
+            .toUpperCase();
     return status == 'A' || status == 'ACTIVE';
   }
 
   StudentAttendanceGate get _todayGate => studentAttendanceGateFromTodayStatus(
     isActiveProfile: _isActiveProfile,
-    todayStatusRaw: _todayStatusRaw,
+    todayStatusRaw: _profileCubit.state.todayStatusRaw,
   );
 
   bool get _canSignIn =>
-      !_isTodayStatusLoading &&
+      !_profileCubit.state.isTodayStatusLoading &&
       _todayGate.canSignIn &&
       AttendancePermissionService.hasPermissionToManageStudentAttendance(
         context,
       );
   bool get _canSignOut =>
-      !_isTodayStatusLoading &&
+      !_profileCubit.state.isTodayStatusLoading &&
       _todayGate.canSignOut &&
       AttendancePermissionService.hasPermissionToManageStudentAttendance(
         context,
       );
   bool get _canTransfer =>
-      !_isTodayStatusLoading &&
+      !_profileCubit.state.isTodayStatusLoading &&
       _todayGate.canTransfer &&
       AttendancePermissionService.hasPermissionToManageStudentAttendance(
         context,
       );
   bool get _canMarkAbsent =>
-      !_isTodayStatusLoading &&
+      !_profileCubit.state.isTodayStatusLoading &&
       _todayGate.canMarkAbsent &&
       AttendancePermissionService.hasPermissionToManageStudentAttendance(
         context,
@@ -957,13 +415,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     }
   }
 
-  Future<Map<String, String>> _loadClassroomCodeToNameMap() async {
-    final nameToCode = await _loadClassroomNameToCodeMap();
-    return {for (final entry in nameToCode.entries) entry.value: entry.key};
-  }
-
   Future<void> _handleStudentAction(String actionLabel) async {
-    final current = student;
+    final current = _profileCubit.state.student;
     if (current == null) return;
 
     // Disabled actions are already non-tappable in the pop-up and explain
@@ -980,7 +433,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     final classroomCode = (classroomMap[current.roomName] ?? '').trim();
     final entity = StudentEntity(
       id: current.id,
-      studentCode: _activeStudentCode,
+      studentCode: _profileCubit.state.activeStudentCode,
       fullName: current.name,
       roomId: 0,
       roomName: current.roomName,
@@ -1021,15 +474,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   }
 
   void _onDateRangeSelected(DateTime startDate, DateTime? endDate) {
-    // Use the exact dates the user picked. Snapping to start/end of month
-    // here made every range collapse to the whole month, so a same-day
-    // (10 Jun → 10 Jun) or any custom range never filtered.
-    final effectiveEnd = endDate ?? startDate;
-    setState(() {
-      _startDate = startDate;
-      _endDate = effectiveEnd;
-    });
-    _loadData();
+    _profileCubit.setDateRange(startDate, endDate);
   }
 
   @override
@@ -1038,70 +483,75 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     final contentPadding = ResponsiveHelper(context).contentPadding;
     final isParentPersona = context.watch<RoleCubit>().isParent;
 
-    return GlobalScaffold(
-      hasBackButton: true,
-      showCustomNavigationBar: true,
-      // Highlight the Attendance tab while a parent views their child's profile.
-      activeItemOverride: isParentPersona
-          ? BottomNavigationItem.attendance
-          : null,
-      body: CustomRefreshIndicator(
-        onRefresh: () async => refreshData(),
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.symmetric(
-            horizontal: contentPadding.left,
-            vertical: responsive.verticalSpacing / 2,
-          ),
-          child: Column(
-            children: [
-              SizedBox(height: responsive.verticalSpacing),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: CustomDateTimeField(
-                      hasLabel: false,
-                      isRangePicker: true,
-                      initialDate: _startDate,
-                      label: 'Date Range',
-                      onRangeSelected: (start, end) {
-                        _onDateRangeSelected(start, end);
-                      },
-                    ),
-                  ),
-                  if (!isParentPersona) ...[
-                    const SizedBox(width: AppSpacing.md),
-                    StudentAttendanceVerticalPopUp(
-                      students: const [],
-                      refreshCallback: refreshData,
-                      disabledActions: <String>{
-                        if (!_canSignIn) 'Sign-in',
-                        if (!_canSignOut) 'Sign-Out',
-                        if (!_canTransfer) 'Transfer',
-                        if (!_canMarkAbsent) 'Absent',
-                      },
-                      disabledReasons: _isTodayStatusLoading
-                          ? const <String, String>{}
-                          : studentAttendanceDisabledReasons(_todayGate),
-                      onActionTap: _handleStudentAction,
-                    ),
-                  ],
-                ],
+    return BlocBuilder<
+      StudentAttendanceProfileFetchCubit,
+      StudentAttendanceProfileState
+    >(
+      bloc: _profileCubit,
+      builder: (context, state) {
+        return GlobalScaffold(
+          hasBackButton: true,
+          showCustomNavigationBar: true,
+          // Highlight the Attendance tab while a parent views their child's profile.
+          activeItemOverride: isParentPersona
+              ? BottomNavigationItem.attendance
+              : null,
+          body: CustomRefreshIndicator(
+            onRefresh: () async => refreshData(),
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.symmetric(
+                horizontal: contentPadding.left,
+                vertical: responsive.verticalSpacing / 2,
               ),
-              const SizedBox(height: AppSpacing.md),
-              Builder(
-                builder: (context) {
-                  return isStudentLoading &&
-                          (isAttendancesLoading || isAbsentDaysLoading)
+              child: Column(
+                children: [
+                  SizedBox(height: responsive.verticalSpacing),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: CustomDateTimeField(
+                          hasLabel: false,
+                          isRangePicker: true,
+                          initialDate: state.startDate,
+                          label: 'Date Range',
+                          onRangeSelected: (start, end) {
+                            _onDateRangeSelected(start, end);
+                          },
+                        ),
+                      ),
+                      if (!isParentPersona) ...[
+                        const SizedBox(width: AppSpacing.md),
+                        StudentAttendanceVerticalPopUp(
+                          students: const [],
+                          refreshCallback: refreshData,
+                          disabledActions: <String>{
+                            if (!_canSignIn) 'Sign-in',
+                            if (!_canSignOut) 'Sign-Out',
+                            if (!_canTransfer) 'Transfer',
+                            if (!_canMarkAbsent) 'Absent',
+                          },
+                          disabledReasons: state.isTodayStatusLoading
+                              ? const <String, String>{}
+                              : studentAttendanceDisabledReasons(_todayGate),
+                          onActionTap: _handleStudentAction,
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  state.isStudentLoading &&
+                          (state.isAttendancesLoading ||
+                              state.isAbsentDaysLoading)
                       ? const AttendanceProfileShimmer()
                       : Column(
                           children: [
                             _StudentCard(
-                              student: student,
-                              activeStudentCode: _activeStudentCode,
+                              student: state.student,
+                              activeStudentCode: state.activeStudentCode,
                               isParentPersona: isParentPersona,
-                              attendanceReport: attendanceReport,
+                              attendanceReport: state.attendanceReport,
                               onPresentTap: () {
                                 context.push(
                                   StudentAttendanceTabbedView.routeName,
@@ -1121,40 +571,38 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 AppText.title(
-                                  showAbsentDays
+                                  state.showAbsentDays
                                       ? 'Absent Days'
                                       : 'Present Days',
                                   style: AppTextStyles.heading18,
                                 ),
                                 CustomToggle(
                                   label: 'Show Absent',
-                                  isToggled: showAbsentDays,
+                                  isToggled: state.showAbsentDays,
                                   onToggle: (value) {
-                                    setState(() {
-                                      showAbsentDays = value;
-                                    });
+                                    _profileCubit.toggleShowAbsentDays(value);
                                   },
                                 ),
                               ],
                             ),
                             const SizedBox(height: AppSpacing.md),
                             _StudentAttendanceListSection(
-                              showAbsentDays: showAbsentDays,
-                              isAttendancesLoading: isAttendancesLoading,
-                              attendances: attendances,
-                              isAbsentDaysLoading: isAbsentDaysLoading,
-                              absentDays: absentDays,
+                              showAbsentDays: state.showAbsentDays,
+                              isAttendancesLoading: state.isAttendancesLoading,
+                              attendances: state.attendances,
+                              isAbsentDaysLoading: state.isAbsentDaysLoading,
+                              absentDays: state.absentDays,
                               fallbackRoomName:
-                                  student?.roomName ?? widget.roomName,
+                                  state.student?.roomName ?? widget.roomName,
                             ),
                           ],
-                        );
-                },
+                        ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -1169,10 +617,10 @@ class _StudentCard extends StatelessWidget {
     required this.onAbsentTap,
   });
 
-  final _StudentModel? student;
+  final StudentProfileCardModel? student;
   final String activeStudentCode;
   final bool isParentPersona;
-  final _AttendanceReportModel? attendanceReport;
+  final StudentProfileAttendanceReportModel? attendanceReport;
   final VoidCallback onPresentTap;
   final VoidCallback onAbsentTap;
 
@@ -1389,9 +837,9 @@ class _StudentAttendanceListSection extends StatelessWidget {
 
   final bool showAbsentDays;
   final bool isAttendancesLoading;
-  final List<_AttendanceModel> attendances;
+  final List<StudentProfileAttendanceRecord> attendances;
   final bool isAbsentDaysLoading;
-  final List<_AbsentDayModel> absentDays;
+  final List<StudentProfileAbsentDayRecord> absentDays;
   final String fallbackRoomName;
 
   @override
@@ -1485,7 +933,7 @@ class _StudentAttendanceListSection extends StatelessWidget {
 class _StudentAttendanceItemCard extends StatelessWidget {
   const _StudentAttendanceItemCard({required this.attendance});
 
-  final _AttendanceModel attendance;
+  final StudentProfileAttendanceRecord attendance;
 
   @override
   Widget build(BuildContext context) {
@@ -1583,7 +1031,7 @@ class _StudentAbsentDayItemCard extends StatelessWidget {
     required this.fallbackRoomName,
   });
 
-  final _AbsentDayModel absentDay;
+  final StudentProfileAbsentDayRecord absentDay;
   final String fallbackRoomName;
 
   @override

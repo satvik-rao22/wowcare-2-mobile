@@ -62,8 +62,8 @@ Future<Widget?> buildParentChildAttendanceProfile(BuildContext context) async {
         : '—';
     var isSignedIn = false;
 
+    final fetchCubit = serviceLocator<StudentAttendanceProfileFetchCubit>();
     try {
-      final fetchCubit = serviceLocator<StudentAttendanceProfileFetchCubit>();
       final now = ServerTimeService.instance.now();
       final date =
           '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
@@ -85,6 +85,8 @@ Future<Widget?> buildParentChildAttendanceProfile(BuildContext context) async {
       }
     } catch (_) {
       // Parents may not have sign-out form list access — keep defaults.
+    } finally {
+      fetchCubit.close();
     }
 
     return StudentAttendanceProfile(
