@@ -8,14 +8,12 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_transfer_request.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_transfer_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_persona_resolver.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
@@ -109,12 +107,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     } catch (_) {}
 
     final isAdmin = await _resolveIsStaffAdminPersona();
-    final currentStaffCode =
-        (await serviceLocator<StorageService>().getString(
-                  StorageKeys.staffCode,
-                ) ??
-                '')
-            .trim();
+    final currentStaffCode = await _submitCubit.resolveCurrentStaffCode();
     if (!mounted) return;
     setState(() {
       _schoolIana = schoolIana;

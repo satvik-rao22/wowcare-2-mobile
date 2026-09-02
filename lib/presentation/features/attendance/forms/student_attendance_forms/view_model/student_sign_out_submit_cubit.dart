@@ -4,6 +4,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/idempotency_key.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_sign_out_request.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_student_sign_out_usecase.dart';
@@ -46,6 +47,11 @@ class StudentSignOutSubmitCubit extends Cubit<StudentSignOutSubmitState> {
 
   /// True while a submit is in flight.
   bool get isSubmitting => state is StudentSignOutSubmitInProgress;
+
+  /// True for any staff-side login (school/org admin or regular staff);
+  /// false for guardian/parent and kiosk-PIN access. Gates date/time editing.
+  Future<bool> resolveIsStaffPersona() =>
+      resolveIsStaffPersonaFromStorage(_storage);
 
   Future<AttendanceActionResult> submit({
     required StudentSignOutRequest request,

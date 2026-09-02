@@ -4,6 +4,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/idempotency_key.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_daily.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_transfer_request.dart';
@@ -82,6 +83,11 @@ class StaffTransferSubmitCubit extends Cubit<StaffTransferSubmitState> {
       staffCode: staffCode,
       forEditStaff: forEditStaff,
     );
+  }
+
+  /// Resolves the logged-in staff member's own staff code from storage.
+  Future<String> resolveCurrentStaffCode() async {
+    return (await _storage.getString(StorageKeys.staffCode) ?? '').trim();
   }
 
   /// True while a submit is in flight.

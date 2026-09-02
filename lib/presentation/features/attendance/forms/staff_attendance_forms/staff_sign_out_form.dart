@@ -8,7 +8,6 @@ import 'package:wowcare/presentation/features/attendance/widgets/attendance_remo
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_sign_out_request.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_sign_out_submit_cubit.dart';
@@ -20,7 +19,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'staff_entity.dart';
 import 'package:go_router/go_router.dart';
@@ -104,10 +102,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     // Load current staff code from storage (or use provided kiosk staffCode)
     final staffCode = widget.isKiosk && widget.staffCode != null
         ? widget.staffCode!.trim()
-        : (await serviceLocator<StorageService>().getString(
-                StorageKeys.staffCode,
-              ))?.trim() ??
-              '';
+        : await _submitCubit.resolveCurrentStaffCode();
     if (!mounted) return;
     setState(() {
       _currentStaffCode = staffCode.isNotEmpty ? staffCode : null;
@@ -166,19 +161,21 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
 
   /// Creates staff entity from storage (name, designation, code) or from kiosk params
   Future<void> _createStaffFromStorage() async {
-    final storage = serviceLocator<StorageService>();
+    // Kiosk mode never touches storage — the provided params are authoritative.
+    final storageDisplay = widget.isKiosk
+        ? null
+        : await _submitCubit.resolveCurrentStaffDisplay();
 
-    // For kiosk mode, use the provided staffCode
     final staffCode = widget.isKiosk && widget.staffCode != null
         ? widget.staffCode!.trim()
-        : (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+        : (storageDisplay?.staffCode ?? '');
 
     final displayName = widget.isKiosk
         ? (widget.staffName?.trim() ?? 'Staff')
-        : (await storage.getString(StorageKeys.displayName) ?? '').trim();
+        : (storageDisplay?.displayName ?? '');
     final designation = widget.isKiosk
         ? 'Staff'
-        : (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
+        : (storageDisplay?.designation ?? '');
 
     AppLogger.d(
       '[StaffSignOut] Kiosk=${widget.isKiosk}, DisplayName=$displayName, StaffName=${widget.staffName}',

@@ -2,8 +2,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/idempotency_key.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_transfer_request.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_student_transfer_usecase.dart';
@@ -57,6 +60,53 @@ class StudentTransferSubmitCubit extends Cubit<StudentTransferSubmitState> {
     return _getActiveClassroomsUseCase(
       schoolCode: schoolCode,
       onlyTypeClassroom: onlyTypeClassroom,
+    );
+  }
+
+  /// True for any staff-side login (school/org admin or regular staff);
+  /// false for guardian/parent and kiosk-PIN access. Gates date/time editing.
+  Future<bool> resolveIsStaffPersona() =>
+      resolveIsStaffPersonaFromStorage(_storage);
+
+  /// Resolves the transfer-target classroom options for the current school,
+  /// scoped by the caller's staff-persona classroom allowlist when
+  /// applicable. Mirrors the View's previous inline storage reads.
+  Future<
+    ({
+      String schoolCode,
+      bool isScopedStaff,
+      Set<String> allowedClassroomCodes,
+      List<Classroom> classrooms,
+    })
+  >
+  resolveTransferClassroomOptions() async {
+    final schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
+    if (schoolCode.isEmpty) {
+      return (
+        schoolCode: '',
+        isScopedStaff: false,
+        allowedClassroomCodes: const <String>{},
+        classrooms: const <Classroom>[],
+      );
+    }
+    final isScopedStaff = await isStudentAttendanceScopedStaffPersona(
+      storage: _storage,
+    );
+    final allowedClassroomCodes = isScopedStaff
+        ? (await resolveStudentAttendanceAllowedClassroomCodes(
+            storage: _storage,
+          )).map((e) => e.trim()).where((e) => e.isNotEmpty).toSet()
+        : const <String>{};
+    final classrooms = await fetchActiveClassrooms(
+      schoolCode: schoolCode,
+      onlyTypeClassroom: true,
+    );
+    return (
+      schoolCode: schoolCode,
+      isScopedStaff: isScopedStaff,
+      allowedClassroomCodes: allowedClassroomCodes,
+      classrooms: classrooms,
     );
   }
 

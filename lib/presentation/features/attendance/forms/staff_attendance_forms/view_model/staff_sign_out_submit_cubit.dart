@@ -4,6 +4,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/idempotency_key.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_sign_out_request.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_staff_sign_out_usecase.dart';
@@ -40,6 +41,28 @@ class StaffSignOutSubmitCubit extends Cubit<StaffSignOutSubmitState> {
     return SchoolTimezoneResolver.resolveForCurrentSchool(
       storage: _storage,
       apiClient: _apiClient,
+    );
+  }
+
+  /// Resolves the logged-in staff member's own staff code from storage.
+  Future<String> resolveCurrentStaffCode() async {
+    return (await _storage.getString(StorageKeys.staffCode) ?? '').trim();
+  }
+
+  /// Resolves the logged-in staff member's display name/designation from
+  /// storage — used as a last-resort fallback to build a [StaffEntity] when
+  /// none was passed in and none was found in the staff list.
+  Future<({String staffCode, String displayName, String designation})>
+  resolveCurrentStaffDisplay() async {
+    final staffCode = await resolveCurrentStaffCode();
+    final displayName =
+        (await _storage.getString(StorageKeys.displayName) ?? '').trim();
+    final designation =
+        (await _storage.getString(StorageKeys.staffDesignation) ?? '').trim();
+    return (
+      staffCode: staffCode,
+      displayName: displayName,
+      designation: designation,
     );
   }
 

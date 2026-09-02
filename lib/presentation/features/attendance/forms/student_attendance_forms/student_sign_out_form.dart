@@ -8,7 +8,6 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_sign_out_request.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_out_submit_cubit.dart';
@@ -131,10 +130,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         iana = await _submitCubit.resolveFreshSchoolTimeZone();
       } catch (_) {}
 
-      final storage = serviceLocator<StorageService>();
-      // True for any staff-side login (school/org admin or regular staff);
-      // false for guardian/parent and kiosk-PIN access. Gates date/time editing.
-      final isStaff = await resolveIsStaffPersonaFromStorage(storage);
+      final isStaff = await _submitCubit.resolveIsStaffPersona();
       if (!mounted) return;
       setState(() {
         _schoolIana = iana;

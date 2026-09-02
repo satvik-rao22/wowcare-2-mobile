@@ -12,14 +12,11 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_transfer_request.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_transfer_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/classroom_visibility.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
@@ -111,10 +108,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
         schoolIana = await _submitCubit.resolveFreshSchoolTimeZone();
       } catch (_) {}
 
-      final storage = serviceLocator<StorageService>();
-      // True for any staff-side login (school/org admin or regular staff);
-      // false for guardian/parent and kiosk-PIN access. Gates date/time editing.
-      final isStaff = await resolveIsStaffPersonaFromStorage(storage);
+      final isStaff = await _submitCubit.resolveIsStaffPersona();
       if (!mounted) return;
       setState(() {
         _schoolIana = schoolIana;
@@ -171,30 +165,17 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
 
   Future<void> _loadAvailableClassroomsFromApi() async {
     try {
-      final storageService = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
-      if (schoolCode.isEmpty) return;
-      final isScopedStaff = await isStudentAttendanceScopedStaffPersona(
-        storage: storageService,
-      );
-      final allowedCodes = isScopedStaff
-          ? (await resolveStudentAttendanceAllowedClassroomCodes(
-              storage: storageService,
-            )).map((e) => e.trim()).where((e) => e.isNotEmpty).toSet()
-          : const <String>{};
-
-      final classrooms = await _submitCubit.fetchActiveClassrooms(
-        schoolCode: schoolCode,
-        onlyTypeClassroom: true,
-      );
+      final options = await _submitCubit.resolveTransferClassroomOptions();
+      if (options.schoolCode.isEmpty) return;
 
       final apiMap = <String, String>{
-        for (final classroom in classrooms)
+        for (final classroom in options.classrooms)
           if (classroom.name.trim().isNotEmpty &&
               classroom.code.trim().isNotEmpty &&
-              (!isScopedStaff ||
-                  allowedCodes.contains(classroom.code.trim())) &&
+              (!options.isScopedStaff ||
+                  options.allowedClassroomCodes.contains(
+                    classroom.code.trim(),
+                  )) &&
               isSelectableClassroomName(classroom.name))
             classroom.name: classroom.code,
       };
