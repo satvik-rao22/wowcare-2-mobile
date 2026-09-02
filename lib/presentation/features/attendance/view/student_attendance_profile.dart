@@ -1221,10 +1221,8 @@ class _StudentCard extends StatelessWidget {
                     children: [
                       AppText.title(
                         currentStudent.name,
-                        style: TextStyle(
-                          fontSize: responsive.isTablet ? 23 : 20,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.6,
+                        style: AppTextStyles.attendanceProfileName(
+                          isTablet: responsive.isTablet,
                         ),
                       ),
                       const SizedBox(height: AppSpacing.xxs),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -10,7 +11,6 @@ import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_background.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
@@ -179,18 +179,13 @@ class _StudentAttendanceTabbedViewState
                   ),
                   tabAlignment: TabAlignment.start,
                   isScrollable: true,
-                  labelStyle: TextStyle(
-                    fontFamily: Fonts.manrope,
-                    color: AppColors.attendanceIconColor,
-                    fontSize: responsive.isTablet ? 18 : 16,
-                    fontWeight: FontWeight.w600,
+                  labelStyle: AppTextStyles.attendanceTabLabelSelected(
+                    isTablet: responsive.isTablet,
                   ),
-                  unselectedLabelStyle: TextStyle(
-                    fontFamily: Fonts.manrope,
-                    color: AppColors.primaryColor.withValues(alpha: 0.5),
-                    fontSize: responsive.isTablet ? 18 : 16,
-                    fontWeight: FontWeight.w400,
-                  ),
+                  unselectedLabelStyle:
+                      AppTextStyles.attendanceTabLabelUnselected(
+                        isTablet: responsive.isTablet,
+                      ),
                 ),
                 tabs: const [
                   Tab(text: 'Daily'),
@@ -229,11 +224,8 @@ class _StudentAttendanceTabbedViewState
                             ),
                             child: Text(
                               'Student Attendance',
-                              style: TextStyle(
-                                fontFamily: Fonts.manrope,
-                                fontSize: responsive.isTablet ? 22 : 18,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primaryColor,
+                              style: AppTextStyles.attendanceScreenTitle(
+                                isTablet: responsive.isTablet,
                               ),
                             ),
                           ),

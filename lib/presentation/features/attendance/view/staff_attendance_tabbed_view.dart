@@ -15,7 +15,6 @@ import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_daily_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_custom_view.dart';
@@ -223,18 +222,13 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                   ),
                   tabAlignment: TabAlignment.start,
                   isScrollable: true,
-                  labelStyle: TextStyle(
-                    fontFamily: Fonts.manrope,
-                    color: AppColors.attendanceIconColor,
-                    fontSize: responsive.isTablet ? 18 : 16,
-                    fontWeight: FontWeight.w600,
+                  labelStyle: AppTextStyles.attendanceTabLabelSelected(
+                    isTablet: responsive.isTablet,
                   ),
-                  unselectedLabelStyle: TextStyle(
-                    fontFamily: Fonts.manrope,
-                    color: AppColors.primaryColor.withValues(alpha: 0.5),
-                    fontSize: responsive.isTablet ? 18 : 16,
-                    fontWeight: FontWeight.w400,
-                  ),
+                  unselectedLabelStyle:
+                      AppTextStyles.attendanceTabLabelUnselected(
+                        isTablet: responsive.isTablet,
+                      ),
                 ),
                 tabs: const [
                   Tab(text: 'Daily'),
@@ -267,11 +261,8 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                             ),
                             child: Text(
                               'Staff Attendance',
-                              style: TextStyle(
-                                fontFamily: Fonts.manrope,
-                                fontSize: responsive.isTablet ? 22 : 18,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primaryColor,
+                              style: AppTextStyles.attendanceScreenTitle(
+                                isTablet: responsive.isTablet,
                               ),
                             ),
                           ),

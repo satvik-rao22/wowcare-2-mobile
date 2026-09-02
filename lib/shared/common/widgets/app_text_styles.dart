@@ -106,6 +106,95 @@ class AppTextStyles {
     fontSize: 18,
     fontWeight: FontWeight.w600,
   );
+
+  /// Attendance tab bar selected-label style (responsive size).
+  static TextStyle attendanceTabLabelSelected({required bool isTablet}) =>
+      TextStyle(
+        fontFamily: Fonts.manrope,
+        color: AppColors.attendanceIconColor,
+        fontSize: isTablet ? 18 : 16,
+        fontWeight: FontWeight.w600,
+      );
+
+  /// Attendance tab bar unselected-label style (responsive size).
+  static TextStyle attendanceTabLabelUnselected({required bool isTablet}) =>
+      TextStyle(
+        fontFamily: Fonts.manrope,
+        color: AppColors.primaryColor.withValues(alpha: 0.5),
+        fontSize: isTablet ? 18 : 16,
+        fontWeight: FontWeight.w400,
+      );
+
+  /// Attendance screen header title ("Student/Staff Attendance"), responsive size.
+  static TextStyle attendanceScreenTitle({required bool isTablet}) => TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: isTablet ? 22 : 18,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// Attendance profile header name, responsive size. No color/fontFamily of
+  /// its own — composed as an override on top of [AppText.title].
+  static TextStyle attendanceProfileName({required bool isTablet}) => TextStyle(
+    fontSize: isTablet ? 23 : 20,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.6,
+  );
+
+  /// Attendance popup tab bar selected-label style (weight 500, distinct
+  /// from [attendanceTabLabelSelected]'s 600 — the popup's own visual spec).
+  static TextStyle attendancePopupTabLabelSelected({required bool isTablet}) =>
+      TextStyle(
+        color: AppColors.attendanceIconColor,
+        fontFamily: Fonts.manrope,
+        fontSize: isTablet ? 18 : 16,
+        fontWeight: FontWeight.w500,
+      );
+
+  /// Attendance popup tab bar unselected-label style — no explicit weight,
+  /// matching the original (inherits ambient/ TabBar default).
+  static TextStyle attendancePopupTabLabelUnselected({
+    required bool isTablet,
+  }) => TextStyle(
+    color: AppColors.primaryColor.withValues(alpha: 0.5),
+    fontFamily: Fonts.manrope,
+    fontSize: isTablet ? 18 : 16,
+  );
+
+  /// Attendance popup action-button label (icon+label grid buttons).
+  static TextStyle attendancePopupActionButton({required double fontSize}) =>
+      TextStyle(
+        fontFamily: Fonts.manrope,
+        fontSize: fontSize,
+        color: AppColors.primaryColor,
+      );
+
+  /// Attendance popup "View Attendance" gradient button label. No color of
+  /// its own — painted via ShaderMask, which overrides paint regardless.
+  static TextStyle attendancePopupViewButton({required bool isTablet}) =>
+      TextStyle(
+        fontFamily: Fonts.manrope,
+        fontSize: isTablet ? 18 : 16,
+        fontWeight: FontWeight.w700,
+        letterSpacing: (isTablet ? 18 : 16) * (-3 / 100),
+      );
+
+  /// Attendance custom-view segmented-tab label (selected vs unselected).
+  /// No fontFamily of its own — composed as an override on [AppText.body].
+  static TextStyle attendanceCustomTabLabel({required bool isSelected}) =>
+      TextStyle(
+        fontSize: 16,
+        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+        color: isSelected
+            ? AppColors.attendanceTabSelectedLabelColor
+            : AppColors.attendanceTabUnselectedLabelColor,
+      );
+
+  /// Attendance transfer-form classroom dropdown value style. No fontFamily
+  /// of its own, matching the original (inherits the DropdownButton's
+  /// ambient default).
+  static TextStyle attendanceDropdownValue({required Color color}) =>
+      TextStyle(color: color, fontSize: 15);
 }
 
 /// Reusable text widgets with predefined styles

@@ -588,13 +588,7 @@ class _CustomTabButton extends StatelessWidget {
       onTap: () => onTap(index),
       child: AppText.body(
         label,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-          color: isSelected
-              ? AppColors.attendanceTabSelectedLabelColor
-              : AppColors.attendanceTabUnselectedLabelColor,
-        ),
+        style: AppTextStyles.attendanceCustomTabLabel(isSelected: isSelected),
       ),
     );
   }

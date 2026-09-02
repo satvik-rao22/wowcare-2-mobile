@@ -617,11 +617,10 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                                 ? 'Select classroom'
                                 : 'No classroom available',
                           ),
-                          style: TextStyle(
+                          style: AppTextStyles.attendanceDropdownValue(
                             color: AppColors.primaryColor.withValues(
                               alpha: 0.5,
                             ),
-                            fontSize: 15,
                           ),
                           isExpanded: true,
                           icon: SvgPicture.asset(MediaRes.arrow_drop_down),

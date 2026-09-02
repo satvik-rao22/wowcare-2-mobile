@@ -1487,12 +1487,8 @@ class _StaffCard extends StatelessWidget {
                     children: [
                       AppText.title(
                         currentStaff.name,
-                        style: TextStyle(
-                          fontSize: ResponsiveHelper(context).isTablet
-                              ? 23
-                              : 20,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.6,
+                        style: AppTextStyles.attendanceProfileName(
+                          isTablet: ResponsiveHelper(context).isTablet,
                         ),
                       ),
                       const SizedBox(height: AppSpacing.xxs),

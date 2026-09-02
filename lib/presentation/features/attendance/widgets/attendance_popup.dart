@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
@@ -8,7 +9,6 @@ import 'package:wowcare/src/app_router.dart' show dashboardBranchKey;
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
@@ -526,17 +526,13 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   indicatorPadding: EdgeInsets.only(bottom: isTablet ? 10 : 8),
                   labelPadding: EdgeInsets.zero,
                   padding: EdgeInsets.symmetric(horizontal: isTablet ? 16 : 8),
-                  labelStyle: TextStyle(
-                    color: AppColors.attendanceIconColor,
-                    fontFamily: Fonts.manrope,
-                    fontSize: isTablet ? 18 : 16,
-                    fontWeight: FontWeight.w500,
+                  labelStyle: AppTextStyles.attendancePopupTabLabelSelected(
+                    isTablet: isTablet,
                   ),
-                  unselectedLabelStyle: TextStyle(
-                    color: AppColors.primaryColor.withValues(alpha: 0.5),
-                    fontFamily: Fonts.manrope,
-                    fontSize: isTablet ? 18 : 16,
-                  ),
+                  unselectedLabelStyle:
+                      AppTextStyles.attendancePopupTabLabelUnselected(
+                        isTablet: isTablet,
+                      ),
                   tabs: isParent
                       ? const [Tab(text: 'Student Attendance')]
                       : [
@@ -1576,10 +1572,8 @@ class AttendancePopupActionButton extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: Fonts.manrope,
+                  style: AppTextStyles.attendancePopupActionButton(
                     fontSize: fontSize,
-                    color: AppColors.primaryColor,
                   ),
                 ),
               ),
@@ -1639,11 +1633,8 @@ class AttendancePopupViewButton extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: Fonts.manrope,
-                    fontSize: isTablet ? 18 : 16,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: (isTablet ? 18 : 16) * (-3 / 100),
+                  style: AppTextStyles.attendancePopupViewButton(
+                    isTablet: isTablet,
                   ),
                 ),
               ),
