@@ -5,6 +5,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
 import 'package:wowcare/presentation/features/reports/view/report_file_viewer_screen.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -25,7 +26,7 @@ class AdminStatementsTab extends StatefulWidget {
 
   final AdminStatementsCubit cubit;
   final String ownerCode;
-  final List<Map<String, dynamic>> familyChildren;
+  final List<BillingFamilyMember> familyChildren;
   final DateTime? customStartDate;
   final DateTime? customEndDate;
 
@@ -142,7 +143,7 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
       );
     }
     final studentNames = widget.familyChildren
-        .map((c) => (c['fullName'] ?? c['name'] ?? '').toString())
+        .map((c) => (c.fullName ?? c.name ?? '').toString())
         .where((n) => n.isNotEmpty)
         .join(', ');
     return Padding(
@@ -218,7 +219,7 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
 class _FamilySiblingsCard extends StatelessWidget {
   const _FamilySiblingsCard({required this.children});
 
-  final List<Map<String, dynamic>> children;
+  final List<BillingFamilyMember> children;
 
   @override
   Widget build(BuildContext context) {
@@ -244,9 +245,9 @@ class _FamilySiblingsCard extends StatelessWidget {
           itemBuilder: (context, index) {
             final child = children[index];
             final name =
-                (child['fullName'] ?? child['name'] ?? '').toString();
+                (child.fullName ?? child.name ?? '').toString();
             final room =
-                (child['room'] ?? child['roomName'] ?? '').toString();
+                (child.room ?? child.roomName ?? '').toString();
             return Row(
               children: [
                 DocumentImageWidget(

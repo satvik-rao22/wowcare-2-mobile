@@ -16,6 +16,7 @@ import 'package:wowcare/domain/features/billing/usecases/set_primary_payment_met
 import 'package:wowcare/domain/features/billing/usecases/set_autopay_method_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/delete_payment_method_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/update_payment_method_usecase.dart';
+import 'package:wowcare/presentation/features/billing/model/auto_pay_webview_payload.dart';
 
 part 'auto_pay_methods_state.dart';
 
@@ -156,20 +157,19 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
   /// Payload for the Forte tokenization webview. [title] sets the header shown
   /// in the HTML; [defaultMethod] preselects the method type (e.g. 'echeck'
   /// for the "Add Bank Account" entry point).
-  Map<String, dynamic> buildWebviewPayload({
+  AutoPayWebviewPayload buildWebviewPayload({
     String? title,
     String? defaultMethod,
   }) =>
-      <String, dynamic>{
-        'env': ApiConstants.forteEnv,
-        'apiLoginId': state.apiLoginId,
-        'title': title ?? 'Add Payment Method',
-        if (defaultMethod != null) 'defaultMethod': defaultMethod,
+      AutoPayWebviewPayload(
+        env: ApiConstants.forteEnv,
+        apiLoginId: state.apiLoginId,
+        title: title ?? 'Add Payment Method',
+        defaultMethod: defaultMethod,
         // Restrict the webview's method dropdown to the school's accepted types
-        // (empty → no restriction).
-        if (state.allowedMethods.isNotEmpty)
-          'allowedMethods': state.allowedMethods,
-      };
+        // (empty → no restriction; toJsonMap omits the key when empty).
+        allowedMethods: state.allowedMethods,
+      );
 
   /// Number of whitespace-separated words in [name] (used to require a first
   /// and last name before sending a holder name to Forte).

@@ -9,6 +9,7 @@ import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.da
 import 'package:wowcare/domain/features/billing/usecases/cancel_invoice_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/delete_invoice_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_family_ledger_usecase.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
 
 import '../widgets/transactions/transaction_item.dart';
 
@@ -149,16 +150,8 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
     }
   }
 
-  List<Map<String, dynamic>> _mapPeople(List<FamilyLedgerPersonEntity> people) {
-    return people
-        .map((p) => <String, dynamic>{
-              'code': p.code,
-              'fullName': p.fullName,
-              'role': p.role,
-              'outstanding': p.outstanding,
-              'photoUuid': null,
-            })
-        .toList();
+  List<BillingFamilyMember> _mapPeople(List<FamilyLedgerPersonEntity> people) {
+    return people.map(BillingFamilyMember.fromEntity).toList();
   }
 
   List<TransactionItem> _mapTransactions(

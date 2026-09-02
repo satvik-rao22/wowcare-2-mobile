@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/model/auto_pay_webview_payload.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 /// Hosts `assets/forte_auto_pay.html` to collect card / ACH details and
@@ -21,7 +22,7 @@ class AutoPayTokenWebView extends StatefulWidget {
   const AutoPayTokenWebView({super.key, required this.payload});
 
   /// Init payload injected into the HTML: `{ env, apiLoginId, isAutoPayEnabled }`.
-  final Map<String, dynamic> payload;
+  final AutoPayWebviewPayload payload;
 
   @override
   State<AutoPayTokenWebView> createState() => _AutoPayTokenWebViewState();
@@ -48,7 +49,7 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
 
   Future<void> _injectPayload() async {
     if (_controller == null || _hasInjectedData || _html == null) return;
-    final payloadJson = jsonEncode(widget.payload);
+    final payloadJson = jsonEncode(widget.payload.toJsonMap());
     // Double-encode so the JSON string is passed as a safe string literal.
     final script = 'window.initializeAutoPay(${jsonEncode(payloadJson)});';
     await _controller!.evaluateJavascript(source: script);
@@ -97,7 +98,7 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
               initialData: InAppWebViewInitialData(
                 data: _html!,
                 baseUrl: WebUri.uri(Uri.parse(
-                    'https://forte-autopay.${widget.payload['env'] ?? 'sandbox'}')),
+                    'https://forte-autopay.${widget.payload.env}')),
               ),
               onWebViewCreated: (controller) {
                 _controller = controller;

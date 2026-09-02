@@ -5,6 +5,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
 import 'package:wowcare/presentation/features/billing/cubit/parent_statements_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view/generate_statement_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_statements_widget.dart';
@@ -23,7 +24,7 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 /// (e.g. 'GUARDIAN').  [familyChildren] must contain the guardian's own
 /// children only — each map requires a `'code'` key.
 class ParentStatementsTab extends StatefulWidget {
-  final List<Map<String, dynamic>> familyChildren;
+  final List<BillingFamilyMember> familyChildren;
   final String subscriberCode;
   final String ownerType;
 
@@ -243,17 +244,19 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
           final currentBalance = widget.currentBalance;
 
           final studentNames = widget.familyChildren
-              .map((c) => (c['fullName'] ?? c['name'] ?? '').toString())
+              .map((c) => (c.fullName ?? c.name ?? '').toString())
               .where((n) => n.isNotEmpty)
               .join(', ');
 
           final formattedChildren = widget.familyChildren.map((child) {
-            return {
-              'name': child['name'] ?? child['fullName'] ?? 'Unknown',
-              'fullName': child['name'] ?? child['fullName'] ?? 'Unknown',
-              'room': child['room'] ?? child['roomName'] ?? '',
-              'roomName': child['room'] ?? child['roomName'] ?? '',
-            };
+            final name = child.name ?? child.fullName ?? 'Unknown';
+            final room = child.room ?? child.roomName ?? '';
+            return BillingFamilyMember(
+              name: name,
+              fullName: name,
+              room: room,
+              roomName: room,
+            );
           }).toList();
 
           return CustomRefreshIndicator(

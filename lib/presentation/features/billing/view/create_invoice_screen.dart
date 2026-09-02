@@ -6,6 +6,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/cubit/create_invoice_cubit.dart';
+import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
 import 'package:wowcare/presentation/features/billing/model/student_models.dart';
 import 'package:wowcare/presentation/features/billing/view/selected_students_receipt_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -22,7 +23,7 @@ class CreateInvoiceScreen extends StatefulWidget {
   });
 
   final List<Student> selectedStudents;
-  final Map<String, dynamic>? initialInvoiceData;
+  final InvoiceDraft? initialInvoiceData;
 
   @override
   State<CreateInvoiceScreen> createState() => _CreateInvoiceScreenState();
@@ -51,14 +52,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     super.initState();
     _students = List<Student>.of(widget.selectedStudents);
     final editCode =
-        widget.initialInvoiceData?['invoiceCode']?.toString().trim() ?? '';
+        widget.initialInvoiceData?.invoiceCode?.toString().trim() ?? '';
     if (editCode.isNotEmpty) {
       // Edit: fetch the real invoice (by-code) and hydrate the form.
       _cubit.loadInvoiceForEdit(editCode);
     } else {
       _cubit.initialize(widget.initialInvoiceData);
     }
-    final note = widget.initialInvoiceData?['internalNote'];
+    final note = widget.initialInvoiceData?.internalNote;
     if (note is String) _internalNoteController.text = note;
   }
 
@@ -124,24 +125,24 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       return;
     }
 
-    final invoiceData = <String, dynamic>{
-      'invoiceItems': _invoiceItems
-          .map((it) => {
-                'type': it.type,
-                'description': it.descriptionController.text.trim().isEmpty
+    final invoiceData = InvoiceDraft(
+      invoiceItems: _invoiceItems
+          .map((it) => InvoiceDraftItem(
+                type: it.type,
+                description: it.descriptionController.text.trim().isEmpty
                     ? it.description
                     : it.descriptionController.text,
-                'amount': it.amountController.text.trim().isEmpty
+                amount: it.amountController.text.trim().isEmpty
                     ? it.amount
                     : it.amountController.text,
-              })
+              ))
           .toList(),
-      'internalNote': _internalNoteController.text.trim(),
-      'invoiceDate': _invoiceDate,
-      'dueDate': _dueDate,
-      'serviceDate': _serviceDate,
-      'serviceDateEnd': _serviceDateEnd,
-    };
+      internalNote: _internalNoteController.text.trim(),
+      invoiceDate: _invoiceDate,
+      dueDate: _dueDate,
+      serviceDate: _serviceDate,
+      serviceDateEnd: _serviceDateEnd,
+    );
 
     _isSubmitting.value = true;
     final submitted = await Navigator.push<bool>(

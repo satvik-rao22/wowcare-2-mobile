@@ -11,6 +11,8 @@ import 'package:wowcare/presentation/features/billing/widgets/accounting/date_ra
 import 'package:wowcare/presentation/features/billing/widgets/admin_statements_tab.dart';
 import 'package:wowcare/presentation/features/billing/view/create_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/generate_statement_screen.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
+import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
 import 'package:wowcare/presentation/features/billing/model/student_models.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/add_credit_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/billing_transaction_card.dart';
@@ -71,8 +73,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
   DateTime? get _startDate => _cubit.state.startDate;
   DateTime? get _endDate => _cubit.state.endDate;
   bool get _isLoadingFamily => _cubit.state.isLoadingFamily;
-  List<Map<String, dynamic>> get _familyChildren => _cubit.state.familyChildren;
-  List<Map<String, dynamic>> get _familyParents => _cubit.state.familyParents;
+  List<BillingFamilyMember> get _familyChildren => _cubit.state.familyChildren;
+  List<BillingFamilyMember> get _familyParents => _cubit.state.familyParents;
   String get _familyError => _cubit.state.familyError;
   bool get _isLoadingMore => _cubit.state.isLoadingMore;
 
@@ -93,9 +95,9 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
     return (familyName?.isNotEmpty ?? false) ? familyName! : 'Family';
   }
 
-  String? _extractFamilyNameFromList(List<Map<String, dynamic>> members) {
+  String? _extractFamilyNameFromList(List<BillingFamilyMember> members) {
     if (members.isEmpty) return null;
-    final first = members.first['fullName']?.toString();
+    final first = members.first.fullName?.toString();
     return _extractFamilyName(first);
   }
 
@@ -163,9 +165,9 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
   List<Student> _familyStudents() {
     return _familyChildren
         .map((c) => Student(
-              code: (c['code'] ?? '').toString(),
-              fullName: (c['fullName'] ?? '').toString(),
-              photoUuid: c['photoUuid'] as String?,
+              code: (c.code ?? '').toString(),
+              fullName: (c.fullName ?? '').toString(),
+              photoUuid: c.photoUuid,
             ))
         .where((s) => s.code.isNotEmpty)
         .toList();
@@ -250,7 +252,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
       MaterialPageRoute<bool>(
         builder: (_) => CreateInvoiceScreen(
           selectedStudents: [Student(code: '', fullName: item.studentName)],
-          initialInvoiceData: <String, dynamic>{'invoiceCode': code},
+          initialInvoiceData: InvoiceDraft(invoiceCode: code),
         ),
       ),
     );
@@ -370,13 +372,13 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
     );
   }
 
-  List<Map<String, dynamic>> get _statementsChildren => _familyChildren
-      .map((c) => <String, dynamic>{
-            'fullName': (c['fullName'] ?? '').toString(),
-            'name': (c['fullName'] ?? '').toString(),
-            'room': '',
-            'roomName': '',
-          })
+  List<BillingFamilyMember> get _statementsChildren => _familyChildren
+      .map((c) => BillingFamilyMember(
+            fullName: (c.fullName ?? '').toString(),
+            name: (c.fullName ?? '').toString(),
+            room: '',
+            roomName: '',
+          ))
       .toList();
 
   @override
@@ -872,8 +874,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                       .map((c) => Padding(
                             padding: const EdgeInsets.only(right: 6),
                             child: _FamilyChip(
-                              name: (c['fullName'] ?? '').toString(),
-                              photoUuid: c['photoUuid'],
+                              name: (c.fullName ?? '').toString(),
+                              photoUuid: c.photoUuid,
                               backgroundColor: AppColors.warningColor,
                             ),
                           ))
@@ -891,7 +893,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
 
   Widget _buildParentsLine() {
     final names = _familyParents
-        .map((p) => (p['fullName'] ?? '').toString())
+        .map((p) => (p.fullName ?? '').toString())
         .where((e) => e.isNotEmpty)
         .toList();
     final text = names.isEmpty ? '-' : names.join(', ');

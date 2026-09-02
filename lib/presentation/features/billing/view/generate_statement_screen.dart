@@ -5,6 +5,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -40,7 +41,7 @@ class GenerateStatementScreen extends StatefulWidget {
   final AdminStatementsCubit cubit;
   final String subscriberCode;
   final String ownerType;
-  final List<Map<String, dynamic>> familyChildren;
+  final List<BillingFamilyMember> familyChildren;
 
   @override
   State<GenerateStatementScreen> createState() =>
@@ -50,7 +51,7 @@ class GenerateStatementScreen extends StatefulWidget {
 class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
   late final Set<String> _selectedCodes = {
     for (final c in widget.familyChildren)
-      if ((c['code'] ?? '').toString().isNotEmpty) (c['code'] ?? '').toString(),
+      if ((c.code ?? '').toString().isNotEmpty) (c.code ?? '').toString(),
   };
 
   final TextEditingController _descriptionController = TextEditingController();
@@ -440,7 +441,7 @@ class _SelectedStudentsCard extends StatelessWidget {
     required this.onToggle,
   });
 
-  final List<Map<String, dynamic>> children;
+  final List<BillingFamilyMember> children;
   final Set<String> selectedCodes;
   final TextStyle labelStyle;
   final void Function(String code) onToggle;
@@ -448,7 +449,7 @@ class _SelectedStudentsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selectedCount = children
-        .where((c) => selectedCodes.contains((c['code'] ?? '').toString()))
+        .where((c) => selectedCodes.contains((c.code ?? '').toString()))
         .length;
 
     return Column(
@@ -465,9 +466,9 @@ class _SelectedStudentsCard extends StatelessWidget {
           spacing: 10,
           runSpacing: 10,
           children: children.map((child) {
-            final code = (child['code'] ?? '').toString();
+            final code = (child.code ?? '').toString();
             final name =
-                (child['fullName'] ?? child['name'] ?? '').toString();
+                (child.fullName ?? child.name ?? '').toString();
             final isSelected = selectedCodes.contains(code);
 
             return InkWell(

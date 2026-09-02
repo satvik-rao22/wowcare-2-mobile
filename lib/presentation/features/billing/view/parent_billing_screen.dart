@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -350,13 +351,13 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
   Widget _buildStatementsTab(ParentBillingState state) {
     return ParentStatementsTab(
       familyChildren: state.students.map((s) {
-        return <String, dynamic>{
-          'code': s.code,
-          'name': s.fullName,
-          'fullName': s.fullName,
-          'room': s.role,
-          'roomName': s.role,
-        };
+        return BillingFamilyMember(
+          code: s.code,
+          name: s.fullName,
+          fullName: s.fullName,
+          room: s.role,
+          roomName: s.role,
+        );
       }).toList(),
       subscriberCode: state.ledger?.ownerCode ?? '',
       ownerType: state.ledger?.ownerType ?? 'GUARDIAN',

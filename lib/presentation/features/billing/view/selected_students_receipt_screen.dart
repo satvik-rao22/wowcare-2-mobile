@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
+import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
 import 'package:wowcare/presentation/features/billing/model/student_models.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -18,7 +19,7 @@ class SelectedStudentsReceiptScreen extends StatefulWidget {
   });
 
   final List<Student> selectedStudents;
-  final Map<String, dynamic> invoiceData;
+  final InvoiceDraft invoiceData;
   final void Function(Student student)? onStudentRemoved;
 
   /// When true the invoice has already been created — the screen is a read-only
@@ -60,16 +61,14 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
 
   double _computeTotalAmount() {
     double totalAmount = 0.0;
-    final invoiceItems = widget.invoiceData['invoiceItems'] as List<dynamic>? ?? [];
-    for (var item in invoiceItems) {
-      if (item is Map<String, dynamic>) {
-        final amount = double.tryParse(item['amount']?.toString() ?? '0') ?? 0.0;
-        final type = item['type']?.toString() ?? '';
-        if (type == 'Discount' || type == 'Subsidy') {
-          totalAmount -= amount;
-        } else {
-          totalAmount += amount;
-        }
+    final invoiceItems = widget.invoiceData.invoiceItems;
+    for (final item in invoiceItems) {
+      final amount = double.tryParse(item.amount) ?? 0.0;
+      final type = item.type;
+      if (type == 'Discount' || type == 'Subsidy') {
+        totalAmount -= amount;
+      } else {
+        totalAmount += amount;
       }
     }
     return totalAmount;
@@ -77,26 +76,20 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
 
   Widget _buildInvoiceDetails(ResponsiveHelper responsive) {
     final invoiceData = widget.invoiceData;
-    final items = invoiceData['invoiceItems'] as List<dynamic>? ?? const [];
+    final items = invoiceData.invoiceItems;
     final totalAmount = _computeTotalAmount();
 
     // Real school header (name + tagline + address).
     const schoolHeader = BillingSchoolHeader();
 
     String? dueDateString;
-    final dueDate = invoiceData['dueDate'] is DateTime
-        ? invoiceData['dueDate'] as DateTime
-        : (invoiceData['invoiceDate'] is DateTime
-            ? invoiceData['invoiceDate'] as DateTime
-            : null);
+    final dueDate = invoiceData.dueDate ?? invoiceData.invoiceDate;
     if (dueDate != null) {
       dueDateString = DateFormat('MMM dd, yyyy').format(dueDate);
-    } else if (invoiceData['dueDate'] is String) {
-      dueDateString = invoiceData['dueDate'] as String;
     }
 
-    DateTime? serviceStart = invoiceData['serviceDate'] is DateTime ? invoiceData['serviceDate'] as DateTime : null;
-    DateTime? serviceEnd = invoiceData['serviceDateEnd'] is DateTime ? invoiceData['serviceDateEnd'] as DateTime : null;
+    DateTime? serviceStart = invoiceData.serviceDate;
+    DateTime? serviceEnd = invoiceData.serviceDateEnd;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,7 +157,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                 ],
               ),
             ),
-          if (invoiceData['internalNote'] != null && invoiceData['internalNote'].toString().isNotEmpty)
+          if (invoiceData.internalNote != null && invoiceData.internalNote!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
               child: Column(
@@ -180,7 +173,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    invoiceData['internalNote'].toString(),
+                    invoiceData.internalNote!,
                     style: const TextStyle(
                       color: AppColors.primaryColor,
                       fontSize: 14,
@@ -216,10 +209,9 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
           ),
           Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
           ...items.map((raw) {
-            if (raw is! Map<String, dynamic>) return const SizedBox.shrink();
-            final description = raw['description']?.toString() ?? 'No description';
-            final amount = double.tryParse(raw['amount']?.toString() ?? '0') ?? 0.0;
-            final type = raw['type']?.toString() ?? '';
+            final description = raw.description;
+            final amount = double.tryParse(raw.amount) ?? 0.0;
+            final type = raw.type;
             final isDiscount = type == 'Discount' || type == 'Subsidy';
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 4.0),

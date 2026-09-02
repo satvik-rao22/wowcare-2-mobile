@@ -9,6 +9,7 @@ import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.d
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
 import 'package:wowcare/presentation/features/billing/view/create_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
 import 'package:wowcare/presentation/features/billing/model/student_models.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/billing_transaction_card.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/send_invoice_screen.dart';
@@ -297,7 +298,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
       MaterialPageRoute<bool>(
         builder: (_) => CreateInvoiceScreen(
           selectedStudents: [Student(code: '', fullName: item.studentName)],
-          initialInvoiceData: <String, dynamic>{'invoiceCode': code},
+          initialInvoiceData: InvoiceDraft(invoiceCode: code),
         ),
       ),
     );

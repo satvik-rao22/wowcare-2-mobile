@@ -12,12 +12,13 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/billing/view/create_invoice_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
 import 'package:wowcare/presentation/features/billing/model/student_models.dart';
 
 class SelectStudentsScreen extends StatefulWidget {
   const SelectStudentsScreen({Key? key, this.invoiceData, this.onNext})
       : super(key: key);
-  final Map<String, dynamic>? invoiceData;
+  final InvoiceDraft? invoiceData;
 
   /// Optional override for the "Next" action. When provided, it's called with
   /// the selected students instead of the default Create Invoice navigation

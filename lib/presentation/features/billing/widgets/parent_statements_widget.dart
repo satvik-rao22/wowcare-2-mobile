@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// Widget displaying siblings, current balance, and generate button
 class ParentStatementsWidget extends StatelessWidget {
-  final List<Map<String, dynamic>> familyChildren;
+  final List<BillingFamilyMember> familyChildren;
   final double currentBalance;
   final bool isLoading;
   final VoidCallback onGenerate;
@@ -52,8 +53,8 @@ class ParentStatementsWidget extends StatelessWidget {
             ),
             itemBuilder: (context, index) {
               final child = familyChildren[index];
-              final name = child['name'] ?? child['fullName'] ?? 'Unknown';
-              final room = child['room'] ?? child['roomName'] ?? '';
+              final name = child.name ?? child.fullName ?? 'Unknown';
+              final room = child.room ?? child.roomName ?? '';
 
               // Match the Student(s) tiles on the parent Billing screen
               // (SiblingCardsWidget): 30px avatar, name 14/w600, role 12.
