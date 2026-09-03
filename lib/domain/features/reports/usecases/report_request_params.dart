@@ -16,6 +16,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
     required this.schoolName,
     this.search,
     this.folderClassGrouping,
+    this.periodType,
   });
 
   @override
@@ -38,6 +39,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
   final String? schoolName;
   final String? search;
   final String? folderClassGrouping;
+  final String? periodType;
 
   ReportRequestParams copyWith({
     ReportType? reportType,
@@ -52,6 +54,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
     String? schoolName,
     String? search,
     String? folderClassGrouping,
+    String? periodType,
   }) {
     return ReportRequestParams(
       reportType: reportType ?? this.reportType,
@@ -66,6 +69,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
       schoolName: schoolName ?? this.schoolName,
       search: search ?? this.search,
       folderClassGrouping: folderClassGrouping ?? this.folderClassGrouping,
+      periodType: periodType ?? this.periodType,
     );
   }
 
@@ -85,6 +89,8 @@ class ReportRequestParams extends Equatable implements ReportParams {
       'format': format,
       if (schoolName != null && schoolName!.trim().isNotEmpty)
         'schoolName': schoolName,
+      if (periodType != null && periodType!.trim().isNotEmpty)
+        'periodType': periodType,
     };
 
     if (reportType == ReportType.studentDailyAttendance) {
@@ -158,6 +164,8 @@ class ReportRequestParams extends Equatable implements ReportParams {
       if (date != null) 'date=${date!.toIso8601String().split('T')[0]}',
       if (folderClassGrouping != null && folderClassGrouping!.isNotEmpty)
         'grouping=$folderClassGrouping',
+      if (periodType != null && periodType!.isNotEmpty)
+        'periodType=$periodType',
     ];
     return parts.join('|');
   }
@@ -176,5 +184,6 @@ class ReportRequestParams extends Equatable implements ReportParams {
     schoolName,
     search,
     folderClassGrouping,
+    periodType,
   ];
 }

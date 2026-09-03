@@ -166,6 +166,13 @@ class _BillingTransactionReportScreenState
               onDateSelected: (d) => setState(() => _endDate = d),
             ),
             SizedBox(height: responsive.verticalSpacing),
+            const ReportFieldLabel(label: 'Export Format'),
+            ReportFormatSelector(
+              selectedFormat: _format,
+              onFormatChanged: (value) => setState(() => _format = value),
+              showLabel: false,
+            ),
+            SizedBox(height: responsive.verticalSpacing),
 
             // Add the Optional filters:  Payment method (Card, ACH, Cash)
             CustomDropdown(
@@ -229,13 +236,6 @@ class _BillingTransactionReportScreenState
               showSelectAll: true,
               enableSearch: true,
               searchHintText: 'Search Students',
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            const ReportFieldLabel(label: 'Export Format'),
-            ReportFormatSelector(
-              selectedFormat: _format,
-              onFormatChanged: (value) => setState(() => _format = value),
-              showLabel: false,
             ),
           ],
         ),
