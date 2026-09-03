@@ -395,6 +395,10 @@ import '../../domain/features/communication/usecases/watch_conversations_legacy_
 import '../../domain/features/communication/usecases/mark_conversation_delivered_usecase.dart';
 import '../../data/features/communication/datasources/communication_remote_data_source.dart';
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
+import '../../domain/features/communication/repositories/communication_settings_repository.dart';
+import '../../domain/features/communication/usecases/get_communication_settings_usecase.dart';
+import '../../data/features/communication/datasources/communication_settings_remote_data_source.dart';
+import '../../data/features/communication/repositories/communication_settings_repository_impl.dart';
 // Communication v2.1 — Phase 1B
 import '../../domain/features/communication/usecases/get_conversations_entity_usecase.dart';
 import '../../domain/features/communication/usecases/get_conversation_entity_usecase.dart';
@@ -717,6 +721,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => CommunicationRemoteDataSourceImpl(apiClient: serviceLocator()),
   );
 
+  serviceLocator.registerLazySingleton<CommunicationSettingsRemoteDataSource>(
+    () => CommunicationSettingsRemoteDataSourceImpl(apiClient: serviceLocator()),
+  );
+
   serviceLocator.registerLazySingleton<NewsletterRemoteDataSource>(
     () => NewsletterRemoteDataSourceImpl(apiClient: serviceLocator()),
   );
@@ -792,6 +800,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
       messageRealtimeDataSource: serviceLocator(),
       storageService: serviceLocator(),
     ),
+  );
+
+  serviceLocator.registerLazySingleton<CommunicationSettingsRepository>(
+    () => CommunicationSettingsRepositoryImpl(remoteDataSource: serviceLocator()),
+  );
+
+  serviceLocator.registerLazySingleton<GetCommunicationSettingsUseCase>(
+    () => GetCommunicationSettingsUseCase(serviceLocator()),
   );
 
   serviceLocator.registerLazySingleton<ChatAttachmentUploader>(

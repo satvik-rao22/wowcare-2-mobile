@@ -79,6 +79,8 @@ class EntityMessageTile extends StatelessWidget {
     this.senderIsOrgSide,
     this.viewerIsOrgSide,
     this.participants,
+    this.isAdminCanDeleteAny = false,
+    this.deleteTimeLimitMinutes,
   });
 
   final String messageCode;
@@ -111,6 +113,12 @@ class EntityMessageTile extends StatelessWidget {
   /// shape the shared widget expects. Null/empty just means no avatar
   /// resolves, matching the widget's existing null-safe fallback.
   final List<ParticipantEntity>? participants;
+
+  /// See [MessageBubble.isAdminCanDeleteAny].
+  final bool isAdminCanDeleteAny;
+
+  /// See [MessageBubble.deleteTimeLimitMinutes].
+  final int? deleteTimeLimitMinutes;
 
   @override
   Widget build(BuildContext context) {
@@ -201,6 +209,8 @@ class EntityMessageTile extends StatelessWidget {
           participants: participants
               ?.map(mapParticipantEntityToConversationParticipant)
               .toList(),
+          isAdminCanDeleteAny: isAdminCanDeleteAny,
+          deleteTimeLimitMinutes: deleteTimeLimitMinutes,
         );
       },
     );

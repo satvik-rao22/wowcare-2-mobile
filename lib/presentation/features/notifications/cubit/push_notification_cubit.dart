@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io' show Platform;
+import 'package:app_links/app_links.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/notifications/deep_link_parser.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/logger_service.dart';
 import '../../../../core/util/notification_payload.dart';
@@ -43,6 +45,8 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
   StreamSubscription<PushNotification>? _onMessageSub;
   StreamSubscription<PushNotification>? _onTapSub;
   StreamSubscription<String>? _onTokenRefreshSub;
+  StreamSubscription<Uri>? _onDeepLinkSub;
+  final AppLinks _appLinks = AppLinks();
 
   /// Last FCM token — re-synced when session becomes ready after login/splash.
   String? _lastToken;
@@ -164,6 +168,18 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
 
       // Tap while app was in the background.
       _onTapSub = _repository.onNotificationTap.listen(_requestNavigation);
+
+      // Universal Link / Android App Link tapped while the app is already
+      // running (foreground or background, not killed) — e.g. an email
+      // button. The killed-state/cold-start equivalent is handled separately
+      // in notification_launch_handler.dart before this cubit even exists,
+      // via the same pushNotificationFromDeepLinkUri parser.
+      _onDeepLinkSub = _appLinks.uriLinkStream.listen((uri) {
+        final notification = pushNotificationFromDeepLinkUri(uri);
+        if (notification == null) return;
+        AppLogger.d('[DeepLink] Tap while running: $uri');
+        _requestNavigation(notification);
+      });
     } catch (e) {
       AppLogger.d('[FCM] setup failed (continuing without push): $e');
     }
@@ -233,6 +249,7 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
     _onMessageSub?.cancel();
     _onTapSub?.cancel();
     _onTokenRefreshSub?.cancel();
+    _onDeepLinkSub?.cancel();
     return super.close();
   }
 }

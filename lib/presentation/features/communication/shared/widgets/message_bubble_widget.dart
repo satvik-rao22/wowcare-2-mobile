@@ -89,6 +89,17 @@ class MessageBubble extends StatefulWidget {
   /// regardless of whether the viewer personally sent it.
   final bool? viewerIsOrgSide;
 
+  /// School's `communication-settings.adminCanDeleteAny` — when true AND the
+  /// current viewer is an admin, the Delete menu item shows on every message
+  /// (not just ones [currentUserCode] sent), bypassing [deleteTimeLimitMinutes].
+  final bool isAdminCanDeleteAny;
+
+  /// School's `communication-settings.deleteTimeLimitMinutes` — once this
+  /// many minutes have passed since [Message.time], the sender's own Delete
+  /// option is hidden (server enforces the same window; this just avoids
+  /// showing an option that would fail). Null/non-positive means no limit.
+  final int? deleteTimeLimitMinutes;
+
   const MessageBubble({
     required this.message,
     required this.reactionsController,
@@ -114,6 +125,8 @@ class MessageBubble extends StatefulWidget {
     this.isGrouped = false,
     this.senderIsOrgSide,
     this.viewerIsOrgSide,
+    this.isAdminCanDeleteAny = false,
+    this.deleteTimeLimitMinutes,
     super.key,
   });
 
@@ -293,6 +306,21 @@ class _MessageBubbleState extends State<MessageBubble>
     return _isMe;
   }
 
+  /// `communication-settings`-driven Delete visibility: an admin persona
+  /// with [MessageBubble.isAdminCanDeleteAny] set can delete ANY message,
+  /// bypassing the time limit entirely. Otherwise only the sender can
+  /// delete their own message, and only within
+  /// [MessageBubble.deleteTimeLimitMinutes] of when it was sent (no limit
+  /// configured means the sender can always delete their own message, same
+  /// as before this setting existed).
+  bool _canDelete(bool isMe) {
+    if (widget.isAdminCanDeleteAny) return true;
+    if (!isMe) return false;
+    final limit = widget.deleteTimeLimitMinutes;
+    if (limit == null || limit <= 0) return true;
+    return DateTime.now().difference(widget.message.time).inMinutes < limit;
+  }
+
   ChatReactionsConfig _buildReactionsConfig(bool isMe) {
     // Deleted messages: no Reply/Copy/Edit/Delete/Info and no reactions — there's no
     // content left to act on, and we don't show reaction pills on a deleted message, so
@@ -334,7 +362,7 @@ class _MessageBubbleState extends State<MessageBubble>
       availableReactions: const ['👍', '❤️', '😂', '😮', '😢', '👏', '➕'],
       menuItems: [
         if (isMe) const MenuItem(label: 'Edit', icon: Icons.edit_outlined),
-        if (isMe)
+        if (_canDelete(isMe))
           const MenuItem(
             label: 'Delete',
             icon: Icons.delete_outline,

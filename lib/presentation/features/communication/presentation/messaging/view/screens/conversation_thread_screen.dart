@@ -13,6 +13,8 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_scroll_behavior.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/message_delete_permission.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -145,6 +147,20 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   /// already sitting at the latest message instead of visibly scrolling
   /// down to it from the top.
   bool _isPositionedAtBottom = false;
+
+  /// `communication-settings`-driven Delete visibility — see
+  /// [MessageBubble.isAdminCanDeleteAny] / [MessageBubble.deleteTimeLimitMinutes].
+  MessageDeletePermission _deletePermission = MessageDeletePermission.none;
+
+  Future<void> _loadDeletePermission() async {
+    final isAdminViewer = context.read<RoleCubit>().role == 'admin';
+    final permission = await MessageDeletePermission.resolve(
+      schoolCode: widget.conversation.schoolCode,
+      isAdminViewer: isAdminViewer,
+    );
+    if (!mounted) return;
+    setState(() => _deletePermission = permission);
+  }
 
   /// Guards against firing more than one `loadOlderMessages` request while
   /// one is already in flight — mirrors the cubit's own guard but avoids
@@ -345,6 +361,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onScroll);
+    unawaited(_loadDeletePermission());
 
     final authState = context.read<AuthCubit>().state;
     final userCodeFromAuth = authState is AuthLoaded
@@ -1662,6 +1679,8 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                 isGrouped: isGrouped,
                 reactionsController: _reactionsController,
                 currentUserCode: _senderCode,
+                isAdminCanDeleteAny: _deletePermission.isAdminCanDeleteAny,
+                deleteTimeLimitMinutes: _deletePermission.deleteTimeLimitMinutes,
                 onScrollToQuoted: (quoteId) => _scrollToMessage(quoteId),
                 // Deleted messages disable all interactions except viewing/adding reactions
                 onReply: msg.isDeleted

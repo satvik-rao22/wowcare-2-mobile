@@ -47,6 +47,8 @@ class ThreadMessageTile extends StatelessWidget {
     this.viewerIsOrgSide,
     this.participants,
     this.isGuardian,
+    this.isAdminCanDeleteAny = false,
+    this.deleteTimeLimitMinutes,
   });
 
   final String threadId;
@@ -88,6 +90,12 @@ class ThreadMessageTile extends StatelessWidget {
 
   /// See [MessageBubble.viewerIsOrgSide].
   final bool? viewerIsOrgSide;
+
+  /// See [MessageBubble.isAdminCanDeleteAny].
+  final bool isAdminCanDeleteAny;
+
+  /// See [MessageBubble.deleteTimeLimitMinutes].
+  final int? deleteTimeLimitMinutes;
 
   @override
   Widget build(BuildContext context) {
@@ -174,6 +182,8 @@ class ThreadMessageTile extends StatelessWidget {
           isGrouped: isGrouped,
           senderIsOrgSide: senderIsOrgSide,
           viewerIsOrgSide: viewerIsOrgSide,
+          isAdminCanDeleteAny: isAdminCanDeleteAny,
+          deleteTimeLimitMinutes: deleteTimeLimitMinutes,
         );
       },
     );
