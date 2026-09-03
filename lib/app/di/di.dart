@@ -2164,6 +2164,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<ClassroomStudentsCubit>(
     () => ClassroomStudentsCubit(
       getStudentClassroomListUseCase: serviceLocator(),
+      getNapStartStudentsUseCase: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );

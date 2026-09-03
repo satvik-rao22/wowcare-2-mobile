@@ -25,7 +25,6 @@ import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
-import 'package:wowcare/domain/features/activity/usecases/get_nap_start_students_usecase.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/student_classroom/entities/student_classroom_item.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_students_cubit.dart';
@@ -103,7 +102,6 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   }
 
   late final ClassroomStudentsCubit _cubit;
-  late final GetNapStartStudentsUseCase _getNapStartStudentsUseCase;
   bool isSelectAllChecked = false;
   Map<String, bool> studentSelections = {};
   // ACTIVE is the permanent baseline status — always sent to the API.
@@ -111,9 +109,6 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   List<String> _selectedTagCodes = [];
   bool _isNappingFilter = false; // Toggle for napping students
   bool _isPresentFilter = false; // Toggle for present students
-  Set<String> _nappingStudentCodes = <String>{};
-  int _napCodesFetchToken = 0;
-  bool _napCodesLoading = false;
   StudentPanelType _currentPanel = StudentPanelType.none;
   bool _showActivitiesPanel = false;
   bool _isAttendanceActionLoading = false;
@@ -143,7 +138,6 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   void initState() {
     super.initState();
     _cubit = serviceLocator<ClassroomStudentsCubit>();
-    _getNapStartStudentsUseCase = serviceLocator<GetNapStartStudentsUseCase>();
     _searchController.addListener(_onSearchChanged);
     _loadForSelectedRoom(refresh: false);
     _loadNapStartStudentCodes(refresh: false);
@@ -284,35 +278,13 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     }
   }
 
-  Future<void> _loadNapStartStudentCodes({required bool refresh}) async {
+  Future<void> _loadNapStartStudentCodes({required bool refresh}) {
     final classroomCode = (widget.selectedRoom?.code ?? '').trim();
-    if (classroomCode.isEmpty) return;
-
-    final token = ++_napCodesFetchToken;
-    if (mounted) {
-      setState(() => _napCodesLoading = true);
-    }
-    try {
-      final codes = await _getNapStartStudentsUseCase(
-        classroomCode: classroomCode,
-      );
-      final normalized = codes
-          .map((e) => e.trim().toUpperCase())
-          .where((e) => e.isNotEmpty)
-          .toSet();
-
-      if (!mounted || token != _napCodesFetchToken) return;
-      setState(() {
-        _nappingStudentCodes = normalized;
-      });
-    } catch (_) {
-      if (!mounted || token != _napCodesFetchToken) return;
-      // Keep existing set on failure to avoid flicker.
-    } finally {
-      if (mounted && token == _napCodesFetchToken) {
-        setState(() => _napCodesLoading = false);
-      }
-    }
+    if (classroomCode.isEmpty) return Future.value();
+    return _cubit.loadNapStartStudentCodes(
+      classroomCode: classroomCode,
+      refresh: refresh,
+    );
   }
 
   /// Refreshes nap-start codes (when [refresh]) and reloads the roster, optionally scoped to nappers.
@@ -323,17 +295,18 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     await _loadNapStartStudentCodes(refresh: refresh);
     if (!mounted) return;
 
-    final codes = _nappingStudentCodes.isEmpty
-        ? null
-        : List<String>.from(_nappingStudentCodes);
+    final nappingCodes = _cubit.state.nappingStudentCodes;
+    final codes = nappingCodes.isEmpty ? null : List<String>.from(nappingCodes);
     _loadForSelectedRoom(refresh: refresh, studentCodes: codes);
   }
 
-  bool get _isLoadingNapStudents => _napCodesLoading;
+  bool get _isLoadingNapStudents => _cubit.state.napCodesLoading;
 
   /// Nap-start returned no students while the napping filter is on (show empty / copy).
   bool get _napFilterEmptyResult =>
-      _isNappingFilter && !_napCodesLoading && _nappingStudentCodes.isEmpty;
+      _isNappingFilter &&
+      !_cubit.state.napCodesLoading &&
+      _cubit.state.nappingStudentCodes.isEmpty;
 
   @override
   void didUpdateWidget(ClassroomStudentsTabCard oldWidget) {
@@ -548,7 +521,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     final roomCode = widget.selectedRoom?.code.trim() ?? '';
     return selected.map((s) {
       final norm = s.studentCode.trim().toUpperCase();
-      final napping = s.nap || _nappingStudentCodes.contains(norm);
+      final napping = s.nap || _cubit.state.nappingStudentCodes.contains(norm);
       return <String, dynamic>{
         'name': s.fullName,
         'studentCode': s.studentCode,
@@ -565,7 +538,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     final icons = <String, dynamic>{};
 
     final normalized = student.studentCode.trim().toUpperCase();
-    final isNapping = student.nap || _nappingStudentCodes.contains(normalized);
+    final isNapping =
+        student.nap || _cubit.state.nappingStudentCodes.contains(normalized);
     if (isNapping) {
       icons["napping"] = {
         "icon": 'assets/images/icons/sleep.png',
@@ -1312,7 +1286,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
             }
             if (_isNappingFilter) {
               final code = s.studentCode.trim().toUpperCase();
-              final isNapping = s.nap || _nappingStudentCodes.contains(code);
+              final isNapping =
+                  s.nap || _cubit.state.nappingStudentCodes.contains(code);
               if (!isNapping) return false;
             }
             if (q.isNotEmpty && !s.fullName.toLowerCase().contains(q)) {

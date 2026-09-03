@@ -9,14 +9,18 @@ class ClassroomStudentsState extends Equatable {
     required this.isRefreshing,
     this.errorMessage,
     this.lastClassroomCode,
+    this.nappingStudentCodes = const <String>{},
+    this.napCodesLoading = false,
   });
 
   const ClassroomStudentsState.initial()
-      : students = const [],
-        isLoading = false,
-        isRefreshing = false,
-        errorMessage = null,
-        lastClassroomCode = null;
+    : students = const [],
+      isLoading = false,
+      isRefreshing = false,
+      errorMessage = null,
+      lastClassroomCode = null,
+      nappingStudentCodes = const <String>{},
+      napCodesLoading = false;
 
   final List<StudentClassroomItem> students;
   final bool isLoading;
@@ -24,12 +28,19 @@ class ClassroomStudentsState extends Equatable {
   final String? errorMessage;
   final String? lastClassroomCode;
 
+  /// Student codes currently on a nap, per the classroom's nap-start
+  /// tracking — drives the napping filter/toggle on the Students tab.
+  final Set<String> nappingStudentCodes;
+  final bool napCodesLoading;
+
   ClassroomStudentsState copyWith({
     List<StudentClassroomItem>? students,
     bool? isLoading,
     bool? isRefreshing,
     String? errorMessage,
     String? lastClassroomCode,
+    Set<String>? nappingStudentCodes,
+    bool? napCodesLoading,
   }) {
     return ClassroomStudentsState(
       students: students ?? this.students,
@@ -37,16 +48,19 @@ class ClassroomStudentsState extends Equatable {
       isRefreshing: isRefreshing ?? this.isRefreshing,
       errorMessage: errorMessage,
       lastClassroomCode: lastClassroomCode ?? this.lastClassroomCode,
+      nappingStudentCodes: nappingStudentCodes ?? this.nappingStudentCodes,
+      napCodesLoading: napCodesLoading ?? this.napCodesLoading,
     );
   }
 
   @override
   List<Object?> get props => [
-        students,
-        isLoading,
-        isRefreshing,
-        errorMessage,
-        lastClassroomCode,
-      ];
+    students,
+    isLoading,
+    isRefreshing,
+    errorMessage,
+    lastClassroomCode,
+    nappingStudentCodes,
+    napCodesLoading,
+  ];
 }
-

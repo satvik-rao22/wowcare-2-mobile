@@ -3,6 +3,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/activity/usecases/get_nap_start_students_usecase.dart';
 import '../../../../domain/features/student_classroom/entities/student_classroom_item.dart';
 import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
 import 'classroom_students_state.dart';
@@ -10,15 +11,56 @@ import 'classroom_students_state.dart';
 class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
   ClassroomStudentsCubit({
     required GetStudentClassroomListUseCase getStudentClassroomListUseCase,
+    required GetNapStartStudentsUseCase getNapStartStudentsUseCase,
     required StorageService storageService,
-  })  : _getStudentClassroomListUseCase = getStudentClassroomListUseCase,
-        _storageService = storageService,
-        super(const ClassroomStudentsState.initial());
+  }) : _getStudentClassroomListUseCase = getStudentClassroomListUseCase,
+       _getNapStartStudentsUseCase = getNapStartStudentsUseCase,
+       _storageService = storageService,
+       super(const ClassroomStudentsState.initial());
 
   final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
+  final GetNapStartStudentsUseCase _getNapStartStudentsUseCase;
   final StorageService _storageService;
 
   String? _lastSuccessfulStudentListKey;
+
+  /// Guards against a slow, superseded nap-codes fetch clobbering a newer
+  /// one's result (e.g. rapid classroom switching).
+  int _napCodesFetchToken = 0;
+
+  /// Fetches which students in [classroomCode] are currently on a nap.
+  /// [refresh] is accepted for call-site symmetry with [loadInitial]/
+  /// [refresh] but — matching this endpoint's original View-side
+  /// behaviour — isn't currently forwarded to the use case (no
+  /// cache-bypass parameter exists on it).
+  Future<void> loadNapStartStudentCodes({
+    required String classroomCode,
+    required bool refresh,
+  }) async {
+    final code = classroomCode.trim();
+    if (code.isEmpty) return;
+
+    final token = ++_napCodesFetchToken;
+    if (!isClosed) emit(state.copyWith(napCodesLoading: true));
+
+    try {
+      final codes = await _getNapStartStudentsUseCase(classroomCode: code);
+      final normalized = codes
+          .map((e) => e.trim().toUpperCase())
+          .where((e) => e.isNotEmpty)
+          .toSet();
+
+      if (isClosed || token != _napCodesFetchToken) return;
+      emit(state.copyWith(nappingStudentCodes: normalized));
+    } catch (_) {
+      // Keep the existing set on failure to avoid flicker.
+      if (isClosed || token != _napCodesFetchToken) return;
+    } finally {
+      if (!isClosed && token == _napCodesFetchToken) {
+        emit(state.copyWith(napCodesLoading: false));
+      }
+    }
+  }
 
   static String studentListRequestKey({
     required String classroomCode,
@@ -39,12 +81,9 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
             .where((e) => e.isNotEmpty)
             .toList()
           ..sort();
-    final tg =
-        List<String>.from(tagCodes ?? const <String>[])
-            .map((e) => e.trim())
-            .where((e) => e.isNotEmpty)
-            .toList()
-          ..sort();
+    final tg = List<String>.from(
+      tagCodes ?? const <String>[],
+    ).map((e) => e.trim()).where((e) => e.isNotEmpty).toList()..sort();
     return [
       classroomCode.trim(),
       's=${(search ?? '').trim().toLowerCase()}',
@@ -204,4 +243,3 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
     }).toList();
   }
 }
-
