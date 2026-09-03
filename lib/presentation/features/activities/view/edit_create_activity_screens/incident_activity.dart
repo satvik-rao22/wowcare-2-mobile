@@ -13,8 +13,8 @@ import 'package:wowcare/presentation/features/activities/widgets/upload_photo_vi
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
-import '../../../../../app/di/di.dart';
-import '../../../../../app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/guardian_code_resolver.dart';
@@ -23,8 +23,8 @@ import '../../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../../domain/features/activity/entities/activity_parameter_value.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
-import '../../cubit/activity_editor_cubit.dart';
-import '../../cubit/incident_activity_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/incident_activity_cubit.dart';
 import '../../../../../shared/common/app/cubit/role_cubit.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/custom_toggle.dart';
@@ -32,14 +32,14 @@ import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
 import '../../utils/activity_description_limits.dart';
 import '../../utils/activity_selected_date_prefill.dart';
-import '../utils/activity_attendance_window_validator.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_attendance_window_validator.dart';
 import '../../utils/activity_school_time.dart';
 import '../../utils/activity_staff_display.dart';
 import '../../utils/activity_patch_attachments.dart';
 import '../../utils/activity_photo_attachment_upload.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
-import '../widgets/activity_admin_approve_reject_bar.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_admin_approve_reject_bar.dart';
 
 /// Same rules as `rolesJsonIndicatesGuardianLogin` in `login_persona_util.dart`
 /// (defined here so hot restart always sees the symbol).
@@ -61,6 +61,11 @@ bool incidentRolesJsonIndicatesGuardianLogin(String rolesJson) {
 }
 
 class IncidentActivityScreen extends StatelessWidget {
+  /// General create/edit push route. Distinct from
+  /// `AppRoutes.activityApprovalByCode`, the deep-link route used for
+  /// notification taps (query-param based, not `extra`-based).
+  static const String routeName = '/activity/incident';
+
   const IncidentActivityScreen({
     super.key,
     this.selectedStudents,
@@ -75,21 +80,11 @@ class IncidentActivityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider<ActivityEditorCubit>(
-          create: (_) => serviceLocator<ActivityEditorCubit>(),
-        ),
-        BlocProvider<IncidentActivityCubit>(
-          create: (_) => serviceLocator<IncidentActivityCubit>(),
-        ),
-      ],
-      child: _IncidentActivityView(
-        selectedStudents: selectedStudents,
-        isEdit: isEdit,
-        activityData: activityData,
-        readOnly: readOnly,
-      ),
+    return _IncidentActivityView(
+      selectedStudents: selectedStudents,
+      isEdit: isEdit,
+      activityData: activityData,
+      readOnly: readOnly,
     );
   }
 }
@@ -2488,20 +2483,12 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
                   alignment: Alignment.centerLeft,
                   child: RichText(
                     text: TextSpan(
-                      style: TextStyle(
-                        color: AppColors.primaryColor.withValues(alpha: 0.6),
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: AppTextStyles.activityMutedFieldLabel,
                       children: [
                         const TextSpan(text: 'Students involved'),
                         TextSpan(
                           text: ' *',
-                          style: TextStyle(
-                            color: AppColors.primaryColor.withValues(
-                              alpha: 0.6,
-                            ),
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: AppTextStyles.activityMutedFieldLabel,
                         ),
                       ],
                     ),
@@ -2623,10 +2610,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
                 children: [
                   Text(
                     'First Aid Administered',
-                    style: TextStyle(
-                      color: AppColors.primaryColor.withValues(alpha: 0.6),
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: AppTextStyles.activityMutedFieldLabel,
                   ),
                   SizedBox(height: responsive.isTablet ? 10.0 : 8.0),
                   IgnorePointer(
@@ -2637,12 +2621,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
                       children: [
                         const Text(
                           'No',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xff573353),
-                          ),
+                          style: AppTextStyles.activityStrongLabel,
                         ),
                         const SizedBox(width: 8),
                         CustomToggle(
@@ -2653,12 +2632,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
                         const SizedBox(width: 8),
                         const Text(
                           'Yes',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xff573353),
-                          ),
+                          style: AppTextStyles.activityStrongLabel,
                         ),
                       ],
                     ),
@@ -3041,11 +3015,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
           const SizedBox(width: 8),
           Text(
             'Uploading photos... $_uploadProgressPercent% ($_uploadCompletedCount/$_uploadTotalCount)',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primaryColor,
-            ),
+            style: AppTextStyles.activityStrongLabel,
           ),
         ],
       );
@@ -3056,16 +3026,12 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         _uploadProgressPercent == 100) {
       return Row(
         children: [
-          const Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const Icon(Icons.check_circle, size: 16, color: AppColors.activityUploadSuccessColor),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               'Uploaded $_uploadCompletedCount/$_uploadTotalCount',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.green,
-              ),
+              style: AppTextStyles.activityUploadSuccessText,
             ),
           ),
         ],
@@ -3084,16 +3050,12 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       final label = parts.isEmpty ? 'Ready' : parts.join(', ');
       return Row(
         children: [
-          const Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const Icon(Icons.check_circle, size: 16, color: AppColors.activityUploadSuccessColor),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               'Uploaded $label',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.green,
-              ),
+              style: AppTextStyles.activityUploadSuccessText,
             ),
           ),
         ],
@@ -3104,16 +3066,12 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       ..write('Photos $_uploadedPhotoCount/${_newPhotos.length}');
     return Row(
       children: [
-        const Icon(Icons.error_outline, size: 16, color: Colors.orange),
+        const Icon(Icons.error_outline, size: 16, color: AppColors.activityUploadWarningColor),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             buf.toString(),
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: Colors.orange,
-            ),
+            style: AppTextStyles.activityUploadWarningText,
           ),
         ),
       ],

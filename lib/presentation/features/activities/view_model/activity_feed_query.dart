@@ -17,6 +17,7 @@ class ActivityFeedQuery extends Equatable {
     required this.classroomCode,
     this.classroomCodes = const <String>[],
     required this.dateStr,
+    this.endDateStr,
     this.studentCode,
     this.studentCodes,
     this.attendanceEvent,
@@ -45,7 +46,17 @@ class ActivityFeedQuery extends Equatable {
   final List<String> classroomCodes;
 
   /// `yyyy-MM-dd` date the feed is for (already `_dateQueryParam`-formatted).
+  /// For a range query (see [endDateStr]) this is the RANGE START date.
   final String dateStr;
+
+  /// `yyyy-MM-dd` end-of-range date, already `_dateQueryParam`-formatted.
+  ///
+  /// `null` (the default) means this is a single-day query: [dateStr] is that
+  /// day, exactly today's meaning — zero behavior change for existing daily
+  /// callers/[ActivityFeedCubit.loadDaily]. Non-null means this is a
+  /// date-range query: [dateStr] is the range start and [endDateStr] is the
+  /// range end, driving [ActivityFeedCubit.loadRange] instead.
+  final String? endDateStr;
 
   /// Single selected student code, if the feed is scoped to one student.
   final String? studentCode;
@@ -95,6 +106,7 @@ class ActivityFeedQuery extends Equatable {
     String? classroomCode,
     List<String>? classroomCodes,
     String? dateStr,
+    String? endDateStr,
     String? studentCode,
     List<String>? studentCodes,
     String? attendanceEvent,
@@ -114,6 +126,7 @@ class ActivityFeedQuery extends Equatable {
       classroomCode: classroomCode ?? this.classroomCode,
       classroomCodes: classroomCodes ?? this.classroomCodes,
       dateStr: dateStr ?? this.dateStr,
+      endDateStr: endDateStr ?? this.endDateStr,
       studentCode: studentCode ?? this.studentCode,
       studentCodes: studentCodes ?? this.studentCodes,
       attendanceEvent: attendanceEvent ?? this.attendanceEvent,
@@ -136,6 +149,7 @@ class ActivityFeedQuery extends Equatable {
         classroomCode,
         classroomCodes,
         dateStr,
+        endDateStr,
         studentCode,
         studentCodes,
         attendanceEvent,

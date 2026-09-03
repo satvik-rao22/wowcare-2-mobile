@@ -11,17 +11,15 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
-import '../../../../../app/di/di.dart';
-import '../../../../../app/theme/colors.dart';
-import '../../../../../core/storage/storage_service.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
-import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_attachment.dart';
 import '../../../../../domain/features/activity/entities/activity_parameter_value.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
-import '../../cubit/activity_editor_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../widgets/activity_dropdown_widget.dart';
@@ -29,16 +27,18 @@ import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
 import '../../utils/activity_description_limits.dart';
 import '../../utils/activity_selected_date_prefill.dart';
-import '../utils/activity_attendance_window_validator.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_attendance_window_validator.dart';
 import '../../utils/activity_school_time.dart';
 import '../../utils/activity_staff_display.dart';
 import '../../utils/activity_patch_attachments.dart';
 import '../../utils/activity_photo_attachment_upload.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
-import '../widgets/activity_admin_approve_reject_bar.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_admin_approve_reject_bar.dart';
 
 class LearningActivityScreen extends StatelessWidget {
+  static const String routeName = '/activity/learning';
+
   const LearningActivityScreen({
     super.key,
     this.selectedStudents,
@@ -53,14 +53,11 @@ class LearningActivityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<ActivityEditorCubit>(
-      create: (_) => serviceLocator<ActivityEditorCubit>(),
-      child: _LearningActivityView(
-        selectedStudents: selectedStudents,
-        isEdit: isEdit,
-        activityData: activityData,
-        readOnly: readOnly,
-      ),
+    return _LearningActivityView(
+      selectedStudents: selectedStudents,
+      isEdit: isEdit,
+      activityData: activityData,
+      readOnly: readOnly,
     );
   }
 }
@@ -333,28 +330,15 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
   }
 
   Future<void> _loadStaffContext() async {
-    final storage = serviceLocator<StorageService>();
-    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-        .trim();
-    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-        .trim();
-    final organizationCode =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final staffCode = await resolveLoggedInStaffCode();
-    final apiDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
-      staffCode: staffCode,
-    );
-
+    final ctx = await context.read<ActivityEditorCubit>().loadStaffContext();
     if (!mounted) return;
     setState(() {
-      _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
-      _staffType = staffType.toUpperCase();
-      _staffCode = staffCode;
-      _staffPresentCode = (staffCode ?? '').trim().isEmpty
-          ? null
-          : staffCode!.trim();
-      _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
-      _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
+      _staffName = ctx.staffName;
+      _staffType = ctx.staffType;
+      _staffCode = ctx.staffCode;
+      _staffPresentCode = ctx.staffPresentCode;
+      _schoolCode = ctx.schoolCode;
+      _organizationCode = ctx.organizationCode;
     });
   }
 
@@ -1290,11 +1274,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
           const SizedBox(width: 8),
           Text(
             'Uploading photo... $_uploadProgressPercent% ($_uploadCompletedCount/$_uploadTotalCount)',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primaryColor,
-            ),
+            style: AppTextStyles.activityStrongLabel,
           ),
         ],
       );
@@ -1305,15 +1285,11 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
         _uploadProgressPercent == 100) {
       return Row(
         children: [
-          const Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const Icon(Icons.check_circle, size: 16, color: AppColors.activityUploadSuccessColor),
           const SizedBox(width: 8),
           Text(
             'Uploaded $_uploadCompletedCount/$_uploadTotalCount',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.green,
-            ),
+            style: AppTextStyles.activityUploadSuccessText,
           ),
         ],
       );
@@ -1324,15 +1300,11 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
     if (_uploadedPhotoCount == _newPhotos.length) {
       return Row(
         children: [
-          const Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const Icon(Icons.check_circle, size: 16, color: AppColors.activityUploadSuccessColor),
           const SizedBox(width: 8),
           Text(
             'Uploaded $_uploadedPhotoCount/${_newPhotos.length} photo(s)',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.green,
-            ),
+            style: AppTextStyles.activityUploadSuccessText,
           ),
         ],
       );
@@ -1340,15 +1312,11 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
 
     return Row(
       children: [
-        const Icon(Icons.error_outline, size: 16, color: Colors.orange),
+        const Icon(Icons.error_outline, size: 16, color: AppColors.activityUploadWarningColor),
         const SizedBox(width: 8),
         Text(
           'Uploaded $_uploadedPhotoCount/${_newPhotos.length} photo(s)',
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: Colors.orange,
-          ),
+          style: AppTextStyles.activityUploadWarningText,
         ),
       ],
     );

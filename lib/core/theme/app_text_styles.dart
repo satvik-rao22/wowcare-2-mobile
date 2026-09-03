@@ -1,0 +1,760 @@
+import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/fonts.dart';
+
+/// Reusable text style widgets following the design patterns from staff_card.dart
+class AppTextStyles {
+  AppTextStyles._();
+
+  /// Label text style - used for field labels
+  /// fontSize: 13, fontWeight: w400, color: primaryColor, height: 16/13
+  static const TextStyle label = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+    color: AppColors.primaryColor,
+    height: 16 / 13,
+  );
+
+  /// Value text style - used for displaying values/content
+  /// fontSize: 14, fontWeight: w500, color: primaryColor, height: 19/14
+  static const TextStyle value = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primaryColor,
+    height: 19 / 14,
+  );
+
+  /// Title text style - used for section titles
+  /// fontSize: 16, fontWeight: w700, color: primaryColor
+  static const TextStyle title = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    color: AppColors.primaryColor,
+    height: 16 / 16,
+  );
+
+  /// Subtitle text style - used for subtitles
+  /// fontSize: 14, fontWeight: w700, color: primaryColor
+  static const TextStyle subtitle = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 14,
+    fontWeight: FontWeight.w700,
+    color: AppColors.primaryColor,
+  );
+
+  /// Body text style - used for regular body text
+  /// fontSize: 14, fontWeight: w500, color: primaryColor, height: 19/14
+  static const TextStyle body = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primaryColor,
+    height: 19 / 14,
+  );
+
+  /// Small text style - used for smaller text
+  /// fontSize: 12, fontWeight: w400, color: primaryColor
+  static const TextStyle small = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.primaryColor,
+    height: 15 / 12,
+  );
+
+  /// Button text style - used for button labels
+  /// fontSize: 16, fontWeight: w700, color: varies
+  static TextStyle button({Color? color}) => TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    color: color ?? AppColors.primaryColor,
+    height: 16 / 16,
+  );
+
+  /// Section header text style - used for section headers
+  /// fontSize: 13, fontWeight: w600, color: primaryColor
+  static const TextStyle sectionHeader = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// Medium-weight override with no size/color of its own — for text that
+  /// inherits its size and color from an ambient style (e.g. `AppText.body`)
+  /// and only needs a heavier weight.
+  static const TextStyle mediumWeight = TextStyle(fontWeight: FontWeight.w500);
+
+  /// fontSize: 16, fontWeight: w500, no color of its own (inherits ambient).
+  /// A larger sibling of [value]/[body] used where those two are locked to
+  /// 14 — kept as its own entry rather than `.copyWith` so it doesn't also
+  /// pull in their color/height.
+  static const TextStyle valueLarge = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+  );
+
+  /// fontSize: 16, no weight/color of its own (inherits ambient).
+  static const TextStyle size16 = TextStyle(fontSize: 16);
+
+  /// fontSize: 14, no weight/color of its own (inherits ambient).
+  static const TextStyle size14 = TextStyle(fontSize: 14);
+
+  /// fontSize: 18, fontWeight: w600, no color of its own (inherits ambient).
+  static const TextStyle heading18 = TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+  );
+
+  /// Attendance tab bar selected-label style (responsive size).
+  static TextStyle attendanceTabLabelSelected({required bool isTablet}) =>
+      TextStyle(
+        fontFamily: Fonts.manrope,
+        color: AppColors.attendanceIconColor,
+        fontSize: isTablet ? 18 : 16,
+        fontWeight: FontWeight.w600,
+      );
+
+  /// Attendance tab bar unselected-label style (responsive size).
+  static TextStyle attendanceTabLabelUnselected({required bool isTablet}) =>
+      TextStyle(
+        fontFamily: Fonts.manrope,
+        color: AppColors.primaryColor.withValues(alpha: 0.5),
+        fontSize: isTablet ? 18 : 16,
+        fontWeight: FontWeight.w400,
+      );
+
+  /// Attendance screen header title ("Student/Staff Attendance"), responsive size.
+  static TextStyle attendanceScreenTitle({required bool isTablet}) => TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: isTablet ? 22 : 18,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// Attendance profile header name, responsive size. No color/fontFamily of
+  /// its own — composed as an override on top of [AppText.title].
+  static TextStyle attendanceProfileName({required bool isTablet}) => TextStyle(
+    fontSize: isTablet ? 23 : 20,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.6,
+  );
+
+  /// Attendance popup tab bar selected-label style (weight 500, distinct
+  /// from [attendanceTabLabelSelected]'s 600 — the popup's own visual spec).
+  static TextStyle attendancePopupTabLabelSelected({required bool isTablet}) =>
+      TextStyle(
+        color: AppColors.attendanceIconColor,
+        fontFamily: Fonts.manrope,
+        fontSize: isTablet ? 18 : 16,
+        fontWeight: FontWeight.w500,
+      );
+
+  /// Attendance popup tab bar unselected-label style — no explicit weight,
+  /// matching the original (inherits ambient/ TabBar default).
+  static TextStyle attendancePopupTabLabelUnselected({
+    required bool isTablet,
+  }) => TextStyle(
+    color: AppColors.primaryColor.withValues(alpha: 0.5),
+    fontFamily: Fonts.manrope,
+    fontSize: isTablet ? 18 : 16,
+  );
+
+  /// Attendance popup action-button label (icon+label grid buttons).
+  static TextStyle attendancePopupActionButton({required double fontSize}) =>
+      TextStyle(
+        fontFamily: Fonts.manrope,
+        fontSize: fontSize,
+        color: AppColors.primaryColor,
+      );
+
+  /// Attendance popup "View Attendance" gradient button label. No color of
+  /// its own — painted via ShaderMask, which overrides paint regardless.
+  static TextStyle attendancePopupViewButton({required bool isTablet}) =>
+      TextStyle(
+        fontFamily: Fonts.manrope,
+        fontSize: isTablet ? 18 : 16,
+        fontWeight: FontWeight.w700,
+        letterSpacing: (isTablet ? 18 : 16) * (-3 / 100),
+      );
+
+  /// Attendance custom-view segmented-tab label (selected vs unselected).
+  /// No fontFamily of its own — composed as an override on [AppText.body].
+  static TextStyle attendanceCustomTabLabel({required bool isSelected}) =>
+      TextStyle(
+        fontSize: 16,
+        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+        color: isSelected
+            ? AppColors.attendanceTabSelectedLabelColor
+            : AppColors.attendanceTabUnselectedLabelColor,
+      );
+
+  /// Attendance transfer-form classroom dropdown value style. No fontFamily
+  /// of its own, matching the original (inherits the DropdownButton's
+  /// ambient default).
+  static TextStyle attendanceDropdownValue({required Color color}) =>
+      TextStyle(color: color, fontSize: 15);
+
+  // ---------------------------------------------------------------------
+  // Activity module (Mandate 4, final slice) — see
+  // lib/presentation/features/activities/**. Named per the same
+  // `activity<Purpose>` convention as the `attendanceXxx` entries above.
+  // Several entries here are reused across more than one visual purpose
+  // (e.g. a chip label and a status caption sharing identical metrics) —
+  // that's intentional per Mandate 6 ("reuse what exists"): the doc comment
+  // lists every call-site purpose it covers.
+  // ---------------------------------------------------------------------
+
+  /// Small circular badge text — filter-count badges and avatar-initials
+  /// circles.
+  /// fontSize: 10, fontWeight: w700, color: cardColor
+  static const TextStyle activitySmallBadgeText = TextStyle(
+    color: AppColors.cardColor,
+    fontSize: 10,
+    fontWeight: FontWeight.w700,
+  );
+
+  /// Small caption/chip text with no weight of its own (activity-name chip,
+  /// "Checking sign-in status…" caption).
+  /// fontSize: 12, color: primaryColor
+  static const TextStyle activitySmallText = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 12,
+  );
+
+  /// Small metadata text — approval-status badges, "Created By" captions.
+  /// fontSize: 12, fontWeight: w500, color: primaryColor
+  static const TextStyle activityMetaText = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+  );
+
+  /// Activity feed "No Activities found" / range-feed error message.
+  /// fontSize: 16, fontWeight: w500, color: primaryColor @ 55% opacity
+  static TextStyle get activityEmptyFeedText => TextStyle(
+    color: AppColors.primaryColor.withValues(alpha: 0.55),
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+  );
+
+  /// Activity date/dropdown selected-value text — placeholder color while
+  /// empty, body color once a value is chosen.
+  /// fontSize: 15, fontWeight: w400
+  static TextStyle activityDropdownValueText({required bool hasValue}) =>
+      TextStyle(
+        fontSize: 15,
+        fontWeight: FontWeight.w400,
+        color: hasValue
+            ? AppColors.activityBodyTextColor
+            : AppColors.activityPlaceholderTextColor,
+      );
+
+  /// Activity tab custom-dropdown popup item text.
+  /// fontSize: 14, fontWeight: w400, color: activityBodyTextColor
+  static const TextStyle activityDropdownPopupItem = TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.activityBodyTextColor,
+  );
+
+  /// Same metrics as [value] (14/w500/primaryColor) but without the explicit
+  /// height — used where callers rely on the ambient/font default line
+  /// height instead of value's 19/14 (activity time/name text, "Select All"
+  /// labels, student-scope checkbox rows).
+  /// fontSize: 14, fontWeight: w500, color: primaryColor
+  static const TextStyle activityBodyValue = TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primaryColor,
+  );
+
+  /// Activity feed popup-menu item title (View/Edit/Delete).
+  /// fontSize: 14, fontWeight: w500, color: blackColor
+  static const TextStyle activityPopupItemTitle = TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: AppColors.blackColor,
+  );
+
+  /// Compact bold name text — single-student avatar row, student grid tile.
+  /// fontSize: 13, fontWeight: w600, color: primaryColor
+  static const TextStyle activityCompactBoldName = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// List-row value text — student-list-sheet name row, [ViewWidget] content.
+  /// fontSize: 15, fontWeight: w600, color: primaryColor
+  static const TextStyle activityRowValueText = TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// Button label with no color of its own — used where the surrounding
+  /// button (e.g. `ElevatedButton.styleFrom(foregroundColor: ...)`) supplies
+  /// the color.
+  /// fontSize: 16, fontWeight: w700
+  static const TextStyle activityPlainButtonLabel = TextStyle(
+    fontWeight: FontWeight.w700,
+    fontSize: 16,
+  );
+
+  /// Modal/bottom-sheet dialog title ("Student" list sheet, "Image Uploader").
+  /// fontSize: 18, fontWeight: w700, color: primaryColor
+  static const TextStyle activityDialogTitle = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 18,
+    fontWeight: FontWeight.w700,
+    color: AppColors.primaryColor,
+  );
+
+  /// [ActivityStudentDisplayTile] name text.
+  /// fontSize: 12, fontWeight: w600, color: primaryColor, height: 1.15
+  static const TextStyle activityStudentTileName = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 12,
+    fontWeight: FontWeight.w600,
+    height: 1.15,
+  );
+
+  /// "Processing..." label on the media-preview processing card.
+  /// fontSize: 12, fontWeight: w700, color: activityProcessingText
+  static const TextStyle activityProcessingCardText = TextStyle(
+    color: AppColors.activityProcessingText,
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
+  );
+
+  /// "PROCESSING" corner-badge label on media thumbnails.
+  /// fontSize: 9.5, fontWeight: w700, color: activityProcessingBadgeText
+  static const TextStyle activityProcessingBadgeLabel = TextStyle(
+    color: AppColors.activityProcessingBadgeText,
+    fontSize: 9.5,
+    fontWeight: FontWeight.w700,
+  );
+
+  /// Emphasized 13px label text — toggle option labels ("Yes"/"No"),
+  /// checkbox labels, media-upload status lines.
+  /// fontSize: 13, fontWeight: w500, color: primaryColor
+  static const TextStyle activityStrongLabel = TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primaryColor,
+  );
+
+  /// Media-upload success line ("Uploaded X/Y").
+  /// fontSize: 13, fontWeight: w600, color: activityUploadSuccessColor
+  static const TextStyle activityUploadSuccessText = TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: AppColors.activityUploadSuccessColor,
+  );
+
+  /// Media-upload warning/partial-failure line.
+  /// fontSize: 13, fontWeight: w500, color: activityUploadWarningColor
+  static const TextStyle activityUploadWarningText = TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    color: AppColors.activityUploadWarningColor,
+  );
+
+  /// Muted field label with no size of its own (inherits ambient) — "Students
+  /// involved"/"First Aid Administered" style captions.
+  /// fontWeight: w500, color: primaryColor @ 60% opacity
+  static TextStyle get activityMutedFieldLabel => TextStyle(
+    color: AppColors.primaryColor.withValues(alpha: 0.6),
+    fontWeight: FontWeight.w500,
+  );
+
+  /// Field label text — matches [label]'s metrics minus the explicit height.
+  /// fontSize: 13, fontWeight: w400, color: primaryColor
+  static const TextStyle activityFieldLabel = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+  );
+
+  /// Required-field asterisk marker — color only, inherits ambient
+  /// size/weight.
+  static const TextStyle activityRequiredMarker = TextStyle(
+    color: AppColors.activityRequiredFieldMarkerColor,
+  );
+
+  /// Responsive input-field label (RichText label + required marker).
+  /// fontWeight: w400, color: primaryColor
+  static TextStyle activityInputFieldLabel({required double fontSize}) =>
+      TextStyle(
+        fontFamily: Fonts.manrope,
+        fontSize: fontSize,
+        fontWeight: FontWeight.w400,
+        color: AppColors.primaryColor,
+      );
+
+  /// Responsive input-field value text.
+  /// fontWeight: w600, color: primaryColor, height: 19/14
+  static TextStyle activityInputValueText({required double fontSize}) =>
+      TextStyle(
+        fontSize: fontSize,
+        fontWeight: FontWeight.w600,
+        color: AppColors.primaryColor,
+        height: 19 / 14,
+      );
+
+  /// Responsive dropdown popup-item text (no height of its own).
+  /// fontWeight: w400, color: primaryColor
+  static TextStyle activityInputPopupItemText({required double fontSize}) =>
+      TextStyle(
+        fontSize: fontSize,
+        fontWeight: FontWeight.w400,
+        color: AppColors.primaryColor,
+      );
+
+  /// Date-field selected-value text — dimmed while unselected.
+  /// fontSize: 14, fontWeight: w500
+  static TextStyle activityDateValueText({required bool hasValue}) =>
+      TextStyle(
+        color: hasValue
+            ? AppColors.primaryColor
+            : AppColors.primaryColor.withValues(alpha: 0.6),
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+      );
+
+  /// "Video preview unavailable" placeholder text — color only.
+  static const TextStyle activityMediaUnavailableText = TextStyle(
+    color: AppColors.activityMediaPlaceholderIconColor,
+  );
+
+  /// "Video processing..." caption under the processing placeholder.
+  /// fontSize: 13, fontWeight: w600, color: activityProcessingText
+  static const TextStyle activityProcessingCaption = TextStyle(
+    color: AppColors.activityProcessingText,
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+  );
+
+  /// Bold 14px field value / section-title text ("Select Students" heading,
+  /// selected-staff display).
+  /// fontSize: 14, fontWeight: w600, color: primaryColor
+  static const TextStyle activityFieldValueBold = TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// Search-field hint text.
+  /// fontSize: 14, fontWeight: w400, color: activitySearchHintColor
+  static const TextStyle activitySearchHintText = TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.activitySearchHintColor,
+  );
+
+  /// Empty-list placeholder text.
+  /// fontSize: 14, color: activityPlaceholderTextColor
+  static const TextStyle activityEmptyListText = TextStyle(
+    color: AppColors.activityPlaceholderTextColor,
+    fontSize: 14,
+  );
+
+  /// Muted checkbox label text (nap-reminder checkbox).
+  /// fontSize: 14, fontWeight: w400, color: activityPlaceholderTextColor
+  static const TextStyle activityCheckboxLabelMuted = TextStyle(
+    color: AppColors.activityPlaceholderTextColor,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+  );
+
+  /// Small inline error text (12px).
+  /// fontSize: 12, fontWeight: w500, color: activityErrorTextColor
+  static const TextStyle activityErrorTextSmall = TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    color: AppColors.activityErrorTextColor,
+  );
+
+  /// Scripted signature text — deliberately not [Fonts.manrope] (a distinct
+  /// cursive font used only for the incident-activity signature band).
+  /// fontFamily: 'MervaleScript', fontSize: 24, fontWeight: w400,
+  /// color: primaryColor
+  static const TextStyle activitySignatureScriptText = TextStyle(
+    fontFamily: 'MervaleScript',
+    fontSize: 24,
+    fontWeight: FontWeight.w400,
+    color: AppColors.primaryColor,
+  );
+
+  /// "Signature-ID" caption under a scripted signature.
+  /// fontSize: 10, fontWeight: w500, color: activityTextColorMuted50
+  static const TextStyle activitySignatureIdCaption = TextStyle(
+    fontSize: 10,
+    fontWeight: FontWeight.w500,
+    color: AppColors.activityTextColorMuted50,
+  );
+
+  /// "Upload" section label in the school-cloud image uploader dialog.
+  /// fontSize: 14, fontWeight: w700, color: primaryColor
+  static const TextStyle activityUploadSectionLabel = TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w700,
+    color: AppColors.primaryColor,
+  );
+
+  /// Uploader helper text ("Only image files are supported...").
+  /// fontSize: 12, color: primaryColor @ 50% opacity
+  static TextStyle get activityUploaderHintText => TextStyle(
+    fontSize: 12,
+    color: AppColors.primaryColor.withValues(alpha: 0.5),
+  );
+
+  /// "Selected Images (N)" section label.
+  /// fontSize: 13, fontWeight: w700, color: primaryColor
+  static const TextStyle activitySelectedImagesLabel = TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.w700,
+    color: AppColors.primaryColor,
+  );
+
+  /// "Uploading… N%" progress caption.
+  /// fontSize: 12, color: primaryColor @ 60% opacity
+  static TextStyle get activityUploadProgressText => TextStyle(
+    fontSize: 12,
+    color: AppColors.primaryColor.withValues(alpha: 0.6),
+  );
+
+  /// "N file(s) selected" caption.
+  /// fontSize: 13, color: primaryColor @ 60% opacity
+  static TextStyle get activitySelectedFilesCaption => TextStyle(
+    fontSize: 13,
+    color: AppColors.primaryColor.withValues(alpha: 0.6),
+  );
+
+  /// "Choose Media" gradient-button label — dims when disabled.
+  /// fontWeight: w600
+  static TextStyle activityGradientButtonLabel({required bool enabled}) =>
+      TextStyle(
+        fontWeight: FontWeight.w600,
+        color: enabled
+            ? AppColors.cardColor
+            : AppColors.activityPlaceholderTextColor,
+      );
+
+  /// Destructive inline action text ("Replace") — color only.
+  static const TextStyle activityDestructiveActionText = TextStyle(
+    color: AppColors.activityErrorTextColor,
+  );
+
+  /// "Select Media Source" picker-dialog title.
+  /// fontSize: 20, fontWeight: w700, color: primaryColor
+  static const TextStyle activityPickerDialogTitle = TextStyle(
+    fontSize: 20,
+    fontWeight: FontWeight.w700,
+    color: AppColors.primaryColor,
+  );
+
+  /// Media-source picker option label ("Take Photo", "Record Video", ...).
+  /// fontSize: 16, fontWeight: w600, color: primaryColor
+  static const TextStyle activityPickerOptionLabel = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// "Take/Upload Photo or Video" hint inside the picture-box uploader.
+  /// fontSize: 14, color: primaryColor
+  static const TextStyle activityUploadBoxHint = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 14,
+  );
+
+  /// Responsive media-uploader label text (no weight of its own).
+  /// color: primaryColor
+  static TextStyle activityMediaLabelText({required double fontSize}) =>
+      TextStyle(fontSize: fontSize, color: AppColors.primaryColor);
+
+  /// Responsive body text with no weight/color of its own (inherits
+  /// ambient).
+  static TextStyle activityResponsiveBodyText({required double fontSize}) =>
+      TextStyle(fontSize: fontSize);
+
+  /// Inline validation-error text (13px, no weight of its own).
+  /// fontSize: 13, color: activityErrorTextColor
+  static const TextStyle activityValidationErrorText = TextStyle(
+    color: AppColors.activityErrorTextColor,
+    fontSize: 13,
+  );
+
+  /// Media-upload progress line without a weight override — the photo/video
+  /// activity screen's own variant, kept distinct from
+  /// [activityStrongLabel]'s w500 since the source doesn't set a weight here.
+  /// fontSize: 13, color: primaryColor
+  static const TextStyle activityUploadProgressPlain = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 13,
+  );
+
+  /// "Photo/Video processing in background..." label.
+  /// fontSize: 12.5, fontWeight: w600, color: activityProcessingText
+  static const TextStyle activityMediaProcessingLabel = TextStyle(
+    color: AppColors.activityProcessingText,
+    fontSize: 12.5,
+    fontWeight: FontWeight.w600,
+  );
+
+  /// Small dark-background tooltip text (disabled-tile / sign-in-required
+  /// tooltips).
+  /// fontSize: 12, color: cardColor
+  static const TextStyle activityTooltipText = TextStyle(
+    color: AppColors.cardColor,
+    fontSize: 12,
+  );
+
+  /// Choose-Activity grid tile label — dims when the activity is disabled.
+  /// fontSize: 14, fontWeight: w500
+  static TextStyle activityGridTileLabel({required bool isDisabled}) =>
+      TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: isDisabled
+            ? AppColors.activityMutedGreyColor
+            : AppColors.primaryColor,
+      );
+
+  /// Daily/Custom tab toggle label — themed when selected.
+  /// fontWeight: bold
+  static TextStyle activityTabToggleLabel({required bool isSelected}) =>
+      TextStyle(
+        color: isSelected
+            ? AppColors.themeColor
+            : AppColors.activityMutedGreyColor,
+        fontWeight: FontWeight.bold,
+      );
+
+  /// Filter-screen shimmer-loading label.
+  /// fontSize: 13, fontWeight: w400, color: primaryColor @ 50% opacity
+  static TextStyle get activityFilterShimmerLabel => TextStyle(
+    color: AppColors.primaryColor.withValues(alpha: 0.5),
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+  );
+
+  /// Filter-screen load-error text.
+  /// fontSize: 14, color: primaryColor @ 70% opacity
+  static TextStyle get activityFilterErrorText => TextStyle(
+    color: AppColors.primaryColor.withValues(alpha: 0.7),
+    fontSize: 14,
+  );
+}
+
+/// Reusable text widgets with predefined styles
+class AppText extends StatelessWidget {
+  const AppText.label(
+    this.text, {
+    super.key,
+    this.style,
+    this.textAlign,
+    this.overflow,
+    this.maxLines,
+  }) : _variant = _TextVariant.label;
+
+  const AppText.value(
+    this.text, {
+    super.key,
+    this.style,
+    this.textAlign,
+    this.overflow,
+    this.maxLines,
+  }) : _variant = _TextVariant.value;
+
+  const AppText.title(
+    this.text, {
+    super.key,
+    this.style,
+    this.textAlign,
+    this.overflow,
+    this.maxLines,
+  }) : _variant = _TextVariant.title;
+
+  const AppText.subtitle(
+    this.text, {
+    super.key,
+    this.style,
+    this.textAlign,
+    this.overflow,
+    this.maxLines,
+  }) : _variant = _TextVariant.subtitle;
+
+  const AppText.body(
+    this.text, {
+    super.key,
+    this.style,
+    this.textAlign,
+    this.overflow,
+    this.maxLines,
+  }) : _variant = _TextVariant.body;
+
+  const AppText.small(
+    this.text, {
+    super.key,
+    this.style,
+    this.textAlign,
+    this.overflow,
+    this.maxLines,
+  }) : _variant = _TextVariant.small;
+
+  const AppText.sectionHeader(
+    this.text, {
+    super.key,
+    this.style,
+    this.textAlign,
+    this.overflow,
+    this.maxLines,
+  }) : _variant = _TextVariant.sectionHeader;
+
+  final String text;
+  final _TextVariant _variant;
+  final TextStyle? style;
+  final TextAlign? textAlign;
+  final TextOverflow? overflow;
+  final int? maxLines;
+
+  TextStyle get _baseStyle {
+    switch (_variant) {
+      case _TextVariant.label:
+        return AppTextStyles.label;
+      case _TextVariant.value:
+        return AppTextStyles.value;
+      case _TextVariant.title:
+        return AppTextStyles.title;
+      case _TextVariant.subtitle:
+        return AppTextStyles.subtitle;
+      case _TextVariant.body:
+        return AppTextStyles.body;
+      case _TextVariant.small:
+        return AppTextStyles.small;
+      case _TextVariant.sectionHeader:
+        return AppTextStyles.sectionHeader;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: _baseStyle.merge(style),
+      textAlign: textAlign,
+      overflow: overflow,
+      maxLines: maxLines,
+    );
+  }
+}
+
+enum _TextVariant { label, value, title, subtitle, body, small, sectionHeader }

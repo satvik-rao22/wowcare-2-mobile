@@ -8,12 +8,14 @@ import '../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_parameter_value.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
+import '../../../../domain/features/activity/entities/activity_shared_card_result.dart';
 import '../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../../../domain/features/activity/entities/activity_type_summary.dart';
 import '../../../../domain/features/activity/entities/activity_upload_session.dart';
 import '../../../../domain/features/activity/repositories/activity_repository.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
 import '../datasources/activity_remote_datasource.dart';
+import '../models/activity_detail_model.dart';
 import '../models/activity_settings_models.dart';
 
 class ActivityRepositoryImpl implements ActivityRepository {
@@ -217,7 +219,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
     final data = await _remoteDataSource.getActivityByCode(
       cardGroupCode: code,
     );
-    return ActivityDetail.fromApiData(data);
+    return ActivityDetailModel.fromJson(data).toEntity();
   }
 
   @override
@@ -365,7 +367,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> createSharedActivities({
+  Future<List<ActivitySharedCardResult>> createSharedActivities({
     required String activityTypeCode,
     required String classroomCode,
     required List<String> studentCodes,
@@ -408,7 +410,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
 
     final cards = await _remoteDataSource.createSharedActivities(payload: payload);
     await ActivityFeedInvalidation.invalidate(_storageService);
-    return cards;
+    return cards.map(ActivitySharedCardResult.fromJson).toList();
   }
 
   @override

@@ -7,11 +7,14 @@ import 'package:flutter/material.dart';
 import 'package:gal/gal.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 import 'package:wowcare/shared/common/widgets/hls_web_player.dart';
 
 class ShowFullScreenMedia extends StatefulWidget {
+  static const String routeName = '/activity-fullscreen-media';
+
   /// Source activity. Optional so the same viewer can be opened with a raw
   /// [photoUrl] / [videoUrl] (e.g. from the activity-detail screen) and still
   /// get the identical zoom viewport + download button as the feed list.
@@ -165,7 +168,7 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
     final bool hasVideo = videoUrl?.isNotEmpty == true;
     final bool hasPhoto = photoUrl?.isNotEmpty == true;
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.blackColor,
       body: Stack(
         children: [
           // No AppBar here on purpose — a fixed app bar permanently steals
@@ -192,13 +195,13 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
                                 ? child
                                 : const Center(
                                     child: CircularProgressIndicator(
-                                      color: Colors.white,
+                                      color: AppColors.cardColor,
                                     ),
                                   ),
                             errorBuilder: (c, e, s) => const Center(
                               child: Icon(
                                 Icons.error,
-                                color: Colors.white,
+                                color: AppColors.cardColor,
                                 size: 60,
                               ),
                             ),
@@ -208,7 +211,7 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
                     : const Center(
                         child: Icon(
                           Icons.broken_image,
-                          color: Colors.white,
+                          color: AppColors.cardColor,
                           size: 100,
                         ),
                       ),
@@ -225,8 +228,8 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.black.withValues(alpha: 0.75),
-                      Colors.transparent,
+                      AppColors.blackColor.withValues(alpha: 0.75),
+                      AppColors.transparentColor,
                     ],
                   ),
                 ),
@@ -239,7 +242,7 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
                       child: IconButton(
                         icon: const Icon(
                           Icons.arrow_back,
-                          color: Colors.white,
+                          color: AppColors.cardColor,
                           size: 28,
                         ),
                         onPressed: () => Navigator.of(context).pop(),
@@ -255,12 +258,12 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
                                 height: 18,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: Colors.white,
+                                  color: AppColors.cardColor,
                                 ),
                               )
                             : const Icon(
                                 Icons.download_rounded,
-                                color: Colors.white,
+                                color: AppColors.cardColor,
                                 size: 24,
                               ),
                         onPressed: () => _downloadCurrentMedia(
