@@ -24,7 +24,6 @@ import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_f
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/student_classroom/entities/student_classroom_item.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_students_cubit.dart';
@@ -42,16 +41,6 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 
-class _AttendanceCacheEntry {
-  const _AttendanceCacheEntry({
-    required this.fetchedAt,
-    required this.statusByCode,
-  });
-
-  final DateTime fetchedAt;
-  final Map<String, String> statusByCode;
-}
-
 /// Bumped by any screen/flow that mutates the classroom roster (e.g. the
 /// "Assign Students to Classroom" sheet). The Students-tab card listens and
 /// invalidates its cubit + attendance cache so the new student is visible
@@ -66,7 +55,7 @@ void notifyClassroomStudentsChanged() {
 /// tab instance. Called on school switch so a newly selected school never
 /// shows the previous school's cached attendance status.
 void clearClassroomStudentsAttendanceCache() {
-  _ClassroomStudentsTabCardState._attendanceCacheByKey.clear();
+  ClassroomStudentsCubit.clearAttendanceStatusCache();
 }
 
 class ClassroomStudentsTabCard extends StatefulWidget {
@@ -118,15 +107,6 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   Map<String, sign_out_form.StudentEntity> _signOutEntitiesByCode = {};
   Map<String, transfer_form.StudentEntity> _transferEntitiesByCode = {};
   Map<String, absent_form.StudentEntity> _absentEntitiesByCode = {};
-  final Map<String, String> _attendanceStatusByStudentCode = <String, String>{};
-  bool _attendanceStatusLoading = false;
-  bool _attendanceStatusError = false;
-  int _visibleAttendanceFetchToken = 0;
-  Set<String> _lastVisibleAttendanceCodes = <String>{};
-
-  static const Duration _attendanceCacheTtl = Duration(minutes: 10);
-  static final Map<String, _AttendanceCacheEntry> _attendanceCacheByKey =
-      <String, _AttendanceCacheEntry>{};
 
   final List<String> statusDisplayValues = ['Active', 'Upcoming'];
   final List<String> statuses = ['ACTIVE', 'UPCOMING'];
@@ -148,9 +128,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     // Roster changed elsewhere (assign sheet, etc.) — drop the today's
     // attendance status cache for this room so the new student shows up
     // with fresh status, then refetch the student list.
-    _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
-    _attendanceStatusByStudentCode.clear();
-    _lastVisibleAttendanceCodes = <String>{};
+    _cubit.invalidateAttendanceStatus();
     _loadForSelectedRoom(refresh: true);
     _loadNapStartStudentCodes(refresh: true);
   }
@@ -160,9 +138,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   /// attendance caches.
   Future<void> _refreshAll() async {
     if (!mounted) return;
-    _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
-    _attendanceStatusByStudentCode.clear();
-    _lastVisibleAttendanceCodes = <String>{};
+    _cubit.invalidateAttendanceStatus();
     // Refresh the shared classroom dropdown list too, so a pull refreshes the
     // whole page's data — not just this tab.
     await _reloadClassroomList();
@@ -191,8 +167,9 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
   /// Used as the `refreshCallback` for every sign-in / sign-out / transfer /
   /// mark-absent form. The form just told us a student's attendance just
-  /// flipped — but `_attendanceCacheByKey` still holds the pre-action status
-  /// (it has a 10-minute TTL). Without dropping that cache, the next time
+  /// flipped — but the cubit's attendance-status cache still holds the
+  /// pre-action status (it has a 10-minute TTL). Without dropping that cache,
+  /// the next time
   /// the user selects the same student the attendance gate computes against
   /// stale data and "Sign In" stays disabled after a successful Sign Out
   /// (and vice versa). Wiping the room's cache here forces a fresh fetch.
@@ -208,9 +185,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
   void _refreshAfterAttendanceAction() {
     _dismissSelectionPanel();
-    _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
-    _attendanceStatusByStudentCode.clear();
-    _lastVisibleAttendanceCodes = <String>{};
+    _cubit.invalidateAttendanceStatus();
     _clearAttendanceEntityCaches();
     _loadForSelectedRoom(refresh: true);
   }
@@ -221,9 +196,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   void _refreshAfterActivityRecorded() {
     if (!mounted) return;
     _dismissSelectionPanel();
-    _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
-    _attendanceStatusByStudentCode.clear();
-    _lastVisibleAttendanceCodes = <String>{};
+    _cubit.invalidateAttendanceStatus();
     _clearAttendanceEntityCaches();
     _loadForSelectedRoom(refresh: true);
     _loadNapStartStudentCodes(refresh: true);
@@ -489,9 +462,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       _currentPanel = StudentPanelType.none;
     });
     _clearAttendanceEntityCaches();
-    _attendanceStatusByStudentCode.clear();
-    _attendanceStatusLoading = false;
-    _attendanceStatusError = false;
+    _cubit.invalidateAttendanceStatus();
     _loadForSelectedRoom(refresh: false);
   }
 
@@ -579,7 +550,10 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   /// dot (today's status). Grey rows, absent (red), or missing/other status → off.
   bool _canShowActivitiesPanel(List<StudentClassroomItem> selectedStudents) {
     if (!hasSelectedStudents) return false;
-    if (_attendanceStatusLoading || _attendanceStatusError) return false;
+    if (_cubit.state.attendanceStatusLoading ||
+        _cubit.state.attendanceStatusError) {
+      return false;
+    }
 
     if (selectedStudents.length > 1) {
       final roomFallback = (widget.selectedRoom?.code ?? '').trim();
@@ -603,10 +577,10 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
   String? _activitiesDisabledHint(List<StudentClassroomItem> selectedStudents) {
     if (!hasSelectedStudents) return null;
-    if (_attendanceStatusLoading) {
+    if (_cubit.state.attendanceStatusLoading) {
       return 'Hang on—we are loading attendance. Try Activities again in a moment.';
     }
-    if (_attendanceStatusError) {
+    if (_cubit.state.attendanceStatusError) {
       return "Today's attendance could not be loaded. Pull to refresh, then try again.";
     }
     if (selectedStudents.length > 1) {
@@ -640,22 +614,17 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
-  String _attendanceCacheKeyForRoomToday() {
-    final classroomCode = (widget.selectedRoom?.code ?? '').trim();
-    final date = _formatDate(AppTime.now());
-    return 'students:$classroomCode:$date';
-  }
-
   String _normalizeStudentCode(String code) => code.trim().toUpperCase();
 
   String? _todayStatusForStudentCode(String code) {
     final t = code.trim();
     if (t.isEmpty) return null;
-    if (_attendanceStatusByStudentCode.containsKey(t)) {
-      return _attendanceStatusByStudentCode[t];
+    final statusByCode = _cubit.state.attendanceStatusByStudentCode;
+    if (statusByCode.containsKey(t)) {
+      return statusByCode[t];
     }
     final u = _normalizeStudentCode(t);
-    for (final e in _attendanceStatusByStudentCode.entries) {
+    for (final e in statusByCode.entries) {
       if (_normalizeStudentCode(e.key) == u) return e.value;
     }
     return null;
@@ -669,136 +638,18 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     return student.signedIn;
   }
 
+  /// Re-checks the CURRENTLY SELECTED students' attendance status
+  /// immediately after a selection change — always a live fetch (no TTL
+  /// cache), matching [ClassroomStudentsCubit.refreshAttendanceStatusForSelection].
   Future<void> _refreshAttendanceStatusForSelection(
     List<StudentClassroomItem> visibleStudents,
-  ) async {
+  ) {
     final selected = _getSelectedStudents(visibleStudents);
-    if (selected.isEmpty) {
-      if (!mounted) return;
-      setState(() {
-        _attendanceStatusByStudentCode.clear();
-        _attendanceStatusLoading = false;
-        _attendanceStatusError = false;
-      });
-      return;
-    }
-
     final codes = selected
         .map((s) => s.studentCode.trim())
         .where((c) => c.isNotEmpty)
         .toList();
-
-    if (codes.isEmpty) {
-      if (!mounted) return;
-      setState(() {
-        _attendanceStatusByStudentCode.clear();
-        _attendanceStatusLoading = false;
-        _attendanceStatusError = false;
-      });
-      return;
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _attendanceStatusLoading = true;
-      _attendanceStatusError = false;
-    });
-
-    try {
-      final useCase = serviceLocator<GetStudentTodaySignInStatusMapUseCase>();
-      final map = await useCase(studentCodes: codes);
-      if (!mounted) return;
-      setState(() {
-        _attendanceStatusByStudentCode
-          ..clear()
-          ..addAll(map);
-        _attendanceStatusLoading = false;
-        _attendanceStatusError = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _attendanceStatusByStudentCode.clear();
-        _attendanceStatusLoading = false;
-        _attendanceStatusError = true;
-      });
-    }
-  }
-
-  /// Fetches today's sign-in status for the **whole roster** for the room.
-  ///
-  /// This must be passed the unfiltered roster (`state.students`), never the
-  /// post-filter `visibleStudents`. The Sign-In (`_isPresentFilter`) filter
-  /// itself reads [_attendanceStatusByStudentCode]; if status were fetched
-  /// only for students already passing the filter, a signed-in student whose
-  /// status isn't in the map yet would be dropped before their status is ever
-  /// requested — and stay hidden permanently (e.g. after toggling Napping).
-  Future<void> _refreshAttendanceStatusForRoster(
-    List<StudentClassroomItem> rosterStudents,
-  ) async {
-    final codes = rosterStudents
-        .map((s) => s.studentCode.trim())
-        .where((c) => c.isNotEmpty)
-        .toSet();
-
-    final cacheKey = _attendanceCacheKeyForRoomToday();
-    final cached = _attendanceCacheByKey[cacheKey];
-    if (cached != null &&
-        AppTime.nowUtc().difference(cached.fetchedAt) <= _attendanceCacheTtl) {
-      if (!mounted) return;
-      setState(() {
-        _attendanceStatusByStudentCode
-          ..clear()
-          ..addAll(cached.statusByCode);
-        _attendanceStatusLoading = false;
-        _attendanceStatusError = false;
-      });
-    }
-
-    if (codes.isEmpty) {
-      _lastVisibleAttendanceCodes = <String>{};
-      if (!mounted) return;
-      setState(() {
-        _attendanceStatusByStudentCode.clear();
-        _attendanceStatusLoading = false;
-        _attendanceStatusError = false;
-      });
-      return;
-    }
-
-    if (setEquals(codes, _lastVisibleAttendanceCodes)) return;
-    _lastVisibleAttendanceCodes = codes;
-
-    final token = ++_visibleAttendanceFetchToken;
-    if (!mounted) return;
-    setState(() {
-      _attendanceStatusLoading = true;
-      _attendanceStatusError = false;
-    });
-
-    try {
-      final useCase = serviceLocator<GetStudentTodaySignInStatusMapUseCase>();
-      final map = await useCase(studentCodes: codes.toList());
-      if (!mounted || token != _visibleAttendanceFetchToken) return;
-      setState(() {
-        _attendanceStatusByStudentCode
-          ..clear()
-          ..addAll(map);
-        _attendanceStatusLoading = false;
-        _attendanceStatusError = false;
-      });
-      _attendanceCacheByKey[cacheKey] = _AttendanceCacheEntry(
-        fetchedAt: AppTime.nowUtc(),
-        statusByCode: Map<String, String>.from(map),
-      );
-    } catch (_) {
-      if (!mounted || token != _visibleAttendanceFetchToken) return;
-      setState(() {
-        _attendanceStatusByStudentCode.clear();
-        _attendanceStatusLoading = false;
-        _attendanceStatusError = true;
-      });
-    }
+    return _cubit.refreshAttendanceStatusForSelection(codes);
   }
 
   StudentAttendanceActionAvailability _attendanceAvailabilityForSelection(
@@ -807,7 +658,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     if (selected.isEmpty) {
       return StudentAttendanceActionAvailability.allDisabled;
     }
-    if (_attendanceStatusLoading || _attendanceStatusError) {
+    if (_cubit.state.attendanceStatusLoading ||
+        _cubit.state.attendanceStatusError) {
       return StudentAttendanceActionAvailability.allDisabled;
     }
     if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
@@ -1290,7 +1142,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             // Status is fetched for the full roster (not `visibleStudents`)
             // so the Sign-In filter has every student's status available.
-            _refreshAttendanceStatusForRoster(state.students);
+            // ignore: discarded_futures
+            _cubit.refreshAttendanceStatusForRoster(state.students);
             _prefetchDetailsHealthForVisibleStudents(visibleStudents);
           });
 

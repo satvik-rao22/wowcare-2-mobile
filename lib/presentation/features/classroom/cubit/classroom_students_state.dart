@@ -11,6 +11,9 @@ class ClassroomStudentsState extends Equatable {
     this.lastClassroomCode,
     this.nappingStudentCodes = const <String>{},
     this.napCodesLoading = false,
+    this.attendanceStatusByStudentCode = const <String, String>{},
+    this.attendanceStatusLoading = false,
+    this.attendanceStatusError = false,
   });
 
   const ClassroomStudentsState.initial()
@@ -20,7 +23,10 @@ class ClassroomStudentsState extends Equatable {
       errorMessage = null,
       lastClassroomCode = null,
       nappingStudentCodes = const <String>{},
-      napCodesLoading = false;
+      napCodesLoading = false,
+      attendanceStatusByStudentCode = const <String, String>{},
+      attendanceStatusLoading = false,
+      attendanceStatusError = false;
 
   final List<StudentClassroomItem> students;
   final bool isLoading;
@@ -33,6 +39,15 @@ class ClassroomStudentsState extends Equatable {
   final Set<String> nappingStudentCodes;
   final bool napCodesLoading;
 
+  /// Today's sign-in status per student code, for the currently-loaded
+  /// roster (or, when [ClassroomStudentsCubit.refreshAttendanceStatusForSelection]
+  /// last ran, for just the selected subset) — feeds attendance-action
+  /// gating (sign-in/out/transfer/mark-absent eligibility) and the
+  /// "Present" filter.
+  final Map<String, String> attendanceStatusByStudentCode;
+  final bool attendanceStatusLoading;
+  final bool attendanceStatusError;
+
   ClassroomStudentsState copyWith({
     List<StudentClassroomItem>? students,
     bool? isLoading,
@@ -41,6 +56,9 @@ class ClassroomStudentsState extends Equatable {
     String? lastClassroomCode,
     Set<String>? nappingStudentCodes,
     bool? napCodesLoading,
+    Map<String, String>? attendanceStatusByStudentCode,
+    bool? attendanceStatusLoading,
+    bool? attendanceStatusError,
   }) {
     return ClassroomStudentsState(
       students: students ?? this.students,
@@ -50,6 +68,12 @@ class ClassroomStudentsState extends Equatable {
       lastClassroomCode: lastClassroomCode ?? this.lastClassroomCode,
       nappingStudentCodes: nappingStudentCodes ?? this.nappingStudentCodes,
       napCodesLoading: napCodesLoading ?? this.napCodesLoading,
+      attendanceStatusByStudentCode:
+          attendanceStatusByStudentCode ?? this.attendanceStatusByStudentCode,
+      attendanceStatusLoading:
+          attendanceStatusLoading ?? this.attendanceStatusLoading,
+      attendanceStatusError:
+          attendanceStatusError ?? this.attendanceStatusError,
     );
   }
 
@@ -62,5 +86,8 @@ class ClassroomStudentsState extends Equatable {
     lastClassroomCode,
     nappingStudentCodes,
     napCodesLoading,
+    attendanceStatusByStudentCode,
+    attendanceStatusLoading,
+    attendanceStatusError,
   ];
 }

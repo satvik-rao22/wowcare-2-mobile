@@ -2165,6 +2165,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ClassroomStudentsCubit(
       getStudentClassroomListUseCase: serviceLocator(),
       getNapStartStudentsUseCase: serviceLocator(),
+      getStudentTodaySignInStatusMapUseCase: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );
