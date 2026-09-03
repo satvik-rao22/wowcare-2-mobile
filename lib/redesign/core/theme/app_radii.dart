@@ -30,8 +30,24 @@ abstract final class AppRadii {
   /// Pills, avatars, troughs, toggle tracks.
   static const double pill = 999;
 
+  /// The 34px back key, one rung tighter than a 38px action key (5a, 7a).
+  static const double backKey = 12;
+
+  /// A checkbox (5a select mode).
+  static const double check = 7;
+
+  /// A bottom sheet's grabber.
+  static const double grabber = 3;
+
   static const BorderRadius cardR = BorderRadius.all(Radius.circular(card));
   static const BorderRadius innerR = BorderRadius.all(Radius.circular(inner));
+  static const BorderRadius backKeyR = BorderRadius.all(
+    Radius.circular(backKey),
+  );
+  static const BorderRadius checkR = BorderRadius.all(Radius.circular(check));
+  static const BorderRadius grabberR = BorderRadius.all(
+    Radius.circular(grabber),
+  );
   static const BorderRadius fabR = BorderRadius.all(Radius.circular(fab));
   static const BorderRadius chipR = BorderRadius.all(Radius.circular(chip));
   static const BorderRadius padR = BorderRadius.all(Radius.circular(pad));

@@ -180,9 +180,9 @@ class TokenGalleryPage extends StatelessWidget {
       ),
       const SizedBox(height: AppSizes.keyGap),
       SurfaceBox(
-        surface: AppSurfaces.well(c).copyWith(
-          insets: AppElevation.keyDisabled(c),
-        ),
+        surface: AppSurfaces.well(
+          c,
+        ).copyWith(insets: AppElevation.keyDisabled(c)),
         padding: AppSizes.keyPrimaryPad,
         alignment: Alignment.center,
         child: Text(
@@ -221,9 +221,18 @@ class TokenGalleryPage extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: <Widget>[
       _eyebrow(c, 'Type'),
-      Text('33.6', style: AppTextStyles.headlineCount.copyWith(color: c.dangerFg)),
-      Text('Module title', style: AppTextStyles.moduleTitle.copyWith(color: c.ink)),
-      Text('Detail title', style: AppTextStyles.detailTitle.copyWith(color: c.ink)),
+      Text(
+        '33.6',
+        style: AppTextStyles.headlineCount.copyWith(color: c.dangerFg),
+      ),
+      Text(
+        'Module title',
+        style: AppTextStyles.moduleTitle.copyWith(color: c.ink),
+      ),
+      Text(
+        'Detail title',
+        style: AppTextStyles.detailTitle.copyWith(color: c.ink),
+      ),
       Text('Card title', style: AppTextStyles.cardTitle.copyWith(color: c.ink)),
       Text('Row name', style: AppTextStyles.rowName.copyWith(color: c.ink)),
       Text('Sub line', style: AppTextStyles.subLine.copyWith(color: c.ink3)),

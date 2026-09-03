@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:wowcare/redesign/core/constants/app_sizes.dart';
 import 'package:wowcare/redesign/core/painters/inset_shadow_painter.dart';
 import 'package:wowcare/redesign/core/theme/colourway.dart';
 
@@ -94,33 +95,41 @@ abstract final class AppElevation {
 
   // --- Keys -----------------------------------------------------------------
 
-  /// The pink primary key: a solid 4px rim plus its own pink glow.
-  static List<BoxShadow> keyPrimary(Colourway c) => <BoxShadow>[
-    BoxShadow(color: c.pinkRim, offset: const Offset(0, 4)),
-    BoxShadow(
-      color: c.pinkKeyShadow,
-      offset: const Offset(0, 12),
-      blurRadius: 22,
-      spreadRadius: -14,
-    ),
+  /// The pink primary key: a solid rim plus its own pink glow.
+  ///
+  /// [rim] is the rim's height right now. At rest it is [AppSizes.keyRim];
+  /// `Pressable` drives it down to [AppSizes.keyRimDown] as the face sinks, so
+  /// the rim's bottom edge stays put while the face lands on it. The glow
+  /// fades with the rim: a key at full press casts nothing.
+  static List<BoxShadow> keyPrimary(
+    Colourway c, {
+    double rim = AppSizes.keyRim,
+  }) => <BoxShadow>[
+    BoxShadow(color: c.pinkRim, offset: Offset(0, rim)),
+    if (rim > AppSizes.keyRimDown)
+      BoxShadow(
+        color: c.pinkKeyShadow,
+        offset: const Offset(0, 12),
+        blurRadius: 22,
+        spreadRadius: -14,
+      ),
   ];
 
   /// The primary key at full press: the rim has collapsed from 4px to 1px.
-  static List<BoxShadow> keyPrimaryDown(Colourway c) => <BoxShadow>[
-    BoxShadow(color: c.pinkRim, offset: const Offset(0, 1)),
-  ];
+  static List<BoxShadow> keyPrimaryDown(Colourway c) =>
+      keyPrimary(c, rim: AppSizes.keyRimDown);
 
   /// A secondary key. Same face as a card, so it reads as raised, not filled.
   static List<BoxShadow> keySecondary(Colourway c) => card(c);
 
   /// A destructive key: a red rim, and no glow. Danger does not invite a tap.
-  static List<BoxShadow> keyDestructive(Colourway c) => <BoxShadow>[
-    BoxShadow(color: c.dangerFg, offset: const Offset(0, 4)),
-  ];
+  static List<BoxShadow> keyDestructive(
+    Colourway c, {
+    double rim = AppSizes.keyRim,
+  }) => <BoxShadow>[BoxShadow(color: c.dangerFg, offset: Offset(0, rim))];
 
-  static List<BoxShadow> keyDestructiveDown(Colourway c) => <BoxShadow>[
-    BoxShadow(color: c.dangerFg, offset: const Offset(0, 1)),
-  ];
+  static List<BoxShadow> keyDestructiveDown(Colourway c) =>
+      keyDestructive(c, rim: AppSizes.keyRimDown);
 
   /// A 38px icon key in the header bar.
   static List<BoxShadow> iconKey(Colourway c) => <BoxShadow>[
@@ -132,14 +141,28 @@ abstract final class AppElevation {
     ),
   ];
 
-  /// The FAB. A 3px rim rather than the key's 4px, so it sinks flush.
-  static List<BoxShadow> fab(Colourway c) => <BoxShadow>[
-    BoxShadow(color: c.pinkRim, offset: const Offset(0, 3)),
-  ];
+  /// The FAB. A 3px rim rather than the key's 4px, so it sinks flush: at
+  /// full press [rim] is zero.
+  static List<BoxShadow> fab(Colourway c, {double rim = AppSizes.fabRim}) =>
+      <BoxShadow>[
+        if (rim > 0) BoxShadow(color: c.pinkRim, offset: Offset(0, rim)),
+      ];
 
   /// A kiosk pad key: the deepest rim in the app, on the app's solid key rim.
-  static List<BoxShadow> padKey(Colourway c) => <BoxShadow>[
-    BoxShadow(color: c.keyRim, offset: const Offset(0, 4)),
+  /// Sinks flush like the FAB, so at full press [rim] is zero.
+  static List<BoxShadow> padKey(Colourway c, {double rim = AppSizes.keyRim}) =>
+      <BoxShadow>[
+        if (rim > 0) BoxShadow(color: c.keyRim, offset: Offset(0, rim)),
+      ];
+
+  /// A radio card (1b). Softer than a card: it is a choice, not content.
+  static List<BoxShadow> radioCard(Colourway c) => <BoxShadow>[
+    BoxShadow(
+      color: c.ambient,
+      offset: const Offset(0, 6),
+      blurRadius: 14,
+      spreadRadius: -12,
+    ),
   ];
 
   /// A selected filter chip. Navy, so its shadow is navy too.
@@ -186,7 +209,10 @@ abstract final class AppElevation {
 
   /// The bevel on a pink face.
   static List<InsetShadow> bevelOnPink(Colourway c) => <InsetShadow>[
-    InsetShadow(color: c.onPink.withValues(alpha: .3), offset: const Offset(0, 1)),
+    InsetShadow(
+      color: c.onPink.withValues(alpha: .3),
+      offset: const Offset(0, 1),
+    ),
   ];
 
   /// A well: anything you type into, or a knob slides in.
@@ -229,5 +255,11 @@ abstract final class AppElevation {
   /// An avatar bubble's inner light.
   static List<InsetShadow> avatarBevel(Colourway c) => <InsetShadow>[
     InsetShadow(color: c.onImpactSub, offset: const Offset(0, 1)),
+  ];
+
+  /// A pressed icon key, sunk into its own socket (3A1 header keys).
+  static List<InsetShadow> iconKeyDown(Colourway c) => <InsetShadow>[
+    InsetShadow(color: c.inset, offset: const Offset(0, 3), blur: 6),
+    InsetShadow(color: c.wellBevel, offset: const Offset(0, -1)),
   ];
 }

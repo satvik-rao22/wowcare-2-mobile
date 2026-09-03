@@ -4,7 +4,7 @@ import 'package:wowcare/redesign/app/redesign_app.dart';
 
 /// The redesign's entrypoint.
 ///
-///     flutter run -t lib/redesign/main_redesign.dart --dart-define=ENVIRONMENT=DEV
+///     flutter run -t lib/redesign/main_redesign.dart --dart-define=ENVIRONMENT=QA
 ///
 /// It boots the same way the app does — [AppBootstrap.initialize] wires up the
 /// service locator, network stack, storage, Firebase and notifications — and

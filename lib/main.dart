@@ -8,6 +8,8 @@ import 'package:wowcare/bootstrap/app_bootstrap.dart';
 import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:wowcare/core/firebase/firebase_auth_service.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/redesign/app/redesign_app.dart';
+import 'package:wowcare/redesign/launcher/design_chooser.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,7 +27,15 @@ Future<void> main() async {
   await ServerTimeService.instance.hydrateSchoolTimeZoneFromStorage();
   unawaited(ServerTimeService.instance.sync());
 
-  runApp(const MyApp());
+  // While the redesign is built alongside the shipping presentation layer,
+  // the first screen lets the reviewer pick one. `MyApp` is the existing app,
+  // untouched; `RedesignApp` is lib/redesign/. Both sit on the same bootstrap.
+  runApp(
+    DesignChooser(
+      newDesign: (_) => const RedesignApp(),
+      oldDesign: (_) => const MyApp(),
+    ),
+  );
 }
 
 /// Keeps the backend access token and the Firebase session fresh both on

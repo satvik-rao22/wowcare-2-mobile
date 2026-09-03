@@ -22,48 +22,78 @@ import 'package:wowcare/redesign/core/theme/app_motion.dart';
 /// The sink is in logical pixels deliberately. A fractional slide offset would
 /// sink a 40px row half a pixel and a 400px card nearly five; the design calls
 /// for the same distance everywhere.
+///
+/// A rimmed key needs to redraw as it sinks: its rim collapses in step with
+/// the travel so the rim's bottom edge stays put. Pass a [builder] instead of a
+/// [child] and it receives the press progress, 0 at rest and 1 at full press,
+/// on every frame of the sink.
 class Pressable extends StatefulWidget {
   const Pressable({
-    required this.child,
+    this.child,
+    this.builder,
     this.onTap,
     this.onLongPress,
     this.sink = AppSizes.surfaceSink,
     this.scale = AppSizes.surfacePressScale,
     this.behavior = HitTestBehavior.opaque,
     super.key,
-  });
+  }) : assert(
+         (child == null) != (builder == null),
+         'Pass exactly one of child or builder.',
+       );
 
   /// Rows, cards, chips: sink 2px and shrink almost imperceptibly.
   const Pressable.surface({
-    required this.child,
+    this.child,
+    this.builder,
     this.onTap,
     this.onLongPress,
     this.behavior = HitTestBehavior.opaque,
     super.key,
-  }) : sink = AppSizes.surfaceSink,
+  }) : assert(
+         (child == null) != (builder == null),
+         'Pass exactly one of child or builder.',
+       ),
+       sink = AppSizes.surfaceSink,
        scale = AppSizes.surfacePressScale;
 
   /// Rimmed keys and segmented tabs: sink 3px, no shrink.
   const Pressable.key({
-    required this.child,
+    this.child,
+    this.builder,
     this.onTap,
     this.onLongPress,
     this.behavior = HitTestBehavior.opaque,
     super.key,
-  }) : sink = AppSizes.keySink,
+  }) : assert(
+         (child == null) != (builder == null),
+         'Pass exactly one of child or builder.',
+       ),
+       sink = AppSizes.keySink,
        scale = 1;
 
   /// A kiosk pad key, the deepest rim in the app.
   const Pressable.padKey({
-    required this.child,
+    this.child,
+    this.builder,
     this.onTap,
     this.onLongPress,
     this.behavior = HitTestBehavior.opaque,
     super.key,
-  }) : sink = AppSizes.padKeySink,
+  }) : assert(
+         (child == null) != (builder == null),
+         'Pass exactly one of child or builder.',
+       ),
+       sink = AppSizes.padKeySink,
        scale = 1;
 
-  final Widget child;
+  /// What sinks. Exactly one of this and [builder] is set.
+  final Widget? child;
+
+  /// Builds what sinks from the press progress, 0 at rest to 1 at full press.
+  /// For surfaces that redraw as they travel, such as a rim collapsing.
+  final Widget Function(BuildContext context, double t)? builder;
+
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
 
@@ -108,7 +138,7 @@ class _PressableState extends State<Pressable> {
         builder: (context, t, child) {
           final sunk = Transform.translate(
             offset: Offset(0, widget.sink * t),
-            child: child,
+            child: child ?? widget.builder!(context, t),
           );
           if (widget.scale == 1) return sunk;
           return Transform.scale(

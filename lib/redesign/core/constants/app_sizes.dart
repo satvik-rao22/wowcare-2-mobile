@@ -174,4 +174,204 @@ abstract final class AppSizes {
 
   /// The kiosk pad's keys sink further than any other key in the app.
   static const double padKeySink = 4;
+
+  // --- Rims -----------------------------------------------------------------
+  //
+  // A rimmed key's solid shadow, in the CSS `0 4px 0 <rim>` sense. At full
+  // press it collapses to [keyRimDown] while the face travels [keySink].
+
+  /// The primary, destructive and kiosk pad keys' rim at rest.
+  static const double keyRim = 4;
+
+  /// The primary and destructive keys' rim at full press.
+  static const double keyRimDown = 1;
+
+  /// The FAB's rim at rest. It sinks flush, so there is no down value.
+  static const double fabRim = 3;
+
+  // --- Cards, from 3A1 and 7a -----------------------------------------------
+
+  /// A card's body padding.
+  static const EdgeInsets cardPad = EdgeInsets.all(15);
+
+  /// The gap between a card's title row and its body.
+  static const double cardContentGap = 13;
+
+  // --- Header bar glyphs and badges, from 3A1 and 5a ------------------------
+
+  /// The dashboard header's gap, a touch wider than a title header's.
+  static const double headerDashboardGap = 10;
+
+  /// The glyph inside a 38px icon key.
+  static const double iconKeyGlyph = 18;
+
+  /// The glyph inside the 34px back key.
+  static const double backKeyGlyph = 17;
+
+  /// The bell key's unread bubble: 18px tall, hanging 3px past the corner,
+  /// ringed 2px in the ground it sits on.
+  static const double iconKeyBadge = 18;
+  static const EdgeInsets iconKeyBadgePad = EdgeInsets.symmetric(horizontal: 4);
+  static const double iconKeyBadgeRing = 2;
+  static const double iconKeyBadgeOverhang = 3;
+
+  // --- Tab bar, from 3A1 ----------------------------------------------------
+
+  /// The glyph inside a tab tile.
+  static const double tabGlyph = 19;
+
+  /// How far the unread badge sits in from the tile's top-right corner.
+  static const double tabBadgeInset = 4;
+
+  // --- Keys with a glyph, from 1a and 7a ------------------------------------
+
+  /// The glyph beside a key's label, and the gap between them.
+  static const double keyGlyph = 17;
+  static const double keyIconGap = 10;
+
+  // --- List row, from 5a ----------------------------------------------------
+
+  /// The chevron at the end of a tappable row.
+  static const double rowChevron = 15;
+
+  /// The gap between a row's name and its sub-line.
+  static const double rowTextGap = 2;
+
+  /// A small pill, the size a row's trailing flag uses.
+  static const EdgeInsets pillSmallPad = EdgeInsets.symmetric(
+    horizontal: 9,
+    vertical: 5,
+  );
+
+  // --- Fields, from 1a, 5a and the Components page --------------------------
+
+  /// The sign-in fields, which are a size up from the everyday field.
+  static const EdgeInsets fieldPadLarge = EdgeInsets.all(16);
+
+  /// A field's leading glyph and the gap to the text.
+  static const double fieldIcon = 19;
+  static const double fieldIconGap = 12;
+
+  /// A field's trailing glyph: the eye on a password, the tick on valid input.
+  static const double fieldTrailingIcon = 19;
+
+  /// The search field: a shallower pad than a field, and a 16px glyph.
+  static const EdgeInsets searchPad = EdgeInsets.symmetric(
+    horizontal: 13,
+    vertical: 11,
+  );
+  static const double searchGlyph = 16;
+
+  /// The dropdown's caret and the gap either side of its text.
+  static const double caret = 15;
+  static const double dropdownGap = 9;
+
+  // --- Radio cards and check rows, from 1b and 5a ---------------------------
+
+  static const EdgeInsets radioCardPad = EdgeInsets.all(18);
+  static const double radioCardGap = 13;
+
+  /// The 22px ring radio: a 2px ring around a 10px dot.
+  static const double radio = 22;
+  static const double radioRing = 2;
+  static const double radioDot = 10;
+
+  /// The 22px checkbox: a 2px border around a 12px tick.
+  static const double checkbox = 22;
+  static const double checkboxBorder = 2;
+  static const double checkGlyph = 12;
+
+  // --- Loading ring, from 1a ------------------------------------------------
+
+  /// The ring on a key, and the bigger one on a loading screen.
+  static const double ringSmall = 16;
+  static const double ringLarge = 24;
+  static const double ringStroke = 2.5;
+
+  /// The faint track under the ring's moving arc, as a fraction of its colour.
+  static const double ringTrackAlpha = .4;
+
+  // --- Toast, banner and alert, from 1a and the Components page -------------
+
+  /// The status dot leading a toast or the offline banner.
+  static const double toastDot = 7;
+  static const double toastGap = 9;
+
+  /// Where a toast lands: inside the gutters, just under the header.
+  static const EdgeInsets toastMargin = EdgeInsets.symmetric(horizontal: 18);
+
+  static const EdgeInsets bannerPad = EdgeInsets.symmetric(
+    horizontal: 14,
+    vertical: 11,
+  );
+  static const double bannerGap = 9;
+
+  static const EdgeInsets alertPad = EdgeInsets.symmetric(
+    horizontal: 15,
+    vertical: 13,
+  );
+  static const double alertGap = 10;
+
+  /// The red "!" bubble on a danger alert.
+  static const double alertBubble = 20;
+
+  /// The info glyph on an info alert.
+  static const double alertIcon = 17;
+
+  // --- Chips, from 5a -------------------------------------------------------
+
+  /// The gap between a chip's label and its count or remove glyph.
+  static const double chipInnerGap = 6;
+
+  /// The remove cross on a dismissible chip.
+  static const double chipRemoveGlyph = 11;
+
+  // --- Section eyebrow, from 5a ---------------------------------------------
+
+  /// The gap between an eyebrow and the meta beside it.
+  static const double eyebrowMetaGap = 8;
+
+  /// The gap between a section's eyebrow and its first card.
+  static const double sectionGap = 9;
+
+  // --- Empty state ----------------------------------------------------------
+
+  /// The glyph inside the 64px well tile.
+  static const double emptyGlyph = 28;
+
+  // --- Sheets ---------------------------------------------------------------
+
+  /// The gap between a sheet's footer keys, and above the footer.
+  static const double sheetFooterGap = 10;
+  static const double sheetFooterTopPad = 2;
+
+  // --- Counting tile --------------------------------------------------------
+
+  /// The gap between a tile's number and its label.
+  static const double tileTextGap = 1;
+
+  // --- Odds and ends the widgets share -------------------------------------
+
+  /// A one-pixel rule: dividers, the hairline under a header.
+  static const double hairline = 1;
+
+  /// How far an avatar's attendance dot hangs past the bubble's edge (5a).
+  static const double attendanceDotOverhang = 1;
+
+  /// A segmented control's segment sinks one pixel, not a key's three (4a).
+  static const double segmentSink = 1;
+
+  /// A section eyebrow sits 2px in from the cards below it (5a).
+  static const double eyebrowInset = 2;
+
+  /// The default body padding of a screen: gutters, top pad, FAB clearance.
+  static const EdgeInsets bodyPad = EdgeInsets.fromLTRB(
+    screenGutter,
+    screenTopPad,
+    screenGutter,
+    screenBottomPad,
+  );
+
+  /// How much tray a full-height sheet leaves showing above itself.
+  static const double sheetTopClearance = 24;
 }

@@ -45,7 +45,24 @@ abstract final class AppStrings {
   static const String filter = 'Filter';
   static const String select = 'Select';
   static const String selectAll = 'Select all';
+  static const String clearAll = 'Clear all';
   static const String viewAll = 'View all';
+
+  /// A multi-select dropdown's summary once something is picked.
+  static String selectedCount(int n) => n == 1 ? '1 selected' : '$n selected';
+
+  /// A password field's eye key, for assistive tech.
+  static const String showPassword = 'Show password';
+  static const String hidePassword = 'Hide password';
+
+  /// The clear key in a search field, for assistive tech.
+  static const String clearSearch = 'Clear search';
+
+  /// The dashboard's hamburger, for assistive tech.
+  static const String openMenu = 'Open menu';
+  static const String notifications = 'Notifications';
+  static const String scanQr = 'Scan QR';
+  static const String add = 'Add';
 
   /// Leaving the app. Never used for a student leaving for the day.
   static const String logout = 'Logout';
@@ -80,8 +97,15 @@ abstract final class AppStrings {
   static const String loading = 'Loading…';
   static const String somethingWentWrong = 'Something went wrong';
   static const String noConnection = 'No connection';
-  static const String checkConnection =
-      'Check your connection and try again.';
+  static const String checkConnection = 'Check your connection and try again.';
+
+  /// The navy strip across the top of a screen while the device is offline.
+  static const String offlineBanner =
+      'No connection. Check your network and try again.';
+
+  /// What an empty list says when the module has nothing more specific.
+  static const String nothingHere = 'Nothing here yet';
+  static const String noResults = 'No results';
 
   // --- Required fields ------------------------------------------------------
 
@@ -89,4 +113,16 @@ abstract final class AppStrings {
 
   /// The asterisk beside a required field's label, drawn in pink.
   static const String requiredMark = '*';
+
+  /// The mark in an inline alert's red bubble.
+  static const String alertMark = '!';
+
+  /// A screen that is routed but not built yet.
+  static const String comingSoon = 'This screen is being rebuilt.';
+
+  // --- The launcher, while both presentation layers coexist ----------------
+
+  static const String launcherPrompt = 'Choose a presentation layer';
+  static const String launcherNewDesign = 'New Design';
+  static const String launcherOldDesign = 'Old Design';
 }

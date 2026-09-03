@@ -134,3 +134,35 @@ Match the house style so linking is mechanical rather than a rewrite.
 - Time is school-timezone based, not device local. Go through `ServerTimeService`, `SchoolTimezoneResolver` and `SchoolZoneDateTime`.
 - `SplashCubit` needs the widget tree's `RoleCubit`, `ParentChildCubit` and `AuthCubit` instances, not fresh ones from `serviceLocator`. The persona switch in `user_profile_screen.dart` has a load-bearing ordering (guardian preload before the role flips) that must be reproduced.
 - The design folder's `CLAUDE.md` is chronological and later entries supersede earlier ones. Its "Decisions already made" section near line 954 is partly stale: nav is five slots not four, attendance verbs are Sign In / Signed In, and ratio shows counts written students-first with two states only. `WowCare App Design Language.dc.html` still documents the retired all-warm surfaces; the Design Components page is current.
+
+## Conventions settled while building (3 Sep 2026)
+
+- **The launcher is the one sanctioned edit outside `lib/redesign/`.** `lib/main.dart` now runs
+  `DesignChooser` (in `lib/redesign/launcher/`) which shows two keys on every launch, New Design
+  and Old Design, and inflates `RedesignApp` or the untouched `MyApp` accordingly. `git diff
+  develop --stat -- lib` therefore shows `lib/main.dart` plus `lib/redesign/`, and nothing else.
+- **Per-module strings files.** Shared vocabulary stays in `core/constants/app_strings.dart`;
+  everything a module says lives in `features/<m>/<m>_strings.dart` as `<X>Strings`, so modules
+  can be built in parallel without touching one file.
+- **Per-module routes and DI files.** `features/<m>/<m>_routes.dart` exports the module's
+  `List<RouteBase>` (relative paths, nested by `core/routing/app_router.dart` under the right
+  shell branch; branch owners also export `build<X>Root`). `features/<m>/<m>_di.dart` exports
+  `register<X>Dependencies(GetIt)`, called from `core/di/redesign_di.dart`. Absolute paths stay
+  in `AppRoutes` only.
+- **Its own locator.** `redesignLocator` is a separate `GetIt` instance, not the app's global
+  `serviceLocator`, because both presentation layers coexist behind the launcher. Phase 5 pulls
+  real usecases from the app's locator inside `register<X>Dependencies`.
+- **Session and persona.** `core/session/SessionCubit` holds who is signed in, where, and as
+  which `Persona` (admin / staff / guardian). The router's redirect gates on it, and
+  `ShellScaffold` maps a persona's five slots onto the six shell branches. `BadgeCubit` carries
+  the Messages and bell counts.
+- **One demo world.** `core/preview/demo_data.dart` is Maple View: Marcus Whitfield (Admin),
+  Dana Whitfield (Staff, Sunflower), Ngozi Okafor (Guardian of Amara and Sam), the Sunflower and
+  Bluebell rosters and the staff list, all lifted from the design's own demo arrays. Every module's
+  fixtures reuse these people. The preview account holds all three roles so 13d Switch Profile is
+  a real, exercised path for flipping persona.
+- **Frame extraction.** `WowCare M*.dc.html` pages are split per frame (PNG render, simplified DOM
+  text and the page script) by a scratchpad script; screens are built against those renders rather
+  than by reading raw HTML.
+- **Icons.** `lucide_icons_flutter` provides the Lucide outline set the design draws; glyphs are
+  named in `core/constants/app_icons.dart`.

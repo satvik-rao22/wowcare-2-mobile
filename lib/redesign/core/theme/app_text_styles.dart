@@ -109,6 +109,13 @@ abstract final class AppTextStyles {
     fontWeight: FontWeight.w700,
   );
 
+  /// The count beside a filter chip's label (4a, 7a).
+  static const TextStyle chipCount = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: .75 * _px,
+    fontWeight: FontWeight.w800,
+  );
+
   /// A subline under a title.
   static const TextStyle subLine = TextStyle(
     fontFamily: fontFamily,
@@ -178,5 +185,77 @@ abstract final class AppTextStyles {
     fontFamily: fontFamily,
     fontSize: .55 * _px,
     fontWeight: FontWeight.w800,
+  );
+
+  /// The count in the bell key's bubble, a size up from a tab badge (3A1).
+  static const TextStyle iconKeyBadge = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: .6 * _px,
+    fontWeight: FontWeight.w800,
+  );
+
+  /// A field's placeholder. The one place body copy drops to 500.
+  static const TextStyle placeholder = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: .84 * _px,
+    fontWeight: FontWeight.w500,
+  );
+
+  /// A segmented control's segments (Components page `.segmented__item`).
+  static const TextStyle segmentLabel = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: .85 * _px,
+    fontWeight: FontWeight.w700,
+  );
+
+  /// The "View all" link beside a section title (3A1).
+  static const TextStyle sectionLink = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: .7 * _px,
+    fontWeight: FontWeight.w700,
+  );
+
+  /// The count or note beside a section eyebrow (5a "Starting soon · 3").
+  static const TextStyle eyebrowMeta = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: .7 * _px,
+    fontWeight: FontWeight.w700,
+  );
+
+  /// The message in an inline alert (1a's rejected sign-in).
+  static const TextStyle alertText = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: .79 * _px,
+    fontWeight: FontWeight.w600,
+    height: 1.5,
+  );
+
+  /// The "!" in an alert's red bubble.
+  static const TextStyle alertBubble = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: .7 * _px,
+    fontWeight: FontWeight.w800,
+  );
+
+  /// A quiet explanatory note in a well or alt-well (5a's staff scope note).
+  static const TextStyle noteText = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: .74 * _px,
+    fontWeight: FontWeight.w600,
+    height: 1.5,
+  );
+
+  /// The offline banner's line (1a).
+  static const TextStyle bannerText = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: .75 * _px,
+    fontWeight: FontWeight.w700,
+  );
+
+  /// A kiosk pad key's digit (Components page `.pinkey`).
+  static const TextStyle padKeyLabel = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: 1.3 * _px,
+    fontWeight: FontWeight.w700,
   );
 }
