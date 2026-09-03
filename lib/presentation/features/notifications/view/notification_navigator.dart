@@ -101,6 +101,6 @@ class _NotificationNavigatorState extends State<NotificationNavigator> {
     AppLogger.d(
       '[FCM] Routing action=${message.action} → ${destination.location}',
     );
-    appRouter.go(destination.location);
+    appRouterGo(destination.location);
   }
 }

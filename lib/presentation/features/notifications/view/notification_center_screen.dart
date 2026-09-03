@@ -336,7 +336,7 @@ class _NotificationsListState extends State<_NotificationsList> {
       isGuardian: roleCubit.isParent,
     );
     if (destination == null) return;
-    appRouter.go(destination.location);
+    appRouterGo(destination.location);
   }
 
   @override

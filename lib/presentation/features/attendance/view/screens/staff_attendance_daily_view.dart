@@ -42,10 +42,6 @@ import 'package:wowcare/domain/features/attendance/entities/staff_attendance_dai
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_absent.dart'
     show StaffAttendanceAbsentItem;
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
-import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_attendance_summary_cubit.dart';
 
 class StaffAttendanceDailyViewScreen extends StatefulWidget {
   const StaffAttendanceDailyViewScreen({
@@ -508,36 +504,17 @@ class _StaffAttendanceDailyViewScreenState
   void _openStaffListWithIncomingFilter(String status) {
     final normalized = status.trim().toUpperCase();
     if (normalized != 'ACTIVE' && normalized != 'UPCOMING') return;
-    // GoRouter holdout (documented): pushes the SHARED StaffScreen wrapped in an
-    // attendance-specific MultiBlocProvider (StaffCubit..loadInitial +
-    // ClassroomCubit..loadActiveClassrooms(onlyTypeClassroom:false)). The
-    // existing /dashboard/staff route builds StaffScreen with different cubit
-    // init (incomingHighlightCode, no status filter) — converting would change
-    // that shared route's behaviour for non-attendance callers.
-    Navigator.push<void>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => MultiBlocProvider(
-          providers: [
-            BlocProvider<StaffCubit>(
-              create: (_) => serviceLocator<StaffCubit>()..loadInitial(),
-            ),
-            BlocProvider<ClassroomCubit>(
-              create: (_) =>
-                  serviceLocator<ClassroomCubit>()
-                    ..loadActiveClassrooms(onlyTypeClassroom: false),
-            ),
-            BlocProvider<StaffProfileCubit>(
-              create: (_) => serviceLocator<StaffProfileCubit>(),
-            ),
-            BlocProvider<StaffAttendanceSummaryCubit>(
-              create: (_) => serviceLocator<StaffAttendanceSummaryCubit>(),
-            ),
-          ],
-          child: StaffScreen(incomingStatusFilter: normalized),
-        ),
-      ),
-    );
+    // Pushes the shared /dashboard/staff route (go_router), which already
+    // builds the exact same StaffCubit/ClassroomCubit/StaffProfileCubit/
+    // StaffAttendanceSummaryCubit combination this needed and now also
+    // accepts a status filter via `extra` — see that route's doc comment in
+    // app_router.dart. This used to be an imperative Navigator.push of an
+    // ad-hoc copy of that same screen, which bypassed go_router entirely:
+    // go_router's own idea of "current location" never updated, so a
+    // subsequent context.go()/drawer navigation (e.g. tapping "Staff
+    // Attendance" in the side drawer) found itself already "at" that
+    // location and silently no-opped.
+    context.push<void>('/dashboard/staff', extra: {'filter': normalized});
   }
 
   @override

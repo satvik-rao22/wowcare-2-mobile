@@ -393,7 +393,27 @@ class _EditStudentProfileDetailsScreenState
           'name': base,
           'code': code,
           'legalCustody': legalCustody,
-          'raw': g,
+          // 'raw' must be an actual Map<String, dynamic> - rawByCode below
+          // (used at save time to build the full-update custody PATCH
+          // payload, see _guardianRawByCode's own doc) does `as Map<String,
+          // dynamic>` on it. Post-MVVM-migration this is the typed
+          // StudentGuardian entity, not a raw JSON map, so build the map
+          // explicitly from its fields instead of passing the entity itself
+          // - passing `g` directly here always threw ("type 'StudentGuardian'
+          // is not a subtype of type 'Map<String, dynamic>' in type cast"),
+          // silently aborting this whole function before it ever reached the
+          // setState that populates the dropdown - the actual root cause of
+          // the Child Custody dropdown showing "No matches found" for every
+          // student, always, regardless of timing.
+          'raw': <String, dynamic>{
+            'userCode': g.userCode,
+            'firstName': g.firstName,
+            'lastName': g.lastName,
+            'email': g.email,
+            'mobile': g.mobile,
+            'relationToStudent': g.relationToStudent,
+            'primaryContact': g.primaryContact,
+          },
         });
       }
 

@@ -170,7 +170,7 @@ class GeofenceNotificationService {
           AppLogger.d('[FCM] Foreground tap school-switch failed: $e');
         }
         try {
-          appRouter.go(decoded.location);
+          appRouterGo(decoded.location);
         } catch (e) {
           AppLogger.d('[FCM] Foreground tap route failed for "$raw": $e');
         }
@@ -178,7 +178,7 @@ class GeofenceNotificationService {
       return;
     }
     try {
-      appRouter.go(decoded.location);
+      appRouterGo(decoded.location);
     } catch (e) {
       AppLogger.d('[FCM] Foreground tap route failed for "$raw": $e');
     }

@@ -5,6 +5,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
+import 'package:wowcare/core/util/tab_visibility_events.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_custom_tab.dart';
@@ -71,7 +72,22 @@ class ActivityFeedScreen extends StatefulWidget {
 }
 
 class _ActivityFeedScreenState extends State<ActivityFeedScreen>
-    with TickerProviderStateMixin, SchoolSwitchReloadMixin {
+    with
+        TickerProviderStateMixin,
+        SchoolSwitchReloadMixin,
+        TabBecameVisibleMixin {
+  // Activity Feed is branch index 2 in app_router.dart's shell.
+  @override
+  int get tabBranchIndex => 2;
+
+  @override
+  void onTabBecameVisible() {
+    if (!mounted) return;
+    // Same subtree-recreate trick as onSchoolSwitched() below, triggered by
+    // switching back to this tab instead of a school/persona change.
+    setState(() => _contextReloadEpoch++);
+  }
+
   late TabController _tabController;
   final ScrollController _dailyScrollController = ScrollController();
   final ScrollController _customScrollController = ScrollController();
