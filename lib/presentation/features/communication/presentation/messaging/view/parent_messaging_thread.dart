@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/participant_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/role_aware_ownership.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/message_delete_permission.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
@@ -147,6 +148,27 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   bool _isLoadingOlder = false;
   static const double _loadOlderScrollThreshold = 200.0;
 
+  /// `communication-settings`-driven Delete visibility — see
+  /// [MessageBubble.isAdminCanDeleteAny] / [MessageBubble.deleteTimeLimitMinutes].
+  /// This screen only ever shows the GUARDIAN's own view of the thread, so
+  /// the admin-delete-any override never applies here — only the sender's
+  /// own delete window matters, fetched once on open.
+  MessageDeletePermission _deletePermission = MessageDeletePermission.none;
+
+  Future<void> _loadDeletePermission() async {
+    final schoolCode =
+        (await serviceLocator<StorageService>().getString(
+          StorageKeys.schoolCode,
+        ) ??
+        '');
+    final permission = await MessageDeletePermission.resolve(
+      schoolCode: schoolCode,
+      isAdminViewer: false,
+    );
+    if (!mounted) return;
+    setState(() => _deletePermission = permission);
+  }
+
   /// Overrides `widget.parentInfo['participants']` once a fresh fetch
   /// completes — the participant list passed in via `parentInfo` is
   /// whatever was last loaded into the inbox (potentially stale: classroom
@@ -187,6 +209,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     WidgetsBinding.instance.addObserver(this);
     _reactionsController = ReactionsController(currentUserId: '');
     _tabController = TabController(length: _tabCount, vsync: this);
+    unawaited(_loadDeletePermission());
 
     _tabController?.addListener(() {
       if (mounted) setState(() {});
@@ -902,6 +925,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                       participants: _participants,
                       senderIsOrgSide: _isOrgSideSender(message),
                       viewerIsOrgSide: !widget.isGuardian,
+                      isAdminCanDeleteAny:
+                          _deletePermission.isAdminCanDeleteAny,
+                      deleteTimeLimitMinutes:
+                          _deletePermission.deleteTimeLimitMinutes,
                       onReply: message.isDeleted
                           ? null
                           : () {
@@ -1255,6 +1282,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                           viewerIsOrgSide:
                                                               !widget
                                                                   .isGuardian,
+                                                          isAdminCanDeleteAny:
+                                                              _deletePermission
+                                                                  .isAdminCanDeleteAny,
+                                                          deleteTimeLimitMinutes:
+                                                              _deletePermission
+                                                                  .deleteTimeLimitMinutes,
                                                           onReply:
                                                               message.isDeleted
                                                               ? null
@@ -1580,6 +1613,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                           viewerIsOrgSide:
                                                               !widget
                                                                   .isGuardian,
+                                                          isAdminCanDeleteAny:
+                                                              _deletePermission
+                                                                  .isAdminCanDeleteAny,
+                                                          deleteTimeLimitMinutes:
+                                                              _deletePermission
+                                                                  .deleteTimeLimitMinutes,
                                                           onReply:
                                                               message.isDeleted
                                                               ? null
@@ -1914,6 +1953,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                           viewerIsOrgSide:
                                                               !widget
                                                                   .isGuardian,
+                                                          isAdminCanDeleteAny:
+                                                              _deletePermission
+                                                                  .isAdminCanDeleteAny,
+                                                          deleteTimeLimitMinutes:
+                                                              _deletePermission
+                                                                  .deleteTimeLimitMinutes,
                                                           onReply:
                                                               message.isDeleted
                                                               ? null
@@ -2371,6 +2416,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               viewerIsOrgSide:
                                                                   !widget
                                                                       .isGuardian,
+                                                              isAdminCanDeleteAny:
+                                                                  _deletePermission
+                                                                      .isAdminCanDeleteAny,
+                                                              deleteTimeLimitMinutes:
+                                                                  _deletePermission
+                                                                      .deleteTimeLimitMinutes,
                                                               onReply:
                                                                   message
                                                                       .isDeleted
@@ -2706,6 +2757,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               viewerIsOrgSide:
                                                                   !widget
                                                                       .isGuardian,
+                                                              isAdminCanDeleteAny:
+                                                                  _deletePermission
+                                                                      .isAdminCanDeleteAny,
+                                                              deleteTimeLimitMinutes:
+                                                                  _deletePermission
+                                                                      .deleteTimeLimitMinutes,
                                                               onReply:
                                                                   message
                                                                       .isDeleted
@@ -3051,6 +3108,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               viewerIsOrgSide:
                                                                   !widget
                                                                       .isGuardian,
+                                                              isAdminCanDeleteAny:
+                                                                  _deletePermission
+                                                                      .isAdminCanDeleteAny,
+                                                              deleteTimeLimitMinutes:
+                                                                  _deletePermission
+                                                                      .deleteTimeLimitMinutes,
                                                               onReply:
                                                                   message
                                                                       .isDeleted

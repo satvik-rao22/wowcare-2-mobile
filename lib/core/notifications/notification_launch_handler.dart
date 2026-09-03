@@ -1,5 +1,7 @@
+import 'package:app_links/app_links.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:wowcare/core/notifications/deep_link_parser.dart';
 import 'package:wowcare/core/notifications/native_notification_bridge.dart';
 import 'package:wowcare/core/platform/ios_geofence_tap_bridge.dart';
 import 'package:wowcare/core/util/logger_service.dart';
@@ -120,6 +122,32 @@ Future<void> resolvePendingLaunchNotification() async {
         AppLogger.d(
           '[main] stashed (iOS geofence tap) pendingNotificationDeepLink=$pendingNotificationDeepLink',
         );
+      }
+    }
+
+    // Killed-state launch via a Universal Link / Android App Link — e.g. the
+    // user tapped a button in an email and the app was closed. Only checked
+    // once nothing above claimed the deep-link already.
+    if (pendingNotificationDeepLink == null) {
+      final initialUri = await AppLinks().getInitialLink();
+      if (initialUri != null) {
+        final notification = pushNotificationFromDeepLinkUri(initialUri);
+        if (notification != null) {
+          final dest = NotificationRouteResolver.resolve(notification);
+          if (dest != null) pendingNotificationDeepLink = dest.location;
+          final org = (notification.organizationCode ?? '').trim();
+          final school = (notification.schoolCode ?? '').trim();
+          if (org.isNotEmpty && school.isNotEmpty) {
+            pendingNotificationOrgSchool = {
+              'organizationCode': org,
+              'schoolCode': school,
+            };
+          }
+          AppLogger.d(
+            '[main] stashed (deep link) pendingNotificationDeepLink=$pendingNotificationDeepLink '
+            'orgSchool=$pendingNotificationOrgSchool',
+          );
+        }
       }
     }
   } catch (e) {

@@ -226,6 +226,7 @@ class ApiPaths {
           return ApiMicroservices.activity;
         }
         return ApiMicroservices.user;
+      case 'messaging':
       case 'conversations':
       case 'messages':
       case 'firebase':
@@ -918,6 +919,13 @@ class ApiPaths {
   static const String messagingConversations = conversations;
   static const String messagingCreateMessage = conversations;
   static const String messagingMessages = messages;
+
+  /// School-level messaging policy — GET
+  /// /api/v1/messaging/communication-settings?schoolCode=... — controls
+  /// whether admins can delete any message (not just their own) and the
+  /// minutes a sender has to delete their own message after sending.
+  static const String communicationSettings =
+      '/api/v1/messaging/communication-settings';
 
   /// Server-side conversation search — GET /conversations/search?q=...&type=...
   /// Searches ALL of the account's conversations of [type] matching the

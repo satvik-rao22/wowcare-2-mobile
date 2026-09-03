@@ -18,6 +18,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/message_delete_permission.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
@@ -76,6 +78,24 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
   /// already sitting at the latest message instead of visibly scrolling
   /// down to it from the top.
   bool _isPositionedAtBottom = false;
+
+  /// `communication-settings`-driven Delete visibility — see
+  /// [MessageBubble.isAdminCanDeleteAny] / [MessageBubble.deleteTimeLimitMinutes].
+  MessageDeletePermission _deletePermission = MessageDeletePermission.none;
+
+  Future<void> _loadDeletePermission() async {
+    final storage = serviceLocator<StorageService>();
+    final schoolCode =
+        (await storage.getString(StorageKeys.schoolCode) ?? '');
+    if (!mounted) return;
+    final isAdminViewer = context.read<RoleCubit>().role == 'admin';
+    final permission = await MessageDeletePermission.resolve(
+      schoolCode: schoolCode,
+      isAdminViewer: isAdminViewer,
+    );
+    if (!mounted) return;
+    setState(() => _deletePermission = permission);
+  }
 
   /// `staffInfo['avatar']` is either a resolved URL or a raw media-asset
   /// code depending on which screen started the conversation — `fileUuid`
@@ -180,6 +200,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     );
 
     unawaited(_loadCurrentUserStaffStatus());
+    unawaited(_loadDeletePermission());
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
@@ -819,6 +840,12 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                     _currentUserCode,
                                                 reactionsController:
                                                     _reactionsController,
+                                                isAdminCanDeleteAny:
+                                                    _deletePermission
+                                                        .isAdminCanDeleteAny,
+                                                deleteTimeLimitMinutes:
+                                                    _deletePermission
+                                                        .deleteTimeLimitMinutes,
                                                 onScrollToQuoted: (quoteId) {
                                                   _scrollToMessage(quoteId);
                                                 },
@@ -1123,6 +1150,12 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                           _currentUserCode,
                                                       reactionsController:
                                                           _reactionsController,
+                                                      isAdminCanDeleteAny:
+                                                          _deletePermission
+                                                              .isAdminCanDeleteAny,
+                                                      deleteTimeLimitMinutes:
+                                                          _deletePermission
+                                                              .deleteTimeLimitMinutes,
                                                       onScrollToQuoted:
                                                           (quoteId) {
                                                             _scrollToMessage(
