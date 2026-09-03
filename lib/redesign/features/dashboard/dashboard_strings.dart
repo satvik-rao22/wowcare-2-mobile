@@ -271,7 +271,7 @@ abstract final class DashboardStrings {
 
   static String switchProfileBody(int roles, String school) =>
       'This account holds ${_words(roles)} roles at $school. Switching '
-      'changes what the app shows you — same person, different tools.';
+      'changes what the app shows you: same person, different tools.';
   static const String switchProfileNote =
       "Switching takes you to that role's dashboard fresh. Nothing is "
       'signed out.';

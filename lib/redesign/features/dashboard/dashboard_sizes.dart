@@ -250,6 +250,9 @@ abstract final class DashboardSizes {
 
   static const double activityCircle = 44;
   static const double activityImage = 32;
+
+  /// The glyph inside an activity tile's circle.
+  static const double activityGlyph = 20;
   static const double activityGap = 8;
   static const double activityTextGap = 6;
   static const double activityLabelSize = .66 * _px;
@@ -284,6 +287,11 @@ abstract final class DashboardSizes {
   static const double moreEyebrowSize = .66 * _px;
   static const double moreEyebrowSpacing = .14 * .66 * _px;
   static const int moreColumns = 2;
+
+  /// A More tile's height, written out rather than left to an aspect ratio:
+  /// the glyph tile, the gap, one line of label and the padding, with room
+  /// for the text scale the app allows.
+  static const double moreTileExtent = 104;
   static const EdgeInsets moreBodyPad = EdgeInsets.fromLTRB(18, 4, 18, 96);
 
   // --- Account (3M2) --------------------------------------------------------

@@ -1,14 +1,26 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/redesign/core/routing/placeholder_screen.dart';
+import 'package:wowcare/redesign/features/dashboard/presentation/pages/account_page.dart';
+import 'package:wowcare/redesign/features/dashboard/presentation/pages/dashboard_page.dart';
+import 'package:wowcare/redesign/features/dashboard/presentation/pages/more_page.dart';
 
-/// M03 Dashboard and More routes.
+/// M03 Dashboard and More.
 ///
-/// [buildDashboardRoot] draws the branch root at its shell slot; [dashboardRoutes] are
-/// nested under it with **relative** paths (no leading slash).
-/// Absolute paths for navigation live in `AppRoutes`.
-
+/// The dashboard owns the first shell branch. More and Account are drill-downs
+/// under it rather than slots of their own, so back returns to the dashboard
+/// and no tab lights up while they are open.
 Widget buildDashboardRoot(BuildContext context, GoRouterState state) =>
-    const PlaceholderScreen(title: 'M03 Dashboard and More');
+    const DashboardPage();
 
-final List<RouteBase> dashboardRoutes = <RouteBase>[];
+final List<RouteBase> dashboardRoutes = <RouteBase>[
+  GoRoute(
+    path: 'more',
+    builder: (context, state) => const MorePage(),
+    routes: <RouteBase>[
+      GoRoute(
+        path: 'account',
+        builder: (context, state) => const AccountPage(),
+      ),
+    ],
+  ),
+];

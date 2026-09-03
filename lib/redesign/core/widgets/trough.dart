@@ -76,7 +76,11 @@ class Trough extends StatelessWidget {
     final used = segments!.fold<double>(0, (sum, s) => sum + s.fraction);
     final rest = (1 - used).clamp(0, 1).toDouble();
 
+    // Stretch, not the default centre: a `ColoredBox` with no child takes the
+    // smallest size its constraints allow, and a Row hands its children a
+    // loose cross-axis constraint, so a centred band would be nought high.
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         for (final s in segments!)
           if (s.fraction > 0)
