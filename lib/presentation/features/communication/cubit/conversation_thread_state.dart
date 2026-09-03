@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
+import 'package:wowcare/domain/features/communication/entities/messaging_connection_status.dart';
 
 class ConversationThreadState extends Equatable {
   const ConversationThreadState({
@@ -11,6 +12,7 @@ class ConversationThreadState extends Equatable {
     required this.isFromCache,
     required this.isSending,
     required this.hasOlderMessages,
+    this.connectionStatus = MessagingConnectionStatus.connecting,
     this.conversation,
     this.sendError,
     this.errorMessage,
@@ -27,6 +29,7 @@ class ConversationThreadState extends Equatable {
         isFromCache = false,
         isSending = false,
         hasOlderMessages = true,
+        connectionStatus = MessagingConnectionStatus.connecting,
         conversation = conversation,
         sendError = null,
         errorMessage = null,
@@ -38,6 +41,8 @@ class ConversationThreadState extends Equatable {
     required bool isFromCache,
     bool hasOlderMessages = false,
     ConversationEntity? conversation,
+    MessagingConnectionStatus connectionStatus =
+        MessagingConnectionStatus.connecting,
   })  : conversationCode = conversationCode,
         messages = messages,
         isLoading = false,
@@ -45,6 +50,7 @@ class ConversationThreadState extends Equatable {
         isFromCache = isFromCache,
         isSending = false,
         hasOlderMessages = hasOlderMessages,
+        connectionStatus = connectionStatus,
         conversation = conversation,
         sendError = null,
         errorMessage = null,
@@ -57,6 +63,10 @@ class ConversationThreadState extends Equatable {
   final bool isFromCache;
   final bool isSending;
   final bool hasOlderMessages;
+
+  /// Health of the realtime (Firestore) message subscription, so the UI can
+  /// show a subtle banner when live updates are degraded.
+  final MessagingConnectionStatus connectionStatus;
 
   /// Full conversation metadata (participants, type, private mode, etc.).
   /// May be null until the first successful load.
@@ -84,6 +94,7 @@ class ConversationThreadState extends Equatable {
     bool? isFromCache,
     bool? isSending,
     bool? hasOlderMessages,
+    MessagingConnectionStatus? connectionStatus,
     ConversationEntity? conversation,
     String? sendError,
     String? errorMessage,
@@ -100,6 +111,7 @@ class ConversationThreadState extends Equatable {
       isFromCache: isFromCache ?? this.isFromCache,
       isSending: isSending ?? this.isSending,
       hasOlderMessages: hasOlderMessages ?? this.hasOlderMessages,
+      connectionStatus: connectionStatus ?? this.connectionStatus,
       conversation: conversation ?? this.conversation,
       sendError: clearSendError ? null : (sendError ?? this.sendError),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
@@ -116,6 +128,7 @@ class ConversationThreadState extends Equatable {
         isFromCache,
         isSending,
         hasOlderMessages,
+        connectionStatus,
         conversation,
         sendError,
         errorMessage,

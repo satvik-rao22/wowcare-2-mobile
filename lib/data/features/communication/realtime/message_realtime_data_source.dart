@@ -5,8 +5,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/firebase/firebase_auth_service.dart';
+import 'package:wowcare/data/features/communication/realtime/messaging_connection_tracker.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
+import 'package:wowcare/domain/features/communication/entities/messaging_connection_status.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/domain/features/communication/entities/message_visibility_helper.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
@@ -330,14 +332,34 @@ abstract class MessageRealtimeDataSource {
     required bool isAdmin,
     int limit = 100,
   });
+
+  /// Realtime subscription health (connecting/connected/reconnecting/offline).
+  /// The default never emits and always reads `connecting`; implementations
+  /// that actually track the connection override both.
+  Stream<MessagingConnectionStatus> get connectionStatusStream =>
+      const Stream.empty();
+  MessagingConnectionStatus get connectionStatus =>
+      MessagingConnectionStatus.connecting;
 }
 
 // ─── Firebase implementation ─────────────────────────────────────────────────
 
 class FirebaseMessageRealtimeDataSource implements MessageRealtimeDataSource {
-  const FirebaseMessageRealtimeDataSource({required this.firestore});
+  FirebaseMessageRealtimeDataSource({required this.firestore});
 
   final FirebaseFirestore firestore;
+
+  /// Drives [connectionStatus]/[connectionStatusStream] from the active
+  /// subscription's lifecycle inside [_watchWithRetry].
+  final MessagingConnectionTracker _connectionTracker =
+      MessagingConnectionTracker();
+
+  @override
+  Stream<MessagingConnectionStatus> get connectionStatusStream =>
+      _connectionTracker.stream;
+
+  @override
+  MessagingConnectionStatus get connectionStatus => _connectionTracker.status;
 
   @override
   Stream<List<MessageEntity>> watchMessages({
@@ -405,6 +427,9 @@ class FirebaseMessageRealtimeDataSource implements MessageRealtimeDataSource {
         // authStateChanges event fire so the retry below reconnects.
         unawaited(serviceLocator<FirebaseAuthService>().signIn());
       }
+      // Surface the transient failure as a (re)connecting state before the
+      // backoff retry below (or the auth-wait / give-up branches).
+      _connectionTracker.onRetrying();
       if (attempt < retryDelays.length) {
         // Retry on ANY error, not just permission-denied — a transient
         // network blip ('unavailable'), a brief 'deadline-exceeded', or
@@ -437,6 +462,7 @@ class FirebaseMessageRealtimeDataSource implements MessageRealtimeDataSource {
       } else {
         // Non-auth error and backoff exhausted — genuinely give up; the
         // cubit's REST fallback still works either way.
+        _connectionTracker.onOffline();
         controller.addError(error);
         controller.close();
       }
@@ -505,6 +531,8 @@ class FirebaseMessageRealtimeDataSource implements MessageRealtimeDataSource {
                   }
                 }
                 controller.add(entities);
+                // A server snapshot arrived — the subscription is live.
+                _connectionTracker.onConnected();
               },
               onError: (Object error) => retryOrForward(error, attempt),
               onDone: () {
@@ -515,7 +543,10 @@ class FirebaseMessageRealtimeDataSource implements MessageRealtimeDataSource {
       }, (Object error, StackTrace _) => retryOrForward(error, attempt));
     };
 
-    controller.onListen = () => subscribe(0);
+    controller.onListen = () {
+      _connectionTracker.onNewSubscription();
+      subscribe(0);
+    };
     controller.onCancel = () {
       inner?.cancel();
       inner = null;

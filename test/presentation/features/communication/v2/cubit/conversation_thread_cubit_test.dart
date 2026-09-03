@@ -25,6 +25,9 @@ import 'package:wowcare/domain/features/communication/usecases/mark_draft_messag
 import 'package:wowcare/domain/features/communication/usecases/remove_reaction_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/send_message_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_messages_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/watch_messaging_connection_usecase.dart';
+import 'package:wowcare/domain/features/communication/entities/messaging_connection_status.dart';
+import 'package:wowcare/domain/features/communication/repositories/messaging_connection_repository.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -449,6 +452,27 @@ AttachmentEntity _attachment({
   attachmentId: attachmentId,
 );
 
+class _FakeMessagingConnectionRepository
+    implements MessagingConnectionRepository {
+  final _controller =
+      StreamController<MessagingConnectionStatus>.broadcast();
+  MessagingConnectionStatus _current = MessagingConnectionStatus.connecting;
+
+  @override
+  MessagingConnectionStatus get currentStatus => _current;
+
+  @override
+  Stream<MessagingConnectionStatus> watchConnectionStatus() =>
+      _controller.stream;
+
+  void push(MessagingConnectionStatus status) {
+    _current = status;
+    _controller.add(status);
+  }
+
+  Future<void> dispose() => _controller.close();
+}
+
 void main() {
   // The mark-read debounce Timer callback reaches code that touches
   // WidgetsBinding.instance; without an initialized test binding every test
@@ -493,6 +517,74 @@ void main() {
   tearDown(() async {
     await cubit.close();
     await messageRepo.dispose();
+  });
+
+  group('realtime connection status (P2)', () {
+    late _FakeMessagingConnectionRepository connectionRepo;
+    late ConversationThreadCubit connCubit;
+
+    ConversationThreadCubit build() => ConversationThreadCubit(
+          conversationCode: 'CONV-1',
+          currentUserCode: 'USR-1',
+          watchMessagesUseCase: WatchMessagesUseCase(messageRepo),
+          getMessagesUseCase: GetMessagesEntityUseCase(messageRepo),
+          sendMessageUseCase: SendMessageEntityUseCase(messageRepo),
+          editMessageUseCase: EditMessageEntityUseCase(messageRepo),
+          deleteMessageUseCase: DeleteMessageEntityUseCase(messageRepo),
+          deleteAttachmentUseCase: DeleteAttachmentEntityUseCase(messageRepo),
+          addReactionUseCase: AddReactionEntityUseCase(messageRepo),
+          removeReactionUseCase: RemoveReactionUseCase(messageRepo),
+          markConversationReadUseCase:
+              MarkConversationReadUseCase(conversationRepo),
+          attachmentUploader: attachmentUploader,
+          markReadDebounceDuration: const Duration(milliseconds: 20),
+          cacheDraftMessageUseCase: CacheDraftMessageUseCase(messageRepo),
+          markDraftMessageFailedUseCase:
+              MarkDraftMessageFailedUseCase(messageRepo),
+          getCachedMessagesEntityUseCase:
+              GetCachedMessagesEntityUseCase(messageRepo),
+          getMessageReceiptsUseCase:
+              GetMessageEntityReceiptsUseCase(messageRepo),
+          watchConnectionUseCase:
+              WatchMessagingConnectionUseCase(connectionRepo),
+        );
+
+    setUp(() => connectionRepo = _FakeMessagingConnectionRepository());
+    tearDown(() async {
+      await connCubit.close();
+      await connectionRepo.dispose();
+    });
+
+    test('reflects connection-status transitions into state', () async {
+      connCubit = build();
+      connCubit.startWatchingMessages();
+      await Future<void>.delayed(Duration.zero);
+
+      connectionRepo.push(MessagingConnectionStatus.reconnecting);
+      await Future<void>.delayed(Duration.zero);
+      expect(connCubit.state.connectionStatus,
+          MessagingConnectionStatus.reconnecting);
+
+      connectionRepo.push(MessagingConnectionStatus.offline);
+      await Future<void>.delayed(Duration.zero);
+      expect(connCubit.state.connectionStatus,
+          MessagingConnectionStatus.offline);
+
+      connectionRepo.push(MessagingConnectionStatus.connected);
+      await Future<void>.delayed(Duration.zero);
+      expect(connCubit.state.connectionStatus,
+          MessagingConnectionStatus.connected);
+    });
+
+    test('seeds the current status on subscribe', () async {
+      connectionRepo = _FakeMessagingConnectionRepository()
+        ..push(MessagingConnectionStatus.reconnecting);
+      connCubit = build();
+      connCubit.startWatchingMessages();
+      await Future<void>.delayed(Duration.zero);
+      expect(connCubit.state.connectionStatus,
+          MessagingConnectionStatus.reconnecting);
+    });
   });
 
   group('markConversationRead debounce', () {

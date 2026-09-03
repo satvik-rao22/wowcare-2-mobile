@@ -434,8 +434,11 @@ import '../../data/features/communication/datasources/message_entity_remote_data
 import '../../data/features/communication/datasources/message_entity_local_data_source.dart';
 import '../../data/features/communication/repositories/conversation_entity_repository_impl.dart';
 import '../../data/features/communication/repositories/message_entity_repository_impl.dart';
+import '../../data/features/communication/repositories/messaging_connection_repository_impl.dart';
 import '../../domain/features/communication/repositories/conversation_entity_repository.dart';
 import '../../domain/features/communication/repositories/message_entity_repository.dart';
+import '../../domain/features/communication/repositories/messaging_connection_repository.dart';
+import '../../domain/features/communication/usecases/watch_messaging_connection_usecase.dart';
 import '../../data/features/communication/realtime/conversation_realtime_data_source.dart';
 import '../../data/features/communication/realtime/message_realtime_data_source.dart';
 import '../../data/features/communication/realtime/firebase_token_data_source.dart';
@@ -871,6 +874,20 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storageService: serviceLocator(),
       realtimeDataSource: serviceLocator(),
       reactionRepository: serviceLocator(),
+    ),
+  );
+
+  // Realtime message-connection health (P2): thin adapter over the same
+  // realtime datasource singleton, so the thread UI can surface a
+  // reconnecting/offline banner.
+  serviceLocator.registerLazySingleton<MessagingConnectionRepository>(
+    () => MessagingConnectionRepositoryImpl(
+      serviceLocator<MessageRealtimeDataSource>(),
+    ),
+  );
+  serviceLocator.registerFactory<WatchMessagingConnectionUseCase>(
+    () => WatchMessagingConnectionUseCase(
+      serviceLocator<MessagingConnectionRepository>(),
     ),
   );
 

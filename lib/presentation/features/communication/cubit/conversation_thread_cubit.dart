@@ -11,6 +11,7 @@ import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart'
     show ChatAttachment;
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
+import 'package:wowcare/domain/features/communication/entities/messaging_connection_status.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/optimistic_message_dedup.dart';
@@ -29,6 +30,7 @@ import 'package:wowcare/domain/features/communication/usecases/mark_draft_messag
 import 'package:wowcare/domain/features/communication/usecases/remove_reaction_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/send_message_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_messages_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/watch_messaging_connection_usecase.dart';
 import 'conversation_thread_state.dart';
 
 /// Manages the full message thread for a single conversation.
@@ -60,10 +62,12 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     required CacheDraftMessageUseCase cacheDraftMessageUseCase,
     required MarkDraftMessageFailedUseCase markDraftMessageFailedUseCase,
     required GetCachedMessagesEntityUseCase getCachedMessagesEntityUseCase,
+    WatchMessagingConnectionUseCase? watchConnectionUseCase,
     Duration markReadDebounceDuration = const Duration(seconds: 2),
     bool isDraft = false,
     Future<ConversationEntity?> Function()? onResolveConversation,
   }) : _currentUserCode = currentUserCode,
+       _watchConnectionUseCase = watchConnectionUseCase,
        _isDraft = isDraft,
        _onResolveConversation = onResolveConversation,
        _watchMessagesUseCase = watchMessagesUseCase,
@@ -124,6 +128,14 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   StreamSubscription<List<MessageEntity>>? _messagesSubscription;
   bool _firestoreActive = false;
 
+  /// Optional realtime-connection health source (P2). Null in contexts that
+  /// don't wire it (e.g. unit tests) — the thread then simply never leaves the
+  /// default `connecting` status, and everything else works unchanged.
+  final WatchMessagingConnectionUseCase? _watchConnectionUseCase;
+  StreamSubscription<MessagingConnectionStatus>? _connectionSubscription;
+  MessagingConnectionStatus _connectionStatus =
+      MessagingConnectionStatus.connecting;
+
   int _refreshRequestId = 0;
   static const int _pageSize = 50;
 
@@ -160,6 +172,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   @override
   Future<void> close() {
     _messagesSubscription?.cancel();
+    _connectionSubscription?.cancel();
     // Flush rather than drop: if the user leaves the thread mid-debounce,
     // the pending read should still be committed so the unread badge
     // reflects what they actually saw.
@@ -213,6 +226,8 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     // and the other reconciles on top via the same merge logic.
     unawaited(loadMessages());
 
+    _startWatchingConnection();
+
     _messagesSubscription?.cancel();
     // Use this conversation's own org/school rather than the session's
     // currently-active one — a stale/mismatched active school (multi-school
@@ -241,6 +256,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
                 isFromCache: false,
                 hasOlderMessages: state.hasOlderMessages,
                 conversation: state.conversation,
+                connectionStatus: _connectionStatus,
               ),
             );
             _scheduleMarkRead();
@@ -250,6 +266,25 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
             if (!_firestoreActive) unawaited(loadMessages());
           },
         );
+  }
+
+  /// Subscribes to realtime-connection health (P2) and reflects it into state so
+  /// the thread UI can surface a "reconnecting"/"offline" banner. No-op when no
+  /// connection source is wired (e.g. unit tests) — the status simply stays at
+  /// its default and nothing else changes.
+  void _startWatchingConnection() {
+    final watch = _watchConnectionUseCase;
+    if (watch == null) return;
+    _connectionSubscription?.cancel();
+    _connectionStatus = watch.current;
+    if (_connectionStatus != state.connectionStatus) {
+      emit(state.copyWith(connectionStatus: _connectionStatus));
+    }
+    _connectionSubscription = watch().listen((status) {
+      if (isClosed || status == _connectionStatus) return;
+      _connectionStatus = status;
+      emit(state.copyWith(connectionStatus: status));
+    });
   }
 
   /// Merges any locally-cached, never-confirmed message (interrupted by
@@ -291,6 +326,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         isFromCache: false,
         hasOlderMessages: false,
         conversation: state.conversation,
+        connectionStatus: _connectionStatus,
       ),
     );
   }
@@ -389,6 +425,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
             isFromCache: false,
             hasOlderMessages: messages.length >= _pageSize,
             conversation: state.conversation,
+            connectionStatus: _connectionStatus,
           ),
         );
         _scheduleMarkRead();
@@ -431,6 +468,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
             isFromCache: false,
             hasOlderMessages: messages.length >= _pageSize,
             conversation: state.conversation,
+            connectionStatus: _connectionStatus,
           ),
         );
         _scheduleMarkRead();

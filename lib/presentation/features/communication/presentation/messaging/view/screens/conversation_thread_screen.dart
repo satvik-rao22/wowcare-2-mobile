@@ -40,7 +40,9 @@ import 'package:wowcare/presentation/features/communication/cubit/private_mode_t
 import 'package:wowcare/presentation/features/communication/shared/utils/room_chat_privacy_helper.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_entity_mapper.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/entity_message_tile.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/messaging_connection_banner.dart';
 import 'package:wowcare/domain/features/communication/usecases/toggle_private_mode_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/watch_messaging_connection_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/loading_older_indicator.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -393,6 +395,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       cacheDraftMessageUseCase: serviceLocator(),
       markDraftMessageFailedUseCase: serviceLocator(),
       getCachedMessagesEntityUseCase: serviceLocator(),
+      watchConnectionUseCase: serviceLocator<WatchMessagingConnectionUseCase>(),
       isDraft: widget.isDraft,
       onResolveConversation: widget.onResolveConversation,
     );
@@ -1879,6 +1882,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                   mainAxisSize: MainAxisSize.max,
                   children: [
                     _buildParticipantHeader(),
+                    MessagingConnectionBanner(
+                      status: state.connectionStatus,
+                    ),
                     Expanded(
                       child: Stack(
                         children: [
