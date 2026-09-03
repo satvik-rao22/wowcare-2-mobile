@@ -123,7 +123,6 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   bool _attendanceStatusError = false;
   int _visibleAttendanceFetchToken = 0;
   Set<String> _lastVisibleAttendanceCodes = <String>{};
-  bool _staffIsSignedIn = false;
 
   static const Duration _attendanceCacheTtl = Duration(minutes: 10);
   static final Map<String, _AttendanceCacheEntry> _attendanceCacheByKey =
@@ -141,7 +140,6 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     _searchController.addListener(_onSearchChanged);
     _loadForSelectedRoom(refresh: false);
     _loadNapStartStudentCodes(refresh: false);
-    _loadStaffSignInStatus();
     classroomStudentsRefreshTick.addListener(_handleExternalRefresh);
   }
 
@@ -155,7 +153,6 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     _lastVisibleAttendanceCodes = <String>{};
     _loadForSelectedRoom(refresh: true);
     _loadNapStartStudentCodes(refresh: true);
-    _loadStaffSignInStatus();
   }
 
   /// Pull-to-refresh: re-run every API this tab uses (student roster, today's
@@ -169,7 +166,6 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     // Refresh the shared classroom dropdown list too, so a pull refreshes the
     // whole page's data — not just this tab.
     await _reloadClassroomList();
-    await _loadStaffSignInStatus();
     if (_isNappingFilter) {
       // Napping filter on: refresh nap-start codes + roster scoped to nappers.
       await _applyNappingFilter(refresh: true);
@@ -217,7 +213,6 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     _lastVisibleAttendanceCodes = <String>{};
     _clearAttendanceEntityCaches();
     _loadForSelectedRoom(refresh: true);
-    _loadStaffSignInStatus();
   }
 
   /// Called after an activity is recorded from the Activities panel. A new
@@ -232,7 +227,6 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     _clearAttendanceEntityCaches();
     _loadForSelectedRoom(refresh: true);
     _loadNapStartStudentCodes(refresh: true);
-    _loadStaffSignInStatus();
   }
 
   void _loadForSelectedRoom({
@@ -333,7 +327,6 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       // under a loading spinner while the new room's fetch is in flight.
       _loadForSelectedRoom(refresh: false, forceRefresh: true);
       _loadNapStartStudentCodes(refresh: true);
-      _loadStaffSignInStatus();
     }
   }
 
@@ -807,8 +800,6 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       });
     }
   }
-
-  Future<void> _loadStaffSignInStatus() async {}
 
   StudentAttendanceActionAvailability _attendanceAvailabilityForSelection(
     List<StudentClassroomItem> selected,
