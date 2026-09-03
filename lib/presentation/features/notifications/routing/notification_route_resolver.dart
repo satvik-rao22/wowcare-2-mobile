@@ -182,6 +182,22 @@ class NotificationRouteResolver {
         }
         final convType =
             _firstCode(n, const ['conversationType', 'conversation_type']) ?? '';
+        // A CLASSROOM_CHAT message belongs on the Classroom screen's Notes
+        // tab (mirrors [NotificationAction.addClassroomNote] below) - not
+        // the standalone conversation-thread screen every other chat type
+        // uses. Falls through to the generic thread only when the payload
+        // doesn't carry a classroomCode (can't build that destination).
+        if (convType.toUpperCase() == 'CLASSROOM_CHAT') {
+          final classroomCode = _firstCode(n, _kClassroom);
+          if (classroomCode != null) {
+            return _dest(
+              AppRoutes.classroom,
+              n,
+              highlight: _kClassroom,
+              params: {..._classroomParam(n), 'tab': '2'},
+            );
+          }
+        }
         return NotificationDestination(
           path: AppRoutes.openConversation,
           queryParameters: {
