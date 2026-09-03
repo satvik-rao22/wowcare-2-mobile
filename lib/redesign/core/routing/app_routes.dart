@@ -24,6 +24,9 @@ abstract final class AppRoutes {
 
   static const String kiosk = '/kiosk';
   static const String kioskScanner = '/kiosk/scan';
+
+  /// Asked before the picker when a family is half in and half out (2d).
+  static const String kioskChoice = '/kiosk/choice';
   static const String kioskFamily = '/kiosk/family';
 
   // --- Shell branch roots (the five slots, plus Billing for guardians) ------

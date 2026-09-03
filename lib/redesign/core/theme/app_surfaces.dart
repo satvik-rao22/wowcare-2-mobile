@@ -190,6 +190,22 @@ abstract final class AppSurfaces {
     insets: AppElevation.bevelOnImpact(c),
   );
 
+  /// A big tinted tile behind a single glyph (1d's lock, 1e's mail). Lit from
+  /// above like a card, but casting nothing: it does not lift off the tray,
+  /// and there is nothing to press.
+  static Surface glyphTile(
+    Colourway c, {
+    required Color fill,
+    required double radius,
+  }) {
+    final r = BorderRadius.circular(radius);
+    return Surface(
+      borderRadius: r,
+      decoration: BoxDecoration(color: fill, borderRadius: r),
+      insets: AppElevation.bevel(c),
+    );
+  }
+
   /// An empty state's icon. A well, not a card: there is nothing to press.
   static Surface emptyIcon(Colourway c) => Surface(
     borderRadius: AppRadii.emptyIconR,
@@ -431,4 +447,14 @@ abstract final class AppSurfaces {
 
   /// An info alert: a quiet note on the alt-well.
   static Surface alertInfo(Colourway c) => altWell(c);
+
+  /// A reassuring alert: the green tint with its hairline (2c's geofence).
+  static Surface alertSuccess(Colourway c) => Surface(
+    borderRadius: AppRadii.innerR,
+    decoration: BoxDecoration(
+      color: c.successBg,
+      borderRadius: AppRadii.innerR,
+      border: Border.all(color: c.successLine),
+    ),
+  );
 }

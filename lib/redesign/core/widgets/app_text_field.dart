@@ -25,6 +25,7 @@ class AppTextField extends StatefulWidget {
     this.hintText,
     this.helpText,
     this.errorText,
+    this.hasError = false,
     this.leadingIcon,
     this.leadingIconColor,
     this.trailing,
@@ -51,6 +52,10 @@ class AppTextField extends StatefulWidget {
 
   /// Set, the field draws the error recipe and this line in danger ink.
   final String? errorText;
+
+  /// The error recipe without a line of its own, for a form whose one message
+  /// sits above the fields rather than under each of them (1a).
+  final bool hasError;
 
   final IconData? leadingIcon;
 
@@ -87,7 +92,7 @@ class _AppTextFieldState extends State<AppTextField> {
   @override
   Widget build(BuildContext context) {
     final c = context.colours;
-    final hasError = widget.errorText != null;
+    final hasError = widget.errorText != null || widget.hasError;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,7 +120,7 @@ class _AppTextFieldState extends State<AppTextField> {
             ],
           ),
         ),
-        if (hasError)
+        if (widget.errorText != null)
           Text(
             widget.errorText!,
             style: AppTextStyles.fieldError.copyWith(color: c.dangerFg),

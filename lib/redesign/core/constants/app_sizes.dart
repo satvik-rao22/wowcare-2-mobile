@@ -248,6 +248,10 @@ abstract final class AppSizes {
   /// The sign-in fields, which are a size up from the everyday field.
   static const EdgeInsets fieldPadLarge = EdgeInsets.all(16);
 
+  /// The one tall key on a screen with nothing else on it: 1a's Sign in,
+  /// 1d's Send reset link, 1f's Save and sign in.
+  static const EdgeInsets keyPadLarge = EdgeInsets.all(18);
+
   /// A field's leading glyph and the gap to the text.
   static const double fieldIcon = 19;
   static const double fieldIconGap = 12;

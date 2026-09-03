@@ -67,11 +67,17 @@ abstract final class AuthSizes {
   // --- 2b The door screen ---------------------------------------------------
 
   static const double kioskLogo = 32;
+
+  /// The mark on the screens behind the door (2d, 2e), which is a size up.
+  static const double brandLogo = 40;
   static const EdgeInsets kioskHeaderPad = EdgeInsets.fromLTRB(18, 8, 18, 12);
   static const double kioskHeaderGap = 11;
 
   static const EdgeInsets qrHeadPad = EdgeInsets.fromLTRB(26, 14, 26, 0);
   static const double qrHeadGap = 6;
+
+  /// The gap between the door screen's caption and the code under it.
+  static const double qrTopGap = 6;
 
   /// The QR itself, and the frame it sits in.
   static const double qr = 164;

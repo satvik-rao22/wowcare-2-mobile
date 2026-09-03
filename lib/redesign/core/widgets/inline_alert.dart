@@ -15,6 +15,9 @@ enum AlertTone {
 
   /// A quiet note on the alt-well: a scope explanation (5a).
   info,
+
+  /// A reassurance rather than a warning: the kiosk's geofence line (2c).
+  success,
 }
 
 /// A message set into the page, above the thing it is about.
@@ -22,23 +25,34 @@ class InlineAlert extends StatelessWidget {
   const InlineAlert({
     required this.message,
     this.tone = AlertTone.danger,
+    this.icon,
     super.key,
   });
 
   final String message;
   final AlertTone tone;
 
+  /// Overrides the tone's own glyph. The danger bubble is never replaced.
+  final IconData? icon;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colours;
     final isDanger = tone == AlertTone.danger;
+    final ink = switch (tone) {
+      AlertTone.danger => c.dangerFg,
+      AlertTone.info => c.ink2,
+      AlertTone.success => c.successFg,
+    };
 
     return Semantics(
       liveRegion: isDanger,
       child: SurfaceBox(
-        surface: isDanger
-            ? AppSurfaces.alertDanger(c)
-            : AppSurfaces.alertInfo(c),
+        surface: switch (tone) {
+          AlertTone.danger => AppSurfaces.alertDanger(c),
+          AlertTone.info => AppSurfaces.alertInfo(c),
+          AlertTone.success => AppSurfaces.alertSuccess(c),
+        },
         padding: AppSizes.alertPad,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -47,13 +61,17 @@ class InlineAlert extends StatelessWidget {
             if (isDanger)
               _Bubble(colours: c)
             else
-              Icon(AppIcons.info, size: AppSizes.alertIcon, color: c.ink2),
+              Icon(
+                icon ?? AppIcons.info,
+                size: AppSizes.alertIcon,
+                color: ink,
+              ),
             Expanded(
               child: Text(
                 message,
                 style: isDanger
-                    ? AppTextStyles.alertText.copyWith(color: c.dangerFg)
-                    : AppTextStyles.noteText.copyWith(color: c.ink2),
+                    ? AppTextStyles.alertText.copyWith(color: ink)
+                    : AppTextStyles.noteText.copyWith(color: ink),
               ),
             ),
           ],
