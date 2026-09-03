@@ -2483,6 +2483,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getClassroomForecastUseCase: serviceLocator(),
       getClassroomForecastRangeUseCase: serviceLocator(),
       getStaffShiftHoursRangeUseCase: serviceLocator(),
+      getStaffTodaySignInStatusMapUseCase: serviceLocator(),
       schedulingStaffListCubit: serviceLocator(),
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),

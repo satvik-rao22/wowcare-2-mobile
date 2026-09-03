@@ -10,6 +10,7 @@ import '../../../../domain/features/scheduling/entities/staff_shift_hours_entry.
 import '../../../../domain/features/scheduling/usecases/get_classroom_forecast_range_usecase.dart';
 import '../../../../domain/features/scheduling/usecases/get_classroom_forecast_usecase.dart';
 import '../../../../domain/features/scheduling/usecases/get_school_staff_shifts_usecase.dart';
+import '../../../../domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
 import '../../../../domain/features/scheduling/usecases/get_staff_shift_hours_range_usecase.dart';
 import '../../../../domain/features/staff/entities/school_regular_schedule_day.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
@@ -31,6 +32,8 @@ class SchedulingCubit extends Cubit<SchedulingState>
     required GetClassroomForecastUseCase getClassroomForecastUseCase,
     required GetClassroomForecastRangeUseCase getClassroomForecastRangeUseCase,
     required GetStaffShiftHoursRangeUseCase getStaffShiftHoursRangeUseCase,
+    required GetStaffTodaySignInStatusMapUseCase
+    getStaffTodaySignInStatusMapUseCase,
     required SchedulingStaffListCubit schedulingStaffListCubit,
     required StaffRepository staffRepository,
     required StorageService storageService,
@@ -38,6 +41,8 @@ class SchedulingCubit extends Cubit<SchedulingState>
        _getClassroomForecastUseCase = getClassroomForecastUseCase,
        _getClassroomForecastRangeUseCase = getClassroomForecastRangeUseCase,
        _getStaffShiftHoursRangeUseCase = getStaffShiftHoursRangeUseCase,
+       _getStaffTodaySignInStatusMapUseCase =
+           getStaffTodaySignInStatusMapUseCase,
        _schedulingStaffListCubit = schedulingStaffListCubit,
        _staffRepository = staffRepository,
        _storageService = storageService,
@@ -47,6 +52,8 @@ class SchedulingCubit extends Cubit<SchedulingState>
   final GetClassroomForecastUseCase _getClassroomForecastUseCase;
   final GetClassroomForecastRangeUseCase _getClassroomForecastRangeUseCase;
   final GetStaffShiftHoursRangeUseCase _getStaffShiftHoursRangeUseCase;
+  final GetStaffTodaySignInStatusMapUseCase
+  _getStaffTodaySignInStatusMapUseCase;
   final SchedulingStaffListCubit _schedulingStaffListCubit;
   final StaffRepository _staffRepository;
   final StorageService _storageService;
@@ -64,6 +71,59 @@ class SchedulingCubit extends Cubit<SchedulingState>
   /// Used by [loadIfNeeded] to decide whether a route entry should trigger
   /// the visible loading flow or fall through to a silent background refresh.
   bool _hasLoadedOnce = false;
+
+  /// Tracks the most recent set of staff codes requested by
+  /// [refreshStaffSignInStatusForVisible] so it doesn't refire the bulk
+  /// sign-in-status POST on every rebuild when the visible roster is
+  /// unchanged. Not part of [SchedulingState] — purely an internal dedupe
+  /// guard, not something the View needs to react to.
+  Set<String> _lastRequestedStaffCodes = const <String>{};
+
+  /// Collects every staff code visible in the current (filtered) classroom
+  /// roster and fires the bulk POST `/staff-attendance/sign-in/status` once
+  /// per distinct roster, updating [SchedulingState.staffSignInStatusByCode]
+  /// (colours the SIGNED_IN/ABSENT dot on each staff row). Pass
+  /// `force: true` (pull-to-refresh) to bypass the dedupe guard.
+  Future<void> refreshStaffSignInStatusForVisible({bool force = false}) async {
+    if (force) _lastRequestedStaffCodes = const <String>{};
+
+    final codes = <String>{};
+    for (final c in state.filteredClassrooms) {
+      for (final s in c.staff) {
+        final code = s.staffCode.trim();
+        if (code.isNotEmpty) codes.add(code);
+      }
+    }
+
+    if (codes.isEmpty) {
+      if (state.staffSignInStatusByCode.isNotEmpty ||
+          _lastRequestedStaffCodes.isNotEmpty) {
+        _lastRequestedStaffCodes = const <String>{};
+        if (!isClosed) {
+          emit(
+            state.copyWith(staffSignInStatusByCode: const <String, String>{}),
+          );
+        }
+      }
+      return;
+    }
+
+    if (codes.length == _lastRequestedStaffCodes.length &&
+        codes.containsAll(_lastRequestedStaffCodes)) {
+      return;
+    }
+    _lastRequestedStaffCodes = codes;
+
+    try {
+      final map = await _getStaffTodaySignInStatusMapUseCase(
+        staffCodes: codes.toList(growable: false),
+      );
+      if (isClosed) return;
+      emit(state.copyWith(staffSignInStatusByCode: map));
+    } catch (_) {
+      // Best-effort: a failed status fetch just keeps the previous dots.
+    }
+  }
 
   /// Called on every route entry. First call runs a normal [load] with the
   /// loading flag (shimmer); subsequent entries fall through to a silent
