@@ -49,7 +49,9 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
   @override
   void initState() {
     super.initState();
-    _physiciansFuture = _buildPhysiciansFuture();
+    // Force-fresh on open, not just on pull-to-refresh — otherwise landing on
+    // this tab can show up to 5-minute-old cached data.
+    _physiciansFuture = _buildPhysiciansFuture(forceRefresh: true);
   }
 
   @override
@@ -58,7 +60,9 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
     super.dispose();
   }
 
-  Future<List<StudentPhysician>> _buildPhysiciansFuture() {
+  Future<List<StudentPhysician>> _buildPhysiciansFuture({
+    bool forceRefresh = false,
+  }) {
     final code = widget.studentCode;
     if (code == null || code.isEmpty) {
       return Future.value(const <StudentPhysician>[]);
@@ -66,12 +70,12 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
     // Route the read through the cubit → use case → repository. The repository
     // still handles cache via CacheManager; first call may use cache, subsequent
     // ones will hit API when cache is invalidated after mutations.
-    return _physicianCubit.fetchPhysicians(code);
+    return _physicianCubit.fetchPhysicians(code, forceRefresh: forceRefresh);
   }
 
   Future<void> _handleRefresh() async {
     setState(() {
-      _physiciansFuture = _buildPhysiciansFuture();
+      _physiciansFuture = _buildPhysiciansFuture(forceRefresh: true);
     });
     try {
       await _physiciansFuture;

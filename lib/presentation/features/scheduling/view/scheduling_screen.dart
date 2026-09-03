@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
-import '../../../../domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
 import '../../../../presentation/features/classroom/cubit/classroom_cubit.dart';
 import '../cubit/scheduling_staff_list_cubit.dart';
 import '../../../../shared/common/widgets/custom_date_time_field.dart';
@@ -112,15 +111,6 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
   /// hasn't already picked a different day.
   DateTime? _initialDeviceToday;
 
-  /// Today's sign-in status keyed by staffCode, resolved via the bulk POST
-  /// `/staff-attendance/sign-in/status`. Used to colour the avatar dot on
-  /// each staff row (SIGNED_IN → green, ABSENT → red).
-  Map<String, String> _staffSignInStatusByCode = const <String, String>{};
-
-  /// Tracks the most recent set of staff codes we requested so we don't refire
-  /// the POST every rebuild when the visible roster is unchanged.
-  Set<String> _lastRequestedStaffCodes = const <String>{};
-
   @override
   void initState() {
     super.initState();
@@ -199,47 +189,6 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
     context.read<SchedulingStaffListCubit>().load(force: true);
   }
 
-  /// Collects every staff code visible in the current classroom roster and
-  /// fires the bulk POST `/staff-attendance/sign-in/status` once per distinct
-  /// roster. Skips the call when the roster hasn't changed since last fetch.
-  Future<void> _refreshSignInStatusForVisible(
-    List<ClassroomDaySchedule> classrooms,
-  ) async {
-    final codes = <String>{};
-    for (final c in classrooms) {
-      for (final s in c.staff) {
-        final code = s.staffCode.trim();
-        if (code.isNotEmpty) codes.add(code);
-      }
-    }
-    if (codes.isEmpty) {
-      if (_staffSignInStatusByCode.isNotEmpty ||
-          _lastRequestedStaffCodes.isNotEmpty) {
-        if (mounted) {
-          setState(() {
-            _staffSignInStatusByCode = const <String, String>{};
-            _lastRequestedStaffCodes = const <String>{};
-          });
-        }
-      }
-      return;
-    }
-    if (codes.length == _lastRequestedStaffCodes.length &&
-        codes.containsAll(_lastRequestedStaffCodes)) {
-      return;
-    }
-    _lastRequestedStaffCodes = codes;
-    try {
-      final map = await serviceLocator<GetStaffTodaySignInStatusMapUseCase>()(
-        staffCodes: codes.toList(growable: false),
-      );
-      if (!mounted) return;
-      setState(() => _staffSignInStatusByCode = map);
-    } catch (_) {
-      // Best-effort: a failed status fetch just keeps the previous dots.
-    }
-  }
-
   Future<void> _onRefresh() async {
     final cubit = context.read<SchedulingCubit>();
     final staffListCubit = context.read<SchedulingStaffListCubit>();
@@ -258,8 +207,7 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
     // when the visible roster is unchanged, and await it so the pull
     // indicator stays up until every API on this screen has settled.
     if (!mounted) return;
-    _lastRequestedStaffCodes = const <String>{};
-    await _refreshSignInStatusForVisible(cubit.state.filteredClassrooms);
+    await cubit.refreshStaffSignInStatusForVisible(force: true);
   }
 
   Map<String, String> _classroomNamesByCode(BuildContext context) {
@@ -356,9 +304,10 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
         };
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          context.read<SchedulingCubit>().setClassroomNames(namesByCode);
+          final schedulingCubit = context.read<SchedulingCubit>();
+          schedulingCubit.setClassroomNames(namesByCode);
           // ignore: discarded_futures
-          _refreshSignInStatusForVisible(state.filteredClassrooms);
+          schedulingCubit.refreshStaffSignInStatusForVisible();
         });
 
         final isWeek = state.viewMode == SchedulingViewMode.week;
@@ -440,7 +389,8 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                       expandAll: _expandAll,
                       onToggleExpandAll: () =>
                           setState(() => _expandAll = !_expandAll),
-                      staffAttendanceStatusByCode: _staffSignInStatusByCode,
+                      staffAttendanceStatusByCode:
+                          state.staffSignInStatusByCode,
                       highlightShiftCode: widget.highlightShiftCode,
                       onClassroomStatusTap: _openClassroomDayView,
                       onStaffShiftTap: (entry, classroomName) =>
@@ -458,9 +408,11 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                       expandAll: _expandAll,
                       onToggleExpandAll: () =>
                           setState(() => _expandAll = !_expandAll),
-                      staffAttendanceStatusByCode: _staffSignInStatusByCode,
+                      staffAttendanceStatusByCode:
+                          state.staffSignInStatusByCode,
                       highlightShiftCode: widget.highlightShiftCode,
-                      highlightClassroomCode: _tappedHighlightClassroomCode ??
+                      highlightClassroomCode:
+                          _tappedHighlightClassroomCode ??
                           widget.highlightClassroomCode,
                       onStaffShiftTap: (entry, classroomName) =>
                           _openStaffShiftFromEntry(
@@ -544,9 +496,9 @@ class _DatePickerHeader extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         // Creating shifts is a CLASSROOM_SCHEDULE write.
-        if (context
-            .read<RoleCubit>()
-            .canWriteModule(AppAccessModules.classroomSchedule))
+        if (context.read<RoleCubit>().canWriteModule(
+          AppAccessModules.classroomSchedule,
+        ))
           GradientAddButton(onTap: onAddTap),
       ],
     );
@@ -669,7 +621,8 @@ class _DailyClassroomListCard extends StatelessWidget {
             for (int i = 0; i < classrooms.length; i++)
               DayClassroomSection(
                 key: ValueKey(
-                    'day-${classrooms[i].classroomCode}-$expandAll-$highlightClassroomCode'),
+                  'day-${classrooms[i].classroomCode}-$expandAll-$highlightClassroomCode',
+                ),
                 classroom: classrooms[i],
                 viewMode: SchedulingViewMode.day,
                 day: day,

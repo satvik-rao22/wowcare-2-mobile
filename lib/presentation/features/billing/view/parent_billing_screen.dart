@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
+import 'package:wowcare/core/util/tab_visibility_events.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
@@ -37,7 +38,21 @@ class ParentBillingScreen extends StatefulWidget {
 }
 
 class _ParentBillingScreenState extends State<ParentBillingScreen>
-    with TickerProviderStateMixin, SchoolSwitchReloadMixin {
+    with
+        TickerProviderStateMixin,
+        SchoolSwitchReloadMixin,
+        TabBecameVisibleMixin {
+  // Parent Billing is branch index 4 in app_router.dart's shell.
+  @override
+  int get tabBranchIndex => 4;
+
+  @override
+  void onTabBecameVisible() {
+    // Kept-alive billing branch — same call onSchoolSwitched() uses, just
+    // triggered by switching back to this tab instead of a school change.
+    if (mounted) _cubit.refresh();
+  }
+
   late final TabController _tabController;
   final ScrollController _billingScrollController = ScrollController();
 

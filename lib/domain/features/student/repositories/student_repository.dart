@@ -349,6 +349,7 @@ abstract class StudentRepository {
   /// Fetches a student's physician contacts.
   Future<List<StudentPhysician>> getStudentPhysicians({
     required String studentCode,
+    bool forceRefresh = false,
   });
 
   /// Adds a physician for a student. Returns the created physician.
@@ -386,7 +387,10 @@ abstract class StudentRepository {
   // --- Health ---
 
   /// Fetches a student's health details.
-  Future<StudentHealth> getStudentHealth({required String studentCode});
+  Future<StudentHealth> getStudentHealth({
+    required String studentCode,
+    bool forceRefresh = false,
+  });
 
   /// Updates a student's health details. Returns the updated health record.
   Future<StudentHealth> updateStudentHealth({

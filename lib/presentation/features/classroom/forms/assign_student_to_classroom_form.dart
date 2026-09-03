@@ -17,7 +17,6 @@ import 'package:wowcare/domain/features/student_classroom/usecases/assign_studen
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -25,6 +24,7 @@ import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/presentation/features/classroom/utils/classroom_age_range.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_students_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/forms/widgets/assign_classroom_form_widgets.dart';
 
 // UI-only lightweight types
 class _TagEntity {
@@ -147,8 +147,8 @@ class _AssignStudentToClassroomFormState
   Future<void> _loadFilterOptionsThenStudents() async {
     try {
       final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
 
       final activeClassrooms =
           await serviceLocator<GetActiveClassroomsUseCase>()(
@@ -162,14 +162,17 @@ class _AssignStudentToClassroomFormState
         for (final c in availableClassrooms)
           if (c.name.trim().isNotEmpty) c.name.trim(): c.code.trim(),
       };
-      _availableClassroomCodes =
-          availableClassrooms.map((c) => c.code).toList();
+      _availableClassroomCodes = availableClassrooms
+          .map((c) => c.code)
+          .toList();
 
       // Full school tag catalog — not just the tags present among the
       // currently loaded students, which would silently hide any tag no
       // student outside the target classroom happens to have right now.
-      final tagCatalog = await serviceLocator<
-              GetTagNameCodeMapForSchoolUseCase>()(schoolCode: schoolCode);
+      final tagCatalog =
+          await serviceLocator<GetTagNameCodeMapForSchoolUseCase>()(
+            schoolCode: schoolCode,
+          );
       _tagNameToCode = tagCatalog;
 
       if (mounted) {
@@ -210,8 +213,8 @@ class _AssignStudentToClassroomFormState
 
       final selectedClassroomCode =
           (_selectedClassroom != null && _selectedClassroom!.trim().isNotEmpty)
-              ? _classroomNameToCode[_selectedClassroom!.trim()]
-              : null;
+          ? _classroomNameToCode[_selectedClassroom!.trim()]
+          : null;
       final classroomCodes = selectedClassroomCode != null
           ? [selectedClassroomCode]
           : _availableClassroomCodes;
@@ -396,28 +399,7 @@ class _AssignStudentToClassroomFormState
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  'Assign to ${widget.selectedRoomName}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
+          AssignFormHeader(title: 'Assign to ${widget.selectedRoomName}'),
           const SizedBox(height: 16),
           const Text(
             'Select Students',
@@ -428,20 +410,9 @@ class _AssignStudentToClassroomFormState
             ),
           ),
           const SizedBox(height: 12),
-          SearchBar(
+          AssignFormSearchBar(
             controller: _searchController,
-            constraints: const BoxConstraints(minHeight: 44),
             hintText: 'Search Students',
-            hintStyle: WidgetStatePropertyAll(
-              TextStyle(fontFamily: 'Manrope', color: Colors.grey[700]),
-            ),
-            backgroundColor: const WidgetStatePropertyAll<Color>(Colors.white),
-            surfaceTintColor: const WidgetStatePropertyAll<Color>(Colors.white),
-            elevation: const WidgetStatePropertyAll<double>(0),
-            side: const WidgetStatePropertyAll(
-              BorderSide(width: 1, color: Color.fromARGB(255, 188, 173, 186)),
-            ),
-            leading: const Icon(Icons.search, color: Colors.grey),
           ),
           const SizedBox(height: 12),
           Row(
@@ -478,66 +449,43 @@ class _AssignStudentToClassroomFormState
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: CustomCheckbox(
-                  borderColor: AppColors.themeColor,
-                  value: isSelectAllChecked,
-                  onChanged: _toggleSelectAll, // Add the handler here
-                ),
-              ),
-              const Text('Select All', style: TextStyle(fontFamily: 'Manrope')),
-            ],
+          SelectAllCheckboxRow(
+            value: isSelectAllChecked,
+            onChanged: _toggleSelectAll,
+            checkboxBuilder: (value, onChanged) => CustomCheckbox(
+              borderColor: AppColors.themeColor,
+              value: value,
+              onChanged: onChanged,
+            ),
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: _isLoadingStudents
-                ? const Center(child: PrimaryCircularLoader())
-                : _studentsError != null
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _studentsError!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontFamily: 'Manrope',
-                            color: Colors.red,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        ElevatedButton(
-                          onPressed: _loadStudentsFromApi,
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  )
-                : GridView.builder(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          mainAxisExtent: 72,
-                        ),
-                    itemCount: _getVisibleStudents().length,
-                    itemBuilder: (context, index) {
-                      final student = _getVisibleStudents()[index];
-                      final isSelected = selectedStudents.contains(student);
-                      return StudentListItem(
-                        student: student,
-                        isSelected: isSelected,
-                        isSignedIn: _isStudentSignedIn(student.code),
-                        onSelectionChanged: (value) {
-                          _toggleStudentSelection(student, value);
-                        },
-                      );
+            child: AssignFormResultsArea(
+              isLoading: _isLoadingStudents,
+              errorMessage: _studentsError,
+              onRetry: _loadStudentsFromApi,
+              content: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  mainAxisExtent: 72,
+                ),
+                itemCount: _getVisibleStudents().length,
+                itemBuilder: (context, index) {
+                  final student = _getVisibleStudents()[index];
+                  final isSelected = selectedStudents.contains(student);
+                  return StudentListItem(
+                    student: student,
+                    isSelected: isSelected,
+                    isSignedIn: _isStudentSignedIn(student.code),
+                    onSelectionChanged: (value) {
+                      _toggleStudentSelection(student, value);
                     },
-                  ),
+                  );
+                },
+              ),
+            ),
           ),
           const SizedBox(height: 16),
           CustomButtonLayout(
@@ -700,41 +648,10 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  'Assign to ${widget.selectedRoomName}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
+          AssignFormHeader(title: 'Assign to ${widget.selectedRoomName}'),
           const SizedBox(height: 16),
           if (currentSelectedStudents.isEmpty)
-            const Expanded(
-              child: Center(
-                child: Text(
-                  'No students selected',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    color: const Color(0xff573353),
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            )
+            const AssignFormEmptySelection(message: 'No students selected')
           else
             Expanded(
               child: GridView.builder(
@@ -813,55 +730,36 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
                     final proceed = await _confirmIfAnyOutsideAgeRange();
                     if (!proceed || !mounted) return;
 
-                    setState(() => _isSubmitting = true);
-                    try {
-                      final storage = serviceLocator<StorageService>();
-                      final schoolCode = await storage.getString(
-                        StorageKeys.schoolCode,
-                      );
-                      if (schoolCode == null || schoolCode.trim().isEmpty) {
-                        throw 'Missing schoolCode. Please sign in / select a school again.';
-                      }
-
-                      // NOTE: In this UI module we only have the selected room name.
-                      // The backend expects classroomCode; we pass the selectedRoomName
-                      // as the code until the classroom code is wired into this form.
-                      final classroomCode = widget.classroomCode.trim();
-                      final studentCodes = currentSelectedStudents
-                          .map((s) => s.code.trim())
-                          .where((code) => code.isNotEmpty)
-                          .toList();
-
-                      final message =
-                          await serviceLocator<
-                            AssignStudentsToClassroomUseCase
-                          >()(
-                            schoolCode: schoolCode,
-                            classroomCode: classroomCode,
-                            studentCodes: studentCodes,
-                          );
-
-                      if (!mounted) return;
-                      CoreUtils.showTopSnackBar(
-                        context: context,
-                        message: message.isEmpty
-                            ? 'Assigned successfully'
-                            : message,
-                        isSuccess: true,
-                      );
-
-                      widget.onStudentsAssigned();
-                      Navigator.pop(context);
-                    } catch (e) {
-                      if (!mounted) return;
-                      CoreUtils.showTopSnackBar(
-                        context: context,
-                        message: e.toString(),
-                        isError: true,
-                      );
-                    } finally {
-                      if (mounted) setState(() => _isSubmitting = false);
-                    }
+                    await submitClassroomAssignment(
+                      context: context,
+                      isSelectionEmpty: currentSelectedStudents.isEmpty,
+                      emptySelectionMessage:
+                          'Please select at least one student',
+                      setSubmitting: (submitting) {
+                        if (mounted) {
+                          setState(() => _isSubmitting = submitting);
+                        }
+                      },
+                      submit: (schoolCode) {
+                        // NOTE: In this UI module we only have the selected
+                        // room name. The backend expects classroomCode; we
+                        // pass the selectedRoomName as the code until the
+                        // classroom code is wired into this form.
+                        final classroomCode = widget.classroomCode.trim();
+                        final studentCodes = currentSelectedStudents
+                            .map((s) => s.code.trim())
+                            .where((code) => code.isNotEmpty)
+                            .toList();
+                        return serviceLocator<
+                          AssignStudentsToClassroomUseCase
+                        >()(
+                          schoolCode: schoolCode,
+                          classroomCode: classroomCode,
+                          studentCodes: studentCodes,
+                        );
+                      },
+                      onSuccess: widget.onStudentsAssigned,
+                    );
                   },
           ),
         ],

@@ -315,10 +315,15 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     final bool isQrSignIn = widget.qrToken.isNotEmpty;
     // The dashboard's personal sign-in card (forceSelf) is a GPS sign-in for
     // both admin and staff personas — only the admin bulk picker flow reports
-    // 'APP'.
+    // 'APP'. 'PIN' is reserved for an actual kiosk device (widget.isKiosk) —
+    // this used to fall through to 'PIN' for every admin-on-behalf-of-staff
+    // sign-in (e.g. from the Staff Profile screen) regardless of device,
+    // which is what showed the kiosk icon for an in-app sign-in.
     final String signInMethod = isQrSignIn
         ? 'QR'
-        : (isStaffAdmin && !widget.forceSelf ? 'PIN' : 'GPS');
+        : (widget.isKiosk
+              ? 'PIN'
+              : (isStaffAdmin && !widget.forceSelf ? 'APP' : 'GPS'));
 
     // Whether this sign-in targets the current user's own record — drives
     // post-submit UI (geofence status sync, navigating back vs to the daily

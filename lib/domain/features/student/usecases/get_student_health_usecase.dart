@@ -6,7 +6,13 @@ class GetStudentHealthUseCase {
 
   final StudentRepository _repository;
 
-  Future<StudentHealth> call({required String studentCode}) {
-    return _repository.getStudentHealth(studentCode: studentCode);
+  Future<StudentHealth> call({
+    required String studentCode,
+    bool forceRefresh = false,
+  }) {
+    return _repository.getStudentHealth(
+      studentCode: studentCode,
+      forceRefresh: forceRefresh,
+    );
   }
 }

@@ -272,10 +272,16 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       geofenceState = null;
     }
     // QR and GPS sign-outs are physical-presence methods — withinGeofence is
-    // always true. APP (staff/admin manual) derives it from the geofence state.
+    // always true. APP (staff/admin manual) derives it from the geofence
+    // state. A kiosk device (widget.isKiosk) is checked first — it's
+    // staff-operated (isParent is false there), so without this check it
+    // fell through to the 'APP' branch, same class of bug as sign-in.
     final String signOutMethod;
     final bool withinGeofence;
-    if (isParent) {
+    if (widget.isKiosk) {
+      signOutMethod = widget.isQrScan ? 'QR' : 'PIN';
+      withinGeofence = true; // physical presence proven by the kiosk device
+    } else if (isParent) {
       signOutMethod = widget.isQrScan ? 'QR' : 'GPS';
       withinGeofence = true; // physical presence proven by QR scan or GPS
     } else {

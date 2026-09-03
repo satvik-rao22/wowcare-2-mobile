@@ -6,6 +6,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/active_school_switcher.dart';
 import 'package:wowcare/core/util/notification_events.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -329,14 +330,31 @@ class _NotificationsListState extends State<_NotificationsList> {
       );
     }
     // Resolve with the persona: billing opens the PARENT billing screen for
-    // guardians and the admin billing screen for staff/admins. Without this a
-    // parent landed on the admin billing screen, which shows no data for them.
+    // guardians and the admin billing screen for staff/admins, and
+    // newsletter/pending-approval actions deep-link straight to the specific
+    // item for the admin persona (mirrors [NotificationNavigator]). Without
+    // this a parent landed on the admin billing screen, which shows no data
+    // for them.
     final destination = NotificationRouteResolver.resolve(
       message,
       isGuardian: roleCubit.isParent,
+      isAdminPersona: roleCubit.role == 'admin',
     );
     if (destination == null) return;
-    appRouter.go(destination.location);
+    // Keep the parent persona's sibling selector (the global child dropdown)
+    // in sync with whichever child this notification is about — otherwise
+    // tapping Child B's notification while Child A is selected navigates to
+    // Child B's screen but leaves the dropdown (and every other screen that
+    // reads ParentChildCubit) still showing Child A. Mirrors
+    // [NotificationNavigator], which already does this for an FCM tap; this
+    // in-app notification-center tap was missing it.
+    if (mounted && roleCubit.isParent) {
+      final studentCode = NotificationRouteResolver.studentCodeFor(message);
+      if (studentCode != null) {
+        context.read<ParentChildCubit>().selectByCode(studentCode);
+      }
+    }
+    appRouterGo(destination.location);
   }
 
   @override
