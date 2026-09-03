@@ -511,7 +511,14 @@ class StudentAttendanceProfileFetchCubit
     final allowedClassroomCodes = await resolveAllowedClassroomCodes();
 
     try {
-      final codeToNameMap = await fetchClassroomNameToCodeMap();
+      // fetchClassroomNameToCodeMap() returns {name: code} (its own name and
+      // the View's transfer-form dropdown both rely on that orientation) —
+      // invert it here since every lookup below in this method needs the
+      // opposite direction (resolving a record's classroomCODE to its name).
+      final nameToCodeMap = await fetchClassroomNameToCodeMap();
+      final codeToNameMap = <String, String>{
+        for (final entry in nameToCodeMap.entries) entry.value: entry.key,
+      };
       _applyResolvedClassroomHeaderName(codeToNameMap);
       // --------- Load attendance (present days / summary) ----------
       final profileData = await fetchProfileData(

@@ -11,6 +11,7 @@ class SchedulingState extends Equatable {
     required this.classrooms,
     this.isLoading = false,
     this.errorMessage,
+    this.staffSignInStatusByCode = const <String, String>{},
   });
 
   factory SchedulingState.initial() {
@@ -35,6 +36,11 @@ class SchedulingState extends Equatable {
   final bool isLoading;
   final String? errorMessage;
 
+  /// Today's sign-in status keyed by staffCode, resolved via the bulk POST
+  /// `/staff-attendance/sign-in/status`. Used to colour the avatar dot on
+  /// each staff row (SIGNED_IN → green, ABSENT → red).
+  final Map<String, String> staffSignInStatusByCode;
+
   List<ClassroomDaySchedule> get filteredClassrooms {
     final String? f = classroomFilter;
     if (f == null || f.isEmpty) return classrooms;
@@ -50,6 +56,7 @@ class SchedulingState extends Equatable {
     List<ClassroomDaySchedule>? classrooms,
     bool? isLoading,
     String? errorMessage,
+    Map<String, String>? staffSignInStatusByCode,
   }) {
     return SchedulingState(
       selectedDay: selectedDay ?? this.selectedDay,
@@ -60,18 +67,21 @@ class SchedulingState extends Equatable {
       classrooms: classrooms ?? this.classrooms,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
+      staffSignInStatusByCode:
+          staffSignInStatusByCode ?? this.staffSignInStatusByCode,
     );
   }
 
   @override
   List<Object?> get props => [
-        selectedDay,
-        classroomFilter,
-        viewMode,
-        classrooms,
-        isLoading,
-        errorMessage,
-      ];
+    selectedDay,
+    classroomFilter,
+    viewMode,
+    classrooms,
+    isLoading,
+    errorMessage,
+    staffSignInStatusByCode,
+  ];
 }
 
 const Object _noChange = Object();

@@ -91,7 +91,7 @@ IndividualMovementBoard _filterBoardForClassroom(
   );
 }
 
-/// Filter priority movements: overdue → upcoming → confirmed, max 3 items.
+/// Filter priority movements: overdue → confirmed → upcoming, max 3 items.
 List<_GroupedMovement> _filterPriorityMovements(
   IndividualMovementBoard board, {
   int maxRows = 3,
@@ -126,38 +126,59 @@ List<_GroupedMovement> _filterPriorityMovements(
     }
   }
 
-  // Priority: Overdue > Upcoming > Confirmed
-  // Step 1: Check for overdue within last 1 month
+  // Priority: Overdue > Confirmed > Upcoming
+  // Step 1: Add overdue within last 1 month
   final recentOverdue = board.overdue
       .where((m) => _isWithinLastMonth(m.movementDate))
       .toList();
   if (recentOverdue.isNotEmpty) {
     addBucket(recentOverdue, 'Overdue');
-    final rows = map.values.toList(growable: false);
-    // Sort overdue: most recent first
-    rows.sort((a, b) => b.movementDate.compareTo(a.movementDate));
-    return rows.length <= maxRows ? rows : rows.sublist(0, maxRows);
   }
 
-  // Step 2: No overdue, check upcoming
-  if (board.upcoming.isNotEmpty) {
-    addBucket(board.upcoming, 'Upcoming');
-    final rows = map.values.toList(growable: false);
-    // Sort upcoming: nearest first
-    rows.sort((a, b) => a.movementDate.compareTo(b.movementDate));
-    return rows.length <= maxRows ? rows : rows.sublist(0, maxRows);
-  }
-
-  // Step 3: No overdue/upcoming, show confirmed
+  // Step 2: Add confirmed
   if (board.confirmed.isNotEmpty) {
     addBucket(board.confirmed, 'Confirmed');
-    final rows = map.values.toList(growable: false);
-    // Sort confirmed: latest first
-    rows.sort((a, b) => b.movementDate.compareTo(a.movementDate));
-    return rows.length <= maxRows ? rows : rows.sublist(0, maxRows);
   }
 
-  return [];
+  // Step 3: Add upcoming
+  if (board.upcoming.isNotEmpty) {
+    addBucket(board.upcoming, 'Upcoming');
+  }
+
+  final rows = map.values.toList(growable: false);
+
+  int statusPriority(String status) {
+    switch (status) {
+      case 'Overdue':
+        return 0;
+      case 'Confirmed':
+        return 1;
+      case 'Upcoming':
+        return 2;
+      default:
+        return 3;
+    }
+  }
+
+  rows.sort((a, b) {
+    final priorityA = statusPriority(a.enrollmentStatus);
+    final priorityB = statusPriority(b.enrollmentStatus);
+
+    if (priorityA != priorityB) {
+      return priorityA.compareTo(priorityB);
+    }
+
+    // Within same status, sort by date
+    if (a.enrollmentStatus == 'Overdue' || a.enrollmentStatus == 'Confirmed') {
+      // most recent/latest first (descending)
+      return b.movementDate.compareTo(a.movementDate);
+    } else {
+      // Upcoming: nearest first (ascending)
+      return a.movementDate.compareTo(b.movementDate);
+    }
+  });
+
+  return rows.length <= maxRows ? rows : rows.sublist(0, maxRows);
 }
 
 _MovementStudent _studentFrom(IndividualMovement m) => _MovementStudent(
@@ -449,7 +470,7 @@ class _MovementsCardState extends State<MovementsCard> {
                               }
                             },
                             child: Text(
-                              students.first.name,
+                              'Student 1',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,

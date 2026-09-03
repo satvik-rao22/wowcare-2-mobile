@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/tab_visibility_events.dart';
 import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
@@ -905,6 +906,19 @@ final GoRouter appRouter = GoRouter(
                       child: StaffScreen(
                         incomingHighlightCode:
                             state.uri.queryParameters['highlightCode'],
+                        // Staff Attendance Daily's "Active"/"Upcoming" legend
+                        // cards used to Navigator.push a second, ad-hoc copy
+                        // of this exact screen+provider combination — an
+                        // imperative push that bypassed go_router entirely,
+                        // leaving its own idea of "current location" stale
+                        // and breaking subsequent context.go()/drawer
+                        // navigation. They now push THIS route instead (see
+                        // _openStaffListWithIncomingFilter), passing the
+                        // filter via `extra` since it has no query-string
+                        // equivalent here.
+                        incomingStatusFilter:
+                            (state.extra as Map<String, dynamic>?)?['filter']
+                                as String?,
                       ),
                     ),
                   ),
@@ -918,6 +932,12 @@ final GoRouter appRouter = GoRouter(
                     // Notification deep-link: highlight + scroll to a student.
                     final highlightCode =
                         state.uri.queryParameters['highlightCode'];
+                    // Only Student Attendance Daily's "Active"/"Upcoming" push
+                    // (see _openStudentListWithIncomingFilter) sets this —
+                    // every other caller keeps the plain loadActiveClassrooms()
+                    // this route already used, unchanged.
+                    final applyAttendanceStaffScope =
+                        args?['applyAttendanceStaffScope'] as bool? ?? false;
                     return _fastPage(
                       state,
                       MultiBlocProvider(
@@ -927,9 +947,11 @@ final GoRouter appRouter = GoRouter(
                                 serviceLocator<StudentCubit>()..loadInitial(),
                           ),
                           BlocProvider<ClassroomCubit>(
-                            create: (_) =>
-                                serviceLocator<ClassroomCubit>()
-                                  ..loadActiveClassrooms(),
+                            create: (_) => serviceLocator<ClassroomCubit>()
+                              ..loadActiveClassrooms(
+                                applyAttendanceStaffScope:
+                                    applyAttendanceStaffScope,
+                              ),
                           ),
                         ],
                         child: StudentScreen(
@@ -2373,4 +2395,22 @@ void goToDashboardRoot(BuildContext context) {
   } else {
     GoRouter.of(context).go(AppRoutes.dashboard);
   }
+}
+
+/// Drop-in replacement for `appRouter.go(location, extra: extra)` at every
+/// call site OUTSIDE `CustomNavigationBar` (the drawer, notification taps,
+/// deep links, anywhere else that navigates straight to a route by string
+/// path) — those all bypass `CustomNavigationBar._performNavigation`
+/// entirely, so a bare `appRouter.go(...)` to a bottom-nav branch's root path
+/// (e.g. Activities, Classroom) never told that kept-alive branch screen it
+/// had just become visible again (see [TabVisibilityEvents]'s doc comment).
+/// This fires that same signal whenever [location] IS one of
+/// [branchRootPaths], then does the actual navigation.
+void appRouterGo(String location, {Object? extra}) {
+  final targetPath = Uri.parse(location).path;
+  final branchIndex = branchRootPaths.indexOf(targetPath);
+  if (branchIndex != -1) {
+    TabVisibilityEvents.notifyBranchActivated(branchIndex);
+  }
+  appRouter.go(location, extra: extra);
 }

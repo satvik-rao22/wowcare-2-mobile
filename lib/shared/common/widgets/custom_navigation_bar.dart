@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
 import 'package:wowcare/shared/common/app/cubit/bottom_navigation_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
+import 'package:wowcare/core/util/tab_visibility_events.dart';
 import 'package:wowcare/src/app_router.dart';
 
 // ---------------------------------------------------------------------------
@@ -261,11 +262,20 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           navigator.pop();
         }
         router.go(branchRootPaths[branchIndex]);
+        // Re-tapping the already-active tab is also a reasonable "give me
+        // fresh data" signal (common app convention), and costs nothing extra
+        // here since the branch is already visible.
+        TabVisibilityEvents.notifyBranchActivated(branchIndex);
         return;
       }
       // Different branch → IndexedStack swap; state of the outgoing branch is
       // kept alive, the incoming one shows instantly (no transition animation).
       shell.goBranch(branchIndex);
+      // The incoming branch's initState()/BlocProvider.create already ran
+      // once (kept alive, not rebuilt) — this is what tells it to reload
+      // fresh data now instead of showing whatever it last had. See
+      // TabVisibilityEvents' doc comment for why this is needed at all.
+      TabVisibilityEvents.notifyBranchActivated(branchIndex);
     } else {
       // Outside the shell — either an auth screen that still shows the bar, or a
       // screen pushed ABOVE the shell on the ROOT navigator (e.g. the Staff /
@@ -281,6 +291,13 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
         rootNavigator.pop();
       }
       router.go(branchRootPaths[branchIndex]);
+      // Same as the IndexedStack-swap branch above — this is the path a tap
+      // takes when returning from a screen pushed ABOVE the shell (e.g. the
+      // Staff/Student Attendance flow opened from the Attendance popup), so
+      // it needs the same "you're visible again, reload" signal — this was
+      // the actual gap: switching tabs directly already worked, but coming
+      // BACK to a tab from one of these pushed screens did not.
+      TabVisibilityEvents.notifyBranchActivated(branchIndex);
     }
   }
 

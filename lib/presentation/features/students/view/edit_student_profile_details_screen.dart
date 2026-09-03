@@ -365,9 +365,22 @@ class _EditStudentProfileDetailsScreenState
 
   Future<void> _loadGuardiansForCustody() async {
     try {
-      if (widget.studentCode.trim().isEmpty) return;
+      if (widget.studentCode.trim().isEmpty) {
+        AppLogger.d('[ChildCustody] skipped: studentCode is empty on widget');
+        return;
+      }
+      // Force a fresh fetch: this is an edit form seeding the Child Custody
+      // dropdown, so a stale (e.g. pre-dating a just-linked guardian)
+      // 5-minute cached list showing "No matches found" for a real guardian
+      // is a correctness problem here, not just a cosmetic staleness one.
       final guardians = await _profileEditCubit.fetchGuardians(
         widget.studentCode,
+        forceRefresh: true,
+      );
+      AppLogger.d(
+        '[ChildCustody] fetchGuardians(${widget.studentCode}) returned '
+        '${guardians.length} guardian(s): '
+        '${guardians.map((g) => "${g.guardianCode}:'${g.fullName}'").join(', ')}',
       );
 
       final rawRows = <Map<String, dynamic>>[];
@@ -380,7 +393,27 @@ class _EditStudentProfileDetailsScreenState
           'name': base,
           'code': code,
           'legalCustody': legalCustody,
-          'raw': g,
+          // 'raw' must be an actual Map<String, dynamic> - rawByCode below
+          // (used at save time to build the full-update custody PATCH
+          // payload, see _guardianRawByCode's own doc) does `as Map<String,
+          // dynamic>` on it. Post-MVVM-migration this is the typed
+          // StudentGuardian entity, not a raw JSON map, so build the map
+          // explicitly from its fields instead of passing the entity itself
+          // - passing `g` directly here always threw ("type 'StudentGuardian'
+          // is not a subtype of type 'Map<String, dynamic>' in type cast"),
+          // silently aborting this whole function before it ever reached the
+          // setState that populates the dropdown - the actual root cause of
+          // the Child Custody dropdown showing "No matches found" for every
+          // student, always, regardless of timing.
+          'raw': <String, dynamic>{
+            'userCode': g.userCode,
+            'firstName': g.firstName,
+            'lastName': g.lastName,
+            'email': g.email,
+            'mobile': g.mobile,
+            'relationToStudent': g.relationToStudent,
+            'primaryContact': g.primaryContact,
+          },
         });
       }
 
@@ -388,14 +421,30 @@ class _EditStudentProfileDetailsScreenState
       final nameToCode = <String, String>{};
       final initialCustody = <String, bool>{};
       final rawByCode = <String, Map<String, dynamic>>{};
+      // Two distinct guardians can share the exact same display name (e.g.
+      // real production data seen with two "Silling Parent" guardians, same
+      // relation, different codes). Since nameToCode/rawByCode/initialCustody
+      // are keyed by display name, an un-disambiguated collision would let
+      // the second guardian's code silently overwrite the first's - making
+      // one of them permanently unselectable and, on save, potentially
+      // update the wrong guardian's custody flag. Append an ordinal suffix
+      // to every occurrence after the first so each name stays unique.
+      final nameOccurrences = <String, int>{};
       for (final row in rawRows) {
         final base = row['name'] as String;
         final code = row['code'] as String;
-        names.add(base);
-        nameToCode[base] = code;
-        initialCustody[base] = row['legalCustody'] as bool;
+        final occurrence = (nameOccurrences[base] ?? 0) + 1;
+        nameOccurrences[base] = occurrence;
+        final displayLabel = occurrence == 1 ? base : '$base ($occurrence)';
+        names.add(displayLabel);
+        nameToCode[displayLabel] = code;
+        initialCustody[displayLabel] = row['legalCustody'] as bool;
         rawByCode[code] = row['raw'] as Map<String, dynamic>;
       }
+      AppLogger.d(
+        '[ChildCustody] resolved ${names.length} display name(s): $names '
+        '(mounted=$mounted)',
+      );
       if (!mounted) return;
 
       setState(() {
@@ -406,9 +455,28 @@ class _EditStudentProfileDetailsScreenState
         _selectedChildCustody.removeWhere(
           (g) => !_availableGuardianNames.contains(g),
         );
+        // widget.initialLegalCustodians (student_about_tab_card's own,
+        // separately-computed display-name pass) seeded the initial
+        // selection above this fetch even ran - the ONLY thing this fetch
+        // did with it was prune names it no longer recognizes. That means a
+        // guardian this fetch just confirmed has legalCustody: true can
+        // still show as unchecked if the two name-building passes ever
+        // disagree (guaranteed to disagree for a duplicate-name guardian,
+        // since only this fetch's disambiguated label is correct). This
+        // fetch's own initialCustody map is the authoritative source, so
+        // union it in rather than trusting the widget seed alone.
+        for (final entry in initialCustody.entries) {
+          if (entry.value && !_selectedChildCustody.contains(entry.key)) {
+            _selectedChildCustody.add(entry.key);
+          }
+        }
       });
-    } catch (_) {
-      // Non-critical; keep any existing selections.
+    } catch (e, st) {
+      // Non-critical; keep any existing selections. Logged (not silent)
+      // since an empty Child Custody dropdown with no visible error was
+      // previously indistinguishable from "this student genuinely has no
+      // guardians" - see [ChildCustody] logs above for what was fetched.
+      AppLogger.d('[ChildCustody] _loadGuardiansForCustody failed: $e\n$st');
     }
   }
 

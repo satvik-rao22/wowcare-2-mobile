@@ -757,11 +757,14 @@ class StudentRepositoryImpl
   @override
   Future<List<StudentPhysician>> getStudentPhysicians({
     required String studentCode,
+    bool forceRefresh = false,
   }) async {
     // Try cache first
-    final cached = await _cacheManager.loadCache(
-      _studentPhysiciansCacheKey(studentCode),
-    );
+    final cached = forceRefresh
+        ? null
+        : await _cacheManager.loadCache(
+            _studentPhysiciansCacheKey(studentCode),
+          );
     if (cached != null) {
       final list = (cached['items'] as List<dynamic>? ?? const [])
           .whereType<Map<String, dynamic>>()
@@ -800,10 +803,13 @@ class StudentRepositoryImpl
   }
 
   @override
-  Future<StudentHealth> getStudentHealth({required String studentCode}) async {
-    final cached = await _cacheManager.loadCache(
-      _studentHealthCacheKey(studentCode),
-    );
+  Future<StudentHealth> getStudentHealth({
+    required String studentCode,
+    bool forceRefresh = false,
+  }) async {
+    final cached = forceRefresh
+        ? null
+        : await _cacheManager.loadCache(_studentHealthCacheKey(studentCode));
     if (cached != null) {
       return StudentHealthModel.fromJson(cached).toEntity();
     }

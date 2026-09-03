@@ -69,6 +69,20 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
         _localSelectedItems = List.from(widget.selectedItems);
         _localSelectedItems.removeWhere((item) => !widget.items.contains(item));
       });
+      // The open overlay is a StatefulBuilder whose builder closure only
+      // re-runs when explicitly told to - it does NOT automatically pick up
+      // a new `widget.items`/`widget.selectedItems` just because this State
+      // rebuilt. Without this, opening the dropdown before an async fetch
+      // (e.g. seeding it from an API call) resolves freezes the overlay on
+      // that empty/stale snapshot forever, even though the field's own
+      // closed-state re-render (and every later rebuild) has the real data -
+      // only closing and reopening would ever show it. Deferred to a
+      // post-frame callback: didUpdateWidget runs mid-build, and
+      // OverlayEntry.markNeedsBuild() asserts if called synchronously here
+      // ("setState() or markNeedsBuild() called during build").
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _overlayEntry?.markNeedsBuild();
+      });
     }
   }
 

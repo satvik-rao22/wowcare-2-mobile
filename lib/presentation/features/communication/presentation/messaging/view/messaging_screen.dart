@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
+import 'package:wowcare/core/util/tab_visibility_events.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_tab.dart';
 import 'package:wowcare/presentation/features/newsletter/view/newsletter_tab.dart';
@@ -42,7 +43,22 @@ class MessagingScreen extends StatefulWidget {
 }
 
 class _MessagingScreenState extends State<MessagingScreen>
-    with TickerProviderStateMixin, SchoolSwitchReloadMixin {
+    with
+        TickerProviderStateMixin,
+        SchoolSwitchReloadMixin,
+        TabBecameVisibleMixin {
+  // Messaging is branch index 3 in app_router.dart's shell.
+  @override
+  int get tabBranchIndex => 3;
+
+  @override
+  void onTabBecameVisible() {
+    if (!mounted) return;
+    // Same subtree-recreate trick as onSchoolSwitched() below, triggered by
+    // switching back to this tab instead of a school/persona change.
+    setState(() => _contextReloadEpoch++);
+  }
+
   late TabController _tabController;
   int? _lastAppliedInitialIndex;
   String? _lastRouteTabQuery;

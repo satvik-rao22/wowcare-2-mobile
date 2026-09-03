@@ -3,6 +3,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
+import 'package:wowcare/core/util/tab_visibility_events.dart';
 import 'package:wowcare/presentation/features/dashboard/view/admin_dashboard.dart';
 import 'package:wowcare/presentation/features/dashboard/view/parent_dashboard.dart';
 import 'package:wowcare/presentation/features/dashboard/view/staff_dashboard.dart';
@@ -27,14 +28,28 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen>
-    with SchoolSwitchReloadMixin {
+    with SchoolSwitchReloadMixin, TabBecameVisibleMixin {
   // Re-keys the dispatched dashboard on a school switch so the whole subtree
   // (ratio monitoring + every summary card) is recreated and reloads fresh.
   int _schoolReloadEpoch = 0;
 
+  // Dashboard is branch index 0 in app_router.dart's shell.
+  @override
+  int get tabBranchIndex => 0;
+
   @override
   void onSchoolSwitched() {
     if (!mounted) return;
+    setState(() => _schoolReloadEpoch++);
+  }
+
+  @override
+  void onTabBecameVisible() {
+    if (!mounted) return;
+    // Same subtree-recreate trick as onSchoolSwitched() — switching back to
+    // the Dashboard tab from another branch would otherwise keep showing
+    // whatever was loaded the first time this tab was ever opened, since
+    // the shell's IndexedStack never rebuilds it on its own.
     setState(() => _schoolReloadEpoch++);
   }
 

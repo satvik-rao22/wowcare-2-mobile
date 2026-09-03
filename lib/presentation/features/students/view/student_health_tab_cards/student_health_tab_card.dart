@@ -43,7 +43,9 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
   @override
   void initState() {
     super.initState();
-    _healthFuture = _buildHealthFuture();
+    // Force-fresh on open, not just on pull-to-refresh — otherwise landing on
+    // this tab can show up to 5-minute-old cached data.
+    _healthFuture = _buildHealthFuture(forceRefresh: true);
   }
 
   @override
@@ -52,13 +54,16 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
     super.dispose();
   }
 
-  Future<StudentHealth?> _buildHealthFuture() async {
+  Future<StudentHealth?> _buildHealthFuture({bool forceRefresh = false}) async {
     final code = widget.studentCode;
     if (code == null || code.isEmpty) {
       return null;
     }
     try {
-      final model = await _healthCubit.fetchHealth(code);
+      final model = await _healthCubit.fetchHealth(
+        code,
+        forceRefresh: forceRefresh,
+      );
       _photoPermission = model.photoPermission ?? true;
       return model;
     } catch (_) {
@@ -74,7 +79,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
     return CustomRefreshIndicator(
       onRefresh: () async {
         setState(() {
-          _healthFuture = _buildHealthFuture();
+          _healthFuture = _buildHealthFuture(forceRefresh: true);
           _hasShownErrorSnackBar = false;
         });
         try {

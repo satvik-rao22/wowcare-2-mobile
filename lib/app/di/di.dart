@@ -2195,6 +2195,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<ClassroomStudentsCubit>(
     () => ClassroomStudentsCubit(
       getStudentClassroomListUseCase: serviceLocator(),
+      getNapStartStudentsUseCase: serviceLocator(),
+      getStudentTodaySignInStatusMapUseCase: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );
@@ -2514,6 +2516,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getClassroomForecastUseCase: serviceLocator(),
       getClassroomForecastRangeUseCase: serviceLocator(),
       getStaffShiftHoursRangeUseCase: serviceLocator(),
+      getStaffTodaySignInStatusMapUseCase: serviceLocator(),
       schedulingStaffListCubit: serviceLocator(),
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),

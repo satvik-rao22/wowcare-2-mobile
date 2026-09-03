@@ -83,8 +83,14 @@ class StudentProfileEditCubit extends Cubit<StudentProfileEditState> {
   }
 
   /// Fetches a student's guardians (used to seed the Child Custody dropdown).
-  Future<List<StudentGuardian>> fetchGuardians(String studentCode) {
-    return _getStudentGuardiansUseCase(studentCode: studentCode);
+  Future<List<StudentGuardian>> fetchGuardians(
+    String studentCode, {
+    bool forceRefresh = false,
+  }) {
+    return _getStudentGuardiansUseCase(
+      studentCode: studentCode,
+      forceRefresh: forceRefresh,
+    );
   }
 
   // --- Mutations (each keyed single-flight; rethrow) ---
