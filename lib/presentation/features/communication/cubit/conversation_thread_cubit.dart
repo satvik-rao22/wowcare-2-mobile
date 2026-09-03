@@ -13,6 +13,7 @@ import 'package:wowcare/domain/features/communication/entities/message.dart'
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/optimistic_message_dedup.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/pending_attachment_storage.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_entity_mapper.dart';
 import 'package:wowcare/domain/features/communication/usecases/add_reaction_entity_usecase.dart';
@@ -1296,36 +1297,23 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     final pending = state.messages
         .where((m) => m.localTempCode != null && (m.isPending || m.isFailed))
         .toList();
-    final freshCodes = preservedFresh.map((m) => m.code).toSet();
-    final unconfirmed = pending.isEmpty
-        ? const <MessageEntity>[]
-        : pending.where((m) {
-            if (freshCodes.contains(m.code)) return false;
-            // A still-pending optimistic message never carries the server's real
-            // code — the backend isn't even told about localTempCode (see
-            // MessageEntityRepositoryImpl.sendMessage's `_remote.sendMessage`
-            // call) — so exact-code matching alone can't catch it when Firestore
-            // delivers the confirmed message BEFORE this cubit's own
-            // sendMessage() REST response returns to swap it in via
-            // _replaceMessage. Without this, the optimistic and the
-            // Firestore-confirmed entry show side by side, and _replaceMessage
-            // later finds nothing left to replace (it matches by the temp code,
-            // which is no longer present once dropped here) — leaving a
-            // permanent visual duplicate. Close the gap with a tight
-            // content-match instead: same sender, same text, sent within a few
-            // seconds of each other. Failed messages are excluded — a failed
-            // send must never be silently hidden just because its text happens
-            // to match something else.
-            if (!m.isPending) return true;
-            final matchesFresh = preservedFresh.any(
-              (f) =>
-                  f.senderCode == m.senderCode &&
-                  f.text == m.text &&
-                  f.sentAt.difference(m.sentAt).abs() <
-                      const Duration(seconds: 30),
-            );
-            return !matchesFresh;
-          }).toList();
+    // A still-pending optimistic message never carries the server's real code —
+    // the backend isn't even told about localTempCode (see
+    // MessageEntityRepositoryImpl.sendMessage's `_remote.sendMessage` call) — so
+    // exact-code matching alone can't catch it when Firestore delivers the
+    // confirmed message BEFORE this cubit's own sendMessage() REST response
+    // returns to swap it in via _replaceMessage. Without a content match the
+    // optimistic and the Firestore-confirmed entry show side by side, and
+    // _replaceMessage later finds nothing left to replace, leaving a permanent
+    // visual duplicate. [unconfirmedOptimisticMessages] closes the gap with a
+    // greedy one-to-one content match (same sender + text, within the window,
+    // each confirmation claimed by at most one pending) so two quick identical
+    // sends ("Ok" twice) can neither collapse onto a single confirmation nor
+    // duplicate against two. Failed sends are always kept.
+    final unconfirmed = unconfirmedOptimisticMessages(
+      pending: pending,
+      fresh: preservedFresh,
+    );
 
     var result = [...preservedFresh, ...unconfirmed];
 

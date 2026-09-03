@@ -450,6 +450,11 @@ AttachmentEntity _attachment({
 );
 
 void main() {
+  // The mark-read debounce Timer callback reaches code that touches
+  // WidgetsBinding.instance; without an initialized test binding every test
+  // that lets the debounce fire throws "Binding has not yet been initialized".
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   late _FakeMessageEntityRepository messageRepo;
   late _FakeConversationEntityRepository conversationRepo;
   late _FakeChatAttachmentUploader attachmentUploader;
