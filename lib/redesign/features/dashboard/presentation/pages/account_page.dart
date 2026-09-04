@@ -87,12 +87,13 @@ class AccountPage extends StatelessWidget {
               AccountRow(
                 title: DashboardStrings.myProfile,
                 subtitle: DashboardStrings.myProfileSub,
-                onTap: later,
+                onTap: () => unawaited(context.push(AppRoutes.profile)),
               ),
               AccountRow(
                 title: DashboardStrings.notificationSettings,
                 subtitle: DashboardStrings.groups(10),
-                onTap: later,
+                onTap: () =>
+                    unawaited(context.push(AppRoutes.notificationSettings)),
               ),
               AccountRow(
                 title: DashboardStrings.signInPin,
@@ -129,7 +130,7 @@ class AccountPage extends StatelessWidget {
               ),
               AccountRow(
                 title: DashboardStrings.changePassword,
-                onTap: () => unawaited(context.push(AppRoutes.forgotPassword)),
+                onTap: () => unawaited(context.push(AppRoutes.changePassword)),
               ),
             ],
           ),

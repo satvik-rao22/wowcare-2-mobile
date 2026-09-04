@@ -4,13 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/redesign/core/constants/app_sizes.dart';
-import 'package:wowcare/redesign/core/constants/app_strings.dart';
 import 'package:wowcare/redesign/core/di/redesign_di.dart';
 import 'package:wowcare/redesign/core/routing/app_routes.dart';
 import 'package:wowcare/redesign/core/session/badge_cubit.dart';
 import 'package:wowcare/redesign/core/session/persona.dart';
 import 'package:wowcare/redesign/core/session/session_cubit.dart';
-import 'package:wowcare/redesign/core/widgets/app_toast.dart';
 import 'package:wowcare/redesign/core/widgets/error_state.dart';
 import 'package:wowcare/redesign/core/widgets/loading_state.dart';
 import 'package:wowcare/redesign/core/widgets/screen_scaffold.dart';
@@ -57,8 +55,7 @@ class _DashboardView extends StatelessWidget {
       // 13d flips the persona under us; the dashboard reloads rather than
       // redrawing an Admin's cards with a Guardian's data.
       listenWhen: (previous, current) => previous.persona != current.persona,
-      listener: (context, state) =>
-          unawaited(cubit.setPersona(state.persona)),
+      listener: (context, state) => unawaited(cubit.setPersona(state.persona)),
       child: BlocBuilder<DashboardCubit, DashboardState>(
         builder: (context, state) => ScreenScaffold(
           header: BlocBuilder<BadgeCubit, BadgeState>(
@@ -70,7 +67,8 @@ class _DashboardView extends StatelessWidget {
               isGuardian: session.isGuardian,
               onOpenMore: () => unawaited(context.push(AppRoutes.more)),
               onScanQr: () => unawaited(context.push(AppRoutes.kioskScanner)),
-              onOpenNotifications: () => _notReady(context),
+              onOpenNotifications: () =>
+                  unawaited(context.push(AppRoutes.notifications)),
             ),
           ),
           bodyPadding: EdgeInsets.zero,
@@ -118,9 +116,4 @@ class _DashboardView extends StatelessWidget {
     }
     return user.schoolName;
   }
-
-  /// Every module the dashboard points at that has not been rebuilt yet says
-  /// so out loud rather than pushing a route that does not exist.
-  static void _notReady(BuildContext context) =>
-      showAppToast(context, AppStrings.comingSoon);
 }

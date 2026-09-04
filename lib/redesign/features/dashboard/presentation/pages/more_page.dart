@@ -67,6 +67,12 @@ class MorePage extends StatelessWidget {
     final isAdmin = persona == Persona.admin;
     void later() => showAppToast(context, AppStrings.comingSoon);
 
+    // A module that is built gets its real destination; the rest still say so.
+    // Drill-downs under the dashboard branch are pushed, so back returns here
+    // and no tab lights up. A tile that IS a slot switches branch with `go`.
+    void push(String route) => unawaited(context.push(route));
+    void goTo(String route) => context.go(route);
+
     return <_TileGroup>[
       _TileGroup(
         eyebrow: DashboardStrings.studentsGroup,
@@ -78,14 +84,14 @@ class MorePage extends StatelessWidget {
             tint: c.studentBg,
             glyphColor: c.student,
             badge: isAdmin ? '2' : '1',
-            onTap: later,
+            onTap: () => push(AppRoutes.students),
           ),
           MoreTile(
             label: AppStrings.classrooms,
             icon: AppIcons.classrooms,
             tint: c.studentBg,
             glyphColor: c.student,
-            onTap: later,
+            onTap: () => goTo(AppRoutes.classrooms),
           ),
           MoreTile(
             label: AppStrings.activities,
@@ -115,7 +121,7 @@ class MorePage extends StatelessWidget {
               icon: AppIcons.staff,
               tint: c.staffBg,
               glyphColor: c.staffFg,
-              onTap: later,
+              onTap: () => push(AppRoutes.staff),
             ),
           MoreTile(
             label: DashboardStrings.scheduling,
