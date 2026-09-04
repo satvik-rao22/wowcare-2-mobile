@@ -1,4 +1,6 @@
 import 'package:wowcare/redesign/core/widgets/attendance_dot.dart';
+import 'package:wowcare/redesign/features/staff/models/staff_filters.dart';
+import 'package:wowcare/redesign/features/staff/models/staff_member.dart';
 import 'package:wowcare/redesign/features/staff/models/staff_role.dart';
 import 'package:wowcare/redesign/features/staff/models/staff_status.dart';
 
@@ -31,6 +33,25 @@ abstract final class StaffStrings {
   /// "Lead Teacher · Sunflower".
   static String designationScope(String designation, String scope) =>
       '$designation · $scope';
+
+  /// What a row's sub-line says after the designation. An Admin covers the
+  /// school by role, so their scope is every classroom; a cook, a floater and
+  /// an office administrator are all legitimately without one.
+  static String scopeOf(StaffMember member) {
+    if (member.role == StaffRole.admin) return allClassrooms;
+    return member.hasClassroom ? member.primaryClassroom : noClassroom;
+  }
+
+  /// A row's whole sub-line: "Lead Teacher · Sunflower".
+  static String memberSubline(StaffMember member) =>
+      designationScope(member.designation, scopeOf(member));
+
+  static String allowedInChip(String classroom) => 'Allowed in $classroom';
+
+  static String orderLabel(StaffOrder order) =>
+      order == StaffOrder.aToZ ? aToZ : zToA;
+
+  static const String loadingStaff = 'Loading staff…';
 
   static String upcomingSub(String designation, String scope) =>
       '$designation · $scope · upcoming';
@@ -69,7 +90,8 @@ abstract final class StaffStrings {
   static const String deactivate = 'Deactivate';
   static const String deactivateNote = 'Unfills their shifts';
   static const String reactivate = 'Reactivate';
-  static const String reactivateNote = 'Restores app access and the Sign-In PIN';
+  static const String reactivateNote =
+      'Restores app access and the Sign-In PIN';
 
   // Roster states.
   static const String noMatchTitle = 'No staff match';
@@ -291,6 +313,7 @@ abstract final class StaffStrings {
   static String added(String name) => '$name added';
 
   // Validation.
+  static const String nameRequired = 'Enter a name';
   static const String invalidEmail = 'Enter a work email address';
   static const String invalidPhone = 'Enter a phone number';
   static const String pickDesignationError = 'Pick a designation';
@@ -319,6 +342,24 @@ abstract final class StaffStrings {
 
   static const String scheduleTitle = 'Work schedule';
   static const String scheduleSaved = 'Schedule saved';
+  static String scheduleFor(String firstName) => "$firstName's week";
+  static const String saveSchedule = 'Save the week';
+  static String weekTotal(String hours) => '$hours this week';
+
+  /// A work schedule is Admin-only, per the module's own note on 13a.
+  static const String scheduleDeniedTitle =
+      'A work schedule is set by an Admin';
+  static const String scheduleDeniedBody =
+      'You can read your week on your own record. Ask an Admin at your school '
+      'to change the hours or the breaks.';
+
+  // --- States a screen can be in -------------------------------------------
+
+  static const String couldNotReachTitle = 'Could not reach this record';
+  static const String couldNotReachBody =
+      'Nothing is saved on this phone for it yet. Try again once there is a '
+      'signal.';
+  static const String viewOnlyToast = 'You have view access here.';
 
   // --- 6f deactivate --------------------------------------------------------
 

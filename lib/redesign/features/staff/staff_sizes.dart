@@ -50,6 +50,13 @@ abstract final class StaffSizes {
   static const double dayAvatar = 36;
   static const double avatarRing = 2.5;
   static const double avatarRingPad = 2.5;
+
+  /// What is left inside a ringed bubble once the ring and its gap are taken
+  /// off both sides, so the initials sit in the middle rather than overflow.
+  static const double profileAvatarInner =
+      profileAvatar - 2 * (avatarRing + avatarRingPad);
+  static const double dayAvatarInner =
+      dayAvatar - 2 * (avatarRing + avatarRingPad);
   static const EdgeInsets tabPad = EdgeInsets.symmetric(
     horizontal: 13,
     vertical: 9,
@@ -128,6 +135,10 @@ abstract final class StaffSizes {
     vertical: 10,
   );
   static const EdgeInsets callKeyPad = EdgeInsets.all(11);
+  static const EdgeInsets teamRowPad = EdgeInsets.symmetric(
+    horizontal: 13,
+    vertical: 11,
+  );
   static const double teamGap = 12;
   static const EdgeInsets blankPad = EdgeInsets.symmetric(
     horizontal: 24,
@@ -137,4 +148,41 @@ abstract final class StaffSizes {
   // 6f.
   static const double sheetSectionGap = 14;
   static const double changeRowGap = 10;
+
+  // 6e blank states: a bigger tile than the everyday empty state's 64.
+  static const double stateIcon = 78;
+  static const double stateIconRadius = 28;
+  static const double stateGap = 15;
+  static const double stateTextGap = 7;
+  static const EdgeInsets stateKeyPad = EdgeInsets.symmetric(
+    horizontal: 20,
+    vertical: 14,
+  );
+
+  /// The gap between the banner and the header under it.
+  static const double bannerGap = 10;
+
+  // Shared odds and ends.
+
+  /// The gap between stacked sections in a screen body.
+  static const double sectionGap = 12;
+
+  /// The gap between a card's rows.
+  static const double cardRowGap = 11;
+
+  /// The pink dashed key at the foot of the Documents tab.
+  static const double dashedKeyGap = 8;
+  static const double dashedKeyGlyph = 16;
+
+  /// The two counting tiles over the roster.
+  static const double countsGap = 9;
+
+  /// The gap under the chip row.
+  static const double chipRowGap = 10;
+
+  /// The 22px checkbox's slot in a row.
+  static const double rowCheckGap = 11;
+
+  /// The rotating caret at the end of a roster row.
+  static const double rowCaret = 15;
 }
