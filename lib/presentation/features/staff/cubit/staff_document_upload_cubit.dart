@@ -5,6 +5,7 @@ import 'package:equatable/equatable.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../core/util/file_picker_utils.dart';
 import '../../../../shared/services/image_upload/image_upload_service.dart';
@@ -167,7 +168,15 @@ class StaffDocumentUploadCubit extends Cubit<StaffDocumentUploadState> {
           .catchError((_) {});
     } catch (e) {
       if (isClosed) return;
-      emit(StaffDocumentUploadState.error('Failed to upload file: $e'));
+      // Was raw '$e' - a DioException's toString() dump instead of the
+      // actual backend reason (e.g. "Content type 'application/octet-stream'
+      // is not allowed for DOCUMENT.") the {success, message, data} envelope
+      // already carries. extractErrorMessage pulls that out.
+      emit(
+        StaffDocumentUploadState.error(
+          'Failed to upload file: ${ApiErrorHandler.extractErrorMessage(e)}',
+        ),
+      );
     }
   }
 

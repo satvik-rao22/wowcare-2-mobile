@@ -13,6 +13,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -406,7 +407,14 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
           })
           .catchError((_) {});
     } catch (e) {
-      _showWarningMessage('Failed to upload file: ${e.toString()}');
+      // Was e.toString() - for a failed upload that's a raw DioException
+      // dump (type, request/response internals, stack) instead of the
+      // actual backend reason (e.g. "Content type 'application/octet-stream'
+      // is not allowed for DOCUMENT."), which the {success, message, data}
+      // envelope already carries. extractErrorMessage pulls that out.
+      _showWarningMessage(
+        'Failed to upload file: ${ApiErrorHandler.extractErrorMessage(e)}',
+      );
     } finally {
       if (mounted) {
         setState(() {
