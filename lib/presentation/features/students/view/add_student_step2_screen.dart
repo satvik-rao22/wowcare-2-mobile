@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/domain/features/student/entities/update_guardian_request.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -508,26 +509,24 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             final String message;
             if (_isEditMode) {
               final guardianCode = widget.editGuardianCode!.trim();
-              final fields = <String, dynamic>{
-                'userCode': (widget.initialUserCode ?? '').trim(),
-                'code': guardianCode,
-                'schoolCode': schoolCode,
-                'studentCode': studentCode,
-                'firstName': first,
-                'lastName': last,
-                'email': email,
-                'mobile': digits,
-                'relationToStudent': relationToStudent,
-                if (relationshipDescription != null)
-                  'relationshipDescription': relationshipDescription,
-                'primaryContact': primaryContact,
-                'legalCustody': legalCustody,
-                'updatedBy': loggedInUserCode.trim(),
-              };
               message = await _createCubit.updateGuardian(
                 code: guardianCode,
                 studentCode: studentCode,
-                fields: fields,
+                request: UpdateGuardianRequest(
+                  userCode: (widget.initialUserCode ?? '').trim(),
+                  code: guardianCode,
+                  schoolCode: schoolCode,
+                  studentCode: studentCode,
+                  firstName: first,
+                  lastName: last,
+                  email: email,
+                  mobile: digits,
+                  relationToStudent: relationToStudent,
+                  relationshipDescription: relationshipDescription,
+                  primaryContact: primaryContact,
+                  legalCustody: legalCustody,
+                  updatedBy: loggedInUserCode.trim(),
+                ),
               );
               // Photo upload runs in the BACKGROUND so the form returns
               // instantly; it keeps going even after this screen is closed.

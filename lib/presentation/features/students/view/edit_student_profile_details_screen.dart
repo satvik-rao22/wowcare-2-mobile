@@ -19,6 +19,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
 import 'package:wowcare/domain/features/student/entities/update_student_address_request.dart';
 import 'package:wowcare/domain/features/student/entities/update_student_profile_request.dart';
+import 'package:wowcare/domain/features/student/entities/update_guardian_request.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_profile_edit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:intl/intl.dart';
@@ -780,18 +781,18 @@ class _EditStudentProfileDetailsScreenState
           await _profileEditCubit.updateGuardian(
             code: code,
             studentCode: widget.studentCode,
-            fields: <String, dynamic>{
-              'userCode': raw.userCode,
-              'schoolCode': schoolCode,
-              'studentCode': widget.studentCode,
-              'firstName': raw.firstName,
-              'lastName': raw.lastName,
-              'email': raw.email,
-              'mobile': raw.mobile,
-              'relationToStudent': raw.relationToStudent,
-              'primaryContact': raw.primaryContact,
-              'legalCustody': desiredCustody,
-            },
+            request: UpdateGuardianRequest(
+              userCode: raw.userCode,
+              schoolCode: schoolCode,
+              studentCode: widget.studentCode,
+              firstName: raw.firstName,
+              lastName: raw.lastName,
+              email: raw.email,
+              mobile: raw.mobile,
+              relationToStudent: raw.relationToStudent,
+              primaryContact: raw.primaryContact,
+              legalCustody: desiredCustody,
+            ),
           );
         }
       }

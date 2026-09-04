@@ -4,6 +4,7 @@ import '../entities/student_documents_page.dart';
 import '../entities/student_guardian.dart';
 import '../entities/update_student_address_request.dart';
 import '../entities/update_student_profile_request.dart';
+import '../entities/update_guardian_request.dart';
 import '../entities/student_health.dart';
 import '../entities/student_health_update_request.dart';
 import '../entities/student_immunization.dart';
@@ -283,11 +284,10 @@ abstract class StudentRepository {
 
   /// Updates a guardian via `PATCH /api/v1/guardian/{code}`.
   ///
-  /// [fields] should follow the backend PATCH contract.
   Future<String> updateGuardian({
     required String code,
     required String studentCode,
-    required Map<String, dynamic> fields,
+    required UpdateGuardianRequest request,
   });
 
   /// Deletes a guardian via `DELETE /api/v1/guardian/{code}`.

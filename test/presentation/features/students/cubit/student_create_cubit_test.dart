@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
+import 'package:wowcare/domain/features/student/entities/update_guardian_request.dart';
 import 'package:wowcare/domain/features/student/entities/student_profile.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/add_student_sibling_usecase.dart';
@@ -210,7 +211,7 @@ class _FakeUpdateGuardianUseCase extends UpdateGuardianUseCase {
   Future<String> call({
     required String code,
     required String studentCode,
-    required Map<String, dynamic> fields,
+    required UpdateGuardianRequest request,
   }) {
     calls++;
     if (error != null) return Future.error(error!);
@@ -385,7 +386,18 @@ void main() {
       final message = await cubit.updateGuardian(
         code: 'G1',
         studentCode: 'STU1',
-        fields: const {'legalCustody': true},
+        request: const UpdateGuardianRequest(
+          userCode: 'U1',
+          schoolCode: 'SCH',
+          studentCode: 'STU1',
+          firstName: 'Jane',
+          lastName: 'Doe',
+          email: 'jane@x.com',
+          mobile: '5551234567',
+          relationToStudent: 'MOTHER',
+          primaryContact: true,
+          legalCustody: true,
+        ),
       );
 
       expect(fakes.updateGuardian.calls, 1);

@@ -5,6 +5,7 @@ import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
 import 'package:wowcare/domain/features/student/entities/update_student_address_request.dart';
 import 'package:wowcare/domain/features/student/entities/update_student_profile_request.dart';
+import 'package:wowcare/domain/features/student/entities/update_guardian_request.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_guardians_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
@@ -21,6 +22,19 @@ const _profileReq = UpdateStudentProfileRequest(
   status: 'ACTIVE',
   classroomCode: 'CLS_1',
   classroomName: 'Blue-A',
+);
+
+const _guardianReq = UpdateGuardianRequest(
+  userCode: 'U1',
+  schoolCode: 'SCH',
+  studentCode: 'S1',
+  firstName: 'Jane',
+  lastName: 'Doe',
+  email: 'jane@x.com',
+  mobile: '5551234567',
+  relationToStudent: 'MOTHER',
+  primaryContact: true,
+  legalCustody: true,
 );
 
 StudentGuardian _guardian(String code) => StudentGuardian(
@@ -193,7 +207,7 @@ class _FakeUpdateGuardianUseCase extends UpdateGuardianUseCase {
   Future<String> call({
     required String code,
     required String studentCode,
-    required Map<String, dynamic> fields,
+    required UpdateGuardianRequest request,
   }) {
     calls++;
     if (error != null) return Future.error(error!);
@@ -323,7 +337,7 @@ void main() {
       final message = await cubit.updateGuardian(
         code: 'G1',
         studentCode: 'S1',
-        fields: const {'legalCustody': true},
+        request: _guardianReq,
       );
 
       expect(fakes.updateGuardian.calls, 1);
@@ -400,7 +414,7 @@ void main() {
       final cubit = fakes.build();
 
       await expectLater(
-        cubit.updateGuardian(code: 'G1', studentCode: 'S1', fields: const {}),
+        cubit.updateGuardian(code: 'G1', studentCode: 'S1', request: _guardianReq),
         throwsA(isA<Exception>()),
       );
       await cubit.close();

@@ -5,6 +5,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../../../core/util/app_time.dart';
 import '../../../../domain/features/student/entities/student.dart';
+import '../../../../domain/features/student/entities/update_guardian_request.dart';
 import '../../../../domain/features/student/entities/student_profile.dart';
 import '../../../../domain/features/student/usecases/add_student_sibling_usecase.dart';
 import '../../../../domain/features/student/usecases/create_guardian_user_usecase.dart';
@@ -377,7 +378,7 @@ class StudentCreateCubit extends Cubit<StudentCreateState> {
   Future<String> updateGuardian({
     required String code,
     required String studentCode,
-    required Map<String, dynamic> fields,
+    required UpdateGuardianRequest request,
   }) {
     return _singleFlight<String>('updateGuardian:$code', () async {
       if (!isClosed) emit(state.copyWith(mutationInProgress: true));
@@ -385,7 +386,7 @@ class StudentCreateCubit extends Cubit<StudentCreateState> {
         return await _updateGuardianUseCase(
           code: code,
           studentCode: studentCode,
-          fields: fields,
+          request: request,
         );
       } finally {
         if (!isClosed) emit(state.copyWith(mutationInProgress: false));

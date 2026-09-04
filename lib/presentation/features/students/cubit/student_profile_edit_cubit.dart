@@ -5,6 +5,7 @@ import '../../../../domain/features/student/entities/student.dart';
 import '../../../../domain/features/student/entities/student_guardian.dart';
 import '../../../../domain/features/student/entities/update_student_address_request.dart';
 import '../../../../domain/features/student/entities/update_student_profile_request.dart';
+import '../../../../domain/features/student/entities/update_guardian_request.dart';
 import '../../../../domain/features/student/usecases/get_student_guardians_usecase.dart';
 import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../../../domain/features/student/usecases/update_guardian_usecase.dart';
@@ -281,7 +282,7 @@ class StudentProfileEditCubit extends Cubit<StudentProfileEditState> {
   Future<String> updateGuardian({
     required String code,
     required String studentCode,
-    required Map<String, dynamic> fields,
+    required UpdateGuardianRequest request,
   }) {
     return _singleFlight<String>('updateGuardian:$code', () async {
       if (!isClosed) emit(state.copyWith(mutationInProgress: true));
@@ -289,7 +290,7 @@ class StudentProfileEditCubit extends Cubit<StudentProfileEditState> {
         return await _updateGuardianUseCase(
           code: code,
           studentCode: studentCode,
-          fields: fields,
+          request: request,
         );
       } finally {
         if (!isClosed) emit(state.copyWith(mutationInProgress: false));
