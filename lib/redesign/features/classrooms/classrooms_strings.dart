@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import 'package:wowcare/redesign/core/constants/app_strings.dart';
 
 /// Every word M07 Classrooms says. Shared vocabulary (Students, Staff,
 /// Signed In, In Ratio, Apply, Clear all…) stays in `AppStrings`.
@@ -11,8 +12,10 @@ abstract final class ClassroomsStrings {
   static const String title = 'Classrooms';
   static String headerDate(DateTime d) => DateFormat('EEEE, d MMM').format(d);
 
-  static String studentsIn(int n) =>
-      n == 1 ? '1 student in' : '$n students in';
+  /// The clock time a cached screen was last reached at.
+  static String timeOfDay(DateTime d) => DateFormat('H:mm').format(d);
+
+  static String studentsIn(int n) => n == 1 ? '1 student in' : '$n students in';
   static String staffOnDutyAcross(int staff, int classrooms) {
     final s = staff == 1 ? '1 staff' : '$staff staff';
     final c = classrooms == 1 ? '1 classroom' : '$classrooms classrooms';
@@ -128,8 +131,17 @@ abstract final class ClassroomsStrings {
   }
 
   static const String onDuty = 'On duty';
+  static const String onBreak = 'On break';
+  static String onBreakChip(int n) => 'On break $n';
+  static String absentChip(int n) => 'Absent $n';
+  static String signedOutChip(int n) => 'Signed Out $n';
   static const String assignStaff = 'Assign Staff';
   static const String assignStudents = 'Assign students';
+
+  /// Why a teacher's classroom has two tabs rather than three (7e).
+  static const String noStaffTabNote =
+      'No Staff tab. Who else is in the classroom is on the classroom '
+      'profile, and assigning staff is admin work.';
 
   static const String today = 'Today';
   static const String you = 'You';
@@ -165,13 +177,16 @@ abstract final class ClassroomsStrings {
   // --- 7e · a teacher's classroom -----------------------------------------
 
   static const String yourClassroom = 'Your classroom';
-  static const String notClockedIn = 'You are not clocked in';
+  // The action is Sign In, the same verb M04 and the shipped My Day card use
+  // for a staff member, so one action never has two names. "On the clock" is
+  // kept only as description, never as the label on a key.
+  static const String notClockedIn = 'You are not signed in';
   static String shiftLine(String shift) => 'Shift $shift';
-  static const String clockInNow = 'Clock in now';
+  static const String clockInNow = AppStrings.signIn;
   static const String clockInWhy =
-      'The classroom unlocks once you are on the clock, so a student is never '
+      'The classroom unlocks once you are signed in, so a student is never '
       'marked by someone who is not here.';
-  static const String lockedTitle = 'Locked until you clock in';
+  static const String lockedTitle = 'Locked until you sign in';
   static const String lockedBody =
       'You can see who is expected, but you cannot mark anyone yet.';
   static String overRatioBy(int n) =>
@@ -184,8 +199,7 @@ abstract final class ClassroomsStrings {
 
   static String ageAndEnrolled(String age, int enrolled) =>
       '$age · ${enrolled == 1 ? '1 student' : '$enrolled students'} enrolled';
-  static String ageAndPlaces(String age, int places) =>
-      '$age · $places places';
+  static String ageAndPlaces(String age, int places) => '$age · $places places';
   static const String profileCapacityCounts =
       "Classroom profile, capacity and today's counts";
   static const String noLeadYet = 'No lead assigned yet';
@@ -380,7 +394,8 @@ abstract final class ClassroomsStrings {
         'Put them somewhere and attendance starts working.';
   }
 
-  static String noStudentCalled(String query) => 'No student called $query here';
+  static String noStudentCalled(String query) =>
+      'No student called $query here';
   static String noStaffCalled(String query) => 'No staff called $query here';
   static String searchOnlyHere(String classroom) =>
       'This search only looks inside $classroom. Try the full student list to '
@@ -391,10 +406,11 @@ abstract final class ClassroomsStrings {
   static const String lookNotChangeBody =
       'Your role can open classrooms but not assign, edit or remove. An admin '
       'at your center can change that on the web.';
+
+  /// Why a key nobody can press is still on the screen.
+  static const String deadKeysHint =
+      'Keys stay visible and dead, so the classroom does not look broken.';
   static const String couldNotReachTitle = 'We could not reach the classroom';
-  static String couldNotReachBody(String time) =>
-      'The list you are seeing is from $time. Nothing you tap now would save, '
-      'so those actions are off until you are back.';
   static const String couldNotReachBodyNoCache =
       'Nothing loaded. Check your connection and try again.';
   static const String couldNotReachListTitle =
