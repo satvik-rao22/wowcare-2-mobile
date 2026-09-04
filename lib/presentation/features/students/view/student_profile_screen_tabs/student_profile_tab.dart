@@ -11,6 +11,7 @@ import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 
 import '../student_profile_tab_cards/student_family_tab_card.dart';
 import '../student_profile_tab_cards/student_pickup_tab_card.dart';
@@ -35,7 +36,7 @@ class StudentProfileTab extends StatefulWidget {
   final String classroom;
   final List<String> tags;
   final List<String> schedule;
-  final Map<String, dynamic> sibling;
+  final StudentSiblingInfo sibling;
   final String? studentCode;
   final ValueChanged<StudentProfileModel>? onProfileChanged;
 
@@ -400,11 +401,11 @@ class _StudentProfileTabState extends State<StudentProfileTab>
       classroom: profile.classroom ?? widget.classroom,
       tags: apiTags,
       schedule: apiSchedule,
-      sibling: <String, dynamic>{
-        'name': siblingNames,
-        'relation': siblingRelations,
-        'status': siblingStatuses,
-      },
+      sibling: StudentSiblingInfo(
+        names: siblingNames,
+        relations: siblingRelations,
+        statuses: siblingStatuses,
+      ),
       studentProfile: profile,
       onRefresh: _refreshProfile,
       studentCode: profile.code,

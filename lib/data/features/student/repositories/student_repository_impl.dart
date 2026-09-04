@@ -21,6 +21,8 @@ import '../../../../domain/features/student/entities/vaccine_item.dart';
 import '../../../../domain/features/student/repositories/student_repository.dart';
 import '../datasources/student_remote_datasource.dart';
 import '../mappers/student_guardian_mapper.dart';
+import '../mappers/school_guardian_summary_mapper.dart';
+import '../mappers/student_health_update_request_mapper.dart';
 import '../mappers/student_health_mapper.dart';
 import '../mappers/student_immunization_mapper.dart';
 import '../mappers/student_physical_exam_mapper.dart';
@@ -49,7 +51,7 @@ class StudentRepositoryImpl
     final raw = await _remoteDataSource.getGuardiansBySchool(
       schoolCode: schoolCode,
     );
-    return raw.map(SchoolGuardianSummary.fromMap).toList();
+    return raw.map(schoolGuardianSummaryFromMap).toList();
   }
 
   String _timeToLabel(dynamic raw) {
@@ -825,7 +827,7 @@ class StudentRepositoryImpl
   }) async {
     final model = await _remoteDataSource.updateStudentHealth(
       code: studentCode,
-      body: request.toPayload(),
+      body: studentHealthUpdateRequestToPayload(request),
     );
 
     await _cacheManager.saveCache(

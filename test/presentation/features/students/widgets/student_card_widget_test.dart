@@ -1,4 +1,5 @@
 import 'package:bloc/bloc.dart';
+import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -41,7 +42,7 @@ StudentCard _card() => StudentCard(
   name: 'Alice Johnson',
   classroom: 'Sunflower Room',
   tags: const ['Allergy', 'VIP'],
-  sibling: const <String, dynamic>{},
+  sibling: const StudentSiblingInfo(),
   schedule: const ['MON', 'TUE', 'WED', 'THU', 'FRI'],
   birthDate: '2020-01-15',
   movementDate: '2024-09-01',

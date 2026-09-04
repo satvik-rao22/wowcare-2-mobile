@@ -31,7 +31,7 @@ class StudentProfileEditState extends Equatable {
     this.availableGuardianNames = const <String>[],
     this.guardianNameToCode = const <String, String>{},
     this.guardianInitialCustody = const <String, bool>{},
-    this.guardianRawByCode = const <String, Map<String, dynamic>>{},
+    this.guardianRawByCode = const <String, StudentGuardian>{},
   });
 
   const StudentProfileEditState.initial()
@@ -58,7 +58,7 @@ class StudentProfileEditState extends Equatable {
         availableGuardianNames = const <String>[],
         guardianNameToCode = const <String, String>{},
         guardianInitialCustody = const <String, bool>{},
-        guardianRawByCode = const <String, Map<String, dynamic>>{};
+        guardianRawByCode = const <String, StudentGuardian>{};
 
   final bool mutationInProgress;
   final String? errorMessage;
@@ -95,7 +95,7 @@ class StudentProfileEditState extends Equatable {
   final List<String> availableGuardianNames;
   final Map<String, String> guardianNameToCode;
   final Map<String, bool> guardianInitialCustody;
-  final Map<String, Map<String, dynamic>> guardianRawByCode;
+  final Map<String, StudentGuardian> guardianRawByCode;
 
   StudentProfileEditState copyWith({
     bool? mutationInProgress,
@@ -121,7 +121,7 @@ class StudentProfileEditState extends Equatable {
     List<String>? availableGuardianNames,
     Map<String, String>? guardianNameToCode,
     Map<String, bool>? guardianInitialCustody,
-    Map<String, Map<String, dynamic>>? guardianRawByCode,
+    Map<String, StudentGuardian>? guardianRawByCode,
   }) {
     return StudentProfileEditState(
       mutationInProgress: mutationInProgress ?? this.mutationInProgress,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -835,7 +836,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
           classroom: classroom,
           tags: const [],
           schedule: const [],
-          sibling: const {},
+          sibling: const StudentSiblingInfo(),
           studentCode: studentCode,
         ),
       ),

@@ -1,5 +1,6 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -503,11 +504,7 @@ class _StudentScreenState extends State<StudentScreen> {
       'Status': student.status,
       'Attendance': 'Expected', // API doesn't provide attendance yet
       'Parents': <String>[], // API doesn't provide parents yet
-      'sibling': {
-        'name': [],
-        'relation': [],
-        'status': [],
-      }, // API doesn't provide siblings yet
+      'sibling': const StudentSiblingInfo(), // API doesn't provide siblings yet
       'activities': <String>[], // API doesn't provide activities yet
       'code': student.code,
     };
@@ -1780,8 +1777,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                         studentMap['Classroom'] as String,
                                     tags: studentMap['Tags'] as List<String>,
                                     sibling:
-                                        studentMap['sibling']
-                                            as Map<String, dynamic>,
+                                        studentMap['sibling'] as StudentSiblingInfo,
                                     schedule:
                                         studentMap['schedule'] as List<String>,
                                     scheduleByDay:

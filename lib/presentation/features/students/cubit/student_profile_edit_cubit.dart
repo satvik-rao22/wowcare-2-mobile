@@ -133,7 +133,7 @@ class StudentProfileEditCubit extends Cubit<StudentProfileEditState> {
     required List<String> names,
     required Map<String, String> nameToCode,
     required Map<String, bool> initialCustody,
-    required Map<String, Map<String, dynamic>> rawByCode,
+    required Map<String, StudentGuardian> rawByCode,
     required List<String> selectedChildCustody,
   }) {
     emit(state.copyWith(

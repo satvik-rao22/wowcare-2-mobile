@@ -16,6 +16,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_profile_edit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:intl/intl.dart';
@@ -99,11 +100,11 @@ class _EditStudentProfileDetailsScreenState
 
   // The full profile form model + server-fetched options/maps now live in
   // StudentProfileEditCubit's state (see the `_selected*`/`_available*` getters
-  // below that read it). The guardian raw-record map's rationale: the custody
-  // PATCH validates as a FULL update (firstName/lastName/email/mobile/
-  // relationToStudent/userCode/schoolCode all required), not a partial patch, so
-  // `legalCustody` alone 400s — kept keyed by guardian code so it survives
-  // duplicate display names.
+  // below that read it). Guardians are kept as typed `StudentGuardian` records
+  // keyed by code (`guardianRawByCode`): the custody PATCH validates as a FULL
+  // update (firstName/lastName/email/mobile/relationToStudent/userCode/schoolCode
+  // all required), not a partial patch, so `legalCustody` alone 400s — the rest
+  // are echoed back from the loaded record.
   //
   // Waitlist and Graduated are intentionally omitted from the status options:
   // no mobile workflow exists for either, so offering them just lets a student
@@ -149,7 +150,7 @@ class _EditStudentProfileDetailsScreenState
       _profileEditCubit.state.guardianNameToCode;
   Map<String, bool> get _guardianInitialCustody =>
       _profileEditCubit.state.guardianInitialCustody;
-  Map<String, Map<String, dynamic>> get _guardianRawByCode =>
+  Map<String, StudentGuardian> get _guardianRawByCode =>
       _profileEditCubit.state.guardianRawByCode;
   final List<String> _stateOptions = US_STATES
       .map((s) => s.name)
@@ -403,14 +404,14 @@ class _EditStudentProfileDetailsScreenState
       final names = <String>[];
       final nameToCode = <String, String>{};
       final initialCustody = <String, bool>{};
-      final rawByCode = <String, Map<String, dynamic>>{};
+      final rawByCode = <String, StudentGuardian>{};
       for (final row in rawRows) {
         final base = row['name'] as String;
         final code = row['code'] as String;
         names.add(base);
         nameToCode[base] = code;
         initialCustody[base] = row['legalCustody'] as bool;
-        rawByCode[code] = row['raw'] as Map<String, dynamic>;
+        rawByCode[code] = row['raw'] as StudentGuardian;
       }
       if (!mounted) return;
 
@@ -763,14 +764,6 @@ class _EditStudentProfileDetailsScreenState
       // schoolCode all required), so `legalCustody` alone 400s — the rest of
       // the fields are echoed back unchanged from the guardian record loaded
       // in `_loadGuardiansForCustody`.
-      String rawStr(Map<String, dynamic> g, List<String> keys) {
-        for (final k in keys) {
-          final v = (g[k] as Object?)?.toString().trim() ?? '';
-          if (v.isNotEmpty) return v;
-        }
-        return '';
-      }
-
       if (_guardianNameToCode.entries.any(
         (entry) =>
             _selectedChildCustody.contains(entry.key) !=
@@ -787,20 +780,21 @@ class _EditStudentProfileDetailsScreenState
           final currentCustody = _guardianInitialCustody[name] ?? false;
           if (desiredCustody == currentCustody) continue;
 
-          final raw = _guardianRawByCode[code] ?? const {};
+          final raw = _guardianRawByCode[code];
+          if (raw == null) continue;
           await _profileEditCubit.updateGuardian(
             code: code,
             studentCode: widget.studentCode,
             fields: <String, dynamic>{
-              'userCode': rawStr(raw, const ['userCode']),
+              'userCode': raw.userCode,
               'schoolCode': schoolCode,
               'studentCode': widget.studentCode,
-              'firstName': rawStr(raw, const ['firstName', 'first_name']),
-              'lastName': rawStr(raw, const ['lastName', 'last_name']),
-              'email': rawStr(raw, const ['email']),
-              'mobile': rawStr(raw, const ['mobile', 'phone']),
-              'relationToStudent': rawStr(raw, const ['relationToStudent']),
-              'primaryContact': raw['primaryContact'] == true,
+              'firstName': raw.firstName,
+              'lastName': raw.lastName,
+              'email': raw.email,
+              'mobile': raw.mobile,
+              'relationToStudent': raw.relationToStudent,
+              'primaryContact': raw.primaryContact,
               'legalCustody': desiredCustody,
             },
           );

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -1795,11 +1796,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                           'Thursday',
                                           'Friday',
                                         ],
-                                        sibling: const {
-                                          'name': [],
-                                          'relation': [],
-                                          'status': [],
-                                        },
+                                        sibling: const StudentSiblingInfo(),
                                         studentCode: student.studentCode,
                                         initialEnrollmentStatus: student.status,
                                       ),

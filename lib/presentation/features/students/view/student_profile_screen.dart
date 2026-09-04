@@ -40,6 +40,8 @@ import '../../../../app/theme/media_res.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 
+import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
+
 class StudentProfileScreen extends StatefulWidget {
   static const String routeName = '/dashboard/student-profile';
 
@@ -65,7 +67,7 @@ class StudentProfileScreen extends StatefulWidget {
   final String classroom;
   final List<String> tags;
   final List<String> schedule;
-  final Map<String, dynamic> sibling;
+  final StudentSiblingInfo sibling;
   final String? studentCode;
 
   final String? initialEnrollmentStatus;
@@ -128,7 +130,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   String? _activeStudentCode;
   late List<String> _profileTags;
   late List<String> _profileSchedule;
-  late Map<String, dynamic> _profileSibling;
+  late StudentSiblingInfo _profileSibling;
   ParentChildCubit? _parentChildProvider;
   StreamSubscription<ParentChildState>? _parentChildSub;
   String? _profilePhotoUrl;
@@ -153,7 +155,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     _activeStudentCode = widget.studentCode;
     _profileTags = List<String>.from(widget.tags);
     _profileSchedule = List<String>.from(widget.schedule);
-    _profileSibling = Map<String, dynamic>.from(widget.sibling);
+    _profileSibling = widget.sibling;
     _profileCubit.loadHealth(_activeStudentCode ?? '');
     _displayName = widget.name;
     _displayClassroom = widget.classroom;
@@ -443,11 +445,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       _displayClassroom = child.classroom;
       _profileTags = List<String>.from(child.tags);
       _profileSchedule = List<String>.from(child.schedule);
-      _profileSibling = <String, dynamic>{
-        'name': <dynamic>[],
-        'relation': <dynamic>[],
-        'status': <dynamic>[],
-      };
+      _profileSibling = const StudentSiblingInfo();
       _profileStatusUpper = null;
     });
     _profileCubit.loadHealth(code);

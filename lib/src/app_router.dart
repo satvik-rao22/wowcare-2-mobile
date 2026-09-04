@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -1218,11 +1219,7 @@ final GoRouter appRouter = GoRouter(
                           classroom: '',
                           tags: const <String>[],
                           schedule: const <String>[],
-                          sibling: const <String, dynamic>{
-                            'name': <dynamic>[],
-                            'relation': <dynamic>[],
-                            'status': <dynamic>[],
-                          },
+                          sibling: const StudentSiblingInfo(),
                           initialTabIndex: int.tryParse(q['tab'] ?? '') ?? 0,
                           initialProfileSubTabIndex:
                               int.tryParse(q['profileTab'] ?? '') ?? 0,

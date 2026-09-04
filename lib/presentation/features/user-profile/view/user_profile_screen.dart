@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -369,11 +370,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           classroom: resolvedClassroom,
           tags: selected.tags,
           schedule: selected.schedule,
-          sibling: const <String, dynamic>{
-            'name': [],
-            'relation': [],
-            'status': [],
-          },
+          sibling: const StudentSiblingInfo(),
           studentCode: selected.code,
           syncWithParentChildSelection: true,
         ),

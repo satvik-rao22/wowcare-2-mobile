@@ -12,6 +12,7 @@ import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 
@@ -46,7 +47,7 @@ class StudentCard extends StatefulWidget {
   final String? profilePhotoAssetCode;
   final String classroom;
   final List<String> tags;
-  final Map<String, dynamic> sibling;
+  final StudentSiblingInfo sibling;
   final List<String> schedule;
   final Map<String, String> scheduleByDay;
   final String birthDate;

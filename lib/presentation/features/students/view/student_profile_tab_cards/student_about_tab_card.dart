@@ -19,6 +19,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
+import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 
 import '../../../../../shared/common/widgets/profile_info_card.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
@@ -45,7 +46,7 @@ class StudentAboutTabCard extends StatefulWidget {
   final String classroom;
   final List<String> tags;
   final List<String> schedule;
-  final Map<String, dynamic> sibling;
+  final StudentSiblingInfo sibling;
   final Future<void> Function()? onRefresh;
   final StudentProfileModel? studentProfile;
   final String? studentCode;
@@ -549,9 +550,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
 
           Builder(
             builder: (context) {
-              final names =
-                  (widget.sibling['name'] as List?)?.cast<String>() ??
-                  const <String>[];
+              final names = widget.sibling.names;
 
               if (names.isEmpty) {
                 return ProfileField(label: 'Sibling', value: 'No siblings');
@@ -681,8 +680,8 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                   initialSchedule = null;
                 }
 
-                final result =
-                    await context.push<Map<String, Map<String, TimeOfDay>>>(
+                final result = await context
+                    .push<Map<String, Map<String, TimeOfDay>>>(
                       AddStudentStep3Screen.routeName,
                       extra: <String, dynamic>{
                         'title': 'Edit Schedule',

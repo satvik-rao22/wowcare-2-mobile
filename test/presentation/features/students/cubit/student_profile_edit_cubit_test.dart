@@ -476,7 +476,17 @@ void main() {
           nameToCode: const {'Guardian X': 'G1'},
           initialCustody: const {'Guardian X': true},
           rawByCode: const {
-            'G1': {'legalCustody': true},
+            'G1': StudentGuardian(
+              guardianCode: 'G1',
+              userCode: 'U1',
+              firstName: 'Guardian',
+              lastName: 'X',
+              mobile: '5551234567',
+              email: 'gx@x.com',
+              relationToStudent: 'MOTHER',
+              primaryContact: true,
+              legalCustody: true,
+            ),
           },
           selectedChildCustody: const ['Guardian X'],
         );
@@ -484,7 +494,8 @@ void main() {
       expect(cubit.state.tagNameToCode, const {'VIP': 'T1'});
       expect(cubit.state.studentNameToCode, const {'Sib A': 'S9'});
       expect(cubit.state.guardianInitialCustody, const {'Guardian X': true});
-      expect(cubit.state.guardianRawByCode['G1']?['legalCustody'], isTrue);
+      expect(cubit.state.guardianRawByCode['G1']?.userCode, 'U1');
+      expect(cubit.state.guardianRawByCode['G1']?.legalCustody, isTrue);
       expect(cubit.state.selectedChildCustody, const ['Guardian X']);
     });
   });
