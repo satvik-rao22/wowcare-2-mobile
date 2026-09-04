@@ -58,7 +58,7 @@ abstract class CommunicationRepository {
     int page = 0,
     int size = 50,
   });
-  Future<Either<Failure, List<Conversation>>> loadCachedConversations();
+  Future<Either<Failure, List<Conversation>>> loadCachedConversations({String? type});
   Future<Either<Failure, List<Message>>> loadCachedMessages(
     String threadId, {
     String? currentUserId,

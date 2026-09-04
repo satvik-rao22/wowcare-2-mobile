@@ -100,17 +100,6 @@ class _StudentAttendancePerStudentReportScreenState
     List<String> selectedClassroomNames,
   ) async {
     final currentFetchId = ++_fetchId;
-    if (selectedClassroomNames.isEmpty) {
-      if (!mounted) return;
-      setState(() {
-        _availableStudents = <String>[];
-        _selectedStudents = <String>[];
-        _studentCodeByName = <String, String>{};
-        _isLoadingStudents = false;
-      });
-      return;
-    }
-
     setState(() {
       _isLoadingStudents = true;
     });
@@ -144,16 +133,20 @@ class _StudentAttendancePerStudentReportScreenState
       final getStudentClassroomListUseCase =
           serviceLocator<GetStudentClassroomListUseCase>();
 
-      final results = await Future.wait(
-        classroomCodes.map(
-          (code) => getStudentClassroomListUseCase(
+      final results = <List<StudentClassroomItem>>[];
+      for (final code in classroomCodes) {
+        try {
+          final students = await getStudentClassroomListUseCase(
             schoolCode: schoolCode,
             classroomCode: code,
             status: const ['ACTIVE'],
             refresh: true,
-          ).catchError((_) => <StudentClassroomItem>[]),
-        ),
-      );
+          );
+          results.add(students);
+        } catch (_) {
+          results.add(<StudentClassroomItem>[]);
+        }
+      }
 
       if (!mounted || currentFetchId != _fetchId) return;
 
