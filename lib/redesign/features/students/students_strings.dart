@@ -13,7 +13,6 @@ abstract final class StudentsStrings {
   static const String doneKey = 'Done';
   static const String filterKey = 'Filter students';
   static const String addStudentKey = 'Add a student';
-  static const String sortAToZ = 'A to Z';
 
   static const String activeStudentsTile = 'Active students';
   static const String startingSoonTile = 'Starting soon';
@@ -74,8 +73,6 @@ abstract final class StudentsStrings {
   static const String pickStudents = 'Pick students to act on';
   static String signInCount(int n) =>
       n == 1 ? 'Sign In 1 student' : 'Sign In $n students';
-  static String signedInToast(int n) =>
-      n == 1 ? 'Signed In 1 student' : 'Signed In $n students';
 
   // Actions sheet.
   static String sheetSub(String classroom, String firstTag) =>
@@ -116,8 +113,7 @@ abstract final class StudentsStrings {
   static const String guardianSection = 'Parent or guardian';
   static const String attendanceSection = 'Attendance today';
   static const String anyTag = 'Any tag';
-  static String tagsOf(int picked, int total) =>
-      '$picked of $total selected';
+  static String tagsOf(int picked, int total) => '$picked of $total selected';
   static const String searchTags = 'Search tags';
   static const String searchParents = 'Search parents';
   static String withCount(String label, int n) => '$label $n';
@@ -192,10 +188,13 @@ abstract final class StudentsStrings {
   static const String emergencyContact = 'Emergency contact';
   static const String fieldSignInPin = 'Sign-In PIN';
   static const String fieldLegalCustody = 'Legal custody';
+  static const String addedBy = 'Added by';
+  static const String allowed = 'Allowed';
   static const String yes = 'Yes';
   static const String no = 'No';
   static const String messageKey = 'Message';
   static const String callKey = 'Call';
+  static const String renewKey = 'Renew';
   static const String addParent = 'Add a parent';
   static const String addPickup = 'Add a pickup person';
   static String guardiansNote(String emergencyName) =>
@@ -244,7 +243,6 @@ abstract final class StudentsStrings {
   static const String stepSchedule = 'The schedule';
   static const String stepScheduleNote = 'Days and times';
   static const String optional = 'Optional';
-  static const String stepDone = '✓';
 
   static const String statusActive = 'Active';
   static const String statusUpcoming = 'Upcoming';
@@ -289,7 +287,6 @@ abstract final class StudentsStrings {
   static const String week = 'Week';
   static const String copyToAllDays = 'Copy to all days';
   static const String closed = 'Closed';
-  static const String pickTime = 'Pick a time';
   static String dayTimeTitle(String day, String which) => '$day · $which';
   static const String startTime = 'Start';
   static const String endTime = 'End';
@@ -358,7 +355,6 @@ abstract final class StudentsStrings {
   static const String expires = 'Expires';
   static const String chooseFile = 'Choose a file';
   static const String camera = 'Camera';
-  static const String cameraSoon = 'The camera opens here on a device.';
   static const String sending = 'Sending…';
   static String uploadingSub(String size, int percent) =>
       '$size · $percent% sent';

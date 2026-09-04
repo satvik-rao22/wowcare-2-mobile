@@ -4,17 +4,9 @@ import 'package:intl/intl.dart';
 /// lives beside the strings rather than in them.
 abstract final class StudentsFormats {
   static final DateFormat _day = DateFormat('d MMM yyyy');
-  static final DateFormat _dayShort = DateFormat('EEE d MMM');
-  static final DateFormat _time = DateFormat('h:mm a');
 
   /// `12 Jul 2023`
   static String date(DateTime d) => _day.format(d);
-
-  /// `Thu 20 Aug`
-  static String dayShort(DateTime d) => _dayShort.format(d);
-
-  /// `8:42 AM`
-  static String time(DateTime d) => _time.format(d);
 
   /// `3 yrs 1 mo`, counted from [dob] to [today].
   static String age(DateTime dob, DateTime today) {

@@ -51,13 +51,6 @@ abstract final class StudentsTextStyles {
     fontWeight: FontWeight.w700,
   );
 
-  /// A person card's badge: `.66rem 700`.
-  static const TextStyle badge = TextStyle(
-    fontFamily: _font,
-    fontSize: .66 * _px,
-    fontWeight: FontWeight.w700,
-  );
-
   /// A list item's title (a document, a day, a vaccine): `.86rem 600`.
   static const TextStyle itemTitle = TextStyle(
     fontFamily: _font,
@@ -85,20 +78,6 @@ abstract final class StudentsTextStyles {
     fontFamily: _font,
     fontSize: .72 * _px,
     fontWeight: FontWeight.w800,
-  );
-
-  /// The "Optional" pill on a wizard step: `.64rem 700`.
-  static const TextStyle optionalPill = TextStyle(
-    fontFamily: _font,
-    fontSize: .64 * _px,
-    fontWeight: FontWeight.w700,
-  );
-
-  /// The wizard's primary key: `.9rem 700`.
-  static const TextStyle wizardKey = TextStyle(
-    fontFamily: _font,
-    fontSize: .9 * _px,
-    fontWeight: FontWeight.w700,
   );
 
   /// A schedule row's day label: `.75rem 700`.
@@ -179,13 +158,6 @@ abstract final class StudentsTextStyles {
     fontWeight: FontWeight.w700,
   );
 
-  /// The deactivate key: `.93rem 700`.
-  static const TextStyle deactivateKey = TextStyle(
-    fontFamily: _font,
-    fontSize: .93 * _px,
-    fontWeight: FontWeight.w700,
-  );
-
   /// A quiet text action under a key: `.83rem 700`.
   static const TextStyle quietAction = TextStyle(
     fontFamily: _font,
@@ -201,14 +173,6 @@ abstract final class StudentsTextStyles {
     height: 1.45,
   );
 
-  /// Notes typed into a well: `.81rem 500`, line-height 1.5.
-  static const TextStyle notes = TextStyle(
-    fontFamily: _font,
-    fontSize: .81 * _px,
-    fontWeight: FontWeight.w500,
-    height: 1.5,
-  );
-
   /// A filter chip in the sheet: `.76rem 700`.
   static const TextStyle filterChip = TextStyle(
     fontFamily: _font,
@@ -221,6 +185,13 @@ abstract final class StudentsTextStyles {
     fontFamily: _font,
     fontSize: .83 * _px,
     fontWeight: FontWeight.w600,
+  );
+
+  /// The initials in 5c's bigger header avatar: `.88rem 700`.
+  static const TextStyle headerInitials = TextStyle(
+    fontFamily: _font,
+    fontSize: .88 * _px,
+    fontWeight: FontWeight.w700,
   );
 
   /// The header's sub-line on 5c: `.73rem 600`.

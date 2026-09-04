@@ -11,6 +11,10 @@ abstract final class StudentsSizes {
   /// Between classroom groups in the roster body.
   static const double groupGap = 15;
 
+  /// The scrolling roster's own padding: the gutters, a little air under the
+  /// counts, and enough at the foot to clear the FAB and the tab bar.
+  static const EdgeInsets listPad = EdgeInsets.fromLTRB(18, 12, 18, 96);
+
   /// The gap between the rows of one classroom group.
   static const double rowGap = 9;
 
@@ -26,7 +30,6 @@ abstract final class StudentsSizes {
     horizontal: 9,
     vertical: 5,
   );
-  static const double tagRadius = 9;
   static const double tagGap = 5;
   static const EdgeInsets dayPad = EdgeInsets.symmetric(vertical: 6);
 
@@ -42,8 +45,6 @@ abstract final class StudentsSizes {
     vertical: 10,
   );
 
-  /// The docked bulk-action row in select mode.
-  static const EdgeInsets dockPad = EdgeInsets.fromLTRB(18, 11, 18, 12);
   static const double dockGap = 9;
   static const EdgeInsets dockSubKeyPad = EdgeInsets.symmetric(
     horizontal: 16,
@@ -68,7 +69,6 @@ abstract final class StudentsSizes {
     vertical: 13,
   );
   static const double actionGlyphTile = 30;
-  static const double actionGlyphRadius = 12;
 
   static const EdgeInsets costCardPad = EdgeInsets.all(14);
   static const double costRowGap = 10;
@@ -84,14 +84,13 @@ abstract final class StudentsSizes {
     horizontal: 12,
     vertical: 9,
   );
-  static const EdgeInsets guardianChipPad = EdgeInsets.symmetric(
-    horizontal: 11,
-    vertical: 8,
-  );
 
   /// Apply is wider than Clear all: `flex: 1` against `flex: 1.3`.
   static const int filterClearFlex = 10;
   static const int filterApplyFlex = 13;
+
+  /// How tall the tag dropdown grows before it scrolls inside itself.
+  static const double dropdownListHeight = 240;
 
   // --- 5c profile -----------------------------------------------------------
 
@@ -112,7 +111,6 @@ abstract final class StudentsSizes {
   );
   static const double tabPillGap = 7;
   static const EdgeInsets subTabsPad = EdgeInsets.fromLTRB(18, 11, 18, 0);
-  static const double subTabRadius = 12;
 
   static const double fieldLabelWidth = 112;
   static const double fieldRowGap = 10;
@@ -121,14 +119,9 @@ abstract final class StudentsSizes {
     horizontal: 11,
     vertical: 7,
   );
-  static const double smallKeyRadius = 12;
 
   static const EdgeInsets personCardPad = EdgeInsets.all(14);
   static const EdgeInsets personKeyPad = EdgeInsets.all(11);
-  static const EdgeInsets badgePad = EdgeInsets.symmetric(
-    horizontal: 9,
-    vertical: 5,
-  );
 
   static const EdgeInsets dashedRowPad = EdgeInsets.all(14);
   static const double dashedRowGap = 8;
@@ -139,10 +132,8 @@ abstract final class StudentsSizes {
     vertical: 12,
   );
   static const double miniAvatar = 36;
-  static const double miniAvatarRing = 2.5;
   static const double miniAvatarRingGap = 2;
   static const double kindTile = 36;
-  static const double kindTileRadius = 12;
 
   static const EdgeInsets footerPad = EdgeInsets.fromLTRB(18, 11, 18, 22);
   static const double footerGap = 9;
@@ -156,10 +147,6 @@ abstract final class StudentsSizes {
     vertical: 11,
   );
   static const double stepDot = 26;
-  static const EdgeInsets optionalPillPad = EdgeInsets.symmetric(
-    horizontal: 9,
-    vertical: 5,
-  );
   static const EdgeInsets formPad = EdgeInsets.fromLTRB(18, 12, 18, 14);
   static const double formGap = 11;
   static const double fieldGap = 6;
@@ -176,21 +163,21 @@ abstract final class StudentsSizes {
 
   // --- 5e edit --------------------------------------------------------------
 
-  static const EdgeInsets editAlertMargin = EdgeInsets.fromLTRB(18, 0, 18, 12);
   static const double editFieldGap = 13;
-  static const double notesMinHeight = 74;
   static const EdgeInsets tagChipPad = EdgeInsets.symmetric(
     horizontal: 12,
     vertical: 9,
   );
   static const double tagRemoveGlyph = 10;
 
+  /// The dashed "Add a tag" key, which is a pill like the tags beside it.
+  static const double tagKeyRadius = 999;
+
   // --- 5f documents ---------------------------------------------------------
 
   static const double uploadChip = 40;
   static const double uploadCardGap = 12;
   static const double progressHeight = 10;
-  static const double progressRadius = 6;
   static const EdgeInsets uploadNotePad = EdgeInsets.symmetric(
     horizontal: 13,
     vertical: 12,
@@ -221,10 +208,4 @@ abstract final class StudentsSizes {
   );
   static const double bannerDot = 9;
   static const double bannerGap = 10;
-
-  /// How long the preview source takes to answer, so loading states show.
-  static const Duration previewLatency = Duration(milliseconds: 350);
-
-  /// One tick of a preview upload.
-  static const Duration previewUploadTick = Duration(milliseconds: 220);
 }
