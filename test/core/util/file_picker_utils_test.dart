@@ -2,30 +2,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 
 void main() {
-  group('FilePickerUtils.friendlyUploadErrorMessage', () {
-    test('translates a rejected content-type message into plain language', () {
-      const backendMessage =
-          "Content type 'application/octet-stream' is not allowed for "
-          'DOCUMENT.';
-      final result = FilePickerUtils.friendlyUploadErrorMessage(backendMessage);
-      expect(result, isNot(contains('content type')));
-      expect(result, isNot(contains('octet-stream')));
-      expect(result, contains('format'));
+  group('FilePickerUtils.getMimeType', () {
+    test('resolves .csv to text/csv (not the octet-stream fallback)', () {
+      expect(FilePickerUtils.getMimeType('csv'), 'text/csv');
+      expect(FilePickerUtils.getMimeType('.csv'), 'text/csv');
+      expect(FilePickerUtils.getMimeType('CSV'), 'text/csv');
     });
 
-    test('is case-insensitive when detecting the content-type rejection', () {
-      const backendMessage =
-          "CONTENT TYPE 'IMAGE/HEIC' IS NOT ALLOWED FOR DOCUMENT.";
-      final result = FilePickerUtils.friendlyUploadErrorMessage(backendMessage);
-      expect(result, contains('format'));
-    });
+    test(
+      'falls back to application/octet-stream for a genuinely unknown extension',
+      () {
+        expect(FilePickerUtils.getMimeType('xyz'), 'application/octet-stream');
+      },
+    );
+  });
 
-    test('passes through any other backend message unchanged', () {
-      const backendMessage = 'File size exceeds the 25MB limit.';
-      expect(
-        FilePickerUtils.friendlyUploadErrorMessage(backendMessage),
-        backendMessage,
-      );
-    });
+  test('csv is in allowedDocumentExtensions', () {
+    expect(FilePickerUtils.allowedDocumentExtensions, contains('csv'));
   });
 }
