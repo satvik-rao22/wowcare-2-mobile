@@ -166,3 +166,18 @@ Match the house style so linking is mechanical rather than a rewrite.
   than by reading raw HTML.
 - **Icons.** `lucide_icons_flutter` provides the Lucide outline set the design draws; glyphs are
   named in `core/constants/app_icons.dart`.
+
+## The three sanctioned edits outside `lib/redesign/` (verified 3 Sep 2026)
+
+The rule is still "nothing under `lib/` outside `lib/redesign/`", and `git diff develop
+--name-only -- lib` must show only these three besides `lib/redesign/`:
+
+1. **`lib/main.dart`** — runs `DesignChooser`, which shows New Design / Old Design on every
+   launch and inflates `RedesignApp` or the untouched `MyApp`. This is how the redesign is
+   reviewed alongside the shipping app; `MyApp` itself is not touched.
+2. **`staff_mark_absent_state.dart`** and 3. **`student_mark_absent_state.dart`** (both under
+   `presentation/features/attendance/forms/`) — each carried an `import` ABOVE its `part of`
+   directive, which Dart forbids, so the import is commented out. A compile fix the repo needed
+   anyway, made in `chore: redesign phase 0`; the rest of those two diffs is `dart format` churn.
+
+Anything else appearing in that diff is a mistake and gets reverted before committing.
