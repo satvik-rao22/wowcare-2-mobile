@@ -62,6 +62,8 @@ abstract final class AppRoutes {
   static const String addStudent = '$dashboard/students/new';
   static String student(String id) => '$dashboard/students/$id';
   static String editStudent(String id) => '$dashboard/students/$id/edit';
+  static String studentDocuments(String id) =>
+      '$dashboard/students/$id/documents';
 
   // --- M06 Staff -----------------------------------------------------------
 
@@ -82,6 +84,7 @@ abstract final class AppRoutes {
   // --- M04 Attendance (its own branch) -------------------------------------
 
   static const String attendanceSignIn = '$attendance/sign-in';
+  static const String attendanceSignOut = '$attendance/sign-out';
   static const String attendanceRange = '$attendance/range';
 
   // --- M08 Activities (its own branch) -------------------------------------
