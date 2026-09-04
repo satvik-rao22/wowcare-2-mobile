@@ -17,6 +17,7 @@ import 'package:wowcare/shared/constants/location_constants.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
+import 'package:wowcare/domain/features/student/entities/update_student_address_request.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_profile_edit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:intl/intl.dart';
@@ -710,21 +711,18 @@ class _EditStudentProfileDetailsScreenState
       );
 
       // 2) Address PATCH /api/v1/student/{studentCode}/address
-      final addressPayload = <String, dynamic>{
-        'line1': street,
-        'line2': _street2Controller.text.trim(),
-        'street': street,
-        'city': city,
-        'state': stateCode,
-        'country': countryCode,
-        // Backend uses postalCode; UI display layer will format as needed.
-        'postalCode': zipDigits,
-        'addressType': 'CURRENT',
-      };
-
       await _profileEditCubit.updateAddress(
         studentCode: widget.studentCode,
-        fields: addressPayload,
+        request: UpdateStudentAddressRequest(
+          street: street,
+          line2: _street2Controller.text.trim(),
+          city: city,
+          state: stateCode,
+          country: countryCode,
+          // Backend uses postalCode; UI display layer formats as needed.
+          postalCode: zipDigits,
+          addressType: 'CURRENT',
+        ),
       );
 
       // 3) Tags POST /api/v1/student-tags

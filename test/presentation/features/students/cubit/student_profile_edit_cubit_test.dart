@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
+import 'package:wowcare/domain/features/student/entities/update_student_address_request.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_guardians_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
@@ -116,13 +117,16 @@ class _FakeUpdateAddressUseCase extends UpdateStudentAddressUseCase {
   int calls = 0;
   Object? error;
   String result = 'address updated';
+  final List<UpdateStudentAddressRequest> requests =
+      <UpdateStudentAddressRequest>[];
 
   @override
   Future<String> call({
     required String studentCode,
-    required Map<String, dynamic> fields,
+    required UpdateStudentAddressRequest request,
   }) {
     calls++;
+    requests.add(request);
     if (error != null) return Future.error(error!);
     return Future.value(result);
   }
@@ -258,10 +262,17 @@ void main() {
 
       final message = await cubit.updateAddress(
         studentCode: 'S1',
-        fields: const {'city': 'Nashua'},
+        request: const UpdateStudentAddressRequest(
+          street: '12 Oak St',
+          city: 'Nashua',
+          state: 'NH',
+          country: 'US',
+          postalCode: '03060',
+        ),
       );
 
       expect(fakes.updateAddress.calls, 1);
+      expect(fakes.updateAddress.requests.single.city, 'Nashua');
       expect(message, 'address updated');
       await cubit.close();
     });
@@ -330,7 +341,16 @@ void main() {
       final cubit = fakes.build();
 
       await expectLater(
-        cubit.updateAddress(studentCode: 'S1', fields: const {}),
+        cubit.updateAddress(
+          studentCode: 'S1',
+          request: const UpdateStudentAddressRequest(
+            street: '',
+            city: '',
+            state: '',
+            country: '',
+            postalCode: '',
+          ),
+        ),
         throwsA(isA<Exception>()),
       );
       await cubit.close();

@@ -2,6 +2,7 @@ import '../entities/school_guardian_summary.dart';
 import '../entities/student.dart';
 import '../entities/student_documents_page.dart';
 import '../entities/student_guardian.dart';
+import '../entities/update_student_address_request.dart';
 import '../entities/student_health.dart';
 import '../entities/student_health_update_request.dart';
 import '../entities/student_immunization.dart';
@@ -86,7 +87,7 @@ abstract class StudentRepository {
   /// Updates the student's address via `/api/v1/student/{studentCode}/address`.
   Future<String> updateStudentAddress({
     required String studentCode,
-    required Map<String, dynamic> fields,
+    required UpdateStudentAddressRequest request,
   });
 
   /// Updates the student's siblings via `PUT /api/v1/student/student/{studentCode}/siblings`.
