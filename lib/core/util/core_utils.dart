@@ -335,7 +335,10 @@ class CoreUtils {
     bool isWarning = false,
     bool isSuccess = false,
     bool isAdjust = false,
-    Duration duration = const Duration(seconds: 2),
+    // 2s was too short to read anything but the shortest one-word toasts -
+    // an error message explaining what went wrong (e.g. an upload
+    // rejection reason) routinely got cut off before it was fully read.
+    Duration duration = const Duration(seconds: 3),
   }) {
     if (context is Element && !context.mounted) return;
 

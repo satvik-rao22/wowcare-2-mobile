@@ -409,14 +409,11 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     } catch (e) {
       // Was e.toString() - for a failed upload that's a raw DioException
       // dump (type, request/response internals, stack) instead of the
-      // actual backend reason, which the {success, message, data} envelope
-      // already carries. extractErrorMessage pulls that out; a rejected
-      // content-type ("Content type 'application/octet-stream' is not
-      // allowed for DOCUMENT.") is further translated into plain language -
-      // a user can't act on "content type" or "octet-stream".
-      final backendMessage = ApiErrorHandler.extractErrorMessage(e);
+      // actual backend reason (e.g. "Content type 'application/octet-stream'
+      // is not allowed for DOCUMENT."), which the {success, message, data}
+      // envelope already carries. extractErrorMessage pulls that out.
       _showWarningMessage(
-        FilePickerUtils.friendlyUploadErrorMessage(backendMessage),
+        'Failed to upload file: ${ApiErrorHandler.extractErrorMessage(e)}',
       );
     } finally {
       if (mounted) {

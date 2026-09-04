@@ -12,7 +12,8 @@ class FilePickerUtils {
   /// application/vnd.ms-excel,
   /// application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
   /// application/vnd.ms-powerpoint,
-  /// application/vnd.openxmlformats-officedocument.presentationml.presentation
+  /// application/vnd.openxmlformats-officedocument.presentationml.presentation,
+  /// text/csv
   static const List<String> allowedDocumentExtensions = [
     'pdf',
     'doc',
@@ -21,6 +22,7 @@ class FilePickerUtils {
     'xlsx',
     'ppt',
     'pptx',
+    'csv',
   ];
 
   /// Allowed video formats: video/mp4, video/quicktime, video/webm
@@ -119,26 +121,9 @@ class FilePickerUtils {
       'mp4': 'video/mp4',
       'mov': 'video/quicktime',
       'webm': 'video/webm',
+      'csv': 'text/csv',
     };
 
     return mimeTypes[ext] ?? 'application/octet-stream';
-  }
-
-  /// Translates a backend upload-rejection message into user-friendly copy.
-  ///
-  /// The backend's actual wording for a rejected file
-  /// ("Content type 'application/octet-stream' is not allowed for
-  /// DOCUMENT.") is accurate but not something a non-technical user should
-  /// have to parse — they can't act on "content type" or "octet-stream".
-  /// Detects that class of rejection and returns a plain-language message
-  /// instead; any other backend message (network, size limit, etc.) is
-  /// returned unchanged since it's already meant for the user to read.
-  static String friendlyUploadErrorMessage(String backendMessage) {
-    final lower = backendMessage.toLowerCase();
-    if (lower.contains('content type') && lower.contains('not allowed')) {
-      return "This file's format isn't supported. Please choose a "
-          'different file and try again.';
-    }
-    return backendMessage;
   }
 }
