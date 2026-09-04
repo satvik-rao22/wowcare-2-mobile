@@ -237,4 +237,72 @@ void main() {
       await cubit.close();
     },
   );
+
+  test(
+    'add flips mutationInProgress true while in-flight, false on completion '
+    '(drives the add-exam Save button)',
+    () async {
+      final fakes = _Fakes();
+      final gate = Completer<StudentPhysicalExam>();
+      fakes.addExam.gate = gate;
+      final cubit = fakes.build();
+
+      expect(cubit.state.mutationInProgress, isFalse);
+
+      final future = cubit.add(
+        studentCode: 'S1',
+        examDate: DateTime(2026, 1, 1),
+        status: 'COMPLETED',
+      );
+
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state.mutationInProgress, isTrue);
+
+      gate.complete(_exam('E1', status: 'COMPLETED'));
+      await future;
+      expect(cubit.state.mutationInProgress, isFalse);
+      await cubit.close();
+    },
+  );
+
+  group('add-exam form model', () {
+    final date = DateTime(2026, 3, 10);
+
+    test('initial form fields are null', () {
+      final cubit = _Fakes().build();
+      expect(cubit.state.formExamDate, isNull);
+      expect(cubit.state.formStatus, isNull);
+    });
+
+    test('initializeForm seeds date + status', () {
+      final cubit = _Fakes().build()
+        ..initializeForm(examDate: date, status: 'Completed');
+      expect(cubit.state.formExamDate, date);
+      expect(cubit.state.formStatus, 'Completed');
+    });
+
+    test('initializeForm can seed nulls', () {
+      final cubit = _Fakes().build()
+        ..initializeForm(examDate: date, status: 'Completed')
+        ..initializeForm(examDate: null, status: null);
+      expect(cubit.state.formExamDate, isNull);
+      expect(cubit.state.formStatus, isNull);
+    });
+
+    test('setFormExamDate updates only the date', () {
+      final cubit = _Fakes().build()
+        ..initializeForm(examDate: null, status: 'Completed');
+      cubit.setFormExamDate(date);
+      expect(cubit.state.formExamDate, date);
+      expect(cubit.state.formStatus, 'Completed');
+    });
+
+    test('setFormStatus updates only the status', () {
+      final cubit = _Fakes().build()
+        ..initializeForm(examDate: date, status: null);
+      cubit.setFormStatus('Completed');
+      expect(cubit.state.formStatus, 'Completed');
+      expect(cubit.state.formExamDate, date);
+    });
+  });
 }

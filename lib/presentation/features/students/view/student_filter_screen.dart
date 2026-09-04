@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/foundation.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -258,7 +259,7 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
       result['Attendance'] = List<String>.from(_selectedAttendanceList);
     }
 
-    Navigator.pop<Map<String, List<String>>>(context, {...result});
+    context.pop<Map<String, List<String>>>(<String, List<String>>{...result});
   }
 
   @override

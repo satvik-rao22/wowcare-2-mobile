@@ -276,6 +276,29 @@ void main() {
   );
 
   test(
+    'updateHealth flips mutationInProgress true while in-flight, false on '
+    'completion (drives the edit-health Save button)',
+    () async {
+      final fakes = _Fakes();
+      final gate = Completer<StudentHealth>();
+      fakes.updateHealth.gate = gate;
+      final cubit = fakes.build();
+
+      expect(cubit.state.mutationInProgress, isFalse);
+
+      final future = cubit.updateHealth(studentCode: 'S1', request: _request());
+
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state.mutationInProgress, isTrue);
+
+      gate.complete(_health());
+      await future;
+      expect(cubit.state.mutationInProgress, isFalse);
+      await cubit.close();
+    },
+  );
+
+  test(
     'single-flight: two concurrent updateImmunization for the same record '
     'issue ONE use-case call and share the identical future',
     () async {

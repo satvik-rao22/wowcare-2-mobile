@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/entities/student_health_update_request.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_health_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -32,7 +33,9 @@ class StudentHealthTabCard extends StatefulWidget {
 }
 
 class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
-  late Future<StudentHealth?> _healthFuture;
+  /// Optimistic local mirror of the photo-permission toggle (category A): the
+  /// card flips it immediately, calls the API, and reverts on failure. Synced
+  /// from `state.health` whenever the cubit (re)loads the record.
   bool _photoPermission = true;
   bool _hasShownErrorSnackBar = false;
 
@@ -43,7 +46,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
   @override
   void initState() {
     super.initState();
-    _healthFuture = _buildHealthFuture();
+    _healthCubit.loadHealth(widget.studentCode ?? '');
   }
 
   @override
@@ -52,18 +55,9 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
     super.dispose();
   }
 
-  Future<StudentHealth?> _buildHealthFuture() async {
-    final code = widget.studentCode;
-    if (code == null || code.isEmpty) {
-      return null;
-    }
-    try {
-      final model = await _healthCubit.fetchHealth(code);
-      _photoPermission = model.photoPermission ?? true;
-      return model;
-    } catch (_) {
-      rethrow;
-    }
+  Future<void> _reloadHealth() async {
+    _hasShownErrorSnackBar = false;
+    await _healthCubit.loadHealth(widget.studentCode ?? '');
   }
 
   @override
@@ -72,32 +66,30 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
     final bottomSafe = MediaQuery.of(context).padding.bottom;
 
     return CustomRefreshIndicator(
-      onRefresh: () async {
-        setState(() {
-          _healthFuture = _buildHealthFuture();
-          _hasShownErrorSnackBar = false;
-        });
-        try {
-          await _healthFuture;
-        } catch (_) {
-          // errors handled by FutureBuilder
-        }
-      },
+      onRefresh: _reloadHealth,
       child: SingleChildScrollView(
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        child: FutureBuilder<StudentHealth?>(
-          future: _healthFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
+        child: BlocConsumer<StudentHealthCubit, StudentHealthState>(
+          bloc: _healthCubit,
+          listenWhen: (p, c) => p.health != c.health,
+          listener: (context, state) {
+            if (state.health != null) {
+              setState(
+                () => _photoPermission = state.health!.photoPermission ?? true,
+              );
+            }
+          },
+          builder: (context, state) {
+            if (state.healthLoading && state.health == null) {
               return const Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),
                 child: StudentHealthCardShimmer(),
               );
             }
 
-            if (snapshot.hasError) {
-              final message = snapshot.error.toString();
+            if (state.errorMessage != null && state.health == null) {
+              final message = state.errorMessage!;
               CoreUtils.logApiError(message);
               if (!_hasShownErrorSnackBar) {
                 _hasShownErrorSnackBar = true;
@@ -114,7 +106,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
               return const SizedBox.shrink();
             }
 
-            final health = snapshot.data;
+            final health = state.health;
 
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
@@ -127,19 +119,15 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                         final code = widget.studentCode;
                         if (code == null || code.isEmpty) return;
                         final currentHealth = health;
-                        final result = await Navigator.of(context).push<bool>(
-                          MaterialPageRoute(
-                            builder: (_) => EditStudentHealthScreen(
-                              studentCode: code,
-                              initialHealth: currentHealth,
-                            ),
-                          ),
+                        final result = await context.push<bool>(
+                          EditStudentHealthScreen.routeName,
+                          extra: <String, dynamic>{
+                            'studentCode': code,
+                            'initialHealth': currentHealth,
+                          },
                         );
                         if (result == true && mounted) {
-                          setState(() {
-                            _healthFuture = _buildHealthFuture();
-                            _hasShownErrorSnackBar = false;
-                          });
+                          await _reloadHealth();
                           widget.onHealthChanged?.call();
                         }
                       },

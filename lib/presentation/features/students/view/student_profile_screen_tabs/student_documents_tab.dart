@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
@@ -166,22 +167,21 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
         ? null
         : DateFormat('yyyy-MM-dd').parse(doc.expiryDate);
 
-    final result = await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => AddStudentDocumentScreen(
-          studentCode: widget.studentCode ?? '',
-          isEdit: true,
-          initialDocumentName: doc.documentName,
-          initialDocumentType: doc.documentType,
-          initialExpiryDate: expiryDate,
-          initialFilePath: doc.documentUrl,
-          initialMimeType: doc.mimeType,
-          initialFileSizeKb: doc.documentSizeKb,
-          initialDocumentNotes: null,
-          initialAssetCode: doc.assetCode,
-          documentUuid: doc.documentUuid,
-        ),
-      ),
+    final result = await context.push<bool>(
+      AddStudentDocumentScreen.routeName,
+      extra: <String, dynamic>{
+        'studentCode': widget.studentCode ?? '',
+        'isEdit': true,
+        'initialDocumentName': doc.documentName,
+        'initialDocumentType': doc.documentType,
+        'initialExpiryDate': expiryDate,
+        'initialFilePath': doc.documentUrl,
+        'initialMimeType': doc.mimeType,
+        'initialFileSizeKb': doc.documentSizeKb,
+        'initialDocumentNotes': null,
+        'initialAssetCode': doc.assetCode,
+        'documentUuid': doc.documentUuid,
+      },
     );
 
     if (result == true && mounted) {
@@ -296,14 +296,13 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
         );
         return;
       }
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => DocumentViewerScreen(
-            url: url,
-            documentName: doc.documentName,
-            mimeType: doc.mimeType,
-          ),
-        ),
+      context.push(
+        DocumentViewerScreen.routeName,
+        extra: <String, dynamic>{
+          'url': url,
+          'documentName': doc.documentName,
+          'mimeType': doc.mimeType,
+        },
       );
     } catch (e, st) {
       AppLogger.e('[StudentDocumentsTab] _handleView failed', e, st);
@@ -905,13 +904,12 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
               bottom: 16,
               child: GradientAddButton(
                 onTap: () {
-                  Navigator.of(context)
-                      .push(
-                        MaterialPageRoute(
-                          builder: (context) => AddStudentDocumentScreen(
-                            studentCode: widget.studentCode ?? '',
-                          ),
-                        ),
+                  context
+                      .push<bool>(
+                        AddStudentDocumentScreen.routeName,
+                        extra: <String, dynamic>{
+                          'studentCode': widget.studentCode ?? '',
+                        },
                       )
                       .then((result) {
                         if (result == true && mounted) {

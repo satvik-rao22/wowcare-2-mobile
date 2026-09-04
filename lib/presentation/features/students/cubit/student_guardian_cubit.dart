@@ -5,6 +5,8 @@ import '../../../../domain/features/student/entities/student_guardian.dart';
 import '../../../../domain/features/student/usecases/delete_guardian_usecase.dart';
 import '../../../../domain/features/student/usecases/get_student_guardians_usecase.dart';
 
+import 'package:wowcare/core/util/api_error_handler.dart';
+
 part 'student_guardian_state.dart';
 
 /// Read + delete for a student's guardians/parents.
@@ -26,6 +28,41 @@ class StudentGuardianCubit extends Cubit<StudentGuardianState> {
 
   final GetStudentGuardiansUseCase _getStudentGuardiansUseCase;
   final DeleteGuardianUseCase _deleteGuardianUseCase;
+
+  /// State-based load of a student's guardians — the card renders
+  /// `state.guardians` via BlocBuilder instead of driving its own FutureBuilder.
+  Future<void> load(String studentCode, {bool forceRefresh = false}) async {
+    if (studentCode.isEmpty) {
+      if (!isClosed) {
+        emit(state.copyWith(
+          guardians: const <StudentGuardian>[],
+          isLoading: false,
+          errorMessage: null,
+        ));
+      }
+      return;
+    }
+    if (isClosed) return;
+    emit(state.copyWith(isLoading: true, errorMessage: null));
+    try {
+      final guardians = await _getStudentGuardiansUseCase(
+        studentCode: studentCode,
+        forceRefresh: forceRefresh,
+      );
+      if (isClosed) return;
+      emit(state.copyWith(
+        guardians: guardians,
+        isLoading: false,
+        errorMessage: null,
+      ));
+    } catch (e) {
+      if (isClosed) return;
+      emit(state.copyWith(
+        isLoading: false,
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
+      ));
+    }
+  }
 
   /// Thin Future-based read for callers that drive their own `FutureBuilder`.
   Future<List<StudentGuardian>> fetchGuardians(

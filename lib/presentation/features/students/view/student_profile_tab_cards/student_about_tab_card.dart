@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:flutter_svg/svg.dart';
@@ -9,7 +10,6 @@ import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_profile_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -341,7 +341,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         onEdit: canEdit
             ? (isStaffPersona
                   ? _openTagsEditSheet
-                  : () {
+                  : () async {
                       final profile = widget.studentProfile!;
 
                       // Map status from API format (ACTIVE) to display format (Active)
@@ -435,58 +435,32 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                         }
                       }
 
-                      ClassroomCubit? classroomCubit;
-                      try {
-                        classroomCubit = context.read<ClassroomCubit>();
-                      } catch (_) {
-                        classroomCubit = null;
+                      final edited = await context.push(
+                        EditStudentProfileDetailsScreen.routeName,
+                        extra: <String, dynamic>{
+                          'studentCode': profile.code,
+                          'initialFirstName': profile.firstName,
+                          'initialLastName': profile.lastName,
+                          'initialStatus': statusDisplay,
+                          'initialGender': profile.gender,
+                          'initialClassroom': profile.classroom ?? '',
+                          'initialBirthDate': birthDate,
+                          'initialNotes': profile.notes ?? '',
+                          'initialStreet': street,
+                          'initialCity': city,
+                          'initialState': state,
+                          'initialCountry': country,
+                          'initialZipCode': zipCode,
+                          'initialTags': tags,
+                          'initialSiblings': siblings,
+                          'initialLegalCustodians': legalCustodians,
+                          'initialSubsidy': profile.subsidy,
+                        },
+                      );
+                      // If profile was updated, refresh from API.
+                      if (edited == true) {
+                        await widget.onRefresh?.call();
                       }
-
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) {
-                            final screen = EditStudentProfileDetailsScreen(
-                              studentCode: profile.code,
-                              initialFirstName: profile.firstName,
-                              initialLastName: profile.lastName,
-                              initialStatus: statusDisplay,
-                              initialGender: profile.gender,
-                              initialClassroom: profile.classroom ?? '',
-                              initialBirthDate: birthDate,
-                              initialNotes: profile.notes ?? '',
-                              initialStreet: street,
-                              initialCity: city,
-                              initialState: state,
-                              initialCountry: country,
-                              initialZipCode: zipCode,
-                              initialTags: tags,
-                              initialSiblings: siblings,
-                              initialLegalCustodians: legalCustodians,
-                              initialSubsidy: profile.subsidy,
-                            );
-
-                            // Preserve already-loaded classrooms when available; otherwise load fresh.
-                            if (classroomCubit != null) {
-                              return BlocProvider.value(
-                                value: classroomCubit,
-                                child: screen,
-                              );
-                            }
-                            return BlocProvider(
-                              create: (_) =>
-                                  serviceLocator<ClassroomCubit>()
-                                    ..loadActiveClassrooms(),
-                              child: screen,
-                            );
-                          },
-                        ),
-                      ).then((result) async {
-                        // If profile was updated, refresh from API (like staff implementation).
-                        if (result == true) {
-                          await widget.onRefresh?.call();
-                        }
-                      });
                     })
             : null,
         children: [
@@ -708,16 +682,14 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                 }
 
                 final result =
-                    await Navigator.push<Map<String, Map<String, TimeOfDay>>?>(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AddStudentStep3Screen(
-                          title: 'Edit Schedule',
-                          primaryButtonLabel: 'Save',
-                          showSkip: false,
-                          initialSchedule: initialSchedule,
-                        ),
-                      ),
+                    await context.push<Map<String, Map<String, TimeOfDay>>>(
+                      AddStudentStep3Screen.routeName,
+                      extra: <String, dynamic>{
+                        'title': 'Edit Schedule',
+                        'primaryButtonLabel': 'Save',
+                        'showSkip': false,
+                        'initialSchedule': initialSchedule,
+                      },
                     );
 
                 if (result == null || result.isEmpty) return;

@@ -51,6 +51,7 @@ class _FakeAddUseCase extends AddPhysicianUseCase {
   int calls = 0;
   Object? error;
   StudentPhysician result = _physician('P-NEW');
+  Completer<StudentPhysician>? gate;
 
   @override
   Future<StudentPhysician> call({
@@ -66,6 +67,7 @@ class _FakeAddUseCase extends AddPhysicianUseCase {
   }) async {
     calls++;
     if (error != null) throw error!;
+    if (gate != null) return gate!.future;
     return result;
   }
 }
@@ -293,6 +295,37 @@ void main() {
       await Future.wait<String>([f1, f2]);
 
       expect(fakes.delete.calls, 1);
+      await cubit.close();
+    },
+  );
+
+  test(
+    'add flips mutationInProgress true while in-flight, false on completion '
+    '(drives the form Save button)',
+    () async {
+      final fakes = _Fakes();
+      final gate = Completer<StudentPhysician>();
+      fakes.add.gate = gate;
+      final cubit = fakes.build();
+
+      expect(cubit.state.mutationInProgress, isFalse);
+
+      final future = cubit.add(
+        schoolCode: 'SC',
+        studentCode: 'S1',
+        firstName: 'A',
+        lastName: 'B',
+        email: '',
+        phoneNumber: '1234567890',
+        address: '',
+      );
+
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state.mutationInProgress, isTrue);
+
+      gate.complete(_physician('P-NEW'));
+      await future;
+      expect(cubit.state.mutationInProgress, isFalse);
       await cubit.close();
     },
   );

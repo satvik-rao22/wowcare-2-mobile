@@ -376,6 +376,7 @@ import '../../presentation/features/students/cubit/student_profile_cubit.dart';
 import '../../presentation/features/students/cubit/student_physical_exam_cubit.dart';
 import '../../presentation/features/students/cubit/student_document_cubit.dart';
 import '../../presentation/features/students/cubit/student_important_dates_cubit.dart';
+import '../../presentation/features/students/cubit/student_schedule_cubit.dart';
 import '../../domain/features/communication/repositories/communication_repository.dart';
 import '../../domain/features/communication/usecases/get_messages_usecase.dart';
 import '../../domain/features/communication/usecases/send_message_usecase.dart';
@@ -2178,6 +2179,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentPageUseCase: serviceLocator(),
       repository: serviceLocator(),
       storageService: serviceLocator(),
+      countsUseCase: serviceLocator(),
+      expectedSummaryUseCase: serviceLocator(),
+      tagNameCodeMapUseCase: serviceLocator(),
+      guardianNameCodeMapUseCase: serviceLocator(),
+      attendanceStatusUseCase: serviceLocator(),
+      classroomByCodeUseCase: serviceLocator(),
     ),
   );
 
@@ -2374,11 +2381,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StudentDocumentCubit(
       addStudentDocumentUseCase: serviceLocator(),
       updateStudentDocumentUseCase: serviceLocator(),
+      imageUploadService: serviceLocator(),
+      storageService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentImportantDatesCubit>(
     () => StudentImportantDatesCubit(
       updateStudentImportantDatesUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentScheduleCubit>(
+    () => StudentScheduleCubit(
+      getSchoolRegularSchedulesUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<CommunicationCubit>(

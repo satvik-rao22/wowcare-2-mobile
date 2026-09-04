@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -10,7 +11,6 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/student/entities/student_important_dates.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_important_dates_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 
@@ -21,6 +21,8 @@ class EditStudentImportantDatesScreen extends StatefulWidget {
     this.initialEnrollDate,
     this.initialSchoolStartDate,
   });
+
+  static const String routeName = '/edit-student-important-dates';
 
   final String studentCode;
   final DateTime? initialEnrollDate;
@@ -34,15 +36,15 @@ class EditStudentImportantDatesScreen extends StatefulWidget {
 class _EditStudentImportantDatesScreenState
     extends State<EditStudentImportantDatesScreen> {
   late final StudentImportantDatesCubit _cubit;
-  DateTime? _enrollDate;
-  DateTime? _schoolStartDate;
 
   @override
   void initState() {
     super.initState();
-    _cubit = serviceLocator<StudentImportantDatesCubit>();
-    _enrollDate = widget.initialEnrollDate;
-    _schoolStartDate = widget.initialSchoolStartDate;
+    _cubit = serviceLocator<StudentImportantDatesCubit>()
+      ..initialize(
+        enrollDate: widget.initialEnrollDate,
+        schoolStartDate: widget.initialSchoolStartDate,
+      );
   }
 
   @override
@@ -55,10 +57,10 @@ class _EditStudentImportantDatesScreenState
     DateTime? current;
     switch (field) {
       case 'enroll':
-        current = _enrollDate;
+        current = _cubit.state.enrollDate;
         break;
       case 'schoolStart':
-        current = _schoolStartDate;
+        current = _cubit.state.schoolStartDate;
         break;
     }
 
@@ -74,13 +76,11 @@ class _EditStudentImportantDatesScreenState
 
       if (result != null && result['date'] != null) {
         final selected = result['date'] as DateTime;
-        setState(() {
-          if (field == 'enroll') {
-            _enrollDate = selected;
-          } else if (field == 'schoolStart') {
-            _schoolStartDate = selected;
-          }
-        });
+        if (field == 'enroll') {
+          _cubit.setEnrollDate(selected);
+        } else if (field == 'schoolStart') {
+          _cubit.setSchoolStartDate(selected);
+        }
       }
     } catch (e) {
       CoreUtils.logApiError(e.toString());
@@ -88,12 +88,7 @@ class _EditStudentImportantDatesScreenState
   }
 
   void _save() {
-    final dates = StudentImportantDates(
-      enrollDate: _enrollDate,
-      schoolStartDate: _schoolStartDate,
-    );
-
-    _cubit.updateImportantDates(studentCode: widget.studentCode, dates: dates);
+    _cubit.save(studentCode: widget.studentCode);
   }
 
   @override
@@ -113,7 +108,7 @@ class _EditStudentImportantDatesScreenState
                   message: state.message!,
                   isSuccess: true,
                 );
-                Navigator.pop(context, true);
+                context.pop(true);
               } else if (state.isError && state.message != null) {
                 CoreUtils.showTopSnackBar(
                   context: context,
@@ -143,7 +138,7 @@ class _EditStudentImportantDatesScreenState
                                 Expanded(
                                   child: _buildDateField(
                                     label: 'Enroll Date',
-                                    selectedDate: _enrollDate,
+                                    selectedDate: state.enrollDate,
                                     fieldName: 'enroll',
                                   ),
                                 ),
@@ -151,7 +146,7 @@ class _EditStudentImportantDatesScreenState
                                 Expanded(
                                   child: _buildDateField(
                                     label: 'School Start Date',
-                                    selectedDate: _schoolStartDate,
+                                    selectedDate: state.schoolStartDate,
                                     fieldName: 'schoolStart',
                                   ),
                                 ),
@@ -164,13 +159,13 @@ class _EditStudentImportantDatesScreenState
                             children: [
                               _buildDateField(
                                 label: 'Enroll Date',
-                                selectedDate: _enrollDate,
+                                selectedDate: state.enrollDate,
                                 fieldName: 'enroll',
                               ),
                               SizedBox(height: responsive.verticalSpacing),
                               _buildDateField(
                                 label: 'School Start Date',
-                                selectedDate: _schoolStartDate,
+                                selectedDate: state.schoolStartDate,
                                 fieldName: 'schoolStart',
                               ),
                             ],

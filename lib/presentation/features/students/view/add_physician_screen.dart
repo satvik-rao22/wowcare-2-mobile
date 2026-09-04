@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -48,8 +50,6 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
-
-  bool _isSubmitting = false;
 
   /// One cubit instance for this screen so its single-flight guard spans taps
   /// (serviceLocator registers it as a factory — a fresh call would not dedupe).
@@ -122,55 +122,43 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
       return;
     }
 
-    if (_isSubmitting) return;
+    // Re-entry guard now reads the cubit's own in-flight flag (the cubit also
+    // single-flights identical add/update calls) — no local submit bool.
+    if (_physicianCubit.state.mutationInProgress) return;
 
-    setState(() {
-      _isSubmitting = true;
-    });
+    final storage = serviceLocator<StorageService>();
+    final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
 
-    try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
-
-      final physicianCubit = _physicianCubit;
-
-      if (widget.isEdit &&
-          widget.physicianCode != null &&
-          widget.physicianCode!.isNotEmpty) {
-        await physicianCubit.update(
-          code: widget.physicianCode!,
-          studentCode: widget.studentCode,
-          firstName: first,
-          lastName: last,
-          email: email,
-          phoneNumber: digits,
-          address: address,
-          notes: null,
-          specialty: null,
-        );
-      } else {
-        await physicianCubit.add(
-          schoolCode: schoolCode,
-          studentCode: widget.studentCode,
-          firstName: first,
-          lastName: last,
-          email: email,
-          phoneNumber: digits,
-          address: address,
-          notes: null,
-          specialty: null,
-        );
-      }
-
-      if (!mounted) return;
-      Navigator.pop(context, true);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+    if (widget.isEdit &&
+        widget.physicianCode != null &&
+        widget.physicianCode!.isNotEmpty) {
+      await _physicianCubit.update(
+        code: widget.physicianCode!,
+        studentCode: widget.studentCode,
+        firstName: first,
+        lastName: last,
+        email: email,
+        phoneNumber: digits,
+        address: address,
+        notes: null,
+        specialty: null,
+      );
+    } else {
+      await _physicianCubit.add(
+        schoolCode: schoolCode,
+        studentCode: widget.studentCode,
+        firstName: first,
+        lastName: last,
+        email: email,
+        phoneNumber: digits,
+        address: address,
+        notes: null,
+        specialty: null,
+      );
     }
+
+    if (!mounted) return;
+    context.pop(true);
   }
 
   @override
@@ -324,15 +312,19 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
               topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
             ),
           ),
-          child: CustomButtonLayout(
-            confirmButtonLabel: 'Save',
-            cancelButtonLabel: 'Cancel',
-            onPressedConfirm: _onSave,
-            onPressedCancel: () => Navigator.pop(context, false),
-            showCancelButton: true,
-            isForm: false,
-            isLoading: _isSubmitting,
-            gradientCancelLabel: true,
+          child: BlocBuilder<StudentPhysicianCubit, StudentPhysicianState>(
+            bloc: _physicianCubit,
+            buildWhen: (p, c) => p.mutationInProgress != c.mutationInProgress,
+            builder: (context, state) => CustomButtonLayout(
+              confirmButtonLabel: 'Save',
+              cancelButtonLabel: 'Cancel',
+              onPressedConfirm: _onSave,
+              onPressedCancel: () => context.pop(false),
+              showCancelButton: true,
+              isForm: false,
+              isLoading: state.mutationInProgress,
+              gradientCancelLabel: true,
+            ),
           ),
         ),
       ),

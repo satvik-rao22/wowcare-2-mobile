@@ -9,6 +9,12 @@ import '../../../../core/util/attendance_classroom_scope.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/student/entities/student.dart';
 import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
+import '../../../../domain/features/student/usecases/get_student_counts_usecase.dart';
+import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import '../../../../domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
+import '../../../../domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
+import '../../../../domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
+import '../../../../domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import '../../../../domain/features/student/repositories/student_repository.dart';
 
 part 'student_state.dart';
@@ -23,14 +29,41 @@ class StudentCubit extends Cubit<StudentState> {
     required GetStudentPageUseCase getStudentPageUseCase,
     required StudentRepository repository,
     required StorageService storageService,
+    GetStudentCountsUseCase? countsUseCase,
+    GetStudentAttendanceExpectedSummaryUseCase? expectedSummaryUseCase,
+    GetTagNameCodeMapForSchoolUseCase? tagNameCodeMapUseCase,
+    GetGuardianNameCodeMapForSchoolUseCase? guardianNameCodeMapUseCase,
+    GetStudentTodaySignInStatusMapUseCase? attendanceStatusUseCase,
+    GetClassroomByCodeUseCase? classroomByCodeUseCase,
   }) : _getStudentPageUseCase = getStudentPageUseCase,
        _repository = repository,
        _storageService = storageService,
+       _countsUseCase = countsUseCase,
+       _expectedSummaryUseCase = expectedSummaryUseCase,
+       _tagNameCodeMapUseCase = tagNameCodeMapUseCase,
+       _guardianNameCodeMapUseCase = guardianNameCodeMapUseCase,
+       _attendanceStatusUseCase = attendanceStatusUseCase,
+       _classroomByCodeUseCase = classroomByCodeUseCase,
        super(const StudentState.initial());
 
   final GetStudentPageUseCase _getStudentPageUseCase;
   final StudentRepository _repository;
   final StorageService _storageService;
+
+  /// Optional so tests can build the cubit without them (they exercise the
+  /// list, not counts); production injects them via DI. If null, the loads no-op.
+  final GetStudentCountsUseCase? _countsUseCase;
+  final GetStudentAttendanceExpectedSummaryUseCase? _expectedSummaryUseCase;
+  final GetTagNameCodeMapForSchoolUseCase? _tagNameCodeMapUseCase;
+  final GetGuardianNameCodeMapForSchoolUseCase? _guardianNameCodeMapUseCase;
+  final GetStudentTodaySignInStatusMapUseCase? _attendanceStatusUseCase;
+  final GetClassroomByCodeUseCase? _classroomByCodeUseCase;
+
+  /// Fetch-dedup bookkeeping for [ensureClassroomDetailNames] — not part of the
+  /// emitted state (like [_inFlightMutations]): a per-code in-flight guard and
+  /// the last student-roster fingerprint so an unchanged roster doesn't refetch.
+  final Set<String> _classroomDetailFetchInFlight = <String>{};
+  String _lastClassroomPrefetchFingerprint = '';
   String? _schoolCode;
   bool? _isScopedStaffPersona;
   List<String>? _allowedClassroomCodes;
@@ -180,8 +213,7 @@ class StudentCubit extends Cubit<StudentState> {
           items: const <Student>[],
           currentPage: 0,
           hasMore: false,
-          isLoading: false,
-          isRefreshing: false,
+          status: StudentListStatus.loaded,
           isFromCache: false,
           errorMessage: null,
         ),
@@ -211,8 +243,7 @@ class StudentCubit extends Cubit<StudentState> {
           items: cached.items,
           currentPage: cached.page,
           hasMore: cached.hasMore,
-          isLoading: false,
-          isRefreshing: false,
+          status: StudentListStatus.loaded,
           isFromCache: true,
         ),
       );
@@ -238,9 +269,7 @@ class StudentCubit extends Cubit<StudentState> {
           items: const <Student>[],
           currentPage: 0,
           hasMore: false,
-          isLoading: false,
-          isRefreshing: false,
-          isLoadingMore: false,
+          status: StudentListStatus.loaded,
           isFromCache: false,
           errorMessage: null,
         ),
@@ -250,8 +279,11 @@ class StudentCubit extends Cubit<StudentState> {
 
     emit(
       state.copyWith(
-        isLoading: state.items.isEmpty,
-        isRefreshing: true,
+        // Empty list → full-screen loader; otherwise a background refresh over
+        // the existing rows. The concurrency guard above keys on `refreshing`.
+        status: state.items.isEmpty
+            ? StudentListStatus.loading
+            : StudentListStatus.refreshing,
         errorMessage: null,
       ),
     );
@@ -334,8 +366,7 @@ class StudentCubit extends Cubit<StudentState> {
           items: items,
           currentPage: currentPage,
           hasMore: hasMore,
-          isLoading: false,
-          isRefreshing: false,
+          status: StudentListStatus.loaded,
           isFromCache: false,
         ),
       );
@@ -343,8 +374,7 @@ class StudentCubit extends Cubit<StudentState> {
       if (await _isStaleResponse(gen, schoolAtStart)) return;
       emit(
         state.copyWith(
-          isLoading: false,
-          isRefreshing: false,
+          status: StudentListStatus.error,
           errorMessage: ApiErrorHandler.extractErrorMessage(e),
         ),
       );
@@ -393,7 +423,7 @@ class StudentCubit extends Cubit<StudentState> {
           items: const <Student>[],
           currentPage: 0,
           hasMore: false,
-          isLoadingMore: false,
+          status: StudentListStatus.loaded,
           errorMessage: null,
         ),
       );
@@ -406,7 +436,12 @@ class StudentCubit extends Cubit<StudentState> {
     final gen = _generation;
     final schoolAtStart = schoolCode;
 
-    emit(state.copyWith(isLoadingMore: true, errorMessage: null));
+    emit(
+      state.copyWith(
+        status: StudentListStatus.loadingMore,
+        errorMessage: null,
+      ),
+    );
 
     try {
       final nextPageIndex = state.currentPage + 1;
@@ -433,14 +468,14 @@ class StudentCubit extends Cubit<StudentState> {
           items: _appendDedupedByCode(state.items, page.items),
           currentPage: page.page,
           hasMore: page.hasMore,
-          isLoadingMore: false,
+          status: StudentListStatus.loaded,
         ),
       );
     } catch (e) {
       if (await _isStaleResponse(gen, schoolAtStart)) return;
       emit(
         state.copyWith(
-          isLoadingMore: false,
+          status: StudentListStatus.error,
           errorMessage: ApiErrorHandler.extractErrorMessage(e),
         ),
       );
@@ -462,6 +497,8 @@ class StudentCubit extends Cubit<StudentState> {
     List<String>? tagCodes,
     List<String>? guardianCodes,
     List<String>? attendanceStatuses,
+    Map<String, List<String>>? selection,
+    bool? showInactive,
   }) {
     // Filter changes reset the logical query: supersede any in-flight response
     // so an older page/list can't append into or overwrite the new results.
@@ -476,8 +513,264 @@ class StudentCubit extends Cubit<StudentState> {
         tagCodesFilter: tagCodes,
         guardianCodesFilter: guardianCodes,
         attendanceStatusesFilter: attendanceStatuses,
+        // The cubit is the single owner of the UI filter SELECTION + the
+        // Active/Inactive toggle; the widget no longer keeps its own copy.
+        selectedFilters: selection,
+        showInactive: showInactive,
       ),
     );
+  }
+
+  /// Update just the filter SELECTION + inactive toggle in state, WITHOUT
+  /// re-resolving codes or refetching. Used for pre-load/display-only sets so
+  /// the cubit stays the single owner of the selection (no widget-held copy).
+  void setSelectedFilters(
+    Map<String, List<String>> selection, {
+    bool? showInactive,
+  }) {
+    emit(state.copyWith(selectedFilters: selection, showInactive: showInactive));
+  }
+
+  // ---- Multi-select (per-row selection). Single owner in state. ----
+
+  /// Reset the per-row selection to match the current [items] (all cleared).
+  /// Called when the visible list changes so indices stay aligned.
+  void resizeSelection() {
+    emit(
+      state.copyWith(selection: List<bool>.filled(state.items.length, false)),
+    );
+  }
+
+  /// Toggle a single row.
+  void setRowSelected(int index, bool value) {
+    if (index < 0 || index >= state.selection.length) return;
+    final next = List<bool>.from(state.selection);
+    next[index] = value;
+    emit(state.copyWith(selection: next));
+  }
+
+  /// Select or clear every visible row.
+  void setSelectAll(bool value) {
+    emit(
+      state.copyWith(selection: List<bool>.filled(state.items.length, value)),
+    );
+  }
+
+  /// Clear all row selections (length preserved).
+  void clearSelection() {
+    emit(
+      state.copyWith(selection: List<bool>.filled(state.items.length, false)),
+    );
+  }
+
+  /// Load the Active/Upcoming roster counts (the first summary card). No-op when
+  /// the use case wasn't injected (tests). Failures are non-fatal (keep prior).
+  Future<void> loadCounts() async {
+    final useCase = _countsUseCase;
+    if (useCase == null) return;
+    try {
+      final schoolCode =
+          await _storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+      final counts = await useCase(schoolCode: schoolCode);
+      if (isClosed) return;
+      emit(state.copyWith(
+        activeCount: counts.activeCount,
+        upcomingCount: counts.upcomingCount,
+      ));
+    } catch (_) {
+      // Non-critical; keep the previous counts.
+    }
+  }
+
+  /// Load the expected-students attendance summary (the second summary card).
+  /// No-op without the use case; on error the counters reset to 0 (as before).
+  Future<void> loadExpectedSummary() async {
+    final useCase = _expectedSummaryUseCase;
+    if (useCase == null) return;
+    try {
+      final summary = await useCase();
+      if (isClosed) return;
+      emit(state.copyWith(
+        expectedTotal: summary.expected,
+        expectedSignedIn: summary.present,
+        expectedAbsent: summary.absent,
+        expectedSignedOut: summary.signOut,
+        expectedNotMarked: summary.notMarked,
+      ));
+    } catch (_) {
+      if (isClosed) return;
+      emit(state.copyWith(
+        expectedTotal: 0,
+        expectedSignedIn: 0,
+        expectedAbsent: 0,
+        expectedSignedOut: 0,
+        expectedNotMarked: 0,
+      ));
+    }
+  }
+
+  /// Load the tag name→code lookup for the current school (used to resolve the
+  /// tag filter selection into API codes). No-op without the use case (tests);
+  /// failures are non-fatal — the filter simply can't resolve tag codes.
+  Future<void> loadTagNameCodeMap() async {
+    final useCase = _tagNameCodeMapUseCase;
+    if (useCase == null) return;
+    try {
+      final schoolCode =
+          await _storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+      final map = await useCase(schoolCode: schoolCode);
+      if (isClosed) return;
+      emit(state.copyWith(tagNameToCode: map));
+    } catch (_) {
+      // Non-critical for filters; keep the previous map.
+    }
+  }
+
+  /// Load the guardian name→code lookup for the current school (used to resolve
+  /// the guardian filter selection into API codes). No-op without the use case
+  /// (tests); failures are non-fatal.
+  Future<void> loadGuardianNameCodeMap() async {
+    final useCase = _guardianNameCodeMapUseCase;
+    if (useCase == null) return;
+    try {
+      final schoolCode =
+          await _storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+      final map = await useCase(schoolCode: schoolCode);
+      if (isClosed) return;
+      emit(state.copyWith(guardianNameToCode: map));
+    } catch (_) {
+      // Non-critical for filters; keep the previous map.
+    }
+  }
+
+  /// Refresh today's sign-in status for the CURRENTLY SELECTED rows (drives the
+  /// per-row attendance badges + gates the attendance/activities buttons). The
+  /// selection is read from state ([selection] × [items]) so the widget doesn't
+  /// pass it. No-op without the use case (tests). On no selection the map clears;
+  /// on failure it clears and flags [attendanceStatusError].
+  Future<void> refreshAttendanceStatusForSelection() async {
+    final useCase = _attendanceStatusUseCase;
+    if (useCase == null) return;
+
+    final selection = state.selection;
+    final items = state.items;
+    final codes = <String>[];
+    for (var i = 0; i < selection.length; i++) {
+      if (selection[i] && i < items.length) {
+        final code = items[i].code.trim();
+        if (code.isNotEmpty) codes.add(code);
+      }
+    }
+
+    if (codes.isEmpty) {
+      if (isClosed) return;
+      emit(state.copyWith(
+        attendanceStatusByStudentCode: const {},
+        attendanceStatusLoading: false,
+        attendanceStatusError: false,
+      ));
+      return;
+    }
+
+    emit(state.copyWith(
+      attendanceStatusLoading: true,
+      attendanceStatusError: false,
+    ));
+
+    try {
+      final map = await useCase(studentCodes: codes);
+      if (isClosed) return;
+      emit(state.copyWith(
+        attendanceStatusByStudentCode: Map<String, String>.from(map),
+        attendanceStatusLoading: false,
+        attendanceStatusError: false,
+      ));
+    } catch (_) {
+      if (isClosed) return;
+      emit(state.copyWith(
+        attendanceStatusByStudentCode: const {},
+        attendanceStatusLoading: false,
+        attendanceStatusError: true,
+      ));
+    }
+  }
+
+  /// Resolve classroom NAMES for the current roster that the [ClassroomCubit]
+  /// roster ([cubitNameByCode]) didn't already name, via the per-code detail API.
+  /// Guarded so an unchanged roster (same fingerprint) doesn't refetch, and each
+  /// code is fetched at most once (in-flight + failed sets). No-op without the
+  /// use case (tests). Safe to call from build: the sync portion only launches
+  /// the async fetches — the first `emit` happens after the first `await`.
+  Future<void> ensureClassroomDetailNames(
+    List<Student> students,
+    Map<String, String> cubitNameByCode,
+  ) async {
+    final useCase = _classroomByCodeUseCase;
+    if (useCase == null) return;
+
+    final parts = students.map((s) => s.classroom.trim()).toList()..sort();
+    final fingerprint = parts.join('');
+    if (fingerprint == _lastClassroomPrefetchFingerprint) return;
+    _lastClassroomPrefetchFingerprint = fingerprint;
+
+    final codes = <String>{};
+    for (final s in students) {
+      final c = s.classroom.trim();
+      if (c.isEmpty) continue;
+      if (!c.toUpperCase().startsWith('CLS_')) continue;
+      if (state.classroomDetailFetchFailed.contains(c)) continue;
+      if (state.classroomNameByDetailApi.containsKey(c)) continue;
+      final cubitName = cubitNameByCode[c]?.trim() ?? '';
+      if (cubitName.isNotEmpty) continue;
+      if (_classroomDetailFetchInFlight.contains(c)) continue;
+      codes.add(c);
+    }
+    if (codes.isEmpty) return;
+
+    for (final code in codes) {
+      _classroomDetailFetchInFlight.add(code);
+      try {
+        final details = await useCase(code: code);
+        if (isClosed) return;
+        final name = details.name.trim();
+        if (name.isNotEmpty) {
+          emit(state.copyWith(
+            classroomNameByDetailApi: {
+              ...state.classroomNameByDetailApi,
+              code: name,
+            },
+          ));
+        } else {
+          emit(state.copyWith(
+            classroomDetailFetchFailed: {
+              ...state.classroomDetailFetchFailed,
+              code,
+            },
+          ));
+        }
+      } catch (_) {
+        if (isClosed) return;
+        emit(state.copyWith(
+          classroomDetailFetchFailed: {
+            ...state.classroomDetailFetchFailed,
+            code,
+          },
+        ));
+      } finally {
+        _classroomDetailFetchInFlight.remove(code);
+      }
+    }
+  }
+
+  /// Clear the classroom-detail failure cache + prefetch fingerprint so a manual
+  /// refresh re-attempts previously-failed lookups. Keeps successfully-resolved
+  /// names (they're re-validated against the fresh roster by fingerprint).
+  void clearClassroomDetailCache() {
+    _lastClassroomPrefetchFingerprint = '';
+    emit(state.copyWith(classroomDetailFetchFailed: const {}));
   }
 
   /// In-flight roster mutations keyed by `action:studentCode`. A second call for

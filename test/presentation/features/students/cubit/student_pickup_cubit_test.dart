@@ -73,6 +73,7 @@ class _FakeAddPickupUseCase extends AddPickupUseCase {
   int calls = 0;
   Object? error;
   String result = 'added';
+  Completer<String>? gate;
 
   @override
   Future<String> call({
@@ -88,6 +89,7 @@ class _FakeAddPickupUseCase extends AddPickupUseCase {
   }) async {
     calls++;
     if (error != null) throw error!;
+    if (gate != null) return gate!.future;
     return result;
   }
 }
@@ -330,6 +332,106 @@ void main() {
       await Future.wait<String>([f1, f2]);
 
       expect(fakes.delete.calls, 1);
+      await cubit.close();
+    },
+  );
+
+  group('add-pickup form model', () {
+    SchoolGuardianSummary guardian(String code, String first, String last) =>
+        SchoolGuardianSummary(
+          code: code,
+          firstName: first,
+          lastName: last,
+          email: '$first@x.com',
+          mobile: '1112223333',
+        );
+
+    test('initial form defaults', () {
+      final cubit = _Fakes().build();
+      expect(cubit.state.selectFromExisting, isTrue);
+      expect(cubit.state.selectedCarer, isNull);
+      expect(cubit.state.selectedRelation, isNull);
+      expect(cubit.state.existingCarers, isEmpty);
+    });
+
+    test('initializeForm toggles off existing + seeds relation', () {
+      final cubit = _Fakes().build()
+        ..initializeForm(selectFromExisting: false, selectedRelation: 'Aunt');
+      expect(cubit.state.selectFromExisting, isFalse);
+      expect(cubit.state.selectedRelation, 'Aunt');
+    });
+
+    test('setters update each field', () {
+      final cubit = _Fakes().build()
+        ..setSelectFromExisting(false)
+        ..setSelectedCarer('Jane Doe')
+        ..setSelectedRelation('Mother');
+      expect(cubit.state.selectFromExisting, isFalse);
+      expect(cubit.state.selectedCarer, 'Jane Doe');
+      expect(cubit.state.selectedRelation, 'Mother');
+    });
+
+    test('loadCarers stores names + name→details and keeps a valid selection',
+        () async {
+      final fakes = _Fakes();
+      fakes.guardiansRaw.result = [guardian('G1', 'Jane', 'Doe')];
+      final cubit = fakes.build()..setSelectedCarer('Jane Doe');
+
+      await cubit.loadCarers(schoolCode: 'SCH', names: const ['Jane Doe']);
+
+      expect(fakes.guardiansRaw.schoolCodes.single, 'SCH');
+      expect(cubit.state.existingCarers, const ['Jane Doe']);
+      expect(cubit.state.guardianDetailsByName['Jane Doe']?['code'], 'G1');
+      expect(cubit.state.guardianDetailsByName['Jane Doe']?['email'],
+          'Jane@x.com');
+      expect(cubit.state.selectedCarer, 'Jane Doe');
+    });
+
+    test('loadCarers drops a selection no longer in the list', () async {
+      final fakes = _Fakes();
+      fakes.guardiansRaw.result = [guardian('G2', 'New', 'Carer')];
+      final cubit = fakes.build()..setSelectedCarer('Gone Person');
+
+      await cubit.loadCarers(schoolCode: 'SCH', names: const ['New Carer']);
+
+      expect(cubit.state.selectedCarer, isNull);
+    });
+
+    test('loadCarers is non-fatal on error', () async {
+      final fakes = _Fakes();
+      fakes.guardiansRaw.error = Exception('boom');
+      final cubit = fakes.build();
+
+      await cubit.loadCarers(schoolCode: 'SCH', names: const ['X']);
+
+      expect(cubit.state.existingCarers, isEmpty);
+    });
+  });
+
+  test(
+    'add flips mutationInProgress true→false (drives the Save button)',
+    () async {
+      final fakes = _Fakes();
+      final gate = Completer<String>();
+      fakes.add.gate = gate;
+      final cubit = fakes.build();
+
+      expect(cubit.state.mutationInProgress, isFalse);
+      final future = cubit.add(
+        studentCode: 'S1',
+        firstName: 'A',
+        lastName: 'B',
+        email: '',
+        phoneNumber: '1112223333',
+        relation: 'OTHER',
+        pickupType: 'CAREGIVER',
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state.mutationInProgress, isTrue);
+
+      gate.complete('added');
+      await future;
+      expect(cubit.state.mutationInProgress, isFalse);
       await cubit.close();
     },
   );

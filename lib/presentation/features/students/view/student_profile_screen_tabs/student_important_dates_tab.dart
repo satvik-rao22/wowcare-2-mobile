@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
@@ -108,14 +109,13 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) return;
 
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (context) => EditStudentImportantDatesScreen(
-          studentCode: studentCode,
-          initialEnrollDate: _dates?.enrollDate,
-          initialSchoolStartDate: _dates?.schoolStartDate,
-        ),
-      ),
+    final result = await context.push<bool>(
+      EditStudentImportantDatesScreen.routeName,
+      extra: <String, dynamic>{
+        'studentCode': studentCode,
+        'initialEnrollDate': _dates?.enrollDate,
+        'initialSchoolStartDate': _dates?.schoolStartDate,
+      },
     );
 
     if (result == true && mounted) {

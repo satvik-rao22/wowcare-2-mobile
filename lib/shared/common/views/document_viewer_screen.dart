@@ -30,6 +30,8 @@ class DocumentViewerScreen extends StatefulWidget {
     required this.mimeType,
   });
 
+  static const String routeName = '/document-viewer';
+
   final String url;
   final String documentName;
   final String mimeType;

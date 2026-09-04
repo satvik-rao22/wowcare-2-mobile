@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
@@ -81,14 +83,6 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
   static const int _nameMaxLength = 50;
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
 
-  bool _selectFromExisting = false;
-  List<String> _selectedExistingParents = [];
-  String? _selectedRelation;
-  bool _isEmergencyContact = true;
-  bool _isChildCustody = true;
-  File? _profilePhoto;
-  bool _isSubmitting = false;
-
   final StudentCreateCubit _createCubit = serviceLocator<StudentCreateCubit>();
 
   final List<String> _relationOptions = [
@@ -100,7 +94,6 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     'Stepfather',
     'Other',
   ];
-  List<String> _existingParents = const [];
 
   late final GetGuardianNamesForSchoolUseCase _getGuardianNamesForSchoolUseCase;
   late final StorageService _storageService;
@@ -114,7 +107,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
   );
   static final RegExp _phoneRegex = RegExp(r'^\(\d{3}\)\s\d{3}-\d{4}$');
 
-  bool get _showRelationOther => _selectedRelation == 'Other';
+  bool get _showRelationOther => _createCubit.state.step2Relation == 'Other';
   bool get _isEditMode =>
       widget.editGuardianCode != null &&
       widget.editGuardianCode!.trim().isNotEmpty;
@@ -125,10 +118,6 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     _getGuardianNamesForSchoolUseCase =
         serviceLocator<GetGuardianNamesForSchoolUseCase>();
     _storageService = serviceLocator<StorageService>();
-    _selectFromExisting = widget.initialSelectFromExisting;
-    _selectedExistingParents = List<String>.from(
-      widget.initialSelectedExistingParents,
-    );
     if (widget.initialFirstName != null) {
       _firstNameController.text = widget.initialFirstName!.trim();
     }
@@ -143,19 +132,24 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         widget.initialPhoneNumber!.trim(),
       );
     }
-    _selectedRelation = widget.initialRelation;
     if (widget.initialRelationOther != null) {
       _relationOtherController.text = widget.initialRelationOther!.trim();
     }
-    _isEmergencyContact = widget.initialIsEmergencyContact;
-    _isChildCustody = widget.initialIsChildCustody;
-    _profilePhoto = widget.initialProfilePhoto;
 
-    if (_isEditMode) {
-      // Edit should always use the direct parent form (same UI layout, prefilled).
-      _selectFromExisting = false;
-      _selectedExistingParents = [];
-    }
+    // Controllers stay local; the rest of the step-2 form model seeds the cubit.
+    // Edit mode always uses the direct-parent form (no "select from existing").
+    _createCubit.initializeStep2(
+      selectFromExisting: _isEditMode
+          ? false
+          : widget.initialSelectFromExisting,
+      selectedExistingParents: _isEditMode
+          ? const <String>[]
+          : List<String>.from(widget.initialSelectedExistingParents),
+      relation: widget.initialRelation,
+      isEmergencyContact: widget.initialIsEmergencyContact,
+      isChildCustody: widget.initialIsChildCustody,
+      profilePhoto: widget.initialProfilePhoto,
+    );
 
     _loadExistingParents();
   }
@@ -206,9 +200,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         return;
       }
 
-      setState(() {
-        _profilePhoto = file;
-      });
+      _createCubit.setStep2ProfilePhoto(file);
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -277,7 +269,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       schoolCode: schoolCode,
     );
 
-    final relationLabel = (_selectedRelation ?? '').trim();
+    final relationLabel = (_createCubit.state.step2Relation ?? '').trim();
     final relationOther = _relationOtherController.text.trim();
     final relationEnum = relationLabel.toUpperCase().replaceAll(' ', '_');
     final relationDescription =
@@ -285,7 +277,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         ? relationOther
         : null;
 
-    for (final selected in _selectedExistingParents) {
+    for (final selected in _createCubit.state.step2SelectedExistingParents) {
       final key = selected.trim();
       if (key.isEmpty) continue;
       final guardianCode = nameCodeMap[key];
@@ -316,30 +308,24 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         schoolCode: schoolCode,
       );
       if (!mounted) return;
-
-      setState(() {
-        _existingParents = names;
-        // Ensure initially selected parents still exist in the latest list.
-        _selectedExistingParents.removeWhere(
-          (parent) => !_existingParents.contains(parent),
-        );
-      });
+      // Cubit stores the names + prunes any now-stale selected parents.
+      _createCubit.setStep2ExistingParents(names);
     } catch (_) {
       // Non-critical for this screen; ignore errors and keep list empty.
     }
   }
 
   void _onCancel() {
-    if (_isSubmitting) return;
-    Navigator.pop(context);
+    if (_createCubit.state.step2Submitting) return;
+    context.pop();
   }
 
   void _onNext() {
     _trimAllInputs();
 
-    if (_selectFromExisting) {
+    if (_createCubit.state.step2SelectFromExisting) {
       // Validate existing parents selection
-      if (_selectedExistingParents.isEmpty) {
+      if (_createCubit.state.step2SelectedExistingParents.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Please select at least one parent',
@@ -347,7 +333,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         );
         return;
       }
-      if (_selectedRelation == null) {
+      if (_createCubit.state.step2Relation == null) {
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Please select a relation',
@@ -355,7 +341,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         );
         return;
       }
-      if (_selectedRelation == 'Other' &&
+      if (_createCubit.state.step2Relation == 'Other' &&
           _relationOtherController.text.trim().isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
@@ -438,7 +424,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         return;
       }
 
-      if (_selectedRelation == null) {
+      if (_createCubit.state.step2Relation == null) {
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Please select a relation',
@@ -447,7 +433,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         return;
       }
 
-      if (_selectedRelation == 'Other' &&
+      if (_createCubit.state.step2Relation == 'Other' &&
           _relationOtherController.text.trim().isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
@@ -464,12 +450,12 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     if (widget.createGuardianDirectly &&
         studentCode.isNotEmpty &&
         schoolCode.isNotEmpty) {
-      if (_isSubmitting) return;
-      setState(() => _isSubmitting = true);
+      if (_createCubit.state.step2Submitting) return;
+      _createCubit.setStep2Submitting(true);
 
       () async {
         try {
-          if (_selectFromExisting) {
+          if (_createCubit.state.step2SelectFromExisting) {
             // Use full guardian details from guardian API for existing parents.
             await _createGuardiansForExistingParents(
               schoolCode: schoolCode,
@@ -482,7 +468,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
               message: 'Parents linked successfully',
               isSuccess: true,
             );
-            Navigator.pop(context, true);
+            context.pop(true);
           } else {
             final orgCode =
                 await _storageService.getString(StorageKeys.organizationCode) ??
@@ -506,7 +492,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             final rawPhone = _phoneController.text.trim();
             final digits = rawPhone.replaceAll(RegExp(r'\D'), '');
 
-            final relationLabel = (_selectedRelation ?? '').trim();
+            final relationLabel = (_createCubit.state.step2Relation ?? '')
+                .trim();
             final relationToStudent = relationLabel.toUpperCase();
             // Free-text description backing an "Other" relation — the
             // backend expects this whenever relationToStudent is OTHER.
@@ -516,8 +503,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                 ? _relationOtherController.text.trim()
                 : null;
 
-            final primaryContact = _isEmergencyContact;
-            final legalCustody = _isChildCustody;
+            final primaryContact = _createCubit.state.step2IsEmergencyContact;
+            final legalCustody = _createCubit.state.step2IsChildCustody;
             final String message;
             if (_isEditMode) {
               final guardianCode = widget.editGuardianCode!.trim();
@@ -544,7 +531,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
               );
               // Photo upload runs in the BACKGROUND so the form returns
               // instantly; it keeps going even after this screen is closed.
-              final editFile = _profilePhoto;
+              final editFile = _createCubit.state.step2ProfilePhoto;
               if (editFile != null) {
                 unawaited(
                   uploadGuardianPhotoInBackground(
@@ -578,7 +565,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                 organizationCode: orgCode.trim(),
               );
               message = created.message;
-              final createFile = _profilePhoto;
+              final createFile = _createCubit.state.step2ProfilePhoto;
               if (createFile != null) {
                 unawaited(
                   uploadGuardianPhotoInBackground(
@@ -598,12 +585,12 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             if (!mounted) return;
             CoreUtils.showTopSnackBar(
               context: context,
-              message: _profilePhoto != null
+              message: _createCubit.state.step2ProfilePhoto != null
                   ? '$message Photo is uploading in the background…'
                   : message,
               isSuccess: true,
             );
-            Navigator.pop(context, true);
+            context.pop(true);
           }
         } catch (e) {
           if (!mounted) return;
@@ -614,7 +601,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
           );
         } finally {
           if (mounted) {
-            setState(() => _isSubmitting = false);
+            _createCubit.setStep2Submitting(false);
           }
         }
       }();
@@ -622,26 +609,31 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     }
 
     final step2Data = {
-      'selectFromExisting': _selectFromExisting,
-      'selectedExistingParents': _selectedExistingParents,
-      'firstName': _selectFromExisting
+      'selectFromExisting': _createCubit.state.step2SelectFromExisting,
+      'selectedExistingParents':
+          _createCubit.state.step2SelectedExistingParents,
+      'firstName': _createCubit.state.step2SelectFromExisting
           ? null
           : _firstNameController.text.trim(),
-      'lastName': _selectFromExisting ? null : _lastNameController.text.trim(),
-      'email': _selectFromExisting
+      'lastName': _createCubit.state.step2SelectFromExisting
+          ? null
+          : _lastNameController.text.trim(),
+      'email': _createCubit.state.step2SelectFromExisting
           ? null
           : _emailController.text.trim().toLowerCase(),
-      'phoneNumber': _selectFromExisting ? null : _phoneController.text.trim(),
-      'relation': _selectedRelation,
+      'phoneNumber': _createCubit.state.step2SelectFromExisting
+          ? null
+          : _phoneController.text.trim(),
+      'relation': _createCubit.state.step2Relation,
       'relationOther': _showRelationOther
           ? _relationOtherController.text.trim()
           : null,
-      'isEmergencyContact': _isEmergencyContact,
-      'isChildCustody': _isChildCustody,
-      'profilePhoto': _profilePhoto,
+      'isEmergencyContact': _createCubit.state.step2IsEmergencyContact,
+      'isChildCustody': _createCubit.state.step2IsChildCustody,
+      'profilePhoto': _createCubit.state.step2ProfilePhoto,
     };
 
-    Navigator.pop(context, step2Data);
+    context.pop(step2Data);
   }
 
   @override
@@ -650,347 +642,362 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
-    return GestureDetector(
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        appBar: const CustomAppBar(hasBackButton: false),
-        body: Stack(
-          children: [
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildScaffoldGradient(),
-                ),
-                child: Image.asset(
-                  MediaRes.wowcareMobileBg,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
+    return BlocBuilder<StudentCreateCubit, StudentCreateState>(
+      bloc: _createCubit,
+      builder: (context, createState) => GestureDetector(
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: Scaffold(
+          backgroundColor: Colors.white,
+          appBar: const CustomAppBar(hasBackButton: false),
+          body: Stack(
+            children: [
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: AppColors.buildScaffoldGradient(),
+                  ),
+                  child: Image.asset(
+                    MediaRes.wowcareMobileBg,
+                    fit: BoxFit.cover,
+                    alignment: Alignment.topCenter,
+                  ),
                 ),
               ),
-            ),
-            Column(
-              children: [
-                const SizedBox(height: 16),
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: responsive.horizontalSpacing,
-                  ),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      _isEditMode
-                          ? 'Edit parent'
-                          : (widget.isOptionalStep
-                                ? 'Add Parent (Optional)'
-                                : 'Add parent'),
-                      style: TextStyle(
-                        fontFamily: "Manrope",
-                        fontSize: responsive.titleFontSize,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xff573353),
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
-                Expanded(
-                  child: Container(
-                    width: responsive.containerWidth,
-                    margin: EdgeInsets.symmetric(
+              Column(
+                children: [
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: EdgeInsets.symmetric(
                       horizontal: responsive.horizontalSpacing,
                     ),
-                    padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.all(
-                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _isEditMode
+                            ? 'Edit parent'
+                            : (widget.isOptionalStep
+                                  ? 'Add Parent (Optional)'
+                                  : 'Add parent'),
+                        style: TextStyle(
+                          fontFamily: "Manrope",
+                          fontSize: responsive.titleFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff573353),
                         ),
-                      ],
+                      ),
                     ),
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: ListView(
-                            padding: EdgeInsets.zero,
-                            children: [
-                              SizedBox(height: responsive.verticalSpacing),
-                              // Toggle is hidden in edit mode so the screen remains
-                              // the same prefilled form UI as Add Step 2.
-                              if (!_isEditMode) ...[
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      'Select from existing',
-                                      style: TextStyle(
-                                        fontSize: responsive.labelFontSize,
-                                        fontFamily: "Manrope",
-                                        fontWeight: FontWeight.w400,
-                                        color: const Color(0xff573353),
-                                      ),
-                                    ),
-                                    CustomToggle(
-                                      label: '',
-                                      isToggled: _selectFromExisting,
-                                      onToggle: (value) {
-                                        setState(() {
-                                          _selectFromExisting = value;
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ),
+                  ),
+                  SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
+                  Expanded(
+                    child: Container(
+                      width: responsive.containerWidth,
+                      margin: EdgeInsets.symmetric(
+                        horizontal: responsive.horizontalSpacing,
+                      ),
+                      padding: EdgeInsets.all(
+                        responsive.isTablet ? 32.0 : 16.0,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.all(
+                          Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: ListView(
+                              padding: EdgeInsets.zero,
+                              children: [
                                 SizedBox(height: responsive.verticalSpacing),
-                              ],
-                              // Show either existing parents dropdown or new parent form
-                              if (_selectFromExisting) ...[
-                                // Existing parents multiselect
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Select Parent',
-                                      style: TextStyle(
-                                        fontSize: responsive.labelFontSize,
-                                        fontFamily: "Manrope",
-                                        fontWeight: FontWeight.w400,
-                                        color: const Color(0xff573353),
+                                // Toggle is hidden in edit mode so the screen remains
+                                // the same prefilled form UI as Add Step 2.
+                                if (!_isEditMode) ...[
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Select from existing',
+                                        style: TextStyle(
+                                          fontSize: responsive.labelFontSize,
+                                          fontFamily: "Manrope",
+                                          fontWeight: FontWeight.w400,
+                                          color: const Color(0xff573353),
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    // Single-select existing parent (searchable).
-                                    // One parent only — store as a 0/1 list so the
-                                    // downstream create/validation logic is unchanged.
-                                    CustomDropdown(
-                                      hintText: 'Select parent',
-                                      items: _existingParents,
-                                      enableSearch: true,
-                                      selectedItem:
-                                          _selectedExistingParents.isEmpty
-                                          ? null
-                                          : _selectedExistingParents.first,
-                                      onSelect: (selected) {
-                                        setState(() {
-                                          _selectedExistingParents =
+                                      CustomToggle(
+                                        label: '',
+                                        isToggled: _createCubit
+                                            .state
+                                            .step2SelectFromExisting,
+                                        onToggle: (value) => _createCubit
+                                            .setStep2SelectFromExisting(value),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: responsive.verticalSpacing),
+                                ],
+                                // Show either existing parents dropdown or new parent form
+                                if (_createCubit
+                                    .state
+                                    .step2SelectFromExisting) ...[
+                                  // Existing parents multiselect
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Select Parent',
+                                        style: TextStyle(
+                                          fontSize: responsive.labelFontSize,
+                                          fontFamily: "Manrope",
+                                          fontWeight: FontWeight.w400,
+                                          color: const Color(0xff573353),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      // Single-select existing parent (searchable).
+                                      // One parent only — store as a 0/1 list so the
+                                      // downstream create/validation logic is unchanged.
+                                      CustomDropdown(
+                                        hintText: 'Select parent',
+                                        items: _createCubit
+                                            .state
+                                            .step2ExistingParents,
+                                        enableSearch: true,
+                                        selectedItem:
+                                            _createCubit
+                                                .state
+                                                .step2SelectedExistingParents
+                                                .isEmpty
+                                            ? null
+                                            : _createCubit
+                                                  .state
+                                                  .step2SelectedExistingParents
+                                                  .first,
+                                        onSelect: (selected) => _createCubit
+                                            .setStep2SelectedExistingParents(
                                               selected == null
-                                              ? <String>[]
-                                              : <String>[selected];
-                                        });
-                                      },
-                                    ),
-                                    SizedBox(
-                                      height: responsive.verticalSpacing,
-                                    ),
-                                    CustomDropdown(
-                                      label: "Relation",
-                                      hintText: 'Select',
-                                      items: _relationOptions,
-                                      selectedItem: _selectedRelation,
-                                      labelStyle: TextStyle(
-                                        fontSize: responsive.labelFontSize,
-                                        fontFamily: "Manrope",
-                                        fontWeight: FontWeight.w400,
-                                        color: const Color(0xff573353),
+                                                  ? <String>[]
+                                                  : <String>[selected],
+                                            ),
                                       ),
-                                      showAsterisk: true,
-                                      labelBottomSpacing: responsive.isTablet
-                                          ? 8.0
-                                          : 6.0,
-                                      onSelect: (val) {
-                                        setState(() {
-                                          _selectedRelation = val;
-                                        });
-                                      },
-                                    ),
-                                    if (_showRelationOther) ...[
                                       SizedBox(
                                         height: responsive.verticalSpacing,
                                       ),
-                                      _buildInputField(
-                                        "Specify Relation",
-                                        "E.g. Grandmother",
-                                        _relationOtherController,
-                                        inputFormatters: [
-                                          FilteringTextInputFormatter.allow(
-                                            RegExp(r"[A-Za-z\s\-']"),
-                                          ),
-                                          LengthLimitingTextInputFormatter(50),
-                                          NameCapitalizationFormatter(),
-                                          TrimFormatter(),
-                                        ],
+                                      CustomDropdown(
+                                        label: "Relation",
+                                        hintText: 'Select',
+                                        items: _relationOptions,
+                                        selectedItem:
+                                            _createCubit.state.step2Relation,
+                                        labelStyle: TextStyle(
+                                          fontSize: responsive.labelFontSize,
+                                          fontFamily: "Manrope",
+                                          fontWeight: FontWeight.w400,
+                                          color: const Color(0xff573353),
+                                        ),
+                                        showAsterisk: true,
+                                        labelBottomSpacing: responsive.isTablet
+                                            ? 8.0
+                                            : 6.0,
+                                        onSelect: (val) =>
+                                            _createCubit.setStep2Relation(val),
                                       ),
+                                      if (_showRelationOther) ...[
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        _buildInputField(
+                                          "Specify Relation",
+                                          "E.g. Grandmother",
+                                          _relationOtherController,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.allow(
+                                              RegExp(r"[A-Za-z\s\-']"),
+                                            ),
+                                            LengthLimitingTextInputFormatter(
+                                              50,
+                                            ),
+                                            NameCapitalizationFormatter(),
+                                            TrimFormatter(),
+                                          ],
+                                        ),
+                                      ],
                                     ],
-                                  ],
-                                ),
-                              ] else ...[
-                                // New parent form
-                                _buildRowInputs(context),
-                                SizedBox(height: responsive.verticalSpacing),
-                                _buildInputField(
-                                  "Email",
-                                  "E.g. name@example.com",
-                                  _emailController,
-                                  keyboardType: TextInputType.emailAddress,
-                                  inputFormatters: [TrimFormatter()],
-                                ),
-                                SizedBox(height: responsive.verticalSpacing),
-                                _buildInputField(
-                                  "Phone Number",
-                                  "E.g. (000) 000-0000",
-                                  _phoneController,
-                                  keyboardType: TextInputType.phone,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                    LengthLimitingTextInputFormatter(10),
-                                    PhoneNumberFormatter(),
-                                    TrimFormatter(),
-                                  ],
-                                ),
-                                SizedBox(height: responsive.verticalSpacing),
-                                // Relation dropdown
-                                CustomDropdown(
-                                  label: "Relation",
-                                  hintText: 'Select',
-                                  items: _relationOptions,
-                                  selectedItem: _selectedRelation,
-                                  labelStyle: TextStyle(
-                                    fontSize: responsive.labelFontSize,
-                                    fontFamily: "Manrope",
-                                    fontWeight: FontWeight.w400,
-                                    color: const Color(0xff573353),
                                   ),
-                                  showAsterisk: true,
-                                  labelBottomSpacing: responsive.isTablet
-                                      ? 8.0
-                                      : 6.0,
-                                  onSelect: (val) {
-                                    setState(() {
-                                      _selectedRelation = val;
-                                    });
-                                  },
-                                ),
-                                if (_showRelationOther) ...[
+                                ] else ...[
+                                  // New parent form
+                                  _buildRowInputs(context),
                                   SizedBox(height: responsive.verticalSpacing),
                                   _buildInputField(
-                                    "Specify Relation",
-                                    "E.g. Grandmother",
-                                    _relationOtherController,
+                                    "Email",
+                                    "E.g. name@example.com",
+                                    _emailController,
+                                    keyboardType: TextInputType.emailAddress,
+                                    inputFormatters: [TrimFormatter()],
+                                  ),
+                                  SizedBox(height: responsive.verticalSpacing),
+                                  _buildInputField(
+                                    "Phone Number",
+                                    "E.g. (000) 000-0000",
+                                    _phoneController,
+                                    keyboardType: TextInputType.phone,
                                     inputFormatters: [
-                                      FilteringTextInputFormatter.allow(
-                                        RegExp(r"[A-Za-z\s\-']"),
-                                      ),
-                                      LengthLimitingTextInputFormatter(50),
-                                      NameCapitalizationFormatter(),
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      LengthLimitingTextInputFormatter(10),
+                                      PhoneNumberFormatter(),
                                       TrimFormatter(),
                                     ],
                                   ),
+                                  SizedBox(height: responsive.verticalSpacing),
+                                  // Relation dropdown
+                                  CustomDropdown(
+                                    label: "Relation",
+                                    hintText: 'Select',
+                                    items: _relationOptions,
+                                    selectedItem:
+                                        _createCubit.state.step2Relation,
+                                    labelStyle: TextStyle(
+                                      fontSize: responsive.labelFontSize,
+                                      fontFamily: "Manrope",
+                                      fontWeight: FontWeight.w400,
+                                      color: const Color(0xff573353),
+                                    ),
+                                    showAsterisk: true,
+                                    labelBottomSpacing: responsive.isTablet
+                                        ? 8.0
+                                        : 6.0,
+                                    onSelect: (val) =>
+                                        _createCubit.setStep2Relation(val),
+                                  ),
+                                  if (_showRelationOther) ...[
+                                    SizedBox(
+                                      height: responsive.verticalSpacing,
+                                    ),
+                                    _buildInputField(
+                                      "Specify Relation",
+                                      "E.g. Grandmother",
+                                      _relationOtherController,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                          RegExp(r"[A-Za-z\s\-']"),
+                                        ),
+                                        LengthLimitingTextInputFormatter(50),
+                                        NameCapitalizationFormatter(),
+                                        TrimFormatter(),
+                                      ],
+                                    ),
+                                  ],
+                                  SizedBox(height: responsive.verticalSpacing),
+                                  // Emergency Contact toggle
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Emergency Contact',
+                                        style: TextStyle(
+                                          fontSize: responsive.labelFontSize,
+                                          fontFamily: "Manrope",
+                                          fontWeight: FontWeight.w400,
+                                          color: const Color(0xff573353),
+                                        ),
+                                      ),
+                                      CustomToggle(
+                                        label: '',
+                                        isToggled: _createCubit
+                                            .state
+                                            .step2IsEmergencyContact,
+                                        onToggle: (value) => _createCubit
+                                            .setStep2IsEmergencyContact(value),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: responsive.verticalSpacing),
+                                  // Child Custody toggle
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Child Custody',
+                                        style: TextStyle(
+                                          fontSize: responsive.labelFontSize,
+                                          fontFamily: "Manrope",
+                                          fontWeight: FontWeight.w400,
+                                          color: const Color(0xff573353),
+                                        ),
+                                      ),
+                                      CustomToggle(
+                                        label: '',
+                                        isToggled: _createCubit
+                                            .state
+                                            .step2IsChildCustody,
+                                        onToggle: (value) => _createCubit
+                                            .setStep2IsChildCustody(value),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: responsive.verticalSpacing),
+                                  // Profile Photo
+                                  _buildProfilePhotoField(responsive),
                                 ],
-                                SizedBox(height: responsive.verticalSpacing),
-                                // Emergency Contact toggle
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      'Emergency Contact',
-                                      style: TextStyle(
-                                        fontSize: responsive.labelFontSize,
-                                        fontFamily: "Manrope",
-                                        fontWeight: FontWeight.w400,
-                                        color: const Color(0xff573353),
-                                      ),
-                                    ),
-                                    CustomToggle(
-                                      label: '',
-                                      isToggled: _isEmergencyContact,
-                                      onToggle: (value) {
-                                        setState(() {
-                                          _isEmergencyContact = value;
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ),
-                                SizedBox(height: responsive.verticalSpacing),
-                                // Child Custody toggle
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      'Child Custody',
-                                      style: TextStyle(
-                                        fontSize: responsive.labelFontSize,
-                                        fontFamily: "Manrope",
-                                        fontWeight: FontWeight.w400,
-                                        color: const Color(0xff573353),
-                                      ),
-                                    ),
-                                    CustomToggle(
-                                      label: '',
-                                      isToggled: _isChildCustody,
-                                      onToggle: (value) {
-                                        setState(() {
-                                          _isChildCustody = value;
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ),
-                                SizedBox(height: responsive.verticalSpacing),
-                                // Profile Photo
-                                _buildProfilePhotoField(responsive),
+                                const SizedBox(height: 12),
                               ],
-                              const SizedBox(height: 12),
-                            ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-              ],
-            ),
-          ],
-        ),
-        bottomNavigationBar: Container(
-          padding: EdgeInsets.only(
-            bottom: safeAreaBottom,
-            left: 16,
-            right: 16,
-            top: 8,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                offset: const Offset(0, -4),
-                blurRadius: 16,
+                  const SizedBox(height: 12),
+                ],
               ),
             ],
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            ),
           ),
-          child: CustomButtonLayout(
-            confirmButtonLabel: 'Save',
-            onPressedConfirm: _isSubmitting ? null : _onNext,
-            cancelButtonLabel: 'Cancel',
-            onPressedCancel: _isSubmitting ? null : _onCancel,
-            showCancelButton: true,
-            isForm: false,
-            isLoading: _isSubmitting,
+          bottomNavigationBar: Container(
+            padding: EdgeInsets.only(
+              bottom: safeAreaBottom,
+              left: 16,
+              right: 16,
+              top: 8,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  offset: const Offset(0, -4),
+                  blurRadius: 16,
+                ),
+              ],
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+              ),
+            ),
+            child: CustomButtonLayout(
+              confirmButtonLabel: 'Save',
+              onPressedConfirm: _createCubit.state.step2Submitting
+                  ? null
+                  : _onNext,
+              cancelButtonLabel: 'Cancel',
+              onPressedCancel: _createCubit.state.step2Submitting
+                  ? null
+                  : _onCancel,
+              showCancelButton: true,
+              isForm: false,
+              isLoading: _createCubit.state.step2Submitting,
+            ),
           ),
         ),
       ),
@@ -1122,10 +1129,13 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0x66573353)),
             ),
-            child: _profilePhoto != null
+            child: _createCubit.state.step2ProfilePhoto != null
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.file(_profilePhoto!, fit: BoxFit.cover),
+                    child: Image.file(
+                      _createCubit.state.step2ProfilePhoto!,
+                      fit: BoxFit.cover,
+                    ),
                   )
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,

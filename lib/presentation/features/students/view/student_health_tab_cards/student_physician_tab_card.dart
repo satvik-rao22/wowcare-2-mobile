@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/student/entities/student_physician.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_physician_cubit.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -38,18 +39,16 @@ class StudentPhysicianTabCard extends StatefulWidget {
 }
 
 class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
-  late Future<List<StudentPhysician>> _physiciansFuture;
-
-  /// One cubit instance for this card so its single-flight delete guard spans
-  /// taps (serviceLocator registers it as a factory — a fresh call per tap
-  /// would not dedupe).
+  /// The cubit OWNS the physician list state (single source of truth); the card
+  /// renders it via BlocBuilder. One instance per card so the single-flight
+  /// delete guard spans taps (serviceLocator registers a factory).
   final StudentPhysicianCubit _physicianCubit =
       serviceLocator<StudentPhysicianCubit>();
 
   @override
   void initState() {
     super.initState();
-    _physiciansFuture = _buildPhysiciansFuture();
+    _physicianCubit.load(widget.studentCode ?? '');
   }
 
   @override
@@ -58,27 +57,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
     super.dispose();
   }
 
-  Future<List<StudentPhysician>> _buildPhysiciansFuture() {
-    final code = widget.studentCode;
-    if (code == null || code.isEmpty) {
-      return Future.value(const <StudentPhysician>[]);
-    }
-    // Route the read through the cubit → use case → repository. The repository
-    // still handles cache via CacheManager; first call may use cache, subsequent
-    // ones will hit API when cache is invalidated after mutations.
-    return _physicianCubit.fetchPhysicians(code);
-  }
-
-  Future<void> _handleRefresh() async {
-    setState(() {
-      _physiciansFuture = _buildPhysiciansFuture();
-    });
-    try {
-      await _physiciansFuture;
-    } catch (_) {
-      // errors are surfaced in the UI via FutureBuilder
-    }
-  }
+  Future<void> _handleRefresh() => _physicianCubit.load(widget.studentCode ?? '');
 
   Future<void> _onAddPhysician() async {
     final studentCode = widget.studentCode ?? '';
@@ -86,10 +65,9 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
       return;
     }
 
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => AddPhysicianScreen(studentCode: studentCode),
-      ),
+    final result = await context.push<bool>(
+      AddPhysicianScreen.routeName,
+      extra: <String, dynamic>{'studentCode': studentCode},
     );
 
     if (!mounted || result != true) return;
@@ -136,14 +114,14 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                 ),
               ),
               const SizedBox(height: 16),
-              FutureBuilder<List<StudentPhysician>>(
-                future: _physiciansFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+              BlocBuilder<StudentPhysicianCubit, StudentPhysicianState>(
+                bloc: _physicianCubit,
+                builder: (context, state) {
+                  if (state.isLoading && state.physicians.isEmpty) {
                     return const StudentDetailCardsShimmer();
                   }
 
-                  if (snapshot.hasError) {
+                  if (state.errorMessage != null && state.physicians.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.only(top: 16),
                       child: Text(
@@ -156,8 +134,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                     );
                   }
 
-                  final physicians =
-                      snapshot.data ?? const <StudentPhysician>[];
+                  final physicians = state.physicians;
                   if (physicians.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.only(top: 8),
@@ -450,20 +427,19 @@ class _PhysicianCard extends StatelessWidget {
                       cancelButtonLabel: 'Delete',
                       gradientCancelLabel: true,
                       onPressedConfirm: () async {
-                        final result = await Navigator.of(context).push<bool>(
-                          MaterialPageRoute(
-                            builder: (_) => AddPhysicianScreen(
-                              studentCode: studentCode,
-                              physicianCode: code,
-                              isEdit: true,
-                              initialFirstName: firstName,
-                              initialLastName: lastName,
-                              initialEmail: email,
-                              initialPhoneNumber: phoneNumber,
-                              initialAddress: address,
-                              initialNotes: notes,
-                            ),
-                          ),
+                        final result = await context.push<bool>(
+                          AddPhysicianScreen.routeName,
+                          extra: <String, dynamic>{
+                            'studentCode': studentCode,
+                            'physicianCode': code,
+                            'isEdit': true,
+                            'initialFirstName': firstName,
+                            'initialLastName': lastName,
+                            'initialEmail': email,
+                            'initialPhoneNumber': phoneNumber,
+                            'initialAddress': address,
+                            'initialNotes': notes,
+                          },
                         );
 
                         if (result == true && onChanged != null) {

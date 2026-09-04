@@ -13,10 +13,9 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
-import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/transaction_details_screen.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/domain/features/billing/entities/family_summary_entity.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_family_summary_usecase.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_documents_tab.dart';
@@ -111,7 +110,6 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   /// MVVM cubit → use case → repository. Closed in [dispose].
   final StudentProfileCubit _profileCubit =
       serviceLocator<StudentProfileCubit>();
-  late Future<StudentHealth?> _healthFuture;
   late String _displayName;
   late String _displayClassroom;
 
@@ -156,7 +154,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     _profileTags = List<String>.from(widget.tags);
     _profileSchedule = List<String>.from(widget.schedule);
     _profileSibling = Map<String, dynamic>.from(widget.sibling);
-    _healthFuture = _buildHealthFuture();
+    _profileCubit.loadHealth(_activeStudentCode ?? '');
     _displayName = widget.name;
     _displayClassroom = widget.classroom;
     _profileStatusUpper = widget.initialEnrollmentStatus?.trim().toUpperCase();
@@ -418,24 +416,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     );
   }
 
-  Future<StudentHealth?> _buildHealthFuture() async {
-    final code = _activeStudentCode;
-    if (code == null || code.isEmpty) {
-      return null;
-    }
-    try {
-      return await _profileCubit.fetchHealth(code);
-    } catch (e) {
-      CoreUtils.logApiError(e.toString());
-      return null;
-    }
-  }
-
   void _refreshHeaderHealth() {
     if (!mounted) return;
-    setState(() {
-      _healthFuture = _buildHealthFuture();
-    });
+    _profileCubit.loadHealth(_activeStudentCode ?? '');
   }
 
   @override
@@ -466,8 +449,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         'status': <dynamic>[],
       };
       _profileStatusUpper = null;
-      _healthFuture = _buildHealthFuture();
     });
+    _profileCubit.loadHealth(code);
   }
 
   @override
@@ -955,10 +938,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                         ),
                       ),
                       const SizedBox(height: 8),
-                      FutureBuilder<StudentHealth?>(
-                        future: _healthFuture,
-                        builder: (context, snapshot) {
-                          final health = snapshot.data;
+                      BlocBuilder<StudentProfileCubit, StudentProfileState>(
+                        bloc: _profileCubit,
+                        builder: (context, state) {
+                          final health = state.health;
                           final hasAllergy = (health?.allergy ?? '')
                               .trim()
                               .isNotEmpty;
@@ -1072,22 +1055,18 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                     );
                     return;
                   }
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      settings: const RouteSettings(
-                        name: StudentAttendanceProfile.routeName,
-                      ),
-                      builder: (_) => StudentAttendanceProfile(
-                        studentCode: code,
-                        studentId: 0,
-                        studentName: _displayName,
-                        studentPhotoUuid: null,
-                        roomName: _displayClassroom,
-                        isSignedIn: false,
-                        syncWithParentChildSelection:
-                            widget.syncWithParentChildSelection,
-                      ),
-                    ),
+                  context.push(
+                    '/dashboard/student-attendance-profile',
+                    extra: <String, dynamic>{
+                      'studentCode': code,
+                      'studentId': 0,
+                      'studentName': _displayName,
+                      'studentPhotoUuid': null,
+                      'roomName': _displayClassroom,
+                      'isSignedIn': false,
+                      'syncWithParentChildSelection':
+                          widget.syncWithParentChildSelection,
+                    },
                   );
                 },
               );
@@ -1110,27 +1089,26 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   // the name; without the code the add screen shows "No
                   // activities available from API").
                   final classroomCode = _resolveClassroomCode(context);
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => ActivityFeedScreen(
-                        fromStudentProfile: true,
-                        allowActivityWrite: ModuleAccess.mayWrite(
-                          role,
-                          AppAccessModules.dailyActivity,
-                        ),
-                        studentName: {
-                          'name': _displayName,
-                          if (_activeStudentCode != null &&
-                              _activeStudentCode!.trim().isNotEmpty)
-                            'studentCode': _activeStudentCode!.trim(),
-                          'classroom': _displayClassroom,
-                          if (classroomCode.isNotEmpty)
-                            'classroomCode': classroomCode,
-                          'tags': _profileTags,
-                          'nappingStatus': false,
-                        },
+                  context.push(
+                    '/student-activity-feed',
+                    extra: <String, dynamic>{
+                      'fromStudentProfile': true,
+                      'allowActivityWrite': ModuleAccess.mayWrite(
+                        role,
+                        AppAccessModules.dailyActivity,
                       ),
-                    ),
+                      'studentName': <String, dynamic>{
+                        'name': _displayName,
+                        if (_activeStudentCode != null &&
+                            _activeStudentCode!.trim().isNotEmpty)
+                          'studentCode': _activeStudentCode!.trim(),
+                        'classroom': _displayClassroom,
+                        if (classroomCode.isNotEmpty)
+                          'classroomCode': classroomCode,
+                        'tags': _profileTags,
+                        'nappingStatus': false,
+                      },
+                    },
                   );
                 },
               );
@@ -1280,17 +1258,16 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         return;
       }
       final resolved = family;
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => TransactionDetailsScreen(
-            ownerType: resolved.ownerType.isNotEmpty
-                ? resolved.ownerType
-                : 'FAMILY',
-            ownerCode: resolved.ownerCode,
-            familyName: resolved.familyName.isNotEmpty
-                ? resolved.familyName
-                : _displayName,
-          ),
+      context.push(
+        TransactionDetailsScreen.routeName,
+        extra: TransactionDetailsArgs(
+          ownerType: resolved.ownerType.isNotEmpty
+              ? resolved.ownerType
+              : 'FAMILY',
+          ownerCode: resolved.ownerCode,
+          familyName: resolved.familyName.isNotEmpty
+              ? resolved.familyName
+              : _displayName,
         ),
       );
     } catch (e) {

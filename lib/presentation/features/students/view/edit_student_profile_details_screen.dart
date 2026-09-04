@@ -1,6 +1,7 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -802,7 +803,7 @@ class _EditStudentProfileDetailsScreenState
         message: message,
         isSuccess: true,
       );
-      Navigator.pop(context, true);
+      context.pop(true);
     } catch (e) {
       if (!mounted) return;
       setState(() {

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
@@ -15,6 +17,8 @@ class EditStudentHealthScreen extends StatefulWidget {
     this.initialHealth,
   });
 
+  static const String routeName = '/edit-student-health';
+
   final String studentCode;
   final StudentHealth? initialHealth;
 
@@ -27,8 +31,10 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
   late final TextEditingController _allergyController;
   late final TextEditingController _medicationsController;
   late final TextEditingController _dietRestrictionsController;
+  // Photo-permission switch is currently disabled (commented out below), so this
+  // stays a local value seeded from the initial health record. If the switch is
+  // re-enabled it becomes editable form model and moves into the cubit state.
   bool _photoPermission = true;
-  bool _isSaving = false;
 
   /// One cubit instance for this screen so its single-flight guard spans taps
   /// (serviceLocator registers it as a factory — a fresh call would not dedupe).
@@ -60,8 +66,9 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
   }
 
   Future<void> _save() async {
-    if (_isSaving) return;
-    setState(() => _isSaving = true);
+    // Re-entry guard reads the cubit's own in-flight flag (the cubit also
+    // single-flights identical updateHealth calls) — no local submit bool.
+    if (_healthCubit.state.mutationInProgress) return;
 
     try {
       final request = StudentHealthUpdateRequest(
@@ -77,24 +84,21 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
         request: request,
       );
 
+      if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Health details updated successfully',
         isSuccess: true,
       );
-      if (!mounted) return;
-      Navigator.of(context).pop(true);
+      context.pop(true);
     } catch (e) {
       CoreUtils.logApiError(e.toString());
+      if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Failed to update health details',
         isError: true,
       );
-    } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
     }
   }
 
@@ -170,12 +174,16 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
             topRight: Radius.circular(24),
           ),
         ),
-        child: CustomButtonLayout(
-          confirmButtonLabel: 'Save',
-          onPressedConfirm: _isSaving ? null : _save,
-          showCancelButton: false,
-          isForm: false,
-          isLoading: _isSaving,
+        child: BlocBuilder<StudentHealthCubit, StudentHealthState>(
+          bloc: _healthCubit,
+          buildWhen: (p, c) => p.mutationInProgress != c.mutationInProgress,
+          builder: (context, state) => CustomButtonLayout(
+            confirmButtonLabel: 'Save',
+            onPressedConfirm: state.mutationInProgress ? null : _save,
+            showCancelButton: false,
+            isForm: false,
+            isLoading: state.mutationInProgress,
+          ),
         ),
       ),
     );

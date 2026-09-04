@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/student/entities/student_physical_exam.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_physical_exam_cubit.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -39,7 +40,6 @@ class StudentDatesTabCard extends StatefulWidget {
 }
 
 class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
-  late Future<List<StudentPhysicalExam>> _physicalExamFuture;
   bool _hasShownErrorSnackBar = false;
 
   // Single cubit instance for this card — the serviceLocator registers the
@@ -56,7 +56,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
   @override
   void initState() {
     super.initState();
-    _physicalExamFuture = _buildPhysicalExamFuture();
+    _examCubit.load(widget.studentCode ?? '');
   }
 
   @override
@@ -65,31 +65,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
     super.dispose();
   }
 
-  Future<List<StudentPhysicalExam>> _buildPhysicalExamFuture({
-    bool forceRefresh = false,
-  }) async {
-    final code = widget.studentCode;
-    if (code == null || code.isEmpty) {
-      return const <StudentPhysicalExam>[];
-    }
-
-    return _examCubit.fetchPhysicalExams(
-      code,
-      forceRefresh: forceRefresh,
-    );
-  }
-
   /// Reload exams from API (bypasses cache). Use after add/edit/delete or pull-to-refresh.
   Future<void> _reloadPhysicalExams() async {
-    setState(() {
-      _physicalExamFuture = _buildPhysicalExamFuture(forceRefresh: true);
-      _hasShownErrorSnackBar = false;
-    });
-    try {
-      await _physicalExamFuture;
-    } catch (_) {
-      // Errors surface via FutureBuilder.
-    }
+    _hasShownErrorSnackBar = false;
+    await _examCubit.load(widget.studentCode ?? '', forceRefresh: true);
   }
 
   String _formatExamDate(String? isoDate) {
@@ -454,18 +433,18 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
       child: SingleChildScrollView(
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        child: FutureBuilder<List<StudentPhysicalExam>>(
-          future: _physicalExamFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
+        child: BlocBuilder<StudentPhysicalExamCubit, StudentPhysicalExamState>(
+          bloc: _examCubit,
+          builder: (context, state) {
+            if (state.isLoading && state.exams.isEmpty) {
               return const Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),
                 child: StudentExamCardsShimmer(),
               );
             }
 
-            if (snapshot.hasError) {
-              final msg = ApiErrorHandler.extractErrorMessage(snapshot.error);
+            if (state.errorMessage != null && state.exams.isEmpty) {
+              final msg = state.errorMessage!;
               if (!_hasShownErrorSnackBar) {
                 _hasShownErrorSnackBar = true;
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -490,7 +469,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
               );
             }
 
-            final exams = snapshot.data ?? const <StudentPhysicalExam>[];
+            final exams = state.exams;
             final bool hasCompletedExam = exams.any(
               (e) => _isCompletedStatus(e.status),
             );
@@ -513,15 +492,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                           : () async {
                               final code = widget.studentCode;
                               if (code == null || code.isEmpty) return;
-                              final result = await Navigator.of(context)
-                                  .push<bool>(
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          EditStudentPhysicalExamScreen(
-                                            studentCode: code,
-                                          ),
-                                    ),
-                                  );
+                              final result = await context.push<bool>(
+                                EditStudentPhysicalExamScreen.routeName,
+                                extra: <String, dynamic>{'studentCode': code},
+                              );
                               if (!mounted || result != true) return;
                               await _reloadPhysicalExams();
                             },

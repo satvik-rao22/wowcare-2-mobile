@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/student/entities/student_pickup.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_pickup_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -40,18 +40,17 @@ class StudentPickupTabCard extends StatefulWidget {
 class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
   static const int _maxPickupsPerStudent = 4;
 
-  late Future<List<StudentPickup>> _pickupsFuture;
   bool _isMutating = false;
 
-  /// One cubit instance for this card so its single-flight delete guard spans
-  /// taps (serviceLocator registers it as a factory — a fresh call per tap
-  /// would not dedupe).
+  /// The cubit OWNS the pickup list (single source of truth); the card renders
+  /// `state.pickups` via BlocBuilder. One instance per card so the single-flight
+  /// delete guard spans taps (serviceLocator registers a factory).
   final StudentPickupCubit _pickupCubit = serviceLocator<StudentPickupCubit>();
 
   @override
   void initState() {
     super.initState();
-    _pickupsFuture = _buildPickupsFuture();
+    _pickupCubit.load(widget.studentCode ?? '');
   }
 
   @override
@@ -60,24 +59,9 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
     super.dispose();
   }
 
-  Future<List<StudentPickup>> _buildPickupsFuture({bool forceRefresh = false}) {
-    final code = widget.studentCode;
-    if (code == null || code.isEmpty) {
-      return Future.value(const <StudentPickup>[]);
-    }
-    return _pickupCubit.fetchPickups(code, forceRefresh: forceRefresh);
-  }
-
   Future<void> _handleRefresh() async {
-    setState(() {
-      _pickupsFuture = _buildPickupsFuture(forceRefresh: true);
-    });
+    await _pickupCubit.load(widget.studentCode ?? '', forceRefresh: true);
     await widget.onRefresh?.call();
-    try {
-      await _pickupsFuture;
-    } catch (_) {
-      // swallow; UI handles errors
-    }
   }
 
   @override
@@ -114,7 +98,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                         onTap: () async {
                           final code = widget.studentCode ?? '';
                           if (code.isEmpty) return;
-                          final current = await _pickupCubit.fetchPickups(code);
+                          final current = _pickupCubit.state.pickups;
                           if (current.length >= _maxPickupsPerStudent) {
                             if (!mounted) return;
                             CoreUtils.showTopSnackBar(
@@ -125,11 +109,9 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                             );
                             return;
                           }
-                          final result = await Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  AddPickupScreen(studentCode: code),
-                            ),
+                          final result = await context.push<bool>(
+                            AddPickupScreen.routeName,
+                            extra: <String, dynamic>{'studentCode': code},
                           );
                           if (result == true && mounted) {
                             await _handleRefresh();
@@ -145,14 +127,14 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                 ),
               ),
               const SizedBox(height: 16),
-              FutureBuilder<List<StudentPickup>>(
-                future: _pickupsFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+              BlocBuilder<StudentPickupCubit, StudentPickupState>(
+                bloc: _pickupCubit,
+                builder: (context, state) {
+                  if (state.isLoading && state.pickups.isEmpty) {
                     return const StudentDetailCardsShimmer();
                   }
 
-                  if (snapshot.hasError) {
+                  if (state.errorMessage != null && state.pickups.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.only(top: 16),
                       child: Text(
@@ -165,7 +147,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                     );
                   }
 
-                  final pickups = snapshot.data ?? const <StudentPickup>[];
+                  final pickups = state.pickups;
                   if (pickups.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.only(top: 8),
@@ -310,21 +292,19 @@ class _PickupCardState extends State<_PickupCard> {
   }
 
   Future<void> _onEdit() async {
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => AddPickupScreen(
-          studentCode: widget.studentCode,
-          pickupCode: widget.pickupCode.trim().isEmpty
-              ? null
-              : widget.pickupCode,
-          initialFirstName: widget.firstName,
-          initialLastName: widget.lastName,
-          initialEmail: widget.rawEmail,
-          initialPhoneNumber: widget.rawPhoneNumber,
-          initialRelation: widget.rawRelation,
-          initialClockPin: widget.clockPin,
-        ),
-      ),
+    final result = await context.push<bool>(
+      AddPickupScreen.routeName,
+      extra: <String, dynamic>{
+        'studentCode': widget.studentCode,
+        'pickupCode':
+            widget.pickupCode.trim().isEmpty ? null : widget.pickupCode,
+        'initialFirstName': widget.firstName,
+        'initialLastName': widget.lastName,
+        'initialEmail': widget.rawEmail,
+        'initialPhoneNumber': widget.rawPhoneNumber,
+        'initialRelation': widget.rawRelation,
+        'initialClockPin': widget.clockPin,
+      },
     );
     if (result == true) {
       await widget.onRefresh?.call();

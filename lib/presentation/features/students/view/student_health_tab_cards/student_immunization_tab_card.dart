@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -40,7 +41,6 @@ class StudentImmunizationTabCard extends StatefulWidget {
 
 class _StudentImmunizationTabCardState
     extends State<StudentImmunizationTabCard> {
-  late Future<List<StudentImmunization>> _immunizationFuture;
   bool _hasShownErrorSnackBar = false;
   final DateFormat _apiFormatter = DateFormat('yyyy-MM-dd');
 
@@ -51,7 +51,7 @@ class _StudentImmunizationTabCardState
   @override
   void initState() {
     super.initState();
-    _immunizationFuture = _buildImmunizationFuture();
+    _healthCubit.loadImmunizations(widget.studentCode ?? '');
   }
 
   @override
@@ -352,14 +352,9 @@ class _StudentImmunizationTabCardState
                                     );
                                     Navigator.of(context).pop();
                                     if (!mounted) return;
-                                    setState(() {
-                                      _immunizationFuture =
-                                          _healthCubit.fetchImmunizations(
-                                            model.studentCode,
-                                            forceRefresh: true,
-                                          );
-                                      _hasShownErrorSnackBar = false;
-                                    });
+                                    await _reloadImmunizations(
+                                      model.studentCode,
+                                    );
                                   } catch (e) {
                                     if (!context.mounted) return;
                                     CoreUtils.logApiError(e.toString());
@@ -391,16 +386,9 @@ class _StudentImmunizationTabCardState
     );
   }
 
-  Future<List<StudentImmunization>> _buildImmunizationFuture() async {
-    final code = widget.studentCode;
-    if (code == null || code.isEmpty) {
-      return const <StudentImmunization>[];
-    }
-    try {
-      return await _healthCubit.fetchImmunizations(code);
-    } catch (_) {
-      rethrow;
-    }
+  Future<void> _reloadImmunizations(String studentCode) async {
+    _hasShownErrorSnackBar = false;
+    await _healthCubit.loadImmunizations(studentCode, forceRefresh: true);
   }
 
   @override
@@ -408,32 +396,19 @@ class _StudentImmunizationTabCardState
     final canMutateStudent = widget.canEdit;
 
     return CustomRefreshIndicator(
-      onRefresh: () async {
-        setState(() {
-          _immunizationFuture = _healthCubit.fetchImmunizations(
-            widget.studentCode ?? '',
-            forceRefresh: true,
-          );
-          _hasShownErrorSnackBar = false;
-        });
-        try {
-          await _immunizationFuture;
-        } catch (_) {
-          // handled in FutureBuilder
-        }
-      },
+      onRefresh: () => _reloadImmunizations(widget.studentCode ?? ''),
       child: SingleChildScrollView(
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        child: FutureBuilder<List<StudentImmunization>>(
-          future: _immunizationFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
+        child: BlocBuilder<StudentHealthCubit, StudentHealthState>(
+          bloc: _healthCubit,
+          builder: (context, state) {
+            if (state.immunizationsLoading && state.immunizations.isEmpty) {
               return const StudentImmunizationShimmer();
             }
 
-            if (snapshot.hasError) {
-              final message = snapshot.error.toString();
+            if (state.errorMessage != null && state.immunizations.isEmpty) {
+              final message = state.errorMessage!;
               CoreUtils.logApiError(message);
               if (!_hasShownErrorSnackBar) {
                 _hasShownErrorSnackBar = true;
@@ -449,7 +424,7 @@ class _StudentImmunizationTabCardState
               return const SizedBox.shrink();
             }
 
-            final items = snapshot.data ?? const <StudentImmunization>[];
+            final items = state.immunizations;
             if (items.isEmpty) {
               return Padding(
                 padding: const EdgeInsets.only(top: 24),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/app_time.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -15,13 +14,10 @@ import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_document_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
-import 'dart:io';
 
 class AddStudentDocumentScreen extends StatefulWidget {
   const AddStudentDocumentScreen({
@@ -60,16 +56,12 @@ class AddStudentDocumentScreen extends StatefulWidget {
 class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
   final TextEditingController _documentNameController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
-  String? _selectedDocumentType;
-  DateTime? _selectedExpiryDate;
-  String? _selectedFilePath;
-  PlatformFile? _selectedFile;
-  bool _isUploadingFile = false;
-  int _uploadProgressPercent = 0;
-  String? _uploadedAssetCode;
-  String? _uploadedStoragePath;
   static const int _documentNameMaxLength = 100;
   static const int _notesMaxLength = 500;
+
+  /// One cubit instance for this screen (owns the form model + upload + submit);
+  /// held as a field so edit mode can seed it in initState. Closed in dispose.
+  final StudentDocumentCubit _cubit = serviceLocator<StudentDocumentCubit>();
 
   final List<String> _documentTypes = [
     'Birth Certificate',
@@ -86,13 +78,16 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
       if (widget.initialDocumentName != null) {
         _documentNameController.text = widget.initialDocumentName!.trim();
       }
-      _selectedDocumentType = widget.initialDocumentType;
-      _selectedExpiryDate = widget.initialExpiryDate;
-      _selectedFilePath = widget.initialFilePath;
       if (widget.initialDocumentNotes != null) {
         _notesController.text = widget.initialDocumentNotes!.trim();
       }
-      _uploadedAssetCode = widget.initialAssetCode;
+      // Controllers stay local (source of text truth); the form model + the
+      // pre-existing asset seed the cubit.
+      _cubit.initializeForEdit(
+        documentType: widget.initialDocumentType,
+        expiryDate: widget.initialExpiryDate,
+        assetCode: widget.initialAssetCode,
+      );
     }
   }
 
@@ -100,10 +95,12 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
   void dispose() {
     _documentNameController.dispose();
     _notesController.dispose();
+    _cubit.close();
     super.dispose();
   }
 
-  Future<void> _addDocument(BuildContext context) async {
+  Future<void> _addDocument() async {
+    final state = _cubit.state;
     final name = _documentNameController.text.trim();
     if (name.isEmpty) {
       _showWarningMessage('Document name is required');
@@ -115,112 +112,42 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
       );
       return;
     }
-
-    if (_selectedDocumentType == null) {
+    if (state.documentType == null) {
       _showWarningMessage('Please select a document type');
       return;
     }
-
     if (_notesController.text.length > _notesMaxLength) {
       _showWarningMessage('Notes must be at most $_notesMaxLength characters');
       return;
     }
-
-    if (!widget.isEdit && _selectedFile == null) {
+    if (!widget.isEdit && !state.hasSelectedFile) {
       _showWarningMessage('Please upload a document');
       return;
     }
-
+    if (state.hasSelectedFile && !state.hasUploadedAsset) {
+      _showWarningMessage('Please wait for file upload to complete');
+      return;
+    }
     if (widget.studentCode.isEmpty) {
       _showWarningMessage('Student code is required');
       return;
     }
 
-    String storagePath;
-    int sizeBytes;
-    String mimeType;
-
-    if (_selectedFile != null) {
-      storagePath = _uploadedStoragePath ?? _selectedFile!.name;
-      sizeBytes = _selectedFile!.size;
-      mimeType = FilePickerUtils.getMimeType(_selectedFile!.extension);
-      if (_uploadedAssetCode == null || _uploadedAssetCode!.trim().isEmpty) {
-        _showWarningMessage('Please wait for file upload to complete');
-        return;
-      }
-    } else if (widget.isEdit && widget.initialFilePath != null) {
-      storagePath = widget.initialFilePath!;
-      sizeBytes = (widget.initialFileSizeKb ?? 0) * 1024;
-      mimeType = widget.initialMimeType ?? 'application/pdf';
-    } else {
-      _showWarningMessage('Please upload a document');
-      return;
-    }
-
-    final cubit = context.read<StudentDocumentCubit>();
     final uploadedBy = await resolveLoggedInStaffCode();
 
-    String _toDocumentTypeEnum(String uiValue) {
-      switch (uiValue.trim()) {
-        case 'Birth Certificate':
-          return 'BIRTH_CERTIFICATE';
-        case 'Registration Forms':
-          return 'REGISTRATION_FORM';
-        case 'Special Program Forms':
-          return 'SPECIAL_PROGRAM_FORM';
-        case 'Health Forms':
-          return 'HEALTH_FORM';
-        case 'Other':
-        default:
-          return 'OTHER';
-      }
-    }
-
-    final documentType = _toDocumentTypeEnum(_selectedDocumentType!);
-
-    final payload = (
+    await _cubit.submit(
       studentCode: widget.studentCode,
       name: name,
-      type: documentType,
-      expiryDate: _selectedExpiryDate != null
-          ? DateFormat('yyyy-MM-dd').format(_selectedExpiryDate!)
-          : '',
-      storagePath: storagePath,
-      mimeType: mimeType,
-      size: sizeBytes,
       notes: _notesController.text.trim().isEmpty
           ? null
           : _notesController.text.trim(),
+      uploadedBy: uploadedBy,
+      isEdit: widget.isEdit,
+      documentUuid: widget.documentUuid,
+      initialFilePath: widget.initialFilePath,
+      initialFileSizeKb: widget.initialFileSizeKb,
+      initialMimeType: widget.initialMimeType,
     );
-
-    if (widget.isEdit && (widget.documentUuid ?? '').isNotEmpty) {
-      cubit.updateDocument(
-        documentUuid: widget.documentUuid!,
-        studentCode: payload.studentCode,
-        name: payload.name,
-        type: payload.type,
-        expiryDate: payload.expiryDate,
-        storagePath: payload.storagePath,
-        mimeType: payload.mimeType,
-        size: payload.size,
-        assetCode: _uploadedAssetCode,
-        uploadedBy: uploadedBy,
-        notes: payload.notes,
-      );
-    } else {
-      cubit.addDocument(
-        studentCode: payload.studentCode,
-        name: payload.name,
-        type: payload.type,
-        expiryDate: payload.expiryDate,
-        storagePath: payload.storagePath,
-        mimeType: payload.mimeType,
-        size: payload.size,
-        assetCode: _uploadedAssetCode,
-        uploadedBy: uploadedBy,
-        notes: payload.notes,
-      );
-    }
   }
 
   void _showWarningMessage(String message) {
@@ -238,7 +165,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         builder: (context) => CalendarDialog(
           isRangePicker: false,
           isTimePicker: false,
-          initialDate: _selectedExpiryDate,
+          initialDate: _cubit.state.expiryDate,
         ),
       );
 
@@ -251,9 +178,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
           _showWarningMessage('Expiry date must be a future date');
           return;
         }
-        setState(() {
-          _selectedExpiryDate = selectedDate;
-        });
+        _cubit.setExpiryDate(selectedDate);
       }
     } catch (e) {
       CoreUtils.logApiError('Error opening calendar dialog: $e');
@@ -273,118 +198,15 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
       );
 
       if (result != null && result.files.isNotEmpty) {
-        PlatformFile file = result.files.first;
-        setState(() {
-          _selectedFile = file;
-          _selectedFilePath = file.name;
-          _uploadedAssetCode = null;
-          _uploadedStoragePath = null;
-        });
-        await _uploadSelectedFile(file);
+        final PlatformFile file = result.files.first;
+        // The cubit owns the whole upload flow (session → presign → PUT →
+        // complete → ready) + the upload state; the widget just hands it the
+        // picked file.
+        await _cubit.uploadFile(studentCode: widget.studentCode, file: file);
       }
     } catch (e) {
       CoreUtils.logApiError('Error picking file: $e');
       _showWarningMessage('Error selecting file. Please try again.');
-    }
-  }
-
-  Future<void> _uploadSelectedFile(PlatformFile selectedFile) async {
-    try {
-      setState(() {
-        _isUploadingFile = true;
-        _uploadProgressPercent = 0;
-      });
-      final storage = serviceLocator<StorageService>();
-      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-          .trim();
-      final organizationCode =
-          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      if (schoolCode.isEmpty || organizationCode.isEmpty) {
-        _showWarningMessage('Missing school or organization context');
-        return;
-      }
-      final selectedPath = selectedFile.path;
-      if (selectedPath == null || selectedPath.trim().isEmpty) {
-        _showWarningMessage('Selected file path is not available');
-        return;
-      }
-      final file = File(selectedPath);
-      if (!await file.exists()) {
-        _showWarningMessage('Selected file is not accessible');
-        return;
-      }
-      final mimeType = FilePickerUtils.getMimeType(selectedFile.extension);
-      final uploadService = serviceLocator<ImageUploadService>();
-      final uploadSession = await uploadService
-          .createStudentDocumentUploadSession(
-            studentCode: widget.studentCode,
-            schoolCode: schoolCode,
-            organizationCode: organizationCode,
-          );
-      final mediaType = mimeType.startsWith('image/')
-          ? 'IMAGE'
-          : mimeType.startsWith('video/')
-          ? 'VIDEO'
-          : 'DOCUMENT';
-      final presign = await uploadService.createAssetPresign(
-        sessionCode: uploadSession.sessionCode,
-        documentApiBasePath: uploadSession.documentApiBasePath,
-        fileName: selectedFile.name,
-        contentType: mimeType,
-        contentLengthBytes: selectedFile.size,
-        mediaType: mediaType,
-        ownerType: 'STUDENT',
-        ownerCode: widget.studentCode,
-      );
-      await uploadService.uploadFileToPresignedUrl(
-        file: file,
-        presignedPutUrl: presign.presignedPutUrl,
-        requiredHeaders: presign.requiredHeaders,
-        fallbackContentType: mimeType,
-        onProgress: (_, __, percent) {
-          if (!mounted) return;
-          setState(() => _uploadProgressPercent = percent.clamp(0, 100));
-        },
-      );
-      await uploadService.completeAssetUpload(
-        sessionCode: uploadSession.sessionCode,
-        assetCode: presign.assetCode,
-        documentApiBasePath: uploadSession.documentApiBasePath,
-      );
-      await uploadService.waitUntilAssetsReady(
-        sessionCode: uploadSession.sessionCode,
-        expectedAssetCodes: <String>[presign.assetCode],
-      );
-      if (!mounted) return;
-      // Asset is processed & READY — finish the upload now so the loader stops
-      // and the "Add" button is enabled immediately. The delivery URL is only
-      // used for display and falls back to the file name, so resolve it in the
-      // background instead of keeping the spinner up (URL resolution can poll
-      // for up to ~15s, which was needlessly gating the button).
-      setState(() {
-        _uploadedAssetCode = presign.assetCode;
-        _uploadedStoragePath = selectedFile.name;
-        _isUploadingFile = false;
-        _uploadProgressPercent = 0;
-      });
-      uploadService
-          .getMediaAssetUrlByCode(assetCode: presign.assetCode)
-          .then((resolvedUrl) {
-            final url = resolvedUrl.trim();
-            if (mounted && url.isNotEmpty) {
-              setState(() => _uploadedStoragePath = url);
-            }
-          })
-          .catchError((_) {});
-    } catch (e) {
-      _showWarningMessage('Failed to upload file: ${e.toString()}');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isUploadingFile = false;
-          _uploadProgressPercent = 0;
-        });
-      }
     }
   }
 
@@ -394,9 +216,13 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
-    return BlocProvider<StudentDocumentCubit>(
-      create: (_) => serviceLocator<StudentDocumentCubit>(),
+    return BlocProvider<StudentDocumentCubit>.value(
+      value: _cubit,
       child: BlocListener<StudentDocumentCubit, StudentDocumentState>(
+        listenWhen: (prev, curr) =>
+            prev.submitStatus != curr.submitStatus ||
+            (curr.uploadErrorMessage != null &&
+                curr.uploadErrorMessage != prev.uploadErrorMessage),
         listener: (context, state) {
           if (state.isSuccess && state.message != null) {
             CoreUtils.showTopSnackBar(
@@ -404,12 +230,18 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
               message: state.message!,
               isSuccess: true,
             );
-            Navigator.pop(context, true);
+            context.pop(true);
           } else if (state.isError && state.message != null) {
             CoreUtils.showTopSnackBar(
               context: context,
               message: state.message!,
               isError: true,
+            );
+          } else if (state.uploadErrorMessage != null) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: state.uploadErrorMessage!,
+              isWarning: true,
             );
           }
         },
@@ -472,11 +304,11 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             return CustomButtonLayout(
               confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
               cancelButtonLabel: 'Cancel',
-              onPressedConfirm: () => _addDocument(context),
-              onPressedCancel: () => Navigator.pop(context, false),
+              onPressedConfirm: _addDocument,
+              onPressedCancel: () => context.pop(false),
               showCancelButton: true,
               isForm: false,
-              isLoading: state.isLoading || _isUploadingFile,
+              isLoading: state.isLoading || state.isUploading,
             );
           },
         ),
@@ -540,12 +372,16 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
   }
 
   Widget _buildCustomDropdown() {
+    final selectedType = context
+        .watch<StudentDocumentCubit>()
+        .state
+        .documentType;
     return CustomDropdown(
       label: "Document Type",
       hintText: "Select",
       items: _documentTypes,
-      selectedItem: _selectedDocumentType,
-      onSelect: (value) => setState(() => _selectedDocumentType = value),
+      selectedItem: selectedType,
+      onSelect: (value) => _cubit.setDocumentType(value),
     );
   }
 
@@ -554,6 +390,10 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     final labelStyle = AppTextStyles.label.copyWith(
       fontSize: responsive.labelFontSize,
     );
+    final selectedExpiryDate = context
+        .watch<StudentDocumentCubit>()
+        .state
+        .expiryDate;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -580,13 +420,13 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      _selectedExpiryDate != null
+                      selectedExpiryDate != null
                           ? DateFormat(
                               'MMM dd, yyyy',
-                            ).format(_selectedExpiryDate!)
+                            ).format(selectedExpiryDate)
                           : 'Select Date',
                       style: TextStyle(
-                        color: _selectedExpiryDate == null
+                        color: selectedExpiryDate == null
                             ? Colors.grey
                             : Colors.black,
                         fontSize: responsive.inputFontSize,
@@ -613,6 +453,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
 
   Widget _buildFileUploadField() {
     final responsive = ResponsiveHelper(context);
+    final state = context.watch<StudentDocumentCubit>().state;
+    // In edit mode with no newly-picked file, fall back to the existing file.
+    final displayName = state.selectedFileName ?? widget.initialFilePath;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -649,13 +492,11 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    _isUploadingFile
-                        ? 'Uploading... $_uploadProgressPercent%'
-                        : (_selectedFilePath ?? 'Choose a File'),
+                    state.isUploading
+                        ? 'Uploading... ${state.uploadPercent}%'
+                        : (displayName ?? 'Choose a File'),
                     style: TextStyle(
-                      color: _selectedFilePath == null
-                          ? Colors.grey
-                          : Colors.black,
+                      color: displayName == null ? Colors.grey : Colors.black,
                       fontSize: responsive.inputFontSize,
                       fontFamily: 'Manrope',
                     ),

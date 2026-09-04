@@ -7,6 +7,8 @@ import '../../../../domain/features/student/usecases/get_student_health_usecase.
 import '../../../../domain/features/student/usecases/get_student_settings_usecase.dart';
 import '../../../../domain/features/student/usecases/update_student_regular_schedules_usecase.dart';
 
+import 'package:wowcare/core/util/api_error_handler.dart';
+
 part 'student_profile_state.dart';
 
 /// Type-safe reads + the schedule mutation for the student profile screens.
@@ -44,6 +46,30 @@ class StudentProfileCubit extends Cubit<StudentProfileState> {
   }
 
   /// Thin Future-based read for callers that drive their own `FutureBuilder`.
+  /// State-based load of the header health record — the profile screen renders
+  /// `state.health` via BlocBuilder for its allergy/medication/diet/photo icons.
+  /// On error the icons simply stay hidden (health stays null), matching the
+  /// previous FutureBuilder behaviour.
+  Future<void> loadHealth(String studentCode) async {
+    if (studentCode.isEmpty) {
+      if (!isClosed) emit(state.copyWith(healthLoading: false));
+      return;
+    }
+    if (isClosed) return;
+    emit(state.copyWith(healthLoading: true, errorMessage: null));
+    try {
+      final health = await _getStudentHealthUseCase(studentCode: studentCode);
+      if (isClosed) return;
+      emit(state.copyWith(health: health, healthLoading: false));
+    } catch (e) {
+      if (isClosed) return;
+      emit(state.copyWith(
+        healthLoading: false,
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
+      ));
+    }
+  }
+
   Future<StudentHealth> fetchHealth(String studentCode) {
     return _getStudentHealthUseCase(studentCode: studentCode);
   }

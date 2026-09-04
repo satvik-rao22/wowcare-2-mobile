@@ -6,6 +6,8 @@ import '../../../../domain/features/student/usecases/add_student_physical_exam_u
 import '../../../../domain/features/student/usecases/get_student_physical_exams_usecase.dart';
 import '../../../../domain/features/student/usecases/update_student_physical_exam_usecase.dart';
 
+import 'package:wowcare/core/util/api_error_handler.dart';
+
 part 'student_physical_exam_state.dart';
 
 /// Reads + mutations for a student's physical exam records.
@@ -28,6 +30,27 @@ class StudentPhysicalExamCubit extends Cubit<StudentPhysicalExamState> {
   final AddStudentPhysicalExamUseCase _addStudentPhysicalExamUseCase;
   final UpdateStudentPhysicalExamUseCase _updateStudentPhysicalExamUseCase;
 
+  /// State-based load of a student's physical exams — the card renders
+  /// `state.exams` via BlocBuilder instead of driving its own FutureBuilder.
+  Future<void> load(String studentCode, {bool forceRefresh = false}) async {
+    if (isClosed) return;
+    emit(state.copyWith(isLoading: true, errorMessage: null));
+    try {
+      final exams = await _getStudentPhysicalExamsUseCase(
+        studentCode: studentCode,
+        forceRefresh: forceRefresh,
+      );
+      if (isClosed) return;
+      emit(state.copyWith(exams: exams, isLoading: false, errorMessage: null));
+    } catch (e) {
+      if (isClosed) return;
+      emit(state.copyWith(
+        isLoading: false,
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
+      ));
+    }
+  }
+
   /// Thin Future-based read for callers that drive their own `FutureBuilder`.
   Future<List<StudentPhysicalExam>> fetchPhysicalExams(
     String studentCode, {
@@ -37,6 +60,20 @@ class StudentPhysicalExamCubit extends Cubit<StudentPhysicalExamState> {
       studentCode: studentCode,
       forceRefresh: forceRefresh,
     );
+  }
+
+  /// Seed the add/edit form model from the caller's initial values (called from
+  /// the editor's initState). Owns the two fields so the view drops its copies.
+  void initializeForm({DateTime? examDate, String? status}) {
+    emit(state.copyWith(formExamDate: examDate, formStatus: status));
+  }
+
+  void setFormExamDate(DateTime? date) {
+    emit(state.copyWith(formExamDate: date));
+  }
+
+  void setFormStatus(String? status) {
+    emit(state.copyWith(formStatus: status));
   }
 
   /// In-flight mutations keyed by `action:id`. A second identical call while

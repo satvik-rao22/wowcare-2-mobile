@@ -3,6 +3,7 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
@@ -71,38 +72,33 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       10; // safety cap (25 * 10 = 250 scanned)
   static const int _maxParentsPerStudent = 4;
 
-  String? _selectedStatus;
-  String? _selectedClassroom;
-  DateTime? _selectedBirthdate;
-  DateTime? _selectedSchoolStartDate;
-  File? _profilePhoto;
-  String? _calculatedAgeLabel;
-  bool _isSubmitting = false;
-
   final StudentCreateCubit _createCubit = serviceLocator<StudentCreateCubit>();
 
   final List<String> _statusOptions = ['Active', 'Upcoming'];
 
-  bool get _isActive => (_selectedStatus ?? '').toLowerCase() == 'active';
-  bool get _isUpcoming => (_selectedStatus ?? '').toLowerCase() == 'upcoming';
+  // Read the status-derived flags off the cubit-owned form model.
+  bool get _isActive =>
+      (_createCubit.state.step1Status ?? '').toLowerCase() == 'active';
+  bool get _isUpcoming =>
+      (_createCubit.state.step1Status ?? '').toLowerCase() == 'upcoming';
 
   @override
   void initState() {
     super.initState();
-    _selectedStatus = widget.initialStatus ?? 'Active';
     if (widget.initialFirstName != null) {
       _firstNameController.text = widget.initialFirstName!.trim();
     }
     if (widget.initialLastName != null) {
       _lastNameController.text = widget.initialLastName!.trim();
     }
-    _selectedClassroom = widget.initialClassroom;
-    _selectedBirthdate = widget.initialBirthdate;
-    _selectedSchoolStartDate = widget.initialSchoolStartDate;
-    _profilePhoto = widget.initialProfilePhoto;
-    if (_selectedBirthdate != null) {
-      _calculateAge(_selectedBirthdate!);
-    }
+    // Controllers stay local; the rest of the step-1 form model seeds the cubit.
+    _createCubit.initializeStep1(
+      status: widget.initialStatus ?? 'Active',
+      classroom: widget.initialClassroom,
+      birthdate: widget.initialBirthdate,
+      schoolStartDate: widget.initialSchoolStartDate,
+      profilePhoto: widget.initialProfilePhoto,
+    );
   }
 
   @override
@@ -111,31 +107,6 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     _lastNameController.dispose();
     _createCubit.close();
     super.dispose();
-  }
-
-  void _calculateAge(DateTime birthdate) {
-    final now = AppTime.now();
-    int years = now.year - birthdate.year;
-    int months = now.month - birthdate.month;
-    if (now.day < birthdate.day) {
-      months--;
-    }
-    if (months < 0) {
-      years--;
-      months += 12;
-    }
-    setState(() {
-      _calculatedAgeLabel = _formatAgeLabel(years, months);
-    });
-  }
-
-  String _formatAgeLabel(int years, int months) {
-    final yearPart = '$years ${years == 1 ? 'year' : 'years'}';
-    final monthPart = '$months ${months == 1 ? 'month' : 'months'}';
-    if (years <= 0) {
-      return monthPart;
-    }
-    return '$yearPart $monthPart';
   }
 
   Future<void> _pickProfileImage() async {
@@ -162,9 +133,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         return;
       }
 
-      setState(() {
-        _profilePhoto = file;
-      });
+      _createCubit.setStep1ProfilePhoto(file);
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -182,7 +151,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         builder: (context) => CalendarDialog(
           isRangePicker: false,
           isTimePicker: false,
-          initialDate: _selectedBirthdate,
+          initialDate: _createCubit.state.step1Birthdate,
         ),
       );
 
@@ -201,10 +170,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
           return;
         }
 
-        setState(() {
-          _selectedBirthdate = selectedDate;
-        });
-        _calculateAge(selectedDate);
+        // Cubit sets the date AND derives the age label.
+        _createCubit.setStep1Birthdate(selectedDate);
       }
     } catch (e) {
       AppLogger.d('Error opening calendar dialog: $e');
@@ -215,7 +182,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     try {
       final now = AppTime.now();
       final today = DateTime(now.year, now.month, now.day);
-      final initial = _selectedSchoolStartDate;
+      final initial = _createCubit.state.step1SchoolStartDate;
       final DateTime? initialForPicker = _isUpcoming
           ? (initial == null || initial.isBefore(today) ? today : initial)
           : initial;
@@ -246,9 +213,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
           );
           return;
         }
-        setState(() {
-          _selectedSchoolStartDate = selectedDate;
-        });
+        _createCubit.setStep1SchoolStartDate(selectedDate);
       }
     } catch (e) {
       AppLogger.d('Error opening calendar dialog: $e');
@@ -315,7 +280,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       return;
     }
 
-    if (_selectedClassroom == null) {
+    if (_createCubit.state.step1Classroom == null) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please select a classroom',
@@ -324,7 +289,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       return;
     }
 
-    if (_isActive && _selectedBirthdate == null) {
+    if (_isActive && _createCubit.state.step1Birthdate == null) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Birthdate is required for active students',
@@ -333,7 +298,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       return;
     }
 
-    if (_isUpcoming && _selectedSchoolStartDate == null) {
+    if (_isUpcoming && _createCubit.state.step1SchoolStartDate == null) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'School start date is required for upcoming students',
@@ -355,7 +320,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
     final classrooms = context.read<ClassroomCubit>().state.classrooms;
     final selectedClassroom = classrooms.where(
-      (c) => c.name == _selectedClassroom,
+      (c) => c.name == _createCubit.state.step1Classroom,
     );
     final selectedClassroomCode = selectedClassroom.isNotEmpty
         ? selectedClassroom.first.code
@@ -374,7 +339,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     // and let them proceed — matching the web "warn but allow" behaviour.
     final ageWarning = classroomAgeRangeWarning(
       classroom: selectedClassroom.first,
-      birthDate: _selectedBirthdate,
+      birthDate: _createCubit.state.step1Birthdate,
       studentName: _firstNameController.text.trim(),
     );
     if (ageWarning != null) {
@@ -475,20 +440,19 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                 orElse: () => matches.first,
               );
               Navigator.of(ctx).pop(false);
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => StudentProfileScreen(
-                    name: match.fullName.isNotEmpty
-                        ? match.fullName
-                        : enteredName,
-                    classroom: match.classroom,
-                    tags: match.tags,
-                    schedule: match.schedule,
-                    sibling: const {},
-                    studentCode: match.code,
-                    initialEnrollmentStatus: match.status,
-                  ),
-                ),
+              context.push(
+                StudentProfileScreen.routeName,
+                extra: <String, dynamic>{
+                  'name': match.fullName.isNotEmpty
+                      ? match.fullName
+                      : enteredName,
+                  'classroom': match.classroom,
+                  'tags': match.tags,
+                  'schedule': match.schedule,
+                  'sibling': const <String, dynamic>{},
+                  'studentCode': match.code,
+                  'initialEnrollmentStatus': match.status,
+                },
               );
             },
           );
@@ -578,12 +542,10 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     required String classroomCode,
     required List<String> siblingCodesToLink,
   }) async {
-    setState(() {
-      _isSubmitting = true;
-    });
+    _createCubit.setStep1Submitting(true);
 
     try {
-      final rawStatus = _selectedStatus ?? 'Active';
+      final rawStatus = _createCubit.state.step1Status ?? 'Active';
       final status = rawStatus.toUpperCase();
 
       final storage = serviceLocator<StorageService>();
@@ -597,14 +559,14 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         lastName: lastName,
         status: status,
         classroom: classroomCode,
-        dob: _selectedBirthdate,
-        schoolStartDate: _selectedSchoolStartDate,
+        dob: _createCubit.state.step1Birthdate,
+        schoolStartDate: _createCubit.state.step1SchoolStartDate,
         profilePhotoUrl: null,
       );
 
       // Upload the picked student photo in the BACKGROUND so creation returns
       // immediately; the upload keeps running even after this screen is closed.
-      final pickedPhoto = _profilePhoto;
+      final pickedPhoto = _createCubit.state.step1ProfilePhoto;
       if (pickedPhoto != null && student.code.trim().isNotEmpty) {
         unawaited(
           uploadStudentPhotoInBackground(
@@ -644,16 +606,14 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
       // Step 2 (Add Parent) is now optional: it calls the guardian API itself
       // (createGuardianDirectly) and returns true only if a parent was saved.
-      final parentResult = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (context) => AddStudentStep2Screen(
-            studentCode: student.code,
-            schoolCode: schoolCode,
-            createGuardianDirectly: true,
-            isOptionalStep: true,
-          ),
-        ),
+      final parentResult = await context.push<bool>(
+        AddStudentStep2Screen.routeName,
+        extra: <String, dynamic>{
+          'studentCode': student.code,
+          'schoolCode': schoolCode,
+          'createGuardianDirectly': true,
+          'isOptionalStep': true,
+        },
       );
 
       if (!mounted) return;
@@ -675,9 +635,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       }
     } finally {
       if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
+        _createCubit.setStep1Submitting(false);
       }
     }
   }
@@ -712,16 +670,14 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             await storage.getString(StorageKeys.schoolCode) ?? '';
         if (!mounted) return;
 
-        final nextParentResult = await Navigator.push<bool>(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AddStudentStep2Screen(
-              studentCode: studentCode,
-              schoolCode: schoolCode,
-              createGuardianDirectly: true,
-              isOptionalStep: true,
-            ),
-          ),
+        final nextParentResult = await context.push<bool>(
+          AddStudentStep2Screen.routeName,
+          extra: <String, dynamic>{
+            'studentCode': studentCode,
+            'schoolCode': schoolCode,
+            'createGuardianDirectly': true,
+            'isOptionalStep': true,
+          },
         );
 
         if (!mounted) return;
@@ -755,10 +711,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     dynamic scheduleData;
     if (addSchedule == true) {
       if (!mounted) return;
-      final step3Result = await Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const AddStudentStep3Screen()),
-      );
+      final step3Result = await context.push(AddStudentStep3Screen.routeName);
       if (step3Result is Map<String, Map<String, TimeOfDay>>) {
         scheduleData = step3Result;
       } else if (step3Result is Map) {
@@ -850,7 +803,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
     if (!mounted) return;
 
-    final bool anyPhotoUploading = _profilePhoto != null;
+    final bool anyPhotoUploading = _createCubit.state.step1ProfilePhoto != null;
     CoreUtils.showTopSnackBar(
       context: context,
       message:
@@ -872,194 +825,215 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
-    return BlocBuilder<ClassroomCubit, ClassroomState>(
-      builder: (context, classroomState) {
-        final classroomNames = classroomState.classrooms
-            .map((c) => c.name)
-            .toList();
+    return BlocBuilder<StudentCreateCubit, StudentCreateState>(
+      bloc: _createCubit,
+      builder: (context, createState) =>
+          BlocBuilder<ClassroomCubit, ClassroomState>(
+            builder: (context, classroomState) {
+              final classroomNames = classroomState.classrooms
+                  .map((c) => c.name)
+                  .toList();
 
-        return GestureDetector(
-          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-          child: Scaffold(
-            backgroundColor: Colors.white,
-            appBar: const CustomAppBar(hasBackButton: true),
-            body: Stack(
-              children: [
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: AppColors.buildScaffoldGradient(),
-                    ),
-                    child: Image.asset(
-                      MediaRes.wowcareMobileBg,
-                      fit: BoxFit.cover,
-                      alignment: Alignment.topCenter,
-                    ),
-                  ),
-                ),
-                Column(
-                  children: [
-                    const SizedBox(height: 16),
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: responsive.horizontalSpacing,
-                      ),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Add Student - Step 1 of 3',
-                          style: TextStyle(
-                            fontFamily: "Manrope",
-                            fontSize: responsive.titleFontSize,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xff573353),
+              return GestureDetector(
+                onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                child: Scaffold(
+                  backgroundColor: Colors.white,
+                  appBar: const CustomAppBar(hasBackButton: true),
+                  body: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: AppColors.buildScaffoldGradient(),
+                          ),
+                          child: Image.asset(
+                            MediaRes.wowcareMobileBg,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.topCenter,
                           ),
                         ),
                       ),
-                    ),
-                    SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
-                    Expanded(
-                      child: Container(
-                        width: responsive.containerWidth,
-                        margin: EdgeInsets.symmetric(
-                          horizontal: responsive.horizontalSpacing,
-                        ),
-                        padding: EdgeInsets.all(
-                          responsive.isTablet ? 32.0 : 16.0,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.all(
-                            Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                      Column(
+                        children: [
+                          const SizedBox(height: 16),
+                          Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: responsive.horizontalSpacing,
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Expanded(
-                              child: ListView(
-                                padding: EdgeInsets.zero,
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'Add Student - Step 1 of 3',
+                                style: TextStyle(
+                                  fontFamily: "Manrope",
+                                  fontSize: responsive.titleFontSize,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xff573353),
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
+                          Expanded(
+                            child: Container(
+                              width: responsive.containerWidth,
+                              margin: EdgeInsets.symmetric(
+                                horizontal: responsive.horizontalSpacing,
+                              ),
+                              padding: EdgeInsets.all(
+                                responsive.isTablet ? 32.0 : 16.0,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.all(
+                                  Radius.circular(
+                                    responsive.isTablet ? 40.0 : 24.0,
+                                  ),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.05),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
                                 children: [
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // Status
-                                  CustomDropdown(
-                                    label: "Status",
-                                    hintText: 'Select',
-                                    items: _statusOptions,
-                                    selectedItem: _selectedStatus,
-                                    labelStyle: TextStyle(
-                                      fontSize: responsive.labelFontSize,
-                                      fontFamily: "Manrope",
-                                      fontWeight: FontWeight.w400,
-                                      color: const Color(0xff573353),
+                                  Expanded(
+                                    child: ListView(
+                                      padding: EdgeInsets.zero,
+                                      children: [
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // Status
+                                        CustomDropdown(
+                                          label: "Status",
+                                          hintText: 'Select',
+                                          items: _statusOptions,
+                                          selectedItem:
+                                              _createCubit.state.step1Status,
+                                          labelStyle: TextStyle(
+                                            fontSize: responsive.labelFontSize,
+                                            fontFamily: "Manrope",
+                                            fontWeight: FontWeight.w400,
+                                            color: const Color(0xff573353),
+                                          ),
+                                          showAsterisk: true,
+                                          labelBottomSpacing:
+                                              responsive.isTablet ? 8.0 : 6.0,
+                                          onSelect: (val) =>
+                                              _createCubit.setStep1Status(val),
+                                        ),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // First Name and Last Name
+                                        _buildRowInputs(context),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // Classroom
+                                        CustomDropdown(
+                                          label: "Classroom",
+                                          hintText: 'Select',
+                                          items: classroomNames,
+                                          selectedItem:
+                                              _createCubit.state.step1Classroom,
+                                          labelStyle: TextStyle(
+                                            fontSize: responsive.labelFontSize,
+                                            fontFamily: "Manrope",
+                                            fontWeight: FontWeight.w400,
+                                            color: const Color(0xff573353),
+                                          ),
+                                          showAsterisk: true,
+                                          labelBottomSpacing:
+                                              responsive.isTablet ? 8.0 : 6.0,
+                                          onSelect: (val) => _createCubit
+                                              .setStep1Classroom(val),
+                                        ),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // Profile Photo
+                                        _buildProfilePhotoField(responsive),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // Birthdate
+                                        _buildDateField(
+                                          "Birthdate",
+                                          _createCubit.state.step1Birthdate,
+                                          _selectBirthdate,
+                                          isRequired: _isActive,
+                                          ageLabel:
+                                              _createCubit.state.step1AgeLabel,
+                                        ),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // School Start Date
+                                        _buildDateField(
+                                          "School Start Date",
+                                          _createCubit
+                                              .state
+                                              .step1SchoolStartDate,
+                                          _selectSchoolStartDate,
+                                          isRequired: _isUpcoming,
+                                        ),
+                                        const SizedBox(height: 12),
+                                      ],
                                     ),
-                                    showAsterisk: true,
-                                    labelBottomSpacing: responsive.isTablet
-                                        ? 8.0
-                                        : 6.0,
-                                    onSelect: (val) {
-                                      setState(() {
-                                        _selectedStatus = val;
-                                      });
-                                    },
                                   ),
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // First Name and Last Name
-                                  _buildRowInputs(context),
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // Classroom
-                                  CustomDropdown(
-                                    label: "Classroom",
-                                    hintText: 'Select',
-                                    items: classroomNames,
-                                    selectedItem: _selectedClassroom,
-                                    labelStyle: TextStyle(
-                                      fontSize: responsive.labelFontSize,
-                                      fontFamily: "Manrope",
-                                      fontWeight: FontWeight.w400,
-                                      color: const Color(0xff573353),
-                                    ),
-                                    showAsterisk: true,
-                                    labelBottomSpacing: responsive.isTablet
-                                        ? 8.0
-                                        : 6.0,
-                                    onSelect: (val) {
-                                      setState(() {
-                                        _selectedClassroom = val;
-                                      });
-                                    },
-                                  ),
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // Profile Photo
-                                  _buildProfilePhotoField(responsive),
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // Birthdate
-                                  _buildDateField(
-                                    "Birthdate",
-                                    _selectedBirthdate,
-                                    _selectBirthdate,
-                                    isRequired: _isActive,
-                                    ageLabel: _calculatedAgeLabel,
-                                  ),
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // School Start Date
-                                  _buildDateField(
-                                    "School Start Date",
-                                    _selectedSchoolStartDate,
-                                    _selectSchoolStartDate,
-                                    isRequired: _isUpcoming,
-                                  ),
-                                  const SizedBox(height: 12),
                                 ],
                               ),
                             ),
-                          ],
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                      ),
+                    ],
+                  ),
+                  bottomNavigationBar: Container(
+                    padding: EdgeInsets.only(
+                      bottom: safeAreaBottom,
+                      left: 16,
+                      right: 16,
+                      top: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          offset: const Offset(0, -4),
+                          blurRadius: 16,
+                        ),
+                      ],
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(
+                          responsive.isTablet ? 40.0 : 24.0,
+                        ),
+                        topRight: Radius.circular(
+                          responsive.isTablet ? 40.0 : 24.0,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                  ],
-                ),
-              ],
-            ),
-            bottomNavigationBar: Container(
-              padding: EdgeInsets.only(
-                bottom: safeAreaBottom,
-                left: 16,
-                right: 16,
-                top: 8,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    offset: const Offset(0, -4),
-                    blurRadius: 16,
+                    child: CustomButtonLayout(
+                      confirmButtonLabel: 'Next',
+                      onPressedConfirm: _createCubit.state.step1Submitting
+                          ? null
+                          : _onNext,
+                      showCancelButton: false,
+                      isForm: false,
+                      isLoading: _createCubit.state.step1Submitting,
+                    ),
                   ),
-                ],
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                 ),
-              ),
-              child: CustomButtonLayout(
-                confirmButtonLabel: 'Next',
-                onPressedConfirm: _isSubmitting ? null : _onNext,
-                showCancelButton: false,
-                isForm: false,
-                isLoading: _isSubmitting,
-              ),
-            ),
+              );
+            },
           ),
-        );
-      },
     );
   }
 
@@ -1186,10 +1160,13 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0x66573353)),
             ),
-            child: _profilePhoto != null
+            child: _createCubit.state.step1ProfilePhoto != null
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.file(_profilePhoto!, fit: BoxFit.cover),
+                    child: Image.file(
+                      _createCubit.state.step1ProfilePhoto!,
+                      fit: BoxFit.cover,
+                    ),
                   )
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,

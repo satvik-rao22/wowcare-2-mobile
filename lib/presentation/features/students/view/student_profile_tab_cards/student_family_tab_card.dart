@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -44,7 +45,6 @@ class StudentFamilyTabCard extends StatefulWidget {
 class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
   static const int _maxParentsPerStudent = 4;
 
-  late Future<List<StudentGuardian>> _guardiansFuture;
   bool _isMutating = false;
 
   /// One cubit instance for this card so its single-flight delete guard spans
@@ -81,7 +81,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
   @override
   void initState() {
     super.initState();
-    _guardiansFuture = _loadGuardians();
+    _guardianCubit.load(widget.studentCode ?? '');
   }
 
   @override
@@ -90,20 +90,10 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     super.dispose();
   }
 
-  Future<List<StudentGuardian>> _loadGuardians({
-    bool forceRefresh = false,
-  }) async {
-    final studentCode = widget.studentCode ?? '';
-    if (studentCode.isEmpty) {
-      return const <StudentGuardian>[];
-    }
-
-    // Route through the cubit → use case → repository; the repository still
-    // applies caching via CacheManager.
-    return _guardianCubit.fetchGuardians(
-      studentCode,
-      forceRefresh: forceRefresh,
-    );
+  /// Reload the cubit-owned guardian list, then notify the parent.
+  Future<void> _reload({bool force = false}) async {
+    await _guardianCubit.load(widget.studentCode ?? '', forceRefresh: force);
+    await widget.onRefresh?.call();
   }
 
   Future<void> _onAddParent() async {
@@ -118,7 +108,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
       return;
     }
 
-    final existing = await _guardianCubit.fetchGuardians(studentCode);
+    final existing = _guardianCubit.state.guardians;
     if (existing.length >= _maxParentsPerStudent) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -130,22 +120,18 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
       return;
     }
 
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => AddStudentStep2Screen(
-          studentCode: studentCode,
-          schoolCode: schoolCode,
-          createGuardianDirectly: true,
-        ),
-      ),
+    final result = await context.push<bool>(
+      AddStudentStep2Screen.routeName,
+      extra: <String, dynamic>{
+        'studentCode': studentCode,
+        'schoolCode': schoolCode,
+        'createGuardianDirectly': true,
+      },
     );
 
     if (!mounted || result != true) return;
 
-    setState(() {
-      _guardiansFuture = _loadGuardians();
-    });
-    await widget.onRefresh?.call();
+    await _reload();
   }
 
   Future<void> _onEditParent(StudentGuardian guardian) async {
@@ -178,33 +164,29 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
         normalizedRelation != null &&
         relationOptions.contains(normalizedRelation);
 
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => AddStudentStep2Screen(
-          studentCode: studentCode,
-          schoolCode: schoolCode,
-          createGuardianDirectly: true,
-          editGuardianCode: guardianCode,
-          initialUserCode: guardian.userCode.trim(),
-          initialFirstName: guardian.firstName,
-          initialLastName: guardian.lastName,
-          initialEmail: guardian.email,
-          initialPhoneNumber: guardian.mobile,
-          initialRelation: isKnownRelation ? normalizedRelation : 'Other',
-          initialRelationOther: isKnownRelation
-              ? null
-              : (rawRelation.isEmpty ? null : rawRelation),
-          initialIsEmergencyContact: guardian.primaryContact,
-          initialIsChildCustody: guardian.legalCustody,
-        ),
-      ),
+    final result = await context.push<bool>(
+      AddStudentStep2Screen.routeName,
+      extra: <String, dynamic>{
+        'studentCode': studentCode,
+        'schoolCode': schoolCode,
+        'createGuardianDirectly': true,
+        'editGuardianCode': guardianCode,
+        'initialUserCode': guardian.userCode.trim(),
+        'initialFirstName': guardian.firstName,
+        'initialLastName': guardian.lastName,
+        'initialEmail': guardian.email,
+        'initialPhoneNumber': guardian.mobile,
+        'initialRelation': isKnownRelation ? normalizedRelation : 'Other',
+        'initialRelationOther': isKnownRelation
+            ? null
+            : (rawRelation.isEmpty ? null : rawRelation),
+        'initialIsEmergencyContact': guardian.primaryContact,
+        'initialIsChildCustody': guardian.legalCustody,
+      },
     );
 
     if (!mounted || result != true) return;
-    setState(() {
-      _guardiansFuture = _loadGuardians();
-    });
-    await widget.onRefresh?.call();
+    await _reload();
   }
 
   Future<void> _onDeleteParent(StudentGuardian guardian) async {
@@ -246,10 +228,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                 message: message,
                 isSuccess: true,
               );
-              setState(() {
-                _guardiansFuture = _loadGuardians();
-              });
-              await widget.onRefresh?.call();
+              await _reload();
             } catch (e) {
               if (!mounted) return;
               Navigator.of(sheetContext).pop();
@@ -276,12 +255,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
         ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isParent;
 
     return CustomRefreshIndicator(
-      onRefresh: () async {
-        setState(() {
-          _guardiansFuture = _loadGuardians(forceRefresh: true);
-        });
-        await widget.onRefresh?.call();
-      },
+      onRefresh: () => _reload(force: true),
       child: SingleChildScrollView(
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
@@ -316,14 +290,14 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                 ),
               ),
               const SizedBox(height: 16),
-              FutureBuilder<List<StudentGuardian>>(
-                future: _guardiansFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+              BlocBuilder<StudentGuardianCubit, StudentGuardianState>(
+                bloc: _guardianCubit,
+                builder: (context, state) {
+                  if (state.isLoading && state.guardians.isEmpty) {
                     return const StudentDetailCardsShimmer();
                   }
 
-                  if (snapshot.hasError) {
+                  if (state.errorMessage != null && state.guardians.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.only(top: 16),
                       child: Text(
@@ -336,7 +310,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                     );
                   }
 
-                  final data = snapshot.data ?? const [];
+                  final data = state.guardians;
                   if (data.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.only(top: 8),

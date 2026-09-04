@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -55,17 +56,12 @@ class _StudentTagsEditSheet extends StatefulWidget {
 
 class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
   final StudentTagsCubit _tagsCubit = serviceLocator<StudentTagsCubit>();
-  bool _loading = true;
-  bool _saving = false;
-  List<String> _availableTagNames = const <String>[];
-  Map<String, String> _tagNameToCode = const <String, String>{};
-  late List<String> _selectedTags;
-  String _schoolCode = '';
 
   @override
   void initState() {
     super.initState();
-    _selectedTags = List<String>.from(widget.initialTagNames);
+    // Show the loader from the first frame, then resolve the school + fetch.
+    _tagsCubit.beginLoading();
     _load();
   }
 
@@ -76,42 +72,36 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
   }
 
   Future<void> _load() async {
-    try {
-      var school = (widget.schoolCode ?? '').trim();
-      if (school.isEmpty) {
-        school = (await serviceLocator<StorageService>()
-                    .getString(StorageKeys.schoolCode) ??
-                '')
-            .trim();
-      }
-      _schoolCode = school;
+    // School resolution stays widget-side (StorageService); the cubit owns the
+    // fetch + the loaded tag state.
+    var school = (widget.schoolCode ?? '').trim();
+    if (school.isEmpty) {
+      school =
+          (await serviceLocator<StorageService>().getString(
+                    StorageKeys.schoolCode,
+                  ) ??
+                  '')
+              .trim();
+    }
 
-      final names = await _tagsCubit.fetchTagNamesForSchool(school);
-      final map = await _tagsCubit.fetchTagNameCodeMap(school);
-      if (!mounted) return;
-      setState(() {
-        _availableTagNames = names;
-        _tagNameToCode = map;
-        // Drop any preselected tags that no longer exist for the school.
-        _selectedTags =
-            _selectedTags.where((t) => names.contains(t)).toList();
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _loading = false);
+    await _tagsCubit.load(
+      schoolCode: school,
+      initialTagNames: widget.initialTagNames,
+    );
+    if (!mounted) return;
+    final error = _tagsCubit.state.errorMessage;
+    if (error != null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: ApiErrorHandler.extractErrorMessage(e),
+        message: error,
         isError: true,
       );
     }
   }
 
   Future<void> _save() async {
-    if (_saving) return;
-    final school = _schoolCode.trim();
-    if (school.isEmpty) {
+    if (_tagsCubit.state.mutationInProgress) return;
+    if (_tagsCubit.state.schoolCode.trim().isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'School could not be resolved. Please try again.',
@@ -120,18 +110,9 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
       return;
     }
 
-    setState(() => _saving = true);
     try {
-      final tagCodes = _selectedTags
-          .map((n) => _tagNameToCode[n])
-          .whereType<String>()
-          .where((c) => c.trim().isNotEmpty)
-          .toList();
-
-      final message = await _tagsCubit.updateTags(
+      final message = await _tagsCubit.saveTags(
         studentCode: widget.studentCode,
-        schoolCode: school,
-        tagCodes: tagCodes,
       );
 
       if (!mounted) return;
@@ -144,7 +125,6 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
       await widget.onSaved();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _saving = false);
       CoreUtils.showTopSnackBar(
         context: context,
         message: ApiErrorHandler.extractErrorMessage(e),
@@ -156,69 +136,72 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomInset),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Edit Tags',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xff573353),
+    return BlocBuilder<StudentTagsCubit, StudentTagsState>(
+      bloc: _tagsCubit,
+      builder: (context, state) => Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Edit Tags',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xff573353),
+                      ),
                     ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(
+                        Icons.close,
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (state.isLoading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: PrimaryCircularLoader()),
+                  )
+                else ...[
+                  CustomMultiSelectDropdown(
+                    label: 'Tags',
+                    hintText: 'Select',
+                    items: state.availableTagNames,
+                    selectedItems: state.selectedTags,
+                    isField: true,
+                    enableSearch: true,
+                    onChanged: (tags) => _tagsCubit.setSelectedTags(tags),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(
-                      Icons.close,
-                      color: AppColors.primaryColor,
-                    ),
+                  const SizedBox(height: 20),
+                  CustomButtonLayout(
+                    confirmButtonLabel: 'Save',
+                    cancelButtonLabel: 'Cancel',
+                    isForm: false,
+                    isLoading: state.mutationInProgress,
+                    onPressedConfirm: _save,
+                    onPressedCancel: () => Navigator.of(context).pop(),
                   ),
                 ],
-              ),
-              const SizedBox(height: 8),
-              if (_loading)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Center(child: PrimaryCircularLoader()),
-                )
-              else ...[
-                CustomMultiSelectDropdown(
-                  label: 'Tags',
-                  hintText: 'Select',
-                  items: _availableTagNames,
-                  selectedItems: _selectedTags,
-                  isField: true,
-                  enableSearch: true,
-                  onChanged: (tags) => setState(() => _selectedTags = tags),
-                ),
-                const SizedBox(height: 20),
-                CustomButtonLayout(
-                  confirmButtonLabel: 'Save',
-                  cancelButtonLabel: 'Cancel',
-                  isForm: false,
-                  isLoading: _saving,
-                  onPressedConfirm: _save,
-                  onPressedCancel: () => Navigator.of(context).pop(),
-                ),
               ],
-            ],
+            ),
           ),
         ),
       ),
