@@ -418,9 +418,11 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   }
 
   @override
-  Future<Either<Failure, List<Conversation>>> loadCachedConversations() async {
+  Future<Either<Failure, List<Conversation>>> loadCachedConversations({String? type}) async {
     try {
-      final cachedItems = await cacheService.getAll<ConversationCollection>();
+      final cachedItems = type != null 
+          ? await cacheService.getByField<ConversationCollection>('type', type)
+          : await cacheService.getAll<ConversationCollection>();
       return Right(cachedItems.map((e) => e.toEntity()).toList());
     } catch (e) {
       return Left(CacheFailure(e.toString()));

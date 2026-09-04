@@ -47,6 +47,7 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
   late DateTime _periodDate;
   List<String> _selectedStudents = <String>[];
   late List<String> _selectedClassrooms;
+  List<String> _selectedInvoiceStatuses = <String>[];
   List<String> _availableStudents = <String>[];
   Map<String, String> _studentCodeByName = <String, String>{};
   Map<String, String> _classroomCodeByName = <String, String>{};
@@ -271,6 +272,11 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
             widget.reportType == ReportType.billingPaymentSummary
             ? _folderClassGrouping
             : null,
+        invoiceStatuses:
+            widget.reportType == ReportType.billingInvoice &&
+                _selectedInvoiceStatuses.isNotEmpty
+            ? _selectedInvoiceStatuses
+            : null,
       ),
     );
   }
@@ -426,13 +432,16 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
             ],
             if (widget.reportType == ReportType.billingInvoice) ...[
               // Add the Optional filters:  Payment method (Card, ACH, Cash)
-              CustomDropdown(
+              CustomMultiSelectDropdown(
                 label: 'Invoice Status',
                 hintText: "Select Status",
+                isRequired: true,
                 items: const ["Paid", "Unpaid", "Partial"],
-                onSelect: (value) {
-                  // Handle selection
+                selectedItems: _selectedInvoiceStatuses,
+                onChanged: (s) {
+                  setState(() => _selectedInvoiceStatuses = s);
                 },
+                showSelectAll: true,
               ),
               SizedBox(height: responsive.verticalSpacing),
               CustomMultiSelectDropdown(
