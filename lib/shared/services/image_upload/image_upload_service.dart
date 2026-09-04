@@ -201,44 +201,32 @@ class ImageUploadService {
     );
   }
 
-  /// Presigns every file in [assets] under one session in a single call to
-  /// the same `assets/presign/batch` endpoint [createAssetPresign] hits with
-  /// just one — sending N separate presign requests (and N separate upload
-  /// sessions, one per file, at the call site) is what the endpoint's own
-  /// name says it isn't meant for. Results come back in the same order as
-  /// [assets].
+  /// Presigns every file in [assets] with one call to `presign/batch`.
+  ///
+  /// Results come back in request order — the endpoint returns `uploads` in the
+  /// order the assets were sent — and a count mismatch is treated as an error
+  /// rather than silently uploading files to the wrong signed URLs.
+  ///
+  /// Prefer this over calling [createAssetPresign] in a loop: the endpoint is
+  /// already a batch, so N files cost one round trip instead of N.
   Future<List<AssetPresignResult>> createAssetPresignBatch({
     required String sessionCode,
     required String documentApiBasePath,
     required List<AssetPresignRequest> assets,
   }) async {
-    if (assets.isEmpty) return const [];
+    if (assets.isEmpty) return const <AssetPresignResult>[];
 
     final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
     final path = ApiPaths.documentAssetPresignPath(
       documentApiBasePath: documentApiBasePath,
       sessionCode: sessionCode,
     );
-    final endpoint = '$origin$path';
 
     final response = await _apiClient.client
         .post<dynamic>(
-          endpoint,
+          '$origin$path',
           data: <String, dynamic>{
-            'assets': assets
-                .map(
-                  (a) => <String, dynamic>{
-                    'fileName': a.fileName,
-                    'contentType': a.contentType,
-                    'contentLengthBytes': a.contentLengthBytes,
-                    if ((a.checksumSha256 ?? '').trim().isNotEmpty)
-                      'checksumSha256': a.checksumSha256!.trim(),
-                    'mediaType': a.mediaType,
-                    'ownerType': a.ownerType,
-                    'ownerCode': a.ownerCode,
-                  },
-                )
-                .toList(),
+            'assets': assets.map((a) => a.toJson()).toList(),
           },
         )
         .catchError((error) {
@@ -263,36 +251,118 @@ class ImageUploadService {
     }
 
     final uploads = data['uploads'];
-    if (uploads is! List || uploads.length != assets.length) {
+    if (uploads is! List) {
       throw Exception('Unexpected assets presign uploads format');
     }
-
-    return uploads.map((raw) {
-      if (raw is! Map) {
-        throw Exception('Unexpected assets presign upload item format');
-      }
-      final assetCode = (raw['assetCode'] ?? '').toString().trim();
-      final presignedPutUrl = (raw['presignedPutUrl'] ?? '').toString().trim();
-      if (assetCode.isEmpty || presignedPutUrl.isEmpty) {
-        throw Exception('Missing assetCode or presignedPutUrl in presign response');
-      }
-      final rawHeaders = raw['requiredHeaders'];
-      final requiredHeaders = <String, String>{};
-      if (rawHeaders is Map) {
-        rawHeaders.forEach((key, value) {
-          final k = key.toString().trim();
-          final v = value.toString().trim();
-          if (k.isNotEmpty && v.isNotEmpty) {
-            requiredHeaders[k] = v;
-          }
-        });
-      }
-      return AssetPresignResult(
-        assetCode: assetCode,
-        presignedPutUrl: presignedPutUrl,
-        requiredHeaders: requiredHeaders,
+    if (uploads.length != assets.length) {
+      throw Exception(
+        'Presign returned ${uploads.length} URLs for ${assets.length} files',
       );
-    }).toList();
+    }
+
+    return uploads.map(_parsePresignUpload).toList();
+  }
+
+  /// Reads one `uploads[]` entry into an [AssetPresignResult].
+  static AssetPresignResult _parsePresignUpload(dynamic item) {
+    if (item is! Map) {
+      throw Exception('Unexpected assets presign upload item format');
+    }
+
+    final assetCode = (item['assetCode'] ?? '').toString().trim();
+    final presignedPutUrl = (item['presignedPutUrl'] ?? '').toString().trim();
+    if (assetCode.isEmpty || presignedPutUrl.isEmpty) {
+      throw Exception('Missing assetCode or presignedPutUrl in presign response');
+    }
+
+    final rawHeaders = item['requiredHeaders'];
+    final requiredHeaders = <String, String>{};
+    if (rawHeaders is Map) {
+      rawHeaders.forEach((key, value) {
+        final k = key.toString().trim();
+        final v = value.toString().trim();
+        if (k.isNotEmpty && v.isNotEmpty) requiredHeaders[k] = v;
+      });
+    }
+
+    return AssetPresignResult(
+      assetCode: assetCode,
+      presignedPutUrl: presignedPutUrl,
+      requiredHeaders: requiredHeaders,
+    );
+  }
+
+  /// Streams [file] to its presigned URL instead of buffering it in memory.
+  ///
+  /// [uploadFileToPresignedUrl] reads the whole file into RAM, which is fine
+  /// one file at a time but multiplies with concurrency — several videos at
+  /// once will OOM a mid-range device. This sends the bytes from disk, so peak
+  /// memory stays flat regardless of file size or how many run in parallel.
+  ///
+  /// Only `Content-Type` is signed by the presign (`X-Amz-SignedHeaders=
+  /// content-type;host`), so `Content-Length` is safe to add and is required
+  /// for a streamed body. No auth interceptor runs here — a bearer token on the
+  /// PUT would invalidate the signature.
+  Future<void> uploadFileStreamedToPresignedUrl({
+    required File file,
+    required String presignedPutUrl,
+    Map<String, String> requiredHeaders = const {},
+    String fallbackContentType = 'application/octet-stream',
+    void Function(int sentBytes, int totalBytes)? onProgress,
+    CancelToken? cancelToken,
+  }) async {
+    final uploadClient = Dio();
+    final totalBytes = await file.length();
+
+    final headers = <String, dynamic>{};
+    requiredHeaders.forEach((key, value) {
+      final k = key.trim();
+      final v = value.trim();
+      if (k.isNotEmpty && v.isNotEmpty) headers[k] = v;
+    });
+    headers.putIfAbsent('Content-Type', () => fallbackContentType);
+    headers[Headers.contentLengthHeader] = totalBytes;
+
+    final putUri = Uri.parse(presignedPutUrl);
+    final logUrl = '${putUri.scheme}://${putUri.host}${putUri.path}';
+    ApiLogger.logRequest(
+      url: logUrl,
+      method: 'PUT',
+      headers: headers,
+      body: '<streamed: $totalBytes bytes>',
+    );
+
+    try {
+      final response = await uploadClient.putUri<dynamic>(
+        putUri,
+        data: file.openRead(),
+        cancelToken: cancelToken,
+        options: Options(
+          headers: headers,
+          responseType: ResponseType.plain,
+          validateStatus: (status) =>
+              status != null && status >= 200 && status < 300,
+        ),
+        onSendProgress: (sent, total) {
+          onProgress?.call(sent, total > 0 ? total : totalBytes);
+        },
+      );
+      ApiLogger.logResponse(
+        url: logUrl,
+        method: 'PUT',
+        statusCode: response.statusCode,
+        data: response.data,
+      );
+    } on DioException catch (e) {
+      ApiLogger.logError(
+        url: logUrl,
+        method: 'PUT',
+        message: e.message,
+        statusCode: e.response?.statusCode,
+        errorData: e.response?.data,
+      );
+      rethrow;
+    }
   }
 
   String _extractErrorMessageFromDio(DioException error) {
@@ -316,7 +386,13 @@ class ImageUploadService {
     return base64Encode(sha256.convert(bytes).bytes);
   }
 
-  Future<void> completeAssetUpload({
+  /// Marks an uploaded asset complete, returning the asset as the service now
+  /// sees it.
+  ///
+  /// The response carries `status` plus the full metadata, so callers can decide
+  /// whether the asset is attachable without a follow-up session fetch. Existing
+  /// callers that ignore the return value keep working unchanged.
+  Future<AssetCompleteResult> completeAssetUpload({
     required String sessionCode,
     required String assetCode,
     required String documentApiBasePath,
@@ -329,7 +405,16 @@ class ImageUploadService {
     );
     final endpoint = '$origin$path';
 
-    await _apiClient.client.post<dynamic>(endpoint);
+    final response = await _apiClient.client.post<dynamic>(endpoint);
+
+    final body = response.data;
+    final data = body is Map<String, dynamic> ? body['data'] : null;
+    if (data is Map<String, dynamic>) {
+      return AssetCompleteResult.fromJson(data);
+    }
+    // Envelope missing or shaped unexpectedly: the POST succeeded, so treat the
+    // asset as complete with an unknown status rather than failing the upload.
+    return AssetCompleteResult(assetCode: assetCode, status: '');
   }
 
   Future<void> uploadFileToPresignedUrl({
@@ -340,7 +425,19 @@ class ImageUploadService {
     void Function(int sent, int total)? onSendProgress,
     void Function(int sentBytes, int totalBytes, int percent)? onProgress,
   }) async {
-    final uploadClient = Dio();
+    // A bare `Dio()` has NO timeouts (connect/send/receive all null), so a
+    // half-open connection to storage makes this `await` hang forever — and
+    // every caller sets a "uploading" flag before it, so the UI is stuck until
+    // the app is killed. Storage is a plain PUT of at most a few MB, so these
+    // are generous enough for a slow mobile link while still bounding a dead
+    // socket.
+    final uploadClient = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 30),
+        sendTimeout: const Duration(minutes: 5),
+        receiveTimeout: const Duration(minutes: 1),
+      ),
+    );
     final bytes = await file.readAsBytes();
     final headers = <String, dynamic>{};
     requiredHeaders.forEach((key, value) {
@@ -416,6 +513,58 @@ class ImageUploadService {
         if (!isTransientNetworkError || attempt == maxAttempts) rethrow;
         await Future.delayed(Duration(seconds: attempt));
       }
+    }
+  }
+
+  /// Waits only as long as it's useful for assets that are about to be
+  /// **attached to a record** (task attachments, message media), and never
+  /// throws. Returns false *only* when the service says an asset definitively
+  /// FAILED; true otherwise, including on timeout.
+  ///
+  /// Deliberately different from [waitUntilAssetsReady], which blocks until
+  /// every asset is literally `READY` because its callers (profile photos) must
+  /// render a delivery URL the moment they return. An attachment needs none of
+  /// that: the record stores the **asset code**, and the URL is resolved lazily
+  /// at display time by [getMediaAssetUrlByCode] (which does its own waiting).
+  ///
+  /// Applying the stricter gate here made attaching impossible: document-ms
+  /// leaves these assets at `UPLOADED`, `READY` never arrived, and the caller
+  /// polled the session ~60 times over two minutes before failing an upload that
+  /// had actually succeeded. So `UPLOADED` counts as good enough, an
+  /// unrecognized session payload stops the polling immediately instead of
+  /// burning the whole timeout, and a slow processing pipeline can no longer
+  /// block the user from saving.
+  Future<bool> awaitAssetsAttachable({
+    required String sessionCode,
+    required List<String> expectedAssetCodes,
+    Duration pollEvery = const Duration(seconds: 2),
+    Duration timeout = const Duration(seconds: 20),
+  }) async {
+    final expectedSet = expectedAssetCodes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    if (expectedSet.isEmpty) return true;
+
+    final deadline = DateTime.now().add(timeout);
+    while (true) {
+      _UploadSessionStatusResult result;
+      try {
+        result = await _getUploadSessionStatus(
+          sessionCode: sessionCode,
+          expectedAssetCodes: expectedSet,
+        );
+      } catch (_) {
+        // The status endpoint is a courtesy here, not a requirement.
+        return true;
+      }
+      if (result.hasFailure) return false;
+      if (result.isAttachable) return true;
+      // Nothing recognizable in the payload — polling it again will not change
+      // that, so stop rather than repeating the request until the deadline.
+      if (result.isUnknown) return true;
+      if (DateTime.now().isAfter(deadline)) return true;
+      await Future.delayed(pollEvery);
     }
   }
 
@@ -583,12 +732,20 @@ class ImageUploadService {
       expectedAssetCodes: expectedAssetCodes,
     );
     if (statuses.isEmpty) {
-      return const _UploadSessionStatusResult(isReady: false);
+      // Either the session doesn't list these assets or the payload isn't the
+      // shape this parses. Flagged as *unknown* rather than "not ready" so a
+      // caller can stop polling something that will never answer.
+      return const _UploadSessionStatusResult(isReady: false, isUnknown: true);
     }
     var readyCount = 0;
+    var attachableCount = 0;
     for (final status in statuses.values) {
       final normalized = status.trim().toUpperCase();
       if (normalized == 'READY') readyCount++;
+      // Stored and acknowledged by document-ms. It may still have processing to
+      // do (derivatives, virus scan), but the asset code is already usable as a
+      // reference — which is all an attachment needs.
+      if (normalized == 'READY' || normalized == 'UPLOADED') attachableCount++;
       if (normalized == 'FAILED') {
         return const _UploadSessionStatusResult(
           isReady: false,
@@ -598,6 +755,7 @@ class ImageUploadService {
     }
     return _UploadSessionStatusResult(
       isReady: readyCount == expectedAssetCodes.length,
+      isAttachable: attachableCount == expectedAssetCodes.length,
     );
   }
 
@@ -1124,7 +1282,13 @@ class ImageUploadService {
         _assetUrlFailedAt[normalized] = AppTime.nowUtc();
       }
       return url;
-    }).whenComplete(() => _assetUrlInFlight.remove(normalized));
+    }).whenComplete(() {
+      // Block body, not an arrow: `Map.remove` returns the removed value, and
+      // the value here IS the future `whenComplete` is completing — an arrow
+      // callback makes it await itself, so the resolve never finishes. This is
+      // what left attachment thumbnails spinning forever.
+      _assetUrlInFlight.remove(normalized);
+    });
 
     _assetUrlInFlight[normalized] = future;
     return future;
@@ -1408,10 +1572,25 @@ class ImageUploadService {
 class _UploadSessionStatusResult {
   const _UploadSessionStatusResult({
     required this.isReady,
+    this.isAttachable = false,
+    this.isUnknown = false,
     this.failureMessage,
   });
 
+  /// Every expected asset reports `READY` — it has a delivery URL.
   final bool isReady;
+
+  /// Every expected asset reports `READY` *or* `UPLOADED` — stored, so its code
+  /// can be attached to a record even if processing hasn't finished.
+  final bool isAttachable;
+
+  /// The session payload said nothing about the expected assets, so polling it
+  /// again is pointless.
+  final bool isUnknown;
+
   final String? failureMessage;
+
+  bool get hasFailure =>
+      failureMessage != null && failureMessage!.trim().isNotEmpty;
 }
 

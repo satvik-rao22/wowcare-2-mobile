@@ -13,6 +13,7 @@ import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/src/app_router.dart';
 import 'package:provider/provider.dart';
 
 /// When the refresh token is expired or refresh fails: call logout API, clear local
@@ -136,6 +137,10 @@ class SessionExpiredCoordinator {
         // previous (logged-in) screen.
         ctx.go(SignInScreen.routeName);
       }
+      // Reset the stack to sign-in through go_router so the current location
+      // actually reflects it — that is what [_isOnSignInRoute] reads to stay
+      // idempotent on any repeat 401s that land after this cascade completes.
+      appRouter.go(SignInScreen.routeName);
     } finally {
       _busy = false;
     }

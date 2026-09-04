@@ -7,6 +7,9 @@ import 'package:wowcare/core/cache/cache_service.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/data/features/communication/models/conversation_collection.dart';
 import 'package:wowcare/data/features/communication/models/message_collection.dart';
+import 'package:wowcare/data/features/assessments/models/assessment_domain_collection.dart';
+import 'package:wowcare/data/features/assessments/models/assessment_collection.dart';
+import 'package:wowcare/data/features/assessments/models/assessment_reference_collection.dart';
 // Communication v2.1 schemas
 import 'package:wowcare/data/features/communication/models/conversation_entity_collection.dart';
 import 'package:wowcare/data/features/communication/models/message_entity_collection.dart';
@@ -74,6 +77,11 @@ class IsarCacheService implements CacheService {
       // Existing schemas — do not remove
       MessageCollectionSchema,
       ConversationCollectionSchema,
+      AssessmentDomainCollectionSchema,
+      AssessmentCollectionSchema,
+      AssessmentClassroomCollectionSchema,
+      AssessmentStudentCollectionSchema,
+      AssessmentAgeGroupCollectionSchema,
       // Communication v2.1 schemas
       ConversationEntityCollectionSchema,
       MessageEntityCollectionSchema,

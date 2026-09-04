@@ -125,4 +125,14 @@ class StorageKeys {
   /// snapshots are ignored until refetched.
   static const String activityFeedCacheRevision =
       'activity_feed_cache_revision';
+
+  /// Task attachments this device uploaded, as `{seriesCode: [assetRow, …]}`.
+  ///
+  /// Only needed because the Tasks API exposes no attachments **read** endpoint
+  /// (unlike Events/Activities, whose payloads carry their attachment rows), so
+  /// without this a file is invisible the moment the in-memory cache is gone.
+  /// Display-only — never authoritative for the `assetCodes` full-replace.
+  static const String taskAttachmentsCache = 'task_attachments_cache_v1';
+
+
 }

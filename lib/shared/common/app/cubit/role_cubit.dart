@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:bloc/bloc.dart';
@@ -72,11 +73,25 @@ class RoleState extends Equatable {
 /// widgets, navigation).
 class RoleCubit extends Cubit<RoleState> {
   RoleCubit() : super(const RoleState()) {
-    _bootstrap();
+    unawaited(_bootstrap());
   }
 
   /// Internal control flag (non-reactive, mirrors the old `_initialized`).
   bool _initialized = false;
+
+  /// In-flight `/users/details` fetch. Concurrent callers (constructor
+  /// bootstrap, splash, sign-in — the forced ones bypass [_initialized])
+  /// join this future instead of each firing their own request.
+  Future<void>? _inFlightRefresh;
+
+  /// Completion time of the last successful `/users/details` fetch. A
+  /// forced refresh landing within [_refreshFreshness] of it is a startup
+  /// duplicate, not a real context change, and is skipped.
+  DateTime? _lastFetchedAt;
+
+  /// School/persona switches (the legitimate force-refresh triggers) happen
+  /// seconds-to-minutes apart, far outside this window.
+  static const Duration _refreshFreshness = Duration(seconds: 3);
 
   String get role => state.role;
   bool get isParent => state.role == 'parent';
@@ -130,6 +145,7 @@ class RoleCubit extends Cubit<RoleState> {
   /// separately).
   void resetSessionForLogout() {
     _initialized = false;
+    _lastFetchedAt = null;
     _safeEmit(const RoleState());
   }
 
@@ -176,12 +192,34 @@ class RoleCubit extends Cubit<RoleState> {
     return false;
   }
 
-  Future<void> refreshAccessFromServer({bool force = false}) async {
-    if (_initialized && !force) return;
+  Future<void> refreshAccessFromServer({bool force = false}) {
+    if (_initialized && !force) return Future.value();
+
+    // Forced refresh right after a fresh fetch: the constructor bootstrap
+    // and the splash/sign-in forced calls all fire within app startup —
+    // reuse the just-fetched data instead of hitting /users/details again.
+    final lastFetch = _lastFetchedAt;
+    if (force &&
+        lastFetch != null &&
+        DateTime.now().difference(lastFetch) < _refreshFreshness) {
+      return Future.value();
+    }
+
+    // Concurrent invocations share one request.
+    var pending = _inFlightRefresh;
+    if (pending == null) {
+      pending = _fetchAndResolveAccess()
+          .whenComplete(() => _inFlightRefresh = null);
+      _inFlightRefresh = pending;
+    }
+    return pending;
+  }
+
+  Future<void> _fetchAndResolveAccess() async {
     _initialized = true;
     final storage = serviceLocator<StorageService>();
-    final accessToken =
-        (await storage.getString(StorageKeys.accessToken) ?? '').trim();
+    final accessToken = (await storage.getString(StorageKeys.accessToken) ?? '')
+        .trim();
     if (accessToken.isEmpty) {
       return;
     }
@@ -191,6 +229,7 @@ class RoleCubit extends Cubit<RoleState> {
     try {
       final remote = serviceLocator<AuthRemoteDataSource>();
       final data = await remote.getUserDetails(accessToken: accessToken);
+      _lastFetchedAt = DateTime.now();
       if (data.isNotEmpty) {
         await storage.saveString(
           StorageKeys.userAccessDetails,
@@ -249,10 +288,10 @@ class RoleCubit extends Cubit<RoleState> {
   ) async {
     final modulesWithRead = <String>{};
     final modulesWithWrite = <String>{};
-    final org =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final school =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final org = (await storage.getString(StorageKeys.organizationCode) ?? '')
+        .trim();
+    final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
 
     final candidates = <Map<String, dynamic>>[];
     for (final user in users) {
@@ -267,8 +306,10 @@ class RoleCubit extends Cubit<RoleState> {
         final schoolMap = Map<String, dynamic>.from(s);
         final schoolCode = (schoolMap['schoolCode'] ?? '').toString().trim();
         if (school.isNotEmpty && schoolCode != school) continue;
-        final status =
-            (schoolMap['status'] ?? 'ACTIVE').toString().toUpperCase().trim();
+        final status = (schoolMap['status'] ?? 'ACTIVE')
+            .toString()
+            .toUpperCase()
+            .trim();
         if (status.isNotEmpty && status != 'ACTIVE') continue;
         if ((schoolMap['role'] ?? '').toString().trim().isEmpty) continue;
         candidates.add(schoolMap);
@@ -279,8 +320,8 @@ class RoleCubit extends Cubit<RoleState> {
       return RoleState(role: await _computeFallbackRole(storage));
     }
 
-    final active =
-        (await storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
+    final active = (await storage.getString(StorageKeys.activeSchoolRole) ?? '')
+        .trim();
     final activeUpper = active.toUpperCase();
 
     // Pick the school entry whose `role` matches the persona the user is
@@ -343,8 +384,9 @@ class RoleCubit extends Cubit<RoleState> {
       for (final p in permissions) {
         if (p is! Map) continue;
         final permissionMap = Map<String, dynamic>.from(p);
-        final module =
-            _normalizeModule((permissionMap['module'] ?? '').toString());
+        final module = _normalizeModule(
+          (permissionMap['module'] ?? '').toString(),
+        );
         if (module.isEmpty) continue;
         if (permissionMap['read'] == true) {
           modulesWithRead.add(module);

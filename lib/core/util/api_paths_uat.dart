@@ -73,6 +73,8 @@ class ApiPathsUat {
       'future-availability',
     },
     ApiMicroservices.activity: {'classrooms', 'activities', 'activity-types', 'admin'},
+    // Scheduler MS — Events, Tasks & School Calendar (holidays).
+    ApiMicroservices.scheduler: {'holidays', 'tasks'},
     ApiMicroservices.document: {'media-assets', 'upload-sessions'},
 
     //. Communication
@@ -187,6 +189,9 @@ class ApiPathsUat {
         return ApiMicroservices.communication;
       case 'notification':
         return ApiMicroservices.notification;
+      case 'holidays':
+      case 'tasks':
+        return ApiMicroservices.scheduler;
       case 'newsletters':
         return ApiMicroservices.newsLatter;
       case 'billing':

@@ -18,6 +18,13 @@ abstract final class ApiMicroservices {
   static const String newsLatter = 'newslatter';
   static const String notification = 'notification';
   static const String billing = 'billing';
+
+  /// Events, Tasks & School Calendar (holidays) microservice.
+  static const String scheduler = 'scheduler';
+
+  /// Dedicated dev-environment service backing Events, Tasks & School
+  /// Calendar (holidays). Independent of [scheduler].
+  static const String eventsTodo = 'events-todo';
 }
 
 class ApiConstants {
@@ -176,6 +183,27 @@ class ApiConstants {
       ? ApiConstantsUat.documentMsBaseUrl
       : _dev.gatewayUrl('document-ms');
 
+  /// Scheduler MS — Events, Tasks & School Calendar (holidays).
+  /// DEV server exposes it as the `events-todo` service on port 8091
+  /// (no context path — `http://5.78.83.44:8091`).
+  static String get schedulerBaseUrl => isDev
+      ? _devUrl(8091)
+      : isUat
+          ? ApiConstantsUat.schedulerBaseUrl
+          : (_dev.schedulerPort != null
+                ? _dev.url(_dev.schedulerPort!, 'scheduler')
+                : _dev.gatewayUrl('scheduler'));
+
+  /// Events/Todo MS — Events, Tasks & School Calendar (holidays).
+  /// DEV server exposes it directly at `http://5.78.83.44:8091` (no context
+  /// path). Kept independent from [schedulerBaseUrl].
+  static String get eventsTodoBaseUrl => isDev
+      ? _devUrl(8091)
+      : isUat
+          ? ApiConstantsUat.schedulerBaseUrl
+          : (_dev.schedulerPort != null
+                ? _dev.url(_dev.schedulerPort!, 'scheduler')
+                : _dev.gatewayUrl('scheduler'));
   /// Communication / Messaging MS  (LOCAL: gateway tunnel/ngrok | UAT/PROD: gateway)
   static String get communicationBaseUrl => isDev
       ? _devUrl(8089)
@@ -250,6 +278,10 @@ class ApiConstants {
         return documentMsBaseUrl;
       case ApiMicroservices.communication:
         return communicationBaseUrl;
+      case ApiMicroservices.scheduler:
+        return schedulerBaseUrl;
+      case ApiMicroservices.eventsTodo:
+        return eventsTodoBaseUrl;
       case ApiMicroservices.newsLatter:
         return newsLatterBaseUrl;
       case ApiMicroservices.notification:
@@ -282,6 +314,7 @@ class _DevTunnel {
     required this.activityPort,
     required this.communicationPort,
     this.gatewayPort,
+    this.schedulerPort,
   });
 
   /// Tunnel prefix before `-PORT.inc1.devtunnels.ms`.
@@ -298,6 +331,10 @@ class _DevTunnel {
   /// Port for the shared gateway services (notification/billing/newsletter/
   /// document). When null, those services fall back to ngrok.
   final int? gatewayPort;
+
+  /// Scheduler MS port on the devtunnel. When null, the scheduler falls back
+  /// to the shared gateway host.
+  final int? schedulerPort;
 
   /// `https://{id}-{port}.inc1.devtunnels.ms[/{path}]`
   String url(int port, [String? path]) {

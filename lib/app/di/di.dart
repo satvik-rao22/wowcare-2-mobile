@@ -55,6 +55,69 @@ import '../../data/features/staff/datasources/staff_remote_datasource.dart';
 import '../../data/features/staff/repositories/staff_repository_impl.dart';
 import '../../data/features/student/datasources/student_remote_datasource.dart';
 import '../../data/features/student/repositories/student_repository_impl.dart';
+import '../../data/features/events/datasources/event_remote_datasource.dart';
+import '../../data/features/events/datasources/holiday_remote_datasource.dart';
+import '../../data/features/events/repositories/event_repository_impl.dart';
+import '../../domain/features/events/repositories/event_repository.dart';
+import '../../domain/features/events/usecases/cancel_occurrence_usecase.dart';
+import '../../domain/features/events/usecases/create_event_usecase.dart';
+import '../../domain/features/events/usecases/delete_event_usecase.dart';
+import '../../domain/features/events/usecases/delete_holiday_usecase.dart';
+import '../../domain/features/events/usecases/get_calendar_feed_usecase.dart';
+import '../../domain/features/events/usecases/get_event_by_code_usecase.dart';
+import '../../domain/features/events/usecases/get_events_usecase.dart';
+import '../../domain/features/events/usecases/get_holidays_usecase.dart';
+import '../../domain/features/events/usecases/update_occurrence_usecase.dart';
+import '../../domain/features/events/usecases/save_holiday_usecase.dart';
+import '../../domain/features/events/usecases/set_holiday_status_usecase.dart';
+import '../../domain/features/events/usecases/respond_to_event_usecase.dart';
+import '../../domain/features/events/usecases/update_event_usecase.dart';
+import '../../domain/features/events/usecases/upload_event_attachments_usecase.dart';
+import '../../presentation/features/events/cubit/events_cubit.dart';
+import '../../data/features/tasks/datasources/task_remote_datasource.dart';
+import '../../data/features/tasks/repositories/task_repository_impl.dart';
+import '../../domain/features/tasks/repositories/task_repository.dart';
+import '../../domain/features/tasks/usecases/cancel_task_occurrence_usecase.dart';
+import '../../domain/features/tasks/usecases/create_task_usecase.dart';
+import '../../domain/features/tasks/usecases/delete_task_assignment_usecase.dart';
+import '../../domain/features/tasks/usecases/delete_task_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_assignment_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_board_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_occurrence_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_occurrences_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_series_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_usecase.dart';
+import '../../domain/features/tasks/usecases/get_tasks_usecase.dart';
+import '../../domain/features/tasks/usecases/remove_task_assignee_usecase.dart';
+import '../../domain/features/tasks/usecases/update_task_assignee_priority_usecase.dart';
+import '../../domain/features/tasks/usecases/update_task_assignment_status_usecase.dart';
+import '../../domain/features/tasks/usecases/update_task_assignment_usecase.dart';
+import '../../domain/features/tasks/usecases/update_task_occurrence_usecase.dart';
+import '../../domain/features/tasks/usecases/update_task_usecase.dart';
+import '../../domain/features/tasks/usecases/detach_task_attachment_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_attachments_usecase.dart';
+import '../../domain/features/tasks/usecases/upload_task_attachments_usecase.dart';
+import '../../presentation/features/tasks/cubit/tasks_cubit.dart';
+import '../../data/features/assessments/datasources/assessment_local_datasource.dart';
+import '../../data/features/assessments/datasources/assessment_seed_datasource.dart';
+import '../../data/features/assessments/repositories/assessment_repository_impl.dart';
+import '../../domain/features/assessments/repositories/assessment_repository.dart';
+import '../../domain/features/assessments/usecases/get_assessment_domains_usecase.dart';
+import '../../domain/features/assessments/usecases/save_assessment_domain_usecase.dart';
+import '../../domain/features/assessments/usecases/deactivate_assessment_domain_usecase.dart';
+import '../../domain/features/assessments/usecases/save_assessment_subdomain_usecase.dart';
+import '../../domain/features/assessments/usecases/deactivate_assessment_subdomain_usecase.dart';
+import '../../domain/features/assessments/usecases/save_assessment_milestone_usecase.dart';
+import '../../domain/features/assessments/usecases/deactivate_assessment_milestone_usecase.dart';
+import '../../domain/features/assessments/usecases/update_milestone_age_groups_usecase.dart';
+import '../../domain/features/assessments/usecases/get_assessment_age_groups_usecase.dart';
+import '../../domain/features/assessments/usecases/save_assessment_age_group_usecase.dart';
+import '../../domain/features/assessments/usecases/deactivate_assessment_age_group_usecase.dart';
+import '../../domain/features/assessments/usecases/get_assessments_usecase.dart';
+import '../../domain/features/assessments/usecases/bulk_upsert_assessments_usecase.dart';
+import '../../domain/features/assessments/usecases/get_assessment_classrooms_usecase.dart';
+import '../../domain/features/assessments/usecases/get_assessment_students_usecase.dart';
+import '../../presentation/features/assessments/cubit/assessments_cubit.dart';
 import '../../data/features/attendance/datasources/attendance_remote_datasource.dart';
 import '../../data/features/attendance/repositories/attendance_repository_impl.dart';
 import '../../data/features/availability/datasources/availability_remote_datasource.dart';
@@ -359,6 +422,8 @@ import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
 import '../../presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
 import '../../presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
+import '../../shared/services/attachment_upload/attachment_upload_manager.dart';
+import '../../shared/services/attachment_view/attachment_asset_service.dart';
 import '../../shared/services/image_upload/image_upload_service.dart';
 import '../../shared/services/image_upload/profile_photo_uploader.dart';
 import '../../domain/features/newsletter/repositories/student_newsletters_repository.dart';
@@ -536,6 +601,20 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<ProfilePhotoUploader>(
     () => ProfilePhotoUploader(serviceLocator<ImageUploadService>()),
   );
+  // Domain-blind: the session opener is supplied per call site, so tasks,
+  // events and anything else attaching files share this one instance.
+  // Read side of attachments. Lazy singleton so the resolved-URL cache is
+  // shared app-wide — a code resolved on a list screen paints instantly on the
+  // detail screen.
+  serviceLocator.registerLazySingleton<AttachmentAssetService>(
+    () => AttachmentAssetService(serviceLocator<ApiClient>()),
+  );
+  serviceLocator.registerLazySingleton<AttachmentUploadManager>(
+    () => AttachmentUploadManager(
+      serviceLocator<ImageUploadService>(),
+      serviceLocator<StorageService>(),
+    ),
+  );
 
   // Auth Data Sources
   serviceLocator.registerLazySingleton<AuthRemoteDataSource>(
@@ -601,6 +680,282 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StaffShiftRepositoryImpl(
       serviceLocator<StaffShiftRemoteDataSource>(),
       serviceLocator<CacheManager>(),
+    ),
+  );
+
+  // Events & holidays are remote-only (no Isar/mock). Holidays are live on the
+  // scheduler MS; events use a stub datasource until their backend ships.
+  serviceLocator.registerLazySingleton<EventRemoteDataSource>(
+    () => EventRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+  serviceLocator.registerLazySingleton<HolidayRemoteDataSource>(
+    () => HolidayRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+  serviceLocator.registerLazySingleton<EventRepository>(
+    () => EventRepositoryImpl(
+      serviceLocator<EventRemoteDataSource>(),
+      serviceLocator<HolidayRemoteDataSource>(),
+    ),
+  );
+  serviceLocator.registerFactory<GetEventsUseCase>(
+    () => GetEventsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateEventUseCase>(
+    () => CreateEventUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UploadEventAttachmentsUseCase>(
+    () => UploadEventAttachmentsUseCase(
+      serviceLocator(),
+      serviceLocator<AttachmentUploadManager>(),
+    ),
+  );
+  serviceLocator.registerFactory<UpdateEventUseCase>(
+    () => UpdateEventUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteEventUseCase>(
+    () => DeleteEventUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<RespondToEventUseCase>(
+    () => RespondToEventUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetEventByCodeUseCase>(
+    () => GetEventByCodeUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetCalendarFeedUseCase>(
+    () => GetCalendarFeedUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateOccurrenceUseCase>(
+    () => UpdateOccurrenceUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CancelOccurrenceUseCase>(
+    () => CancelOccurrenceUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetHolidaysUseCase>(
+    () => GetHolidaysUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateHolidayUseCase>(
+    () => CreateHolidayUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateHolidayUseCase>(
+    () => UpdateHolidayUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SetHolidayStatusUseCase>(
+    () => SetHolidayStatusUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteHolidayUseCase>(
+    () => DeleteHolidayUseCase(serviceLocator()),
+  );
+  // Singleton so the events list, detail and form screens (separate routes)
+  // share one state and edits/RSVPs reflect everywhere without refetching.
+  serviceLocator.registerLazySingleton<EventsCubit>(
+    () => EventsCubit(
+      serviceLocator<GetEventsUseCase>(),
+      serviceLocator<GetEventByCodeUseCase>(),
+      serviceLocator<GetCalendarFeedUseCase>(),
+      serviceLocator<CreateEventUseCase>(),
+      serviceLocator<UpdateEventUseCase>(),
+      serviceLocator<DeleteEventUseCase>(),
+      serviceLocator<RespondToEventUseCase>(),
+      serviceLocator<UpdateOccurrenceUseCase>(),
+      serviceLocator<CancelOccurrenceUseCase>(),
+      serviceLocator<GetHolidaysUseCase>(),
+      serviceLocator<CreateHolidayUseCase>(),
+      serviceLocator<UpdateHolidayUseCase>(),
+      serviceLocator<SetHolidayStatusUseCase>(),
+      serviceLocator<DeleteHolidayUseCase>(),
+      serviceLocator<StorageService>(),
+      serviceLocator<UploadEventAttachmentsUseCase>(),
+    ),
+  );
+
+  // Tasks are remote-only (no Isar/mock), live on the events-todo MS.
+  serviceLocator.registerLazySingleton<TaskRemoteDataSource>(
+    () => TaskRemoteDataSourceImpl(
+      serviceLocator<ApiClient>().client,
+      serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerLazySingleton<TaskRepository>(
+    () => TaskRepositoryImpl(
+      serviceLocator<TaskRemoteDataSource>(),
+      serviceLocator<ImageUploadService>(),
+      serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<GetTasksUseCase>(
+    () => GetTasksUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskSeriesUseCase>(
+    () => GetTaskSeriesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskBoardUseCase>(
+    () => GetTaskBoardUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateTaskUseCase>(
+    () => CreateTaskUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateTaskUseCase>(
+    () => UpdateTaskUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteTaskUseCase>(
+    () => DeleteTaskUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<RemoveTaskAssigneeUseCase>(
+    () => RemoveTaskAssigneeUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateTaskAssignmentStatusUseCase>(
+    () => UpdateTaskAssignmentStatusUseCase(serviceLocator()),
+  );
+  // serviceLocator.registerFactory<UploadTaskAttachmentsUseCase>(
+  //   () => UploadTaskAttachmentsUseCase(serviceLocator()),
+  // );
+  serviceLocator.registerFactory<GetTaskAttachmentsUseCase>(
+    () => GetTaskAttachmentsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DetachTaskAttachmentUseCase>(
+    () => DetachTaskAttachmentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UploadTaskAttachmentsUseCase>(
+    () => UploadTaskAttachmentsUseCase(
+      serviceLocator(),
+      serviceLocator<AttachmentUploadManager>(),
+    ),
+  );
+  serviceLocator.registerFactory<GetTaskUseCase>(
+    () => GetTaskUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateTaskAssigneePriorityUseCase>(
+    () => UpdateTaskAssigneePriorityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskAssignmentUseCase>(
+    () => GetTaskAssignmentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateTaskAssignmentUseCase>(
+    () => UpdateTaskAssignmentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteTaskAssignmentUseCase>(
+    () => DeleteTaskAssignmentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskOccurrencesUseCase>(
+    () => GetTaskOccurrencesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskOccurrenceUseCase>(
+    () => GetTaskOccurrenceUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateTaskOccurrenceUseCase>(
+    () => UpdateTaskOccurrenceUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CancelTaskOccurrenceUseCase>(
+    () => CancelTaskOccurrenceUseCase(serviceLocator()),
+  );
+  // Singleton so the tasks board, detail and form screens (separate routes)
+  // share one state and edits reflect everywhere without refetching.
+  serviceLocator.registerLazySingleton<TasksCubit>(
+    () => TasksCubit(
+      serviceLocator<GetTasksUseCase>(),
+      serviceLocator<CreateTaskUseCase>(),
+      serviceLocator<DeleteTaskUseCase>(),
+      serviceLocator<RemoveTaskAssigneeUseCase>(),
+      serviceLocator<UpdateTaskAssignmentStatusUseCase>(),
+      serviceLocator<UploadTaskAttachmentsUseCase>(),
+      serviceLocator<GetTaskAttachmentsUseCase>(),
+      serviceLocator<DetachTaskAttachmentUseCase>(),
+      serviceLocator<ImageUploadService>(),
+      serviceLocator<GetAllStaffUseCase>(),
+      serviceLocator<StorageService>(),
+      serviceLocator<UpdateTaskAssignmentUseCase>(),
+      serviceLocator<DeleteTaskAssignmentUseCase>(),
+      serviceLocator<GetTaskUseCase>(),
+      serviceLocator<GetTaskOccurrencesUseCase>(),
+      serviceLocator<UpdateTaskOccurrenceUseCase>(),
+      serviceLocator<CancelTaskOccurrenceUseCase>(),
+      serviceLocator<UpdateTaskUseCase>(),
+      // Removed: the merge passed UploadTaskAttachmentsUseCase twice — it is
+      // supplied in its original position above.
+    ),
+  );
+
+  // Assessments (local-first: Isar persistence seeded from bundled mock JSON
+  // until the assessments backend is available — mirrors Events/Tasks).
+  serviceLocator.registerLazySingleton<AssessmentLocalDataSource>(
+    () => AssessmentLocalDataSourceImpl(serviceLocator<CacheService>()),
+  );
+  serviceLocator.registerLazySingleton<AssessmentSeedDataSource>(
+    () => AssessmentSeedDataSourceImpl(),
+  );
+  serviceLocator.registerLazySingleton<AssessmentRepository>(
+    () => AssessmentRepositoryImpl(
+      serviceLocator<AssessmentLocalDataSource>(),
+      serviceLocator<AssessmentSeedDataSource>(),
+      serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<GetAssessmentDomainsUseCase>(
+    () => GetAssessmentDomainsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SaveAssessmentDomainUseCase>(
+    () => SaveAssessmentDomainUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeactivateAssessmentDomainUseCase>(
+    () => DeactivateAssessmentDomainUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SaveAssessmentSubdomainUseCase>(
+    () => SaveAssessmentSubdomainUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeactivateAssessmentSubdomainUseCase>(
+    () => DeactivateAssessmentSubdomainUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SaveAssessmentMilestoneUseCase>(
+    () => SaveAssessmentMilestoneUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeactivateAssessmentMilestoneUseCase>(
+    () => DeactivateAssessmentMilestoneUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateMilestoneAgeGroupsUseCase>(
+    () => UpdateMilestoneAgeGroupsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetAssessmentAgeGroupsUseCase>(
+    () => GetAssessmentAgeGroupsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SaveAssessmentAgeGroupUseCase>(
+    () => SaveAssessmentAgeGroupUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeactivateAssessmentAgeGroupUseCase>(
+    () => DeactivateAssessmentAgeGroupUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetAssessmentsUseCase>(
+    () => GetAssessmentsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<BulkUpsertAssessmentsUseCase>(
+    () => BulkUpsertAssessmentsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetAssessmentClassroomsUseCase>(
+    () => GetAssessmentClassroomsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetAssessmentStudentsUseCase>(
+    () => GetAssessmentStudentsUseCase(serviceLocator()),
+  );
+  // Singleton so Parameter Management, Student/Classroom/School assessment
+  // screens (separate routes) share one state and edits reflect everywhere
+  // without refetching.
+  serviceLocator.registerLazySingleton<AssessmentsCubit>(
+    () => AssessmentsCubit(
+      getDomains: serviceLocator(),
+      saveDomain: serviceLocator(),
+      deactivateDomain: serviceLocator(),
+      saveSubdomain: serviceLocator(),
+      deactivateSubdomain: serviceLocator(),
+      saveMilestone: serviceLocator(),
+      deactivateMilestone: serviceLocator(),
+      updateMilestoneAgeGroups: serviceLocator(),
+      getAssessments: serviceLocator(),
+      bulkUpsertAssessments: serviceLocator(),
+      getClassrooms: serviceLocator(),
+      getStudents: serviceLocator(),
+      getAgeGroups: serviceLocator(),
+      saveAgeGroup: serviceLocator(),
+      deactivateAgeGroup: serviceLocator(),
+      storageService: serviceLocator(),
     ),
   );
 

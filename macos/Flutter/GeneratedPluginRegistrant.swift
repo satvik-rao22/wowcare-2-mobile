@@ -27,9 +27,11 @@ import geolocator_apple
 import isar_flutter_libs
 import local_auth_darwin
 import mobile_scanner
+import open_file_mac
 import package_info_plus
 import pdfx
 import shared_preferences_foundation
+import sqflite_darwin
 import url_launcher_macos
 import video_player_avfoundation
 import wakelock_plus
@@ -58,9 +60,11 @@ func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   IsarFlutterLibsPlugin.register(with: registry.registrar(forPlugin: "IsarFlutterLibsPlugin"))
   LocalAuthPlugin.register(with: registry.registrar(forPlugin: "LocalAuthPlugin"))
   MobileScannerPlugin.register(with: registry.registrar(forPlugin: "MobileScannerPlugin"))
+  OpenFilePlugin.register(with: registry.registrar(forPlugin: "OpenFilePlugin"))
   FPPPackageInfoPlusPlugin.register(with: registry.registrar(forPlugin: "FPPPackageInfoPlusPlugin"))
   PdfxPlugin.register(with: registry.registrar(forPlugin: "PdfxPlugin"))
   SharedPreferencesPlugin.register(with: registry.registrar(forPlugin: "SharedPreferencesPlugin"))
+  SqflitePlugin.register(with: registry.registrar(forPlugin: "SqflitePlugin"))
   UrlLauncherPlugin.register(with: registry.registrar(forPlugin: "UrlLauncherPlugin"))
   VideoPlayerPlugin.register(with: registry.registrar(forPlugin: "VideoPlayerPlugin"))
   WakelockPlusMacosPlugin.register(with: registry.registrar(forPlugin: "WakelockPlusMacosPlugin"))

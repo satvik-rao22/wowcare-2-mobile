@@ -125,6 +125,7 @@ class MockNotificationCenterDataSource implements NotificationCenterDataSource {
       required NotificationCategory category,
       required Duration ago,
       bool isRead = false,
+      Map<String, String> data = const <String, String>{},
     }) {
       return AppNotificationModel(
         id: id,
@@ -133,10 +134,49 @@ class MockNotificationCenterDataSource implements NotificationCenterDataSource {
         category: category,
         createdAt: now.subtract(ago),
         isRead: isRead,
+        data: data,
       );
     }
 
     return <AppNotificationModel>[
+      // ── Task deep-link probes (MOCK ONLY) ───────────────────────────────
+      // There is no notification-center endpoint yet, so these stand in for
+      // real TASK_* items. They carry the same `data` map the FCM push sends,
+      // which is exactly what NotificationRouteResolver reads — so tapping
+      // them exercises the real in-app routing path.
+      //
+      // TODO(notifications): drop this block once a REST-backed data source
+      // replaces this mock.
+      //
+      // Swap `taskCode` for one that exists in your active school (open any
+      // task from the calendar and copy the code) or the detail screen will
+      // correctly report "Task not found".
+      item(
+        id: 'task-assigned',
+        title: 'You have been assigned a new task: Restock the first-aid kit',
+        subjectName: 'Restock the first-aid kit',
+        category: NotificationCategory.staff,
+        ago: const Duration(minutes: 5),
+        data: const {
+          'action': 'TASK_ASSIGNED',
+          'type': 'TASK',
+          'taskCode': 'TSK_REPLACE_ME',
+          'taskTitle': 'Restock the first-aid kit',
+        },
+      ),
+      item(
+        id: 'task-deleted',
+        title: 'The task Restock the first-aid kit has been deleted',
+        subjectName: 'Restock the first-aid kit',
+        category: NotificationCategory.staff,
+        ago: const Duration(minutes: 8),
+        data: const {
+          'action': 'TASK_DELETED',
+          'type': 'TASK',
+          'taskCode': 'TSK_REPLACE_ME',
+          'taskTitle': 'Restock the first-aid kit',
+        },
+      ),
       item(
         id: 'n1',
         title: 'Classroom movement for Parker Long is overdue',

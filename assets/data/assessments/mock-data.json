@@ -1,0 +1,1295 @@
+{
+  "schoolId": "SCH-DEMO",
+  "classrooms": [
+    {
+      "code": "CLS-TINY",
+      "name": "Tiny Tots",
+      "ageGroup": "0–12m",
+      "schoolId": "SCH-DEMO"
+    },
+    {
+      "code": "CLS-LITTLE",
+      "name": "Little Explorers",
+      "ageGroup": "12–24m",
+      "schoolId": "SCH-DEMO"
+    },
+    {
+      "code": "CLS-PRESCHOOL",
+      "name": "Preschool Stars",
+      "ageGroup": "24–36m",
+      "schoolId": "SCH-DEMO"
+    },
+    {
+      "code": "CLS-PREK",
+      "name": "Pre-K Prep",
+      "ageGroup": "3–4y",
+      "schoolId": "SCH-DEMO"
+    },
+    {
+      "code": "CLS-KINDER",
+      "name": "Kindergarten Prep",
+      "ageGroup": "4–5y",
+      "schoolId": "SCH-DEMO"
+    }
+  ],
+  "students": [
+    {
+      "code": "STU-EMMA",
+      "name": "Emma Chen",
+      "classroomCode": "CLS-PRESCHOOL",
+      "status": "ACTIVE",
+      "schoolId": "SCH-DEMO",
+      "tags": [
+        "IEP",
+        "Speech Therapy"
+      ],
+      "dateOfBirth": "2023-12-15"
+    },
+    {
+      "code": "STU-LIAM",
+      "name": "Liam Patel",
+      "classroomCode": "CLS-PRESCHOOL",
+      "status": "ACTIVE",
+      "schoolId": "SCH-DEMO",
+      "tags": [
+        "ESL"
+      ],
+      "dateOfBirth": "2023-12-15"
+    },
+    {
+      "code": "STU-SOFIA",
+      "name": "Sofia Nguyen",
+      "classroomCode": "CLS-PRESCHOOL",
+      "status": "INACTIVE",
+      "schoolId": "SCH-DEMO",
+      "tags": [
+        "Allergy"
+      ],
+      "dateOfBirth": "2023-12-15"
+    },
+    {
+      "code": "STU-OLIVIA",
+      "name": "Olivia Brooks",
+      "classroomCode": "CLS-PREK",
+      "status": "ACTIVE",
+      "schoolId": "SCH-DEMO",
+      "tags": [
+        "New Enrollment"
+      ],
+      "dateOfBirth": "2022-12-15"
+    },
+    {
+      "code": "STU-NOAH",
+      "name": "Noah Garcia",
+      "classroomCode": "CLS-PREK",
+      "status": "ACTIVE",
+      "schoolId": "SCH-DEMO",
+      "dateOfBirth": "2023-10-10"
+    },
+    {
+      "code": "STU-AVA",
+      "name": "Ava Johnson",
+      "classroomCode": "CLS-KINDER",
+      "status": "ACTIVE",
+      "schoolId": "SCH-DEMO",
+      "tags": [
+        "IEP"
+      ],
+      "dateOfBirth": "2021-12-15"
+    },
+    {
+      "code": "STU-ETHAN",
+      "name": "Ethan Williams",
+      "classroomCode": "CLS-KINDER",
+      "status": "ACTIVE",
+      "schoolId": "SCH-DEMO",
+      "dateOfBirth": "2021-12-15"
+    },
+    {
+      "code": "STU-MIA",
+      "name": "Mia Rodriguez",
+      "classroomCode": "CLS-LITTLE",
+      "status": "ACTIVE",
+      "schoolId": "SCH-DEMO",
+      "tags": [
+        "Allergy",
+        "ESL"
+      ],
+      "dateOfBirth": "2024-12-15"
+    }
+  ],
+  "domains": [
+    {
+      "id": "DOM-SE",
+      "name": "Social & Emotional",
+      "description": "Core social development and self-regulation.",
+      "active": true,
+      "schoolId": "SCH-DEMO",
+      "subdomains": [
+        {
+          "id": "SUB-SE-ER",
+          "name": "Emotional Regulation",
+          "active": true,
+          "milestones": [
+            {
+              "id": "MIL-SE-ER1",
+              "name": "Identifies basic emotions",
+              "description": "Names happy, sad, and angry feelings.",
+              "active": true,
+              "assignedAgeGroups": [
+                "AGE-24-36M",
+                "AGE-3-4Y",
+                "AGE-4-5Y"
+              ]
+            },
+            {
+              "id": "MIL-SE-ER2",
+              "name": "Calms with support",
+              "description": "Uses a strategy to self-soothe with adult help.",
+              "active": true,
+              "assignedAgeGroups": [
+                "AGE-12-24M",
+                "AGE-24-36M",
+                "AGE-3-4Y",
+                "AGE-4-5Y"
+              ]
+            }
+          ],
+          "assignedAgeGroups": [
+            "AGE-12-24M",
+            "AGE-24-36M",
+            "AGE-3-4Y",
+            "AGE-4-5Y"
+          ]
+        },
+        {
+          "id": "SUB-SE-REL",
+          "name": "Relationships",
+          "active": true,
+          "milestones": [
+            {
+              "id": "MIL-SE-REL1",
+              "name": "Makes eye contact when name is called",
+              "description": "Responds to own name with eye contact.",
+              "active": true,
+              "assignedAgeGroups": [
+                "AGE-24-36M",
+                "AGE-3-4Y",
+                "AGE-4-5Y"
+              ]
+            },
+            {
+              "id": "MIL-SE-REL2",
+              "name": "Plays alongside peers",
+              "description": "Engages in parallel play with other children.",
+              "active": true,
+              "assignedAgeGroups": [
+                "AGE-24-36M",
+                "AGE-3-4Y",
+                "AGE-4-5Y"
+              ]
+            }
+          ],
+          "assignedAgeGroups": [
+            "AGE-0-12M",
+            "AGE-12-24M",
+            "AGE-24-36M",
+            "AGE-3-4Y",
+            "AGE-4-5Y"
+          ]
+        }
+      ],
+      "assignedAgeGroups": [
+        "AGE-0-12M",
+        "AGE-12-24M",
+        "AGE-24-36M",
+        "AGE-3-4Y",
+        "AGE-4-5Y"
+      ]
+    },
+    {
+      "id": "DOM-LL",
+      "name": "Language & Literacy",
+      "description": "Communication, vocabulary, and early reading.",
+      "active": true,
+      "schoolId": "SCH-DEMO",
+      "subdomains": [
+        {
+          "id": "SUB-LL-VOC",
+          "name": "Vocabulary & Speaking",
+          "active": true,
+          "milestones": [
+            {
+              "id": "MIL-LL-VOC1",
+              "name": "Uses 2–3 word phrases",
+              "description": "Combines words into short phrases.",
+              "active": true,
+              "assignedAgeGroups": [
+                "AGE-24-36M",
+                "AGE-3-4Y",
+                "AGE-4-5Y"
+              ]
+            },
+            {
+              "id": "MIL-LL-VOC2",
+              "name": "Names familiar objects",
+              "description": "Labels common everyday items.",
+              "active": true,
+              "assignedAgeGroups": [
+                "AGE-24-36M",
+                "AGE-3-4Y",
+                "AGE-4-5Y"
+              ]
+            }
+          ],
+          "assignedAgeGroups": [
+            "AGE-12-24M",
+            "AGE-24-36M",
+            "AGE-3-4Y",
+            "AGE-4-5Y"
+          ]
+        },
+        {
+          "id": "SUB-LL-LIT",
+          "name": "Early Literacy",
+          "active": true,
+          "milestones": [
+            {
+              "id": "MIL-LL-LIT1",
+              "name": "Recognizes own name in print",
+              "description": "Identifies their printed name.",
+              "active": true,
+              "assignedAgeGroups": [
+                "AGE-24-36M",
+                "AGE-3-4Y",
+                "AGE-4-5Y"
+              ]
+            }
+          ],
+          "assignedAgeGroups": [
+            "AGE-3-4Y",
+            "AGE-4-5Y",
+            "AGE-24-36M"
+          ]
+        }
+      ],
+      "assignedAgeGroups": [
+        "AGE-12-24M",
+        "AGE-24-36M",
+        "AGE-3-4Y",
+        "AGE-4-5Y"
+      ]
+    },
+    {
+      "id": "DOM-COG",
+      "name": "Cognitive",
+      "description": "Thinking, reasoning, and problem solving.",
+      "active": true,
+      "schoolId": "SCH-DEMO",
+      "subdomains": [
+        {
+          "id": "SUB-COG-PS",
+          "name": "Problem Solving",
+          "active": true,
+          "milestones": [
+            {
+              "id": "MIL-COG-PS1",
+              "name": "Completes simple puzzles",
+              "description": "Fits 3–4 piece puzzles together.",
+              "active": true,
+              "assignedAgeGroups": [
+                "AGE-24-36M",
+                "AGE-3-4Y",
+                "AGE-4-5Y"
+              ]
+            },
+            {
+              "id": "MIL-COG-PS2",
+              "name": "Sorts by color",
+              "description": "Groups objects by a single attribute.",
+              "active": true,
+              "assignedAgeGroups": [
+                "AGE-24-36M",
+                "AGE-3-4Y",
+                "AGE-4-5Y"
+              ]
+            }
+          ],
+          "assignedAgeGroups": [
+            "AGE-24-36M",
+            "AGE-3-4Y",
+            "AGE-4-5Y"
+          ]
+        },
+        {
+          "id": "SUB-COG-NUM",
+          "name": "Early Numeracy",
+          "active": true,
+          "milestones": [
+            {
+              "id": "MIL-COG-NUM1",
+              "name": "Counts to 5",
+              "description": "Recites numbers one through five.",
+              "active": true,
+              "assignedAgeGroups": [
+                "AGE-24-36M",
+                "AGE-3-4Y",
+                "AGE-4-5Y"
+              ]
+            }
+          ],
+          "assignedAgeGroups": [
+            "AGE-24-36M",
+            "AGE-3-4Y",
+            "AGE-4-5Y"
+          ]
+        }
+      ],
+      "assignedAgeGroups": [
+        "AGE-24-36M",
+        "AGE-3-4Y",
+        "AGE-4-5Y"
+      ]
+    },
+    {
+      "id": "DOM-PH",
+      "name": "Physical & Health",
+      "description": "Gross and fine motor development.",
+      "active": true,
+      "schoolId": "SCH-DEMO",
+      "subdomains": [
+        {
+          "id": "SUB-PH-GM",
+          "name": "Gross Motor",
+          "active": true,
+          "milestones": [
+            {
+              "id": "MIL-PH-GM1",
+              "name": "Runs without falling",
+              "description": "Runs with coordination and balance.",
+              "active": true,
+              "assignedAgeGroups": [
+                "AGE-24-36M",
+                "AGE-3-4Y",
+                "AGE-4-5Y"
+              ]
+            },
+            {
+              "id": "MIL-PH-GM2",
+              "name": "Climbs stairs with alternating feet",
+              "description": "Alternates feet going up stairs.",
+              "active": true,
+              "assignedAgeGroups": [
+                "AGE-24-36M",
+                "AGE-3-4Y",
+                "AGE-4-5Y"
+              ]
+            }
+          ],
+          "assignedAgeGroups": [
+            "AGE-24-36M",
+            "AGE-3-4Y",
+            "AGE-4-5Y"
+          ]
+        },
+        {
+          "id": "SUB-PH-FM",
+          "name": "Fine Motor",
+          "active": true,
+          "milestones": [
+            {
+              "id": "MIL-PH-FM1",
+              "name": "Stacks 3 blocks",
+              "description": "Builds a tower of three blocks.",
+              "active": true,
+              "assignedAgeGroups": [
+                "AGE-24-36M",
+                "AGE-3-4Y",
+                "AGE-4-5Y"
+              ]
+            }
+          ],
+          "assignedAgeGroups": [
+            "AGE-12-24M",
+            "AGE-24-36M",
+            "AGE-3-4Y",
+            "AGE-4-5Y"
+          ]
+        }
+      ],
+      "assignedAgeGroups": [
+        "AGE-0-12M",
+        "AGE-12-24M",
+        "AGE-24-36M",
+        "AGE-3-4Y",
+        "AGE-4-5Y"
+      ]
+    },
+    {
+      "id": "DOM-CE",
+      "name": "Creative Expression",
+      "description": "Art, music, and imaginative play.",
+      "active": true,
+      "schoolId": "SCH-DEMO",
+      "subdomains": [
+        {
+          "id": "SUB-CE-ART",
+          "name": "Visual Art",
+          "active": true,
+          "milestones": [
+            {
+              "id": "MIL-CE-ART1",
+              "name": "Scribbles with crayon",
+              "description": "Makes intentional marks with a crayon.",
+              "active": true,
+              "assignedAgeGroups": [
+                "AGE-24-36M",
+                "AGE-3-4Y",
+                "AGE-4-5Y"
+              ]
+            }
+          ],
+          "assignedAgeGroups": [
+            "AGE-24-36M",
+            "AGE-3-4Y",
+            "AGE-4-5Y"
+          ]
+        },
+        {
+          "id": "SUB-CE-MUS",
+          "name": "Music & Movement",
+          "active": true,
+          "milestones": [
+            {
+              "id": "MIL-CE-MUS1",
+              "name": "Moves to music",
+              "description": "Sways or dances in response to music.",
+              "active": true,
+              "assignedAgeGroups": [
+                "AGE-24-36M",
+                "AGE-3-4Y",
+                "AGE-4-5Y"
+              ]
+            }
+          ],
+          "assignedAgeGroups": [
+            "AGE-24-36M",
+            "AGE-3-4Y",
+            "AGE-4-5Y"
+          ]
+        }
+      ],
+      "assignedAgeGroups": [
+        "AGE-24-36M",
+        "AGE-3-4Y",
+        "AGE-4-5Y"
+      ]
+    }
+  ],
+  "assessments": [
+    {
+      "id": "ASMT-EMMA-JUN-01",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-SE-ER1",
+      "subdomainId": "SUB-SE-ER",
+      "domainId": "DOM-SE",
+      "score": 4,
+      "notes": "Consistent eye contact observed.",
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-10T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-JUN-02",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-SE-ER2",
+      "subdomainId": "SUB-SE-ER",
+      "domainId": "DOM-SE",
+      "score": 3,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-10T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-JUN-03",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-SE-REL1",
+      "subdomainId": "SUB-SE-REL",
+      "domainId": "DOM-SE",
+      "score": 5,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-10T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-JUN-04",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-SE-REL2",
+      "subdomainId": "SUB-SE-REL",
+      "domainId": "DOM-SE",
+      "score": 4,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-10T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-JUN-05",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-LL-VOC1",
+      "subdomainId": "SUB-LL-VOC",
+      "domainId": "DOM-LL",
+      "score": 3,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-10T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-JUN-06",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-LL-VOC2",
+      "subdomainId": "SUB-LL-VOC",
+      "domainId": "DOM-LL",
+      "score": 4,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-10T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-JUN-07",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-LL-LIT1",
+      "subdomainId": "SUB-LL-LIT",
+      "domainId": "DOM-LL",
+      "score": 3,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-10T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-JUN-08",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-COG-PS1",
+      "subdomainId": "SUB-COG-PS",
+      "domainId": "DOM-COG",
+      "score": 4,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-10T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-JUN-09",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-COG-PS2",
+      "subdomainId": "SUB-COG-PS",
+      "domainId": "DOM-COG",
+      "score": 3,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-10T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-JUN-10",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-COG-NUM1",
+      "subdomainId": "SUB-COG-NUM",
+      "domainId": "DOM-COG",
+      "score": 3,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-10T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-JUN-11",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-PH-GM1",
+      "subdomainId": "SUB-PH-GM",
+      "domainId": "DOM-PH",
+      "score": 5,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-10T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-JUN-12",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-PH-GM2",
+      "subdomainId": "SUB-PH-GM",
+      "domainId": "DOM-PH",
+      "score": 4,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-10T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-JUN-13",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-PH-FM1",
+      "subdomainId": "SUB-PH-FM",
+      "domainId": "DOM-PH",
+      "score": 4,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-10T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-JUN-14",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-CE-ART1",
+      "subdomainId": "SUB-CE-ART",
+      "domainId": "DOM-CE",
+      "score": 3,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-10T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-JUN-15",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-CE-MUS1",
+      "subdomainId": "SUB-CE-MUS",
+      "domainId": "DOM-CE",
+      "score": 4,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-10T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-MAY-01",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-SE-ER1",
+      "subdomainId": "SUB-SE-ER",
+      "domainId": "DOM-SE",
+      "score": 3,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-05-12T10:00:00Z",
+      "periodStart": "2026-05-01",
+      "periodEnd": "2026-05-31",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-MAY-02",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-SE-ER2",
+      "subdomainId": "SUB-SE-ER",
+      "domainId": "DOM-SE",
+      "score": 2,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-05-12T10:00:00Z",
+      "periodStart": "2026-05-01",
+      "periodEnd": "2026-05-31",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-MAY-03",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-SE-REL1",
+      "subdomainId": "SUB-SE-REL",
+      "domainId": "DOM-SE",
+      "score": 4,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-05-12T10:00:00Z",
+      "periodStart": "2026-05-01",
+      "periodEnd": "2026-05-31",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-MAY-04",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-SE-REL2",
+      "subdomainId": "SUB-SE-REL",
+      "domainId": "DOM-SE",
+      "score": 3,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-05-12T10:00:00Z",
+      "periodStart": "2026-05-01",
+      "periodEnd": "2026-05-31",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-MAY-05",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-LL-VOC1",
+      "subdomainId": "SUB-LL-VOC",
+      "domainId": "DOM-LL",
+      "score": 2,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-05-12T10:00:00Z",
+      "periodStart": "2026-05-01",
+      "periodEnd": "2026-05-31",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-MAY-06",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-LL-VOC2",
+      "subdomainId": "SUB-LL-VOC",
+      "domainId": "DOM-LL",
+      "score": 3,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-05-12T10:00:00Z",
+      "periodStart": "2026-05-01",
+      "periodEnd": "2026-05-31",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-MAY-07",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-LL-LIT1",
+      "subdomainId": "SUB-LL-LIT",
+      "domainId": "DOM-LL",
+      "score": 2,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-05-12T10:00:00Z",
+      "periodStart": "2026-05-01",
+      "periodEnd": "2026-05-31",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-MAY-08",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-COG-PS1",
+      "subdomainId": "SUB-COG-PS",
+      "domainId": "DOM-COG",
+      "score": 3,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-05-12T10:00:00Z",
+      "periodStart": "2026-05-01",
+      "periodEnd": "2026-05-31",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-MAY-09",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-COG-NUM1",
+      "subdomainId": "SUB-COG-NUM",
+      "domainId": "DOM-COG",
+      "score": 2,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-05-12T10:00:00Z",
+      "periodStart": "2026-05-01",
+      "periodEnd": "2026-05-31",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-MAY-10",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-PH-GM1",
+      "subdomainId": "SUB-PH-GM",
+      "domainId": "DOM-PH",
+      "score": 4,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-05-12T10:00:00Z",
+      "periodStart": "2026-05-01",
+      "periodEnd": "2026-05-31",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-EMMA-MAY-11",
+      "studentId": "STU-EMMA",
+      "milestoneId": "MIL-CE-ART1",
+      "subdomainId": "SUB-CE-ART",
+      "domainId": "DOM-CE",
+      "score": 2,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-05-12T10:00:00Z",
+      "periodStart": "2026-05-01",
+      "periodEnd": "2026-05-31",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-LIAM-JUN-01",
+      "studentId": "STU-LIAM",
+      "milestoneId": "MIL-SE-ER1",
+      "subdomainId": "SUB-SE-ER",
+      "domainId": "DOM-SE",
+      "score": 3,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-11T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-LIAM-JUN-02",
+      "studentId": "STU-LIAM",
+      "milestoneId": "MIL-SE-REL1",
+      "subdomainId": "SUB-SE-REL",
+      "domainId": "DOM-SE",
+      "score": 4,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-11T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-LIAM-JUN-03",
+      "studentId": "STU-LIAM",
+      "milestoneId": "MIL-LL-VOC1",
+      "subdomainId": "SUB-LL-VOC",
+      "domainId": "DOM-LL",
+      "score": 4,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-11T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-LIAM-JUN-04",
+      "studentId": "STU-LIAM",
+      "milestoneId": "MIL-LL-LIT1",
+      "subdomainId": "SUB-LL-LIT",
+      "domainId": "DOM-LL",
+      "score": 3,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-11T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-LIAM-JUN-05",
+      "studentId": "STU-LIAM",
+      "milestoneId": "MIL-COG-PS1",
+      "subdomainId": "SUB-COG-PS",
+      "domainId": "DOM-COG",
+      "score": 3,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-11T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-LIAM-JUN-06",
+      "studentId": "STU-LIAM",
+      "milestoneId": "MIL-COG-NUM1",
+      "subdomainId": "SUB-COG-NUM",
+      "domainId": "DOM-COG",
+      "score": 4,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-11T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-LIAM-JUN-07",
+      "studentId": "STU-LIAM",
+      "milestoneId": "MIL-PH-GM1",
+      "subdomainId": "SUB-PH-GM",
+      "domainId": "DOM-PH",
+      "score": 4,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-11T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-LIAM-JUN-08",
+      "studentId": "STU-LIAM",
+      "milestoneId": "MIL-CE-MUS1",
+      "subdomainId": "SUB-CE-MUS",
+      "domainId": "DOM-CE",
+      "score": 3,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-11T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-LIAM-MAY-01",
+      "studentId": "STU-LIAM",
+      "milestoneId": "MIL-SE-ER1",
+      "subdomainId": "SUB-SE-ER",
+      "domainId": "DOM-SE",
+      "score": 2,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-05-13T10:00:00Z",
+      "periodStart": "2026-05-01",
+      "periodEnd": "2026-05-31",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-LIAM-MAY-02",
+      "studentId": "STU-LIAM",
+      "milestoneId": "MIL-LL-VOC1",
+      "subdomainId": "SUB-LL-VOC",
+      "domainId": "DOM-LL",
+      "score": 3,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-05-13T10:00:00Z",
+      "periodStart": "2026-05-01",
+      "periodEnd": "2026-05-31",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-LIAM-MAY-03",
+      "studentId": "STU-LIAM",
+      "milestoneId": "MIL-COG-PS1",
+      "subdomainId": "SUB-COG-PS",
+      "domainId": "DOM-COG",
+      "score": 2,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-05-13T10:00:00Z",
+      "periodStart": "2026-05-01",
+      "periodEnd": "2026-05-31",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-LIAM-MAY-04",
+      "studentId": "STU-LIAM",
+      "milestoneId": "MIL-PH-GM1",
+      "subdomainId": "SUB-PH-GM",
+      "domainId": "DOM-PH",
+      "score": 3,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-05-13T10:00:00Z",
+      "periodStart": "2026-05-01",
+      "periodEnd": "2026-05-31",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-24-36M"
+    },
+    {
+      "id": "ASMT-OLIVIA-JUN-01",
+      "studentId": "STU-OLIVIA",
+      "milestoneId": "MIL-SE-ER1",
+      "subdomainId": "SUB-SE-ER",
+      "domainId": "DOM-SE",
+      "score": 5,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-09T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-3-4Y"
+    },
+    {
+      "id": "ASMT-OLIVIA-JUN-02",
+      "studentId": "STU-OLIVIA",
+      "milestoneId": "MIL-SE-REL1",
+      "subdomainId": "SUB-SE-REL",
+      "domainId": "DOM-SE",
+      "score": 4,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-09T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-3-4Y"
+    },
+    {
+      "id": "ASMT-OLIVIA-JUN-03",
+      "studentId": "STU-OLIVIA",
+      "milestoneId": "MIL-LL-VOC1",
+      "subdomainId": "SUB-LL-VOC",
+      "domainId": "DOM-LL",
+      "score": 5,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-09T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-3-4Y"
+    },
+    {
+      "id": "ASMT-OLIVIA-JUN-04",
+      "studentId": "STU-OLIVIA",
+      "milestoneId": "MIL-LL-LIT1",
+      "subdomainId": "SUB-LL-LIT",
+      "domainId": "DOM-LL",
+      "score": 4,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-09T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-3-4Y"
+    },
+    {
+      "id": "ASMT-OLIVIA-JUN-05",
+      "studentId": "STU-OLIVIA",
+      "milestoneId": "MIL-COG-PS1",
+      "subdomainId": "SUB-COG-PS",
+      "domainId": "DOM-COG",
+      "score": 5,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-09T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-3-4Y"
+    },
+    {
+      "id": "ASMT-OLIVIA-JUN-06",
+      "studentId": "STU-OLIVIA",
+      "milestoneId": "MIL-COG-NUM1",
+      "subdomainId": "SUB-COG-NUM",
+      "domainId": "DOM-COG",
+      "score": 4,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-09T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-3-4Y"
+    },
+    {
+      "id": "ASMT-OLIVIA-JUN-07",
+      "studentId": "STU-OLIVIA",
+      "milestoneId": "MIL-PH-GM1",
+      "subdomainId": "SUB-PH-GM",
+      "domainId": "DOM-PH",
+      "score": 5,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-09T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-3-4Y"
+    },
+    {
+      "id": "ASMT-OLIVIA-JUN-08",
+      "studentId": "STU-OLIVIA",
+      "milestoneId": "MIL-CE-ART1",
+      "subdomainId": "SUB-CE-ART",
+      "domainId": "DOM-CE",
+      "score": 4,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-09T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-3-4Y"
+    },
+    {
+      "id": "ASMT-AVA-JUN-01",
+      "studentId": "STU-AVA",
+      "milestoneId": "MIL-SE-ER1",
+      "subdomainId": "SUB-SE-ER",
+      "domainId": "DOM-SE",
+      "score": 5,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-08T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-4-5Y"
+    },
+    {
+      "id": "ASMT-AVA-JUN-02",
+      "studentId": "STU-AVA",
+      "milestoneId": "MIL-SE-REL1",
+      "subdomainId": "SUB-SE-REL",
+      "domainId": "DOM-SE",
+      "score": 5,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-08T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-4-5Y"
+    },
+    {
+      "id": "ASMT-AVA-JUN-03",
+      "studentId": "STU-AVA",
+      "milestoneId": "MIL-LL-VOC1",
+      "subdomainId": "SUB-LL-VOC",
+      "domainId": "DOM-LL",
+      "score": 5,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-08T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-4-5Y"
+    },
+    {
+      "id": "ASMT-AVA-JUN-04",
+      "studentId": "STU-AVA",
+      "milestoneId": "MIL-LL-LIT1",
+      "subdomainId": "SUB-LL-LIT",
+      "domainId": "DOM-LL",
+      "score": 5,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-08T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-4-5Y"
+    },
+    {
+      "id": "ASMT-AVA-JUN-05",
+      "studentId": "STU-AVA",
+      "milestoneId": "MIL-COG-PS1",
+      "subdomainId": "SUB-COG-PS",
+      "domainId": "DOM-COG",
+      "score": 4,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-08T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-4-5Y"
+    },
+    {
+      "id": "ASMT-AVA-JUN-06",
+      "studentId": "STU-AVA",
+      "milestoneId": "MIL-COG-NUM1",
+      "subdomainId": "SUB-COG-NUM",
+      "domainId": "DOM-COG",
+      "score": 5,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-08T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-4-5Y"
+    },
+    {
+      "id": "ASMT-AVA-JUN-07",
+      "studentId": "STU-AVA",
+      "milestoneId": "MIL-PH-GM1",
+      "subdomainId": "SUB-PH-GM",
+      "domainId": "DOM-PH",
+      "score": 5,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-08T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-4-5Y"
+    },
+    {
+      "id": "ASMT-AVA-JUN-08",
+      "studentId": "STU-AVA",
+      "milestoneId": "MIL-CE-MUS1",
+      "subdomainId": "SUB-CE-MUS",
+      "domainId": "DOM-CE",
+      "score": 4,
+      "assessedBy": "USR-DEMO-ADMIN",
+      "assessedAt": "2026-06-08T10:00:00Z",
+      "periodStart": "2026-06-01",
+      "periodEnd": "2026-06-30",
+      "schoolId": "SCH-DEMO",
+      "ageGroupId": "AGE-4-5Y"
+    }
+  ],
+  "ageGroups": [
+    {
+      "id": "AGE-0-12M",
+      "name": "Birth to Twelve Months",
+      "minMonths": 0,
+      "maxMonths": 12,
+      "sortOrder": 0,
+      "active": true,
+      "schoolId": "SCH-DEMO"
+    },
+    {
+      "id": "AGE-12-24M",
+      "name": "Twelve to Twenty-Four Months",
+      "minMonths": 12,
+      "maxMonths": 24,
+      "sortOrder": 1,
+      "active": true,
+      "schoolId": "SCH-DEMO"
+    },
+    {
+      "id": "AGE-24-36M",
+      "name": "Two to Three Years",
+      "minMonths": 24,
+      "maxMonths": 36,
+      "sortOrder": 2,
+      "active": true,
+      "schoolId": "SCH-DEMO"
+    },
+    {
+      "id": "AGE-3-4Y",
+      "name": "Three to Four Years",
+      "minMonths": 36,
+      "maxMonths": 48,
+      "sortOrder": 3,
+      "active": true,
+      "schoolId": "SCH-DEMO"
+    },
+    {
+      "id": "AGE-4-5Y",
+      "name": "Four to Five Years",
+      "minMonths": 48,
+      "maxMonths": 60,
+      "sortOrder": 4,
+      "active": true,
+      "schoolId": "SCH-DEMO"
+    }
+  ]
+}

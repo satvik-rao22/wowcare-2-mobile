@@ -1,0 +1,511 @@
+{
+  "events": [
+    {
+      "code": "EVT-1001",
+      "type": "CLASSROOM",
+      "name": "Outdoor Water Play Day",
+      "date": "2026-06-10",
+      "allDay": false,
+      "startTime": "09:30",
+      "endTime": "11:00",
+      "description": "Sprinkler and water-table play on the back playground. Please send a swimsuit, towel and a change of clothes labelled with your child's name.",
+      "classrooms": [
+        { "code": "CLS-BLUE-1", "name": "1-Blue Toddlers" }
+      ],
+      "students": [],
+      "staff": [
+        { "code": "STF-001", "name": "Maria Lopez" },
+        { "code": "STF-004", "name": "Janet Riley" }
+      ],
+      "includeParents": true,
+      "rsvps": [
+        {
+          "userCode": "STF-001",
+          "userName": "Maria Lopez",
+          "userType": "STAFF",
+          "status": "ATTENDING",
+          "respondedAt": "2026-06-05T14:12:00"
+        },
+        {
+          "userCode": "GRD-210",
+          "userName": "Erica Chang",
+          "userType": "PARENT",
+          "status": "ATTENDING",
+          "respondedAt": "2026-06-06T08:40:00"
+        },
+        {
+          "userCode": "GRD-214",
+          "userName": "Les Fenwick",
+          "userType": "PARENT",
+          "status": "MAYBE",
+          "respondedAt": "2026-06-07T19:05:00"
+        }
+      ],
+      "recurring": false,
+      "recurringPattern": null,
+      "recurringEndDate": null,
+      "attachmentName": "water_play_checklist.pdf",
+      "attachmentUrl": "https://files.wowcare.example/events/water_play_checklist.pdf",
+      "createdBy": "STF-001",
+      "createdByName": "Maria Lopez",
+      "createdAt": "2026-06-01T10:00:00",
+      "updatedAt": "2026-06-01T10:00:00"
+    },
+    {
+      "code": "EVT-1002",
+      "type": "SCHOOL",
+      "name": "Fire Drill",
+      "date": "2026-06-11",
+      "allDay": false,
+      "startTime": "10:00",
+      "endTime": "10:30",
+      "description": "Monthly safety drill for all classrooms and staff. Children will line up at the east gate assembly point.",
+      "classrooms": [
+        { "code": "CLS-BLUE-1", "name": "1-Blue Toddlers" },
+        { "code": "CLS-GREEN-2", "name": "2-Green Toddlers" },
+        { "code": "CLS-PURPLE-3", "name": "3-Purple Preschool" },
+        { "code": "CLS-YELLOW-4", "name": "4-Yellow Preschool" }
+      ],
+      "students": [],
+      "staff": [
+        { "code": "STF-001", "name": "Maria Lopez" },
+        { "code": "STF-002", "name": "Daniel Kim" },
+        { "code": "STF-003", "name": "Priya Nair" },
+        { "code": "STF-004", "name": "Janet Riley" }
+      ],
+      "includeParents": false,
+      "rsvps": [
+        {
+          "userCode": "STF-002",
+          "userName": "Daniel Kim",
+          "userType": "STAFF",
+          "status": "ATTENDING",
+          "respondedAt": "2026-06-08T09:15:00"
+        },
+        {
+          "userCode": "STF-003",
+          "userName": "Priya Nair",
+          "userType": "STAFF",
+          "status": "ATTENDING",
+          "respondedAt": "2026-06-08T11:42:00"
+        }
+      ],
+      "recurring": true,
+      "recurringPattern": "MONTHLY",
+      "recurringEndDate": "2026-12-11",
+      "attachmentName": null,
+      "attachmentUrl": null,
+      "createdBy": "ADM-001",
+      "createdByName": "Sandra Whitfield",
+      "createdAt": "2026-05-28T16:30:00",
+      "updatedAt": "2026-05-28T16:30:00"
+    },
+    {
+      "code": "EVT-1003",
+      "type": "STUDENT",
+      "name": "Parent-Teacher Conference — Avery M.",
+      "date": "2026-06-12",
+      "allDay": false,
+      "startTime": "15:30",
+      "endTime": "16:00",
+      "description": "End-of-term progress discussion covering language milestones and the kindergarten readiness checklist.",
+      "classrooms": [],
+      "students": [
+        { "code": "STU-118", "name": "Avery Mitchell" }
+      ],
+      "staff": [
+        { "code": "STF-003", "name": "Priya Nair" }
+      ],
+      "includeParents": true,
+      "rsvps": [
+        {
+          "userCode": "STF-003",
+          "userName": "Priya Nair",
+          "userType": "STAFF",
+          "status": "ATTENDING",
+          "respondedAt": "2026-06-09T10:00:00"
+        },
+        {
+          "userCode": "GRD-118",
+          "userName": "Jordan Mitchell",
+          "userType": "PARENT",
+          "status": "ATTENDING",
+          "respondedAt": "2026-06-09T18:22:00"
+        }
+      ],
+      "recurring": false,
+      "recurringPattern": null,
+      "recurringEndDate": null,
+      "attachmentName": null,
+      "attachmentUrl": null,
+      "createdBy": "STF-003",
+      "createdByName": "Priya Nair",
+      "createdAt": "2026-06-04T09:10:00",
+      "updatedAt": "2026-06-04T09:10:00"
+    },
+    {
+      "code": "EVT-1004",
+      "type": "STAFF",
+      "name": "CPR & First Aid Recertification",
+      "date": "2026-06-13",
+      "allDay": false,
+      "startTime": "13:00",
+      "endTime": "17:00",
+      "description": "Mandatory recertification with the Red Cross trainer in the staff lounge. Wear comfortable clothing; mats are provided.",
+      "classrooms": [],
+      "students": [],
+      "staff": [
+        { "code": "STF-001", "name": "Maria Lopez" },
+        { "code": "STF-002", "name": "Daniel Kim" },
+        { "code": "STF-003", "name": "Priya Nair" },
+        { "code": "STF-004", "name": "Janet Riley" },
+        { "code": "STF-005", "name": "Owen Brooks" }
+      ],
+      "includeParents": false,
+      "rsvps": [
+        {
+          "userCode": "STF-001",
+          "userName": "Maria Lopez",
+          "userType": "STAFF",
+          "status": "ATTENDING",
+          "respondedAt": "2026-06-06T12:00:00"
+        },
+        {
+          "userCode": "STF-004",
+          "userName": "Janet Riley",
+          "userType": "STAFF",
+          "status": "MAYBE",
+          "respondedAt": "2026-06-07T08:30:00"
+        },
+        {
+          "userCode": "STF-005",
+          "userName": "Owen Brooks",
+          "userType": "STAFF",
+          "status": "NOT_ATTENDING",
+          "respondedAt": "2026-06-07T15:45:00"
+        }
+      ],
+      "recurring": false,
+      "recurringPattern": null,
+      "recurringEndDate": null,
+      "attachmentName": "cpr_course_outline.pdf",
+      "attachmentUrl": "https://files.wowcare.example/events/cpr_course_outline.pdf",
+      "createdBy": "ADM-001",
+      "createdByName": "Sandra Whitfield",
+      "createdAt": "2026-05-30T11:20:00",
+      "updatedAt": "2026-06-02T09:05:00"
+    },
+    {
+      "code": "EVT-1005",
+      "type": "SCHOOL",
+      "name": "Summer Family Picnic",
+      "date": "2026-06-19",
+      "allDay": true,
+      "startTime": "",
+      "endTime": "",
+      "description": "Annual all-school picnic at Riverside Park, pavilion B. Families bring a dish to share; the school provides drinks, games and face painting.",
+      "classrooms": [
+        { "code": "CLS-BLUE-1", "name": "1-Blue Toddlers" },
+        { "code": "CLS-GREEN-2", "name": "2-Green Toddlers" },
+        { "code": "CLS-PURPLE-3", "name": "3-Purple Preschool" },
+        { "code": "CLS-YELLOW-4", "name": "4-Yellow Preschool" }
+      ],
+      "students": [],
+      "staff": [
+        { "code": "STF-001", "name": "Maria Lopez" },
+        { "code": "STF-002", "name": "Daniel Kim" },
+        { "code": "STF-003", "name": "Priya Nair" },
+        { "code": "STF-004", "name": "Janet Riley" },
+        { "code": "STF-005", "name": "Owen Brooks" }
+      ],
+      "includeParents": true,
+      "rsvps": [
+        {
+          "userCode": "GRD-210",
+          "userName": "Erica Chang",
+          "userType": "PARENT",
+          "status": "ATTENDING",
+          "respondedAt": "2026-06-03T20:11:00"
+        },
+        {
+          "userCode": "GRD-118",
+          "userName": "Jordan Mitchell",
+          "userType": "PARENT",
+          "status": "ATTENDING",
+          "respondedAt": "2026-06-04T07:55:00"
+        },
+        {
+          "userCode": "GRD-307",
+          "userName": "Samira Hassan",
+          "userType": "PARENT",
+          "status": "MAYBE",
+          "respondedAt": "2026-06-05T13:30:00"
+        },
+        {
+          "userCode": "STF-002",
+          "userName": "Daniel Kim",
+          "userType": "STAFF",
+          "status": "ATTENDING",
+          "respondedAt": "2026-06-03T10:02:00"
+        }
+      ],
+      "recurring": false,
+      "recurringPattern": null,
+      "recurringEndDate": null,
+      "attachmentName": "picnic_flyer.png",
+      "attachmentUrl": "https://files.wowcare.example/events/picnic_flyer.png",
+      "createdBy": "ADM-001",
+      "createdByName": "Sandra Whitfield",
+      "createdAt": "2026-05-20T09:00:00",
+      "updatedAt": "2026-06-01T14:18:00"
+    },
+    {
+      "code": "EVT-1006",
+      "type": "CLASSROOM",
+      "name": "Music & Movement Morning",
+      "date": "2026-06-15",
+      "allDay": false,
+      "startTime": "09:00",
+      "endTime": "09:45",
+      "description": "Weekly visiting music teacher session — rhythm instruments, scarves and a sing-along circle.",
+      "classrooms": [
+        { "code": "CLS-GREEN-2", "name": "2-Green Toddlers" }
+      ],
+      "students": [],
+      "staff": [
+        { "code": "STF-002", "name": "Daniel Kim" }
+      ],
+      "includeParents": false,
+      "rsvps": [
+        {
+          "userCode": "STF-002",
+          "userName": "Daniel Kim",
+          "userType": "STAFF",
+          "status": "ATTENDING",
+          "respondedAt": "2026-06-08T08:00:00"
+        }
+      ],
+      "recurring": true,
+      "recurringPattern": "WEEKLY",
+      "recurringEndDate": "2026-08-31",
+      "attachmentName": null,
+      "attachmentUrl": null,
+      "createdBy": "STF-002",
+      "createdByName": "Daniel Kim",
+      "createdAt": "2026-06-01T08:45:00",
+      "updatedAt": "2026-06-01T08:45:00"
+    },
+    {
+      "code": "EVT-1007",
+      "type": "CLASSROOM",
+      "name": "Annual Physical Check-ups",
+      "date": "2026-06-16",
+      "allDay": true,
+      "startTime": "",
+      "endTime": "",
+      "description": "The visiting pediatric nurse will complete annual height, weight, vision and hearing screenings. Consent forms must be on file.",
+      "classrooms": [
+        { "code": "CLS-PURPLE-3", "name": "3-Purple Preschool" },
+        { "code": "CLS-YELLOW-4", "name": "4-Yellow Preschool" }
+      ],
+      "students": [],
+      "staff": [
+        { "code": "STF-003", "name": "Priya Nair" },
+        { "code": "STF-005", "name": "Owen Brooks" }
+      ],
+      "includeParents": true,
+      "rsvps": [],
+      "recurring": false,
+      "recurringPattern": null,
+      "recurringEndDate": null,
+      "attachmentName": "screening_consent_form.pdf",
+      "attachmentUrl": "https://files.wowcare.example/events/screening_consent_form.pdf",
+      "createdBy": "ADM-001",
+      "createdByName": "Sandra Whitfield",
+      "createdAt": "2026-06-02T15:40:00",
+      "updatedAt": "2026-06-02T15:40:00"
+    },
+    {
+      "code": "EVT-1008",
+      "type": "CUSTOM",
+      "name": "Graduation Rehearsal — Pre-K Movers",
+      "date": "2026-06-24",
+      "allDay": false,
+      "startTime": "10:30",
+      "endTime": "11:30",
+      "description": "Walk-through of the graduation ceremony for children moving up to kindergarten. Caps will be fitted after rehearsal.",
+      "classrooms": [],
+      "students": [
+        { "code": "STU-118", "name": "Avery Mitchell" },
+        { "code": "STU-127", "name": "Noah Chang" },
+        { "code": "STU-131", "name": "Lina Hassan" },
+        { "code": "STU-140", "name": "Theo Brandt" }
+      ],
+      "staff": [
+        { "code": "STF-003", "name": "Priya Nair" },
+        { "code": "STF-004", "name": "Janet Riley" }
+      ],
+      "includeParents": false,
+      "rsvps": [
+        {
+          "userCode": "STF-004",
+          "userName": "Janet Riley",
+          "userType": "STAFF",
+          "status": "ATTENDING",
+          "respondedAt": "2026-06-09T09:20:00"
+        }
+      ],
+      "recurring": false,
+      "recurringPattern": null,
+      "recurringEndDate": null,
+      "attachmentName": null,
+      "attachmentUrl": null,
+      "createdBy": "STF-003",
+      "createdByName": "Priya Nair",
+      "createdAt": "2026-06-05T13:00:00",
+      "updatedAt": "2026-06-05T13:00:00"
+    },
+    {
+      "code": "EVT-1009",
+      "type": "SCHOOL",
+      "name": "Pre-K Graduation Ceremony",
+      "date": "2026-06-26",
+      "allDay": false,
+      "startTime": "16:00",
+      "endTime": "18:00",
+      "description": "Celebration for our kindergarten-bound graduates, followed by refreshments in the main hall. Each family may invite up to four guests.",
+      "classrooms": [
+        { "code": "CLS-PURPLE-3", "name": "3-Purple Preschool" },
+        { "code": "CLS-YELLOW-4", "name": "4-Yellow Preschool" }
+      ],
+      "students": [],
+      "staff": [
+        { "code": "STF-001", "name": "Maria Lopez" },
+        { "code": "STF-003", "name": "Priya Nair" },
+        { "code": "STF-004", "name": "Janet Riley" }
+      ],
+      "includeParents": true,
+      "rsvps": [
+        {
+          "userCode": "GRD-118",
+          "userName": "Jordan Mitchell",
+          "userType": "PARENT",
+          "status": "ATTENDING",
+          "respondedAt": "2026-06-08T21:14:00"
+        },
+        {
+          "userCode": "GRD-307",
+          "userName": "Samira Hassan",
+          "userType": "PARENT",
+          "status": "ATTENDING",
+          "respondedAt": "2026-06-09T06:48:00"
+        }
+      ],
+      "recurring": false,
+      "recurringPattern": null,
+      "recurringEndDate": null,
+      "attachmentName": "graduation_program.pdf",
+      "attachmentUrl": "https://files.wowcare.example/events/graduation_program.pdf",
+      "createdBy": "ADM-001",
+      "createdByName": "Sandra Whitfield",
+      "createdAt": "2026-05-25T10:30:00",
+      "updatedAt": "2026-06-06T17:00:00"
+    },
+    {
+      "code": "EVT-1010",
+      "type": "STAFF",
+      "name": "Curriculum Planning — Summer Term",
+      "date": "2026-06-30",
+      "allDay": false,
+      "startTime": "14:00",
+      "endTime": "15:30",
+      "description": "Lead teachers meet to finalize July themes, field trip bookings and supply orders for the summer program.",
+      "classrooms": [],
+      "students": [],
+      "staff": [
+        { "code": "STF-001", "name": "Maria Lopez" },
+        { "code": "STF-002", "name": "Daniel Kim" },
+        { "code": "STF-003", "name": "Priya Nair" }
+      ],
+      "includeParents": false,
+      "rsvps": [],
+      "recurring": false,
+      "recurringPattern": null,
+      "recurringEndDate": null,
+      "attachmentName": null,
+      "attachmentUrl": null,
+      "createdBy": "ADM-001",
+      "createdByName": "Sandra Whitfield",
+      "createdAt": "2026-06-07T12:00:00",
+      "updatedAt": "2026-06-07T12:00:00"
+    }
+  ],
+  "holidays": [
+    {
+      "code": "HOL-2001",
+      "name": "Juneteenth",
+      "startDate": "2026-06-19",
+      "endDate": "2026-06-19",
+      "description": "Federal holiday commemorating the emancipation of enslaved African Americans.",
+      "type": "FEDERAL",
+      "status": "CONSIDERED",
+      "createdAt": "2026-01-05T09:00:00",
+      "updatedAt": "2026-02-12T10:30:00"
+    },
+    {
+      "code": "HOL-2002",
+      "name": "Independence Day (Observed)",
+      "startDate": "2026-07-03",
+      "endDate": "2026-07-03",
+      "description": "July 4th falls on a Saturday; observed Friday before.",
+      "type": "FEDERAL",
+      "status": "PENDING",
+      "createdAt": "2026-01-05T09:00:00",
+      "updatedAt": "2026-01-05T09:00:00"
+    },
+    {
+      "code": "HOL-2003",
+      "name": "Labor Day",
+      "startDate": "2026-09-07",
+      "endDate": "2026-09-07",
+      "description": "",
+      "type": "FEDERAL",
+      "status": "PENDING",
+      "createdAt": "2026-01-05T09:00:00",
+      "updatedAt": "2026-01-05T09:00:00"
+    },
+    {
+      "code": "HOL-2004",
+      "name": "Columbus Day",
+      "startDate": "2026-10-12",
+      "endDate": "2026-10-12",
+      "description": "",
+      "type": "FEDERAL",
+      "status": "REJECTED",
+      "createdAt": "2026-01-05T09:00:00",
+      "updatedAt": "2026-03-02T14:00:00"
+    },
+    {
+      "code": "HOL-2005",
+      "name": "Staff Development Day",
+      "startDate": "2026-06-22",
+      "endDate": "2026-06-22",
+      "description": "School closed for all-staff training. No childcare services.",
+      "type": "SCHOOL",
+      "status": null,
+      "createdAt": "2026-04-10T11:00:00",
+      "updatedAt": "2026-04-10T11:00:00"
+    },
+    {
+      "code": "HOL-2006",
+      "name": "Summer Break",
+      "startDate": "2026-08-24",
+      "endDate": "2026-08-28",
+      "description": "Annual one-week closure before the fall term begins.",
+      "type": "SCHOOL",
+      "status": null,
+      "createdAt": "2026-04-10T11:05:00",
+      "updatedAt": "2026-04-10T11:05:00"
+    }
+  ]
+}

@@ -110,6 +110,8 @@ dependencies:
   go_router: ^17.2.3
   firebase_crashlytics: ^5.2.7
   firebase_performance: ^0.11.4+6
+  cached_network_image: ^3.4.1
+  open_file: ^4.0.0
 
 dev_dependencies:
   build_runner: ^2.1.4
@@ -144,6 +146,9 @@ flutter:
     - assets/images/icons/
     - assets/icons/
     - assets/languages/
+    - assets/data/events/
+    - assets/data/tasks/
+    - assets/data/assessments/
     - assets/forte_auto_pay.html
   fonts:
     - family: MervaleScript

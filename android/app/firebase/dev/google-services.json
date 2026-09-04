@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "431943400820",
+    "project_id": "wowcare1-dev",
+    "storage_bucket": "wowcare1-dev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:431943400820:android:35f02634eb17e4bb678021",
+        "android_client_info": {
+          "package_name": "com.wiseowl.wowcareapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB3N_mPQdhAAWQ3OG2NtWCy13EoPHAZkJQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

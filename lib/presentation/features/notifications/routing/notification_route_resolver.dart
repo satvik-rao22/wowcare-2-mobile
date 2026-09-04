@@ -59,6 +59,10 @@ class NotificationRouteResolver {
       '/dashboard/student-attendance-profile-by-code';
   static const String _staffAttendanceProfileByCode =
       '/dashboard/staff-attendance-profile-by-code';
+  static const String _tasksDetail = '/dashboard/tasks/detail';
+
+  /// The bell inbox (a top-level route, not a dashboard child).
+  static const String _notificationCenter = '/notifications';
 
   /// Resolve a notification to its destination, or null when the action is
   /// unknown / has no in-app target.
@@ -192,6 +196,24 @@ class NotificationRouteResolver {
       default:
         return null;
     }
+  }
+
+  /// Resolve a notification-center (in-app) item from its raw `data` map.
+  ///
+  /// In-app items carry the same `action` + code keys as the FCM `data` map, so
+  /// both channels share this one table — a tapped bell item lands exactly
+  /// where the equivalent push tap would.
+  static NotificationDestination? resolveData(Map<String, String> data) {
+    if ((data['action'] ?? '').trim().isEmpty) return null;
+    return resolve(
+      PushNotification(
+        title: null,
+        body: null,
+        action: data['action'],
+        type: data['type'],
+        data: data,
+      ),
+    );
   }
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -475,6 +497,38 @@ class NotificationRouteResolver {
         path: _staffProfileByCode, queryParameters: params);
   }
 
+  static const _kTask = ['taskCode', 'task_code'];
+
+  /// Task notifications open the task's own detail screen, keyed by `taskCode`.
+  ///
+  /// The contract points the three assignment-scoped actions
+  /// (`TASK_STATUS_UPDATED` / `TASK_OVERDUE` / `TASK_DUE_SOON`) at an
+  /// "assignment detail" screen, which doesn't exist in the app — their
+  /// `assignmentCode` is deliberately ignored and they land on the task instead.
+  ///
+  /// `taskCode` rides as a QUERY parameter rather than go_router's `extra`,
+  /// because notification routing goes through `appRouter.go(location)` and a
+  /// location string is all it can carry. The route reads either (see
+  /// `tasks/detail` in app_router), so the calendar's existing `push(extra:)`
+  /// call keeps working unchanged.
+  ///
+  /// Since `tasks/detail` is a child of `/dashboard`, `go` rebuilds the stack as
+  /// [Dashboard, TaskDetail] — Back from a notification-opened task lands on the
+  /// dashboard, while opening the same screen normally (pushed from the calendar
+  /// feed) keeps whatever stack the user built.
+  static NotificationDestination _taskDetail(PushNotification n) {
+    final code = _firstCode(n, _kTask);
+    // No code to open (shouldn't happen — the contract makes taskCode
+    // required): fall back to the inbox instead of an empty detail screen.
+    if (code == null) {
+      return const NotificationDestination(path: _notificationCenter);
+    }
+    return NotificationDestination(
+      path: _tasksDetail,
+      queryParameters: {'taskCode': code},
+    );
+  }
+
   /// Open a student's ATTENDANCE profile by code (self-loads identity + data).
   static NotificationDestination _studentAttendanceProfile(PushNotification n) =>
       NotificationDestination(
@@ -557,12 +611,17 @@ class NotificationRouteResolver {
         const NotificationDestination(path: AppRoutes.dashboard),
     NotificationAction.upcomingEvent: (n) =>
         const NotificationDestination(path: AppRoutes.dashboard),
-    NotificationAction.assignTask: (n) =>
-        const NotificationDestination(path: AppRoutes.dashboard),
-    NotificationAction.taskDue: (n) =>
-        const NotificationDestination(path: AppRoutes.dashboard),
-    NotificationAction.taskOverdue: (n) =>
-        const NotificationDestination(path: AppRoutes.dashboard),
+
+    // ── Tasks (all open the task's detail screen by taskCode) ───────────────
+    NotificationAction.taskAssigned: _taskDetail,
+    NotificationAction.taskUpdated: _taskDetail,
+    NotificationAction.taskStatusUpdated: _taskDetail,
+    NotificationAction.taskOverdue: _taskDetail,
+    NotificationAction.taskDueSoon: _taskDetail,
+    // Deleted: the task no longer exists, so there is nothing to open — land on
+    // the bell inbox, where the "task deleted" item itself is readable.
+    NotificationAction.taskDeleted: (n) =>
+        const NotificationDestination(path: _notificationCenter),
 
     // ── Scheduling ───────────────────────────────────────────────────────────
     // Shift mutations open the per-staff Staff Scheduling day view (jump to the
@@ -659,7 +718,7 @@ class NotificationRouteResolver {
 
     // ── Settings (no settings screen in mobile → stay in notif center) ───────
     NotificationAction.schoolSettingsChanged: (n) =>
-        const NotificationDestination(path: '/notifications'),
+        const NotificationDestination(path: _notificationCenter),
 
     // ── Geofence (native enter tap → open dashboard where sign-in card lives) ─
     NotificationAction.geofenceEnter: (n) =>

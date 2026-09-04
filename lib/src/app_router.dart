@@ -41,6 +41,20 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/open_conversation_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/presentation/features/events/cubit/events_cubit.dart';
+import 'package:wowcare/presentation/features/events/utils/event_access.dart';
+import 'package:wowcare/presentation/features/events/view/event_detail_screen.dart';
+import 'package:wowcare/presentation/features/events/view/event_form_screen.dart';
+import 'package:wowcare/presentation/features/events/view/events_screen.dart';
+import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
+import 'package:wowcare/presentation/features/assessments/cubit/assessments_cubit.dart';
+import 'package:wowcare/presentation/features/assessments/view/assessments_home_screen.dart';
+import 'package:wowcare/presentation/features/tasks/view/task_detail_screen.dart';
+import 'package:wowcare/presentation/features/tasks/view/task_form_screen.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_assignee_scope.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
+import 'package:wowcare/presentation/features/tasks/view/tasks_screen.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/notification_center_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_center_screen.dart';
 import 'package:wowcare/presentation/features/onboarding/view/onboarding_screen.dart';
@@ -74,6 +88,8 @@ import 'package:wowcare/presentation/features/kiosk/view/logout/kiosk_logout_pag
 import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_sign_in_and_sign_out.dart';
 import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+
+import '../presentation/features/students/module_access.dart';
 
 /// Top-level paths. Kept identical to the old `Screen.routeName` constants so
 /// existing call sites that read those constants keep working.
@@ -871,6 +887,205 @@ final GoRouter appRouter = GoRouter(
                     ),
                   ),
                 ),
+                // Events: list/calendar plus detail and form drill-downs.
+                // All three share the singleton EventsCubit so RSVPs and
+                // edits made on the detail/form screens reflect on the
+                // calendar without a refetch.
+                GoRoute(
+                  path: 'events',
+                  redirect: _requireEventsRead,
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    // TasksCubit rides along: the calendar's unified feed
+                    // renders task rows with the Tasks module's own card,
+                    // whose inline status/priority actions go through it.
+                    MultiBlocProvider(
+                      providers: [
+                        BlocProvider<EventsCubit>.value(
+                          value:
+                              serviceLocator<EventsCubit>()..load(silent: true),
+                        ),
+                        BlocProvider<TasksCubit>.value(
+                          value: serviceLocator<TasksCubit>()
+                            ..applyPersona(context.read<RoleCubit>().role),
+                        ),
+                      ],
+                      child: const EventsScreen(),
+                    ),
+                  ),
+                ),
+                GoRoute(
+                  path: 'events/detail',
+                  redirect: _requireEventRead,
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    // Occurrence rows arrive fully hydrated (roster, names,
+                    // myRsvp) — the detail screen needs no extra cubits or
+                    // hydration calls.
+                    return _fastPage(
+                      state,
+                      BlocProvider<EventsCubit>.value(
+                        value: serviceLocator<EventsCubit>(),
+                        child: EventDetailScreen(
+                          eventCode: args?['eventCode'] as String? ?? '',
+                          occurrenceCode:
+                              args?['occurrenceCode'] as String? ?? '',
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'events/form',
+                  redirect: _requireEventsWrite,
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    final initialDate = DateTime.tryParse(
+                      args?['initialDate'] as String? ?? '',
+                    );
+                    return _fastPage(
+                      state,
+                      MultiBlocProvider(
+                        providers: [
+                          BlocProvider<EventsCubit>.value(
+                            value: serviceLocator<EventsCubit>(),
+                          ),
+                          BlocProvider<ClassroomCubit>(
+                            create: (_) => serviceLocator<ClassroomCubit>()
+                              // Scoped staff only see their allowed
+                              // classrooms in the attendee picker (PRD
+                              // §5.1); admins stay unrestricted.
+                              ..loadActiveClassrooms(
+                                onlyTypeClassroom: false,
+                                applyAttendanceStaffScope: true,
+                              ),
+                          ),
+                          BlocProvider<StaffCubit>(
+                            create: (_) =>
+                                serviceLocator<StaffCubit>()..loadInitial(),
+                          ),
+                          BlocProvider<StudentCubit>(
+                            create: (_) =>
+                                serviceLocator<StudentCubit>()..loadInitial(),
+                          ),
+                        ],
+                        child: EventFormScreen(
+                          eventCode: args?['eventCode'] as String?,
+                          initialDate: initialDate,
+                          splitFromOccurrenceCode:
+                              args?['splitFromOccurrence'] as String?,
+                          splitFromDate: DateTime.tryParse(
+                            args?['splitFromDate'] as String? ?? '',
+                          ),
+                          editOccurrenceCode:
+                              args?['editOccurrence'] as String?,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                // Tasks: board/list plus detail and form drill-downs. All
+                // three share the singleton TasksCubit so status/priority
+                // edits reflect everywhere without a refetch. Guardians/
+                // parents are redirected away — the Tasks module is hidden
+                // from them entirely (PRD §5.2).
+                GoRoute(
+                  path: 'tasks',
+                  redirect: _requireTasksRead,
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    BlocProvider<TasksCubit>.value(
+                      // The persona is applied before the fetch so the read
+                      // boundary (PRD §5.2 — staff see only their own tasks) is
+                      // in place for the very first frame, and the My/All
+                      // default matches the persona.
+                      value: serviceLocator<TasksCubit>()
+                        ..applyPersona(context.read<RoleCubit>().role)
+                        ..load(silent: true),
+                      child: const TasksScreen(),
+                    ),
+                  ),
+                ),
+                GoRoute(
+                  path: 'tasks/detail',
+                  redirect: _requireTasksRead,
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    return _fastPage(
+                      state,
+                      BlocProvider<TasksCubit>.value(
+                        // Loaded silently as well: opening this screen
+                        // directly from the calendar feed skips the Tasks
+                        // tab, so the list may still be empty and
+                        // taskByCode would miss.
+                        value: serviceLocator<TasksCubit>()
+                          ..applyPersona(context.read<RoleCubit>().role)
+                          ..load(silent: true),
+                        child: TaskDetailScreen(
+                          // `extra` when pushed in-app (calendar / tasks list);
+                          // the query param when deep-linked from a
+                          // notification, where `go(location)` carries a URL
+                          // and nothing else.
+                          taskCode: (args?['taskCode'] as String?) ??
+                              state.uri.queryParameters['taskCode'] ??
+                              '',
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'tasks/form',
+                  redirect: _requireTasksWrite,
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    return _fastPage(
+                      state,
+                      MultiBlocProvider(
+                        providers: [
+                          BlocProvider<TasksCubit>.value(
+                            value: serviceLocator<TasksCubit>()
+                              ..applyPersona(context.read<RoleCubit>().role),
+                          ),
+                          // Assignee picker shows ACTIVE staff only
+                          // (PRD BR-ATT-01 / FR-TK-02) and is otherwise
+                          // unrestricted for every persona that can reach this
+                          // form — a staff/teacher persona may assign to any
+                          // colleague, not just its own classrooms. See
+                          // loadAssignableStaff.
+                          BlocProvider<StaffCubit>(
+                            create: (_) {
+                              final cubit = serviceLocator<StaffCubit>();
+                              loadAssignableStaff(cubit);
+                              return cubit;
+                            },
+                          ),
+                        ],
+                        child: TaskFormScreen(
+                          taskCode: args?['taskCode'] as String?,
+                          editScope: args?['editScope'] as TaskEditScope?,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                // Assessments: home (tabbed) plus student/classroom profile
+                // drill-downs. All three share the singleton AssessmentsCubit
+                // so parameter edits and saved scores reflect everywhere
+                // without refetching. Guardians/parents are redirected away —
+                // the module and all its data are hidden from them (PRD §3.2).
+                GoRoute(
+                  path: 'assessments',
+                  redirect: _blockParentsFromAssessments,
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    BlocProvider<AssessmentsCubit>.value(
+                      value: serviceLocator<AssessmentsCubit>()
+                        ..load(silent: true),
+                      child: const AssessmentsHomeScreen(),
+                    ),
+                  ),
+                ),
                 GoRoute(
                   path: 'future-availability',
                   pageBuilder: (context, state) =>
@@ -1335,6 +1550,52 @@ final GoRouter appRouter = GoRouter(
     ),
   ],
 );
+
+/// Guards every Tasks route: guardians/parents are excluded outright (PRD
+/// §5.2), and so is anyone whose `TASK` module permission is missing. Returns
+/// the dashboard path to bounce an unauthorised deep link; null lets the
+/// navigation through.
+String? _requireTasksRead(BuildContext context, GoRouterState state) {
+  final roles = context.read<RoleCubit>();
+  return TaskAccess.canAccessModule(roles) ? null : AppRoutes.dashboard;
+}
+
+/// As [_requireTasksRead], for the routes that mutate (task form). Write on
+/// `TASK` is required; per-task ownership is still enforced in the screen.
+String? _requireTasksWrite(BuildContext context, GoRouterState state) {
+  final roles = context.read<RoleCubit>();
+  return TaskAccess.canCreateTasks(roles) ? null : AppRoutes.dashboard;
+}
+
+/// Guards the Events screen. Read on any of `EVENT` / `HOLIDAY` / `CALENDAR`
+/// opens it; each tab and the calendar feed then gate themselves per module.
+String? _requireEventsRead(BuildContext context, GoRouterState state) {
+  final roles = context.read<RoleCubit>();
+  return EventAccess.canOpenModule(roles) ? null : AppRoutes.dashboard;
+}
+
+/// Guards a single event (detail). Unlike the screen guard this needs `EVENT`
+/// itself — holiday-only or calendar-only access must not open an event.
+String? _requireEventRead(BuildContext context, GoRouterState state) {
+  final roles = context.read<RoleCubit>();
+  return roles.canReadModule(AppAccessModules.event)
+      ? null
+      : AppRoutes.dashboard;
+}
+
+/// As [_requireEventsRead], for the event form. Write on `EVENT` is required;
+/// creator-only editing for staff is still enforced in the screen.
+String? _requireEventsWrite(BuildContext context, GoRouterState state) {
+  final roles = context.read<RoleCubit>();
+  return EventAccess.canCreateEvents(roles) ? null : AppRoutes.dashboard;
+}
+
+/// Keeps guardians/parents out of every Assessments route — the module and all
+/// its data are hidden from them this release (PRD §3.2 / §5). Returns the
+/// dashboard path to bounce a parent; null lets admins/staff through.
+String? _blockParentsFromAssessments(BuildContext context, GoRouterState state) {
+  return context.read<RoleCubit>().isParent ? AppRoutes.dashboard : null;
+}
 
 Widget _editProfileDetailsScreen(Object? extra) {
   final args = extra as Map<String, dynamic>?;

@@ -258,6 +258,28 @@ class _ActionsRow extends StatelessWidget {
 class _NotificationsList extends StatefulWidget {
   const _NotificationsList();
 
+  /// Mark the item read, then deep-link where the equivalent PUSH tap would go.
+  ///
+  /// In-app items carry the same `action` + code keys as the FCM `data` map, so
+  /// this goes through the same [NotificationRouteResolver] table as push —
+  /// the two channels cannot drift apart. `go` (not `push`) is deliberate: it
+  /// leaves the user on the same stack a push tap would ([Dashboard, target]),
+  /// so Back behaves identically no matter which channel opened the screen.
+  void _onNotificationTap(BuildContext context, AppNotification notification) {
+    unawaited(
+      context.read<NotificationCenterCubit>().markAsRead(notification.id),
+    );
+    final destination =
+        NotificationRouteResolver.resolveData(notification.data);
+    // No action / unmapped action, or an action whose target IS this screen
+    // (TASK_DELETED): stay put — marking it read is the whole interaction.
+    if (destination == null ||
+        destination.path == NotificationCenterScreen.routeName) {
+      return;
+    }
+    appRouter.go(destination.location);
+  }
+
   @override
   State<_NotificationsList> createState() => _NotificationsListState();
 }
