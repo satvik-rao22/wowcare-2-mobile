@@ -249,6 +249,9 @@ class ReportsRepositoryImpl implements ReportsRepository {
 
   @override
   Future<String> getReportDownloadUrl(String assetCode) async {
+    if (assetCode.startsWith('base64:')) {
+      return assetCode;
+    }
     AppLogger.d('Getting download URL for asset: $assetCode');
     return _remoteDataSource.getReportDownloadUrl(assetCode);
   }
