@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/domain/features/student/entities/student_regular_schedule_input.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
@@ -69,8 +70,8 @@ class _FakeUpdateSchedulesUseCase extends UpdateStudentRegularSchedulesUseCase {
 
   int calls = 0;
   final List<String> studentCodes = <String>[];
-  final List<List<Map<String, dynamic>>> schedules =
-      <List<Map<String, dynamic>>>[];
+  final List<List<StudentRegularScheduleInput>> schedules =
+      <List<StudentRegularScheduleInput>>[];
   Object? error;
   String result = 'Schedule updated';
   Completer<String>? gate;
@@ -79,7 +80,7 @@ class _FakeUpdateSchedulesUseCase extends UpdateStudentRegularSchedulesUseCase {
   Future<String> call({
     required String schoolCode,
     required String studentCode,
-    required List<Map<String, dynamic>> schedule,
+    required List<StudentRegularScheduleInput> schedule,
   }) {
     calls++;
     studentCodes.add(studentCode);
@@ -136,8 +137,13 @@ void main() {
       final fakes = _Fakes();
       final cubit = fakes.build();
 
-      final schedule = [
-        {'dayOfWeek': 'MONDAY', 'startTime': '09:00'},
+      const schedule = [
+        StudentRegularScheduleInput(
+          dayOfWeek: 'MONDAY',
+          startTime: '09:00:00',
+          halfDay: '12:00:00',
+          endTime: '16:00:00',
+        ),
       ];
       final result = await cubit.updateRegularSchedules(
         schoolCode: 'SCH1',

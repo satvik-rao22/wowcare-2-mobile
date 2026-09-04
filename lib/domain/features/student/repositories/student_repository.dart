@@ -14,6 +14,7 @@ import '../entities/student_physician.dart';
 import '../entities/student_pickup.dart';
 import '../entities/student_profile.dart';
 import '../entities/student_regular_schedule.dart';
+import '../entities/student_regular_schedule_input.dart';
 import '../entities/student_settings.dart';
 import '../entities/vaccine_item.dart';
 
@@ -32,7 +33,7 @@ abstract class StudentRepository {
   Future<String> updateStudentRegularSchedules({
     required String schoolCode,
     required String studentCode,
-    required List<Map<String, dynamic>> schedule,
+    required List<StudentRegularScheduleInput> schedule,
   });
 
   Future<StudentPage> getStudentPage({

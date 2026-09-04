@@ -20,6 +20,7 @@ import '../../../../domain/features/student/entities/student_physician.dart';
 import '../../../../domain/features/student/entities/student_pickup.dart';
 import '../../../../domain/features/student/entities/student_profile.dart';
 import '../../../../domain/features/student/entities/student_regular_schedule.dart';
+import '../../../../domain/features/student/entities/student_regular_schedule_input.dart';
 import '../../../../domain/features/student/entities/vaccine_item.dart';
 import '../../../../domain/features/student/repositories/student_repository.dart';
 import '../datasources/student_remote_datasource.dart';
@@ -29,6 +30,7 @@ import '../mappers/student_health_update_request_mapper.dart';
 import '../mappers/update_student_address_request_mapper.dart';
 import '../mappers/update_student_profile_request_mapper.dart';
 import '../mappers/update_guardian_request_mapper.dart';
+import '../mappers/student_regular_schedule_input_mapper.dart';
 import '../mappers/student_health_mapper.dart';
 import '../mappers/student_immunization_mapper.dart';
 import '../mappers/student_physical_exam_mapper.dart';
@@ -143,12 +145,12 @@ class StudentRepositoryImpl
   Future<String> updateStudentRegularSchedules({
     required String schoolCode,
     required String studentCode,
-    required List<Map<String, dynamic>> schedule,
+    required List<StudentRegularScheduleInput> schedule,
   }) {
     return _remoteDataSource.updateStudentRegularSchedules(
       schoolCode: schoolCode,
       studentCode: studentCode,
-      schedule: schedule,
+      schedule: schedule.map(studentRegularScheduleInputToPayload).toList(),
     );
   }
 

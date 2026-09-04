@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/domain/features/student/entities/student_regular_schedule_input.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
@@ -694,7 +695,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                 if (result == null || result.isEmpty) return;
 
                 try {
-                  final List<Map<String, dynamic>> payloadSchedule = [];
+                  final List<StudentRegularScheduleInput> payloadSchedule = [];
 
                   String _formatLocalTime(TimeOfDay time) {
                     final h = time.hour.toString().padLeft(2, '0');
@@ -721,12 +722,14 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                       minute: midMinutes % 60,
                     );
 
-                    payloadSchedule.add({
-                      'dayOfWeek': dayName.toUpperCase(), // e.g. MONDAY
-                      'startTime': _formatLocalTime(start),
-                      'halfDay': _formatLocalTime(halfDay),
-                      'endTime': _formatLocalTime(end),
-                    });
+                    payloadSchedule.add(
+                      StudentRegularScheduleInput(
+                        dayOfWeek: dayName.toUpperCase(), // e.g. MONDAY
+                        startTime: _formatLocalTime(start),
+                        halfDay: _formatLocalTime(halfDay),
+                        endTime: _formatLocalTime(end),
+                      ),
+                    );
                   }
 
                   if (payloadSchedule.isEmpty) return;

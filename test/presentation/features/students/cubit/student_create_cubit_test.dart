@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/domain/features/student/entities/student_regular_schedule_input.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
@@ -230,7 +231,7 @@ class _FakeUpdateSchedulesUseCase extends UpdateStudentRegularSchedulesUseCase {
   Future<String> call({
     required String schoolCode,
     required String studentCode,
-    required List<Map<String, dynamic>> schedule,
+    required List<StudentRegularScheduleInput> schedule,
   }) {
     calls++;
     if (error != null) return Future.error(error!);
@@ -413,7 +414,12 @@ void main() {
         schoolCode: 'SCH',
         studentCode: 'STU1',
         schedule: const [
-          {'dayOfWeek': 'MONDAY'},
+          StudentRegularScheduleInput(
+            dayOfWeek: 'MONDAY',
+            startTime: '08:00:00',
+            halfDay: '12:00:00',
+            endTime: '16:00:00',
+          ),
         ],
       );
 

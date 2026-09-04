@@ -1,4 +1,5 @@
 import 'package:bloc/bloc.dart';
+import 'package:wowcare/domain/features/student/entities/student_regular_schedule_input.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../../domain/features/student/entities/student_health.dart';
@@ -95,7 +96,7 @@ class StudentProfileCubit extends Cubit<StudentProfileState> {
   Future<String> updateRegularSchedules({
     required String schoolCode,
     required String studentCode,
-    required List<Map<String, dynamic>> schedule,
+    required List<StudentRegularScheduleInput> schedule,
   }) {
     return _singleFlight<String>('updateSchedule:$studentCode', () async {
       if (!isClosed) emit(state.copyWith(mutationInProgress: true));
