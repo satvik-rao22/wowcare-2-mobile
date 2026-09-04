@@ -2,8 +2,9 @@
 
 > Branch `audit/student-fixes`. Goal: no raw JSON (`Map<String,dynamic>`) leaks into student
 > presentation / domain entities / cubit state where a typed model fits. Serialization belongs to the
-> data layer (Model → Mapper → Entity; Domain Request → Mapper → payload). Scope chosen: **A, B, C**
-> (D deferred; E kept). Test-first, each verified.
+> data layer (Model → Mapper → Entity; Domain Request → Mapper → payload). Scope: **A, B, C, D** all done
+> (D added in a later pass, one endpoint per commit); E kept. Test-first, each verified. The student domain
+> is now raw-map-free (only doc comments reference the old shapes).
 
 ## AUDIT (classified)
 Searched student domain/presentation/data for `Map<String,dynamic>`, `fromMap(`, `toMap(`, `toPayload(`,
@@ -33,10 +34,20 @@ serialization — two domain leaks were the exception.
   `student_screen` studentMap value. All construction/read sites typed; 4 cross-module callers of
   `StudentProfileScreen` (app_router, classroom, availability, user-profile) + 1 widget test updated. 2 tests.
 
+### D — repository-contract raw maps ✅ (done — one endpoint per commit)
+All five domain-contract raw maps are now typed request/response models with data-layer mappers:
+- **`updateStudentAddress`** → `UpdateStudentAddressRequest` (schoolCode kept as a cache hint, not in body).
+- **`updateStudentProfile`** → `UpdateStudentProfileRequest` (mapper omits dob/gender when null; nested classroom).
+- **`updateGuardian`** → `UpdateGuardianRequest` (superset; optional code/relationshipDescription/updatedBy so
+  the custody flow and the edit-guardian flow each reproduce their exact body; both cubits typed).
+- **`updateStudentRegularSchedules`** → `List<StudentRegularScheduleInput>` (write model, distinct from the READ
+  `StudentRegularScheduleEntry`). NOTE: step1 still calls the datasource directly (pre-existing repo bypass) —
+  separate architecture concern, out of scope.
+- **`getGuardianProfile`** (the one read) → `GuardianProfile`; the mapper owns the lenient key-alias parsing that
+  used to live in `guardian_code_resolver`.
+Each endpoint threaded repo interface → use case → cubit(s) → repo impl → callers, test-first, verified.
+
 ## DEFERRED / KEPT (authorized)
-- **D (deferred):** `student_repository.dart` + its use-cases' `Map<String,dynamic> fields` / `List<..>
-  schedule` / `getGuardianProfile` — typing these needs request models threaded repo→usecase→cubit→impl
-  (largest, most cross-cutting). Parked by decision.
 - **E (kept):** shared `CalendarDialog` `showDialog<Map<String,dynamic>>` results (shared-widget contract);
   `student_screen._studentToMap`/`_activityStudentMaps` + `student_action_panel.activityStudentMaps`
   (cross-module activity boundary — needs activity-module coordination); `student_filter_screen.jsonDecode`
