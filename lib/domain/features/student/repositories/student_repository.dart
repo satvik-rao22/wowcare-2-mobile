@@ -3,6 +3,7 @@ import '../entities/student.dart';
 import '../entities/student_documents_page.dart';
 import '../entities/student_guardian.dart';
 import '../entities/update_student_address_request.dart';
+import '../entities/update_student_profile_request.dart';
 import '../entities/student_health.dart';
 import '../entities/student_health_update_request.dart';
 import '../entities/student_immunization.dart';
@@ -77,11 +78,9 @@ abstract class StudentRepository {
   });
 
   /// Updates student profile core details via `/api/v1/student/{code}/profile`.
-  ///
-  /// [fields] should follow the backend PATCH contract for `/api/v1/student/{code}/profile`.
   Future<String> updateStudentProfile({
     required String code,
-    required Map<String, dynamic> fields,
+    required UpdateStudentProfileRequest request,
   });
 
   /// Updates the student's address via `/api/v1/student/{studentCode}/address`.

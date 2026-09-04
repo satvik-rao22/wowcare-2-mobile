@@ -18,6 +18,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
 import 'package:wowcare/domain/features/student/entities/update_student_address_request.dart';
+import 'package:wowcare/domain/features/student/entities/update_student_profile_request.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_profile_edit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:intl/intl.dart';
@@ -691,23 +692,19 @@ class _EditStudentProfileDetailsScreenState
       // 1) Core profile PATCH /api/v1/student/{code}/profile
       final genderApi = _genderApiFromDisplay(_selectedGender);
 
-      final profilePayload = <String, dynamic>{
-        'firstName': first,
-        'lastName': last,
-        'status': statusApi,
-        if (dobFormatted != null) 'dob': dobFormatted,
-        'notes': _notesController.text.trim(),
-        'subsidy': subsidy,
-        if (genderApi != null) 'gender': genderApi.toUpperCase(),
-        'classroom': <String, dynamic>{
-          'code': classroomCode,
-          'name': selectedClassroomName,
-        },
-      };
-
       final message = await _profileEditCubit.updateProfile(
         code: widget.studentCode,
-        fields: profilePayload,
+        request: UpdateStudentProfileRequest(
+          firstName: first,
+          lastName: last,
+          status: statusApi,
+          dob: dobFormatted,
+          notes: _notesController.text.trim(),
+          subsidy: subsidy,
+          gender: genderApi?.toUpperCase(),
+          classroomCode: classroomCode,
+          classroomName: selectedClassroomName,
+        ),
       );
 
       // 2) Address PATCH /api/v1/student/{studentCode}/address

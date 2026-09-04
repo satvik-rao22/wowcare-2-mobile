@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import '../../../../domain/features/student/entities/student.dart';
 import '../../../../domain/features/student/entities/student_guardian.dart';
 import '../../../../domain/features/student/entities/update_student_address_request.dart';
+import '../../../../domain/features/student/entities/update_student_profile_request.dart';
 import '../../../../domain/features/student/usecases/get_student_guardians_usecase.dart';
 import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../../../domain/features/student/usecases/update_guardian_usecase.dart';
@@ -212,12 +213,12 @@ class StudentProfileEditCubit extends Cubit<StudentProfileEditState> {
 
   Future<String> updateProfile({
     required String code,
-    required Map<String, dynamic> fields,
+    required UpdateStudentProfileRequest request,
   }) {
     return _singleFlight<String>('updateProfile:$code', () async {
       if (!isClosed) emit(state.copyWith(mutationInProgress: true));
       try {
-        return await _updateStudentProfileUseCase(code: code, fields: fields);
+        return await _updateStudentProfileUseCase(code: code, request: request);
       } finally {
         if (!isClosed) emit(state.copyWith(mutationInProgress: false));
       }

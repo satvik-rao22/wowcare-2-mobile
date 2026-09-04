@@ -1,3 +1,4 @@
+import '../entities/update_student_profile_request.dart';
 import '../repositories/student_repository.dart';
 
 /// Use case to update a student's core profile details.
@@ -8,8 +9,11 @@ class UpdateStudentProfileUseCase {
 
   Future<String> call({
     required String code,
-    required Map<String, dynamic> fields,
+    required UpdateStudentProfileRequest request,
   }) {
-    return _repository.updateStudentProfile(code: code, fields: fields);
+    return _repository.updateStudentProfile(
+      code: code,
+      request: request,
+    );
   }
 }

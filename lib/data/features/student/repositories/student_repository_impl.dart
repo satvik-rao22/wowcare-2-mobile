@@ -9,6 +9,7 @@ import '../../../../domain/features/student/entities/student_document.dart';
 import '../../../../domain/features/student/entities/student_documents_page.dart';
 import '../../../../domain/features/student/entities/student_guardian.dart';
 import '../../../../domain/features/student/entities/update_student_address_request.dart';
+import '../../../../domain/features/student/entities/update_student_profile_request.dart';
 import '../../../../domain/features/student/entities/student_health.dart';
 import '../../../../domain/features/student/entities/student_health_update_request.dart';
 import '../../../../domain/features/student/entities/student_immunization.dart';
@@ -25,6 +26,7 @@ import '../mappers/student_guardian_mapper.dart';
 import '../mappers/school_guardian_summary_mapper.dart';
 import '../mappers/student_health_update_request_mapper.dart';
 import '../mappers/update_student_address_request_mapper.dart';
+import '../mappers/update_student_profile_request_mapper.dart';
 import '../mappers/student_health_mapper.dart';
 import '../mappers/student_immunization_mapper.dart';
 import '../mappers/student_physical_exam_mapper.dart';
@@ -1608,14 +1610,14 @@ class StudentRepositoryImpl
   @override
   Future<String> updateStudentProfile({
     required String code,
-    required Map<String, dynamic> fields,
+    required UpdateStudentProfileRequest request,
   }) async {
     final message = await _remoteDataSource.updateStudentProfile(
       code: code,
-      body: fields,
+      body: updateStudentProfileRequestToPayload(request),
     );
 
-    final schoolCode = (fields['schoolCode'] ?? '').toString().trim();
+    final schoolCode = (request.schoolCode ?? '').trim();
     if (schoolCode.isNotEmpty) {
       await _invalidateStudentListAndSummaryCaches(schoolCode: schoolCode);
     } else {

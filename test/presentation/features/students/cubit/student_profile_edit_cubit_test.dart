@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
 import 'package:wowcare/domain/features/student/entities/update_student_address_request.dart';
+import 'package:wowcare/domain/features/student/entities/update_student_profile_request.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_guardians_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
@@ -13,6 +14,14 @@ import 'package:wowcare/domain/features/student/usecases/update_student_profile_
 import 'package:wowcare/domain/features/student/usecases/update_student_siblings_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/update_student_tags_usecase.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_profile_edit_cubit.dart';
+
+const _profileReq = UpdateStudentProfileRequest(
+  firstName: 'A',
+  lastName: 'B',
+  status: 'ACTIVE',
+  classroomCode: 'CLS_1',
+  classroomName: 'Blue-A',
+);
 
 StudentGuardian _guardian(String code) => StudentGuardian(
   guardianCode: code,
@@ -99,12 +108,16 @@ class _FakeUpdateProfileUseCase extends UpdateStudentProfileUseCase {
   String result = 'profile updated';
   Completer<String>? gate;
 
+  final List<UpdateStudentProfileRequest> requests =
+      <UpdateStudentProfileRequest>[];
+
   @override
   Future<String> call({
     required String code,
-    required Map<String, dynamic> fields,
+    required UpdateStudentProfileRequest request,
   }) {
     calls++;
+    requests.add(request);
     if (error != null) return Future.error(error!);
     if (gate != null) return gate!.future;
     return Future.value(result);
@@ -246,10 +259,7 @@ void main() {
       final fakes = _Fakes();
       final cubit = fakes.build();
 
-      final message = await cubit.updateProfile(
-        code: 'S1',
-        fields: const {'firstName': 'A'},
-      );
+      final message = await cubit.updateProfile(code: 'S1', request: _profileReq);
 
       expect(fakes.updateProfile.calls, 1);
       expect(message, 'profile updated');
@@ -329,7 +339,7 @@ void main() {
       final cubit = fakes.build();
 
       await expectLater(
-        cubit.updateProfile(code: 'S1', fields: const {}),
+        cubit.updateProfile(code: 'S1', request: _profileReq),
         throwsA(isA<Exception>()),
       );
       await cubit.close();
@@ -406,8 +416,8 @@ void main() {
       fakes.updateProfile.gate = gate;
       final cubit = fakes.build();
 
-      final f1 = cubit.updateProfile(code: 'S1', fields: const {'a': 1});
-      final f2 = cubit.updateProfile(code: 'S1', fields: const {'a': 1});
+      final f1 = cubit.updateProfile(code: 'S1', request: _profileReq);
+      final f2 = cubit.updateProfile(code: 'S1', request: _profileReq);
 
       expect(identical(f1, f2), isTrue);
 
