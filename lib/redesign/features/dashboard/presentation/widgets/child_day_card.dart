@@ -89,11 +89,12 @@ class ChildDayCard extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: _Fact(
-                  label: child.isSignedIn
-                      ? AppStrings.signedIn
-                      : AppStrings.notMarked,
+                  // The eyebrow is the status the pill beside it reports, so
+                  // a signed-out or absent student is not mislabelled Not
+                  // Marked while its own pill says otherwise.
+                  label: _statusWord,
                   value: child.inTimeLabel ?? '',
-                  valueColor: child.isSignedIn ? c.successFg : c.ink3,
+                  valueColor: _statusInk(c),
                 ),
               ),
               Expanded(
