@@ -12,6 +12,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:mime/mime.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_document_cubit.dart';
@@ -216,7 +217,9 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
 
     if (_selectedFile != null) {
       fileSizeKb = (_selectedFile!.size / 1024).ceil();
-      mimeType = FilePickerUtils.getMimeType(_selectedFile!.extension);
+      mimeType =
+          lookupMimeType(_selectedFile!.path ?? _selectedFile!.name) ??
+          FilePickerUtils.getMimeType(_selectedFile!.extension);
       documentUrl = _uploadedDocumentUrl ?? _selectedFile!.name;
       if (_uploadedAssetCode == null || _uploadedAssetCode!.trim().isEmpty) {
         CoreUtils.showTopSnackBar(

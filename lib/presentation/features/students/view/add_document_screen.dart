@@ -13,6 +13,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:mime/mime.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -173,7 +174,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     if (_selectedFile != null) {
       storagePath = _uploadedStoragePath ?? _selectedFile!.name;
       sizeBytes = _selectedFile!.size;
-      mimeType = FilePickerUtils.getMimeType(_selectedFile!.extension);
+      mimeType =
+          lookupMimeType(_selectedFile!.path ?? _selectedFile!.name) ??
+          FilePickerUtils.getMimeType(_selectedFile!.extension);
       if (_uploadedAssetCode == null || _uploadedAssetCode!.trim().isEmpty) {
         _showWarningMessage('Please wait for file upload to complete');
         return;
@@ -356,7 +359,16 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         _showErrorMessage('Selected file is not accessible');
         return;
       }
-      final mimeType = FilePickerUtils.getMimeType(selectedFile.extension);
+      // lookupMimeType checks the real file name/bytes first, falling back to
+      // the extension-only map only when it can't tell - a bare-extension
+      // lookup alone sends 'application/octet-stream' for anything it
+      // doesn't recognize (e.g. an audio file slipped past the picker's
+      // extension filter), which surfaces as a meaningless "Content type
+      // 'application/octet-stream' is not allowed" instead of the backend's
+      // actual, specific rejection reason.
+      final mimeType =
+          lookupMimeType(selectedPath) ??
+          FilePickerUtils.getMimeType(selectedFile.extension);
       final uploadService = serviceLocator<ImageUploadService>();
       final uploadSession = await uploadService
           .createStudentDocumentUploadSession(

@@ -122,6 +122,19 @@ class FilePickerUtils {
       'mov': 'video/quicktime',
       'webm': 'video/webm',
       'csv': 'text/csv',
+      // Not accepted as a DOCUMENT/IMAGE/VIDEO by the backend, but real
+      // extensions a device file picker can still hand back (e.g. Android's
+      // "Files"/WhatsApp pickers ignore allowedExtensions on some OEMs) -
+      // mapping them to their real audio/* type lets the backend's own
+      // "Content type 'audio/mpeg' is not allowed for ..." message reach the
+      // user instead of a meaningless "'application/octet-stream' is not
+      // allowed" fallback.
+      'mp3': 'audio/mpeg',
+      'm4a': 'audio/mp4',
+      'wav': 'audio/x-wav',
+      'aac': 'audio/aac',
+      'ogg': 'audio/ogg',
+      'opus': 'audio/opus',
     };
 
     return mimeTypes[ext] ?? 'application/octet-stream';
