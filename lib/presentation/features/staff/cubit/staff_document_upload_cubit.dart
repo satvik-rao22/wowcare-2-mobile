@@ -169,12 +169,15 @@ class StaffDocumentUploadCubit extends Cubit<StaffDocumentUploadState> {
     } catch (e) {
       if (isClosed) return;
       // Was raw '$e' - a DioException's toString() dump instead of the
-      // actual backend reason (e.g. "Content type 'application/octet-stream'
-      // is not allowed for DOCUMENT.") the {success, message, data} envelope
-      // already carries. extractErrorMessage pulls that out.
+      // actual backend reason, which the {success, message, data} envelope
+      // already carries. extractErrorMessage pulls that out; a rejected
+      // content-type ("Content type 'application/octet-stream' is not
+      // allowed for DOCUMENT.") is further translated into plain language -
+      // a user can't act on "content type" or "octet-stream".
+      final backendMessage = ApiErrorHandler.extractErrorMessage(e);
       emit(
         StaffDocumentUploadState.error(
-          'Failed to upload file: ${ApiErrorHandler.extractErrorMessage(e)}',
+          FilePickerUtils.friendlyUploadErrorMessage(backendMessage),
         ),
       );
     }

@@ -89,13 +89,14 @@ class FilePickerUtils {
   /// Returns the mime type based on the file extension.
   static String getMimeType(String? extension) {
     if (extension == null) return 'application/octet-stream';
-    
+
     final ext = extension.toLowerCase().replaceAll('.', '');
-    
+
     const mimeTypes = {
       'pdf': 'application/pdf',
       'doc': 'application/msword',
-      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'docx':
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'jpeg': 'image/jpeg',
       'jpg': 'image/jpeg',
       'png': 'image/png',
@@ -110,14 +111,34 @@ class FilePickerUtils {
       'tif': 'image/tiff',
       'tiff': 'image/tiff',
       'xls': 'application/vnd.ms-excel',
-      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'xlsx':
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'ppt': 'application/vnd.ms-powerpoint',
-      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'pptx':
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       'mp4': 'video/mp4',
       'mov': 'video/quicktime',
       'webm': 'video/webm',
     };
-    
+
     return mimeTypes[ext] ?? 'application/octet-stream';
+  }
+
+  /// Translates a backend upload-rejection message into user-friendly copy.
+  ///
+  /// The backend's actual wording for a rejected file
+  /// ("Content type 'application/octet-stream' is not allowed for
+  /// DOCUMENT.") is accurate but not something a non-technical user should
+  /// have to parse — they can't act on "content type" or "octet-stream".
+  /// Detects that class of rejection and returns a plain-language message
+  /// instead; any other backend message (network, size limit, etc.) is
+  /// returned unchanged since it's already meant for the user to read.
+  static String friendlyUploadErrorMessage(String backendMessage) {
+    final lower = backendMessage.toLowerCase();
+    if (lower.contains('content type') && lower.contains('not allowed')) {
+      return "This file's format isn't supported. Please choose a "
+          'different file and try again.';
+    }
+    return backendMessage;
   }
 }
