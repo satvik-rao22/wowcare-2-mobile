@@ -1,12 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 
 class TimeWidget extends StatefulWidget {
@@ -124,10 +123,8 @@ class _TimeWidgetState extends State<TimeWidget> {
   Future<void> _setSchoolDefaultTimeIfNeeded() async {
     if (widget.prefilledTime != null && widget.prefilledTime!.trim().isNotEmpty) return;
     if (widget.initialTime != null) return;
-    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
-    );
+    final schoolTimeZone =
+        await context.read<ActivityEditorCubit>().resolveSchoolTimezone();
     final schoolNow = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTimeZone).$2;
     if (!mounted || _userPickedManually) return;
     setState(() {

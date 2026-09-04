@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -8,9 +9,10 @@ import 'package:wowcare/domain/features/activity/entities/activity_feed_row.dart
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart'
     hide StudentAttendanceTime;
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_daily.dart';
-import 'package:wowcare/presentation/features/activities/cubit/activity_feed_data_source.dart';
-import 'package:wowcare/presentation/features/activities/cubit/activity_feed_query.dart';
-import 'package:wowcare/presentation/features/activities/cubit/activity_feed_state.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_feed_data_source.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_feed_query.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_feed_state.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_parent_feed_merge.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_item.dart';
 // Reuses the top-level, presentation-agnostic feed helpers that live in the
 // daily-tab library (importing them, per the migration plan — the View is NOT
@@ -110,6 +112,15 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
   /// The query the currently-loaded feed belongs to (for [loadNextPage]).
   ActivityFeedQuery? _query;
 
+  /// When non-null, the currently-loaded feed is a GUARDIAN/PARENT fan-out
+  /// (one feed call per student, each in its own classroom) — set by
+  /// [loadDailyForGuardian]/[loadRangeForGuardian] and consulted by
+  /// [loadNextPage] to continue the same fan-out for the next page. Cleared
+  /// back to `null` by a subsequent plain [loadDaily]/[loadRange] so
+  /// pagination doesn't stay in guardian fan-out mode after a non-guardian
+  /// load. Maps studentCode -> that student's classroomCode.
+  Map<String, String>? _guardianClassroomByCode;
+
   // --------------------------------------------------------------------------
   // Public API
   // --------------------------------------------------------------------------
@@ -123,6 +134,7 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
   /// live school changed) before emitting.
   Future<void> loadDaily(ActivityFeedQuery query, {bool refresh = false}) async {
     _query = query;
+    _guardianClassroomByCode = null;
 
     if (query.schoolCode.isEmpty ||
         query.classroomCode.isEmpty ||
@@ -226,24 +238,435 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
           isRefreshing: false,
           isLoadingMore: false,
           hasMore: false,
-          error: e.toString(),
+          error: ApiErrorHandler.extractErrorMessage(e),
         ),
       );
     }
   }
 
-  /// Pagination — port of `_loadNextDailyFeedPage`. Single-flight on
-  /// [ActivityFeedState.isLoadingMore]; captures the generation WITHOUT bumping;
-  /// appends the next page, regroups + dedupes against the existing items,
-  /// advances `nextPage`, updates `hasMore`; DISCARDS the response if it went
-  /// stale (a refresh bumped the generation / school switched) before emitting.
+  /// Full range-feed load — the date-RANGE counterpart of [loadDaily], port
+  /// of `activity_custom_tab.dart`'s `_loadRangeFeed`. Structurally identical
+  /// to [loadDaily] (same generation guard, same live-school snapshot, same
+  /// emit-loading/emit-result/emit-error shape) except: it additionally
+  /// requires [ActivityFeedQuery.endDateStr] to be non-empty before it will
+  /// run, it calls [ActivityFeedDataSource.getRangeActivityFeed] instead of
+  /// `getDailyActivityFeed` (start/end bound instead of a single date), and it
+  /// threads `query.endDateStr` through to [_fetchAttendanceSubPages] so the
+  /// attendance/absent sub-fetches are range-bound too.
+  Future<void> loadRange(ActivityFeedQuery query, {bool refresh = false}) async {
+    _query = query;
+    _guardianClassroomByCode = null;
+
+    if (query.schoolCode.isEmpty ||
+        query.classroomCode.isEmpty ||
+        query.dateStr.isEmpty ||
+        (query.endDateStr ?? '').isEmpty) {
+      // Mirrors the View's early-return: clear the feed when the request isn't
+      // ready (no school / classroom / start date / end date resolved yet).
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            items: const <ActivityItem>[],
+            isLoading: false,
+            isRefreshing: false,
+            isLoadingMore: false,
+            hasMore: false,
+            nextPage: 0,
+            query: query,
+          ),
+        );
+      }
+      return;
+    }
+
+    final endDateStr = query.endDateStr!;
+    final feedGen = ++_generation;
+    final schoolAtStart = await _readLiveSchool();
+
+    if (!isClosed) {
+      emit(
+        state.copyWith(
+          isLoading: !refresh,
+          isRefreshing: refresh,
+          isLoadingMore: false,
+          hasMore: true,
+          error: null,
+          generation: feedGen,
+          query: query,
+        ),
+      );
+    }
+
+    try {
+      final activityFeedPage = await _dataSource.getRangeActivityFeed(
+        classroomCode: query.classroomCode,
+        startDate: query.dateStr,
+        endDate: endDateStr,
+        studentCode: query.studentCode,
+        classroomCodes: query.classroomCodes,
+        studentCodes: query.studentCodes,
+        activityTypeCodes: query.typeCodes,
+        approvalStatuses: query.approvalStatuses,
+        guardianPersona: query.guardianPersona,
+        page: 0,
+        size: query.pageSize,
+      );
+
+      final sub = await _fetchAttendanceSubPages(
+        query,
+        page: 0,
+        endDateStr: endDateStr,
+      );
+
+      await _primeStaffDisplayNames(activityFeedPage.content);
+      await primeActivityFeedOptionLabelsFromRows(activityFeedPage.content);
+
+      final items = <ActivityItem>[
+        if (sub.attendance != null)
+          ..._withTagFilterOnly(
+            _mapAttendanceDailyPageToItems(sub.attendance!, query),
+          ),
+        if (sub.absent != null)
+          ..._withTagFilterOnly(_mapAbsentRecordsPageToItems(sub.absent!)),
+        ..._mapDailyFeedPageToItems(activityFeedPage, query),
+      ]..sort(_compareActivityItemsByTimeDesc);
+
+      await _refreshLiveSchool();
+      if (_isStale(feedGen, schoolAtStart)) return;
+
+      // Range queries require date+time match when grouping same-time,
+      // same-classroom attendance events — otherwise same-time sign-ins on
+      // DIFFERENT days would incorrectly merge into one card and silently
+      // drop a day. Mirrors `_loadRangeFeed`'s `attendanceRequireDateAndTimeMatch:
+      // true` (the daily path passes `false`, safe there because every row in
+      // a daily page already shares one day).
+      final grouped = dedupeActivitiesByStableId(
+        groupMultiStudentFeedItems(
+          items,
+          attendanceRequireDateAndTimeMatch: true,
+        )..sort(_compareActivityItemsByTimeDesc),
+      );
+      final hasMore = (sub.attendance?.hasMore ?? false) ||
+          (sub.absent?.hasMore ?? false) ||
+          !activityFeedPage.last;
+
+      emit(
+        state.copyWith(
+          items: grouped,
+          isLoading: false,
+          isRefreshing: false,
+          isLoadingMore: false,
+          error: null,
+          hasMore: hasMore,
+          nextPage: hasMore ? 1 : 0,
+          generation: feedGen,
+          query: query,
+        ),
+      );
+    } catch (e) {
+      await _refreshLiveSchool();
+      if (_isStale(feedGen, schoolAtStart)) return;
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          isLoadingMore: false,
+          hasMore: false,
+          error: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
+    }
+  }
+
+  /// GUARDIAN/PARENT fan-out daily load — port of `activity_daily_tab.dart`'s
+  /// `_loadParentHomeDailyFeed`. A guardian can have multiple children in
+  /// DIFFERENT classrooms, so unlike [loadDaily] (one feed call, one
+  /// classroom) this issues ONE `getDailyActivityFeed` call PER STUDENT in
+  /// [studentClassroomByCode] (studentCode -> that student's classroomCode),
+  /// merges the resulting pages via [mergeActivityFeedPages], and otherwise
+  /// mirrors [loadDaily]'s generation guard / live-school snapshot / tri-source
+  /// assembly / grouping (`attendanceRequireDateAndTimeMatch: false`, same as
+  /// [loadDaily]) / emit shape. [baseQuery] carries every filter EXCEPT the
+  /// per-student classroom scoping (its `classroomCode`/`studentCode`/
+  /// `studentCodes` are not used for the fan-out); it must have
+  /// `guardianPersona: true` set by the caller. The attendance/absent
+  /// sub-fetch is guardian-scoped via [_fetchAttendanceSubPages]'s
+  /// `studentCodesOverride` — see that method's doc for why `classroomCodes`
+  /// is omitted entirely in that mode. Stores [studentClassroomByCode] so
+  /// [loadNextPage] can continue the fan-out.
+  Future<void> loadDailyForGuardian(
+    ActivityFeedQuery baseQuery,
+    Map<String, String> studentClassroomByCode, {
+    bool refresh = false,
+  }) async {
+    _query = baseQuery;
+    _guardianClassroomByCode = studentClassroomByCode;
+
+    if (baseQuery.schoolCode.isEmpty ||
+        baseQuery.dateStr.isEmpty ||
+        studentClassroomByCode.isEmpty) {
+      // Mirrors `_loadParentHomeDailyFeed`'s `_parentAllowedStudentCodes.isEmpty`
+      // (plus school/date) early-return: clear the feed when the request isn't
+      // ready.
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            items: const <ActivityItem>[],
+            isLoading: false,
+            isRefreshing: false,
+            isLoadingMore: false,
+            hasMore: false,
+            nextPage: 0,
+            query: baseQuery,
+          ),
+        );
+      }
+      return;
+    }
+
+    final feedGen = ++_generation;
+    final schoolAtStart = await _readLiveSchool();
+
+    if (!isClosed) {
+      emit(
+        state.copyWith(
+          isLoading: !refresh,
+          isRefreshing: refresh,
+          isLoadingMore: false,
+          hasMore: true,
+          error: null,
+          generation: feedGen,
+          query: baseQuery,
+        ),
+      );
+    }
+
+    try {
+      final sub = await _fetchAttendanceSubPages(
+        baseQuery,
+        page: 0,
+        studentCodesOverride: studentClassroomByCode.keys.toList(),
+      );
+
+      final merged = await _fetchGuardianFeedPage(
+        studentClassroomByCode,
+        baseQuery,
+        isRange: false,
+        page: 0,
+      );
+
+      await _primeStaffDisplayNames(merged.content);
+      await primeActivityFeedOptionLabelsFromRows(merged.content);
+
+      final items = <ActivityItem>[
+        if (sub.attendance != null)
+          ..._withTagFilterOnly(
+            _mapAttendanceDailyPageToItems(sub.attendance!, baseQuery),
+          ),
+        if (sub.absent != null)
+          ..._withTagFilterOnly(_mapAbsentRecordsPageToItems(sub.absent!)),
+        ..._mapDailyFeedPageToItems(merged, baseQuery),
+      ]..sort(_compareActivityItemsByTimeDesc);
+
+      await _refreshLiveSchool();
+      if (_isStale(feedGen, schoolAtStart)) return;
+
+      final grouped = dedupeActivitiesByStableId(
+        groupMultiStudentFeedItems(
+          items,
+          attendanceRequireDateAndTimeMatch: false,
+        )..sort(_compareActivityItemsByTimeDesc),
+      );
+      final hasMore = (sub.attendance?.hasMore ?? false) ||
+          (sub.absent?.hasMore ?? false) ||
+          !merged.last;
+
+      emit(
+        state.copyWith(
+          items: grouped,
+          isLoading: false,
+          isRefreshing: false,
+          isLoadingMore: false,
+          error: null,
+          hasMore: hasMore,
+          nextPage: hasMore ? 1 : 0,
+          generation: feedGen,
+          query: baseQuery,
+        ),
+      );
+    } catch (e) {
+      await _refreshLiveSchool();
+      if (_isStale(feedGen, schoolAtStart)) return;
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          isLoadingMore: false,
+          hasMore: false,
+          error: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
+    }
+  }
+
+  /// GUARDIAN/PARENT fan-out range load — the date-RANGE counterpart of
+  /// [loadDailyForGuardian], port of `activity_custom_tab.dart`'s
+  /// `_loadParentHomeRangeFeed`. Same fan-out shape (one
+  /// `getRangeActivityFeed` call per student, merged via
+  /// [mergeActivityFeedPages]) except it additionally requires
+  /// [ActivityFeedQuery.endDateStr] to be non-empty before it will run, and it
+  /// groups with `attendanceRequireDateAndTimeMatch: true` (matching
+  /// [loadRange], for the same reason: a range page's same-time attendance
+  /// rows can span different days and must not collapse).
+  Future<void> loadRangeForGuardian(
+    ActivityFeedQuery baseQuery,
+    Map<String, String> studentClassroomByCode, {
+    bool refresh = false,
+  }) async {
+    _query = baseQuery;
+    _guardianClassroomByCode = studentClassroomByCode;
+
+    if (baseQuery.schoolCode.isEmpty ||
+        baseQuery.dateStr.isEmpty ||
+        (baseQuery.endDateStr ?? '').isEmpty ||
+        studentClassroomByCode.isEmpty) {
+      // Mirrors `_loadParentHomeRangeFeed`'s early-return.
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            items: const <ActivityItem>[],
+            isLoading: false,
+            isRefreshing: false,
+            isLoadingMore: false,
+            hasMore: false,
+            nextPage: 0,
+            query: baseQuery,
+          ),
+        );
+      }
+      return;
+    }
+
+    final endDateStr = baseQuery.endDateStr!;
+    final feedGen = ++_generation;
+    final schoolAtStart = await _readLiveSchool();
+
+    if (!isClosed) {
+      emit(
+        state.copyWith(
+          isLoading: !refresh,
+          isRefreshing: refresh,
+          isLoadingMore: false,
+          hasMore: true,
+          error: null,
+          generation: feedGen,
+          query: baseQuery,
+        ),
+      );
+    }
+
+    try {
+      final sub = await _fetchAttendanceSubPages(
+        baseQuery,
+        page: 0,
+        endDateStr: endDateStr,
+        studentCodesOverride: studentClassroomByCode.keys.toList(),
+      );
+
+      final merged = await _fetchGuardianFeedPage(
+        studentClassroomByCode,
+        baseQuery,
+        isRange: true,
+        page: 0,
+      );
+
+      await _primeStaffDisplayNames(merged.content);
+      await primeActivityFeedOptionLabelsFromRows(merged.content);
+
+      final items = <ActivityItem>[
+        if (sub.attendance != null)
+          ..._withTagFilterOnly(
+            _mapAttendanceDailyPageToItems(sub.attendance!, baseQuery),
+          ),
+        if (sub.absent != null)
+          ..._withTagFilterOnly(_mapAbsentRecordsPageToItems(sub.absent!)),
+        ..._mapDailyFeedPageToItems(merged, baseQuery),
+      ]..sort(_compareActivityItemsByTimeDesc);
+
+      await _refreshLiveSchool();
+      if (_isStale(feedGen, schoolAtStart)) return;
+
+      final grouped = dedupeActivitiesByStableId(
+        groupMultiStudentFeedItems(
+          items,
+          attendanceRequireDateAndTimeMatch: true,
+        )..sort(_compareActivityItemsByTimeDesc),
+      );
+      final hasMore = (sub.attendance?.hasMore ?? false) ||
+          (sub.absent?.hasMore ?? false) ||
+          !merged.last;
+
+      emit(
+        state.copyWith(
+          items: grouped,
+          isLoading: false,
+          isRefreshing: false,
+          isLoadingMore: false,
+          error: null,
+          hasMore: hasMore,
+          nextPage: hasMore ? 1 : 0,
+          generation: feedGen,
+          query: baseQuery,
+        ),
+      );
+    } catch (e) {
+      await _refreshLiveSchool();
+      if (_isStale(feedGen, schoolAtStart)) return;
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          isLoadingMore: false,
+          hasMore: false,
+          error: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
+    }
+  }
+
+  /// Pagination — port of `_loadNextDailyFeedPage`/`_loadNextRangeFeedPage`
+  /// (staff) and `_loadNextParentHomeDailyFeedPage`/
+  /// `_loadNextParentHomeRangeFeedPage` (guardian). Single-flight on
+  /// [ActivityFeedState.isLoadingMore]; captures the generation WITHOUT
+  /// bumping; appends the next page, regroups + dedupes against the existing
+  /// items, advances `nextPage`, updates `hasMore`; DISCARDS the response if
+  /// it went stale (a refresh bumped the generation / school switched) before
+  /// emitting. Branches the FETCH step two ways — [_guardianClassroomByCode]
+  /// non-null selects the guardian fan-out (further branching daily-vs-range
+  /// internally, via [_fetchGuardianFeedPage]) vs. the single-classroom call
+  /// (branching daily-vs-range on whether the active query's `endDateStr` is
+  /// set) — while the single-flight guard, generation capture, staleness
+  /// check, and emit shape below stay shared/unduplicated across both.
   Future<void> loadNextPage() async {
     final query = _query;
     if (query == null) return;
     if (_loadingMore || !state.hasMore || state.isLoading) return;
-    if (query.schoolCode.isEmpty ||
+    final endDateStr = query.endDateStr;
+    final isRange = (endDateStr ?? '').isNotEmpty;
+    final guardianClassroomByCode = _guardianClassroomByCode;
+    final isGuardian = guardianClassroomByCode != null;
+
+    if (isGuardian) {
+      if (query.schoolCode.isEmpty ||
+          query.dateStr.isEmpty ||
+          guardianClassroomByCode.isEmpty ||
+          (isRange && (endDateStr ?? '').isEmpty)) {
+        return;
+      }
+    } else if (query.schoolCode.isEmpty ||
         query.classroomCode.isEmpty ||
-        query.dateStr.isEmpty) {
+        query.dateStr.isEmpty ||
+        (isRange && (endDateStr ?? '').isEmpty)) {
       return;
     }
 
@@ -254,20 +677,47 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
     if (!isClosed) emit(state.copyWith(isLoadingMore: true));
 
     try {
-      final activityFeedPage = await _dataSource.getDailyActivityFeed(
-        classroomCode: query.classroomCode,
-        date: query.dateStr,
-        studentCode: query.studentCode,
-        classroomCodes: query.classroomCodes,
-        studentCodes: query.studentCodes,
-        activityTypeCodes: query.typeCodes,
-        // Pagination intentionally omits approvalStatuses (mirrors the View).
-        guardianPersona: query.guardianPersona,
-        page: pageIndex,
-        size: query.pageSize,
-      );
+      final activityFeedPage = isGuardian
+          ? await _fetchGuardianFeedPage(
+              guardianClassroomByCode,
+              query,
+              isRange: isRange,
+              page: pageIndex,
+            )
+          : isRange
+              ? await _dataSource.getRangeActivityFeed(
+                  classroomCode: query.classroomCode,
+                  startDate: query.dateStr,
+                  endDate: endDateStr!,
+                  studentCode: query.studentCode,
+                  classroomCodes: query.classroomCodes,
+                  studentCodes: query.studentCodes,
+                  activityTypeCodes: query.typeCodes,
+                  // Pagination intentionally omits approvalStatuses (mirrors the View).
+                  guardianPersona: query.guardianPersona,
+                  page: pageIndex,
+                  size: query.pageSize,
+                )
+              : await _dataSource.getDailyActivityFeed(
+                  classroomCode: query.classroomCode,
+                  date: query.dateStr,
+                  studentCode: query.studentCode,
+                  classroomCodes: query.classroomCodes,
+                  studentCodes: query.studentCodes,
+                  activityTypeCodes: query.typeCodes,
+                  // Pagination intentionally omits approvalStatuses (mirrors the View).
+                  guardianPersona: query.guardianPersona,
+                  page: pageIndex,
+                  size: query.pageSize,
+                );
 
-      final sub = await _fetchAttendanceSubPages(query, page: pageIndex);
+      final sub = await _fetchAttendanceSubPages(
+        query,
+        page: pageIndex,
+        endDateStr: isRange ? endDateStr : null,
+        studentCodesOverride:
+            isGuardian ? guardianClassroomByCode.keys.toList() : null,
+      );
 
       await _primeStaffDisplayNames(activityFeedPage.content);
       await primeActivityFeedOptionLabelsFromRows(activityFeedPage.content);
@@ -288,7 +738,9 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
       final merged = dedupeActivitiesByStableId(
         groupMultiStudentFeedItems(
           <ActivityItem>[...state.items, ...items],
-          attendanceRequireDateAndTimeMatch: false,
+          // See loadRange's comment: range pages need the date+time match to
+          // avoid merging same-time attendance events across different days.
+          attendanceRequireDateAndTimeMatch: isRange,
         )..sort(_compareActivityItemsByTimeDesc),
       );
       final hasMore = (sub.attendance?.hasMore ?? false) ||
@@ -313,26 +765,115 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
   }
 
   // --------------------------------------------------------------------------
+  // Guardian/parent fan-out feed fetch (one call per student, merged)
+  // --------------------------------------------------------------------------
+
+  /// Issues one `getDailyActivityFeed`/`getRangeActivityFeed` call PER STUDENT
+  /// in [studentClassroomByCode] (studentCode -> that student's classroomCode)
+  /// and merges the results via [mergeActivityFeedPages] — the fan-out shared
+  /// by [loadDailyForGuardian]/[loadRangeForGuardian]'s first-page load and
+  /// [loadNextPage]'s guardian branch. A student whose resolved classroom code
+  /// is empty contributes an empty page (mirrors the View's `cc.isEmpty` guard)
+  /// rather than erroring. [isRange] selects `getRangeActivityFeed` (using
+  /// `query.dateStr`/`query.endDateStr!` as start/end) vs. `getDailyActivityFeed`
+  /// (using `query.dateStr` as the single date). `approvalStatuses` is passed
+  /// on EVERY call, including pagination — this mirrors the View's guardian
+  /// pagination functions (`_loadNextParentHomeDailyFeedPage`/
+  /// `_loadNextParentHomeRangeFeedPage`), which, unlike the staff path,
+  /// recompute and pass `approvalStatuses` on every page, not just the first.
+  Future<ActivityFeedPage> _fetchGuardianFeedPage(
+    Map<String, String> studentClassroomByCode,
+    ActivityFeedQuery query, {
+    required bool isRange,
+    required int page,
+  }) async {
+    final pages = await Future.wait(
+      studentClassroomByCode.entries.map((entry) async {
+        final cc = entry.value.trim();
+        if (cc.isEmpty) {
+          return const ActivityFeedPage(
+            content: [],
+            totalElements: 0,
+            totalPages: 0,
+            pageNumber: 0,
+            last: true,
+          );
+        }
+        return isRange
+            ? _dataSource.getRangeActivityFeed(
+                classroomCode: cc,
+                startDate: query.dateStr,
+                endDate: query.endDateStr!,
+                studentCode: entry.key,
+                activityTypeCodes: query.typeCodes,
+                approvalStatuses: query.approvalStatuses,
+                guardianPersona: true,
+                page: page,
+                size: query.pageSize,
+              )
+            : _dataSource.getDailyActivityFeed(
+                classroomCode: cc,
+                date: query.dateStr,
+                studentCode: entry.key,
+                activityTypeCodes: query.typeCodes,
+                approvalStatuses: query.approvalStatuses,
+                guardianPersona: true,
+                page: page,
+                size: query.pageSize,
+              );
+      }),
+    );
+    return mergeActivityFeedPages(pages);
+  }
+
+  // --------------------------------------------------------------------------
   // Tri-source attendance/absent sub-fetch (verbatim conditional structure)
   // --------------------------------------------------------------------------
 
+  /// Fetches the optional attendance/absent sub-pages for a daily or range
+  /// load. [endDateStr] is `null` for a daily load (byte-for-byte identical
+  /// to the pre-range behavior) or the range end date for a range load — when
+  /// non-null it is threaded through as `toAbsenceDate`/`toAttendanceDate`
+  /// alongside `query.dateStr` as the start, mirroring
+  /// `activity_custom_tab.dart`'s `_loadRangeFeed`/`_loadNextRangeFeedPage`
+  /// (which also keeps passing `attendanceDate: startStr` alongside
+  /// `fromAttendanceDate`/`toAttendanceDate` — preserved verbatim here, not
+  /// "cleaned up", since the backend may need all three).
+  ///
+  /// [studentCodesOverride], when non-null, switches this into GUARDIAN mode:
+  /// every `studentCodes:` argument uses [studentCodesOverride] instead of
+  /// `query.studentCodes`, and `classroomCodes` is OMITTED entirely (passed as
+  /// `null`, equivalent to not passing the argument) rather than falling back
+  /// to `[query.classroomCode]` — mirroring `_loadParentHomeDailyFeed`/
+  /// `_loadParentHomeRangeFeed`, which scope these sub-fetches purely by the
+  /// guardian's student codes (a guardian's children can be in different
+  /// classrooms, so no single `classroomCode` is correct here). When `null`
+  /// (the default), behavior is byte-for-byte identical to before this
+  /// parameter existed — every existing call site is unaffected.
   Future<_AttendanceSubPages> _fetchAttendanceSubPages(
     ActivityFeedQuery query, {
     required int page,
+    String? endDateStr,
+    List<String>? studentCodesOverride,
   }) async {
     if (!query.includeAttendance) return const _AttendanceSubPages();
 
+    final isGuardianFanOut = studentCodesOverride != null;
     final classroomCodes = query.classroomCodes;
     final ccForAttendance = classroomCodes.isNotEmpty
         ? classroomCodes
         : <String>[query.classroomCode];
+    final effectiveClassroomCodes =
+        isGuardianFanOut ? null : ccForAttendance;
+    final effectiveStudentCodes = studentCodesOverride ?? query.studentCodes;
+    final toAbsenceDate = endDateStr ?? query.dateStr;
 
     if (query.isMarkedAbsentEvent) {
       final absent = await _dataSource.getStudentAbsentRecordsActivity(
         fromAbsenceDate: query.dateStr,
-        toAbsenceDate: query.dateStr,
-        classroomCodes: ccForAttendance,
-        studentCodes: query.studentCodes,
+        toAbsenceDate: toAbsenceDate,
+        classroomCodes: effectiveClassroomCodes,
+        studentCodes: effectiveStudentCodes,
         page: page,
         size: query.pageSize,
       );
@@ -343,8 +884,10 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
       final dailyAbsent = await Future.wait([
         _dataSource.getStudentAttendanceDaily(
           attendanceDate: query.dateStr,
-          classroomCodes: ccForAttendance,
-          studentCodes: query.studentCodes,
+          fromAttendanceDate: endDateStr != null ? query.dateStr : null,
+          toAttendanceDate: endDateStr,
+          classroomCodes: effectiveClassroomCodes,
+          studentCodes: effectiveStudentCodes,
           signInAtFilter: null,
           signOutAtFilter: null,
           page: page,
@@ -352,9 +895,9 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
         ),
         _dataSource.getStudentAbsentRecordsActivity(
           fromAbsenceDate: query.dateStr,
-          toAbsenceDate: query.dateStr,
-          classroomCodes: ccForAttendance,
-          studentCodes: query.studentCodes,
+          toAbsenceDate: toAbsenceDate,
+          classroomCodes: effectiveClassroomCodes,
+          studentCodes: effectiveStudentCodes,
           page: page,
           size: query.pageSize,
         ),
@@ -367,8 +910,10 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
 
     final attendance = await _dataSource.getStudentAttendanceDaily(
       attendanceDate: query.dateStr,
-      classroomCodes: ccForAttendance,
-      studentCodes: query.studentCodes,
+      fromAttendanceDate: endDateStr != null ? query.dateStr : null,
+      toAttendanceDate: endDateStr,
+      classroomCodes: effectiveClassroomCodes,
+      studentCodes: effectiveStudentCodes,
       signInAtFilter: query.signInAtFilter,
       signOutAtFilter: query.signOutAtFilter,
       page: page,
@@ -485,10 +1030,33 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
   ) {
     if (!query.includeAttendance) return const <ActivityItem>[];
     final eventFilter = query.attendanceEvent;
-    final day = _dayForQuery(query);
     final selectedClassroomCode = query.classroomCode;
     final out = <ActivityItem>[];
     for (final row in page.items) {
+      // Per-row day reconstruction — ported verbatim from
+      // `activity_custom_tab.dart`'s `_itemsFromAttendancePage`. Required for
+      // range queries, where a single page's rows can span multiple calendar
+      // days: `row.attendanceDate` first, then `row.signedInAt`/`signedOutAt`
+      // converted from a school-wall-clock instant, falling back to
+      // `_dayForQuery(query)` only on absence/parse failure. Safe for daily
+      // queries too since every row's own day already equals `_dayForQuery`.
+      DateTime day;
+      try {
+        final attendanceDateSrc = (row.attendanceDate ?? '').trim();
+        if (attendanceDateSrc.isNotEmpty) {
+          day = DateTime.parse(attendanceDateSrc);
+        } else {
+          final src = (row.signedInAt ?? row.signedOutAt ?? '').trim();
+          day = src.isEmpty
+              ? _dayForQuery(query)
+              : SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                  DateTime.parse(src),
+                  _presentation.schoolIana,
+                );
+        }
+      } catch (_) {
+        day = _dayForQuery(query);
+      }
       final studentName =
           row.studentName.trim().isEmpty ? 'Student' : row.studentName.trim();
       final studentCode = row.studentCode?.trim();

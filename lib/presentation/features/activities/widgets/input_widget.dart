@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
-class InputWidget extends StatefulWidget {
+class InputWidget extends StatelessWidget {
   const InputWidget({
     super.key,
     required this.controller,
@@ -22,18 +24,10 @@ class InputWidget extends StatefulWidget {
   final int? maxLength;
 
   @override
-  State<InputWidget> createState() => _InputWidgetState();
-}
-
-class _InputWidgetState extends State<InputWidget> {
-  @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final labelStyle = TextStyle(
+    final labelStyle = AppTextStyles.activityInputFieldLabel(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
-      fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -42,36 +36,36 @@ class _InputWidgetState extends State<InputWidget> {
           text: TextSpan(
             style: labelStyle,
             children: [
-              TextSpan(text: widget.label),
-              if (widget.isRequired) const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              TextSpan(text: label),
+              if (isRequired) const TextSpan(text: ' *', style: AppTextStyles.activityRequiredMarker),
             ],
           ),
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
-          constraints: BoxConstraints(minHeight: widget.height ?? responsive.inputFieldHeight),
+          constraints: BoxConstraints(minHeight: height ?? responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.cardColor,
+            border: Border.all(color: AppColors.inputBorderColor),
             borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
           ),
           child: TextField(
-            controller: widget.controller,
-            readOnly: widget.readOnly,
-            enableInteractiveSelection: !widget.readOnly,
-            keyboardType: (widget.height != null && widget.height! > 48)
+            controller: controller,
+            readOnly: readOnly,
+            enableInteractiveSelection: !readOnly,
+            keyboardType: (height != null && height! > 48)
                 ? TextInputType.multiline
                 : TextInputType.text,
-            textInputAction: (widget.height != null && widget.height! > 48)
+            textInputAction: (height != null && height! > 48)
                 ? TextInputAction.newline
                 : TextInputAction.done,
-            minLines: (widget.height != null && widget.height! > 48) ? 3 : 1,
-            maxLines: (widget.height != null && widget.height! > 48) ? 8 : 1,
-            textAlignVertical: (widget.height != null && widget.height! > 48)
+            minLines: (height != null && height! > 48) ? 3 : 1,
+            maxLines: (height != null && height! > 48) ? 8 : 1,
+            textAlignVertical: (height != null && height! > 48)
                 ? TextAlignVertical.top
                 : TextAlignVertical.center,
-            maxLength: widget.maxLength,
-            buildCounter: widget.maxLength == null
+            maxLength: maxLength,
+            buildCounter: maxLength == null
                 ? null
                 : (
                     BuildContext context, {
@@ -86,26 +80,22 @@ class _InputWidgetState extends State<InputWidget> {
                         '$currentLength / $maxLength',
                         style: labelStyle.copyWith(
                           fontSize: 11,
-                          color: const Color(0xff573353).withValues(alpha: 0.55),
+                          color: AppColors.primaryColor.withValues(alpha: 0.55),
                         ),
                       ),
                     );
                   },
             decoration: InputDecoration(
-              hintText: widget.hint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintText: hint,
+              hintStyle: labelStyle.copyWith(color: AppColors.activityMutedGreyColor),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
                 vertical: responsive.isTablet ? 16.0 : 12.0,
               ),
             ),
-            style: TextStyle(
-              fontFamily: 'Manrope',
+            style: AppTextStyles.activityInputValueText(
               fontSize: responsive.inputFontSize,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
-              height: 19 / 14,
             ),
           ),
         ),

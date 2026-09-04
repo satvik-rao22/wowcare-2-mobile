@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
 
-import '../../../../app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import '../../../../app/theme/media_res.dart';
 import '../../../../shared/common/widgets/calendar_dialog.dart';
 import '../../../../shared/utils/responsive_helper.dart';
@@ -31,7 +31,6 @@ class DateWidget extends StatefulWidget {
 }
 
 class _DateWidgetState extends State<DateWidget> {
-  //DateTime? _selectedDate = AppTime.now();
   late DateTime? _selectedDate;
 
   @override
@@ -77,10 +76,8 @@ class _DateWidgetState extends State<DateWidget> {
   Future<void> _setSchoolDefaultDateIfNeeded() async {
     if (widget.initialDate != null && widget.initialDate!.trim().isNotEmpty)
       return;
-    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
-    );
+    final schoolTimeZone =
+        await context.read<ActivityEditorCubit>().resolveSchoolTimezone();
     final schoolToday = SchoolZoneDateTime.schoolCalendarTodayOnly(
       schoolTimeZone,
     );
@@ -100,18 +97,13 @@ class _DateWidgetState extends State<DateWidget> {
       children: [
         RichText(
           text: TextSpan(
-            style: TextStyle(
-              color: AppColors.primaryColor,
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              fontFamily: 'Manrope',
-            ),
+            style: AppTextStyles.activityFieldLabel,
             children: [
               TextSpan(text: 'Date'),
               if (widget.isRequired)
                 TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: AppTextStyles.activityRequiredMarker,
                 ),
             ],
           ),
@@ -159,8 +151,7 @@ class _DateWidgetState extends State<DateWidget> {
         width: double.infinity,
         constraints: const BoxConstraints(minHeight: 40),
         decoration: BoxDecoration(
-          color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
-          //color: const Color(0xFFF8F7FA),
+          color: AppColors.activitySoftPurpleFieldColor.withValues(alpha: 0.102),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Padding(
@@ -174,17 +165,12 @@ class _DateWidgetState extends State<DateWidget> {
                   selectedDate != null
                       ? DateFormat('MMM dd, yyyy').format(selectedDate)
                       : 'Select Date',
-                  style: TextStyle(
-                    color: selectedDate == null
-                        ? AppColors.primaryColor.withValues(alpha: 0.6)
-                        : AppColors.primaryColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                  style: AppTextStyles.activityDateValueText(
+                    hasValue: selectedDate != null,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              //const SizedBox(width: 4),
               SvgPicture.asset(
                 MediaRes.calender_icon,
                 height: 28.0,

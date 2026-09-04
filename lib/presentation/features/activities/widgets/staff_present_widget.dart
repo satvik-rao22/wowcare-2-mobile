@@ -2,16 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
-import '../../../../app/di/di.dart';
-import '../../../../app/theme/colors.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/storage_keys.dart';
-import '../../../../domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
-import '../../../../domain/features/staff/repositories/staff_repository.dart';
-import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../../../shared/common/app/cubit/role_cubit.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
 import 'package:wowcare/presentation/features/activities/widgets/checkbox_widget.dart';
 
 class StaffPresentWidget extends StatefulWidget {
@@ -107,9 +103,8 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
     // Admins are never gated on their OWN sign-in — only on who they're
     // attributing the activity to. Picking themselves must never show the
     // "not signed in" warning (or fire the status check at all).
-    final storage = serviceLocator<StorageService>();
     final ownStaffCode =
-        (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+        await context.read<ActivityEditorCubit>().getOwnStaffCode();
     if (ownStaffCode.isNotEmpty &&
         code.toUpperCase() == ownStaffCode.toUpperCase()) {
       if (!mounted) return;
@@ -126,9 +121,9 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
       _staffSignInError = null;
     });
     try {
-      final status = await serviceLocator<GetStaffTodaySignInStatusUseCase>()(
-        staffCode: code,
-      );
+      final status = await context
+          .read<ActivityEditorCubit>()
+          .getStaffTodaySignInStatus(staffCode: code);
       if (!mounted) return;
       final signedIn = status?.toUpperCase() == 'SIGNED_IN';
       if (signedIn) {
@@ -274,35 +269,10 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
     if (_loadingStaffs) return;
     _loadingStaffs = true;
     try {
-      final storage = serviceLocator<StorageService>();
-      final org = (await storage.getString(StorageKeys.organizationCode) ?? '')
-          .trim();
-      final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
-          .trim();
-      if (org.isEmpty || school.isEmpty) return;
-
-      final repo = serviceLocator<StaffRepository>();
-      if (repo is StaffRepositoryWithCache) {
-        try {
-          final cached = await (repo as StaffRepositoryWithCache)
-              .loadCachedStaffPage(school, status: 'ACTIVE');
-          if (cached != null && cached.items.isNotEmpty) {
-            _applyStaffMemberItems(cached.items);
-            if (mounted) setState(_rebuildStaffSelection);
-            return;
-          }
-        } catch (_) {}
-      }
-
-      final useCase = serviceLocator<GetStaffPageUseCase>();
-      final page = await useCase(
-        organizationCode: org,
-        schoolCode: school,
-        page: 0,
-        size: 300,
-        status: 'ACTIVE',
-      );
-      _applyStaffMemberItems(page.items);
+      final items =
+          await context.read<ActivityEditorCubit>().loadActiveStaffDirectory();
+      if (items == null) return;
+      _applyStaffMemberItems(items);
       if (!mounted) return;
       setState(_rebuildStaffSelection);
     } catch (_) {
@@ -334,17 +304,12 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
           children: [
             RichText(
               text: TextSpan(
-                style: TextStyle(
-                  color: AppColors.primaryColor,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  fontFamily: 'Manrope',
-                ),
+                style: AppTextStyles.activityFieldLabel,
                 children: [
                   TextSpan(text: widget.fieldLabel),
                   const TextSpan(
                     text: ' *',
-                    style: TextStyle(color: Colors.red),
+                    style: AppTextStyles.activityRequiredMarker,
                   ),
                 ],
               ),
@@ -402,19 +367,14 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0x1AB1AFE9),
+              color: AppColors.activityBorderLight,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0x66573353)),
+              border: Border.all(color: AppColors.inputBorderColor),
             ),
             alignment: Alignment.centerLeft,
             child: Text(
               selectedStaff ?? widget.staffName,
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xff573353),
-              ),
+              style: AppTextStyles.activityFieldValueBold,
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -432,11 +392,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
                 SizedBox(width: 8),
                 Text(
                   'Checking sign-in status…',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 12,
-                    color: Color(0xff573353),
-                  ),
+                  style: AppTextStyles.activitySmallText,
                 ),
               ],
             ),
@@ -446,12 +402,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
             padding: const EdgeInsets.only(top: 6),
             child: Text(
               _staffSignInError!,
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.red,
-              ),
+              style: AppTextStyles.activityErrorTextSmall,
             ),
           ),
         SizedBox(height: responsive.verticalSpacing),
@@ -460,7 +411,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
             constraints: const BoxConstraints(minHeight: 60),
             width: double.infinity,
             decoration: BoxDecoration(
-              color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
+              color: AppColors.activitySoftPurpleFieldColor.withValues(alpha: 0.102),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Padding(
@@ -471,12 +422,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
                   Center(
                     child: Text(
                       selectedStaff ?? widget.staffName,
-                      style: const TextStyle(
-                        fontFamily: 'MervaleScript',
-                        fontSize: 24,
-                        fontWeight: FontWeight.w400,
-                        color: Color(0xff573353),
-                      ),
+                      style: AppTextStyles.activitySignatureScriptText,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                     ),
@@ -488,12 +434,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
                     SelectableText(
                       'Signature-ID - ${widget.signatureEncodedValue!.trim()}',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0x80573353),
-                      ),
+                      style: AppTextStyles.activitySignatureIdCaption,
                     ),
                   ],
                 ],
@@ -503,49 +444,4 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
       ],
     );
   }
-
-  // Widget _buildCustomDropdown(
-  //     String hintText,
-  //     List<String> items,
-  //     String? selectedItem,
-  //     ValueChanged<String?> onSelect, {
-  //       bool isRequired = false,
-  //       double? height = null
-  //     }) {
-  //   final responsive = ResponsiveHelper(context);
-  //   return CustomDropdown(
-  //     label: null,
-  //     hintText: hintText,
-  //     items: items,
-  //     height: height,
-  //     selectedItem: selectedItem,
-  //     onSelect: onSelect,
-  //     showAsterisk: isRequired,
-  //     labelStyle: TextStyle(
-  //       fontSize: responsive.labelFontSize,
-  //       fontFamily: "Manrope",
-  //       fontWeight: FontWeight.w400,
-  //       color: const Color(0xff573353),
-  //     ),
-  //     labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-  //     fieldHeight: responsive.isTablet ? 64.0 : 56.0,
-  //     selectedTextStyle: TextStyle(
-  //       fontFamily: 'Manrope',
-  //       fontSize: responsive.inputFontSize,
-  //       fontWeight: FontWeight.w600,
-  //       color: const Color(0xff573353),
-  //       height: 19 / 14,
-  //     ),
-  //     popupItemTextStyle: TextStyle(
-  //       fontFamily: 'Manrope',
-  //       fontSize: responsive.inputFontSize,
-  //       fontWeight: FontWeight.w400,
-  //       color: const Color(0xff573353),
-  //     ),
-  //     contentPadding: EdgeInsets.symmetric(
-  //       horizontal: responsive.isTablet ? 16.0 : 12.0,
-  //       vertical: responsive.isTablet ? 16.0 : 12.0,
-  //     ),
-  //   );
-  // }
 }

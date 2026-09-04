@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -435,10 +436,8 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
     setState(() => _pendingNavigationKey = null);
     final destinationBuilder = ChooseActivity.activityRoutes[activityKey];
     if (destinationBuilder != null) {
-      final nextScreen = destinationBuilder(freshMaps);
-      final recorded = await Navigator.of(
-        context,
-      ).push<dynamic>(MaterialPageRoute(builder: (_) => nextScreen));
+      final (routeName, args) = destinationBuilder(freshMaps);
+      final recorded = await context.push<dynamic>(routeName, extra: args);
       // Activity screens pop `true` after a successful create/update.
       if (recorded == true) {
         widget.onActivityRecorded?.call();

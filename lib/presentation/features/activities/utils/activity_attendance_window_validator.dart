@@ -10,7 +10,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_status_at_time_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_status_at_time_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
-import '../../utils/resolve_logged_in_staff_code.dart';
+import 'resolve_logged_in_staff_code.dart';
 
 /// A transferred student's classroom-scoped "at time" sign-in record can
 /// still be keyed to the classroom they were transferred OUT of, so the

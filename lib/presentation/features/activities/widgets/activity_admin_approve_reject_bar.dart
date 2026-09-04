@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 class ActivityAdminApproveRejectBar extends StatelessWidget {
   const ActivityAdminApproveRejectBar({

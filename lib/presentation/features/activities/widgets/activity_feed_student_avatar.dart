@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../../app/theme/colors.dart';
-import '../../../../app/theme/fonts.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 
 /// Bottom sheet listing students on an activity card (tap initials stack).
@@ -29,7 +29,7 @@ Future<void> showActivityStudentListSheet(
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor: AppColors.transparentColor,
     builder: (ctx) {
       return SafeArea(
         child: Padding(
@@ -39,7 +39,7 @@ Future<void> showActivityStudentListSheet(
               maxHeight: MediaQuery.sizeOf(ctx).height * 0.55,
             ),
             decoration: const BoxDecoration(
-              color: Colors.white,
+              color: AppColors.cardColor,
               borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
             ),
             child: Column(
@@ -58,17 +58,12 @@ Future<void> showActivityStudentListSheet(
                       Expanded(
                         child: Text(
                           'Student',
-                          style: TextStyle(
-                            fontFamily: Fonts.manrope,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primaryColor,
-                          ),
+                          style: AppTextStyles.activityDialogTitle,
                         ),
                       ),
                       IconButton(
                         onPressed: () => Navigator.of(ctx).pop(),
-                        icon: const Icon(Icons.close, color: Color(0xff573353)),
+                        icon: const Icon(Icons.close, color: AppColors.primaryColor),
                       ),
                     ],
                   ),
@@ -98,12 +93,7 @@ Future<void> showActivityStudentListSheet(
                             Expanded(
                               child: Text(
                                 n,
-                                style: const TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xff573353),
-                                ),
+                                style: AppTextStyles.activityRowValueText,
                               ),
                             ),
                           ],
@@ -117,7 +107,7 @@ Future<void> showActivityStudentListSheet(
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.themeColor,
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppColors.cardColor,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -126,11 +116,7 @@ Future<void> showActivityStudentListSheet(
                     onPressed: () => Navigator.of(ctx).pop(),
                     child: const Text(
                       'Close',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                      ),
+                      style: AppTextStyles.activityPlainButtonLabel,
                     ),
                   ),
                 ),
@@ -181,12 +167,7 @@ Widget activityFeedStudentAvatarStack(
             students.first,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: Fonts.manrope,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primaryColor,
-            ),
+            style: AppTextStyles.activityCompactBoldName,
           ),
         ),
       ],
@@ -230,7 +211,7 @@ Widget activityFeedStudentAvatarStack(
   );
   if (onOpenStudentList == null) return stack;
   return Material(
-    color: Colors.transparent,
+    color: AppColors.transparentColor,
     child: InkWell(
       onTap: onOpenStudentList,
       borderRadius: BorderRadius.circular(24),

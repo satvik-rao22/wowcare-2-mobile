@@ -2,7 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
-import '../../../../app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 
 class ViewWidget extends StatelessWidget {
   const ViewWidget({
@@ -23,31 +24,21 @@ class ViewWidget extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(
-            color: AppColors.primaryColor,
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            fontFamily: 'Manrope',
-          ),
+          style: AppTextStyles.activityFieldLabel,
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Color(0xFFB1AFE9).withValues(alpha: 0.102),
-            //color: Colors.white.withValues(alpha:0.85),
+            color: AppColors.activitySoftPurpleFieldColor.withValues(alpha: 0.102),
+            //color: AppColors.cardColor.withValues(alpha:0.85),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppColors.primaryColor),
           ),
           child: Text(
             content,
-            style: TextStyle(
-              color: AppColors.primaryColor,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'Manrope',
-            ),
+            style: AppTextStyles.activityRowValueText,
             overflow: TextOverflow.ellipsis,
             maxLines: twoMaxLines ? 2 : 1,
           ),

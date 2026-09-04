@@ -2,50 +2,55 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/api_error_handler.dart';
-import '../../../../core/util/storage_keys.dart';
-import '../../../../domain/features/activity/entities/activity_parameter_value.dart';
-import '../../../../domain/features/activity/entities/activity_setting.dart';
-import '../utils/activity_description_limits.dart';
-import '../utils/activity_patch_attachments.dart';
-import '../utils/activity_school_time.dart';
-import '../utils/activity_selected_date_prefill.dart';
-import '../utils/resolve_logged_in_staff_code.dart';
-import '../utils/activity_item_edit_mappers.dart'
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_description_limits.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_school_time.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_selected_date_prefill.dart';
+import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_item_edit_mappers.dart'
     show activityItemFromActivityDetail, studentDataMapsForActivityEdit;
-import '../view/activity_feed_card_permissions.dart';
-import '../view/activity_item.dart' show ActivityItem;
-import '../widgets/activity_edit_student_scope_checkboxes.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_feed_card_permissions.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_item.dart' show ActivityItem;
+import 'package:wowcare/presentation/features/activities/widgets/activity_edit_student_scope_checkboxes.dart';
 import 'activity_editor_cubit.dart';
 import 'activity_form_outcome.dart';
 
 export 'activity_form_outcome.dart';
 
-part 'bottle_activity_state.dart';
+part 'medication_activity_state.dart';
 
-/// ViewModel for [BottleActivityScreen]. Mirrors [MedicationActivityCubit] but
-/// for the Bottle form: the description is optional, an ounce amount is
-/// required (read from the picker widget and passed in by the view), and the
-/// update path patches attachments. Data access goes through the shared
-/// [ActivityEditorCubit] seam; the attendance-window dialog is delegated to the
-/// view via `onValidateAttendanceWindow`.
-class BottleActivityCubit extends Cubit<BottleActivityState> {
-  BottleActivityCubit({
+/// ViewModel for [MedicationActivityScreen]. Owns the form state (everything
+/// that used to be `setState`) and the create/update/approve/reject flow,
+/// delegating data access to the shared [ActivityEditorCubit] seam.
+///
+/// The one step a cubit can't own — the attendance-window check, which shows a
+/// dialog and needs a `BuildContext` — is delegated back to the view through
+/// the `onValidateAttendanceWindow` callback on the submit methods. User-facing
+/// snackbars and navigation are likewise the view's job: each method returns an
+/// [ActivityFormOutcome] the view maps onto a toast + navigation.
+class MedicationActivityCubit extends Cubit<MedicationActivityState> {
+  MedicationActivityCubit({
     required ActivityEditorCubit editor,
     required StorageService storageService,
   })  : _editor = editor,
         _storageService = storageService,
-        super(const BottleActivityState());
+        super(const MedicationActivityState());
 
   final ActivityEditorCubit _editor;
   final StorageService _storageService;
 
+  // Screen config (set once in [init]).
   bool _isEdit = false;
   bool _readOnly = false;
   bool _createdFromSelection = false;
   ActivityItem? _activityData;
 
+  // Write-only inputs: these must NOT trigger a rebuild (the date/time/staff
+  // pickers own their own display state), so they live off the emitted state.
   DateTime? _activityDate;
   TimeOfDay? _activityTime;
   String? _staffPresentCode;
@@ -61,6 +66,7 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
   ActivityItem get effectiveActivity =>
       state.liveActivity ?? _activityData ?? ActivityItem.empty;
 
+  /// Whether the admin approve/reject bar should show for this shift.
   bool showAdminApproveRejectActions({required bool isAdminPersona}) {
     if (!_isEdit || _readOnly) return false;
     if (!state.isAdminDesignation) return false;
@@ -95,7 +101,10 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
       final data = List<Map<String, dynamic>>.from(selectedStudents);
       final names = data.map((s) => s['name'] as String).toList();
       _activityDate = resolveSelectedAttendanceDate(data) ?? _activityDate;
-      emit(state.copyWith(selectedStudentsData: data, selectedStudents: names));
+      emit(state.copyWith(
+        selectedStudentsData: data,
+        selectedStudents: names,
+      ));
       // ignore: discarded_futures
       _loadActivityContextForCreate(data);
     } else if (_layoutAsEdit) {
@@ -106,9 +115,6 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
         selectedStudents: List<String>.from(activity.studentList),
         selectedStudentsData: studentDataMapsForActivityEdit(activity),
         activityTypeCode: activity.activityTypeCode,
-        detailAttachmentRows: (activity.snapshotAttachments ?? const [])
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList(),
       ));
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
@@ -130,28 +136,10 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     return status.isNotEmpty && status != 'NOT_REQUIRED';
   }
 
-  static String? _staffDisplayFromParameterRows(
-    List<Map<String, dynamic>> rows,
-  ) {
+  String? _pickStaffPresentCode(List<Map<String, dynamic>> rows) {
     for (final p in rows) {
-      final pn = (p['parameterName'] ?? '').toString().toLowerCase();
-      if (!pn.contains('staff')) continue;
-      final dt = (p['dataType'] ?? '').toString().toUpperCase();
-      if (dt == 'DATE' || dt == 'TIME') continue;
-      for (final key in <String>['selectedOptionLabel', 'optionLabel', 'valueText']) {
-        final v = (p[key] ?? '').toString().trim();
-        if (v.isNotEmpty) return v;
-      }
-    }
-    return null;
-  }
-
-  static String? _staffCodeFromParameterRows(
-    List<Map<String, dynamic>> rows,
-  ) {
-    for (final p in rows) {
-      final pn = (p['parameterName'] ?? '').toString().trim().toLowerCase();
-      if (pn != 'staff present') continue;
+      final n = (p['parameterName'] ?? '').toString().trim().toLowerCase();
+      if (n != 'staff present') continue;
       final v =
           (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
               .toString()
@@ -202,15 +190,15 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
           await _editor.getClassroomActivitySettings(
         classroomCode: classroomCode,
       );
-      ActivitySetting? bottleSetting;
+      ActivitySetting? medicationSetting;
       for (final s in settings) {
-        if (s.activityTypeName.toLowerCase().contains('bottle')) {
-          bottleSetting = s;
+        if (s.activityTypeName.toLowerCase().contains('medication')) {
+          medicationSetting = s;
           break;
         }
       }
-      if (bottleSetting != null && !isClosed) {
-        emit(state.copyWith(activityTypeCode: bottleSetting.activityTypeCode));
+      if (medicationSetting != null && !isClosed) {
+        emit(state.copyWith(activityTypeCode: medicationSetting.activityTypeCode));
       }
     } catch (_) {
       // Best-effort: activity-type code stays null and submit surfaces it.
@@ -229,14 +217,7 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
         detail,
         viewerDisplayName: state.staffName,
       );
-      var staffLabel = _staffDisplayFromParameterRows(detail.parameterValues);
-      if (staffLabel == null || staffLabel.isEmpty) {
-        final cb = detail.createdBy.trim();
-        if (cb.isNotEmpty && cb.toLowerCase() != 'system') {
-          staffLabel = cb;
-        }
-      }
-      _staffPresentCode = _staffCodeFromParameterRows(detail.parameterValues);
+      _staffPresentCode = _pickStaffPresentCode(detail.parameterValues);
       final nextIso = item.activityDateIso;
       if (nextIso != null && nextIso.trim().isNotEmpty) {
         try {
@@ -250,10 +231,6 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
         liveActivity: item,
         requireAdminApproval: _isAdminApprovalRequired(item),
         activityTypeCode: item.activityTypeCode,
-        staffPresentLabelForEdit: staffLabel,
-        detailAttachmentRows: detail.attachments
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList(),
         selectedStudents:
             singleStudent ? List<String>.from(item.studentList) : null,
         selectedStudentsData:
@@ -268,6 +245,7 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
   // ─── Form mutations ────────────────────────────────────────────────────────
 
   void setActivityDate(DateTime? date) => _activityDate = date;
+
   void setActivityTime(TimeOfDay? time) => _activityTime = time;
 
   void setStaffPresentCode(String? code) {
@@ -284,11 +262,11 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     emit(state.copyWith(scopedEditStudentIndices: Set<int>.from(indices)));
   }
 
+  /// Removes a selected student. The view checks
+  /// `state.selectedStudents.isEmpty` afterwards to pop the screen.
   void removeStudent(String name) {
     final next = List<String>.from(state.selectedStudents)..remove(name);
-    final nextData = List<Map<String, dynamic>>.from(state.selectedStudentsData)
-      ..removeWhere((m) => (m['name'] as String?) == name);
-    emit(state.copyWith(selectedStudents: next, selectedStudentsData: nextData));
+    emit(state.copyWith(selectedStudents: next));
   }
 
   Future<bool> verifyPickedStaffSignedIn({
@@ -308,7 +286,6 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
 
   Future<ActivityFormOutcome> submitCreate({
     required String description,
-    required double? amountOz,
     required Future<bool> Function() onValidateAttendanceWindow,
   }) async {
     if (state.isSubmitting) return const ActivityFormOutcome.noop();
@@ -316,21 +293,42 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
 
     emit(state.copyWith(isSubmitting: true));
     try {
-      final preflight = await _preflight(
-        amountOz: amountOz,
-        description: description,
-        onValidateAttendanceWindow: onValidateAttendanceWindow,
-      );
-      if (preflight != null) return preflight;
+      if (state.selectedStudents.isEmpty) {
+        return const ActivityFormOutcome.warning(
+          'Please select at least one student',
+        );
+      }
+      if (!await onValidateAttendanceWindow()) {
+        return const ActivityFormOutcome.noop();
+      }
 
       final desc = description.trim();
-      final classroomCode = _classroomCodeFromSelection();
+      final descError = _validateDescription(desc);
+      if (descError != null) return ActivityFormOutcome.warning(descError);
+
+      if (_activityDate == null || _activityTime == null) {
+        return const ActivityFormOutcome.warning(
+          'Please select date and time',
+        );
+      }
+
+      final classroomCodeDynamic =
+          state.selectedStudentsData.first['classroomCode'] ??
+          state.selectedStudentsData.first['classroomcode'];
+      final classroomCode = classroomCodeDynamic is String
+          ? classroomCodeDynamic.trim()
+          : '';
       if (classroomCode.isEmpty) {
         return const ActivityFormOutcome.error(
           'Missing classroom information for activity',
         );
       }
-      final studentCodes = _studentCodesFromSelection();
+
+      final studentCodes = state.selectedStudentsData
+          .map((s) => (s['studentCode'] as String?)?.trim())
+          .whereType<String>()
+          .where((c) => c.isNotEmpty)
+          .toList();
       if (studentCodes.isEmpty) {
         return const ActivityFormOutcome.error(
           'Unable to resolve student codes for activity',
@@ -353,9 +351,12 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
 
       final activityTypeCode = state.activityTypeCode;
       if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-        return _typeError;
+        return const ActivityFormOutcome.error(
+          'Unable to determine activity type for Medication. Please check activity settings.',
+        );
       }
 
+      // Ensure the API payload uses the attendance date chosen on student selection.
       if (_createdFromSelection) {
         final prefilled = resolveSelectedAttendanceDate(
           state.selectedStudentsData,
@@ -375,7 +376,6 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
         details,
         desc,
         staffCode,
-        amountOz!,
         resolvedActivityTime.localTimeHms,
       );
 
@@ -396,7 +396,7 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
       );
       return ActivityFormOutcome.successExit(message);
     } catch (e) {
-      return ActivityFormOutcome.error(ApiErrorHandler.extractErrorMessage(e));
+      return ActivityFormOutcome.error(e.toString());
     } finally {
       if (!isClosed) emit(state.copyWith(isSubmitting: false));
     }
@@ -404,19 +404,16 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
 
   Future<ActivityFormOutcome> submitUpdate({
     required String description,
-    required double? amountOz,
     required Future<bool> Function() onValidateAttendanceWindow,
   }) {
     return _runUpdate(
       description: description,
-      amountOz: amountOz,
       onValidateAttendanceWindow: onValidateAttendanceWindow,
     );
   }
 
   Future<ActivityFormOutcome> _runUpdate({
     required String description,
-    required double? amountOz,
     required Future<bool> Function() onValidateAttendanceWindow,
   }) async {
     if (state.isSubmitting) return const ActivityFormOutcome.noop();
@@ -425,45 +422,37 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     emit(state.copyWith(isSubmitting: true));
     try {
       final fallbackActivityCode = effectiveActivity.activityCode?.trim();
-
-      final preflight = await _preflight(
-        amountOz: amountOz,
-        description: description,
-        onValidateAttendanceWindow: onValidateAttendanceWindow,
-      );
-      if (preflight != null) return preflight;
-
-      final desc = description.trim();
-      final classroomCode = _classroomCodeFromSelection();
-      if (classroomCode.isEmpty) {
-        return const ActivityFormOutcome.error(
-          'Missing classroom information for activity',
+      if (state.selectedStudents.isEmpty) {
+        return const ActivityFormOutcome.warning(
+          'Please select at least one student',
         );
       }
-      final studentCodes = _studentCodesFromSelection();
-      if (studentCodes.isEmpty) {
-        return const ActivityFormOutcome.error(
-          'Unable to resolve student codes for activity',
+      if (!await onValidateAttendanceWindow()) {
+        return const ActivityFormOutcome.noop();
+      }
+
+      final desc = description.trim();
+      final descError = _validateDescription(desc);
+      if (descError != null) return ActivityFormOutcome.warning(descError);
+
+      if (_activityDate == null || _activityTime == null) {
+        return const ActivityFormOutcome.warning(
+          'Please select date and time',
         );
       }
 
       final staffCode = state.staffCode ?? await resolveLoggedInStaffCode();
-      final schoolCode = state.schoolCode;
-      final organizationCode = state.organizationCode;
-      if (staffCode == null ||
-          schoolCode == null ||
-          organizationCode == null ||
-          staffCode.isEmpty ||
-          schoolCode.isEmpty ||
-          organizationCode.isEmpty) {
+      if (staffCode == null || staffCode.isEmpty) {
         return const ActivityFormOutcome.error(
-          'Missing staff or school information. Please re-login and try again.',
+          'Missing staff information. Please re-login and try again.',
         );
       }
 
       final activityTypeCode = state.activityTypeCode;
       if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-        return _typeError;
+        return const ActivityFormOutcome.error(
+          'Unable to determine activity type for Medication. Please check activity settings.',
+        );
       }
 
       final resolvedActivityTime = await resolveActivityDateTime(
@@ -479,26 +468,8 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
         details,
         desc,
         staffCode,
-        amountOz!,
         resolvedActivityTime.localTimeHms,
       );
-
-      final remainingNorm = imageDeliveryUrlsFromAttachmentRows(
-        state.detailAttachmentRows,
-      ).map(normalizeActivityDeliveryUrl).where((e) => e.isNotEmpty).toSet();
-      final legacyPhoto = effectiveActivity.photoUrl?.trim();
-      if (legacyPhoto != null && legacyPhoto.isNotEmpty) {
-        final n = normalizeActivityDeliveryUrl(legacyPhoto);
-        if (n.isNotEmpty) remainingNorm.add(n);
-      }
-      final mergedRows = mergeAttachmentRowsForEditPatch(
-        existingRows: state.detailAttachmentRows
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList(),
-        newUploadRows: const [],
-        remainingNormalizedDeliveryUrls: remainingNorm,
-      );
-      final patchAttachments = attachmentsForActivityPatchRequest(mergedRows);
 
       final targets = studentMapsForScopedActivityUpdate(
         allStudentMaps: state.selectedStudentsData,
@@ -531,12 +502,12 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
           activityDate: activityDateIso,
           description: desc,
           parameterValues: parameterValues,
-          attachments: patchAttachments,
+          attachments: const [],
         );
       }
       return ActivityFormOutcome.successExit(lastMessage ?? 'Updated');
     } catch (e) {
-      return ActivityFormOutcome.error(ApiErrorHandler.extractErrorMessage(e));
+      return ActivityFormOutcome.error(e.toString());
     } finally {
       if (!isClosed) emit(state.copyWith(isSubmitting: false));
     }
@@ -544,7 +515,6 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
 
   Future<ActivityFormOutcome> approve({
     required String description,
-    required double? amountOz,
     required Future<bool> Function() onValidateAttendanceWindow,
   }) async {
     final code = effectiveActivity.activityCode?.trim();
@@ -556,14 +526,17 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     try {
       final updated = await _runUpdate(
         description: description,
-        amountOz: amountOz,
         onValidateAttendanceWindow: onValidateAttendanceWindow,
       );
-      if (updated.type != ActivityFormResultType.successExit) return updated;
+      if (updated.type != ActivityFormResultType.successExit) {
+        return updated;
+      }
       final msg = await _editor.approveActivity(code: code);
       return ActivityFormOutcome.successPop(msg);
     } catch (e) {
-      return ActivityFormOutcome.error(ApiErrorHandler.extractErrorMessage(e));
+      return ActivityFormOutcome.error(
+        ApiErrorHandler.extractErrorMessage(e),
+      );
     } finally {
       if (!isClosed) {
         emit(state.copyWith(
@@ -582,7 +555,9 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
       final msg = await _editor.rejectActivity(code: code);
       return ActivityFormOutcome.successPop(msg);
     } catch (e) {
-      return ActivityFormOutcome.error(ApiErrorHandler.extractErrorMessage(e));
+      return ActivityFormOutcome.error(
+        ApiErrorHandler.extractErrorMessage(e),
+      );
     } finally {
       if (!isClosed) emit(state.copyWith(isApprovingOrRejecting: false));
     }
@@ -590,61 +565,18 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
-  static const _typeError = ActivityFormOutcome.error(
-    'Unable to determine activity type for Bottle. Please check activity settings.',
-  );
-
-  /// Shared front-of-submit validation (students, attendance window, amount,
-  /// optional description, date/time). Returns a non-null outcome to abort.
-  Future<ActivityFormOutcome?> _preflight({
-    required double? amountOz,
-    required String description,
-    required Future<bool> Function() onValidateAttendanceWindow,
-  }) async {
-    if (state.selectedStudents.isEmpty) {
-      return const ActivityFormOutcome.warning(
-        'Please select at least one student',
-      );
-    }
-    if (!await onValidateAttendanceWindow()) {
-      return const ActivityFormOutcome.noop();
-    }
-    if (amountOz == null) {
-      return const ActivityFormOutcome.warning(
-        'Please enter a valid amount (0.5 – 20.0 oz)',
-      );
-    }
-    final desc = description.trim();
-    if (desc.isNotEmpty && desc.length > ActivityDescriptionLimits.maxLength) {
-      return ActivityFormOutcome.warning(
-        ActivityDescriptionLimits.maxLengthMessage,
-      );
-    }
-    if (_activityDate == null || _activityTime == null) {
-      return const ActivityFormOutcome.warning('Please select date and time');
+  String? _validateDescription(String description) {
+    if (description.isEmpty) return 'Please enter description';
+    if (description.length > ActivityDescriptionLimits.maxLength) {
+      return ActivityDescriptionLimits.maxLengthMessage;
     }
     return null;
-  }
-
-  String _classroomCodeFromSelection() {
-    final classroomCodeDynamic = state.selectedStudentsData.first['classroomCode'] ??
-        state.selectedStudentsData.first['classroomcode'];
-    return classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
-  }
-
-  List<String> _studentCodesFromSelection() {
-    return state.selectedStudentsData
-        .map((s) => (s['studentCode'] as String?)?.trim())
-        .whereType<String>()
-        .where((c) => c.isNotEmpty)
-        .toList();
   }
 
   List<ActivityParameterValue> _buildParameterValues(
     dynamic details,
     String description,
     String staffCode,
-    double amountOz,
     String localTimeHms,
   ) {
     String? findParamCode(String contains) {
@@ -659,10 +591,6 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     final timeParamCode = findParamCode('time');
     final staffParamCode = findParamCode('staff');
     final descParamCode = findParamCode('description');
-    final amountParamCode = findParamCode('amount') ??
-        findParamCode('ounce') ??
-        findParamCode('oz') ??
-        findParamCode('consumed');
 
     String two(int v) => v.toString().padLeft(2, '0');
     final localDate =
@@ -680,14 +608,9 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
           staffPresentCode.isNotEmpty)
         ActivityParameterValue(
             parameterCode: staffParamCode, value: staffPresentCode),
-      if (descParamCode != null &&
-          descParamCode.trim().isNotEmpty &&
-          description.isNotEmpty)
+      if (descParamCode != null && descParamCode.trim().isNotEmpty)
         ActivityParameterValue(
             parameterCode: descParamCode, value: description),
-      if (amountParamCode != null && amountParamCode.trim().isNotEmpty)
-        ActivityParameterValue(
-            parameterCode: amountParamCode, value: amountOz.toString()),
     ];
   }
 }

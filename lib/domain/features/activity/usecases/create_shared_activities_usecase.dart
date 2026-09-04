@@ -2,6 +2,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 
 import '../entities/activity_attachment.dart';
 import '../entities/activity_parameter_value.dart';
+import '../entities/activity_shared_card_result.dart';
 import '../repositories/activity_repository.dart';
 
 class CreateSharedActivitiesUseCase {
@@ -9,7 +10,7 @@ class CreateSharedActivitiesUseCase {
 
   final ActivityRepository _repository;
 
-  Future<List<Map<String, dynamic>>> call({
+  Future<List<ActivitySharedCardResult>> call({
     required String activityTypeCode,
     required String classroomCode,
     required List<String> studentCodes,

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
 
-import '../../../../app/di/di.dart';
 import '../../../../app/theme/media_res.dart';
 import '../../../../core/util/core_utils.dart';
-import '../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
-import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../../../shared/common/widgets/primary_circular_loader.dart';
-import 'package:wowcare/presentation/features/activities/cubit/choose_activity_cubit.dart';
+import '../../../../shared/utils/responsive_helper.dart';
+import 'package:wowcare/presentation/features/activities/view_model/choose_activity_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'edit_create_activity_screens/bathroom_activity.dart';
 import 'edit_create_activity_screens/bottle_activity.dart';
@@ -22,6 +23,8 @@ import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
 
 class ChooseActivity extends StatefulWidget {
+  static const String routeName = CoreUtils.chooseActivityRouteName;
+
   const ChooseActivity({super.key, required this.selectedStudents});
 
   final List<Map<String, dynamic>> selectedStudents;
@@ -38,26 +41,60 @@ class ChooseActivity extends StatefulWidget {
     'Outdoor': MediaRes.outdoorActivityIcon,
     'Learning': MediaRes.learningActivityIcon,
   };
-  // Map activity name to the destination widget/screen
-  static final Map<String, Widget Function(List<Map<String, dynamic>>)>
+  // Map activity name to the destination route name + typed args, for
+  // `context.push(routeName, extra: args)`.
+  static final Map<
+    String,
+    (String, Object) Function(List<Map<String, dynamic>>)
+  >
   activityRoutes = {
-    'Nap': (students) => NapActivityScreen(selectedStudents: students),
-    'Bathroom': (students) =>
-        BathroomActivityScreen(selectedStudents: students),
-    'Bottle': (students) => BottleActivityScreen(selectedStudents: students),
-    'Meal': (students) => MealActivityScreen(selectedStudents: students),
-    'Incident': (students) =>
-        IncidentActivityScreen(selectedStudents: students),
-    'Photo': (students) =>
-        PhotoVideoActivityScreen(selectedStudents: students, isPhoto: true),
-    'Video': (students) =>
-        PhotoVideoActivityScreen(selectedStudents: students, isPhoto: false),
-    'Medication': (students) =>
-        MedicationActivityScreen(selectedStudents: students),
-    'Notes': (students) => NotesActivityScreen(selectedStudents: students),
-    'Outdoor': (students) => OutdoorActivityScreen(selectedStudents: students),
-    'Learning': (students) =>
-        LearningActivityScreen(selectedStudents: students),
+    'Nap': (students) => (
+      NapActivityScreen.routeName,
+      ActivityTypeScreenArgs(selectedStudents: students),
+    ),
+    'Bathroom': (students) => (
+      BathroomActivityScreen.routeName,
+      ActivityTypeScreenArgs(selectedStudents: students),
+    ),
+    'Bottle': (students) => (
+      BottleActivityScreen.routeName,
+      ActivityTypeScreenArgs(selectedStudents: students),
+    ),
+    'Meal': (students) => (
+      MealActivityScreen.routeName,
+      ActivityTypeScreenArgs(selectedStudents: students),
+    ),
+    'Incident': (students) => (
+      IncidentActivityScreen.routeName,
+      ActivityTypeScreenArgs(selectedStudents: students),
+    ),
+    'Photo': (students) => (
+      PhotoVideoActivityScreen.routeName,
+      PhotoVideoActivityScreenArgs(selectedStudents: students, isPhoto: true),
+    ),
+    'Video': (students) => (
+      PhotoVideoActivityScreen.routeName,
+      PhotoVideoActivityScreenArgs(
+        selectedStudents: students,
+        isPhoto: false,
+      ),
+    ),
+    'Medication': (students) => (
+      MedicationActivityScreen.routeName,
+      ActivityTypeScreenArgs(selectedStudents: students),
+    ),
+    'Notes': (students) => (
+      NotesActivityScreen.routeName,
+      ActivityTypeScreenArgs(selectedStudents: students),
+    ),
+    'Outdoor': (students) => (
+      OutdoorActivityScreen.routeName,
+      ActivityTypeScreenArgs(selectedStudents: students),
+    ),
+    'Learning': (students) => (
+      LearningActivityScreen.routeName,
+      ActivityTypeScreenArgs(selectedStudents: students),
+    ),
   };
 
   @override
@@ -68,14 +105,6 @@ class _ChooseActivityState extends State<ChooseActivity> {
   bool get _isMultipleStudentsSelected => widget.selectedStudents.length > 1;
   String? _selectedActivity;
   bool _isLoadingNext = false;
-
-  String? get _classroomCode {
-    if (widget.selectedStudents.isEmpty) return null;
-    final first = widget.selectedStudents.first;
-    final dynamic code = first['classroomCode'] ?? first['classroomcode'];
-    if (code is String && code.trim().isNotEmpty) return code;
-    return null;
-  }
 
   bool _isActivityDisabled(String activityName, ChooseActivityState state) {
     final normalized = activityName.toLowerCase();
@@ -146,7 +175,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
   ) {
     final RenderBox renderBox = tileContext.findRenderObject() as RenderBox;
     final position = renderBox.localToGlobal(Offset.zero);
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = ResponsiveHelper(context).screenWidth;
 
     final overlay = Overlay.of(context);
     late OverlayEntry overlayEntry;
@@ -159,11 +188,11 @@ class _ChooseActivityState extends State<ChooseActivity> {
         top: position.dy - 60,
         left: left,
         child: Material(
-          color: Colors.transparent,
+          color: AppColors.transparentColor,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.black87,
+              color: AppColors.activityTooltipBackgroundColor,
               borderRadius: BorderRadius.circular(6),
             ),
             child: ConstrainedBox(
@@ -171,7 +200,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
               child: Text(
                 _getDisabledActivityTooltip(activityName),
                 softWrap: true,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: AppTextStyles.activityTooltipText,
               ),
             ),
           ),
@@ -235,31 +264,24 @@ class _ChooseActivityState extends State<ChooseActivity> {
 
     final destinationBuilder = ChooseActivity.activityRoutes[activityKey];
     if (destinationBuilder != null && context.mounted) {
-      final nextScreen = destinationBuilder(widget.selectedStudents);
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => nextScreen));
+      final (routeName, args) = destinationBuilder(widget.selectedStudents);
+      context.push(routeName, extra: args);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<ChooseActivityCubit>(
-      create: (_) => ChooseActivityCubit(
-        settingsUseCase: serviceLocator<GetClassroomActivitySettingsUseCase>(),
-        detailsUseCase: serviceLocator<GetActivityTypeDetailsUseCase>(),
-        knownActivityKeys: ChooseActivity.activityIcons.keys,
-      )..loadActivitySettings(classroomCode: _classroomCode),
-      child: BlocConsumer<ChooseActivityCubit, ChooseActivityState>(
-        listenWhen: (prev, curr) =>
-            curr.loadErrorMessage != null &&
-            prev.loadErrorMessage != curr.loadErrorMessage,
-        listener: (context, state) {
-          CoreUtils.logApiError(
-            'Failed to load activity settings: ${state.loadErrorMessage}',
-          );
-          _showWarningMessage(state.loadErrorMessage!);
-        },
-        builder: (context, state) => _buildScaffold(context, state),
-      ),
+    return BlocConsumer<ChooseActivityCubit, ChooseActivityState>(
+      listenWhen: (prev, curr) =>
+          curr.loadErrorMessage != null &&
+          prev.loadErrorMessage != curr.loadErrorMessage,
+      listener: (context, state) {
+        CoreUtils.logApiError(
+          'Failed to load activity settings: ${state.loadErrorMessage}',
+        );
+        _showWarningMessage(state.loadErrorMessage!);
+      },
+      builder: (context, state) => _buildScaffold(context, state),
     );
   }
 
@@ -276,7 +298,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
                 ? const Center(
                     child: Text(
                       'No activities available from API.',
-                      style: TextStyle(fontSize: 14),
+                      style: AppTextStyles.size14,
                     ),
                   )
                 : GridView.builder(
@@ -325,7 +347,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
                               decoration: BoxDecoration(
                                 border: Border.all(
                                   color: isDisabled
-                                      ? Colors.grey.withValues(alpha: 0.3)
+                                      ? AppColors.activityMutedGreyColor.withValues(alpha: 0.3)
                                       : AppColors.primaryColor.withValues(
                                           alpha: 0.1,
                                         ),
@@ -333,10 +355,10 @@ class _ChooseActivityState extends State<ChooseActivity> {
                                 ),
                                 borderRadius: BorderRadius.circular(8),
                                 color: isDisabled
-                                    ? Colors.grey.withValues(alpha: 0.1)
+                                    ? AppColors.activityMutedGreyColor.withValues(alpha: 0.1)
                                     : isSelected
                                     ? const Color.fromARGB(255, 249, 245, 250)
-                                    : Colors.transparent,
+                                    : AppColors.transparentColor,
                               ),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -360,12 +382,8 @@ class _ChooseActivityState extends State<ChooseActivity> {
                                       maxLines: activityName.contains(' ')
                                           ? 2
                                           : 1,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: isDisabled
-                                            ? Colors.grey
-                                            : AppColors.primaryColor,
+                                      style: AppTextStyles.activityGridTileLabel(
+                                        isDisabled: isDisabled,
                                       ),
                                     ),
                                   ),

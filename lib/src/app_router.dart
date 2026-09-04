@@ -7,9 +7,33 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/tab_visibility_events.dart';
 import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
+import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_filter_screen.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_item.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_student_selection.dart';
+import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/bathroom_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/bottle_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/incident_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/learning_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/meal_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/medication_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/nap_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/notes_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/outdoor_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/photo_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/view_activity_screens/show_full_screen_media.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_feed_screen_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_filter_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_student_selection_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/choose_activity_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/bottle_activity_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/incident_activity_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/medication_activity_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/nap_activity_cubit.dart';
+import 'package:wowcare/presentation/features/activities/widgets/upload_photo_video.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
@@ -1462,7 +1486,9 @@ final GoRouter appRouter = GoRouter(
                 final date = q['date'] ?? '';
                 final room = q['classroomCode'] ?? '';
                 final extra = state.extra as Map<String, dynamic>?;
-                return ActivityFeedScreen(
+                return BlocProvider<ActivityFeedScreenCubit>(
+                  create: (_) => serviceLocator<ActivityFeedScreenCubit>(),
+                  child: ActivityFeedScreen(
                   // The Activities tab lives in an indexed-stack branch and its
                   // Daily tab is keep-alive, so a notification tap into an
                   // already-visited tab reuses the old State — leaving the feed
@@ -1487,6 +1513,7 @@ final GoRouter appRouter = GoRouter(
                       ? [q['classroom']!]
                       : null,
                   resetKey: extra?['timestamp']?.toString(),
+                  ),
                 );
               },
             ),
@@ -1578,17 +1605,286 @@ final GoRouter appRouter = GoRouter(
         final q = state.uri.queryParameters;
         return _fastPage(
           state,
-          IncidentActivityScreen(
-            isEdit: true,
-            activityData: ActivityItem(
-              time: '',
-              date: '',
-              name: '',
-              studentList: const <String>[],
-              createdBy: '',
-              activityCode: q['code'],
-              studentCode: q['studentCode'],
+          MultiBlocProvider(
+            providers: [
+              BlocProvider<ActivityEditorCubit>(
+                create: (_) => serviceLocator<ActivityEditorCubit>(),
+              ),
+              BlocProvider<IncidentActivityCubit>(
+                create: (_) => serviceLocator<IncidentActivityCubit>(),
+              ),
+            ],
+            child: IncidentActivityScreen(
+              isEdit: true,
+              activityData: ActivityItem(
+                time: '',
+                date: '',
+                name: '',
+                studentList: const <String>[],
+                createdBy: '',
+                activityCode: q['code'],
+                studentCode: q['studentCode'],
+              ),
             ),
+          ),
+        );
+      },
+    ),
+
+    // ── Activity overlay routes (Mandate 1: GoRouter everywhere) ─────────────
+    // Same pattern as the billing drill-down screens above: pushed via
+    // `context.push` over the shell, args read from `state.extra` cast to the
+    // matching typed class from activity_route_args.dart.
+    GoRoute(
+      path: ActivityFilterScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as ActivityFilterArgs;
+        return BlocProvider<ActivityFilterCubit>(
+          create: (_) => serviceLocator<ActivityFilterCubit>()
+            ..loadMetadata(schoolCode: args.schoolCode),
+          child: ActivityFilterScreen(
+            schoolCode: args.schoolCode,
+            classroomCode: args.classroomCode,
+            initialFilters: args.initialFilters,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: ShowFullScreenMedia.routeName,
+      builder: (context, state) {
+        final args = state.extra! as ShowFullScreenMediaArgs;
+        return ShowFullScreenMedia(
+          activity: args.activity,
+          photoUrl: args.photoUrl,
+          videoUrl: args.videoUrl,
+        );
+      },
+    ),
+    GoRoute(
+      path: FullscreenLocalVideoPlayerPage.routeName,
+      builder: (context, state) {
+        final args = state.extra! as FullscreenLocalVideoArgs;
+        return FullscreenLocalVideoPlayerPage(videoFile: args.videoFile);
+      },
+    ),
+
+    // The `name:` on these two matches the value CoreUtils.exitActivityFlow
+    // already compared route.settings.name against under the old
+    // Navigator.push(MaterialPageRoute(settings: RouteSettings(name: ...)))
+    // pattern. go_router builds each page's RouteSettings.name from
+    // `state.name ?? state.path`, so declaring `name:` here reproduces that
+    // exact matching after the move to GoRouter — exitActivityFlow itself
+    // needs no changes.
+    GoRoute(
+      // `ChooseActivity.routeName` ('chooseActivity') is a bare
+      // RouteSettings.name tag (used by exitActivityFlow's popUntil match),
+      // not a URL path — a top-level GoRoute path must start with '/'.
+      // context.push(ChooseActivity.routeName) resolves to '/chooseActivity'
+      // internally, so the registered path must match that exactly.
+      path: '/${ChooseActivity.routeName}',
+      name: CoreUtils.chooseActivityRouteName,
+      builder: (context, state) {
+        final args = state.extra! as ChooseActivityArgs;
+        return BlocProvider<ChooseActivityCubit>(
+          create: (_) => serviceLocator<ChooseActivityCubit>()
+            ..loadActivitySettings(
+              classroomCode: classroomCodeFromSelectedStudents(
+                args.selectedStudents,
+              ),
+            ),
+          child: ChooseActivity(selectedStudents: args.selectedStudents),
+        );
+      },
+    ),
+    GoRoute(
+      // Same fix as ChooseActivity's route above: `.routeName` is a bare
+      // RouteSettings.name tag, not a URL path — must be '/'-prefixed here.
+      path: '/${ActivityStudentSelection.routeName}',
+      name: CoreUtils.activityStudentSelectionRouteName,
+      builder: (context, state) => BlocProvider<ActivityStudentSelectionCubit>(
+        create: (_) => serviceLocator<ActivityStudentSelectionCubit>(),
+        child: const ActivityStudentSelection(),
+      ),
+    ),
+    // The following ten routes wrap each screen's cubit(s) in a BlocProvider
+    // here — the only place `serviceLocator<T>()` appears on this path
+    // (Mandate 5). Each screen's own `build()` used to do this wrapping
+    // itself via `BlocProvider(create: (_) => serviceLocator<X>())`; moved
+    // here now that every push into these screens goes through this router.
+    GoRoute(
+      path: NapActivityScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as ActivityTypeScreenArgs;
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<ActivityEditorCubit>(
+              create: (_) => serviceLocator<ActivityEditorCubit>(),
+            ),
+            BlocProvider<NapActivityCubit>(
+              create: (_) => serviceLocator<NapActivityCubit>(),
+            ),
+          ],
+          child: NapActivityScreen(
+            selectedStudents: args.selectedStudents,
+            isEdit: args.isEdit,
+            activityData: args.activityData,
+            readOnly: args.readOnly,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: BathroomActivityScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as ActivityTypeScreenArgs;
+        return BlocProvider<ActivityEditorCubit>(
+          create: (_) => serviceLocator<ActivityEditorCubit>(),
+          child: BathroomActivityScreen(
+            selectedStudents: args.selectedStudents,
+            isEdit: args.isEdit,
+            activityData: args.activityData,
+            readOnly: args.readOnly,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: BottleActivityScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as ActivityTypeScreenArgs;
+        return BlocProvider<BottleActivityCubit>(
+          create: (_) => serviceLocator<BottleActivityCubit>()
+            ..init(
+              isEdit: args.isEdit,
+              readOnly: args.readOnly,
+              activityData: args.activityData,
+              selectedStudents: args.selectedStudents,
+            ),
+          child: BottleActivityScreen(
+            selectedStudents: args.selectedStudents,
+            isEdit: args.isEdit,
+            activityData: args.activityData,
+            readOnly: args.readOnly,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: MealActivityScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as ActivityTypeScreenArgs;
+        return BlocProvider<ActivityEditorCubit>(
+          create: (_) => serviceLocator<ActivityEditorCubit>(),
+          child: MealActivityScreen(
+            selectedStudents: args.selectedStudents,
+            isEdit: args.isEdit,
+            activityData: args.activityData,
+            readOnly: args.readOnly,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: IncidentActivityScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as ActivityTypeScreenArgs;
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<ActivityEditorCubit>(
+              create: (_) => serviceLocator<ActivityEditorCubit>(),
+            ),
+            BlocProvider<IncidentActivityCubit>(
+              create: (_) => serviceLocator<IncidentActivityCubit>(),
+            ),
+          ],
+          child: IncidentActivityScreen(
+            selectedStudents: args.selectedStudents,
+            isEdit: args.isEdit,
+            activityData: args.activityData,
+            readOnly: args.readOnly,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: MedicationActivityScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as ActivityTypeScreenArgs;
+        return BlocProvider<MedicationActivityCubit>(
+          create: (_) => serviceLocator<MedicationActivityCubit>()
+            ..init(
+              isEdit: args.isEdit,
+              readOnly: args.readOnly,
+              activityData: args.activityData,
+              selectedStudents: args.selectedStudents,
+            ),
+          child: MedicationActivityScreen(
+            selectedStudents: args.selectedStudents,
+            isEdit: args.isEdit,
+            activityData: args.activityData,
+            readOnly: args.readOnly,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: NotesActivityScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as ActivityTypeScreenArgs;
+        return BlocProvider<ActivityEditorCubit>(
+          create: (_) => serviceLocator<ActivityEditorCubit>(),
+          child: NotesActivityScreen(
+            selectedStudents: args.selectedStudents,
+            isEdit: args.isEdit,
+            activityData: args.activityData,
+            readOnly: args.readOnly,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: OutdoorActivityScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as ActivityTypeScreenArgs;
+        return BlocProvider<ActivityEditorCubit>(
+          create: (_) => serviceLocator<ActivityEditorCubit>(),
+          child: OutdoorActivityScreen(
+            selectedStudents: args.selectedStudents,
+            isEdit: args.isEdit,
+            activityData: args.activityData,
+            readOnly: args.readOnly,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: LearningActivityScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as ActivityTypeScreenArgs;
+        return BlocProvider<ActivityEditorCubit>(
+          create: (_) => serviceLocator<ActivityEditorCubit>(),
+          child: LearningActivityScreen(
+            selectedStudents: args.selectedStudents,
+            isEdit: args.isEdit,
+            activityData: args.activityData,
+            readOnly: args.readOnly,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: PhotoVideoActivityScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as PhotoVideoActivityScreenArgs;
+        return BlocProvider<ActivityEditorCubit>(
+          create: (_) => serviceLocator<ActivityEditorCubit>(),
+          child: PhotoVideoActivityScreen(
+            selectedStudents: args.selectedStudents,
+            isEdit: args.isEdit,
+            isPhoto: args.isPhoto,
+            activityData: args.activityData,
+            readOnly: args.readOnly,
           ),
         );
       },

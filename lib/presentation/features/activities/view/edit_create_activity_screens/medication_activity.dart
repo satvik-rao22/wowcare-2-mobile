@@ -8,24 +8,25 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
-import '../../../../../app/di/di.dart';
 import '../../../../../core/util/core_utils.dart';
-import '../../cubit/medication_activity_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/medication_activity_cubit.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
 import '../../utils/activity_description_limits.dart';
 import '../../utils/activity_selected_date_prefill.dart';
-import '../utils/activity_attendance_window_validator.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_attendance_window_validator.dart';
 import '../../utils/activity_staff_display.dart';
 import '../activity_daily_tab.dart';
-import '../widgets/activity_admin_approve_reject_bar.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_admin_approve_reject_bar.dart';
 
 /// Medication activity create/edit/view form. All form state and the
 /// create/update/approve/reject flow live in [MedicationActivityCubit]; this
 /// widget is a pure view over that state with no `setState`. It stays a
 /// `StatefulWidget` only to own the description `TextEditingController`.
 class MedicationActivityScreen extends StatelessWidget {
+  static const String routeName = '/activity/medication';
+
   const MedicationActivityScreen({
     super.key,
     this.selectedStudents,
@@ -40,19 +41,10 @@ class MedicationActivityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<MedicationActivityCubit>(
-      create: (_) => serviceLocator<MedicationActivityCubit>()
-        ..init(
-          isEdit: isEdit,
-          readOnly: readOnly,
-          activityData: activityData,
-          selectedStudents: selectedStudents,
-        ),
-      child: _MedicationActivityView(
-        isEdit: isEdit,
-        readOnly: readOnly,
-        activityData: activityData,
-      ),
+    return _MedicationActivityView(
+      isEdit: isEdit,
+      readOnly: readOnly,
+      activityData: activityData,
     );
   }
 }

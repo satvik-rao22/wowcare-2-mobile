@@ -1,4 +1,5 @@
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
+import 'activity_json_aliases.dart';
 
 class ActivityFeedPageModel {
   ActivityFeedPageModel({
@@ -56,14 +57,6 @@ class ActivityFeedPageModel {
 
   static List<ActivityFeedRow> _rowsFromJson(Map<String, dynamic> json) {
     try {
-      bool? asNullableBool(dynamic raw) {
-        if (raw is bool) return raw;
-        final v = (raw ?? '').toString().trim().toLowerCase();
-        if (v == 'true') return true;
-        if (v == 'false') return false;
-        return null;
-      }
-
       bool? aggregateNapFlagFromStudents(
         List<Map<String, String>> students,
         String flagKey,
@@ -72,7 +65,7 @@ class ActivityFeedPageModel {
         var sawTrue = false;
         var sawFalse = false;
         for (final s in students) {
-          final v = asNullableBool(s[flagKey]);
+          final v = _activityBoolFromDynamic(s[flagKey]);
           if (v == true) {
             sawTrue = true;
           } else if (v == false) {
@@ -108,23 +101,16 @@ class ActivityFeedPageModel {
         return const [];
       }
 
-      final code = (json['cardGroupCode'] ??
-              json['code'] ??
-              json['batchGroupCode'] ??
-              json['activityCode'] ??
-              '')
-          .toString()
-          .trim();
+      final code = _resolveActivityCode(json);
       final room = (json['classroomCode'] ?? '').toString().trim();
       final activityTypeCode = (json['activityTypeCode'] ?? '').toString();
       final activityTypeName = (json['activityTypeName'] ?? '').toString();
       final description = (json['description'] ?? '').toString();
       final createdBy = (json['createdBy'] ?? '').toString();
       final staffCode = (json['staffCode'] ?? '').toString().trim();
-      final approvalStatus =
-          (json['approvalStatus'] ?? json['status'] ?? '').toString().trim();
-      final napStart = asNullableBool(json['napStart']);
-      final napEnd = asNullableBool(json['napEnd']);
+      final approvalStatus = resolveActivityApprovalStatusAlias(json);
+      final napStart = _activityBoolFromDynamic(json['napStart']);
+      final napEnd = _activityBoolFromDynamic(json['napEnd']);
 
       final students = <Map<String, String>>[];
       final rawStudents = json['students'];
@@ -219,5 +205,29 @@ class ActivityFeedPageModel {
     if (v is int) return v;
     if (v is num) return v.toInt();
     return int.tryParse(v?.toString() ?? '') ?? 0;
+  }
+
+  /// The activity's identifying code, under whichever key this endpoint/
+  /// response-version used. Declared once here instead of re-derived at every
+  /// call site, so a new alias is added in one place, not copy-pasted.
+  static String _resolveActivityCode(Map<String, dynamic> json) {
+    return (json['cardGroupCode'] ??
+            json['code'] ??
+            json['batchGroupCode'] ??
+            json['activityCode'] ??
+            '')
+        .toString()
+        .trim();
+  }
+
+  /// Accepts a real bool OR its string form ('true'/'false'), which the API
+  /// sends inconsistently depending on endpoint. Returns null for anything
+  /// else (including absent), which callers treat as "unknown", not "false".
+  static bool? _activityBoolFromDynamic(dynamic raw) {
+    if (raw is bool) return raw;
+    final v = (raw ?? '').toString().trim().toLowerCase();
+    if (v == 'true') return true;
+    if (v == 'false') return false;
+    return null;
   }
 }

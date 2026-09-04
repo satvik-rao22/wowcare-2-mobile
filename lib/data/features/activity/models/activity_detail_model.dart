@@ -1,0 +1,132 @@
+import '../../../../domain/features/activity/entities/activity_detail.dart';
+import 'activity_json_aliases.dart';
+
+/// Parses one grouped activity card from `GET /api/v2/activities/{cardGroupCode}`.
+class ActivityDetailModel {
+  ActivityDetailModel({
+    required this.code,
+    required this.activityTypeCode,
+    required this.activityTypeName,
+    required this.activityDateIso,
+    required this.description,
+    required this.parameterValues,
+    required this.attachments,
+    required this.createdBy,
+    this.staffCode = '',
+    this.studentCode,
+    this.classroomCode,
+    this.schoolCode,
+    this.organizationCode,
+    this.studentFirstName = '',
+    this.studentMiddleName,
+    this.studentLastName = '',
+    this.approvalStatus,
+  });
+
+  final String code;
+  final String activityTypeCode;
+  final String activityTypeName;
+  final String activityDateIso;
+  final String description;
+  final List<Map<String, dynamic>> parameterValues;
+  final List<Map<String, dynamic>> attachments;
+  final String createdBy;
+  final String staffCode;
+  final String? studentCode;
+  final String? classroomCode;
+  final String? schoolCode;
+  final String? organizationCode;
+  final String studentFirstName;
+  final String? studentMiddleName;
+  final String studentLastName;
+  final String? approvalStatus;
+
+  factory ActivityDetailModel.fromJson(Map<String, dynamic> json) {
+    final params = <Map<String, dynamic>>[];
+    final rawPv = json['parameterValues'];
+    if (rawPv is List<dynamic>) {
+      for (final p in rawPv) {
+        if (p is Map<String, dynamic>) params.add(p);
+      }
+    }
+    final atts = <Map<String, dynamic>>[];
+    final rawAtt = json['attachments'];
+    if (rawAtt is List<dynamic>) {
+      for (final a in rawAtt) {
+        if (a is Map<String, dynamic>) atts.add(a);
+      }
+    }
+    final singleAttachment = json['attachment'];
+    if (singleAttachment is Map<String, dynamic>) {
+      atts.add(singleAttachment);
+    }
+
+    String? studentCode;
+    String studentFirstName = '';
+    String? studentMiddleName;
+    String studentLastName = '';
+    final rawStudents = json['students'];
+    if (rawStudents is List && rawStudents.isNotEmpty) {
+      final first = rawStudents.first;
+      if (first is Map<String, dynamic>) {
+        studentCode = (first['studentCode'] as String?)?.trim().isEmpty == true
+            ? null
+            : first['studentCode']?.toString();
+        studentFirstName = (first['firstName'] ?? '').toString();
+        studentMiddleName = first['middleName']?.toString();
+        studentLastName = (first['lastName'] ?? '').toString();
+      }
+    }
+
+    final approvalStatus = resolveActivityApprovalStatusAlias(json);
+
+    return ActivityDetailModel(
+      code: (json['code'] ?? '').toString(),
+      activityTypeCode: (json['activityTypeCode'] ?? '').toString(),
+      activityTypeName: (json['activityTypeName'] ?? '').toString(),
+      activityDateIso: (json['activityDate'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      parameterValues: params,
+      attachments: atts,
+      createdBy: (json['createdBy'] ?? '').toString(),
+      staffCode: (json['staffCode'] ?? '').toString(),
+      studentCode: studentCode ??
+          ((json['studentCode'] as String?)?.trim().isEmpty == true
+              ? null
+              : json['studentCode']?.toString()),
+      classroomCode: (json['classroomCode'] as String?)?.trim().isEmpty == true
+          ? null
+          : json['classroomCode']?.toString(),
+      schoolCode: json['schoolCode']?.toString(),
+      organizationCode: json['organizationCode']?.toString(),
+      studentFirstName: studentFirstName.isNotEmpty
+          ? studentFirstName
+          : (json['studentFirstName'] ?? '').toString(),
+      studentMiddleName: studentMiddleName ?? json['studentMiddleName']?.toString(),
+      studentLastName: studentLastName.isNotEmpty
+          ? studentLastName
+          : (json['studentLastName'] ?? '').toString(),
+      approvalStatus: approvalStatus.isEmpty ? null : approvalStatus.toUpperCase(),
+    );
+  }
+
+  ActivityDetail toEntity() => ActivityDetail(
+        code: code,
+        activityTypeCode: activityTypeCode,
+        activityTypeName: activityTypeName,
+        activityDateIso: activityDateIso,
+        description: description,
+        parameterValues: parameterValues,
+        attachments: attachments,
+        createdBy: createdBy,
+        staffCode: staffCode,
+        studentCode: studentCode,
+        classroomCode: classroomCode,
+        schoolCode: schoolCode,
+        organizationCode: organizationCode,
+        studentFirstName: studentFirstName,
+        studentMiddleName: studentMiddleName,
+        studentLastName: studentLastName,
+        approvalStatus: approvalStatus,
+      );
+}
