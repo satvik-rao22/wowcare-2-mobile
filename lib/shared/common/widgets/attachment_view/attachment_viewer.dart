@@ -2,7 +2,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:open_file/open_file.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/attachment_view/attachment_tiles.dart';
@@ -48,7 +48,7 @@ Future<void> openAttachmentExternally(
     final path = '${dir.path}/$safeName';
     // Bare Dio: the URL is presigned, so an auth header would break it.
     await Dio().download(source, path);
-    final result = await OpenFile.open(path);
+    final result = await OpenFilex.open(path);
     if (!context.mounted || result.type == ResultType.done) return;
     CoreUtils.showTopSnackBar(
       context: context,
