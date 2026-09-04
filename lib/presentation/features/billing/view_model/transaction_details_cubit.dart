@@ -114,14 +114,11 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
       );
       if (isClosed) return;
       emit(state.copyWith(
-        siblingSummary: <String, dynamic>{
-          'netAmountPaid': ledger.netPaid,
-          'amountUnpaid': ledger.unpaid,
-          'amountInProcess': ledger.inProcess,
-          'amountRefund': ledger.refunded,
-          'amountPaid': ledger.paid,
-          'openBalance': ledger.openBalance,
-        },
+        netPaidAmount: ledger.netPaid,
+        amountUnpaid: ledger.unpaid,
+        amountInProcess: ledger.inProcess,
+        amountRefund: ledger.refunded,
+        openBalance: ledger.openBalance,
         siblingTransactions: _mapTransactions(
           ledger.transactions,
           familyName: ledger.familyName,

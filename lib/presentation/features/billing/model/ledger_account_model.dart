@@ -67,6 +67,44 @@ class LedgerAccountModel extends Equatable {
   final String? balanceType;
   final bool system;
 
+  /// Local-cache serialization (see `GeneralLedgerCubit`'s cache helpers).
+  /// Not the wire format — [id] here is the API `code`, per the class doc.
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'type': type,
+        'openBalance': openBalance,
+        'description': description,
+        'status': status,
+        'isSubsidy': isSubsidy,
+        'nature': nature,
+        'currency': currency,
+        'category': category,
+        'openingBalanceType': openingBalanceType,
+        'currentBalance': currentBalance,
+        'balanceType': balanceType,
+        'system': system,
+      };
+
+  factory LedgerAccountModel.fromJson(Map<String, dynamic> json) {
+    return LedgerAccountModel(
+      id: (json['id'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      type: (json['type'] ?? '').toString(),
+      openBalance: (json['openBalance'] as num?)?.toDouble() ?? 0.0,
+      description: json['description'] as String?,
+      status: json['status'] as String?,
+      isSubsidy: (json['isSubsidy'] as bool?) ?? false,
+      nature: json['nature'] as String?,
+      currency: json['currency'] as String?,
+      category: json['category'] as String?,
+      openingBalanceType: json['openingBalanceType'] as String?,
+      currentBalance: (json['currentBalance'] as num?)?.toDouble(),
+      balanceType: json['balanceType'] as String?,
+      system: (json['system'] as bool?) ?? false,
+    );
+  }
+
   double get availableBalance =>
       openBalance + (invoiced ?? 0) - (received ?? 0);
 

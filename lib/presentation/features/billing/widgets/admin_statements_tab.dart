@@ -7,7 +7,7 @@ import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
-import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/admin_statements_cubit.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -181,7 +181,7 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(error),
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: AppColors.billingErrorTextColor,
         ),
       );
     }
@@ -197,7 +197,7 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result.error ?? BillingStrings.unableToPreviewThisStatement),
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: AppColors.billingErrorTextColor,
         ),
       );
       return;

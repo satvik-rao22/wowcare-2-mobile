@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
-import 'package:wowcare/presentation/features/billing/cubit/date_range_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/date_range_cubit.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_svg/svg.dart';
@@ -111,7 +112,7 @@ class _AccountingDateRangeSelectorState
         builder: (context, _) {
           return Card(
             elevation: 0,
-            color: Colors.white,
+            color: AppColors.billingCardColor,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
@@ -154,7 +155,7 @@ class _AccountingDateRangeSelectorState
                             child: Text(
                               _currentLabel(),
                               style: const TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: Fonts.manrope,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                                 color: AppColors.billingTextColor,

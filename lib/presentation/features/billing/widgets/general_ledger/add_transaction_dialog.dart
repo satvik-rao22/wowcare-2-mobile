@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/domain/features/billing/entities/ledger_transaction_entity.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
@@ -79,7 +80,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final double safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     final TextStyle labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: 'Manrope',
+      fontFamily: Fonts.manrope,
       fontWeight: FontWeight.w400,
       color: AppColors.billingTextColor,
     );
@@ -121,9 +122,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             const Text(
               BillingStrings.dateIsRequired,
               style: TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: Fonts.manrope,
                 fontSize: 12,
-                color: Colors.red,
+                color: AppColors.errorColor,
               ),
             ),
           ],
@@ -150,10 +151,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           top: 8,
         ),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.billingCardColor,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: AppColors.blackColor.withValues(alpha: 0.05),
               offset: const Offset(0, -4),
               blurRadius: 16,
             ),
@@ -197,7 +198,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               if (required)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.errorColor),
                 ),
             ],
           ),
@@ -206,7 +207,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.billingCardColor,
             border: Border.all(color: AppColors.billingBorderDefault),
             borderRadius:
                 BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
@@ -217,7 +218,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             inputFormatters: inputFormatters,
             maxLines: maxLines,
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.billingTextColor,
@@ -225,7 +226,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.billingGrey),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -239,9 +240,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           Text(
             error,
             style: const TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               fontSize: 12,
-              color: Colors.red,
+              color: AppColors.errorColor,
             ),
           ),
         ],

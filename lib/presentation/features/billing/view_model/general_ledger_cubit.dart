@@ -87,49 +87,17 @@ class GeneralLedgerCubit extends Cubit<GeneralLedgerState> {
       );
 
   Map<String, dynamic> _encodeList(List<LedgerAccountModel> items) => {
-        'items': items
-            .map((e) => <String, dynamic>{
-                  'id': e.id,
-                  'name': e.name,
-                  'type': e.type,
-                  'openBalance': e.openBalance,
-                  'description': e.description,
-                  'status': e.status,
-                  'isSubsidy': e.isSubsidy,
-                  'nature': e.nature,
-                  'currency': e.currency,
-                  'category': e.category,
-                  'openingBalanceType': e.openingBalanceType,
-                  'currentBalance': e.currentBalance,
-                  'balanceType': e.balanceType,
-                  'system': e.system,
-                })
-            .toList(),
+        'items': items.map((e) => e.toJson()).toList(),
       };
 
   List<LedgerAccountModel> _decodeList(Map<String, dynamic>? payload) {
     if (payload == null) return [];
     final raw = payload['items'];
     if (raw is! List) return [];
-    return raw.whereType<Map>().map((m) {
-      final map = Map<String, dynamic>.from(m);
-      return LedgerAccountModel(
-        id: (map['id'] ?? '').toString(),
-        name: (map['name'] ?? '').toString(),
-        type: (map['type'] ?? '').toString(),
-        openBalance: (map['openBalance'] as num?)?.toDouble() ?? 0.0,
-        description: map['description'] as String?,
-        status: map['status'] as String?,
-        isSubsidy: (map['isSubsidy'] as bool?) ?? false,
-        nature: map['nature'] as String?,
-        currency: map['currency'] as String?,
-        category: map['category'] as String?,
-        openingBalanceType: map['openingBalanceType'] as String?,
-        currentBalance: (map['currentBalance'] as num?)?.toDouble(),
-        balanceType: map['balanceType'] as String?,
-        system: (map['system'] as bool?) ?? false,
-      );
-    }).toList();
+    return raw
+        .whereType<Map>()
+        .map((m) => LedgerAccountModel.fromJson(Map<String, dynamic>.from(m)))
+        .toList();
   }
 
   Future<void> _invalidateAllLedgerCaches() async {

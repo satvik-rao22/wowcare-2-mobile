@@ -3,7 +3,11 @@ part of 'transaction_details_cubit.dart';
 class TransactionDetailsState extends Equatable {
   const TransactionDetailsState({
     required this.siblingTransactions,
-    required this.siblingSummary,
+    required this.netPaidAmount,
+    required this.amountUnpaid,
+    required this.amountInProcess,
+    required this.amountRefund,
+    required this.openBalance,
     required this.isLoadingSiblings,
     required this.hasError,
     required this.errorMessage,
@@ -20,7 +24,11 @@ class TransactionDetailsState extends Equatable {
 
   const TransactionDetailsState.initial()
       : siblingTransactions = const [],
-        siblingSummary = const {},
+        netPaidAmount = 0,
+        amountUnpaid = 0,
+        amountInProcess = 0,
+        amountRefund = 0,
+        openBalance = 0,
         isLoadingSiblings = false,
         hasError = false,
         errorMessage = '',
@@ -35,7 +43,14 @@ class TransactionDetailsState extends Equatable {
         isLoadingMore = false;
 
   final List<TransactionItem> siblingTransactions;
-  final Map<String, dynamic> siblingSummary;
+  final double netPaidAmount;
+  final double amountUnpaid;
+  final double amountInProcess;
+  final double amountRefund;
+
+  /// The family's outstanding balance (from the ledger), shown as the amount
+  /// to collect in Receive Payment.
+  final double openBalance;
   final bool isLoadingSiblings;
   final bool hasError;
   final String errorMessage;
@@ -49,26 +64,16 @@ class TransactionDetailsState extends Equatable {
   final bool hasMoreData;
   final bool isLoadingMore;
 
-  double summaryDouble(String key) {
-    final value = siblingSummary[key];
-    if (value is num) return value.toDouble();
-    return double.tryParse(value?.toString() ?? '') ?? 0;
-  }
-
-  double get netPaidAmount => summaryDouble('netAmountPaid');
-  double get amountUnpaid => summaryDouble('amountUnpaid');
-  double get amountInProcess => summaryDouble('amountInProcess');
-  double get amountRefund => summaryDouble('amountRefund');
-
-  /// The family's outstanding balance (from the ledger), shown as the amount
-  /// to collect in Receive Payment.
-  double get openBalance => summaryDouble('openBalance');
   double get familyTotalInvoiced =>
       netPaidAmount + amountUnpaid + amountInProcess;
 
   TransactionDetailsState copyWith({
     List<TransactionItem>? siblingTransactions,
-    Map<String, dynamic>? siblingSummary,
+    double? netPaidAmount,
+    double? amountUnpaid,
+    double? amountInProcess,
+    double? amountRefund,
+    double? openBalance,
     bool? isLoadingSiblings,
     bool? hasError,
     String? errorMessage,
@@ -84,7 +89,11 @@ class TransactionDetailsState extends Equatable {
   }) {
     return TransactionDetailsState(
       siblingTransactions: siblingTransactions ?? this.siblingTransactions,
-      siblingSummary: siblingSummary ?? this.siblingSummary,
+      netPaidAmount: netPaidAmount ?? this.netPaidAmount,
+      amountUnpaid: amountUnpaid ?? this.amountUnpaid,
+      amountInProcess: amountInProcess ?? this.amountInProcess,
+      amountRefund: amountRefund ?? this.amountRefund,
+      openBalance: openBalance ?? this.openBalance,
       isLoadingSiblings: isLoadingSiblings ?? this.isLoadingSiblings,
       hasError: hasError ?? this.hasError,
       errorMessage: errorMessage ?? this.errorMessage,
@@ -103,7 +112,11 @@ class TransactionDetailsState extends Equatable {
   @override
   List<Object?> get props => [
         siblingTransactions,
-        siblingSummary,
+        netPaidAmount,
+        amountUnpaid,
+        amountInProcess,
+        amountRefund,
+        openBalance,
         isLoadingSiblings,
         hasError,
         errorMessage,

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
-import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/bool_toggle_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_student_vertical_popup.dart';
 
 class BillingStudentCard extends StatefulWidget {
@@ -59,7 +61,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
   late final BoolToggleCubit _cubit = BoolToggleCubit(initial: widget.isSelected);
   bool get _localSelected => _cubit.state;
 
-  bool isExpanded = false;
+  final ValueNotifier<bool> _isExpanded = ValueNotifier<bool>(false);
 
   bool get _isSelectionControlled => widget.onSelected != null;
 
@@ -76,6 +78,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
   @override
   void dispose() {
     _cubit.close();
+    _isExpanded.dispose();
     super.dispose();
   }
 
@@ -129,8 +132,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
       value: _cubit,
       child: BlocBuilder<BoolToggleCubit, bool>(
         builder: (context, _) {
-          final screenWidth = MediaQuery.of(context).size.width;
-          final isTablet = screenWidth > 600;
+          final isTablet = ResponsiveHelper(context).isTabletCompact;
 
           Color statusColor;
           switch (widget.lastPaymentStatus) {
@@ -138,7 +140,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
               statusColor = AppColors.successColor;
               break;
             case 'Pending':
-              statusColor = Colors.orange;
+              statusColor = AppColors.warningColor;
               break;
             case 'Failed':
               statusColor = AppColors.errorColor;
@@ -160,12 +162,14 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
 
           return LayoutBuilder(
             builder: (context, constraints) {
-              return IntrinsicHeight(
+              return ValueListenableBuilder<bool>(
+                valueListenable: _isExpanded,
+                builder: (context, isExpanded, _) => IntrinsicHeight(
                 child: Container(
                   width: constraints.maxWidth,
                   height: isExpanded ? null : 64.0,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.billingCardColor,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: AppColors.cardBorderColor,
@@ -176,11 +180,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                   child: Material(
                     color: AppColors.transparentColor,
                     child: InkWell(
-                      onTap: () {
-                        setState(() {
-                          isExpanded = !isExpanded;
-                        });
-                      },
+                      onTap: () => _isExpanded.value = !_isExpanded.value,
                       onLongPress: widget.onLongPress,
                       child: Column(
                         children: [
@@ -228,7 +228,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                         child: Text(
                                           widget.name,
                                           style: TextStyle(
-                                            fontFamily: 'Manrope',
+                                            fontFamily: Fonts.manrope,
                                             fontSize: isTablet ? 16 : 14,
                                             fontWeight: FontWeight.w500,
                                             color: AppColors.billingTextColor,
@@ -246,7 +246,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                             ? Text(
                                                 widget.classroom,
                                                 style: TextStyle(
-                                                  fontFamily: 'Manrope',
+                                                  fontFamily: Fonts.manrope,
                                                   fontSize: isTablet ? 16 : 14,
                                                   fontWeight: FontWeight.w500,
                                                   color: AppColors.billingTextColor,
@@ -267,7 +267,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                                       Text(
                                                         BillingStrings.payment,
                                                         style: TextStyle(
-                                                          fontFamily: 'Manrope',
+                                                          fontFamily: Fonts.manrope,
                                                           fontSize:
                                                               isTablet ? 14 : 12,
                                                           fontWeight:
@@ -285,7 +285,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                                       Text(
                                                         widget.paymentMethod,
                                                         style: TextStyle(
-                                                          fontFamily: 'Manrope',
+                                                          fontFamily: Fonts.manrope,
                                                           fontSize:
                                                               isTablet ? 14 : 12,
                                                           fontWeight:
@@ -304,7 +304,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                                 : Text(
                                                     BillingStrings.notSetup,
                                                     style: TextStyle(
-                                                      fontFamily: 'Manrope',
+                                                      fontFamily: Fonts.manrope,
                                                       fontSize:
                                                           isTablet ? 16 : 14,
                                                       fontWeight:
@@ -384,10 +384,10 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                           child: const Text(
                                             BillingStrings.view,
                                             style: TextStyle(
-                                              fontFamily: 'Manrope',
+                                              fontFamily: Fonts.manrope,
                                               fontSize: 16,
                                               fontWeight: FontWeight.w700,
-                                              color: Colors.white,
+                                              color: AppColors.billingCardOnColorText,
                                               height: 16 / 16,
                                             ),
                                           ),
@@ -403,6 +403,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                       ),
                     ),
                   ),
+                ),
                 ),
               );
             },
@@ -425,7 +426,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
         Text(
           label,
           style: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: Fonts.manrope,
             fontSize: 13,
             fontWeight: FontWeight.w400,
             color: AppColors.billingTextColor,
@@ -440,7 +441,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
               Text(
                 value,
                 style: TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: valueColor ?? AppColors.billingTextColor,
@@ -453,7 +454,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                 Text(
                   note,
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: Fonts.manrope,
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
                     color: AppColors.billingTextColor,
