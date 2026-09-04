@@ -86,13 +86,42 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
       if (widget.initialDocumentName != null) {
         _documentNameController.text = widget.initialDocumentName!.trim();
       }
-      _selectedDocumentType = widget.initialDocumentType;
+      // widget.initialDocumentType carries the raw API enum (e.g.
+      // 'BIRTH_CERTIFICATE', matching what _toDocumentTypeEnum below sends on
+      // save) - the Type dropdown's own items are the display labels
+      // ('Birth Certificate'). Map back to the display label so the dropdown
+      // actually shows the current value selected instead of appearing empty
+      // (the raw enum string matches none of _documentTypes).
+      _selectedDocumentType = _documentTypeFromApiValue(
+        widget.initialDocumentType,
+      );
       _selectedExpiryDate = widget.initialExpiryDate;
       _selectedFilePath = widget.initialFilePath;
       if (widget.initialDocumentNotes != null) {
         _notesController.text = widget.initialDocumentNotes!.trim();
       }
       _uploadedAssetCode = widget.initialAssetCode;
+    }
+  }
+
+  /// Inverse of the enum mapping in [_addDocument]'s local
+  /// `_toDocumentTypeEnum` - keep the two in sync if the type list ever
+  /// changes.
+  String? _documentTypeFromApiValue(String? apiValue) {
+    switch ((apiValue ?? '').trim().toUpperCase()) {
+      case 'BIRTH_CERTIFICATE':
+        return 'Birth Certificate';
+      case 'REGISTRATION_FORM':
+        return 'Registration Forms';
+      case 'SPECIAL_PROGRAM_FORM':
+        return 'Special Program Forms';
+      case 'HEALTH_FORM':
+        return 'Health Forms';
+      case 'OTHER':
+        return 'Other';
+      default:
+        // Unrecognized/empty value - leave unselected rather than guessing.
+        return null;
     }
   }
 

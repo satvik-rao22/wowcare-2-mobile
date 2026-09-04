@@ -177,7 +177,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
           initialFilePath: doc.documentUrl,
           initialMimeType: doc.mimeType,
           initialFileSizeKb: doc.documentSizeKb,
-          initialDocumentNotes: null,
+          initialDocumentNotes: doc.notes,
           initialAssetCode: doc.assetCode,
           documentUuid: doc.documentUuid,
         ),

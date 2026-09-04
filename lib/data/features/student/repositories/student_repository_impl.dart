@@ -515,6 +515,7 @@ class StudentRepositoryImpl
         expired: false,
         createdAt: m.createdAt,
         uploadedBy: m.uploadedBy,
+        notes: m.notes,
       );
     }).toList();
 
