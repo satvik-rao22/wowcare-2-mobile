@@ -5,16 +5,35 @@ import 'package:wowcare/redesign/core/preview/demo_data.dart';
 import 'package:wowcare/redesign/core/widgets/attendance_dot.dart';
 import 'package:wowcare/redesign/features/profile/models/models.dart';
 import 'package:wowcare/redesign/features/profile/source/profile_source.dart';
+import 'package:wowcare/shared/constants/location_constants.dart';
+
+/// Which of 13f's four states the preview answers with.
+///
+/// [ready] is what the app runs on. The other three are the same fetch with a
+/// different answer, so flipping this one line in `profile_di.dart` walks the
+/// frame's state pills without unplugging anything.
+enum PreviewProfileMode { ready, offline, failed }
 
 /// M13's fixtures, lifted from the frames' `_script.js` and keyed by the
 /// demo world's `SessionUser.id`: `marcus` (Director), `dana` (Lead Teacher),
 /// `ngozi` (Guardian). Writes are remembered for the life of the instance so
 /// a save shows up on the way back.
 class PreviewProfileSource implements ProfileSource {
-  PreviewProfileSource({this.latency = const Duration(milliseconds: 450)});
+  PreviewProfileSource({
+    this.mode = PreviewProfileMode.ready,
+    this.latency = _latency,
+  });
+
+  /// Which of 13f's states every read answers with.
+  final PreviewProfileMode mode;
 
   /// How long each call pretends the network takes.
   final Duration latency;
+
+  static const Duration _latency = Duration(milliseconds: 450);
+
+  /// When the copy on this phone was last written, for 13f's offline state.
+  static const String cachedAtLabel = '9:02 AM';
 
   final Map<String, ProfileRecord> _records = <String, ProfileRecord>{
     for (final r in <ProfileRecord>[_marcus, _dana, _ngozi]) r.id: r,
@@ -32,16 +51,19 @@ class PreviewProfileSource implements ProfileSource {
 
   ProfileRecord _record(String userId) {
     final record = _records[userId];
-    if (record == null) {
-      throw StateError('No preview profile for "$userId"');
-    }
+    if (record == null) throw const ProfileUnavailable();
     return record;
   }
 
   @override
   Future<ProfileSnapshot> fetchProfile(String userId) async {
     await _wait();
-    return ProfileSnapshot(record: _record(userId));
+    if (mode == PreviewProfileMode.failed) throw const ProfileUnavailable();
+    return ProfileSnapshot(
+      record: _record(userId),
+      isFromCache: mode == PreviewProfileMode.offline,
+      cachedAtLabel: mode == PreviewProfileMode.offline ? cachedAtLabel : null,
+    );
   }
 
   @override
@@ -79,6 +101,7 @@ class PreviewProfileSource implements ProfileSource {
     String userId,
   ) async {
     await _wait();
+    if (mode == PreviewProfileMode.failed) throw const ProfileUnavailable();
     return List<NotificationPreferenceGroup>.unmodifiable(_preferences);
   }
 
@@ -99,6 +122,11 @@ class PreviewProfileSource implements ProfileSource {
     required String current,
     required String next,
   }) => _wait();
+
+  @override
+  Future<List<String>> stateNames() async => <String>[
+    for (final s in US_STATES) s.name,
+  ];
 
   @override
   Future<AppBuildInfo> buildInfo() async => _build;
@@ -129,11 +157,7 @@ class PreviewProfileSource implements ProfileSource {
       shifts: <ScheduleEntry>[
         ScheduleEntry(day: Weekday.monday, start: '7:00 AM', end: '4:00 PM'),
         ScheduleEntry(day: Weekday.tuesday, start: '7:00 AM', end: '4:00 PM'),
-        ScheduleEntry(
-          day: Weekday.wednesday,
-          start: '7:00 AM',
-          end: '4:00 PM',
-        ),
+        ScheduleEntry(day: Weekday.wednesday, start: '7:00 AM', end: '4:00 PM'),
         ScheduleEntry(day: Weekday.thursday, start: '7:00 AM', end: '4:00 PM'),
       ],
       breaks: <ScheduleEntry>[
@@ -166,11 +190,7 @@ class PreviewProfileSource implements ProfileSource {
       shifts: <ScheduleEntry>[
         ScheduleEntry(day: Weekday.monday, start: '7:30 AM', end: '4:00 PM'),
         ScheduleEntry(day: Weekday.tuesday, start: '7:30 AM', end: '4:00 PM'),
-        ScheduleEntry(
-          day: Weekday.wednesday,
-          start: '7:30 AM',
-          end: '4:00 PM',
-        ),
+        ScheduleEntry(day: Weekday.wednesday, start: '7:30 AM', end: '4:00 PM'),
         ScheduleEntry(day: Weekday.thursday, start: '7:30 AM', end: '4:00 PM'),
       ],
       breaks: <ScheduleEntry>[
@@ -227,9 +247,9 @@ class PreviewProfileSource implements ProfileSource {
   // --- The ten preference groups, from 13e's `n12PrefDefs` -----------------
 
   static List<NotificationPreferenceGroup> _defaultPreferences() {
-    const inApp = NotificationChannel.inApp;
-    const email = NotificationChannel.email;
-    const push = NotificationChannel.push;
+    const String inApp = NotificationChannel.inApp;
+    const String email = NotificationChannel.email;
+    const String push = NotificationChannel.push;
 
     NotificationPreferenceGroup g(
       int order,
@@ -249,59 +269,86 @@ class PreviewProfileSource implements ProfileSource {
     );
 
     return <NotificationPreferenceGroup>[
-      g(1, 'g1', 'Students', 'Attendance',
-          'A student is signed in, signed out or marked absent', const {
-        inApp: true,
-        email: true,
-        push: true,
-      }),
-      g(2, 'g2', 'Students', 'Activities and incidents',
-          'An activity is recorded, an incident needs approval', const {
-        inApp: true,
-        push: true,
-      }),
-      g(3, 'g3', 'Students', 'Health and documents',
-          'Immunization and physical dates, document expiry', const {
-        inApp: true,
-        email: true,
-        push: false,
-      }),
-      g(4, 'g4', 'Students', 'Classroom movements',
-          'Upcoming, overdue, confirmed and rejected moves', const {
-        inApp: true,
-        push: true,
-      }),
-      g(5, 'g5', 'Staff', 'Shifts and scheduling',
-          'Shifts published or edited, a block under ratio', const {
-        inApp: true,
-        email: false,
-        push: true,
-      }),
-      g(6, 'g6', 'Staff', 'Staff attendance',
-          'Clock in, clock out, marked absent', const {
-        inApp: true,
-        push: false,
-      }),
-      g(7, 'g7', 'Center', 'Billing',
-          'Invoice generated or due, payment received', const {
-        inApp: true,
-        email: true,
-        push: true,
-      }),
-      g(8, 'g8', 'Center', 'Messages',
-          'A new message in a conversation you are in', const {
-        inApp: true,
-        push: true,
-      }),
-      g(9, 'g9', 'Center', 'Newsletter',
-          'A newsletter is sent to your classroom', const {
-        inApp: true,
-        email: false,
-      }),
-      g(10, 'g10', 'Center', 'Classrooms and settings',
-          'A classroom is added or edited, school settings change', const {
-        inApp: true,
-      }),
+      g(
+        1,
+        'g1',
+        'Students',
+        'Attendance',
+        'A student is signed in, signed out or marked absent',
+        const <String, bool>{inApp: true, email: true, push: true},
+      ),
+      g(
+        2,
+        'g2',
+        'Students',
+        'Activities and incidents',
+        'An activity is recorded, an incident needs approval',
+        const <String, bool>{inApp: true, push: true},
+      ),
+      g(
+        3,
+        'g3',
+        'Students',
+        'Health and documents',
+        'Immunization and physical dates, document expiry',
+        const <String, bool>{inApp: true, email: true, push: false},
+      ),
+      g(
+        4,
+        'g4',
+        'Students',
+        'Classroom movements',
+        'Upcoming, overdue, confirmed and rejected moves',
+        const <String, bool>{inApp: true, push: true},
+      ),
+      g(
+        5,
+        'g5',
+        'Staff',
+        'Shifts and scheduling',
+        'Shifts published or edited, a block under ratio',
+        const <String, bool>{inApp: true, email: false, push: true},
+      ),
+      g(
+        6,
+        'g6',
+        'Staff',
+        'Staff attendance',
+        'Clock in, clock out, marked absent',
+        const <String, bool>{inApp: true, push: false},
+      ),
+      g(
+        7,
+        'g7',
+        'Center',
+        'Billing',
+        'Invoice generated or due, payment received',
+        const <String, bool>{inApp: true, email: true, push: true},
+      ),
+      g(
+        8,
+        'g8',
+        'Center',
+        'Messages',
+        'A new message in a conversation you are in',
+        const <String, bool>{inApp: true, push: true},
+      ),
+      g(
+        9,
+        'g9',
+        'Center',
+        'Newsletter',
+        'A newsletter is sent to your classroom',
+        const <String, bool>{inApp: true, email: false},
+      ),
+      g(
+        10,
+        'g10',
+        'Center',
+        'Classrooms and settings',
+        'A classroom is added or edited, school settings change',
+        const <String, bool>{inApp: true},
+      ),
     ];
   }
 }

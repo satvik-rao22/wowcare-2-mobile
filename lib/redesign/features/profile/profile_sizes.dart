@@ -3,6 +3,18 @@ import 'package:flutter/widgets.dart';
 /// Measurements the M13 frames use that the core token layer does not carry.
 /// Module-local by rule: core tokens belong to the core engineer.
 abstract final class ProfileSizes {
+  // --- Screen ---------------------------------------------------------------
+
+  /// The gap between the stacked cards on 13a and 13c.
+  static const double cardGap = 12;
+
+  /// A docked key row, and the gap between its keys.
+  static const EdgeInsets footerPad = EdgeInsets.fromLTRB(18, 11, 18, 22);
+  static const double footerGap = 10;
+
+  /// The form body on 13b and Change Password.
+  static const EdgeInsets formPad = EdgeInsets.fromLTRB(18, 16, 18, 20);
+
   // --- Hero card (13a, 13c) -------------------------------------------------
 
   /// The staff hero avatar, and the smaller guardian one.
@@ -17,8 +29,6 @@ abstract final class ProfileSizes {
     vertical: 4,
   );
   static const double heroGlyph = 26;
-  static const double uploadRing = 4;
-  static const double photoBorder = 2;
 
   /// The small pink Edit key in the header, and the small keys in the hero.
   static const EdgeInsets smallKeyPad = EdgeInsets.symmetric(
@@ -29,7 +39,6 @@ abstract final class ProfileSizes {
     horizontal: 17,
     vertical: 11,
   );
-  static const EdgeInsets rowKeyPad = EdgeInsets.all(13);
   static const double photoBlockGap = 9;
 
   // --- Detail card ----------------------------------------------------------
@@ -44,8 +53,9 @@ abstract final class ProfileSizes {
     vertical: 3,
   );
 
-  /// The muted ink on a locked value.
-  static const double lockedOpacity = .75;
+  /// A value's well corner: a shade tighter than the inner rung, which is
+  /// what every field on these frames draws.
+  static const double valueRadius = 12;
 
   // --- Work schedule --------------------------------------------------------
 
@@ -63,14 +73,14 @@ abstract final class ProfileSizes {
     vertical: 5,
   );
   static const double lockChipGap = 5;
-  static const double lockGlyph = 9;
+  static const double lockGlyph = 11;
 
   // --- Actions card ---------------------------------------------------------
 
   static const EdgeInsets actionRowPad = EdgeInsets.all(14);
   static const double actionRowGap = 11;
   static const double actionGlyph = 17;
-  static const double pinTracking = 1.9;
+  static const double actionChevron = 15;
   static const EdgeInsets pinKeyPad = EdgeInsets.symmetric(
     horizontal: 10,
     vertical: 4,
@@ -79,13 +89,8 @@ abstract final class ProfileSizes {
   // --- Notes ----------------------------------------------------------------
 
   static const EdgeInsets notePad = EdgeInsets.all(13);
-  static const EdgeInsets noteRowPad = EdgeInsets.symmetric(
-    horizontal: 13,
-    vertical: 12,
-  );
   static const double noteGap = 9;
   static const double noteDot = 7;
-  static const double noteGlyph = 15;
 
   // --- Guardian children (13c) ---------------------------------------------
 
@@ -104,6 +109,7 @@ abstract final class ProfileSizes {
   static const double skeletonSub = 10;
   static const double skeletonWell = 44;
   static const double skeletonGap = 9;
+  static const double skeletonLineRadius = 7;
   static const double skeletonNameWidth = .65;
   static const double skeletonRoleWidth = .45;
   static const double skeletonNoteWidth = .3;
@@ -128,16 +134,19 @@ abstract final class ProfileSizes {
   static const int zipFlex = 10;
   static const int cancelFlex = 5;
   static const int saveFlex = 7;
-  static const EdgeInsets footerPad = EdgeInsets.only(top: 6, bottom: 20);
   static const EdgeInsets footerKeyPad = EdgeInsets.all(15);
 
   // --- Notification settings (13e) -----------------------------------------
 
+  /// The gap between the table and the two notes under it.
+  static const EdgeInsets prefNotesPad = EdgeInsets.only(top: 16);
+
   static const double prefColumn = 52;
-  static const double prefCheck = 22;
-  static const double prefCheckBorder = 1.5;
-  static const double prefTick = 13;
   static const EdgeInsets prefHeaderPad = EdgeInsets.symmetric(
+    horizontal: 12,
+    vertical: 11,
+  );
+  static const EdgeInsets prefBandPad = EdgeInsets.symmetric(
     horizontal: 12,
     vertical: 11,
   );
@@ -147,9 +156,10 @@ abstract final class ProfileSizes {
   );
   static const double prefRowTextGap = 2;
   static const double savingOpacity = .45;
-  static const EdgeInsets prefNotesPad = EdgeInsets.only(top: 16, bottom: 22);
+  static const double notOfferedBox = 22;
   static const double legendBox = 20;
   static const double legendRadius = 6;
+  static const double legendGap = 9;
 
   // --- Change password ------------------------------------------------------
 

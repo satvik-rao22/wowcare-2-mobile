@@ -44,8 +44,6 @@ abstract final class ProfileStrings {
   static const String photoRemoved = 'Photo removed';
   static const String photoUpdated = 'Photo updated';
 
-  static const String viewStaffProfile = 'View Staff Profile';
-
   // --- Detail card ----------------------------------------------------------
 
   static const String name = 'Name';
@@ -135,7 +133,8 @@ abstract final class ProfileStrings {
   static const String lastNameInvalid =
       'Last Name must be letters only and max 50 characters';
   static const String phoneRequired = 'Phone Number is required';
-  static const String phoneInvalid = 'Please enter a valid 10-digit phone number';
+  static const String phoneInvalid =
+      'Please enter a valid 10-digit phone number';
   static const String streetRequired = 'Street is required';
   static const String streetTooLong =
       'Street address cannot exceed 150 characters';

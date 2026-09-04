@@ -12,7 +12,7 @@ enum ProfileKind { staff, guardian }
 /// The signed-in person's own record, as My Profile shows it.
 ///
 /// Mirrors `StaffProfile` for the school side (name, email, phone, address,
-/// designation, clock PIN, work and break schedules) and the guardian profile
+/// designation, sign-in PIN, work and break schedules) and the guardian profile
 /// map for parents (name, email, phone, address, children). [roleLabels] is
 /// `UserProfileState.distinctRolesForCurrentSchool`.
 @immutable
@@ -51,7 +51,7 @@ class ProfileRecord extends Equatable {
   final List<String> roleLabels;
   final String? classroomName;
 
-  /// The kiosk clock PIN. Empty when none is set.
+  /// The PIN this person types on the kiosk. Empty when none is set.
   final String signInPin;
   final bool hasPhoto;
 

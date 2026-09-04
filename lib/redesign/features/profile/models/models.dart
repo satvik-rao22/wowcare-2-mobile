@@ -1,4 +1,5 @@
 export 'password_form.dart';
+export 'preference_category.dart';
 export 'profile_address.dart';
 export 'profile_child.dart';
 export 'profile_form.dart';
