@@ -977,7 +977,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         signOutAtFilter: signOutAtFilter,
         typeCodes: typeCodes,
         approvalStatuses: approvalStatuses,
-        tagCodes: _filterTags,
+        tagCodes: _tagCodesForApiFilter(),
         guardianPersona: true,
         includeAttendance: includeAttendance,
         isMarkedAbsentEvent: _isMarkedAbsentEvent(selectedEvent),
@@ -1385,17 +1385,19 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     return list;
   }
 
-  Future<void> _rebuildStudentCodesForTagFilter() async {
-    _studentCodesForTagFilter.clear();
-    if (_filterTags.isEmpty || !mounted) return;
-    final school = _schoolCode;
-    if (school == null || school.isEmpty) return;
-
+  /// `_filterTags` holds tag NAMES (the multi-select shows names) — the
+  /// attendance/absent endpoints' `tagCodes` query param, and the student-code
+  /// resolution below, both need actual codes. Case-insensitive fallback
+  /// because `_tagNameToCode`'s keys come from the API's own casing, which
+  /// may not exactly match a name round-tripped through the multi-select. A
+  /// name with no resolved code (stale selection, options not loaded yet) is
+  /// dropped rather than sent as a bogus filter value.
+  List<String> _tagCodesForApiFilter() {
     final tagNameToCodeLower = <String, String>{
       for (final e in _tagNameToCode.entries)
         e.key.trim().toLowerCase(): e.value,
     };
-    final tagCodes = _filterTags
+    return _filterTags
         .map((name) {
           final key = name.trim();
           if (key.isEmpty) return null;
@@ -1406,6 +1408,15 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         .where((c) => c.isNotEmpty)
         .toSet()
         .toList();
+  }
+
+  Future<void> _rebuildStudentCodesForTagFilter() async {
+    _studentCodesForTagFilter.clear();
+    if (_filterTags.isEmpty || !mounted) return;
+    final school = _schoolCode;
+    if (school == null || school.isEmpty) return;
+
+    final tagCodes = _tagCodesForApiFilter();
     if (tagCodes.isEmpty) return;
 
     try {
@@ -2026,7 +2037,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         signOutAtFilter: signOutAtFilter,
         typeCodes: typeCodes,
         approvalStatuses: approvalStatuses,
-        tagCodes: _filterTags,
+        tagCodes: _tagCodesForApiFilter(),
         guardianPersona: false,
         includeAttendance: includeAttendance,
         isMarkedAbsentEvent: _isMarkedAbsentEvent(selectedEvent),

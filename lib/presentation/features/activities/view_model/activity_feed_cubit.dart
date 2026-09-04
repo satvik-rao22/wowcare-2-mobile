@@ -193,13 +193,12 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
       await _primeStaffDisplayNames(activityFeedPage.content);
       await primeActivityFeedOptionLabelsFromRows(activityFeedPage.content);
 
+      // Attendance/absent rows are already tag-filtered server-side (see
+      // _fetchAttendanceSubPages's `tagCodes`) — no client-side re-filter here.
       final items = <ActivityItem>[
         if (sub.attendance != null)
-          ..._withTagFilterOnly(
-            _mapAttendanceDailyPageToItems(sub.attendance!, query),
-          ),
-        if (sub.absent != null)
-          ..._withTagFilterOnly(_mapAbsentRecordsPageToItems(sub.absent!)),
+          ..._mapAttendanceDailyPageToItems(sub.attendance!, query),
+        if (sub.absent != null) ..._mapAbsentRecordsPageToItems(sub.absent!),
         ..._mapDailyFeedPageToItems(activityFeedPage, query),
       ]..sort(_compareActivityItemsByTimeDesc);
 
@@ -321,13 +320,12 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
       await _primeStaffDisplayNames(activityFeedPage.content);
       await primeActivityFeedOptionLabelsFromRows(activityFeedPage.content);
 
+      // Attendance/absent rows are already tag-filtered server-side (see
+      // _fetchAttendanceSubPages's `tagCodes`) — no client-side re-filter here.
       final items = <ActivityItem>[
         if (sub.attendance != null)
-          ..._withTagFilterOnly(
-            _mapAttendanceDailyPageToItems(sub.attendance!, query),
-          ),
-        if (sub.absent != null)
-          ..._withTagFilterOnly(_mapAbsentRecordsPageToItems(sub.absent!)),
+          ..._mapAttendanceDailyPageToItems(sub.attendance!, query),
+        if (sub.absent != null) ..._mapAbsentRecordsPageToItems(sub.absent!),
         ..._mapDailyFeedPageToItems(activityFeedPage, query),
       ]..sort(_compareActivityItemsByTimeDesc);
 
@@ -458,13 +456,12 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
       await _primeStaffDisplayNames(merged.content);
       await primeActivityFeedOptionLabelsFromRows(merged.content);
 
+      // Attendance/absent rows are already tag-filtered server-side (see
+      // _fetchAttendanceSubPages's `tagCodes`) — no client-side re-filter here.
       final items = <ActivityItem>[
         if (sub.attendance != null)
-          ..._withTagFilterOnly(
-            _mapAttendanceDailyPageToItems(sub.attendance!, baseQuery),
-          ),
-        if (sub.absent != null)
-          ..._withTagFilterOnly(_mapAbsentRecordsPageToItems(sub.absent!)),
+          ..._mapAttendanceDailyPageToItems(sub.attendance!, baseQuery),
+        if (sub.absent != null) ..._mapAbsentRecordsPageToItems(sub.absent!),
         ..._mapDailyFeedPageToItems(merged, baseQuery),
       ]..sort(_compareActivityItemsByTimeDesc);
 
@@ -583,13 +580,12 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
       await _primeStaffDisplayNames(merged.content);
       await primeActivityFeedOptionLabelsFromRows(merged.content);
 
+      // Attendance/absent rows are already tag-filtered server-side (see
+      // _fetchAttendanceSubPages's `tagCodes`) — no client-side re-filter here.
       final items = <ActivityItem>[
         if (sub.attendance != null)
-          ..._withTagFilterOnly(
-            _mapAttendanceDailyPageToItems(sub.attendance!, baseQuery),
-          ),
-        if (sub.absent != null)
-          ..._withTagFilterOnly(_mapAbsentRecordsPageToItems(sub.absent!)),
+          ..._mapAttendanceDailyPageToItems(sub.attendance!, baseQuery),
+        if (sub.absent != null) ..._mapAbsentRecordsPageToItems(sub.absent!),
         ..._mapDailyFeedPageToItems(merged, baseQuery),
       ]..sort(_compareActivityItemsByTimeDesc);
 
@@ -722,13 +718,12 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
       await _primeStaffDisplayNames(activityFeedPage.content);
       await primeActivityFeedOptionLabelsFromRows(activityFeedPage.content);
 
+      // Attendance/absent rows are already tag-filtered server-side (see
+      // _fetchAttendanceSubPages's `tagCodes`) — no client-side re-filter here.
       final items = <ActivityItem>[
         if (sub.attendance != null)
-          ..._withTagFilterOnly(
-            _mapAttendanceDailyPageToItems(sub.attendance!, query),
-          ),
-        if (sub.absent != null)
-          ..._withTagFilterOnly(_mapAbsentRecordsPageToItems(sub.absent!)),
+          ..._mapAttendanceDailyPageToItems(sub.attendance!, query),
+        if (sub.absent != null) ..._mapAbsentRecordsPageToItems(sub.absent!),
         ..._mapDailyFeedPageToItems(activityFeedPage, query),
       ]..sort(_compareActivityItemsByTimeDesc);
 
@@ -868,12 +863,19 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
     final effectiveStudentCodes = studentCodesOverride ?? query.studentCodes;
     final toAbsenceDate = endDateStr ?? query.dateStr;
 
+    // Real server-side tag filter (the attendance/absent endpoints accept
+    // `tagCodes` directly — confirmed against the actual API contract, unlike
+    // the activity-feed endpoint below, which has no such parameter and stays
+    // on the client-side `_withTagFilterOnly` filter for that reason alone).
+    final effectiveTagCodes = query.tagCodes.isEmpty ? null : query.tagCodes;
+
     if (query.isMarkedAbsentEvent) {
       final absent = await _dataSource.getStudentAbsentRecordsActivity(
         fromAbsenceDate: query.dateStr,
         toAbsenceDate: toAbsenceDate,
         classroomCodes: effectiveClassroomCodes,
         studentCodes: effectiveStudentCodes,
+        tagCodes: effectiveTagCodes,
         page: page,
         size: query.pageSize,
       );
@@ -888,6 +890,7 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
           toAttendanceDate: endDateStr,
           classroomCodes: effectiveClassroomCodes,
           studentCodes: effectiveStudentCodes,
+          tagCodes: effectiveTagCodes,
           signInAtFilter: null,
           signOutAtFilter: null,
           page: page,
@@ -898,6 +901,7 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
           toAbsenceDate: toAbsenceDate,
           classroomCodes: effectiveClassroomCodes,
           studentCodes: effectiveStudentCodes,
+          tagCodes: effectiveTagCodes,
           page: page,
           size: query.pageSize,
         ),
@@ -914,6 +918,7 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
       toAttendanceDate: endDateStr,
       classroomCodes: effectiveClassroomCodes,
       studentCodes: effectiveStudentCodes,
+      tagCodes: effectiveTagCodes,
       signInAtFilter: query.signInAtFilter,
       signOutAtFilter: query.signOutAtFilter,
       page: page,

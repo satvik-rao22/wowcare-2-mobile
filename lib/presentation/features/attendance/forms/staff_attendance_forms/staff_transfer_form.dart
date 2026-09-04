@@ -170,12 +170,19 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     var resolved = '';
     try {
       final today = fmt(ServerTimeService.instance.now());
+      // Deliberately no `search:` here. That query param is a free-text NAME
+      // search everywhere else it's used in this app (it's fed by a search
+      // box, never a staff code) — passing a staff code through it matches
+      // nothing server-side, so the list always comes back empty and this
+      // silently falls through to the static profile fallback below, which
+      // is exactly the "stuck on the very first classroom" symptom. Fetch a
+      // roster-sized page instead and match the staff code client-side, the
+      // same way [StaffSelectionTransferForm] loads its full staff list.
       final page = await _submitCubit.fetchTransferFormList(
         fromAbsenceDate: today,
         toAbsenceDate: today,
-        search: selectedStaffCode,
         page: 0,
-        size: 100,
+        size: 500,
       );
 
       for (final item in page.items) {

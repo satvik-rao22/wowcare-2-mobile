@@ -650,6 +650,32 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         .toSet();
   }
 
+  /// `_filterTags` holds tag NAMES (the multi-select shows names) — the
+  /// attendance/absent endpoints' `tagCodes` query param, and the student-code
+  /// resolution in `_rebuildStudentCodesForTagFilter`, both need actual codes.
+  /// Case-insensitive fallback because `_tagNameToCode`'s keys come from the
+  /// API's own casing, which may not exactly match a name round-tripped
+  /// through the multi-select. A name with no resolved code (stale
+  /// selection, options not loaded yet) is dropped rather than sent as a
+  /// bogus filter value.
+  List<String> _tagCodesForApiFilter() {
+    final tagNameToCodeLower = <String, String>{
+      for (final e in _tagNameToCode.entries)
+        e.key.trim().toLowerCase(): e.value,
+    };
+    return _filterTags
+        .map((name) {
+          final key = name.trim();
+          if (key.isEmpty) return null;
+          return (_tagNameToCode[key] ?? tagNameToCodeLower[key.toLowerCase()])
+              ?.trim();
+        })
+        .whereType<String>()
+        .where((code) => code.isNotEmpty)
+        .toSet()
+        .toList();
+  }
+
   int _appliedFilterBadgeCount() {
     final hasActivityTypeFilter = _filterActivityTypes.isNotEmpty;
     final hasTagFilter = _filterTags.isNotEmpty;
@@ -701,11 +727,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     final school = _schoolCode;
     if (school == null || school.isEmpty) return;
 
-    final tagCodes = _filterTags
-        .map((name) => _tagNameToCode[name]?.trim())
-        .whereType<String>()
-        .where((c) => c.isNotEmpty)
-        .toList();
+    final tagCodes = _tagCodesForApiFilter();
     if (tagCodes.isEmpty) return;
 
     try {
@@ -1654,7 +1676,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         signOutAtFilter: signOutAtFilter,
         typeCodes: typeCodes,
         approvalStatuses: approvalStatuses,
-        tagCodes: _filterTags,
+        tagCodes: _tagCodesForApiFilter(),
         guardianPersona: true,
         includeAttendance: includeAttendance,
         isMarkedAbsentEvent: _isMarkedAbsentEvent(selectedEvent),
@@ -1804,7 +1826,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         signOutAtFilter: signOutAtFilter,
         typeCodes: typeCodes,
         approvalStatuses: approvalStatuses,
-        tagCodes: _filterTags,
+        tagCodes: _tagCodesForApiFilter(),
         guardianPersona: false,
         includeAttendance: includeAttendance,
         isMarkedAbsentEvent: _isMarkedAbsentEvent(selectedEvent),
