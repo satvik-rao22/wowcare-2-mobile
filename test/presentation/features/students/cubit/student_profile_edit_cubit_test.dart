@@ -401,4 +401,91 @@ void main() {
       await cubit.close();
     },
   );
+
+  group('profile-edit form model', () {
+    test('initial state defaults', () {
+      final cubit = _Fakes().build();
+      expect(cubit.state.status, isNull);
+      expect(cubit.state.selectedTags, isEmpty);
+      expect(cubit.state.isTodayStatusLoading, isTrue);
+      expect(cubit.state.isSignedInToday, isFalse);
+      expect(cubit.state.submitting, isFalse);
+      expect(cubit.state.classroomChangedByUser, isFalse);
+    });
+
+    test('initialize seeds the simple fields', () {
+      final cubit = _Fakes().build()
+        ..initialize(
+          status: 'Active',
+          gender: 'Female',
+          classroom: 'Blue-A',
+          birthDate: DateTime(2021, 4, 2),
+          stateName: 'Texas',
+          selectedTags: const ['VIP'],
+        );
+      expect(cubit.state.status, 'Active');
+      expect(cubit.state.gender, 'Female');
+      expect(cubit.state.classroom, 'Blue-A');
+      expect(cubit.state.birthDate, DateTime(2021, 4, 2));
+      expect(cubit.state.stateName, 'Texas');
+      expect(cubit.state.selectedTags, const ['VIP']);
+      // seeding does NOT flag a user classroom change
+      expect(cubit.state.classroomChangedByUser, isFalse);
+    });
+
+    test('setClassroom flags a user change; other setters update fields', () {
+      final cubit = _Fakes().build()
+        ..setStatus('Inactive')
+        ..setGender('Male')
+        ..setStateSubsidyOption('Yes')
+        ..setSelectedSiblings(const ['Sib A'])
+        ..setSelectedChildCustody(const ['Guardian X'])
+        ..setSubmitting(true)
+        ..setClassroom('Red-B');
+      expect(cubit.state.status, 'Inactive');
+      expect(cubit.state.gender, 'Male');
+      expect(cubit.state.stateSubsidyOption, 'Yes');
+      expect(cubit.state.selectedSiblings, const ['Sib A']);
+      expect(cubit.state.selectedChildCustody, const ['Guardian X']);
+      expect(cubit.state.submitting, isTrue);
+      expect(cubit.state.classroom, 'Red-B');
+      expect(cubit.state.classroomChangedByUser, isTrue);
+    });
+
+    test('setTodayStatus resolves the attendance gate', () {
+      final cubit = _Fakes().build()..setTodayStatus(isSignedInToday: true);
+      expect(cubit.state.isSignedInToday, isTrue);
+      expect(cubit.state.isTodayStatusLoading, isFalse);
+    });
+
+    test('applyTagsLoaded / applyStudentsLoaded / applyGuardiansLoaded set '
+        'options + maps + selection', () {
+      final cubit = _Fakes().build()
+        ..applyTagsLoaded(
+          names: const ['VIP'],
+          nameToCode: const {'VIP': 'T1'},
+          selectedTags: const ['VIP'],
+        )
+        ..applyStudentsLoaded(
+          names: const ['Sib A'],
+          nameToCode: const {'Sib A': 'S9'},
+          selectedSiblings: const ['Sib A'],
+        )
+        ..applyGuardiansLoaded(
+          names: const ['Guardian X'],
+          nameToCode: const {'Guardian X': 'G1'},
+          initialCustody: const {'Guardian X': true},
+          rawByCode: const {
+            'G1': {'legalCustody': true},
+          },
+          selectedChildCustody: const ['Guardian X'],
+        );
+      expect(cubit.state.availableTagNames, const ['VIP']);
+      expect(cubit.state.tagNameToCode, const {'VIP': 'T1'});
+      expect(cubit.state.studentNameToCode, const {'Sib A': 'S9'});
+      expect(cubit.state.guardianInitialCustody, const {'Guardian X': true});
+      expect(cubit.state.guardianRawByCode['G1']?['legalCustody'], isTrue);
+      expect(cubit.state.selectedChildCustody, const ['Guardian X']);
+    });
+  });
 }

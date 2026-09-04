@@ -97,49 +97,60 @@ class _EditStudentProfileDetailsScreenState
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _zipCodeController = TextEditingController();
 
-  String? _selectedStatus;
-  String? _selectedStateSubsidyOption;
-  List<String> _selectedSiblings = [];
-  List<String> _selectedTags = [];
-  String? _selectedClassroom;
-  bool _classroomChangedByUser = false;
-  DateTime? _selectedBirthDate;
-  List<String> _selectedChildCustody = [];
-  String? _selectedState;
-  String? _selectedCountry;
-  bool _isSubmitting = false;
-
-  // Today's sign-in status — drives disabling the Classroom dropdown while
-  // the student is currently signed in. Fails closed (disabled) on error or
-  // while loading, matching the convention in student_attendance_profile.dart.
-  bool _isTodayStatusLoading = true;
-  bool _isSignedInToday = false;
-
-  // API-backed options and mappings
-  List<String> _availableTagNames = [];
-  Map<String, String> _tagNameToCode = {};
-
-  List<String> _availableStudentNames = [];
-  Map<String, String> _studentNameToCode = {};
-
-  List<String> _availableGuardianNames = [];
-  Map<String, String> _guardianNameToCode = {};
-  Map<String, bool> _guardianInitialCustody = {};
-  // Full guardian record per code — the custody PATCH endpoint validates as
-  // a full update (firstName/lastName/email/mobile/relationToStudent/
-  // userCode/schoolCode all required), not a partial patch, so `legalCustody`
-  // alone 400s. Keyed by guardian code so it survives duplicate display names.
-  Map<String, Map<String, dynamic>> _guardianRawByCode = {};
-  // Waitlist and Graduated removed: no mobile workflow exists for either
-  // status, so offering them here just let a student get stuck in a status
-  // nothing on mobile can act on. A student already carrying one of these
-  // (set elsewhere, e.g. web) still displays it correctly — CustomDropdown
-  // shows selectedItem as plain text and doesn't require it to be a member
-  // of items — this only removes them as something to select going forward.
+  // The full profile form model + server-fetched options/maps now live in
+  // StudentProfileEditCubit's state (see the `_selected*`/`_available*` getters
+  // below that read it). The guardian raw-record map's rationale: the custody
+  // PATCH validates as a FULL update (firstName/lastName/email/mobile/
+  // relationToStudent/userCode/schoolCode all required), not a partial patch, so
+  // `legalCustody` alone 400s — kept keyed by guardian code so it survives
+  // duplicate display names.
+  //
+  // Waitlist and Graduated are intentionally omitted from the status options:
+  // no mobile workflow exists for either, so offering them just lets a student
+  // get stuck in a status nothing on mobile can act on. A student already
+  // carrying one (set on web) still displays it — CustomDropdown shows
+  // selectedItem as plain text without requiring membership in items.
   final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming'];
   final List<String> _stateSubsidyOptions = ['Yes', 'No'];
   final List<String> _genderOptions = const ['Male', 'Female', 'Other'];
-  String? _selectedGender;
+
+  // Read-through getters onto the cubit-owned form model — all writes go through
+  // the cubit setters; reads stay reactive under the build's BlocBuilder.
+  String? get _selectedStatus => _profileEditCubit.state.status;
+  String? get _selectedStateSubsidyOption =>
+      _profileEditCubit.state.stateSubsidyOption;
+  List<String> get _selectedSiblings =>
+      _profileEditCubit.state.selectedSiblings;
+  List<String> get _selectedTags => _profileEditCubit.state.selectedTags;
+  String? get _selectedClassroom => _profileEditCubit.state.classroom;
+  bool get _classroomChangedByUser =>
+      _profileEditCubit.state.classroomChangedByUser;
+  DateTime? get _selectedBirthDate => _profileEditCubit.state.birthDate;
+  List<String> get _selectedChildCustody =>
+      _profileEditCubit.state.selectedChildCustody;
+  String? get _selectedState => _profileEditCubit.state.stateName;
+  String? get _selectedCountry => _profileEditCubit.state.country;
+  String? get _selectedGender => _profileEditCubit.state.gender;
+  bool get _isSubmitting => _profileEditCubit.state.submitting;
+  bool get _isTodayStatusLoading =>
+      _profileEditCubit.state.isTodayStatusLoading;
+  bool get _isSignedInToday => _profileEditCubit.state.isSignedInToday;
+  List<String> get _availableTagNames =>
+      _profileEditCubit.state.availableTagNames;
+  Map<String, String> get _tagNameToCode =>
+      _profileEditCubit.state.tagNameToCode;
+  List<String> get _availableStudentNames =>
+      _profileEditCubit.state.availableStudentNames;
+  Map<String, String> get _studentNameToCode =>
+      _profileEditCubit.state.studentNameToCode;
+  List<String> get _availableGuardianNames =>
+      _profileEditCubit.state.availableGuardianNames;
+  Map<String, String> get _guardianNameToCode =>
+      _profileEditCubit.state.guardianNameToCode;
+  Map<String, bool> get _guardianInitialCustody =>
+      _profileEditCubit.state.guardianInitialCustody;
+  Map<String, Map<String, dynamic>> get _guardianRawByCode =>
+      _profileEditCubit.state.guardianRawByCode;
   final List<String> _stateOptions = US_STATES
       .map((s) => s.name)
       .toList(growable: false);
@@ -194,18 +205,12 @@ class _EditStudentProfileDetailsScreenState
     _firstNameController.text = widget.initialFirstName ?? '';
     _lastNameController.text = widget.initialLastName ?? '';
     _notesController.text = widget.initialNotes ?? '';
-    _selectedStatus = widget.initialStatus;
-    _selectedStateSubsidyOption = widget.initialSubsidy ? 'Yes' : 'No';
-    _selectedClassroom = widget.initialClassroom;
-    _selectedBirthDate = widget.initialBirthDate;
-    _selectedTags = List<String>.from(widget.initialTags);
-    _selectedSiblings = List<String>.from(widget.initialSiblings);
-    _selectedChildCustody = List<String>.from(widget.initialLegalCustodians);
     _streetController.text = widget.initialStreet ?? '';
     _street2Controller.text = '';
     _cityController.text = widget.initialCity ?? '';
 
     // Map initial state (name or abbreviation) to display name from US_STATES.
+    String? initialStateName;
     if (widget.initialState != null && widget.initialState!.isNotEmpty) {
       final raw = widget.initialState!;
       final match = US_STATES.firstWhere(
@@ -214,18 +219,29 @@ class _EditStudentProfileDetailsScreenState
             s.abbreviation.toLowerCase() == raw.toLowerCase(),
         orElse: () => US_STATES.first,
       );
-      _selectedState = match.name;
+      initialStateName = match.name;
     }
-
-    // Country is fixed to United States on this screen.
-    _selectedCountry = 'United States';
 
     // Accept legacy stored formats: "12345", "123456789", or "12345-6789"
     final initialZipRaw = widget.initialZipCode ?? '';
     _zipCodeController.text = _formatUsZipForDisplay(initialZipRaw);
 
     final g = _genderDisplayFromApi(widget.initialGender);
-    _selectedGender = g != null && _genderOptions.contains(g) ? g : null;
+
+    // Controllers stay local; the rest of the form model seeds the cubit.
+    // Country is fixed to United States on this screen.
+    _profileEditCubit.initialize(
+      status: widget.initialStatus,
+      stateSubsidyOption: widget.initialSubsidy ? 'Yes' : 'No',
+      classroom: widget.initialClassroom,
+      birthDate: widget.initialBirthDate,
+      selectedTags: List<String>.from(widget.initialTags),
+      selectedSiblings: List<String>.from(widget.initialSiblings),
+      selectedChildCustody: List<String>.from(widget.initialLegalCustodians),
+      stateName: initialStateName,
+      country: 'United States',
+      gender: g != null && _genderOptions.contains(g) ? g : null,
+    );
 
     // Load dynamic dropdown data
     _loadTags();
@@ -241,7 +257,7 @@ class _EditStudentProfileDetailsScreenState
     final code = widget.studentCode.trim();
     if (code.isEmpty) {
       if (!mounted) return;
-      setState(() => _isTodayStatusLoading = false);
+      _profileEditCubit.setTodayStatus(isSignedInToday: false);
       return;
     }
     try {
@@ -252,18 +268,12 @@ class _EditStudentProfileDetailsScreenState
         isActiveProfile: true,
         todayStatusRaw: status,
       );
-      setState(() {
-        _isSignedInToday = gate.isSignedInToday;
-        _isTodayStatusLoading = false;
-      });
+      _profileEditCubit.setTodayStatus(isSignedInToday: gate.isSignedInToday);
     } catch (_) {
       if (!mounted) return;
       // Fail closed: keep the Classroom field disabled if the status can't
       // be determined, same convention as student_attendance_profile.dart.
-      setState(() {
-        _isSignedInToday = true;
-        _isTodayStatusLoading = false;
-      });
+      _profileEditCubit.setTodayStatus(isSignedInToday: true);
     }
   }
 
@@ -280,12 +290,15 @@ class _EditStudentProfileDetailsScreenState
       final nameCodeMap = await mapUseCase(schoolCode: schoolCode);
       if (!mounted) return;
 
-      setState(() {
-        _availableTagNames = names;
-        _tagNameToCode = nameCodeMap;
-        // Drop any selected tags that no longer exist.
-        _selectedTags.removeWhere((t) => !_availableTagNames.contains(t));
-      });
+      // Drop any selected tags that no longer exist.
+      final prunedTags = _profileEditCubit.state.selectedTags
+          .where(names.contains)
+          .toList();
+      _profileEditCubit.applyTagsLoaded(
+        names: names,
+        nameToCode: nameCodeMap,
+        selectedTags: prunedTags,
+      );
     } catch (_) {
       // Non-critical for this form; keep selections as-is.
     }
@@ -342,23 +355,25 @@ class _EditStudentProfileDetailsScreenState
         codeToDisplay[code] = displayLabel;
       }
 
-      setState(() {
-        _availableStudentNames = names;
-        _studentNameToCode = nameToCode;
+      // If initial siblings are codes, map them to names for display; else
+      // ensure existing selected names still exist in the fetched list.
+      final List<String> selectedSiblings;
+      if (widget.initialSiblings.isNotEmpty) {
+        selectedSiblings = widget.initialSiblings
+            .map((code) => codeToDisplay[code] ?? code)
+            .where((n) => n.trim().isNotEmpty)
+            .toList();
+      } else {
+        selectedSiblings = _profileEditCubit.state.selectedSiblings
+            .where(names.contains)
+            .toList();
+      }
 
-        // If initial siblings are codes, map them to names for display.
-        if (widget.initialSiblings.isNotEmpty) {
-          _selectedSiblings = widget.initialSiblings
-              .map((code) => codeToDisplay[code] ?? code)
-              .where((n) => n.trim().isNotEmpty)
-              .toList();
-        } else {
-          // Ensure existing selected names still exist.
-          _selectedSiblings.removeWhere(
-            (name) => !_availableStudentNames.contains(name),
-          );
-        }
-      });
+      _profileEditCubit.applyStudentsLoaded(
+        names: names,
+        nameToCode: nameToCode,
+        selectedSiblings: selectedSiblings,
+      );
     } catch (_) {
       // Non-critical; leave siblings dropdown empty.
     }
@@ -399,15 +414,16 @@ class _EditStudentProfileDetailsScreenState
       }
       if (!mounted) return;
 
-      setState(() {
-        _availableGuardianNames = names;
-        _guardianNameToCode = nameToCode;
-        _guardianInitialCustody = initialCustody;
-        _guardianRawByCode = rawByCode;
-        _selectedChildCustody.removeWhere(
-          (g) => !_availableGuardianNames.contains(g),
-        );
-      });
+      final prunedCustody = _profileEditCubit.state.selectedChildCustody
+          .where(names.contains)
+          .toList();
+      _profileEditCubit.applyGuardiansLoaded(
+        names: names,
+        nameToCode: nameToCode,
+        initialCustody: initialCustody,
+        rawByCode: rawByCode,
+        selectedChildCustody: prunedCustody,
+      );
     } catch (_) {
       // Non-critical; keep any existing selections.
     }
@@ -608,9 +624,7 @@ class _EditStudentProfileDetailsScreenState
       }
     }
 
-    setState(() {
-      _isSubmitting = true;
-    });
+    _profileEditCubit.setSubmitting(true);
 
     try {
       // Map status display name to API value (e.g., "Active" -> "ACTIVE")
@@ -794,9 +808,7 @@ class _EditStudentProfileDetailsScreenState
       }
 
       if (!mounted) return;
-      setState(() {
-        _isSubmitting = false;
-      });
+      _profileEditCubit.setSubmitting(false);
 
       CoreUtils.showTopSnackBar(
         context: context,
@@ -806,9 +818,7 @@ class _EditStudentProfileDetailsScreenState
       context.pop(true);
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _isSubmitting = false;
-      });
+      _profileEditCubit.setSubmitting(false);
       final message = ApiErrorHandler.extractErrorMessage(e);
       CoreUtils.showTopSnackBar(
         context: context,
@@ -862,9 +872,7 @@ class _EditStudentProfileDetailsScreenState
           return;
         }
 
-        setState(() {
-          _selectedBirthDate = selectedDate;
-        });
+        _profileEditCubit.setBirthDate(selectedDate);
       }
     } catch (e) {
       AppLogger.d('Error opening calendar dialog: $e');
@@ -896,6 +904,13 @@ class _EditStudentProfileDetailsScreenState
   }
 
   Widget _buildScreen(BuildContext context) {
+    return BlocBuilder<StudentProfileEditCubit, StudentProfileEditState>(
+      bloc: _profileEditCubit,
+      builder: (context, editState) => _buildScreenBody(context),
+    );
+  }
+
+  Widget _buildScreenBody(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
@@ -1039,7 +1054,7 @@ class _EditStudentProfileDetailsScreenState
                           "Select",
                           _statusOptions,
                           _selectedStatus,
-                          (v) => setState(() => _selectedStatus = v),
+                          (v) => _profileEditCubit.setStatus(v),
                           isRequired: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
@@ -1048,7 +1063,7 @@ class _EditStudentProfileDetailsScreenState
                           "Select",
                           _genderOptions,
                           _selectedGender,
-                          (v) => setState(() => _selectedGender = v),
+                          (v) => _profileEditCubit.setGender(v),
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown(
@@ -1058,10 +1073,7 @@ class _EditStudentProfileDetailsScreenState
                               : "Select",
                           classroomOptions,
                           selectedClassroomName,
-                          (v) => setState(() {
-                            _selectedClassroom = v;
-                            _classroomChangedByUser = true;
-                          }),
+                          (v) => _profileEditCubit.setClassroom(v),
                           isRequired: true,
                           isEnabled:
                               !_isTodayStatusLoading && !_isSignedInToday,
@@ -1075,9 +1087,8 @@ class _EditStudentProfileDetailsScreenState
                           hintText: 'Select',
                           items: _availableTagNames,
                           selectedItems: _selectedTags,
-                          onChanged: (tags) {
-                            setState(() => _selectedTags = tags);
-                          },
+                          onChanged: (tags) =>
+                              _profileEditCubit.setSelectedTags(tags),
                           isField: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
@@ -1090,9 +1101,8 @@ class _EditStudentProfileDetailsScreenState
                           hintText: 'Select student',
                           items: _availableStudentNames,
                           selectedItems: _selectedSiblings,
-                          onChanged: (siblings) {
-                            setState(() => _selectedSiblings = siblings);
-                          },
+                          onChanged: (siblings) =>
+                              _profileEditCubit.setSelectedSiblings(siblings),
                           maxDropdownHeight: 200,
                           isField: true,
                         ),
@@ -1102,11 +1112,8 @@ class _EditStudentProfileDetailsScreenState
                           hintText: 'Select guardian',
                           items: _availableGuardianNames,
                           selectedItems: _selectedChildCustody,
-                          onChanged: (custodyOptions) {
-                            setState(
-                              () => _selectedChildCustody = custodyOptions,
-                            );
-                          },
+                          onChanged: (custodyOptions) => _profileEditCubit
+                              .setSelectedChildCustody(custodyOptions),
                           isField: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
@@ -1115,8 +1122,7 @@ class _EditStudentProfileDetailsScreenState
                           "Select",
                           _stateSubsidyOptions,
                           _selectedStateSubsidyOption,
-                          (v) =>
-                              setState(() => _selectedStateSubsidyOption = v),
+                          (v) => _profileEditCubit.setStateSubsidyOption(v),
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
@@ -1148,7 +1154,7 @@ class _EditStudentProfileDetailsScreenState
                           "Select",
                           _stateOptions,
                           _selectedState,
-                          (v) => setState(() => _selectedState = v),
+                          (v) => _profileEditCubit.setStateName(v),
                           isRequired: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),

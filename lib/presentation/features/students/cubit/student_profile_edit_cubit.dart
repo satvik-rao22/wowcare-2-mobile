@@ -46,6 +46,105 @@ class StudentProfileEditCubit extends Cubit<StudentProfileEditState> {
   final UpdateStudentSiblingsUseCase _updateStudentSiblingsUseCase;
   final UpdateGuardianUseCase _updateGuardianUseCase;
 
+  // --- Form model (owned here; the view fetches + maps, then applies via these) ---
+
+  /// Seed the simple form fields from the caller's initial values.
+  void initialize({
+    String? status,
+    String? stateSubsidyOption,
+    String? classroom,
+    DateTime? birthDate,
+    String? stateName,
+    String? country,
+    String? gender,
+    List<String>? selectedTags,
+    List<String>? selectedSiblings,
+    List<String>? selectedChildCustody,
+  }) {
+    emit(state.copyWith(
+      status: status,
+      stateSubsidyOption: stateSubsidyOption,
+      classroom: classroom,
+      birthDate: birthDate,
+      stateName: stateName,
+      country: country,
+      gender: gender,
+      selectedTags: selectedTags,
+      selectedSiblings: selectedSiblings,
+      selectedChildCustody: selectedChildCustody,
+    ));
+  }
+
+  void setStatus(String? value) => emit(state.copyWith(status: value));
+  void setStateSubsidyOption(String? value) =>
+      emit(state.copyWith(stateSubsidyOption: value));
+  void setBirthDate(DateTime? value) => emit(state.copyWith(birthDate: value));
+  void setStateName(String? value) => emit(state.copyWith(stateName: value));
+  void setCountry(String? value) => emit(state.copyWith(country: value));
+  void setGender(String? value) => emit(state.copyWith(gender: value));
+  void setSelectedTags(List<String> value) =>
+      emit(state.copyWith(selectedTags: value));
+  void setSelectedSiblings(List<String> value) =>
+      emit(state.copyWith(selectedSiblings: value));
+  void setSelectedChildCustody(List<String> value) =>
+      emit(state.copyWith(selectedChildCustody: value));
+  void setSubmitting(bool value) => emit(state.copyWith(submitting: value));
+
+  /// A user-driven classroom change (records the "changed by user" flag).
+  void setClassroom(String? value) => emit(state.copyWith(
+        classroom: value,
+        classroomChangedByUser: true,
+      ));
+
+  /// Result of the today's-sign-in lookup (loading flips to false).
+  void setTodayStatus({required bool isSignedInToday}) => emit(state.copyWith(
+        isSignedInToday: isSignedInToday,
+        isTodayStatusLoading: false,
+      ));
+
+  /// Apply the loaded tag options + name→code map (+ pruned selection).
+  void applyTagsLoaded({
+    required List<String> names,
+    required Map<String, String> nameToCode,
+    required List<String> selectedTags,
+  }) {
+    emit(state.copyWith(
+      availableTagNames: names,
+      tagNameToCode: nameToCode,
+      selectedTags: selectedTags,
+    ));
+  }
+
+  /// Apply the loaded sibling options + name→code map (+ mapped/pruned selection).
+  void applyStudentsLoaded({
+    required List<String> names,
+    required Map<String, String> nameToCode,
+    required List<String> selectedSiblings,
+  }) {
+    emit(state.copyWith(
+      availableStudentNames: names,
+      studentNameToCode: nameToCode,
+      selectedSiblings: selectedSiblings,
+    ));
+  }
+
+  /// Apply the loaded guardian options + custody lookups (+ pruned selection).
+  void applyGuardiansLoaded({
+    required List<String> names,
+    required Map<String, String> nameToCode,
+    required Map<String, bool> initialCustody,
+    required Map<String, Map<String, dynamic>> rawByCode,
+    required List<String> selectedChildCustody,
+  }) {
+    emit(state.copyWith(
+      availableGuardianNames: names,
+      guardianNameToCode: nameToCode,
+      guardianInitialCustody: initialCustody,
+      guardianRawByCode: rawByCode,
+      selectedChildCustody: selectedChildCustody,
+    ));
+  }
+
   // --- Reads (thin; return the future so the view keeps its control flow) ---
 
   /// Fetches a page of students, mirroring the params the view currently passes

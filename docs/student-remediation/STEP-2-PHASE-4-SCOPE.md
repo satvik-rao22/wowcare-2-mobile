@@ -3,6 +3,12 @@
 > Branch `audit/student-fixes`. Phases 1–3 (read/list surface) are DONE & verified. Phase 4 is the
 > **write surface** — the editor/wizard/add form screens. This doc scopes it; **no code yet**.
 
+## ✅ PHASE 4 COMPLETE (all form screens migrated; +68 form-cubit tests, suite 93 → 161)
+Tier A (5) + Tier D-document + Tier B (3) + Tier D-step3 (new StudentScheduleCubit) + Tier C
+(edit_profile_details) all done, test-first, each verified. Legacy dead `add_student_screen` (499 lines,
+unrouted single-page variant) deleted. Only the deferred `student_profile_tab._profileFuture` MVVM holdout
+remains (needs entity enrichment first — out of Phase 4 scope).
+
 ## HEADLINE FINDING — this is smaller than the audit feared
 Phase 4 was estimated at "~60 `setState` across form screens, build per-editor form cubits." On
 inspection, **the form cubits already exist and are already wired** to every form screen except one.
@@ -163,6 +169,20 @@ cubit state and reads `state` via BlocBuilder.
   build wrapped in `BlocBuilder`, time-picks/toggle/remove/enable call cubit methods and snackbar returned
   errors, `_onNext` = `validateForSubmit` then `pop(state.schedule)`. Removed the now-unused `StaffRepository`
   import. Analyzer clean, `dart format`ed, **student suite 144 → 156, all pass.**
+
+### ✅ TIER C — `edit_student_profile_details_screen` DONE & verified (TDD, FULL MOVE, the biggest screen)
+1470-line screen, ~23 form-model fields → all moved into `StudentProfileEditState` (`_unset`-sentinel
+`copyWith`): status/gender/classroom(+`classroomChangedByUser`)/birthDate/state/country/subsidy, the three
+multi-selects (tags/siblings/custody), the flow `submitting` flag, the attendance gate
+(`isTodayStatusLoading`/`isSignedInToday`), and the three server option lists + their code-maps +
+`guardianInitialCustody` + `guardianRawByCode`. Cubit gained `initialize`, per-field setters (`setClassroom`
+flags the user change; `setTodayStatus` resolves the gate) and three `apply*Loaded` methods; the view keeps
+the fetch+mapping orchestration and calls them. Wrote 5 tests first (init/setters/classroom-flag/gate/
+apply-loaded). Widget: removed all 22 fields + all 18 `setState`; **read sites kept working via read-through
+getters onto `_profileEditCubit.state`** (lowest-risk — only writes changed); dropdowns/date/submit call
+cubit setters; the load methods compute pruned/mapped values then `apply*Loaded`; `_buildScreen` wrapped in
+a `BlocBuilder<StudentProfileEditCubit>` for reactivity. Analyzer clean, `dart format`ed, **student suite
+156 → 161, all pass.**
 
 ### ✅ TIER B COMPLETE (3 screens: add_pickup, add_student_step1, add_student_step2)
 The shared `StudentCreateCubit` now owns both wizard steps' form models (step1 + step2) via a `step1*`/
