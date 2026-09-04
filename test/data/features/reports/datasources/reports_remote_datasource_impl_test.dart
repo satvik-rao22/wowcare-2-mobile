@@ -277,7 +277,40 @@ void main() {
       // compile time, so the old runtime ArgumentError path is structurally
       // unreachable — there is nothing left for a test to exercise.
 
+      test('routes BILLING_TRANSACTION to billing transaction endpoint via GET', () async {
+        const reportType = ReportType.billingTransaction;
+        final requestBody = <String, dynamic>{
+          'dateFrom': '2026-01-01T00:00:00.000Z',
+          'dateTo': '2026-01-15T00:00:00.000Z',
+          'paymentMethods': ['Card', 'Cash'],
+          'transactionStatuses': ['Success'],
+        };
+        final responseData = {
+          'reportId': 'report-txn-1',
+          'reportType': 'BILLING_TRANSACTION',
+          'generatedAt': '2026-01-15T10:30:00Z',
+        };
+
+        String? capturedPath;
+        fakeDio.responseBuilder = (path) {
+          capturedPath = path;
+          if (path.endsWith('/api/v1/accounts/reports/billing/TRANSACTION')) {
+            return responseData;
+          }
+          return null;
+        };
+
+        final result = await dataSource.generateReport(
+          reportType: reportType,
+          requestBody: requestBody,
+        );
+
+        expect(capturedPath, endsWith('/api/v1/accounts/reports/billing/TRANSACTION'));
+        expect(result.reportType, 'BILLING_TRANSACTION');
+      });
+
       test(
+
         'throws FormatException when backend response is missing required fields',
         () async {
           const reportType = ReportType.studentDailyAttendance;

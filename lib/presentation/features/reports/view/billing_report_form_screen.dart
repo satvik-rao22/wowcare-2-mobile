@@ -47,12 +47,14 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
   late DateTime _periodDate;
   List<String> _selectedStudents = <String>[];
   late List<String> _selectedClassrooms;
+  List<String> _selectedInvoiceStatuses = <String>[];
   List<String> _availableStudents = <String>[];
   Map<String, String> _studentCodeByName = <String, String>{};
   Map<String, String> _classroomCodeByName = <String, String>{};
   bool _isLoadingStudents = false;
   int _fetchId = 0;
   String _folderClassGrouping = 'Daily';
+  String _periodType = 'Monthly';
 
   @override
   void initState() {
@@ -195,7 +197,27 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
       // Allow proceeding if they selected classrooms and students.
     }
 
-    if (_endDate.isBefore(_startDate)) {
+    DateTime reqStartDate = _startDate;
+    DateTime? reqEndDate = _endDate;
+
+    if (widget.reportType == ReportType.billingOutstanding) {
+      reqEndDate = null;
+    }
+
+    if (widget.reportType == ReportType.billingStudentMapping &&
+        _periodType == 'Monthly') {
+      reqStartDate = DateTime(_periodDate.year, _periodDate.month, 1);
+      reqEndDate = DateTime(
+        _periodDate.year,
+        _periodDate.month + 1,
+        0,
+        23,
+        59,
+        59,
+      );
+    }
+
+    if (reqEndDate != null && reqEndDate.isBefore(reqStartDate)) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'End date cannot be before Start date',
@@ -216,7 +238,11 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
       ..._studentCodeByName,
     };
 
-    final studentCodes = _selectedStudents
+    final targetStudentNames = _selectedStudents.isEmpty
+        ? _availableStudents
+        : _selectedStudents;
+
+    final studentCodes = targetStudentNames
         .map((name) => mergedStudentNameToCode[name])
         .whereType<String>()
         .where((c) => c.trim().isNotEmpty)
@@ -241,14 +267,23 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
     context.read<ReportsCubit>().generateReport(
       ReportRequestParams(
         reportType: widget.reportType,
-        startDate: _startDate,
-        endDate: _endDate,
+        startDate: reqStartDate,
+        endDate: reqEndDate,
         format: _format,
         schoolName: schoolName.isNotEmpty ? schoolName : null,
         roomCodes: classroomCodes.isNotEmpty ? classroomCodes : null,
         studentCodes: studentCodes.isNotEmpty ? studentCodes : null,
-        folderClassGrouping: widget.reportType == ReportType.billingPaymentSummary
-            ? _folderClassGrouping
+        periodType: widget.reportType == ReportType.billingStudentMapping
+            ? _periodType.toLowerCase()
+            : null,
+        folderClassGrouping:
+            widget.reportType == ReportType.billingPaymentSummary
+            ? _folderClassGrouping.toUpperCase()
+            : null,
+        invoiceStatuses:
+            widget.reportType == ReportType.billingInvoice &&
+                _selectedInvoiceStatuses.isNotEmpty
+            ? _selectedInvoiceStatuses.map((s) => s.toUpperCase()).toList()
             : null,
       ),
     );
@@ -293,8 +328,9 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
                   // Navigator.push, so only popping actually dismisses it;
                   // the hub's own .then((success) => tab 0) callback reacts
                   // to the pop(true) result.
+                  final reportToReturn = state.generatedReport;
                   context.read<ReportsCubit>().clearGeneratedReport();
-                  Navigator.of(context).pop(true);
+                  Navigator.of(context).pop(reportToReturn ?? true);
                 });
               }
             }
@@ -307,25 +343,107 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const ReportFieldLabel(label: 'Start Date'),
-            CustomDateTimeField(
-              hasLabel: false,
-              fetchInitialTime: false,
-              initialDate: _startDate,
-              onDateSelected: (d) => setState(() => _startDate = d),
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            const ReportFieldLabel(label: 'End Date'),
-            CustomDateTimeField(
-              hasLabel: false,
-              fetchInitialTime: false,
-              initialDate: _endDate,
-              onDateSelected: (d) => setState(() => _endDate = d),
-            ),
-            SizedBox(height: responsive.verticalSpacing),
+            if (widget.reportType == ReportType.billingStudentMapping) ...[
+              CustomDropdown(
+                label: 'Report Period Type',
+                hintText: 'Select',
+                items: const ['Monthly', 'Custom'],
+                selectedItem: _periodType,
+                showAsterisk: true,
+                onSelect: (val) {
+                  if (val != null) {
+                    setState(() => _periodType = val);
+                  }
+                },
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              if (_periodType == 'Monthly') ...[
+                const ReportFieldLabel(label: 'Date'),
+                ReportMonthYearField(
+                  initialMonth: _periodDate,
+                  onMonthSelected: (d) => setState(() => _periodDate = d),
+                ),
+              ] else ...[
+                const ReportFieldLabel(label: 'Date Range'),
+                CustomDateTimeField(
+                  hasLabel: false,
+                  isRangePicker: true,
+                  fetchInitialTime: false,
+                  initialDate: _startDate,
+                  onRangeSelected: (start, end) {
+                    if (end != null) {
+                      setState(() {
+                        _startDate = start;
+                        _endDate = end;
+                      });
+                    }
+                  },
+                ),
+              ],
+              SizedBox(height: responsive.verticalSpacing),
+              const ReportFieldLabel(label: 'Export Format'),
+              ReportFormatSelector(
+                selectedFormat: _format,
+                onFormatChanged: (value) => setState(() => _format = value),
+                showLabel: false,
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              CustomMultiSelectDropdown(
+                label: 'Classroom',
+                hintText: 'Select Classrooms',
+                items: widget.classrooms,
+                isRequired: true,
+                selectedItems: _selectedClassrooms,
+                onChanged: (s) => setState(() => _selectedClassrooms = s),
+                showSelectAll: true,
+              ),
+              const ReportDefaultNote(
+                text: 'Note: All Classrooms will be selected by Default.',
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+            ] else if (widget.reportType == ReportType.billingOutstanding) ...[
+              const ReportFieldLabel(label: 'As-Of Date'),
+              CustomDateTimeField(
+                hasLabel: false,
+                fetchInitialTime: false,
+                initialDate: _startDate,
+                onDateSelected: (d) => setState(() => _startDate = d),
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              const ReportFieldLabel(label: 'Export Format'),
+              ReportFormatSelector(
+                selectedFormat: _format,
+                onFormatChanged: (value) => setState(() => _format = value),
+                showLabel: false,
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+            ] else ...[
+              const ReportFieldLabel(label: 'Start Date'),
+              CustomDateTimeField(
+                hasLabel: false,
+                fetchInitialTime: false,
+                initialDate: _startDate,
+                onDateSelected: (d) => setState(() => _startDate = d),
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              const ReportFieldLabel(label: 'End Date'),
+              CustomDateTimeField(
+                hasLabel: false,
+                fetchInitialTime: false,
+                initialDate: _endDate,
+                onDateSelected: (d) => setState(() => _endDate = d),
+              ),
+              const ReportFieldLabel(label: 'Export Format'),
+              ReportFormatSelector(
+                selectedFormat: _format,
+                onFormatChanged: (value) => setState(() => _format = value),
+                showLabel: false,
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+            ],
             if (widget.reportType == ReportType.billingPaymentSummary) ...[
               CustomDropdown(
-                label: 'Folder Class Grouping',
+                label: 'Grouping',
                 hintText: 'Select Grouping',
                 items: const ['Daily', 'Weekly', 'Monthly'],
                 initialValue: _folderClassGrouping,
@@ -339,13 +457,16 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
             ],
             if (widget.reportType == ReportType.billingInvoice) ...[
               // Add the Optional filters:  Payment method (Card, ACH, Cash)
-              CustomDropdown(
+              CustomMultiSelectDropdown(
                 label: 'Invoice Status',
                 hintText: "Select Status",
+                isRequired: true,
                 items: const ["Paid", "Unpaid", "Partial"],
-                onSelect: (value) {
-                  // Handle selection
+                selectedItems: _selectedInvoiceStatuses,
+                onChanged: (s) {
+                  setState(() => _selectedInvoiceStatuses = s);
                 },
+                showSelectAll: true,
               ),
               SizedBox(height: responsive.verticalSpacing),
               CustomMultiSelectDropdown(
@@ -382,12 +503,6 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
               ),
               SizedBox(height: responsive.verticalSpacing),
             ],
-            const ReportFieldLabel(label: 'Export Format'),
-            ReportFormatSelector(
-              selectedFormat: _format,
-              onFormatChanged: (value) => setState(() => _format = value),
-              showLabel: false,
-            ),
           ],
         ),
       ),

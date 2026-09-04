@@ -16,6 +16,11 @@ class ReportRequestParams extends Equatable implements ReportParams {
     required this.schoolName,
     this.search,
     this.folderClassGrouping,
+    this.periodType,
+    this.invoiceStatuses,
+    this.transactionStatuses,
+    this.transactionTypes,
+    this.paymentMethods,
   });
 
   @override
@@ -38,6 +43,11 @@ class ReportRequestParams extends Equatable implements ReportParams {
   final String? schoolName;
   final String? search;
   final String? folderClassGrouping;
+  final String? periodType;
+  final List<String>? invoiceStatuses;
+  final List<String>? transactionStatuses;
+  final List<String>? transactionTypes;
+  final List<String>? paymentMethods;
 
   ReportRequestParams copyWith({
     ReportType? reportType,
@@ -52,6 +62,11 @@ class ReportRequestParams extends Equatable implements ReportParams {
     String? schoolName,
     String? search,
     String? folderClassGrouping,
+    String? periodType,
+    List<String>? invoiceStatuses,
+    List<String>? transactionStatuses,
+    List<String>? transactionTypes,
+    List<String>? paymentMethods,
   }) {
     return ReportRequestParams(
       reportType: reportType ?? this.reportType,
@@ -66,6 +81,11 @@ class ReportRequestParams extends Equatable implements ReportParams {
       schoolName: schoolName ?? this.schoolName,
       search: search ?? this.search,
       folderClassGrouping: folderClassGrouping ?? this.folderClassGrouping,
+      periodType: periodType ?? this.periodType,
+      invoiceStatuses: invoiceStatuses ?? this.invoiceStatuses,
+      transactionStatuses: transactionStatuses ?? this.transactionStatuses,
+      transactionTypes: transactionTypes ?? this.transactionTypes,
+      paymentMethods: paymentMethods ?? this.paymentMethods,
     );
   }
 
@@ -85,10 +105,23 @@ class ReportRequestParams extends Equatable implements ReportParams {
       'format': format,
       if (schoolName != null && schoolName!.trim().isNotEmpty)
         'schoolName': schoolName,
+      if (periodType != null && periodType!.trim().isNotEmpty)
+        'periodType': periodType,
     };
 
     if (reportType == ReportType.studentDailyAttendance) {
       body['date'] = (date ?? startDate).toIso8601String().split('T')[0];
+    } else if (reportType == ReportType.billingOutstanding) {
+      body['asOfDate'] = startDate.toUtc().toIso8601String();
+    } else if (reportType == ReportType.billingTransaction ||
+        reportType == ReportType.billingInvoice ||
+        reportType == ReportType.billingPaymentSummary ||
+        reportType == ReportType.billingRefund ||
+        reportType == ReportType.billingStudentMapping) {
+      body['dateFrom'] = startDate.toUtc().toIso8601String();
+      if (endDate != null) {
+        body['dateTo'] = endDate!.toUtc().toIso8601String();
+      }
     } else {
       body['startDate'] = startDate.toIso8601String().split('T')[0];
       if (endDate != null) {
@@ -111,8 +144,10 @@ class ReportRequestParams extends Equatable implements ReportParams {
       }
     } else {
       // Other reports use classroomCodes.
-      if (roomCodes != null) {
-        body['roomCodes'] = roomCodes;
+      if (roomCodes != null &&
+          reportType != ReportType.billingOutstanding &&
+          reportType != ReportType.billingRefund) {
+        body['classroomCodes'] = roomCodes;
       }
     }
 
@@ -131,6 +166,18 @@ class ReportRequestParams extends Equatable implements ReportParams {
     }
     if (folderClassGrouping != null && folderClassGrouping!.isNotEmpty) {
       body['grouping'] = folderClassGrouping;
+    }
+    if (invoiceStatuses != null && invoiceStatuses!.isNotEmpty) {
+      body['invoiceStatuses'] = invoiceStatuses;
+    }
+    if (transactionStatuses != null && transactionStatuses!.isNotEmpty) {
+      body['transactionStatuses'] = transactionStatuses;
+    }
+    if (transactionTypes != null && transactionTypes!.isNotEmpty) {
+      body['transactionTypes'] = transactionTypes;
+    }
+    if (paymentMethods != null && paymentMethods!.isNotEmpty) {
+      body['paymentMethods'] = paymentMethods;
     }
 
     return body;
@@ -158,6 +205,16 @@ class ReportRequestParams extends Equatable implements ReportParams {
       if (date != null) 'date=${date!.toIso8601String().split('T')[0]}',
       if (folderClassGrouping != null && folderClassGrouping!.isNotEmpty)
         'grouping=$folderClassGrouping',
+      if (periodType != null && periodType!.isNotEmpty)
+        'periodType=$periodType',
+      if (invoiceStatuses != null && invoiceStatuses!.isNotEmpty)
+        'invoiceStatuses=${invoiceStatuses!.join(',')}',
+      if (transactionStatuses != null && transactionStatuses!.isNotEmpty)
+        'transactionStatuses=${transactionStatuses!.join(',')}',
+      if (transactionTypes != null && transactionTypes!.isNotEmpty)
+        'transactionTypes=${transactionTypes!.join(',')}',
+      if (paymentMethods != null && paymentMethods!.isNotEmpty)
+        'paymentMethods=${paymentMethods!.join(',')}',
     ];
     return parts.join('|');
   }
@@ -176,5 +233,10 @@ class ReportRequestParams extends Equatable implements ReportParams {
     schoolName,
     search,
     folderClassGrouping,
+    periodType,
+    invoiceStatuses,
+    transactionStatuses,
+    transactionTypes,
+    paymentMethods,
   ];
 }

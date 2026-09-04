@@ -155,7 +155,8 @@ class ApiPaths {
   /// Maps [path] to [ApiMicroservices] for [ApiConstants.baseUrlForMicroservice].
   /// Paths do not include the MS name in the URL.
   static String microserviceKeyFromPath(String path) {
-    if (ApiConstants.isGatewayEnv) return ApiPathsUat.microserviceKeyFromPath(path);
+    if (ApiConstants.isGatewayEnv)
+      return ApiPathsUat.microserviceKeyFromPath(path);
     final p = path.startsWith('/') ? path : '/$path';
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
     if (parts.length < 3 || parts[0] != 'api') {
@@ -322,7 +323,9 @@ class ApiPaths {
 
   /// Same as [url]; the [baseUrl] argument is ignored (kept for call-site compatibility).
   static String urlWithBase(String path, String baseUrl) =>
-      ApiConstants.isGatewayEnv ? ApiPathsUat.urlWithBase(path, baseUrl) : url(path);
+      ApiConstants.isGatewayEnv
+      ? ApiPathsUat.urlWithBase(path, baseUrl)
+      : url(path);
 
   // —— Auth (user host) ——
   static const String authLogin = '/api/v1/auth/login';
@@ -1070,6 +1073,18 @@ class ApiPaths {
   /// stored asset metadata so it downloads via the document service like the other reports.
   static const String billingReportGenerate =
       '/api/v1/reports/billing/generate';
+  static const String billingTransactionReportGenerate =
+      '/api/v1/reports/billing/TRANSACTION';
+  static const String billingInvoiceReportGenerate =
+      '/api/v1/reports/billing/INVOICE';
+  static const String billingPaymentSummaryReportGenerate =
+      '/api/v1/reports/billing/PAYMENT_SUMMARY';
+  static const String billingOutstandingReportGenerate =
+      '/api/v1/reports/billing/OUTSTANDING';
+  static const String billingRefundReportGenerate =
+      '/api/v1/reports/billing/REFUND';
+  static const String billingStudentMappingReportGenerate =
+      '/api/v1/reports/billing/STUDENT_BILLING_MAPPING';
   static const String billingStatements = '/api/v1/billing/statements';
   static String billingStatementDownload(String code) =>
       '/api/v1/billing/statements/${Uri.encodeComponent(code.trim())}/download';

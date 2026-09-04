@@ -82,5 +82,26 @@ void main() {
 
       expect(body.containsKey('schoolName'), false);
     });
+
+    test('uses dateFrom and dateTo in ISO-8601 for BILLING_TRANSACTION', () {
+      final utcStart = DateTime.utc(2026, 1, 1);
+      final utcEnd = DateTime.utc(2026, 1, 31);
+
+      final params = ReportRequestParams(
+        reportType: ReportType.billingTransaction,
+        startDate: utcStart,
+        endDate: utcEnd,
+        format: 'PDF',
+        schoolName: 'School name ',
+      );
+
+      final body = params.toRequestBody();
+
+      expect(body['reportType'], 'BILLING_TRANSACTION');
+      expect(body['dateFrom'], '2026-01-01T00:00:00.000Z');
+      expect(body['dateTo'], '2026-01-31T00:00:00.000Z');
+      expect(body.containsKey('startDate'), false);
+      expect(body.containsKey('endDate'), false);
+    });
   });
 }
