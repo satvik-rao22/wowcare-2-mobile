@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/core/router/app_routes.dart';
 
 import '../../../../app/di/di.dart';
-import '../../../../app/theme/colors.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../presentation/features/classroom/cubit/classroom_cubit.dart';
-import '../cubit/scheduling_staff_list_cubit.dart';
+import '../view_model/scheduling_staff_list_cubit.dart';
 import '../../../../shared/common/widgets/custom_date_time_field.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
@@ -15,15 +17,15 @@ import '../../../../shared/common/widgets/custom_shimmer_loader.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../shared/common/app/cubit/role_cubit.dart';
 import '../../students/module_access.dart';
-import '../cubit/scheduling_cubit.dart';
+import '../view_model/scheduling_cubit.dart';
 import '../model/scheduling_models.dart';
+import '../model/scheduling_route_args.dart';
 import '../utils/scheduling_cache_gate.dart';
-import '../utils/scheduling_school_time.dart';
-import '../utils/scheduling_shift_navigator.dart';
+import '../../../../domain/features/scheduling/services/scheduling_school_time.dart';
+import '../navigation/scheduling_shift_navigator.dart';
 import '../widgets/day_classroom_section.dart';
 import '../widgets/scheduling_filter_bar.dart';
 import '../widgets/week_classroom_row.dart';
-import 'add_shift_screen.dart';
 
 class SchedulingScreen extends StatelessWidget {
   const SchedulingScreen({
@@ -146,10 +148,10 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
 
   Future<void> _bootstrapSchoolZone() async {
     try {
-      await bootstrapSchedulingSchoolTimezone();
+      final cubit = context.read<SchedulingCubit>();
+      await cubit.bootstrapSchoolTimezone();
       if (!mounted) return;
       final schoolToday = schedulingSchoolToday();
-      final cubit = context.read<SchedulingCubit>();
       final selected = cubit.state.selectedDay;
       final initialToday = _initialDeviceToday;
       final stillOnInitialToday =
@@ -257,25 +259,18 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
   }
 
   Future<void> _openAddShiftScreen(DateTime selectedDay) async {
-    // The cubits are provided at the route level; capture them here so they
-    // remain available inside the pushed [MaterialPageRoute] (which would
-    // otherwise lose the provider scope).
+    // The cubits are provided at the route level; capture them here so the
+    // pushed route re-provides the SAME instances (via `extra`) instead of
+    // resolving new ones.
     final classroomCubit = context.read<ClassroomCubit>();
     final schedulingStaffListCubit = context.read<SchedulingStaffListCubit>();
     final schedulingCubit = context.read<SchedulingCubit>();
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => MultiBlocProvider(
-          providers: [
-            // AddShift reads staff from the singleton scheduling cubit
-            // (cached, no pagination) instead of the paginated [StaffCubit].
-            BlocProvider<SchedulingStaffListCubit>.value(
-              value: schedulingStaffListCubit,
-            ),
-            BlocProvider<ClassroomCubit>.value(value: classroomCubit),
-          ],
-          child: AddShiftScreen(initialDate: selectedDay),
-        ),
+    final saved = await context.push<bool>(
+      AppRoutes.addShift,
+      extra: AddShiftRouteArgs(
+        schedulingStaffListCubit: schedulingStaffListCubit,
+        classroomCubit: classroomCubit,
+        initialDate: selectedDay,
       ),
     );
     if (saved == true && mounted) {
@@ -325,10 +320,9 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                   const Text(
                     'Classroom Schedule',
                     style: TextStyle(
-                      fontFamily: 'Manrope',
                       fontSize: 20,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xff573353),
+                      color: AppColors.primaryColor,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -355,7 +349,6 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                     Text(
                       state.errorMessage!,
                       style: const TextStyle(
-                        fontFamily: 'Manrope',
                         color: AppColors.errorColor,
                         fontSize: 13,
                       ),
@@ -374,7 +367,6 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                         child: Text(
                           'No shifts for the selected day.',
                           style: TextStyle(
-                            fontFamily: 'Manrope',
                             color: AppColors.primaryColor,
                             fontSize: 14,
                           ),

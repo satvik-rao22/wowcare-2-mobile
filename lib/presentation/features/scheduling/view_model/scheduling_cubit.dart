@@ -7,9 +7,13 @@ import '../../../../core/util/api_error_handler.dart';
 import '../../../../domain/features/scheduling/entities/classroom_forecast_block.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift_hours_entry.dart';
+import '../../../../domain/features/scheduling/usecases/bootstrap_scheduling_school_timezone_usecase.dart';
+import '../../../../domain/features/scheduling/usecases/delete_staff_shift_series_usecase.dart';
+import '../../../../domain/features/scheduling/usecases/delete_staff_shift_usecase.dart';
 import '../../../../domain/features/scheduling/usecases/get_classroom_forecast_range_usecase.dart';
 import '../../../../domain/features/scheduling/usecases/get_classroom_forecast_usecase.dart';
 import '../../../../domain/features/scheduling/usecases/get_school_staff_shifts_usecase.dart';
+import '../../../../domain/features/scheduling/usecases/get_staff_shift_by_code_usecase.dart';
 import '../../../../domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
 import '../../../../domain/features/scheduling/usecases/get_staff_shift_hours_range_usecase.dart';
 import '../../../../domain/features/staff/entities/school_regular_schedule_day.dart';
@@ -17,10 +21,10 @@ import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../model/scheduling_models.dart';
 import '../utils/forecast_slot_mapper.dart';
 import '../utils/school_hours_resolver.dart';
-import '../utils/scheduling_school_time.dart';
-import '../utils/scheduling_school_scope_mixin.dart';
-import '../utils/staff_hours_aggregator.dart';
-import '../utils/staff_shift_slot_mapper.dart';
+import '../../../../domain/features/scheduling/services/scheduling_school_time.dart';
+import 'scheduling_school_scope_mixin.dart';
+import '../../../../domain/features/scheduling/services/staff_hours_aggregator.dart';
+import '../model/staff_shift_slot_mapper.dart';
 import 'scheduling_staff_list_cubit.dart';
 
 part 'scheduling_state.dart';
@@ -37,6 +41,11 @@ class SchedulingCubit extends Cubit<SchedulingState>
     required SchedulingStaffListCubit schedulingStaffListCubit,
     required StaffRepository staffRepository,
     required StorageService storageService,
+    required GetStaffShiftByCodeUseCase getStaffShiftByCodeUseCase,
+    required DeleteStaffShiftUseCase deleteStaffShiftUseCase,
+    required DeleteStaffShiftSeriesUseCase deleteStaffShiftSeriesUseCase,
+    required BootstrapSchedulingSchoolTimezoneUseCase
+        bootstrapSchedulingSchoolTimezoneUseCase,
   }) : _getSchoolStaffShiftsUseCase = getSchoolStaffShiftsUseCase,
        _getClassroomForecastUseCase = getClassroomForecastUseCase,
        _getClassroomForecastRangeUseCase = getClassroomForecastRangeUseCase,
@@ -46,6 +55,11 @@ class SchedulingCubit extends Cubit<SchedulingState>
        _schedulingStaffListCubit = schedulingStaffListCubit,
        _staffRepository = staffRepository,
        _storageService = storageService,
+       _getStaffShiftByCodeUseCase = getStaffShiftByCodeUseCase,
+       _deleteStaffShiftUseCase = deleteStaffShiftUseCase,
+       _deleteStaffShiftSeriesUseCase = deleteStaffShiftSeriesUseCase,
+       _bootstrapSchedulingSchoolTimezoneUseCase =
+           bootstrapSchedulingSchoolTimezoneUseCase,
        super(SchedulingState.initial());
 
   final GetSchoolStaffShiftsUseCase _getSchoolStaffShiftsUseCase;
@@ -57,6 +71,35 @@ class SchedulingCubit extends Cubit<SchedulingState>
   final SchedulingStaffListCubit _schedulingStaffListCubit;
   final StaffRepository _staffRepository;
   final StorageService _storageService;
+  final GetStaffShiftByCodeUseCase _getStaffShiftByCodeUseCase;
+  final DeleteStaffShiftUseCase _deleteStaffShiftUseCase;
+  final DeleteStaffShiftSeriesUseCase _deleteStaffShiftSeriesUseCase;
+  final BootstrapSchedulingSchoolTimezoneUseCase
+      _bootstrapSchedulingSchoolTimezoneUseCase;
+
+  Future<String> bootstrapSchoolTimezone() =>
+      _bootstrapSchedulingSchoolTimezoneUseCase();
+
+  /// Single-shift detail lookup for the View/Edit shift screens — kept on
+  /// the cubit (rather than resolved via serviceLocator in the view/
+  /// navigator layer) so presentation only ever talks to its cubit.
+  Future<StaffShift> getShiftByCode(String shiftCode) =>
+      _getStaffShiftByCodeUseCase(shiftCode);
+
+  Future<void> deleteShift({
+    required String shiftCode,
+    String? staffCode,
+  }) =>
+      _deleteStaffShiftUseCase(shiftCode: shiftCode, staffCode: staffCode);
+
+  Future<void> deleteShiftSeries({
+    required String seriesCode,
+    String? staffCode,
+  }) =>
+      _deleteStaffShiftSeriesUseCase(
+        seriesCode: seriesCode,
+        staffCode: staffCode,
+      );
 
   @override
   StorageService get storageService => _storageService;

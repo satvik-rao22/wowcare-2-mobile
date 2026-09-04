@@ -9,11 +9,12 @@ import '../../../../domain/features/classroom/entities/classroom.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift.dart';
 import '../../../../domain/features/scheduling/repositories/staff_shift_repository.dart';
+import '../../../../domain/features/scheduling/usecases/bootstrap_scheduling_school_timezone_usecase.dart';
 import '../../../../domain/features/scheduling/usecases/create_staff_shift_usecase.dart';
 import '../../../../domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
-import '../utils/scheduling_school_time.dart';
+import '../../../../domain/features/scheduling/services/scheduling_school_time.dart';
 import '../utils/school_hours_resolver.dart';
 
 part 'add_shift_state.dart';
@@ -36,12 +37,16 @@ class AddShiftCubit extends Cubit<AddShiftState> {
     required GetStaffShiftsUseCase getStaffShiftsUseCase,
     required CreateStaffShiftUseCase createStaffShiftUseCase,
     required StorageService storageService,
+    required BootstrapSchedulingSchoolTimezoneUseCase
+        bootstrapSchedulingSchoolTimezoneUseCase,
   })  : _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
         _staffRepository = staffRepository,
         _staffShiftRepository = staffShiftRepository,
         _getStaffShiftsUseCase = getStaffShiftsUseCase,
         _createStaffShiftUseCase = createStaffShiftUseCase,
         _storageService = storageService,
+        _bootstrapSchedulingSchoolTimezoneUseCase =
+            bootstrapSchedulingSchoolTimezoneUseCase,
         super(AddShiftState(date: schedulingSchoolToday()));
 
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
@@ -50,6 +55,8 @@ class AddShiftCubit extends Cubit<AddShiftState> {
   final GetStaffShiftsUseCase _getStaffShiftsUseCase;
   final CreateStaffShiftUseCase _createStaffShiftUseCase;
   final StorageService _storageService;
+  final BootstrapSchedulingSchoolTimezoneUseCase
+      _bootstrapSchedulingSchoolTimezoneUseCase;
 
   /// Tracks the (staffCode|yyyy-MM-dd) combo we've already prefilled times for,
   /// so the build-time fallback prefill only fires once per new combo.
@@ -121,7 +128,7 @@ class AddShiftCubit extends Cubit<AddShiftState> {
 
   Future<void> _bootstrapSchoolZone() async {
     try {
-      await bootstrapSchedulingSchoolTimezone();
+      await _bootstrapSchedulingSchoolTimezoneUseCase();
       if (isClosed) return;
       // Refresh the default date once the school zone resolves, but only when
       // the caller didn't pass a specific initialDate.

@@ -16,6 +16,7 @@ class StaffSchedulingState extends Equatable {
     this.hasAttemptedInitialLoad = false,
     this.isStaffPersonaScope = false,
     this.errorMessage,
+    this.staffSignInStatusByCode = const {},
   });
 
   final DateTime selectedDay;
@@ -46,6 +47,11 @@ class StaffSchedulingState extends Equatable {
   final bool isStaffPersonaScope;
 
   final String? errorMessage;
+
+  /// Today's sign-in status keyed by staffCode, resolved via the bulk POST
+  /// `/staff-attendance/sign-in/status`. Drives the avatar dot on
+  /// `_StaffProfileHeader` (SIGNED_IN → green, ABSENT → red).
+  final Map<String, String> staffSignInStatusByCode;
 
   StaffMember? get selectedStaff {
     final code = selectedStaffCode;
@@ -83,6 +89,7 @@ class StaffSchedulingState extends Equatable {
     String? errorMessage,
     bool clearError = false,
     bool clearSchoolHours = false,
+    Map<String, String>? staffSignInStatusByCode,
   }) {
     return StaffSchedulingState(
       selectedDay: selectedDay ?? this.selectedDay,
@@ -108,6 +115,8 @@ class StaffSchedulingState extends Equatable {
       isStaffPersonaScope:
           isStaffPersonaScope ?? this.isStaffPersonaScope,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      staffSignInStatusByCode:
+          staffSignInStatusByCode ?? this.staffSignInStatusByCode,
     );
   }
 
@@ -127,5 +136,6 @@ class StaffSchedulingState extends Equatable {
         hasAttemptedInitialLoad,
         isStaffPersonaScope,
         errorMessage,
+        staffSignInStatusByCode,
       ];
 }

@@ -63,6 +63,7 @@ import '../../data/features/scheduling/datasources/staff_shift_remote_datasource
 import '../../data/features/scheduling/repositories/staff_shift_repository_impl.dart';
 import '../../core/util/cache_manager.dart';
 import '../../domain/features/scheduling/repositories/staff_shift_repository.dart';
+import '../../domain/features/scheduling/usecases/bootstrap_scheduling_school_timezone_usecase.dart';
 import '../../domain/features/scheduling/usecases/create_staff_shift_usecase.dart';
 import '../../domain/features/scheduling/usecases/delete_staff_shift_series_usecase.dart';
 import '../../domain/features/scheduling/usecases/delete_staff_shift_usecase.dart';
@@ -107,9 +108,9 @@ import '../../data/features/scheduling/datasources/staff_scheduling_remote_datas
 import '../../data/features/scheduling/repositories/staff_scheduling_repository_impl.dart';
 import '../../domain/features/scheduling/repositories/staff_scheduling_repository.dart';
 import '../../domain/features/staff/usecases/get_staff_shifts_usecase.dart';
-import '../../presentation/features/scheduling/cubit/scheduling_cubit.dart';
-import '../../presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
-import '../../presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
+import '../../presentation/features/scheduling/view_model/scheduling_cubit.dart';
+import '../../presentation/features/scheduling/view_model/staff_scheduling_cubit.dart';
+import '../../presentation/features/scheduling/view_model/scheduling_staff_list_cubit.dart';
 import '../../presentation/features/dashboard/cubit/my_childs_day_cubit.dart';
 import '../../presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import '../../presentation/features/dashboard/cubit/qr_validation_cubit.dart';
@@ -146,9 +147,9 @@ import '../../data/features/kiosk/repositories/kiosk_attendance_repository_impl.
 import '../../presentation/features/kiosk/cubit/kiosk_attendance_cubit_v2.dart';
 import '../../presentation/features/kiosk/cubit/kiosk_logout_cubit.dart';
 import '../../presentation/features/kiosk/utils/kiosk_access_control.dart';
-import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
-import '../../presentation/features/scheduling/cubit/add_shift_cubit.dart';
-import '../../presentation/features/scheduling/cubit/edit_shift_cubit.dart';
+import '../../presentation/features/scheduling/view_model/publish_shifts_cubit.dart';
+import '../../presentation/features/scheduling/view_model/add_shift_cubit.dart';
+import '../../presentation/features/scheduling/view_model/edit_shift_cubit.dart';
 import '../../domain/features/staff/usecases/get_staff_count_usecase.dart';
 import '../../domain/features/staff/usecases/add_staff_document_usecase.dart';
 import '../../domain/features/staff/usecases/update_staff_document_usecase.dart';
@@ -1989,6 +1990,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStaffShiftByCodeUseCase>(
     () => GetStaffShiftByCodeUseCase(serviceLocator<StaffShiftRepository>()),
   );
+  serviceLocator.registerFactory<BootstrapSchedulingSchoolTimezoneUseCase>(
+    () => BootstrapSchedulingSchoolTimezoneUseCase(
+      storage: serviceLocator(),
+      apiClient: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<GetSchoolStaffShiftsUseCase>(
     () => GetSchoolStaffShiftsUseCase(serviceLocator<StaffShiftRepository>()),
   );
@@ -2479,12 +2486,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getActiveClassroomsUseCase: serviceLocator(),
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),
+      getStaffTodaySignInStatusMapUseCase: serviceLocator(),
+      getStaffShiftByCodeUseCase: serviceLocator(),
+      deleteStaffShiftUseCase: serviceLocator(),
+      deleteStaffShiftSeriesUseCase: serviceLocator(),
+      bootstrapSchedulingSchoolTimezoneUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<PublishShiftsCubit>(
     () => PublishShiftsCubit(
       publishStaffShiftsUseCase: serviceLocator(),
       storageService: serviceLocator(),
+      bootstrapSchedulingSchoolTimezoneUseCase: serviceLocator(),
     ),
   );
   // Factory so each Add Shift screen entry gets a fresh form state.
@@ -2496,6 +2509,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStaffShiftsUseCase: serviceLocator(),
       createStaffShiftUseCase: serviceLocator(),
       storageService: serviceLocator(),
+      bootstrapSchedulingSchoolTimezoneUseCase: serviceLocator(),
     ),
   );
   // Factory so each Edit Shift screen entry gets a fresh form state.
@@ -2508,6 +2522,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       updateStaffShiftUseCase: serviceLocator(),
       updateStaffShiftSeriesUseCase: serviceLocator(),
       storageService: serviceLocator(),
+      bootstrapSchedulingSchoolTimezoneUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerLazySingleton<SchedulingCubit>(
@@ -2520,6 +2535,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
       schedulingStaffListCubit: serviceLocator(),
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),
+      getStaffShiftByCodeUseCase: serviceLocator(),
+      deleteStaffShiftUseCase: serviceLocator(),
+      deleteStaffShiftSeriesUseCase: serviceLocator(),
+      bootstrapSchedulingSchoolTimezoneUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<NewsletterListCubit>(

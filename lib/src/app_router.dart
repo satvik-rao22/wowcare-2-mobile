@@ -120,9 +120,14 @@ import 'package:wowcare/presentation/features/staff/view/edit_profile_details_sc
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/view/scheduling_screen.dart';
-import 'package:wowcare/presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
-import 'package:wowcare/presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
+import 'package:wowcare/presentation/features/scheduling/view_model/scheduling_staff_list_cubit.dart';
+import 'package:wowcare/presentation/features/scheduling/view_model/staff_scheduling_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
+import 'package:wowcare/presentation/features/scheduling/view/add_shift_screen.dart';
+import 'package:wowcare/presentation/features/scheduling/view/edit_shift_screen.dart';
+import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
+import 'package:wowcare/presentation/features/scheduling/view/publish_shifts_screen.dart';
+import 'package:wowcare/presentation/features/scheduling/model/scheduling_route_args.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
@@ -1059,6 +1064,121 @@ final GoRouter appRouter = GoRouter(
                       ),
                     ),
                   ),
+                ),
+                // The four routes below are reachable from both `scheduling`
+                // and `staff-scheduling` above. Each reads its `extra` as a
+                // typed args class (`scheduling_route_args.dart`) captured at
+                // the call site, including the live ClassroomCubit /
+                // SchedulingStaffListCubit instances those entry screens
+                // already own — the route re-provides them via
+                // `BlocProvider.value` rather than resolving new ones, so
+                // shift-related screens keep reading the same cached roster.
+                GoRoute(
+                  path: 'add-shift-screen',
+                  pageBuilder: (context, state) {
+                    final args = state.extra as AddShiftRouteArgs;
+                    return _fastPage(
+                      state,
+                      MultiBlocProvider(
+                        providers: [
+                          BlocProvider<SchedulingStaffListCubit>.value(
+                            value: args.schedulingStaffListCubit,
+                          ),
+                          BlocProvider<ClassroomCubit>.value(
+                            value: args.classroomCubit,
+                          ),
+                        ],
+                        child: AddShiftScreen(
+                          initialDate: args.initialDate,
+                          initialClassroomCode: args.initialClassroomCode,
+                          initialStaffCode: args.initialStaffCode,
+                          initialShiftStart: args.initialShiftStart,
+                          initialShiftEnd: args.initialShiftEnd,
+                          initialPublish: args.initialPublish,
+                          prefillStaff: args.prefillStaff,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'edit-shift-screen',
+                  pageBuilder: (context, state) {
+                    final args = state.extra as EditShiftRouteArgs;
+                    return _fastPage(
+                      state,
+                      MultiBlocProvider(
+                        providers: [
+                          BlocProvider<SchedulingStaffListCubit>.value(
+                            value: args.schedulingStaffListCubit,
+                          ),
+                          BlocProvider<ClassroomCubit>.value(
+                            value: args.classroomCubit,
+                          ),
+                        ],
+                        child: EditShiftScreen(
+                          mode: args.mode,
+                          shiftCode: args.shiftCode,
+                          seriesCode: args.seriesCode,
+                          staffCode: args.staffCode,
+                          classroomCode: args.classroomCode,
+                          initialDate: args.initialDate,
+                          staff: args.staff,
+                          classroom: args.classroom,
+                          shiftStart: args.shiftStart,
+                          shiftEnd: args.shiftEnd,
+                          breakStart: args.breakStart,
+                          breakEnd: args.breakEnd,
+                          note: args.note,
+                          status: args.status,
+                          isPublished: args.isPublished,
+                          selectedDays: args.selectedDays,
+                          untilDate: args.untilDate,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'view-shift-screen',
+                  pageBuilder: (context, state) {
+                    final args = state.extra as ViewShiftRouteArgs;
+                    return _fastPage(
+                      state,
+                      ViewShiftScreen(
+                        date: args.date,
+                        staff: args.staff,
+                        classroom: args.classroom,
+                        shiftStart: args.shiftStart,
+                        shiftEnd: args.shiftEnd,
+                        breakStart: args.breakStart,
+                        breakEnd: args.breakEnd,
+                        note: args.note,
+                        status: args.status,
+                        isRecurring: args.isRecurring,
+                        onEditThis: args.onEditThis,
+                        onEditSeries: args.onEditSeries,
+                        onDeleteThis: args.onDeleteThis,
+                        onDeleteSeries: args.onDeleteSeries,
+                        readOnly: args.readOnly,
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'publish-shifts-screen',
+                  pageBuilder: (context, state) {
+                    final args = state.extra as PublishShiftsRouteArgs;
+                    return _fastPage(
+                      state,
+                      PublishShiftsScreen(
+                        staff: args.staff,
+                        dateRangeStart: args.dateRangeStart,
+                        initialUntilDate: args.initialUntilDate,
+                        initialStaffCodes: args.initialStaffCodes,
+                      ),
+                    );
+                  },
                 ),
                 GoRoute(
                   path: 'future-availability',

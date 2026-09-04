@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
@@ -25,7 +25,6 @@ class StaffSchedulingStaffDropdown extends StatelessWidget {
   final double menuMaxHeight;
 
   static const TextStyle _fieldTextStyle = TextStyle(
-    fontFamily: 'Manrope',
     color: AppColors.primaryColor,
     fontSize: 14,
     fontWeight: FontWeight.w500,

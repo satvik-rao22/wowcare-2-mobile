@@ -2,18 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
-import 'package:wowcare/presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/scheduling_school_time.dart';
+import 'package:wowcare/presentation/features/scheduling/view_model/publish_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
-
-enum PublishMode { untilDate, all }
+import 'package:wowcare/presentation/features/scheduling/model/scheduling_responsive.dart';
 
 /// Result returned by [PublishShiftsScreen] on success. The screen also pops
 /// with `true` if the caller only cares about "did we publish?". Kept for
@@ -32,9 +29,12 @@ class PublishShiftsResult {
 }
 
 /// PRD §7 — Publish Shifts. Full-page form: pick a multi-select staff list,
-/// then choose "Publish Until Date" or "Publish All". Submits to
-/// `POST /api/v1/staff-shifts/publish` via [PublishShiftsCubit] and pops with
-/// a [PublishShiftsResult] on success so the caller can refresh.
+/// then choose "Publish Until Date" or "Publish All". All form state
+/// (mode, staff selection, until-date) lives in [PublishShiftsCubit]; this
+/// widget is a pure view over that state, matching [AddShiftScreen] /
+/// [EditShiftScreen] in the same feature. Submits to
+/// `POST /api/v1/staff-shifts/publish` and pops with a [PublishShiftsResult]
+/// on success so the caller can refresh.
 class PublishShiftsScreen extends StatelessWidget {
   const PublishShiftsScreen({
     super.key,
@@ -59,12 +59,14 @@ class PublishShiftsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<PublishShiftsCubit>(
-      create: (_) => serviceLocator<PublishShiftsCubit>(),
+      create: (_) => serviceLocator<PublishShiftsCubit>()
+        ..init(
+          initialStaffCodes: initialStaffCodes,
+          initialUntilDate: initialUntilDate,
+        ),
       child: _PublishShiftsView(
         staff: staff,
         dateRangeStart: dateRangeStart,
-        initialUntilDate: initialUntilDate,
-        initialStaffCodes: initialStaffCodes,
       ),
     );
   }
@@ -74,50 +76,20 @@ class _PublishShiftsView extends StatefulWidget {
   const _PublishShiftsView({
     required this.staff,
     required this.dateRangeStart,
-    required this.initialUntilDate,
-    required this.initialStaffCodes,
   });
 
   final List<StaffMember> staff;
   final DateTime dateRangeStart;
-  final DateTime? initialUntilDate;
-  final List<String> initialStaffCodes;
 
   @override
   State<_PublishShiftsView> createState() => _PublishShiftsViewState();
 }
 
 class _PublishShiftsViewState extends State<_PublishShiftsView> {
-  late List<String> _selectedStaffNames;
-  PublishMode? _mode;
-  DateTime? _untilDate;
-
   /// Display-name → staff code, built once from [widget.staff]. The
-  /// multi-select dropdown only deals in display strings, so we map back to
-  /// codes at submit time.
-  late Map<String, String> _codeByName;
-
-  @override
-  void initState() {
-    super.initState();
-    _codeByName = _buildCodeByName(widget.staff);
-    _selectedStaffNames = _namesFromCodes(widget.initialStaffCodes);
-    _untilDate = widget.initialUntilDate;
-    // ignore: discarded_futures
-    bootstrapSchedulingSchoolTimezone();
-  }
-
-  @override
-  void didUpdateWidget(covariant _PublishShiftsView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!identical(widget.staff, oldWidget.staff)) {
-      _codeByName = _buildCodeByName(widget.staff);
-      // Drop any selections that no longer correspond to a known staff member.
-      _selectedStaffNames = _selectedStaffNames
-          .where(_codeByName.containsKey)
-          .toList(growable: true);
-    }
-  }
+  /// multi-select dropdown only deals in display strings; the cubit only
+  /// deals in codes, so this widget translates at the boundary.
+  late final Map<String, String> _codeByName = _buildCodeByName(widget.staff);
 
   static Map<String, String> _buildCodeByName(List<StaffMember> staff) {
     final map = <String, String>{};
@@ -139,63 +111,46 @@ class _PublishShiftsViewState extends State<_PublishShiftsView> {
         .toList(growable: true);
   }
 
-  List<String> get _staffNames =>
-      _codeByName.keys.toList(growable: false);
+  List<String> _codesFromNames(List<String> names) => [
+        for (final name in names)
+          if (_codeByName[name] != null) _codeByName[name]!,
+      ];
 
-  // Publish stays disabled until at least one staff is picked, a mode is
-  // chosen, and (for "Until Date") a date is set.
-  bool get _isFormValid {
-    if (_selectedStaffNames.isEmpty) return false;
-    if (_mode == null) return false;
-    if (_mode == PublishMode.untilDate && _untilDate == null) return false;
-    return true;
-  }
+  List<String> get _staffNames => _codeByName.keys.toList(growable: false);
 
-  Future<void> _onPublish() async {
-    if (!_isFormValid) return;
-    final mode = _mode!;
+  Future<void> _onPublish(PublishShiftsState formState) async {
+    if (!formState.isFormValid) return;
+    final mode = formState.mode!;
     final cubit = context.read<PublishShiftsCubit>();
-
-    final selectedCodes = <String>[
-      for (final name in _selectedStaffNames)
-        if (_codeByName[name] != null) _codeByName[name]!,
-    ];
-    if (selectedCodes.isEmpty) return;
-
-    final isAllStaff = _staffNames.isNotEmpty &&
-        selectedCodes.length == _staffNames.length;
 
     await cubit.publish(
       dateRangeStart: widget.dateRangeStart,
-      publishAll: mode == PublishMode.all,
-      publishAllStaff: isAllStaff,
-      publishUntilDate: mode == PublishMode.untilDate ? _untilDate : null,
-      selectedStaffCodes: isAllStaff ? const <String>[] : selectedCodes,
+      totalEligibleStaffCount: _staffNames.length,
     );
 
     if (!mounted) return;
-    final state = cubit.state;
-    if (state.status == PublishShiftsStatus.success) {
+    final result = cubit.state;
+    if (result.status == PublishShiftsStatus.success) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: mode == PublishMode.all
             ? 'Shifts published.'
-            : 'Shifts published until ${_formatDisplayDate(_untilDate!)}.',
+            : 'Shifts published until ${_formatDisplayDate(formState.untilDate!)}.',
         isSuccess: true,
       );
       Navigator.of(context).pop(
         PublishShiftsResult(
           mode: mode,
-          staffCodes: selectedCodes,
-          untilDate: mode == PublishMode.untilDate ? _untilDate : null,
+          staffCodes: formState.selectedStaffCodes,
+          untilDate: mode == PublishMode.untilDate ? formState.untilDate : null,
         ),
       );
-    } else if (state.errorMessage != null) {
+    } else if (result.errorMessage != null) {
       // logApiError both writes to AppLogger and surfaces the message in
       // CoreUtils' top error banner (isError variant), keeping success/error
       // visuals consistent.
       CoreUtils.logApiError(
-        state.errorMessage!,
+        result.errorMessage!,
         showOnScreen: true,
         context: context,
       );
@@ -210,113 +165,115 @@ class _PublishShiftsViewState extends State<_PublishShiftsView> {
 
   @override
   Widget build(BuildContext context) {
-    final responsive = ResponsiveHelper(context);
+    final responsive = SchedulingResponsive(context);
     final safeBottom = MediaQuery.of(context).padding.bottom;
     final bottomPadding = safeBottom > 0 ? safeBottom : 16.0;
 
-    return BlocListener<PublishShiftsCubit, PublishShiftsState>(
-      listenWhen: (prev, curr) => prev.status != curr.status,
-      listener: (_, __) {},
-      child: BlocBuilder<PublishShiftsCubit, PublishShiftsState>(
-        buildWhen: (prev, curr) => prev.isSubmitting != curr.isSubmitting,
-        builder: (context, state) {
-          final isSubmitting = state.isSubmitting;
+    return BlocBuilder<PublishShiftsCubit, PublishShiftsState>(
+      builder: (context, state) {
+        final isSubmitting = state.isSubmitting;
+        final selectedNames = _namesFromCodes(state.selectedStaffCodes);
 
-          return StaffFormLayout(
-            title: 'Publish Shifts',
-            bottomBar: Container(
-              padding: EdgeInsets.only(
-                bottom: bottomPadding,
-                left: 16,
-                right: 16,
-                top: 8,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    offset: const Offset(0, -4),
-                    blurRadius: 16,
-                  ),
-                ],
-                borderRadius: BorderRadius.only(
-                  topLeft:
-                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  topRight:
-                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+        return StaffFormLayout(
+          title: 'Publish Shifts',
+          bottomBar: Container(
+            padding: EdgeInsets.only(
+              bottom: bottomPadding,
+              left: 16,
+              right: 16,
+              top: 8,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  offset: const Offset(0, -4),
+                  blurRadius: 16,
                 ),
-              ),
-              child: CustomButtonLayout(
-                confirmButtonLabel: isSubmitting ? 'Publishing…' : 'Publish',
-                onPressedConfirm:
-                    (_isFormValid && !isSubmitting) ? _onPublish : null,
-                onPressedCancel: isSubmitting
-                    ? null
-                    : () => Navigator.of(context).pop(),
-                cancelButtonLabel: 'Cancel',
-                showCancelButton: true,
-                isForm: false,
+              ],
+              borderRadius: BorderRadius.only(
+                topLeft:
+                    Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                topRight:
+                    Radius.circular(responsive.isTablet ? 40.0 : 24.0),
               ),
             ),
-            child: AbsorbPointer(
-              absorbing: isSubmitting,
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _buildStaffMultiSelect(responsive),
-                  SizedBox(height: responsive.verticalSpacing),
-                  _PublishOptionRow(
-                    label: 'Publish Until Date',
-                    selected: _mode == PublishMode.untilDate,
-                    onTap: () =>
-                        setState(() => _mode = PublishMode.untilDate),
-                  ),
-                  if (_mode == PublishMode.untilDate) ...[
-                    const SizedBox(height: 12),
-                    Padding(
-                      padding: EdgeInsets.only(
-                        left: responsive.isTablet ? 36 : 32,
-                      ),
-                      child: _buildUntilDateField(responsive),
-                    ),
-                  ],
-                  SizedBox(height: responsive.verticalSpacing),
-                  _PublishOptionRow(
-                    label: 'Publish All',
-                    selected: _mode == PublishMode.all,
-                    onTap: () => setState(() => _mode = PublishMode.all),
-                  ),
+            child: CustomButtonLayout(
+              confirmButtonLabel: isSubmitting ? 'Publishing…' : 'Publish',
+              onPressedConfirm: (state.isFormValid && !isSubmitting)
+                  ? () => _onPublish(state)
+                  : null,
+              onPressedCancel: isSubmitting
+                  ? null
+                  : () => Navigator.of(context).pop(),
+              cancelButtonLabel: 'Cancel',
+              showCancelButton: true,
+              isForm: false,
+            ),
+          ),
+          child: AbsorbPointer(
+            absorbing: isSubmitting,
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildStaffMultiSelect(responsive, selectedNames),
+                SizedBox(height: responsive.verticalSpacing),
+                _PublishOptionRow(
+                  label: 'Publish Until Date',
+                  selected: state.mode == PublishMode.untilDate,
+                  onTap: () => context
+                      .read<PublishShiftsCubit>()
+                      .selectMode(PublishMode.untilDate),
+                ),
+                if (state.mode == PublishMode.untilDate) ...[
                   const SizedBox(height: 12),
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: responsive.isTablet ? 36 : 32,
+                    ),
+                    child: _buildUntilDateField(responsive, state.untilDate),
+                  ),
                 ],
-              ),
+                SizedBox(height: responsive.verticalSpacing),
+                _PublishOptionRow(
+                  label: 'Publish All',
+                  selected: state.mode == PublishMode.all,
+                  onTap: () => context
+                      .read<PublishShiftsCubit>()
+                      .selectMode(PublishMode.all),
+                ),
+                const SizedBox(height: 12),
+              ],
             ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildStaffMultiSelect(ResponsiveHelper responsive) {
-    return CustomMultiSelectDropdown(
-      label: 'Staff',
-      hintText: 'Select',
-      items: _staffNames,
-      selectedItems: _selectedStaffNames,
-      onChanged: (next) {
-        setState(() {
-          _selectedStaffNames = List<String>.from(next);
-        });
+          ),
+        );
       },
     );
   }
 
-  Widget _buildUntilDateField(ResponsiveHelper responsive) {
+  Widget _buildStaffMultiSelect(
+    SchedulingResponsive responsive,
+    List<String> selectedNames,
+  ) {
+    return CustomMultiSelectDropdown(
+      label: 'Staff',
+      hintText: 'Select',
+      items: _staffNames,
+      selectedItems: selectedNames,
+      onChanged: (next) {
+        context.read<PublishShiftsCubit>().setSelectedStaffCodes(
+              _codesFromNames(List<String>.from(next)),
+            );
+      },
+    );
+  }
+
+  Widget _buildUntilDateField(SchedulingResponsive responsive, DateTime? untilDate) {
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: 'Manrope',
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -333,12 +290,13 @@ class _PublishShiftsViewState extends State<_PublishShiftsView> {
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         CustomDateTimeField(
           key: ValueKey(
-            'publish-until-${_untilDate?.toIso8601String() ?? 'empty'}',
+            'publish-until-${untilDate?.toIso8601String() ?? 'empty'}',
           ),
           hasLabel: false,
           fetchInitialTime: false,
-          initialDate: _untilDate,
-          onDateSelected: (d) => setState(() => _untilDate = d),
+          initialDate: untilDate,
+          onDateSelected: (d) =>
+              context.read<PublishShiftsCubit>().setUntilDate(d),
         ),
       ],
     );
@@ -369,7 +327,6 @@ class _PublishOptionRow extends StatelessWidget {
             child: Text(
               label,
               style: const TextStyle(
-                fontFamily: 'Manrope',
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
                 color: AppColors.primaryColor,
