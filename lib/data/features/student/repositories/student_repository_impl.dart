@@ -8,6 +8,7 @@ import '../../../../domain/features/student/entities/student_settings.dart';
 import '../../../../domain/features/student/entities/student_document.dart';
 import '../../../../domain/features/student/entities/student_documents_page.dart';
 import '../../../../domain/features/student/entities/student_guardian.dart';
+import '../../../../domain/features/student/entities/guardian_profile.dart';
 import '../../../../domain/features/student/entities/update_student_address_request.dart';
 import '../../../../domain/features/student/entities/update_student_profile_request.dart';
 import '../../../../domain/features/student/entities/update_guardian_request.dart';
@@ -26,6 +27,7 @@ import '../../../../domain/features/student/repositories/student_repository.dart
 import '../datasources/student_remote_datasource.dart';
 import '../mappers/student_guardian_mapper.dart';
 import '../mappers/school_guardian_summary_mapper.dart';
+import '../mappers/guardian_profile_mapper.dart';
 import '../mappers/student_health_update_request_mapper.dart';
 import '../mappers/update_student_address_request_mapper.dart';
 import '../mappers/update_student_profile_request_mapper.dart';
@@ -1249,14 +1251,15 @@ class StudentRepositoryImpl
   }
 
   @override
-  Future<Map<String, dynamic>> getGuardianProfile({
+  Future<GuardianProfile> getGuardianProfile({
     required String schoolCode,
     required String userCode,
-  }) {
-    return _remoteDataSource.getGuardianProfile(
+  }) async {
+    final map = await _remoteDataSource.getGuardianProfile(
       schoolCode: schoolCode,
       userCode: userCode,
     );
+    return guardianProfileFromMap(map);
   }
 
   @override

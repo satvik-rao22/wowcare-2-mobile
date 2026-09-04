@@ -2,6 +2,7 @@ import '../entities/school_guardian_summary.dart';
 import '../entities/student.dart';
 import '../entities/student_documents_page.dart';
 import '../entities/student_guardian.dart';
+import '../entities/guardian_profile.dart';
 import '../entities/update_student_address_request.dart';
 import '../entities/update_student_profile_request.dart';
 import '../entities/update_guardian_request.dart';
@@ -224,9 +225,9 @@ abstract class StudentRepository {
 
   /// Logged-in guardian profile from `GET /api/v1/guardian/profile`.
   ///
-  /// Query: [schoolCode], [userCode]. Returns API `data` (includes guardian
-  /// `code` and `userCode`).
-  Future<Map<String, dynamic>> getGuardianProfile({
+  /// Query: [schoolCode], [userCode]. Returns the typed [GuardianProfile]
+  /// (guardian record code + name + photo).
+  Future<GuardianProfile> getGuardianProfile({
     required String schoolCode,
     required String userCode,
   });
