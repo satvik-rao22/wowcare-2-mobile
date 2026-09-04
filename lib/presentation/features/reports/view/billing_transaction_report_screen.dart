@@ -167,15 +167,35 @@ class _BillingTransactionReportScreenState
       );
       return;
     }
+    
+    if (_selectedPaymentMethods.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select at least one Payment Method',
+        isError: true,
+      );
+      return;
+    }
+
+    if (_selectedTransactionStatuses.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select at least one Transaction Status',
+        isError: true,
+      );
+      return;
+    }
 
     final storage = serviceLocator<StorageService>();
     final schoolName = (await storage.getString(StorageKeys.schoolName) ?? '')
         .trim();
 
     final reportsState = context.read<ReportsCubit>().state;
+    final namesToResolve =
+        _selectedStudents.isEmpty ? _availableStudents : _selectedStudents;
     final studentCodes = resolveReportCodes(
       context: context,
-      names: _selectedStudents,
+      names: namesToResolve,
       nameToCode: reportsState.studentNameToCode,
       labelPlural: 'students',
     );

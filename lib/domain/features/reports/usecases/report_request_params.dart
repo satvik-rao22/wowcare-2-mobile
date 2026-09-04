@@ -111,6 +111,17 @@ class ReportRequestParams extends Equatable implements ReportParams {
 
     if (reportType == ReportType.studentDailyAttendance) {
       body['date'] = (date ?? startDate).toIso8601String().split('T')[0];
+    } else if (reportType == ReportType.billingOutstanding) {
+      body['asOfDate'] = startDate.toUtc().toIso8601String();
+    } else if (reportType == ReportType.billingTransaction ||
+        reportType == ReportType.billingInvoice ||
+        reportType == ReportType.billingPaymentSummary ||
+        reportType == ReportType.billingRefund ||
+        reportType == ReportType.billingStudentMapping) {
+      body['dateFrom'] = startDate.toUtc().toIso8601String();
+      if (endDate != null) {
+        body['dateTo'] = endDate!.toUtc().toIso8601String();
+      }
     } else {
       body['startDate'] = startDate.toIso8601String().split('T')[0];
       if (endDate != null) {
@@ -133,8 +144,10 @@ class ReportRequestParams extends Equatable implements ReportParams {
       }
     } else {
       // Other reports use classroomCodes.
-      if (roomCodes != null) {
-        body['roomCodes'] = roomCodes;
+      if (roomCodes != null &&
+          reportType != ReportType.billingOutstanding &&
+          reportType != ReportType.billingRefund) {
+        body['classroomCodes'] = roomCodes;
       }
     }
 

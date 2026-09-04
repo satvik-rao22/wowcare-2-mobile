@@ -198,7 +198,11 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
     }
 
     DateTime reqStartDate = _startDate;
-    DateTime reqEndDate = _endDate;
+    DateTime? reqEndDate = _endDate;
+
+    if (widget.reportType == ReportType.billingOutstanding) {
+      reqEndDate = null;
+    }
 
     if (widget.reportType == ReportType.billingStudentMapping &&
         _periodType == 'Monthly') {
@@ -213,7 +217,7 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
       );
     }
 
-    if (reqEndDate.isBefore(reqStartDate)) {
+    if (reqEndDate != null && reqEndDate.isBefore(reqStartDate)) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'End date cannot be before Start date',
@@ -234,7 +238,11 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
       ..._studentCodeByName,
     };
 
-    final studentCodes = _selectedStudents
+    final targetStudentNames = _selectedStudents.isEmpty
+        ? _availableStudents
+        : _selectedStudents;
+
+    final studentCodes = targetStudentNames
         .map((name) => mergedStudentNameToCode[name])
         .whereType<String>()
         .where((c) => c.trim().isNotEmpty)
@@ -270,12 +278,12 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
             : null,
         folderClassGrouping:
             widget.reportType == ReportType.billingPaymentSummary
-            ? _folderClassGrouping
+            ? _folderClassGrouping.toUpperCase()
             : null,
         invoiceStatuses:
             widget.reportType == ReportType.billingInvoice &&
                 _selectedInvoiceStatuses.isNotEmpty
-            ? _selectedInvoiceStatuses
+            ? _selectedInvoiceStatuses.map((s) => s.toUpperCase()).toList()
             : null,
       ),
     );
@@ -320,8 +328,9 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
                   // Navigator.push, so only popping actually dismisses it;
                   // the hub's own .then((success) => tab 0) callback reacts
                   // to the pop(true) result.
+                  final reportToReturn = state.generatedReport;
                   context.read<ReportsCubit>().clearGeneratedReport();
-                  Navigator.of(context).pop(true);
+                  Navigator.of(context).pop(reportToReturn ?? true);
                 });
               }
             }
@@ -390,6 +399,22 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
               ),
               const ReportDefaultNote(
                 text: 'Note: All Classrooms will be selected by Default.',
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+            ] else if (widget.reportType == ReportType.billingOutstanding) ...[
+              const ReportFieldLabel(label: 'As-Of Date'),
+              CustomDateTimeField(
+                hasLabel: false,
+                fetchInitialTime: false,
+                initialDate: _startDate,
+                onDateSelected: (d) => setState(() => _startDate = d),
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              const ReportFieldLabel(label: 'Export Format'),
+              ReportFormatSelector(
+                selectedFormat: _format,
+                onFormatChanged: (value) => setState(() => _format = value),
+                showLabel: false,
               ),
               SizedBox(height: responsive.verticalSpacing),
             ] else ...[

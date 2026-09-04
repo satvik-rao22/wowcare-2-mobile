@@ -5,6 +5,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/domain/features/reports/entities/report_entity.dart';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:wowcare/domain/features/reports/entities/report_metadata_entity.dart';
@@ -121,15 +122,25 @@ class _ReportsScreenState extends State<ReportsScreen>
     unawaited(
       Navigator.of(context)
           .push(
-            MaterialPageRoute<bool>(
+            MaterialPageRoute<dynamic>(
               builder: (_) => BlocProvider<ReportsCubit>.value(
                 value: cubit,
                 child: screen!,
               ),
             ),
           )
-          .then((success) {
-            if (success == true && mounted) {
+          .then((result) {
+            if (result is ReportEntity && mounted) {
+              if (result.assetCode?.startsWith('base64:') == true) {
+                _downloadAndViewReport(
+                  context,
+                  result.assetCode!,
+                  result.fileName ?? 'report.xlsx',
+                );
+              } else {
+                _tabController.animateTo(0);
+              }
+            } else if (result == true && mounted) {
               _tabController.animateTo(0);
             }
           }),
@@ -166,15 +177,25 @@ class _ReportsScreenState extends State<ReportsScreen>
     unawaited(
       Navigator.of(context)
           .push(
-            MaterialPageRoute<bool>(
+            MaterialPageRoute<dynamic>(
               builder: (_) => BlocProvider<ReportsCubit>.value(
                 value: cubit,
                 child: screen!,
               ),
             ),
           )
-          .then((success) {
-            if (success == true && mounted) {
+          .then((result) {
+            if (result is ReportEntity && mounted) {
+              if (result.assetCode?.startsWith('base64:') == true) {
+                _downloadAndViewReport(
+                  context,
+                  result.assetCode!,
+                  result.fileName ?? 'report.xlsx',
+                );
+              } else {
+                _tabController.animateTo(0);
+              }
+            } else if (result == true && mounted) {
               _tabController.animateTo(0);
             }
           }),
@@ -200,15 +221,25 @@ class _ReportsScreenState extends State<ReportsScreen>
     unawaited(
       Navigator.of(context)
           .push(
-            MaterialPageRoute<bool>(
+            MaterialPageRoute<dynamic>(
               builder: (_) => BlocProvider<ReportsCubit>.value(
                 value: cubit,
                 child: screen!,
               ),
             ),
           )
-          .then((success) {
-            if (success == true && mounted) {
+          .then((result) {
+            if (result is ReportEntity && mounted) {
+              if (result.assetCode?.startsWith('base64:') == true) {
+                _downloadAndViewReport(
+                  context,
+                  result.assetCode!,
+                  result.fileName ?? 'report.xlsx',
+                );
+              } else {
+                _tabController.animateTo(0);
+              }
+            } else if (result == true && mounted) {
               _tabController.animateTo(0);
             }
           }),
@@ -273,15 +304,25 @@ class _ReportsScreenState extends State<ReportsScreen>
     unawaited(
       Navigator.of(context)
           .push(
-            MaterialPageRoute<bool>(
+            MaterialPageRoute<dynamic>(
               builder: (_) => BlocProvider<ReportsCubit>.value(
                 value: cubit,
                 child: screen!,
               ),
             ),
           )
-          .then((success) {
-            if (success == true && mounted) {
+          .then((result) {
+            if (result is ReportEntity && mounted) {
+              if (result.assetCode?.startsWith('base64:') == true) {
+                _downloadAndViewReport(
+                  context,
+                  result.assetCode!,
+                  result.fileName ?? 'report.xlsx',
+                );
+              } else {
+                _tabController.animateTo(0);
+              }
+            } else if (result == true && mounted) {
               _tabController.animateTo(0);
             }
           }),
