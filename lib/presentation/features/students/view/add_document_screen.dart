@@ -253,12 +253,25 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     }
   }
 
+  /// For validation prompts ("fix this input to continue") - shown in
+  /// orange. A genuine failure (upload/network/missing-context) should use
+  /// [_showErrorMessage] (red) instead - see its own doc for why the
+  /// distinction matters.
   void _showWarningMessage(String message) {
     CoreUtils.showTopSnackBar(
       context: context,
       message: message,
       isWarning: true,
     );
+  }
+
+  /// For a genuine failure (upload/network/missing-context), as opposed to
+  /// [_showWarningMessage]'s validation prompts. Was routed through
+  /// _showWarningMessage's orange styling before, which read as a mild "fix
+  /// your input" hint even for something that actually failed and needs a
+  /// retry - not the same severity as e.g. "Document name is required".
+  void _showErrorMessage(String message) {
+    CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
   }
 
   Future<void> _selectExpiryDate() async {
@@ -314,7 +327,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
       }
     } catch (e) {
       CoreUtils.logApiError('Error picking file: $e');
-      _showWarningMessage('Error selecting file. Please try again.');
+      _showErrorMessage('Error selecting file. Please try again.');
     }
   }
 
@@ -330,17 +343,17 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
       final organizationCode =
           (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
       if (schoolCode.isEmpty || organizationCode.isEmpty) {
-        _showWarningMessage('Missing school or organization context');
+        _showErrorMessage('Missing school or organization context');
         return;
       }
       final selectedPath = selectedFile.path;
       if (selectedPath == null || selectedPath.trim().isEmpty) {
-        _showWarningMessage('Selected file path is not available');
+        _showErrorMessage('Selected file path is not available');
         return;
       }
       final file = File(selectedPath);
       if (!await file.exists()) {
-        _showWarningMessage('Selected file is not accessible');
+        _showErrorMessage('Selected file is not accessible');
         return;
       }
       final mimeType = FilePickerUtils.getMimeType(selectedFile.extension);
@@ -412,7 +425,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
       // actual backend reason (e.g. "Content type 'application/octet-stream'
       // is not allowed for DOCUMENT."), which the {success, message, data}
       // envelope already carries. extractErrorMessage pulls that out.
-      _showWarningMessage(
+      _showErrorMessage(
         'Failed to upload file: ${ApiErrorHandler.extractErrorMessage(e)}',
       );
     } finally {
