@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -229,15 +230,15 @@ class _EditStudentPhysicalExamScreenState
                 TextSpan(
                   text: 'Physical Checkup Date',
                   style: TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: Fonts.manrope,
                     fontSize: 15,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xff573353),
+                    color: AppColors.primaryColor,
                   ),
                   children: [
                     TextSpan(
                       text: ' *',
-                      style: TextStyle(color: Colors.red),
+                      style: TextStyle(color: AppColors.errorColor),
                     ),
                   ],
                 ),
@@ -247,8 +248,8 @@ class _EditStudentPhysicalExamScreenState
                 onTap: _pickDate,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: const Color(0x66573353)),
+                    color: AppColors.whiteColor,
+                    border: Border.all(color: AppColors.inputBorderColor),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   padding: const EdgeInsets.symmetric(
@@ -261,9 +262,11 @@ class _EditStudentPhysicalExamScreenState
                       Text(
                         selectedDateText,
                         style: TextStyle(
-                          color: examDate == null ? Colors.grey : Colors.black,
+                          color: examDate == null
+                              ? AppColors.attendanceMutedTextColor
+                              : AppColors.blackColor,
                           fontSize: 14,
-                          fontFamily: 'Manrope',
+                          fontFamily: Fonts.manrope,
                         ),
                       ),
                       SvgPicture.asset(
@@ -286,9 +289,9 @@ class _EditStudentPhysicalExamScreenState
                 selectedItem: state.formStatus,
                 labelStyle: const TextStyle(
                   fontSize: 15,
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                   fontWeight: FontWeight.w400,
-                  color: Color(0xff573353),
+                  color: AppColors.primaryColor,
                 ),
                 labelBottomSpacing: 6,
                 onSelect: (val) =>
@@ -304,7 +307,7 @@ class _EditStudentPhysicalExamScreenState
               top: 8,
             ),
             decoration: const BoxDecoration(
-              color: Colors.white,
+              color: AppColors.whiteColor,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black26,

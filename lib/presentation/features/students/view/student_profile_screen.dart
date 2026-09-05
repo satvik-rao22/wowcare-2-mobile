@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -332,10 +333,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 child: Text(
                   t,
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: Fonts.manrope,
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xff573353),
+                    color: AppColors.primaryColor,
                   ),
                 ),
               ),
@@ -388,10 +389,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 const Text(
                   'Details',
                   style: TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: Fonts.manrope,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xff573353),
+                    color: AppColors.primaryColor,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -403,7 +404,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                     child: const Text(
                       'Close',
                       style: TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                         fontWeight: FontWeight.w600,
                         color: AppColors.primaryColor,
                       ),
@@ -652,25 +653,23 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
             child: TabBar(
               isScrollable: true,
               controller: _tabController,
-              dividerColor: Colors.transparent,
+              dividerColor: AppColors.transparentColor,
               indicator: const UnderlineTabIndicator(
                 borderSide: BorderSide(color: AppColors.themeColor),
               ),
               indicatorPadding: const EdgeInsets.only(bottom: 8),
               labelStyle: const TextStyle(
-                //color: Colors.black,
-                color: const Color(0xFF241631),
-                fontFamily: 'Manrope',
+                color: AppColors.studentDarkPlum,
+                fontFamily: Fonts.manrope,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
               unselectedLabelStyle: TextStyle(
                 color: AppColors.primaryColor.withValues(alpha: 0.5),
-                fontFamily: 'Manrope',
+                fontFamily: Fonts.manrope,
                 fontSize: 16,
               ),
-              //labelColor: Colors.black,
-              labelColor: const Color(0xFF241631),
+              labelColor: AppColors.studentDarkPlum,
               unselectedLabelColor: AppColors.primaryColor.withValues(
                 alpha: 0.5,
               ),
@@ -751,7 +750,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   ) {
     return Card(
       margin: EdgeInsets.zero,
-      color: Colors.white,
+      color: AppColors.whiteColor,
       child: Column(
         children: [
           Padding(
@@ -778,7 +777,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                           Positioned.fill(
                             child: Container(
                               decoration: BoxDecoration(
-                                color: const Color(0xB3241631),
+                                color: AppColors.staffPhotoUploadOverlayColor,
                                 borderRadius: BorderRadius.circular(45),
                               ),
                               child: Center(
@@ -794,7 +793,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                     ),
                                     borderRadius: BorderRadius.circular(14),
                                     border: Border.all(
-                                      color: Colors.white.withValues(
+                                      color: AppColors.whiteColor.withValues(
                                         alpha: 0.22,
                                       ),
                                     ),
@@ -805,7 +804,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                       Text(
                                         '${_profilePhotoUploadPercent.clamp(0, 100)}%',
                                         style: const TextStyle(
-                                          color: Colors.white,
+                                          color: AppColors.whiteColor,
                                           fontSize: 14,
                                           fontWeight: FontWeight.w700,
                                         ),
@@ -820,7 +819,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                               (_profilePhotoUploadPercent / 100)
                                                   .clamp(0.0, 1.0),
                                           minHeight: 4,
-                                          backgroundColor: Colors.white
+                                          backgroundColor: AppColors.whiteColor
                                               .withValues(alpha: 0.22),
                                           valueColor:
                                               const AlwaysStoppedAnimation<
@@ -838,7 +837,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                             height: 10,
                                             width: 10,
                                             colorFilter: ColorFilter.mode(
-                                              Colors.white.withValues(
+                                              AppColors.whiteColor.withValues(
                                                 alpha: 0.92,
                                               ),
                                               BlendMode.srcIn,
@@ -850,7 +849,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                                 ? 'Finalizing'
                                                 : 'Uploading',
                                             style: TextStyle(
-                                              color: Colors.white.withValues(
+                                              color: AppColors.whiteColor.withValues(
                                                 alpha: 0.92,
                                               ),
                                               fontSize: 10,
@@ -873,11 +872,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                               width: 32,
                               height: 32,
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: AppColors.whiteColor,
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.08),
+                                    color: AppColors.blackColor.withValues(alpha: 0.08),
                                     blurRadius: 6,
                                     offset: const Offset(0, 2),
                                   ),
@@ -891,7 +890,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                 ),
                                 child: const Icon(
                                   Icons.camera_alt,
-                                  color: Colors.white,
+                                  color: AppColors.whiteColor,
                                   size: 16,
                                 ),
                               ),
@@ -924,13 +923,13 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.blue[50],
+                          color: AppColors.studentInfoBg,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           _displayClassroom,
                           style: const TextStyle(
-                            color: Colors.blue,
+                            color: AppColors.studentInfoColor,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -1305,11 +1304,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                     asset,
                     height: 28,
                     colorFilter: const ColorFilter.mode(
-                      Colors.white,
+                      AppColors.whiteColor,
                       BlendMode.srcIn,
                     ),
                   )
-                : Image.asset(asset, height: 28, color: Colors.white),
+                : Image.asset(asset, height: 28, color: AppColors.whiteColor),
           ),
         ),
       ),

@@ -4,12 +4,14 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
@@ -199,13 +201,13 @@ class _StudentCardState extends State<StudentCard> {
             width: constraints.maxWidth,
             height: isExpanded ? null : 64.0,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.whiteColor,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.cardBorderColor, width: 1),
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
-              color: Colors.transparent,
+              color: AppColors.transparentColor,
               child: InkWell(
                 onTap: () {
                   setState(() {
@@ -271,10 +273,10 @@ class _StudentCardState extends State<StudentCard> {
                                   child: Text(
                                     widget.name,
                                     style: TextStyle(
-                                      fontFamily: 'Manrope',
+                                      fontFamily: Fonts.manrope,
                                       fontSize: isTablet ? 16 : 14,
                                       fontWeight: FontWeight.w500,
-                                      color: const Color(0xff573353),
+                                      color: AppColors.primaryColor,
                                       height: 19 / 14,
                                     ),
                                     overflow: TextOverflow.ellipsis,
@@ -285,10 +287,10 @@ class _StudentCardState extends State<StudentCard> {
                                   child: Text(
                                     widget.classroom,
                                     style: TextStyle(
-                                      fontFamily: 'Manrope',
+                                      fontFamily: Fonts.manrope,
                                       fontSize: isTablet ? 16 : 14,
                                       fontWeight: FontWeight.w500,
-                                      color: const Color(0xff573353),
+                                      color: AppColors.primaryColor,
                                       height: 19 / 14,
                                     ),
                                     overflow: TextOverflow.ellipsis,
@@ -307,7 +309,7 @@ class _StudentCardState extends State<StudentCard> {
                         thickness: 1,
                         indent: 16,
                         endIndent: 16,
-                        color: Color(0xFFE9ECEF),
+                        color: AppColors.attendanceCardDividerColor,
                       ),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -318,13 +320,7 @@ class _StudentCardState extends State<StudentCard> {
                               children: [
                                 const Text(
                                   'Tags',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
-                                    height: 16 / 13,
-                                  ),
+                                  style: AppTextStyles.label,
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
@@ -341,17 +337,17 @@ class _StudentCardState extends State<StudentCard> {
                                               vertical: 4,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: const Color(0x4DB1AFE9),
+                                              color: AppColors.staffBadgeActiveBg,
                                               borderRadius:
                                                   BorderRadius.circular(8),
                                             ),
                                             child: Text(
                                               tags[0],
                                               style: const TextStyle(
-                                                fontFamily: 'Manrope',
+                                                fontFamily: Fonts.manrope,
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
-                                                color: Color(0xFF4B5B7A),
+                                                color: AppColors.staffBadgeActiveText,
                                               ),
                                             ),
                                           ),
@@ -362,17 +358,17 @@ class _StudentCardState extends State<StudentCard> {
                                               vertical: 4,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: const Color(0x66CBF6FF),
+                                              color: AppColors.classroomStaffTabColor,
                                               borderRadius:
                                                   BorderRadius.circular(8),
                                             ),
                                             child: Text(
                                               tags[1],
                                               style: const TextStyle(
-                                                fontFamily: 'Manrope',
+                                                fontFamily: Fonts.manrope,
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
-                                                color: Color(0xFF4B5B7A),
+                                                color: AppColors.staffBadgeActiveText,
                                               ),
                                             ),
                                           ),
@@ -386,40 +382,22 @@ class _StudentCardState extends State<StudentCard> {
                                                     vertical: 4,
                                                   ),
                                               decoration: BoxDecoration(
-                                                color: const Color(0x66D9FFCB),
+                                                color: AppColors.classroomNotesTabColor,
                                                 borderRadius:
                                                     BorderRadius.circular(8),
                                               ),
                                               child: Text(
                                                 '+${tags.length - 2}',
                                                 style: const TextStyle(
-                                                  fontFamily: 'Inter',
+                                                  fontFamily: Fonts.inter,
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w400,
-                                                  color: Color(0xFF1B237E),
+                                                  color: AppColors.secondaryColor,
                                                   height: 15 / 12,
                                                 ),
                                               ),
                                             ),
                                           ),
-                                        // Tooltip(
-                                        //   message: 'Edit tags',
-                                        //   child: Container(
-                                        //     padding: const EdgeInsets.symmetric(
-                                        //       horizontal: 10,
-                                        //       vertical: 4,
-                                        //     ),
-                                        //     decoration: BoxDecoration(
-                                        //       color: Colors.transparent,
-                                        //       borderRadius:
-                                        //           BorderRadius.circular(8),
-                                        //     ),
-                                        //     child: Icon(
-                                        //       Icons.mode_edit_outline_outlined,
-                                        //       color: const Color(0xFFCECECE),
-                                        //     ),
-                                        //   ),
-                                        // ),
                                       ],
                                     ),
                                   ),
@@ -434,13 +412,7 @@ class _StudentCardState extends State<StudentCard> {
                                 children: [
                                   const Text(
                                     'Schedule',
-                                    style: TextStyle(
-                                      fontFamily: 'Manrope',
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w400,
-                                      color: Color(0xff573353),
-                                      height: 16 / 13,
-                                    ),
+                                    style: AppTextStyles.label,
                                   ),
                                   const SizedBox(height: 4),
                                   Wrap(
@@ -484,8 +456,8 @@ class _StudentCardState extends State<StudentCard> {
                                           ),
                                           decoration: BoxDecoration(
                                             color: isActive
-                                                ? const Color(0x4DB1AFE9)
-                                                : const Color(0xFFF3F4FB),
+                                                ? AppColors.staffBadgeActiveBg
+                                                : AppColors.staffBadgeInactiveBg,
                                             borderRadius: BorderRadius.circular(
                                               8,
                                             ),
@@ -493,12 +465,12 @@ class _StudentCardState extends State<StudentCard> {
                                           child: Text(
                                             day,
                                             style: TextStyle(
-                                              fontFamily: 'Manrope',
+                                              fontFamily: Fonts.manrope,
                                               fontWeight: FontWeight.w600,
                                               fontSize: 13,
                                               color: isActive
-                                                  ? const Color(0xFF4B5B7A)
-                                                  : const Color(0xFFB1AFC9),
+                                                  ? AppColors.staffBadgeActiveText
+                                                  : AppColors.staffBadgeInactiveText,
                                             ),
                                           ),
                                         );
@@ -535,23 +507,11 @@ class _StudentCardState extends State<StudentCard> {
                               children: [
                                 const Text(
                                   'Birth Date',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
-                                    height: 16 / 13,
-                                  ),
+                                  style: AppTextStyles.label,
                                 ),
                                 Text(
                                   _formatDate(widget.birthDate),
-                                  style: const TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xff573353),
-                                    height: 19 / 14,
-                                  ),
+                                  style: AppTextStyles.value,
                                 ),
                               ],
                             ),
@@ -562,23 +522,11 @@ class _StudentCardState extends State<StudentCard> {
                               children: [
                                 const Text(
                                   'Movement Date',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
-                                    height: 16 / 13,
-                                  ),
+                                  style: AppTextStyles.label,
                                 ),
                                 Text(
                                   _formatDate(widget.movementDate),
-                                  style: const TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xff573353),
-                                    height: 19 / 14,
-                                  ),
+                                  style: AppTextStyles.value,
                                 ),
                               ],
                             ),
@@ -594,7 +542,7 @@ class _StudentCardState extends State<StudentCard> {
                                         showModalBottomSheet(
                                           context: context,
                                           isScrollControlled: true,
-                                          backgroundColor: Colors.transparent,
+                                          backgroundColor: AppColors.transparentColor,
                                           builder: (ctx) {
                                             return DeleteConfirmationBottomSheet(
                                               name: widget.name,
@@ -614,7 +562,7 @@ class _StudentCardState extends State<StudentCard> {
                                       },
                                       style: OutlinedButton.styleFrom(
                                         side: const BorderSide(
-                                          color: Color(0xFF6C7FD8),
+                                          color: AppColors.attendanceActionAccentColor,
                                         ),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(
@@ -628,10 +576,10 @@ class _StudentCardState extends State<StudentCard> {
                                             ? 'Deactivate'
                                             : 'Reactivate',
                                         style: const TextStyle(
-                                          fontFamily: 'Manrope',
+                                          fontFamily: Fonts.manrope,
                                           fontSize: 16,
                                           fontWeight: FontWeight.w700,
-                                          color: Color(0xFF6C7FD8),
+                                          color: AppColors.attendanceActionAccentColor,
                                           height: 16 / 16,
                                         ),
                                       ),
@@ -648,7 +596,7 @@ class _StudentCardState extends State<StudentCard> {
                                           showModalBottomSheet(
                                             context: context,
                                             isScrollControlled: true,
-                                            backgroundColor: Colors.transparent,
+                                            backgroundColor: AppColors.transparentColor,
                                             builder: (ctx) {
                                               return DeleteConfirmationBottomSheet(
                                                 name: widget.name,
@@ -666,7 +614,7 @@ class _StudentCardState extends State<StudentCard> {
                                         },
                                         style: OutlinedButton.styleFrom(
                                           side: const BorderSide(
-                                            color: Color(0xFF6C7FD8),
+                                            color: AppColors.attendanceActionAccentColor,
                                           ),
                                           shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(8),
@@ -676,10 +624,10 @@ class _StudentCardState extends State<StudentCard> {
                                         child: const Text(
                                           'Delete',
                                           style: TextStyle(
-                                            fontFamily: 'Manrope',
+                                            fontFamily: Fonts.manrope,
                                             fontSize: 16,
                                             fontWeight: FontWeight.w700,
-                                            color: Color(0xFF6C7FD8),
+                                            color: AppColors.attendanceActionAccentColor,
                                             height: 16 / 16,
                                           ),
                                         ),
@@ -704,10 +652,10 @@ class _StudentCardState extends State<StudentCard> {
                                       child: const Text(
                                         'Edit',
                                         style: TextStyle(
-                                          fontFamily: 'Manrope',
+                                          fontFamily: Fonts.manrope,
                                           fontSize: 16,
                                           fontWeight: FontWeight.w700,
-                                          color: Colors.white,
+                                          color: AppColors.whiteColor,
                                           height: 16 / 16,
                                         ),
                                       ),

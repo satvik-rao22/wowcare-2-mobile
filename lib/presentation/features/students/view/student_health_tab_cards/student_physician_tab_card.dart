@@ -128,7 +128,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                         'Failed to load physicians',
                         style: AppTextStyles.value.copyWith(
                           fontSize: 14,
-                          color: Colors.redAccent,
+                          color: AppColors.errorColor,
                         ),
                       ),
                     );
@@ -233,7 +233,7 @@ class _PhysicianCard extends StatelessWidget {
         width: double.infinity,
         // Match the Family/Pickup cards: themeColor outline, square top-left.
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           borderRadius: BorderRadius.only(
             topRight: Radius.circular(8),
             bottomLeft: Radius.circular(8),
@@ -450,7 +450,7 @@ class _PhysicianCard extends StatelessWidget {
                         showModalBottomSheet(
                           context: context,
                           isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
+                          backgroundColor: AppColors.transparentColor,
                           builder: (ctx) {
                             return DeleteConfirmationBottomSheet(
                               name: name,

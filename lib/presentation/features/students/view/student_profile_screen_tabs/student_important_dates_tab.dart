@@ -207,7 +207,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                 padding: const EdgeInsets.all(8),
                 // Match the Family/Pickup cards: themeColor outline, square top-left.
                 decoration: const BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.whiteColor,
                   borderRadius: BorderRadius.only(
                     topRight: Radius.circular(8),
                     bottomLeft: Radius.circular(8),
@@ -238,7 +238,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                               child: const Icon(
                                 Icons.edit,
                                 size: 22,
-                                color: Colors.white,
+                                color: AppColors.whiteColor,
                               ),
                             ),
                           ),
@@ -253,7 +253,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                         child: Text(
                           _errorMessage!,
                           style: const TextStyle(
-                            color: Colors.redAccent,
+                            color: AppColors.errorColor,
                             fontSize: 14,
                           ),
                         ),

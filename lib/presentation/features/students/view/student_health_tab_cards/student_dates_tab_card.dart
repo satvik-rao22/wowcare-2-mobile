@@ -5,6 +5,7 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_physical_exam_cubit.dart';
@@ -143,7 +144,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (context) {
         final screenWidth = MediaQuery.of(context).size.width;
         final isTablet = screenWidth > 600;
@@ -178,7 +179,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                     bottom: verticalPadding + bottomSafe,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.whiteColor,
                     borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(borderRadius),
                       topRight: Radius.circular(borderRadius),
@@ -194,10 +195,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                             child: Text(
                               'Edit Physical Examination',
                               style: TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: Fonts.manrope,
                                 fontSize: titleFontSize,
                                 fontWeight: FontWeight.w600,
-                                color: const Color(0xff573353),
+                                color: AppColors.primaryColor,
                               ),
                             ),
                           ),
@@ -512,8 +513,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                 gradient: _disableAddPhysicalExam
                                     ? const LinearGradient(
                                         colors: [
-                                          Color(0xFFC9C5CE),
-                                          Color(0xFFB8B3BE),
+                                          AppColors.studentBorderGrey,
+                                          AppColors.studentDisabledGrey,
                                         ],
                                       )
                                     : AppColors.buildPrimaryGradient(),
@@ -523,7 +524,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                               child: const Icon(
                                 Icons.edit,
                                 size: 22,
-                                color: Colors.white,
+                                color: AppColors.whiteColor,
                               ),
                             ),
                           ],
@@ -583,23 +584,23 @@ class _PhysicalExamCard extends StatelessWidget {
   Color _statusLabelColor() {
     final upper = status.trim().toUpperCase();
     // Completed — dark forest green on mint (design reference)
-    if (upper == 'COMPLETED') return const Color(0xFF1B5E20);
+    if (upper == 'COMPLETED') return AppColors.studentHealthGreenDark;
     // Overdue — dark red on light rose
-    if (upper == 'OVERDUE') return const Color(0xFFC62828);
+    if (upper == 'OVERDUE') return AppColors.studentHealthRedDark;
     // Due — yellow (design reference)
-    if (upper == 'DUE') return const Color(0xFFEABA00);
+    if (upper == 'DUE') return AppColors.studentHealthYellowColor;
     // Scheduled — blue on light blue
-    if (upper == 'SCHEDULED') return const Color(0xFF3B82F6);
+    if (upper == 'SCHEDULED') return AppColors.studentHealthBlue;
     return AppColors.primaryColor.withValues(alpha: 0.85);
   }
 
   Color _statusBgColor() {
     final upper = status.trim().toUpperCase();
-    if (upper == 'COMPLETED') return const Color(0xFFE8F5E9);
-    if (upper == 'OVERDUE') return const Color(0xFFFFEBEE);
-    if (upper == 'DUE') return const Color(0xFFFFF8E1);
-    if (upper == 'SCHEDULED') return const Color(0xFFE8F1FE);
-    return const Color(0xFFF3F4FB);
+    if (upper == 'COMPLETED') return AppColors.studentStatusActiveBgSolid;
+    if (upper == 'OVERDUE') return AppColors.studentHealthRedBg;
+    if (upper == 'DUE') return AppColors.studentAmberBg;
+    if (upper == 'SCHEDULED') return AppColors.studentHealthBlueBg;
+    return AppColors.staffBadgeInactiveBg;
   }
 
   @override
@@ -608,7 +609,7 @@ class _PhysicalExamCard extends StatelessWidget {
       child: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           borderRadius: BorderRadius.only(
             topRight: Radius.circular(8),
             bottomLeft: Radius.circular(8),
@@ -639,7 +640,7 @@ class _PhysicalExamCard extends StatelessWidget {
                       icon: const Icon(
                         Icons.more_horiz,
                         size: 20,
-                        color: Color(0xFF573353),
+                        color: AppColors.primaryColor,
                       ),
                       visualDensity: VisualDensity.compact,
                       constraints: const BoxConstraints(
@@ -738,18 +739,12 @@ class _DialogField extends StatelessWidget {
         Text.rich(
           TextSpan(
             text: label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
-              height: 16 / 13,
-            ),
+            style: AppTextStyles.label,
             children: [
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.errorColor),
                 ),
             ],
           ),
@@ -762,7 +757,7 @@ class _DialogField extends StatelessWidget {
             height: 44,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF4F4FB),
+              color: AppColors.staffLightBackgroundAltColor,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -771,7 +766,7 @@ class _DialogField extends StatelessWidget {
                   child: Text(
                     value,
                     style: const TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primaryColor,
@@ -811,18 +806,12 @@ class _DialogDropdown extends StatelessWidget {
         Text.rich(
           TextSpan(
             text: label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
-              height: 16 / 13,
-            ),
+            style: AppTextStyles.label,
             children: [
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.errorColor),
                 ),
             ],
           ),
@@ -832,7 +821,7 @@ class _DialogDropdown extends StatelessWidget {
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFFF4F4FB),
+            color: AppColors.staffLightBackgroundAltColor,
             borderRadius: BorderRadius.circular(10),
           ),
           child: DropdownButtonHideUnderline(
@@ -850,7 +839,7 @@ class _DialogDropdown extends StatelessWidget {
                       child: Text(
                         o,
                         style: const TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: Fonts.manrope,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,

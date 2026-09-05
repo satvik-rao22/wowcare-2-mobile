@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
@@ -335,7 +336,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
       builder: (context, state) => GestureDetector(
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.whiteColor,
           appBar: const CustomAppBar(hasBackButton: true),
           body: Stack(
             children: [
@@ -363,10 +364,10 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                       child: Text(
                         _isEditMode ? 'Edit Pickup' : 'Add Pickup',
                         style: TextStyle(
-                          fontFamily: "Manrope",
+                          fontFamily: Fonts.manrope,
                           fontSize: responsive.titleFontSize,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xff573353),
+                          color: AppColors.primaryColor,
                         ),
                       ),
                     ),
@@ -382,13 +383,13 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                         responsive.isTablet ? 32.0 : 16.0,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.whiteColor,
                         borderRadius: BorderRadius.all(
                           Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
+                            color: AppColors.blackColor.withValues(alpha: 0.05),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -406,9 +407,9 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                                   'Select from existing',
                                   style: TextStyle(
                                     fontSize: responsive.labelFontSize,
-                                    fontFamily: "Manrope",
+                                    fontFamily: Fonts.manrope,
                                     fontWeight: FontWeight.w400,
-                                    color: const Color(0xff573353),
+                                    color: AppColors.primaryColor,
                                   ),
                                 ),
                                 CustomToggle(
@@ -431,26 +432,26 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                               showAsterisk: true,
                               labelStyle: TextStyle(
                                 fontSize: responsive.labelFontSize,
-                                fontFamily: "Manrope",
+                                fontFamily: Fonts.manrope,
                                 fontWeight: FontWeight.w400,
-                                color: const Color(0xff573353),
+                                color: AppColors.primaryColor,
                               ),
                               labelBottomSpacing: responsive.isTablet
                                   ? 8.0
                                   : 6.0,
                               fieldHeight: responsive.isTablet ? 64.0 : 56.0,
                               selectedTextStyle: TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: Fonts.manrope,
                                 fontSize: responsive.inputFontSize,
                                 fontWeight: FontWeight.w600,
-                                color: const Color(0xff573353),
+                                color: AppColors.primaryColor,
                                 height: 19 / 14,
                               ),
                               popupItemTextStyle: TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: Fonts.manrope,
                                 fontSize: responsive.inputFontSize,
                                 fontWeight: FontWeight.w400,
-                                color: const Color(0xff573353),
+                                color: AppColors.primaryColor,
                               ),
                               contentPadding: EdgeInsets.symmetric(
                                 horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -566,10 +567,10 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
               top: 8,
             ),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.whiteColor,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: AppColors.blackColor.withValues(alpha: 0.05),
                   offset: const Offset(0, -4),
                   blurRadius: 16,
                 ),
@@ -606,9 +607,9 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: Fonts.manrope,
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
 
     return Column(
@@ -622,7 +623,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.errorColor),
                 ),
             ],
           ),
@@ -631,8 +632,8 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.whiteColor,
+            border: Border.all(color: AppColors.inputBorderColor),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -644,7 +645,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
             textCapitalization: textCapitalization,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.attendanceMutedTextColor),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -652,10 +653,10 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
               ),
             ),
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 19 / 14,
             ),
           ),

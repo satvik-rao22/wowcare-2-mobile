@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -120,7 +121,7 @@ class _StudentImmunizationTabCardState
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (context) {
         final screenWidth = MediaQuery.of(context).size.width;
         final isTablet = screenWidth > 600;
@@ -169,7 +170,7 @@ class _StudentImmunizationTabCardState
                     bottom: verticalPadding + bottomSafe,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.whiteColor,
                     borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(borderRadius),
                       topRight: Radius.circular(borderRadius),
@@ -186,10 +187,10 @@ class _StudentImmunizationTabCardState
                               child: Text(
                                 'Dose ${model.doseNumber}',
                                 style: TextStyle(
-                                  fontFamily: 'Manrope',
+                                  fontFamily: Fonts.manrope,
                                   fontSize: titleFontSize,
                                   fontWeight: FontWeight.w600,
-                                  color: const Color(0xff573353),
+                                  color: AppColors.primaryColor,
                                 ),
                               ),
                             ),
@@ -485,7 +486,7 @@ class _ImmunizationCard extends StatelessWidget {
       child: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           borderRadius: BorderRadius.only(
             topRight: Radius.circular(8),
             bottomLeft: Radius.circular(8),
@@ -523,7 +524,7 @@ class _ImmunizationCard extends StatelessWidget {
                       icon: const Icon(
                         Icons.more_horiz,
                         size: 20,
-                        color: Color(0xFF573353),
+                        color: AppColors.primaryColor,
                       ),
                       visualDensity: VisualDensity.compact,
                       constraints: const BoxConstraints(
@@ -605,22 +606,22 @@ class _DoseRow extends StatelessWidget {
 
   Color _statusLabelColor(String raw) {
     final upper = raw.trim().toUpperCase();
-    if (upper == 'COMPLETED') return const Color(0xFF38C820);
-    if (upper == 'DUE') return const Color(0xFFEABA00);
-    if (upper == 'EXEMPT') return const Color(0xFF6C6377);
-    if (upper == 'MISSED') return const Color(0xFFD32F2F);
-    if (upper == 'OVERDUE') return const Color(0xFFEF6C00);
+    if (upper == 'COMPLETED') return AppColors.studentStatusActiveColor;
+    if (upper == 'DUE') return AppColors.studentHealthYellowColor;
+    if (upper == 'EXEMPT') return AppColors.studentMutedText;
+    if (upper == 'MISSED') return AppColors.errorColor;
+    if (upper == 'OVERDUE') return AppColors.studentHealthOrangeColor;
     return AppColors.primaryColor.withValues(alpha: 0.8);
   }
 
   Color _statusBgColor(String raw) {
     final upper = raw.trim().toUpperCase();
-    if (upper == 'COMPLETED') return const Color(0x1A38C820);
-    if (upper == 'DUE') return const Color(0x1AEABA00);
-    if (upper == 'EXEMPT') return const Color(0xFFECEFF1);
-    if (upper == 'MISSED') return const Color(0x1AD32F2F);
-    if (upper == 'OVERDUE') return const Color(0x1AEF6C00);
-    return const Color(0xFFF3F4FB);
+    if (upper == 'COMPLETED') return AppColors.studentStatusActiveBg;
+    if (upper == 'DUE') return AppColors.studentHealthYellowBg;
+    if (upper == 'EXEMPT') return AppColors.studentDividerGrey;
+    if (upper == 'MISSED') return AppColors.studentErrorBg;
+    if (upper == 'OVERDUE') return AppColors.studentHealthOrangeBg;
+    return AppColors.staffBadgeInactiveBg;
   }
 
   DateTime? _parseIsoDate(String? iso) {
@@ -667,7 +668,7 @@ class _DialogField extends StatelessWidget {
           label,
           style: TextStyle(
             color: AppColors.primaryColor.withValues(alpha: 0.6),
-            fontFamily: 'Manrope',
+            fontFamily: Fonts.manrope,
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
@@ -680,7 +681,7 @@ class _DialogField extends StatelessWidget {
             height: 44,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF4F4FB),
+              color: AppColors.staffLightBackgroundAltColor,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -689,7 +690,7 @@ class _DialogField extends StatelessWidget {
                   child: Text(
                     value,
                     style: const TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primaryColor,
@@ -738,7 +739,7 @@ class _DialogDropdown extends StatelessWidget {
           label,
           style: TextStyle(
             color: AppColors.primaryColor.withValues(alpha: 0.6),
-            fontFamily: 'Manrope',
+            fontFamily: Fonts.manrope,
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
@@ -748,7 +749,7 @@ class _DialogDropdown extends StatelessWidget {
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFFF4F4FB),
+            color: AppColors.staffLightBackgroundAltColor,
             borderRadius: BorderRadius.circular(10),
           ),
           child: DropdownButtonHideUnderline(
@@ -766,7 +767,7 @@ class _DialogDropdown extends StatelessWidget {
                       child: Text(
                         o,
                         style: const TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: Fonts.manrope,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,

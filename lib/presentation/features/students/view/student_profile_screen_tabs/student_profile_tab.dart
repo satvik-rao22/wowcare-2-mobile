@@ -338,7 +338,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+          const Icon(Icons.error_outline, size: 48, color: AppColors.errorColor),
           const SizedBox(height: 16),
           Text(
             'Failed to load student profile',

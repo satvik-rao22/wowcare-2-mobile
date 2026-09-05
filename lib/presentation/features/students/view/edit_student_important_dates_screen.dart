@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
@@ -180,10 +181,10 @@ class _EditStudentImportantDatesScreenState
                           top: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.whiteColor,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
+                              color: AppColors.blackColor.withValues(alpha: 0.05),
                               offset: const Offset(0, -4),
                               blurRadius: 16,
                             ),
@@ -220,9 +221,9 @@ class _EditStudentImportantDatesScreenState
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: 'Manrope',
+      fontFamily: Fonts.manrope,
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
 
     return Column(
@@ -235,8 +236,8 @@ class _EditStudentImportantDatesScreenState
           child: Container(
             constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0x66573353)),
+              color: AppColors.whiteColor,
+              border: Border.all(color: AppColors.inputBorderColor),
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,
               ),
@@ -255,10 +256,10 @@ class _EditStudentImportantDatesScreenState
                           : 'Select Date',
                       style: TextStyle(
                         color: selectedDate == null
-                            ? Colors.grey
-                            : Colors.black,
+                            ? AppColors.attendanceMutedTextColor
+                            : AppColors.blackColor,
                         fontSize: responsive.inputFontSize,
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                       ),
                     ),
                   ),

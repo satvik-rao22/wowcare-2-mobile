@@ -206,7 +206,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (sheetContext) {
         return DeleteConfirmationBottomSheet(
           name: guardianName.isEmpty ? 'this guardian' : guardianName,
@@ -304,7 +304,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                         'Failed to load parents',
                         style: AppTextStyles.value.copyWith(
                           fontSize: 14,
-                          color: Colors.redAccent,
+                          color: AppColors.errorColor,
                         ),
                       ),
                     );
@@ -388,7 +388,7 @@ class _FamilyCard extends StatelessWidget {
         width: double.infinity,
         // Match the Health tab cards: themeColor outline, square top-left.
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           borderRadius: BorderRadius.only(
             topRight: Radius.circular(8),
             bottomLeft: Radius.circular(8),
@@ -451,23 +451,11 @@ class _FamilyCard extends StatelessWidget {
                     children: [
                       Text(
                         'Relation',
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
-                        ),
+                        style: AppTextStyles.label,
                       ),
                       Text(
                         relation,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                          height: 19 / 14,
-                        ),
+                        style: AppTextStyles.value,
                       ),
                     ],
                   ),
@@ -478,23 +466,11 @@ class _FamilyCard extends StatelessWidget {
                     children: [
                       Text(
                         'Email ID',
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
-                        ),
+                        style: AppTextStyles.label,
                       ),
                       Text(
                         email,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                          height: 19 / 14,
-                        ),
+                        style: AppTextStyles.value,
                       ),
                     ],
                   ),
@@ -505,23 +481,11 @@ class _FamilyCard extends StatelessWidget {
                     children: [
                       Text(
                         'Phone Number',
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
-                        ),
+                        style: AppTextStyles.label,
                       ),
                       Text(
                         phone,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                          height: 19 / 14,
-                        ),
+                        style: AppTextStyles.value,
                       ),
                     ],
                   ),
@@ -532,23 +496,11 @@ class _FamilyCard extends StatelessWidget {
                     children: [
                       Text(
                         'Sign-in Pin',
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
-                        ),
+                        style: AppTextStyles.label,
                       ),
                       Text(
                         pin,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                          height: 19 / 14,
-                        ),
+                        style: AppTextStyles.value,
                       ),
                     ],
                   ),

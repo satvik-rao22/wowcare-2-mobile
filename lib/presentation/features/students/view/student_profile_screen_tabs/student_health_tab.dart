@@ -5,6 +5,7 @@ import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_health_tab_cards/student_health_tab_card.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 
 import '../../../../../shared/common/widgets/custom_toggle.dart';
@@ -147,10 +148,10 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                     maxLines: 3,
                     softWrap: true,
                     style: TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
-                      color: Color(0xff573353),
+                      color: AppColors.primaryColor,
                       height: 16 / 13,
                     ),
                   ),
@@ -227,7 +228,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                 child: _buildTab(
                   //width: 120,
                   label: 'Immunization',
-                  color: Color(0x66EAD6FF),
+                  color: AppColors.studentLavenderTint,
                 ),
               ),
             ],

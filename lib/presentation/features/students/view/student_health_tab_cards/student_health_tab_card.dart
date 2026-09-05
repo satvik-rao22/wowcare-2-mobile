@@ -146,7 +146,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                             child: const Icon(
                               Icons.edit,
                               size: 22,
-                              color: Colors.white,
+                              color: AppColors.whiteColor,
                             ),
                           ),
                         ],
@@ -231,7 +231,7 @@ class _HealthCard extends StatelessWidget {
       child: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           borderRadius: BorderRadius.only(
             topRight: Radius.circular(8),
             bottomLeft: Radius.circular(8),
@@ -256,24 +256,12 @@ class _HealthCard extends StatelessWidget {
                     children: [
                       const Text(
                         'Allergies',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
-                        ),
+                        style: AppTextStyles.label,
                       ),
                       Flexible(
                         child: Text(
                           _displayOrFallback(allergies, 'No Allergies'),
-                          style: const TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xff573353),
-                            height: 19 / 14,
-                          ),
+                          style: AppTextStyles.value,
                           softWrap: true,
                           textAlign: TextAlign.right,
                         ),
@@ -287,24 +275,12 @@ class _HealthCard extends StatelessWidget {
                     children: [
                       const Text(
                         'Medications',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
-                        ),
+                        style: AppTextStyles.label,
                       ),
                       Flexible(
                         child: Text(
                           _displayOrFallback(medication, 'No Medications'),
-                          style: const TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xff573353),
-                            height: 19 / 14,
-                          ),
+                          style: AppTextStyles.value,
                           softWrap: true,
                           textAlign: TextAlign.right,
                         ),
@@ -318,13 +294,7 @@ class _HealthCard extends StatelessWidget {
                     children: [
                       const Text(
                         'Diet Restriction',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
-                        ),
+                        style: AppTextStyles.label,
                       ),
                       Flexible(
                         child: Text(
@@ -332,13 +302,7 @@ class _HealthCard extends StatelessWidget {
                             dietRestrictions,
                             'No Diet Restriction',
                           ),
-                          style: const TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xff573353),
-                            height: 19 / 14,
-                          ),
+                          style: AppTextStyles.value,
                           softWrap: true,
                           textAlign: TextAlign.right,
                         ),
@@ -352,13 +316,7 @@ class _HealthCard extends StatelessWidget {
                     children: [
                       const Text(
                         'Photo Permission',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
-                        ),
+                        style: AppTextStyles.label,
                       ),
                       if (canMutateStudent)
                         CustomToggle(
@@ -369,13 +327,7 @@ class _HealthCard extends StatelessWidget {
                       else
                         Text(
                           photoPermission ? 'Yes' : 'No',
-                          style: const TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xff573353),
-                            height: 19 / 14,
-                          ),
+                          style: AppTextStyles.value,
                         ),
                     ],
                   ),

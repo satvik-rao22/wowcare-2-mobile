@@ -9,6 +9,7 @@ import 'package:wowcare/presentation/features/students/view/student_form_formatt
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -646,7 +647,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       builder: (context, createState) => GestureDetector(
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.whiteColor,
           appBar: const CustomAppBar(hasBackButton: false),
           body: Stack(
             children: [
@@ -678,10 +679,10 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                   ? 'Add Parent (Optional)'
                                   : 'Add parent'),
                         style: TextStyle(
-                          fontFamily: "Manrope",
+                          fontFamily: Fonts.manrope,
                           fontSize: responsive.titleFontSize,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xff573353),
+                          color: AppColors.primaryColor,
                         ),
                       ),
                     ),
@@ -697,13 +698,13 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                         responsive.isTablet ? 32.0 : 16.0,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.whiteColor,
                         borderRadius: BorderRadius.all(
                           Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
+                            color: AppColors.blackColor.withValues(alpha: 0.05),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -727,9 +728,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                         'Select from existing',
                                         style: TextStyle(
                                           fontSize: responsive.labelFontSize,
-                                          fontFamily: "Manrope",
+                                          fontFamily: Fonts.manrope,
                                           fontWeight: FontWeight.w400,
-                                          color: const Color(0xff573353),
+                                          color: AppColors.primaryColor,
                                         ),
                                       ),
                                       CustomToggle(
@@ -757,9 +758,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                         'Select Parent',
                                         style: TextStyle(
                                           fontSize: responsive.labelFontSize,
-                                          fontFamily: "Manrope",
+                                          fontFamily: Fonts.manrope,
                                           fontWeight: FontWeight.w400,
-                                          color: const Color(0xff573353),
+                                          color: AppColors.primaryColor,
                                         ),
                                       ),
                                       const SizedBox(height: 8),
@@ -800,9 +801,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                             _createCubit.state.step2Relation,
                                         labelStyle: TextStyle(
                                           fontSize: responsive.labelFontSize,
-                                          fontFamily: "Manrope",
+                                          fontFamily: Fonts.manrope,
                                           fontWeight: FontWeight.w400,
-                                          color: const Color(0xff573353),
+                                          color: AppColors.primaryColor,
                                         ),
                                         showAsterisk: true,
                                         labelBottomSpacing: responsive.isTablet
@@ -867,9 +868,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                         _createCubit.state.step2Relation,
                                     labelStyle: TextStyle(
                                       fontSize: responsive.labelFontSize,
-                                      fontFamily: "Manrope",
+                                      fontFamily: Fonts.manrope,
                                       fontWeight: FontWeight.w400,
-                                      color: const Color(0xff573353),
+                                      color: AppColors.primaryColor,
                                     ),
                                     showAsterisk: true,
                                     labelBottomSpacing: responsive.isTablet
@@ -906,9 +907,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                         'Emergency Contact',
                                         style: TextStyle(
                                           fontSize: responsive.labelFontSize,
-                                          fontFamily: "Manrope",
+                                          fontFamily: Fonts.manrope,
                                           fontWeight: FontWeight.w400,
-                                          color: const Color(0xff573353),
+                                          color: AppColors.primaryColor,
                                         ),
                                       ),
                                       CustomToggle(
@@ -931,9 +932,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                         'Child Custody',
                                         style: TextStyle(
                                           fontSize: responsive.labelFontSize,
-                                          fontFamily: "Manrope",
+                                          fontFamily: Fonts.manrope,
                                           fontWeight: FontWeight.w400,
-                                          color: const Color(0xff573353),
+                                          color: AppColors.primaryColor,
                                         ),
                                       ),
                                       CustomToggle(
@@ -971,10 +972,10 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
               top: 8,
             ),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.whiteColor,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: AppColors.blackColor.withValues(alpha: 0.05),
                   offset: const Offset(0, -4),
                   blurRadius: 16,
                 ),
@@ -1048,9 +1049,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: Fonts.manrope,
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
 
     return Column(
@@ -1063,7 +1064,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
               TextSpan(text: label),
               const TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(color: AppColors.errorColor),
               ),
             ],
           ),
@@ -1072,8 +1073,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.whiteColor,
+            border: Border.all(color: AppColors.inputBorderColor),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -1083,15 +1084,15 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             keyboardType: keyboardType,
             inputFormatters: inputFormatters,
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 19 / 14,
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.attendanceMutedTextColor),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -1112,9 +1113,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
           'Profile Photo',
           style: TextStyle(
             fontSize: responsive.labelFontSize,
-            fontFamily: "Manrope",
+            fontFamily: Fonts.manrope,
             fontWeight: FontWeight.w400,
-            color: const Color(0xff573353),
+            color: AppColors.primaryColor,
           ),
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
@@ -1124,9 +1125,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             height: 120,
             width: 120,
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: AppColors.attendanceShimmerHighlightColor,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0x66573353)),
+              border: Border.all(color: AppColors.inputBorderColor),
             ),
             child: _createCubit.state.step2ProfilePhoto != null
                 ? ClipRRect(
@@ -1141,7 +1142,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                     children: [
                       Icon(
                         Icons.camera_alt,
-                        color: Colors.grey.shade600,
+                        color: AppColors.attendanceDialogHintTextColor,
                         size: 32,
                       ),
                       const SizedBox(height: 8),
@@ -1149,7 +1150,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                         'Upload Photo',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade600,
+                          color: AppColors.attendanceDialogHintTextColor,
                         ),
                       ),
                     ],
@@ -1161,8 +1162,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
           'JPG, PNG, max 10MB (Optional)',
           style: TextStyle(
             fontSize: 12,
-            color: Colors.grey.shade600,
-            fontFamily: 'Manrope',
+            color: AppColors.attendanceDialogHintTextColor,
+            fontFamily: Fonts.manrope,
           ),
         ),
       ],

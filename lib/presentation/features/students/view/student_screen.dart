@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -1226,10 +1227,10 @@ class _StudentScreenState extends State<StudentScreen> {
                             child: Text(
                               'Students',
                               style: TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: Fonts.manrope,
                                 fontSize: titleFontSize,
                                 fontWeight: FontWeight.w600,
-                                color: const Color(0xff573353),
+                                color: AppColors.primaryColor,
                                 height: titleLineHeight,
                               ),
                               textAlign: TextAlign.left,
@@ -1263,7 +1264,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                     showModalBottomSheet(
                                       context: context,
                                       isScrollControlled: true,
-                                      backgroundColor: Colors.white,
+                                      backgroundColor: AppColors.whiteColor,
                                       shape: const RoundedRectangleBorder(
                                         borderRadius: BorderRadius.only(
                                           topLeft: Radius.circular(24),
@@ -1294,27 +1295,6 @@ class _StudentScreenState extends State<StudentScreen> {
                                   MediaQuery.of(context).size.width >= 900,
                             ),
                           SizedBox(width: 10),
-                          // Clock action button
-                          // Container(
-                          //   width: 38,
-                          //   height: 38,
-                          //   margin: const EdgeInsets.only(right: 8),
-                          //   decoration: BoxDecoration(
-                          //     gradient: AppColors.buildPrimaryGradient(),
-                          //     borderRadius: BorderRadius.circular(8),
-                          //   ),
-                          //   alignment: Alignment.center,
-                          //   child: GestureDetector(
-                          //     onTap: () {},
-                          //     child: SvgPicture.asset(
-                          //       MediaRes.calenderClockIcon,
-                          //       width: 22,
-                          //       height: 22,
-                          //       fit: BoxFit.contain,
-                          //       colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
-                          //     ),
-                          //   ),
-                          // ),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -1467,7 +1447,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 Material(
-                                  color: Colors.transparent,
+                                  color: AppColors.transparentColor,
                                   child: InkWell(
                                     onTap: () async {
                                       final result = await context.push(
@@ -1565,12 +1545,8 @@ class _StudentScreenState extends State<StudentScreen> {
                                                       vertical: 2,
                                                     ),
                                                 decoration: BoxDecoration(
-                                                  color: const Color.fromRGBO(
-                                                    179,
-                                                    38,
-                                                    30,
-                                                    1,
-                                                  ),
+                                                  color: AppColors
+                                                      .attendanceDangerAccentColor,
                                                   borderRadius:
                                                       BorderRadius.circular(10),
                                                 ),
@@ -1579,7 +1555,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                                       ? '99+'
                                                       : '$badgeCount',
                                                   style: const TextStyle(
-                                                    color: Colors.white,
+                                                    color: AppColors.whiteColor,
                                                     fontSize: 10,
                                                     fontWeight: FontWeight.w700,
                                                   ),
@@ -1614,12 +1590,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
                                       ),
-                                      color: const Color.fromRGBO(
-                                        177,
-                                        175,
-                                        233,
-                                        0.3,
-                                      ),
+                                      color: AppColors.staffBadgeActiveBg,
                                     ),
                                     const SizedBox(width: 8),
                                     CustomClearAllChip(
@@ -1634,10 +1605,10 @@ class _StudentScreenState extends State<StudentScreen> {
                                     const Text(
                                       'Show inactive',
                                       style: TextStyle(
-                                        fontFamily: 'Manrope',
+                                        fontFamily: Fonts.manrope,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
-                                        color: Color(0xff573353),
+                                        color: AppColors.primaryColor,
                                       ),
                                     ),
                                     const SizedBox(width: 8),
@@ -1706,7 +1677,7 @@ class _StudentScreenState extends State<StudentScreen> {
                               children: [
                                 Text(
                                   'Error loading students',
-                                  style: TextStyle(color: Colors.red),
+                                  style: TextStyle(color: AppColors.errorColor),
                                 ),
                                 const SizedBox(height: 8),
                                 ElevatedButton(

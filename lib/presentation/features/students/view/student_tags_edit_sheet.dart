@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -27,7 +28,7 @@ Future<void> showStudentTagsEditSheet({
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor: AppColors.transparentColor,
     builder: (_) => _StudentTagsEditSheet(
       studentCode: studentCode,
       schoolCode: schoolCode,
@@ -144,7 +145,7 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
           decoration: const BoxDecoration(
-            color: Colors.white,
+            color: AppColors.whiteColor,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: SafeArea(
@@ -159,10 +160,10 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
                     const Text(
                       'Edit Tags',
                       style: TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xff573353),
+                        color: AppColors.primaryColor,
                       ),
                     ),
                     IconButton(

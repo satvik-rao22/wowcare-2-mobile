@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/entities/student_health_update_request.dart';
@@ -130,27 +132,6 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
             controller: _dietRestrictionsController,
           ),
           const SizedBox(height: 16),
-          // Row(
-          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          //   children: [
-          //     const Text(
-          //       'Photo Permission',
-          //       style: TextStyle(
-          //         fontFamily: 'Manrope',
-          //         fontSize: 15,
-          //         fontWeight: FontWeight.w400,
-          //         color: Color(0xff573353),
-          //       ),
-          //     ),
-          //     Switch(
-          //       value: _photoPermission,
-          //       onChanged: (v) {
-          //         setState(() => _photoPermission = v);
-          //       },
-          //       activeColor: AppColors.primaryColor,
-          //     ),
-          //   ],
-          // ),
         ],
       ),
       bottomBar: Container(
@@ -161,10 +142,10 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
           top: 8,
         ),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: AppColors.blackColor.withValues(alpha: 0.05),
               offset: const Offset(0, -4),
               blurRadius: 16,
             ),
@@ -200,17 +181,17 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
         Text(
           label,
           style: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: Fonts.manrope,
             fontSize: 15,
             fontWeight: FontWeight.w400,
-            color: Color(0xff573353),
+            color: AppColors.primaryColor,
           ),
         ),
         const SizedBox(height: 6),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.whiteColor,
+            border: Border.all(color: AppColors.inputBorderColor),
             borderRadius: BorderRadius.circular(8),
           ),
           child: TextField(
@@ -219,18 +200,18 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
             keyboardType: TextInputType.multiline,
             inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'^\s'))],
             style: const TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Color(0xff573353),
+              color: AppColors.primaryColor,
             ),
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: const TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: Fonts.manrope,
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
-                color: Colors.grey,
+                color: AppColors.attendanceMutedTextColor,
               ),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(

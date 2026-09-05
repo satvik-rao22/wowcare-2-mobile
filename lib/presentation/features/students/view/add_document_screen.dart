@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
@@ -286,10 +287,10 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
           top: 8,
         ),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: AppColors.blackColor.withValues(alpha: 0.05),
               offset: const Offset(0, -4),
               blurRadius: 16,
             ),
@@ -336,7 +337,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
               TextSpan(text: label),
               const TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(color: AppColors.errorColor),
               ),
             ],
           ),
@@ -345,8 +346,8 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.whiteColor,
+            border: Border.all(color: AppColors.inputBorderColor),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -357,7 +358,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             maxLength: _documentNameMaxLength,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.attendanceMutedTextColor),
               border: InputBorder.none,
               counterText: '',
               contentPadding: EdgeInsets.symmetric(
@@ -405,8 +406,8 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
           child: Container(
             constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0x66573353)),
+              color: AppColors.whiteColor,
+              border: Border.all(color: AppColors.inputBorderColor),
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,
               ),
@@ -427,10 +428,10 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
                           : 'Select Date',
                       style: TextStyle(
                         color: selectedExpiryDate == null
-                            ? Colors.grey
-                            : Colors.black,
+                            ? AppColors.attendanceMutedTextColor
+                            : AppColors.blackColor,
                         fontSize: responsive.inputFontSize,
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                       ),
                     ),
                   ),
@@ -468,7 +469,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
               const TextSpan(text: 'Upload Document'),
               const TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(color: AppColors.errorColor),
               ),
             ],
           ),
@@ -482,11 +483,11 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
               horizontal: responsive.isTablet ? 20.0 : 16.0,
             ),
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0x66573353)),
+              border: Border.all(color: AppColors.inputBorderColor),
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,
               ),
-              color: Colors.white,
+              color: AppColors.whiteColor,
             ),
             child: Row(
               children: [
@@ -496,9 +497,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
                         ? 'Uploading... ${state.uploadPercent}%'
                         : (displayName ?? 'Choose a File'),
                     style: TextStyle(
-                      color: displayName == null ? Colors.grey : Colors.black,
+                      color: displayName == null ? AppColors.attendanceMutedTextColor : AppColors.blackColor,
                       fontSize: responsive.inputFontSize,
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                     ),
                   ),
                 ),
@@ -535,8 +536,8 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             maxHeight: responsive.inputFieldHeight * 4,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.whiteColor,
+            border: Border.all(color: AppColors.inputBorderColor),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -548,7 +549,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(
               hintText: 'Add notes...',
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.attendanceMutedTextColor),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,

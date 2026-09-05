@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
@@ -823,7 +824,7 @@ class _EditStudentProfileDetailsScreenState
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (ctx) => ConfirmationBottomSheet(
         icon: Icons.warning_amber_rounded,
         title: message,
@@ -929,7 +930,7 @@ class _EditStudentProfileDetailsScreenState
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
         key: _scaffoldKey,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.whiteColor,
         appBar: const CustomAppBar(hasBackButton: true),
         body: Stack(
           children: [
@@ -957,10 +958,10 @@ class _EditStudentProfileDetailsScreenState
                     child: Text(
                       'Edit Student',
                       style: TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                         fontSize: responsive.titleFontSize,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xff573353),
+                        color: AppColors.primaryColor,
                       ),
                     ),
                   ),
@@ -974,13 +975,13 @@ class _EditStudentProfileDetailsScreenState
                     ),
                     padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.whiteColor,
                       borderRadius: BorderRadius.all(
                         Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: AppColors.blackColor.withValues(alpha: 0.05),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -1008,10 +1009,10 @@ class _EditStudentProfileDetailsScreenState
                                 '${widget.initialFirstName ?? ''} ${widget.initialLastName ?? ''}'
                                     .trim(),
                                 style: const TextStyle(
-                                  fontFamily: 'Manrope',
+                                  fontFamily: Fonts.manrope,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xff573353),
+                                  color: AppColors.primaryColor,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1159,22 +1160,22 @@ class _EditStudentProfileDetailsScreenState
                             showAsterisk: true,
                             labelStyle: TextStyle(
                               fontSize: responsive.labelFontSize,
-                              fontFamily: "Manrope",
+                              fontFamily: Fonts.manrope,
                               fontWeight: FontWeight.w400,
-                              color: const Color(0xff573353),
+                              color: AppColors.primaryColor,
                             ),
                             selectedTextStyle: TextStyle(
-                              fontFamily: 'Manrope',
+                              fontFamily: Fonts.manrope,
                               fontSize: responsive.inputFontSize,
                               fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade700,
+                              color: AppColors.attendanceSearchHintColor,
                               height: 19 / 14,
                             ),
                             popupItemTextStyle: TextStyle(
-                              fontFamily: 'Manrope',
+                              fontFamily: Fonts.manrope,
                               fontSize: responsive.inputFontSize,
                               fontWeight: FontWeight.w400,
-                              color: const Color(0xff573353),
+                              color: AppColors.primaryColor,
                             ),
                             contentPadding: EdgeInsets.symmetric(
                               horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -1214,10 +1215,10 @@ class _EditStudentProfileDetailsScreenState
             top: 8,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.whiteColor,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
+                color: AppColors.blackColor.withValues(alpha: 0.05),
                 offset: const Offset(0, -4),
                 blurRadius: 16,
               ),
@@ -1251,9 +1252,9 @@ class _EditStudentProfileDetailsScreenState
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: Fonts.manrope,
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
 
     return Column(
@@ -1267,7 +1268,7 @@ class _EditStudentProfileDetailsScreenState
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.errorColor),
                 ),
             ],
           ),
@@ -1276,8 +1277,8 @@ class _EditStudentProfileDetailsScreenState
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.whiteColor,
+            border: Border.all(color: AppColors.inputBorderColor),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -1289,7 +1290,7 @@ class _EditStudentProfileDetailsScreenState
             textCapitalization: textCapitalization,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.attendanceMutedTextColor),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -1297,10 +1298,10 @@ class _EditStudentProfileDetailsScreenState
               ),
             ),
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 19 / 14,
             ),
           ),
@@ -1330,24 +1331,24 @@ class _EditStudentProfileDetailsScreenState
       isEnabled: isEnabled,
       labelStyle: TextStyle(
         fontSize: responsive.labelFontSize,
-        fontFamily: "Manrope",
+        fontFamily: Fonts.manrope,
         fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
+        color: AppColors.primaryColor,
       ),
       labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
       fieldHeight: responsive.isTablet ? 64.0 : 56.0,
       selectedTextStyle: TextStyle(
-        fontFamily: 'Manrope',
+        fontFamily: Fonts.manrope,
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w600,
-        color: const Color(0xff573353),
+        color: AppColors.primaryColor,
         height: 19 / 14,
       ),
       popupItemTextStyle: TextStyle(
-        fontFamily: 'Manrope',
+        fontFamily: Fonts.manrope,
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
+        color: AppColors.primaryColor,
       ),
       contentPadding: EdgeInsets.symmetric(
         horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -1365,9 +1366,9 @@ class _EditStudentProfileDetailsScreenState
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: Fonts.manrope,
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
 
     return Column(
@@ -1381,8 +1382,8 @@ class _EditStudentProfileDetailsScreenState
             constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0x66573353)),
+              color: AppColors.whiteColor,
+              border: Border.all(color: AppColors.inputBorderColor),
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,
               ),
@@ -1401,12 +1402,12 @@ class _EditStudentProfileDetailsScreenState
                           ? DateFormat('MMM dd, yyyy').format(selectedDate)
                           : 'Select Date',
                       style: TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                         fontSize: responsive.inputFontSize,
                         fontWeight: selectedDate != null
                             ? FontWeight.w600
                             : FontWeight.w500,
-                        color: const Color(0xff573353),
+                        color: AppColors.primaryColor,
                         height: 19 / 14,
                       ),
                       overflow: TextOverflow.ellipsis,

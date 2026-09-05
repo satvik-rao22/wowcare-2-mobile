@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -552,17 +553,17 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
               child: Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color.fromRGBO(156, 132, 255, 1),
+                  color: AppColors.studentAccentPurple,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
+                      color: AppColors.blackColor.withValues(alpha: 0.2),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
                   ],
                 ),
                 child: Material(
-                  color: Colors.transparent,
+                  color: AppColors.transparentColor,
                   child: InkWell(
                     onTap: () {
                       setState(() => _currentPanel = StudentPanelType.none);
@@ -571,7 +572,7 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                     customBorder: const CircleBorder(),
                     child: const Padding(
                       padding: EdgeInsets.all(10.0),
-                      child: Icon(Icons.close, color: Colors.white, size: 20),
+                      child: Icon(Icons.close, color: AppColors.whiteColor, size: 20),
                     ),
                   ),
                 ),
@@ -612,9 +613,9 @@ class AttendanceQuickActionsPanel extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color.fromRGBO(200, 191, 255, 0.7)),
+          border: Border.all(color: AppColors.studentLavenderBorder),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -625,7 +626,7 @@ class AttendanceQuickActionsPanel extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: Color(0xff573353),
+                color: AppColors.primaryColor,
               ),
             ),
             const SizedBox(height: 8),
@@ -735,12 +736,12 @@ class _StudentSidePanel extends StatelessWidget {
         constraints: const BoxConstraints(maxHeight: 400),
         padding: const EdgeInsets.symmetric(vertical: 4),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color.fromRGBO(111, 140, 255, 1)),
-          color: Colors.white,
+          border: Border.all(color: AppColors.billingAccentBlue),
+          color: AppColors.whiteColor,
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
+              color: AppColors.blackColor.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -756,9 +757,9 @@ class _StudentSidePanel extends StatelessWidget {
         constraints: const BoxConstraints(maxHeight: 400, maxWidth: 120),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color.fromRGBO(200, 191, 255, 0.7)),
+          border: Border.all(color: AppColors.studentLavenderBorder),
         ),
         child: _buildActivitiesColumn(context),
       ),
@@ -914,7 +915,7 @@ class _StudentAttendanceActionItem extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 5),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.1),
+                  color: AppColors.studentInfoColor.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: SvgPicture.asset(svgPath, height: 24, width: 24),
@@ -926,7 +927,7 @@ class _StudentAttendanceActionItem extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                   color: AppColors.primaryColor,
                 ),
               ),
@@ -984,7 +985,7 @@ class _ActivityPngItem extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                   color: AppColors.primaryColor,
                 ),
               ),
@@ -1012,9 +1013,9 @@ class _AttendanceChipButton extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           color: onTap == null
-              ? const Color.fromRGBO(242, 242, 242, 1)
-              : const Color.fromRGBO(241, 234, 255, 1),
-          border: Border.all(color: const Color.fromRGBO(170, 141, 255, 1)),
+              ? AppColors.studentSurfaceGrey
+              : AppColors.studentPurpleTint,
+          border: Border.all(color: AppColors.studentPurple),
         ),
         child: Text(
           label,
@@ -1022,8 +1023,8 @@ class _AttendanceChipButton extends StatelessWidget {
             fontSize: 11,
             fontWeight: FontWeight.w600,
             color: onTap == null
-                ? const Color.fromRGBO(130, 130, 130, 1)
-                : const Color(0xff573353),
+                ? AppColors.studentGrey
+                : AppColors.primaryColor,
           ),
         ),
       ),
@@ -1064,14 +1065,14 @@ class _ActionButton extends StatelessWidget {
                 height: 24,
                 width: 24,
                 colorFilter: const ColorFilter.mode(
-                  Colors.white,
+                  AppColors.whiteColor,
                   BlendMode.srcIn,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 label,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: const TextStyle(color: AppColors.whiteColor, fontSize: 12),
               ),
             ],
           ),

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -110,7 +111,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
       builder: (context, state) => GestureDetector(
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.whiteColor,
           appBar: const CustomAppBar(hasBackButton: true),
           body: Stack(
             children: [
@@ -138,10 +139,10 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                       child: Text(
                         widget.title ?? 'Add Student - Step 3 of 3 (Optional)',
                         style: TextStyle(
-                          fontFamily: "Manrope",
+                          fontFamily: Fonts.manrope,
                           fontSize: responsive.titleFontSize,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xff573353),
+                          color: AppColors.primaryColor,
                         ),
                       ),
                     ),
@@ -157,13 +158,13 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                         responsive.isTablet ? 32.0 : 16.0,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.whiteColor,
                         borderRadius: BorderRadius.all(
                           Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
+                            color: AppColors.blackColor.withValues(alpha: 0.05),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -180,9 +181,9 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                                   'Schedule',
                                   style: TextStyle(
                                     fontSize: responsive.labelFontSize,
-                                    fontFamily: "Manrope",
+                                    fontFamily: Fonts.manrope,
                                     fontWeight: FontWeight.w400,
-                                    color: const Color(0xff573353),
+                                    color: AppColors.primaryColor,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -190,8 +191,8 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                                   'Select days and times for this student. Default times are school open and close hours.',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.grey.shade600,
-                                    fontFamily: 'Manrope',
+                                    color: AppColors.attendanceDialogHintTextColor,
+                                    fontFamily: Fonts.manrope,
                                   ),
                                 ),
                                 const SizedBox(height: 12),
@@ -247,10 +248,10 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
               top: 8,
             ),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.whiteColor,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: AppColors.blackColor.withValues(alpha: 0.05),
                   offset: const Offset(0, -4),
                   blurRadius: 16,
                 ),
@@ -277,7 +278,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                         child: Text(
                           'Skip',
                           style: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: Fonts.manrope,
                             fontSize: responsive.buttonFontSize,
                             fontWeight: FontWeight.w600,
                             color: AppColors.primaryColor,
@@ -302,10 +303,10 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                       child: Text(
                         widget.primaryButtonLabel ?? 'Next',
                         style: TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: Fonts.manrope,
                           fontSize: responsive.buttonFontSize,
                           fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                          color: AppColors.whiteColor,
                         ),
                       ),
                     ),
@@ -333,12 +334,12 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
       decoration: BoxDecoration(
         color: hasSchedule
             ? AppColors.primaryColor.withValues(alpha: 0.05)
-            : Colors.grey.shade50,
+            : AppColors.staffVeryLightGrey,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: hasSchedule
               ? AppColors.primaryColor.withValues(alpha: 0.3)
-              : Colors.grey.shade300,
+              : AppColors.attendanceBorderLightColor,
         ),
       ),
       child: Column(
@@ -350,16 +351,16 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
               Text(
                 day,
                 style: TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                   fontSize: responsive.labelFontSize,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xff573353),
+                  color: AppColors.primaryColor,
                 ),
               ),
               if (hasSchedule)
                 IconButton(
                   icon: const Icon(Icons.close, size: 20),
-                  color: Colors.red,
+                  color: AppColors.errorColor,
                   onPressed: () => _scheduleCubit.removeDay(day),
                 ),
             ],
@@ -413,10 +414,10 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                   Text(
                     'Holiday',
                     style: TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade600,
+                      color: AppColors.attendanceDialogHintTextColor,
                     ),
                   ),
                   TextButton(
@@ -424,7 +425,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                     child: const Text(
                       'Enable',
                       style: TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: AppColors.primaryColor,

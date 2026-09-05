@@ -141,7 +141,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                         'Failed to load pickups',
                         style: AppTextStyles.value.copyWith(
                           fontSize: 14,
-                          color: Colors.redAccent,
+                          color: AppColors.errorColor,
                         ),
                       ),
                     );
@@ -315,7 +315,7 @@ class _PickupCardState extends State<_PickupCard> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (sheetContext) {
         return DeleteConfirmationBottomSheet(
           name: widget.name,
@@ -373,7 +373,7 @@ class _PickupCardState extends State<_PickupCard> {
             width: constraints.maxWidth,
             // Match the Health tab cards: themeColor outline, square top-left.
             decoration: const BoxDecoration(
-              color: Colors.white,
+              color: AppColors.whiteColor,
               borderRadius: BorderRadius.only(
                 topRight: Radius.circular(8),
                 bottomLeft: Radius.circular(8),
