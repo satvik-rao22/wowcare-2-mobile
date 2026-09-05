@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
@@ -193,12 +194,16 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.forum_outlined, size: 40, color: Colors.grey),
+              const Icon(
+                Icons.forum_outlined,
+                size: 40,
+                color: AppColors.classroomMutedIconColor,
+              ),
               const SizedBox(height: 12),
               Text(
                 _error ?? 'Classroom chat is not available',
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey),
+                style: const TextStyle(color: AppColors.classroomMutedIconColor),
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(

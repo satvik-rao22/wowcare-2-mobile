@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/reusable_log_out_model_sheet.dart';
 import 'package:wowcare/shared/common/widgets/rounded_button.dart';
@@ -21,7 +21,7 @@ class SignOutScreen extends StatefulWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (context) => const LogOutModelBottomSheet(),
     );
   }
@@ -30,13 +30,20 @@ class SignOutScreen extends StatefulWidget {
   State<SignOutScreen> createState() => _SignOutScreenState();
 }
 
+/// [isLoading] is UI-local (whether this sheet shows a spinner) and never
+/// read outside it, so it's a [ValueNotifier] rather than cubit state — the
+/// widget stays otherwise stateless, and only the spinner subtree rebuilds.
 class _SignOutScreenState extends State<SignOutScreen> {
-  bool isLoading = false;
+  final _isLoading = ValueNotifier<bool>(false);
+
+  @override
+  void dispose() {
+    _isLoading.dispose();
+    super.dispose();
+  }
 
   Future<void> _handleSignOut() async {
-    setState(() {
-      isLoading = true;
-    });
+    _isLoading.value = true;
 
     try {
       await context.read<AuthCubit>().logoutSession();
@@ -57,9 +64,7 @@ class _SignOutScreenState extends State<SignOutScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
+        _isLoading.value = false;
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Logout failed: ${e.toString()}',
@@ -76,7 +81,7 @@ class _SignOutScreenState extends State<SignOutScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardColor,
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(16),
           ),
@@ -105,32 +110,35 @@ class _SignOutScreenState extends State<SignOutScreen> {
             const SizedBox(height: 16),
             SizedBox(
               height: 50,
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        Expanded(
-                          child: RoundedButton(
-                            lable: 'Cancel',
-                            lableColor: Colors.white,
-                            buttonColor: Colors.grey,
-                            onPressed: () {
-                              Navigator.pop(context);
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: RoundedButton(
-                            lable: 'Sign Out',
-                            lableColor: AppColors.cardColor,
-                            buttonColor: AppColors.themeColor,
-                            onPressed: _handleSignOut,
-                          ),
-                        ),
-                      ],
+              child: ValueListenableBuilder<bool>(
+                valueListenable: _isLoading,
+                builder: (context, isLoading, buttons) =>
+                    isLoading ? const Center(child: CircularProgressIndicator()) : buttons!,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Expanded(
+                      child: RoundedButton(
+                        lable: 'Cancel',
+                        lableColor: AppColors.cardColor,
+                        buttonColor: AppColors.authMutedIconColor,
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                      ),
                     ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: RoundedButton(
+                        lable: 'Sign Out',
+                        lableColor: AppColors.cardColor,
+                        buttonColor: AppColors.themeColor,
+                        onPressed: _handleSignOut,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),

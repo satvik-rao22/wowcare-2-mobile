@@ -9,8 +9,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
-import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_or_create_classroom_chat_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/watch_unread_count_for_conversation_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/views/classroom_tab_cards/classroom_students_tab_card.dart';
 import 'package:wowcare/presentation/features/classroom/views/classroom_tab_cards/classroom_staff_tab_card.dart';
@@ -339,9 +339,9 @@ class _ClassroomScreenState extends State<ClassroomScreen>
           // Bail if the selection changed while resolving.
           if (!mounted || (selectedRoom?.code ?? '') != roomCode) return;
           if (code.isNotEmpty) {
-            stream = serviceLocator<ConversationEntityRepository>()
-                .watchUnreadCountForConversation(code)
-                .asBroadcastStream();
+            stream = serviceLocator<WatchUnreadCountForConversationUseCase>()(
+              code,
+            ).asBroadcastStream();
           }
         } catch (_) {
           // No chat yet / transient failure → leave the badge at 0.
@@ -407,7 +407,7 @@ class _ClassroomScreenState extends State<ClassroomScreen>
                           unreadCount.toString(),
                           style: const TextStyle(
                             fontFamily: 'Manrope',
-                            color: Colors.white,
+                            color: AppColors.cardColor,
                             fontSize: 12,
                           ),
                           textAlign: TextAlign.center,
@@ -465,7 +465,7 @@ class _ClassroomScreenState extends State<ClassroomScreen>
             bodyPadding: EdgeInsets.zero,
             floatingActionButton: _buildTabFab(context),
             body: Container(
-              color: Colors.white,
+              color: AppColors.cardColor,
               // Extra bottom padding clears the (extend-body) bottom nav so the
               // tab box's bottom border is visible instead of sitting behind it.
               padding: EdgeInsets.fromLTRB(8, 8, 8, 8 + CustomNavigationBar.navBarHeight),
@@ -647,7 +647,7 @@ class _ClassroomScreenState extends State<ClassroomScreen>
           showModalBottomSheet(
             context: context,
             isScrollControlled: true,
-            backgroundColor: Colors.transparent,
+            backgroundColor: AppColors.transparentColor,
             builder: (context) => DraggableScrollableSheet(
               maxChildSize: 0.95,
               initialChildSize: 0.9,
@@ -675,7 +675,7 @@ class _ClassroomScreenState extends State<ClassroomScreen>
           showModalBottomSheet(
             context: context,
             isScrollControlled: true,
-            backgroundColor: Colors.transparent,
+            backgroundColor: AppColors.transparentColor,
             builder: (context) => DraggableScrollableSheet(
               maxChildSize: 0.95,
               initialChildSize: 0.9,

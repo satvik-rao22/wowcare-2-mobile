@@ -9,7 +9,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/models/logout_request_model.dart';
 import 'package:wowcare/domain/features/notifications/usecases/unregister_device_fcm_token_usecase.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';

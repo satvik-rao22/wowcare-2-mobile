@@ -34,7 +34,7 @@ import '../../data/features/notifications/realtime/notification_realtime_data_so
 import '../../presentation/features/notifications/cubit/notification_badge_cubit.dart';
 import '../../presentation/features/notifications/cubit/notification_center_cubit.dart';
 import '../../presentation/features/notifications/cubit/push_notification_cubit.dart';
-import '../../presentation/features/user-profile/view_model/notification_preference_groups_cubit.dart';
+import '../../presentation/features/user_profile/view_model/notification_preference_groups_cubit.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/auth_interceptor.dart';
 import '../../core/network/network_info.dart';
@@ -81,6 +81,9 @@ import '../../domain/features/auth/usecases/forgot_password_usecase.dart';
 import '../../domain/features/classroom/repositories/classroom_repository.dart';
 import '../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
+import '../../domain/features/classroom/usecases/get_student_classroom_enrolled_count_usecase.dart';
+import '../../domain/features/classroom/usecases/create_classroom_logo_upload_session_usecase.dart';
+import '../../domain/features/classroom/usecases/finalize_classroom_logo_usecase.dart';
 import '../../domain/features/classroom/usecases/get_school_capacity_usecase.dart';
 import '../../domain/features/classroom/usecases/get_classroom_count_usecase.dart';
 import '../../domain/features/classroom/usecases/get_school_fte_usecase.dart';
@@ -88,7 +91,7 @@ import '../../domain/features/onboarding/repositories/onboarding_repository.dart
 import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
 import '../../presentation/features/billing/cubit/parent_billing_cubit.dart';
 import '../../presentation/features/onboarding/view_model/onboarding_cubit.dart';
-import '../../presentation/features/user-profile/view_model/profile_menu_header_cubit.dart';
+import '../../presentation/features/user_profile/view_model/profile_menu_header_cubit.dart';
 import '../../presentation/features/reports/cubit/reports_cubit.dart';
 import '../../data/features/reports/datasources/reports_remote_datasource.dart';
 import '../../data/features/reports/datasources/reports_remote_datasource_impl.dart';
@@ -98,8 +101,8 @@ import '../../domain/features/reports/usecases/generate_report_usecase.dart';
 import '../../domain/features/reports/usecases/get_recent_reports_usecase.dart';
 import '../../domain/features/reports/usecases/get_student_tags_usecase.dart';
 import '../../domain/features/reports/usecases/download_report_usecase.dart';
-import '../../presentation/features/user-profile/view_model/edit_user_profile_cubit.dart';
-import '../../presentation/features/user-profile/view_model/user_profile_cubit.dart';
+import '../../presentation/features/user_profile/view_model/edit_user_profile_cubit.dart';
+import '../../presentation/features/user_profile/view_model/user_profile_cubit.dart';
 import '../../domain/features/staff/repositories/staff_repository.dart';
 import '../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../domain/features/staff/usecases/get_all_staff_usecase.dart';
@@ -164,6 +167,14 @@ import '../../domain/features/staff/usecases/update_staff_address_usecase.dart';
 import '../../domain/features/staff/usecases/update_staff_allowed_classrooms_usecase.dart';
 import '../../domain/features/staff/usecases/update_staff_primary_classroom_usecase.dart';
 import '../../domain/features/staff/usecases/change_user_email_usecase.dart';
+import '../../domain/features/staff/usecases/get_cached_staff_profile_usecase.dart';
+import '../../domain/features/staff/usecases/update_my_staff_profile_usecase.dart';
+import '../../domain/features/auth/usecases/get_user_details_usecase.dart';
+import '../../domain/features/auth/usecases/switch_active_school_persona_usecase.dart';
+import '../../domain/features/user_profile/repositories/user_profile_repository.dart';
+import '../../domain/features/user_profile/usecases/get_guardian_profile_usecase.dart';
+import '../../domain/features/user_profile/usecases/update_guardian_profile_usecase.dart';
+import '../../data/features/user_profile/repositories/user_profile_repository_impl.dart';
 import '../../domain/features/staff/usecases/activate_organization_admin_usecase.dart';
 import '../../domain/features/staff/usecases/deactivate_organization_admin_usecase.dart';
 import '../../domain/features/staff/usecases/activate_school_user_usecase.dart';
@@ -180,6 +191,7 @@ import '../../data/features/student_classroom/datasources/student_classroom_remo
 import '../../data/features/student_classroom/repositories/student_classroom_repository_impl.dart';
 import '../../domain/features/staff_classroom/repositories/staff_classroom_repository.dart';
 import '../../domain/features/staff_classroom/usecases/get_staff_classrooms_usecase.dart';
+import '../../domain/features/staff_classroom/usecases/get_manage_staff_list_usecase.dart';
 import '../../domain/features/staff_classroom/usecases/assign_staff_to_classroom_usecase.dart';
 import '../../data/features/staff_classroom/datasources/staff_classroom_remote_datasource.dart';
 import '../../data/features/staff_classroom/repositories/staff_classroom_repository_impl.dart';
@@ -342,10 +354,16 @@ import '../../domain/features/activity/usecases/get_mark_activity_student_list_u
 import '../../domain/features/activity/usecases/get_nap_start_students_usecase.dart';
 import '../../data/features/activity/datasources/activity_remote_datasource.dart';
 import '../../data/features/activity/repositories/activity_repository_impl.dart';
-import '../../presentation/features/auth/cubit/auth_cubit.dart';
+import '../../presentation/features/auth/view_model/auth_cubit.dart';
+import '../../presentation/features/auth/view_model/change_password_cubit.dart';
+import '../../presentation/features/auth/view_model/forgot_password_cubit.dart';
 import '../../presentation/features/classroom/cubit/classroom_cubit.dart';
 import '../../presentation/features/classroom/cubit/classroom_students_cubit.dart';
 import '../../presentation/features/classroom/cubit/classroom_staff_cubit.dart';
+import '../../presentation/features/classroom/cubit/assign_staff_selection_cubit.dart';
+import '../../presentation/features/classroom/cubit/assign_staff_confirmation_cubit.dart';
+import '../../presentation/features/classroom/cubit/assign_student_selection_cubit.dart';
+import '../../presentation/features/classroom/cubit/assign_student_confirmation_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_document_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_documents_list_cubit.dart';
@@ -446,6 +464,7 @@ import '../../data/features/communication/realtime/firebase_token_data_source.da
 import '../../core/firebase/firebase_auth_service.dart';
 import '../../domain/features/communication/usecases/watch_conversations_usecase.dart';
 import '../../domain/features/communication/usecases/watch_total_unread_count_usecase.dart';
+import '../../domain/features/communication/usecases/watch_unread_count_for_conversation_usecase.dart';
 import '../../domain/features/communication/usecases/watch_messages_usecase.dart';
 import '../../domain/features/communication/usecases/watch_unread_count_for_type_usecase.dart';
 import '../../domain/features/communication/usecases/register_firebase_token_usecase.dart';
@@ -747,6 +766,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<StaffRepository>(
     () => StaffRepositoryImpl(serviceLocator(), serviceLocator()),
   );
+  serviceLocator.registerLazySingleton<UserProfileRepository>(
+    () => UserProfileRepositoryImpl(serviceLocator()),
+  );
   serviceLocator.registerLazySingleton<ClassroomRepository>(
     () => ClassroomRepositoryImpl(
       serviceLocator(),
@@ -905,6 +927,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<ForgotPasswordUseCase>(
     () => ForgotPasswordUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetUserDetailsUseCase>(
+    () => GetUserDetailsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SwitchActiveSchoolPersonaUseCase>(
+    () => SwitchActiveSchoolPersonaUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetOnboardingContent>(
     () => GetOnboardingContent(serviceLocator()),
   );
@@ -980,17 +1008,22 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<EditUserProfileCubit>(
     () => EditUserProfileCubit(
       storageService: serviceLocator(),
-      staffRepository: serviceLocator(),
-      studentRemoteDataSource: serviceLocator(),
+      getStaffProfileUseCase: serviceLocator(),
+      getCachedStaffProfileUseCase: serviceLocator(),
+      updateMyStaffProfileUseCase: serviceLocator(),
+      changeUserEmailUseCase: serviceLocator(),
+      getGuardianProfileUseCase: serviceLocator(),
+      updateGuardianProfileUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<UserProfileCubit>(
     () => UserProfileCubit(
       storageService: serviceLocator(),
-      staffRepository: serviceLocator(),
-      authRemoteDataSource: serviceLocator(),
-      authLocalDataSource: serviceLocator(),
-      studentRemoteDataSource: serviceLocator(),
+      getStaffProfileUseCase: serviceLocator(),
+      getCachedStaffProfileUseCase: serviceLocator(),
+      getUserDetailsUseCase: serviceLocator(),
+      switchActiveSchoolPersonaUseCase: serviceLocator(),
+      getGuardianProfileUseCase: serviceLocator(),
       imageUploadService: serviceLocator(),
       getActiveClassroomsUseCase: serviceLocator(),
     ),
@@ -1023,6 +1056,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetStaffProfileUseCase>(
     () => GetStaffProfileUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetCachedStaffProfileUseCase>(
+    () => GetCachedStaffProfileUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateMyStaffProfileUseCase>(
+    () => UpdateMyStaffProfileUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetGuardianProfileUseCase>(
+    () => GetGuardianProfileUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateGuardianProfileUseCase>(
+    () => UpdateGuardianProfileUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetImportantDatesUseCase>(
     () => GetImportantDatesUseCase(serviceLocator()),
@@ -1074,6 +1119,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetClassroomByCodeUseCase>(
     () => GetClassroomByCodeUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetStudentClassroomEnrolledCountUseCase>(
+    () => GetStudentClassroomEnrolledCountUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateClassroomLogoUploadSessionUseCase>(
+    () => CreateClassroomLogoUploadSessionUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<FinalizeClassroomLogoUseCase>(
+    () => FinalizeClassroomLogoUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetStudentPageUseCase>(
     () => GetStudentPageUseCase(serviceLocator()),
@@ -1802,6 +1856,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStaffClassroomsUseCase>(
     () => GetStaffClassroomsUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetManageStaffListUseCase>(
+    () => GetManageStaffListUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<AssignStaffToClassroomUseCase>(
     () => AssignStaffToClassroomUseCase(serviceLocator()),
   );
@@ -1954,6 +2011,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   // Realtime (Firestore) use cases
   serviceLocator.registerFactory<WatchConversationsUseCase>(
     () => WatchConversationsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<WatchUnreadCountForConversationUseCase>(
+    () => WatchUnreadCountForConversationUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<WatchTotalUnreadCountUseCase>(
     () => WatchTotalUnreadCountUseCase(serviceLocator()),
@@ -2116,8 +2176,16 @@ Future<void> configureDependencies({String? baseUrl}) async {
       registerDeviceFcmToken: serviceLocator(),
       unregisterDeviceFcmToken: serviceLocator(),
       firebaseAuthService: serviceLocator(),
+      storageService: serviceLocator(),
+      staffRepository: serviceLocator(),
+      kioskAccessControl: serviceLocator(),
+      secureCredentialStore: serviceLocator(),
     ),
   );
+  serviceLocator.registerFactory<ForgotPasswordCubit>(
+    () => ForgotPasswordCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ChangePasswordCubit>(ChangePasswordCubit.new);
   serviceLocator.registerFactory<StaffCubit>(
     () => StaffCubit(
       getStaffPageUseCase: serviceLocator(),
@@ -2203,6 +2271,37 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<ClassroomStaffCubit>(
     () => ClassroomStaffCubit(
       getStaffClassroomsUseCase: serviceLocator(),
+      getStaffTodaySignInStatusMapUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<AssignStaffSelectionCubit>(
+    () => AssignStaffSelectionCubit(
+      getActiveClassroomsUseCase: serviceLocator(),
+      getManageStaffListUseCase: serviceLocator(),
+      getStaffTodaySignInStatusMapUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<AssignStaffConfirmationCubit>(
+    () => AssignStaffConfirmationCubit(
+      assignStaffToClassroomUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<AssignStudentSelectionCubit>(
+    () => AssignStudentSelectionCubit(
+      getActiveClassroomsUseCase: serviceLocator(),
+      getStudentPageUseCase: serviceLocator(),
+      getTagNameCodeMapForSchoolUseCase: serviceLocator(),
+      getStudentTodaySignInStatusMapUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<AssignStudentConfirmationCubit>(
+    () => AssignStudentConfirmationCubit(
+      assignStudentsToClassroomUseCase: serviceLocator(),
+      getActiveClassroomsUseCase: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );

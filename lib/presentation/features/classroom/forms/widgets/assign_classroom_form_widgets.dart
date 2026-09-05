@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 /// Shared chrome for [AssignStudentToClassroomForm]/[AssignStaffToClassroomForm]
@@ -66,16 +64,23 @@ class AssignFormSearchBar extends StatelessWidget {
       controller: controller,
       constraints: const BoxConstraints(minHeight: 44),
       hintText: hintText,
-      hintStyle: WidgetStatePropertyAll(
-        TextStyle(fontFamily: 'Manrope', color: Colors.grey[700]),
+      hintStyle: const WidgetStatePropertyAll(
+        TextStyle(
+          fontFamily: 'Manrope',
+          color: AppColors.classroomSearchFieldHintColor,
+        ),
       ),
-      backgroundColor: const WidgetStatePropertyAll<Color>(Colors.white),
-      surfaceTintColor: const WidgetStatePropertyAll<Color>(Colors.white),
+      backgroundColor: const WidgetStatePropertyAll<Color>(
+        AppColors.cardColor,
+      ),
+      surfaceTintColor: const WidgetStatePropertyAll<Color>(
+        AppColors.cardColor,
+      ),
       elevation: const WidgetStatePropertyAll<double>(0),
       side: const WidgetStatePropertyAll(
-        BorderSide(width: 1, color: Color.fromARGB(255, 188, 173, 186)),
+        BorderSide(width: 1, color: AppColors.classroomBorderColor),
       ),
-      leading: const Icon(Icons.search, color: Colors.grey),
+      leading: const Icon(Icons.search, color: AppColors.classroomMutedIconColor),
     );
   }
 }
@@ -140,7 +145,10 @@ class AssignFormResultsArea extends StatelessWidget {
             Text(
               errorMessage!,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontFamily: 'Manrope', color: Colors.red),
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                color: AppColors.classroomNegativeStatusColor,
+              ),
             ),
             const SizedBox(height: 10),
             ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
@@ -166,7 +174,7 @@ class AssignFormEmptySelection extends StatelessWidget {
           message,
           style: const TextStyle(
             fontFamily: 'Manrope',
-            color: Color(0xff573353),
+            color: AppColors.classroomTextColor,
             fontSize: 16,
           ),
         ),
@@ -175,18 +183,17 @@ class AssignFormEmptySelection extends StatelessWidget {
   }
 }
 
-/// Resolves the active school code, runs [submit], and handles the
-/// identical success/error/submitting-flag boilerplate both confirmation
-/// forms wrap their assign use-case call in. [submit] is the entity-specific
-/// use-case call (`AssignStudentsToClassroomUseCase` /
-/// `AssignStaffToClassroomUseCase`), so the type-specific request payload
-/// stays with the caller.
+/// Runs [submit] and handles the identical success/error boilerplate both
+/// confirmation forms wrap their assign-cubit call in. [submit] is the
+/// entity-specific cubit call (`AssignStaffConfirmationCubit.submit` /
+/// `AssignStudentConfirmationCubit.submit`), which already owns resolving
+/// the school code and the submitting-flag state; this helper only turns its
+/// result into UI feedback.
 Future<void> submitClassroomAssignment({
   required BuildContext context,
   required bool isSelectionEmpty,
   required String emptySelectionMessage,
-  required void Function(bool submitting) setSubmitting,
-  required Future<String> Function(String schoolCode) submit,
+  required Future<String> Function() submit,
   required VoidCallback onSuccess,
 }) async {
   if (isSelectionEmpty) {
@@ -198,15 +205,8 @@ Future<void> submitClassroomAssignment({
     return;
   }
 
-  setSubmitting(true);
   try {
-    final storage = serviceLocator<StorageService>();
-    final schoolCode = await storage.getString(StorageKeys.schoolCode);
-    if (schoolCode == null || schoolCode.trim().isEmpty) {
-      throw 'Missing schoolCode. Please sign in / select a school again.';
-    }
-
-    final message = await submit(schoolCode);
+    final message = await submit();
 
     if (!context.mounted) return;
     CoreUtils.showTopSnackBar(
@@ -223,7 +223,5 @@ Future<void> submitClassroomAssignment({
       message: e.toString(),
       isError: true,
     );
-  } finally {
-    if (context.mounted) setSubmitting(false);
   }
 }

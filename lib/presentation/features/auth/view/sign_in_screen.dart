@@ -2,25 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
-import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/core/auth/secure_credential_store.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
-import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
-import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
-import 'package:wowcare/presentation/features/auth/widget/sign_in_form.dart';
+import 'package:wowcare/presentation/features/auth/widgets/sign_in_form.dart';
+import 'package:wowcare/src/app_router.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/rounded_button_new.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -36,7 +30,7 @@ class _SignInScreenState extends State<SignInScreen>
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final formKey = GlobalKey<FormState>();
-  bool rememberMe = false;
+  final ValueNotifier<bool> _rememberMe = ValueNotifier(false);
 
   late final AnimationController _bottomMenuHeightAnimationController =
       AnimationController(
@@ -56,112 +50,32 @@ class _SignInScreenState extends State<SignInScreen>
   void initState() {
     super.initState();
     _bottomMenuHeightAnimationController.forward();
-    // Keep the Sign-In button's enabled state in sync with the fields so it
-    // stays disabled until both email and password have been entered.
-    emailController.addListener(_onCredentialsChanged);
-    passwordController.addListener(_onCredentialsChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadSavedCredentials();
     });
   }
 
-  /// Both fields must be non-empty before the user can submit.
-  bool get _canSubmit =>
-      emailController.text.trim().isNotEmpty &&
-      passwordController.text.trim().isNotEmpty;
-
-  void _onCredentialsChanged() {
-    if (mounted) setState(() {});
-  }
-
-  bool _offeredBiometricPrefill = false;
-
   Future<void> _loadSavedCredentials() async {
-    final localDataSource = serviceLocator<AuthLocalDataSource>();
-    final credentials = await localDataSource.getSavedCredentials();
-    final storage = serviceLocator<StorageService>();
-    final rememberMeValue =
-        await storage.getBool(StorageKeys.rememberMe) ?? false;
-    AppLogger.d(
-      '[RememberMe] load: rememberMe=$rememberMeValue '
-      'savedUser="${credentials['username'] ?? ''}"',
-    );
-
-    if (mounted) {
-      setState(() {
-        emailController.text = credentials['username'] ?? '';
-        rememberMe = rememberMeValue;
-      });
-    }
-
-    // "Remember me" password pre-fill: the password lives only in the secure
-    // store. If the device has a biometric / passcode we prompt for it first;
-    // if it has neither, the password is filled in without a prompt so
-    // "Remember me" still works on unsecured devices.
-    if (rememberMeValue) {
-      await _offerBiometricPrefill();
+    final prefill = await context.read<AuthCubit>().loadSavedCredentials();
+    if (!mounted) return;
+    emailController.text = prefill.username;
+    _rememberMe.value = prefill.rememberMe;
+    if (prefill.password != null) {
+      passwordController.text = prefill.password!;
     }
   }
 
-  Future<void> _offerBiometricPrefill() async {
-    if (_offeredBiometricPrefill) return;
-    _offeredBiometricPrefill = true;
-    try {
-      final secureStore = serviceLocator<SecureCredentialStore>();
-      final has = await secureStore.hasSavedPassword();
-      AppLogger.d('[RememberMe] prefill: hasSavedPassword=$has');
-      if (!has) {
-        AppLogger.d(
-          '[RememberMe] prefill ABORTED — no password in Keychain. It was '
-          'either never saved, or wiped (see freshInstallCheck above).',
-        );
-        return;
-      }
-      final creds = await secureStore.revealWithBiometrics(
-        reason: 'Unlock your saved password to sign in',
-      );
-      AppLogger.d(
-        '[RememberMe] prefill: revealed=${creds != null} '
-        'pwLen=${creds?['password']?.length ?? 0}',
-      );
-      if (creds == null || !mounted) return;
-      setState(() {
-        final user = creds['username'] ?? '';
-        if (user.isNotEmpty) emailController.text = user;
-        passwordController.text = creds['password'] ?? '';
-      });
-    } catch (e) {
-      AppLogger.d('[SignIn] biometric prefill error: $e');
-      // Biometric cancelled/unavailable — user just types the password.
-    }
-  }
-
-  Future<void> _saveCredentials() async {
-    final localDataSource = serviceLocator<AuthLocalDataSource>();
-    final secureStore = serviceLocator<SecureCredentialStore>();
-    final username = emailController.text.trim().toLowerCase();
-    final password = passwordController.text.trim();
-
-    AppLogger.d(
-      '[SignIn] _saveCredentials rememberMe=$rememberMe user="$username" '
-      'pwLen=${password.length}',
+  Future<void> _saveCredentials() {
+    return context.read<AuthCubit>().saveCredentials(
+      username: emailController.text,
+      password: passwordController.text,
+      rememberMe: _rememberMe.value,
     );
-    // Username + rememberMe flag stay in normal storage (non-sensitive).
-    await localDataSource.saveCredentials(username, password, rememberMe);
-
-    // Password goes ONLY into the biometric-gated secure store, and only while
-    // "Remember me" is on. Unchecking it wipes the saved password immediately.
-    if (rememberMe) {
-      await secureStore.save(username: username, password: password);
-    } else {
-      await secureStore.clear();
-    }
   }
 
   Future<void> _navigateToSchoolSelection(BuildContext context) async {
     // Get orgCode from storage (saved when schoolCode was null)
-    final storage = serviceLocator<StorageService>();
-    final orgCode = await storage.getString(StorageKeys.organizationCode);
+    final orgCode = await context.read<AuthCubit>().getSavedOrganizationCode();
 
     if (orgCode != null && orgCode.isNotEmpty) {
       context.go(
@@ -254,10 +168,8 @@ class _SignInScreenState extends State<SignInScreen>
       // Role selection screen is no longer part of the flow.
       context.go(DashboardScreen.routeName);
     } else if (state is AuthError) {
-      // A failed login likely means the saved password is now wrong — wipe it
-      // from the secure store so we never pre-fill stale/incorrect credentials.
-      serviceLocator<SecureCredentialStore>().clear();
-      // Show backend error message using the shared top snackbar
+      // Show backend error message using the shared top snackbar.
+      // (AuthCubit.login already wipes the stale saved password on failure.)
       CoreUtils.showTopSnackBar(
         context: context,
         message: state.message,
@@ -269,8 +181,7 @@ class _SignInScreenState extends State<SignInScreen>
   @override
   void dispose() {
     _bottomMenuHeightAnimationController.dispose();
-    emailController.removeListener(_onCredentialsChanged);
-    passwordController.removeListener(_onCredentialsChanged);
+    _rememberMe.dispose();
     emailController.dispose();
     passwordController.dispose();
     super.dispose();
@@ -291,7 +202,7 @@ class _SignInScreenState extends State<SignInScreen>
               ),
               child: Stack(
                 children: [
-                  _buildLottieAnimation(),
+                  const _LottieAnimation(),
                   _buildBottomMenu(context, state),
                 ],
               ),
@@ -299,22 +210,6 @@ class _SignInScreenState extends State<SignInScreen>
           ),
         );
       },
-    );
-  }
-
-  Widget _buildLottieAnimation() {
-    return Align(
-      alignment: Alignment.topCenter,
-      child: Container(
-        width: MediaQuery.of(context).size.width,
-        margin: EdgeInsets.only(
-          top:
-              MediaQuery.of(context).padding.top +
-              MediaQuery.of(context).size.height * 0.01,
-        ),
-        height: MediaQuery.of(context).size.height * 0.4,
-        child: Lottie.asset(MediaRes.signInLottie),
-      ),
     );
   }
 
@@ -334,7 +229,7 @@ class _SignInScreenState extends State<SignInScreen>
             width: MediaQuery.of(context).size.width,
             height: height,
             decoration: const BoxDecoration(
-              color: Colors.white,
+              color: AppColors.cardColor,
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(30.0),
                 topRight: Radius.circular(30.0),
@@ -357,30 +252,27 @@ class _SignInScreenState extends State<SignInScreen>
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 20),
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          rememberMe = !rememberMe;
-                        });
-                      },
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(width: 2),
-                          CustomCheckbox(
-                            value: rememberMe,
-                            onChanged: (bool? clicked) {
-                              setState(() {
-                                rememberMe = clicked ?? false;
-                              });
-                            },
-                          ),
-                          const SizedBox(width: 4),
-                          const Text(
-                            'Remember me',
-                            style: TextStyle(color: AppColors.themeColor),
-                          ),
-                        ],
+                    child: ValueListenableBuilder<bool>(
+                      valueListenable: _rememberMe,
+                      builder: (context, remember, _) => GestureDetector(
+                        onTap: () => _rememberMe.value = !remember,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(width: 2),
+                            CustomCheckbox(
+                              value: remember,
+                              onChanged: (bool? clicked) {
+                                _rememberMe.value = clicked ?? false;
+                              },
+                            ),
+                            const SizedBox(width: 4),
+                            const Text(
+                              'Remember me',
+                              style: TextStyle(color: AppColors.themeColor),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -400,31 +292,35 @@ class _SignInScreenState extends State<SignInScreen>
                                 shape: BoxShape.circle,
                               ),
                               child: const RefreshProgressIndicator(
-                                color: Colors.white,
+                                color: AppColors.cardColor,
                                 elevation: 0,
-                                backgroundColor: Colors.transparent,
+                                backgroundColor: AppColors.transparentColor,
                                 strokeWidth: 3,
                               ),
                             ),
                           )
-                        : RoundedButtonNew(
+                        : ListenableBuilder(
                             key: const ValueKey('button'),
-                            label: 'Sign-In',
-                            isLoading: isLoading,
-                            enabled: _canSubmit,
-                            onPressed: () => _handleSignIn(context),
-                            gradient: AppColors.buildPrimaryGradient(),
-                            lableColor: Colors.white,
+                            listenable: Listenable.merge([
+                              emailController,
+                              passwordController,
+                            ]),
+                            builder: (context, _) => RoundedButtonNew(
+                              label: 'Sign-In',
+                              isLoading: isLoading,
+                              enabled:
+                                  emailController.text.trim().isNotEmpty &&
+                                  passwordController.text.trim().isNotEmpty,
+                              onPressed: () => _handleSignIn(context),
+                              gradient: AppColors.buildPrimaryGradient(),
+                              lableColor: AppColors.cardColor,
+                            ),
                           ),
                   ),
                   const SizedBox(height: 10),
                   TextButton(
                     onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const ForgotPasswordScreen(),
-                        ),
-                      );
+                      context.push(AppRoutes.forgotPassword);
                     },
                     child: const Text(
                       'Forgot Password?',
@@ -441,50 +337,25 @@ class _SignInScreenState extends State<SignInScreen>
   }
 }
 
-class RoundedButtonNew extends StatelessWidget {
-  final String label;
-  final bool isLoading;
-  final bool enabled;
-  final VoidCallback onPressed;
-  final Gradient gradient;
-  final Color lableColor;
-
-  const RoundedButtonNew({
-    required this.label,
-    required this.isLoading,
-    required this.onPressed,
-    required this.gradient,
-    required this.lableColor,
-    this.enabled = true,
-    super.key,
-  });
+/// The top Lottie animation. A private widget class (not a `_buildXxx()`
+/// method) so it can be `const` — it never rebuilds when [AuthState] changes,
+/// unlike a method called from inside the `BlocConsumer` builder would.
+class _LottieAnimation extends StatelessWidget {
+  const _LottieAnimation();
 
   @override
   Widget build(BuildContext context) {
-    final isInteractive = enabled && !isLoading;
-    return GestureDetector(
-      onTap: isInteractive ? onPressed : null,
-      child: Opacity(
-        opacity: isInteractive ? 1.0 : 0.5,
-        child: Container(
-          width: double.infinity,
-          height: 50,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(25),
-            gradient: gradient,
-          ),
-          alignment: Alignment.center,
-          child: isLoading
-              ? const CircularProgressIndicator(color: Colors.white)
-              : Text(
-                  label,
-                  style: TextStyle(
-                    color: lableColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Container(
+        width: MediaQuery.of(context).size.width,
+        margin: EdgeInsets.only(
+          top:
+              MediaQuery.of(context).padding.top +
+              MediaQuery.of(context).size.height * 0.01,
         ),
+        height: MediaQuery.of(context).size.height * 0.4,
+        child: Lottie.asset(MediaRes.signInLottie),
       ),
     );
   }

@@ -1,7 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/single_child_widget.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_attendance_cubit_v2.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';

@@ -3,13 +3,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/core/extensions/string_ext.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/src/app_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class OrganizationSelectionScreen extends StatefulWidget {
@@ -24,17 +26,16 @@ class OrganizationSelectionScreen extends StatefulWidget {
 
 class _OrganizationSelectionScreenState
     extends State<OrganizationSelectionScreen> {
-  String? _selectedOrgCode;
+  // Local UI selection only (never read outside this screen), so this is a
+  // ValueNotifier rather than cubit state — only the dropdown and the Next
+  // button rebuild on selection, not the whole screen (Mandate 2).
+  final _selectedOrgCode = ValueNotifier<String?>(null);
   bool _hasTriggeredOrgNamesLoad = false;
 
-  String _formatRole(String role) {
-    if (role.isEmpty) return '';
-    final cleaned = role.toLowerCase().replaceAll('_', ' ');
-    return cleaned
-        .split(' ')
-        .map((word) =>
-            word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
-        .join(' ');
+  @override
+  void dispose() {
+    _selectedOrgCode.dispose();
+    super.dispose();
   }
 
   @override
@@ -70,8 +71,8 @@ class _OrganizationSelectionScreenState
         // - If this is the root route (e.g. app opened directly into
         //   Select Organization via login-context), exit the app instead
         //   of leaving a blank screen.
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
+        if (context.canPop()) {
+          context.pop();
         } else {
           SystemNavigator.pop();
         }
@@ -83,7 +84,8 @@ class _OrganizationSelectionScreenState
 
     return PopScope(
       canPop: widget.isSwitchFlow,
-      onPopInvoked: (_) {
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
         if (!widget.isSwitchFlow) onBack();
       },
       child: BlocBuilder<AuthCubit, AuthState>(
@@ -100,7 +102,7 @@ class _OrganizationSelectionScreenState
               : login.email;
           final rawRole =
               login.roles.isNotEmpty ? login.roles.first.role : '';
-          final userRole = _formatRole(rawRole);
+          final userRole = rawRole.toDisplayRole;
 
           // Always use roles for org codes; org names from API (no cache)
           final orgCodes = state.loginResponse.roles
@@ -126,12 +128,9 @@ class _OrganizationSelectionScreenState
             resolvedOrgDisplayItems.add(display);
           }
 
-          final isNextEnabled =
-              _selectedOrgCode != null && resolvedOrgCodes.contains(_selectedOrgCode);
-
           return Scaffold(
             body: Container(
-              color: Colors.white,
+              color: AppColors.cardColor,
               child: SafeArea(
                 child: Column(
                   children: [
@@ -143,7 +142,7 @@ class _OrganizationSelectionScreenState
                         child: IconButton(
                           icon: Icon(
                             Icons.arrow_back,
-                            color: const Color(0xFF333333),
+                            color: AppColors.authPrimaryTextColor,
                             size: screenHeight * 0.03,
                           ),
                           onPressed: onBack,
@@ -176,7 +175,7 @@ class _OrganizationSelectionScreenState
                                   style: TextStyle(
                                     fontSize: screenHeight * 0.03,
                                     fontWeight: FontWeight.w500,
-                                    color: Colors.white,
+                                    color: AppColors.cardColor,
                                   ),
                                 ),
                               ),
@@ -199,20 +198,20 @@ class _OrganizationSelectionScreenState
                                       Text(
                                         userName,
                                         style: TextStyle(
-                                          fontFamily: 'Manrope',
+                                          fontFamily: Fonts.manrope,
                                           fontSize: screenHeight * 0.022,
                                           fontWeight: FontWeight.w600,
-                                          color: const Color(0xFF573353),
+                                          color: AppColors.authAccentTextColor,
                                         ),
                                       ),
                                       SizedBox(height: screenHeight * 0.004),
                                       Text(
                                         userRole,
                                         style: TextStyle(
-                                          fontFamily: 'Manrope',
+                                          fontFamily: Fonts.manrope,
                                           fontSize: screenHeight * 0.016,
                                           fontWeight: FontWeight.w400,
-                                          color: Colors.grey.shade600,
+                                          color: AppColors.authSecondaryTextColor,
                                         ),
                                       ),
                                     ],
@@ -225,11 +224,11 @@ class _OrganizationSelectionScreenState
                                 child: Text(
                                   'Select Organization',
                                   style: TextStyle(
-                                    fontFamily: 'Manrope',
+                                    fontFamily: Fonts.manrope,
                                     fontSize: screenHeight * 0.022,
                                     height: 2 / 6,
                                     fontWeight: FontWeight.w500,
-                                    color: const Color(0xFF333333),
+                                    color: AppColors.authPrimaryTextColor,
                                   ),
                                 ),
                               ),
@@ -239,10 +238,10 @@ class _OrganizationSelectionScreenState
                                 child: Text(
                                   "Choose the organization you want to continue with.",
                                   style: TextStyle(
-                                    fontFamily: 'Manrope',
+                                    fontFamily: Fonts.manrope,
                                     fontSize: screenHeight * 0.016,
                                     fontWeight: FontWeight.w400,
-                                    color: const Color(0xFF333333),
+                                    color: AppColors.authPrimaryTextColor,
                                     height: 22 / 12,
                                   ),
                                   textAlign: TextAlign.left,
@@ -252,64 +251,67 @@ class _OrganizationSelectionScreenState
                               Container(
                                 width: double.infinity,
                                 height: 1,
-                                color: const Color(0xFFFFF3E9),
+                                color: AppColors.authDividerColor,
                               ),
                               SizedBox(height: screenHeight * 0.02),
-                              CustomDropdown(
-                                hintText: resolvedOrgDisplayItems.isNotEmpty
-                                    ? 'Select organization'
-                                    : 'No organizations',
-                                items: resolvedOrgDisplayItems,
-                                selectedItem: () {
-                                  if (_selectedOrgCode == null) return null;
-                                  final index =
-                                      resolvedOrgCodes.indexOf(_selectedOrgCode!);
-                                  if (index != -1 &&
-                                      index < resolvedOrgDisplayItems.length) {
-                                    return resolvedOrgDisplayItems[index];
-                                  }
-                                  return null;
-                                }(),
-                                height: screenHeight * 0.06,
-                                contentPadding: EdgeInsets.symmetric(
-                                  vertical: screenHeight * 0.01,
-                                  horizontal: screenWidth * 0.04,
-                                ),
-                                leadingIcon: SvgPicture.asset(
-                                  MediaRes.homeIcon,
-                                  height: screenHeight * 0.022,
-                                  width: screenHeight * 0.022,
-                                  colorFilter: const ColorFilter.mode(
-                                    Color(0xFF573353),
-                                    BlendMode.srcIn,
+                              ValueListenableBuilder<String?>(
+                                valueListenable: _selectedOrgCode,
+                                builder: (context, selectedOrgCode, _) =>
+                                    CustomDropdown(
+                                  hintText: resolvedOrgDisplayItems.isNotEmpty
+                                      ? 'Select organization'
+                                      : 'No organizations',
+                                  items: resolvedOrgDisplayItems,
+                                  selectedItem: () {
+                                    if (selectedOrgCode == null) return null;
+                                    final index = resolvedOrgCodes
+                                        .indexOf(selectedOrgCode);
+                                    if (index != -1 &&
+                                        index < resolvedOrgDisplayItems.length) {
+                                      return resolvedOrgDisplayItems[index];
+                                    }
+                                    return null;
+                                  }(),
+                                  height: screenHeight * 0.06,
+                                  contentPadding: EdgeInsets.symmetric(
+                                    vertical: screenHeight * 0.01,
+                                    horizontal: screenWidth * 0.04,
                                   ),
-                                ),
-                                selectedTextStyle: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: screenHeight * 0.022,
-                                  fontWeight: FontWeight.w500,
-                                  color: const Color(0xFF333333),
-                                ),
-                                popupItemTextStyle: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: screenHeight * 0.02,
-                                  fontWeight: FontWeight.w400,
-                                  color: const Color(0xFF333333),
-                                ),
-                                onSelect: (value) {
-                                  setState(() {
+                                  leadingIcon: SvgPicture.asset(
+                                    MediaRes.homeIcon,
+                                    height: screenHeight * 0.022,
+                                    width: screenHeight * 0.022,
+                                    colorFilter: const ColorFilter.mode(
+                                      AppColors.authAccentTextColor,
+                                      BlendMode.srcIn,
+                                    ),
+                                  ),
+                                  selectedTextStyle: TextStyle(
+                                    fontFamily: Fonts.manrope,
+                                    fontSize: screenHeight * 0.022,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.authPrimaryTextColor,
+                                  ),
+                                  popupItemTextStyle: TextStyle(
+                                    fontFamily: Fonts.manrope,
+                                    fontSize: screenHeight * 0.02,
+                                    fontWeight: FontWeight.w400,
+                                    color: AppColors.authPrimaryTextColor,
+                                  ),
+                                  onSelect: (value) {
                                     if (value == null) {
-                                      _selectedOrgCode = null;
+                                      _selectedOrgCode.value = null;
                                     } else {
-                                      final index =
-                                          resolvedOrgDisplayItems.indexOf(value);
+                                      final index = resolvedOrgDisplayItems
+                                          .indexOf(value);
                                       if (index != -1 &&
                                           index < resolvedOrgCodes.length) {
-                                        _selectedOrgCode = resolvedOrgCodes[index];
+                                        _selectedOrgCode.value =
+                                            resolvedOrgCodes[index];
                                       }
                                     }
-                                  });
-                                },
+                                  },
+                                ),
                               ),
                               SizedBox(height: screenHeight * 0.02),
                             ],
@@ -319,32 +321,39 @@ class _OrganizationSelectionScreenState
                     ),
                     Padding(
                       padding: EdgeInsets.all(screenWidth * 0.06),
-                      child: CustomButtonLayout(
-                        confirmButtonLabel: 'Next',
-                        showCancelButton: false,
-                        isForm: false,
-                        onPressedConfirm: isNextEnabled
-                            ? () async {
-                                if (_selectedOrgCode == null) return;
-                                final authCubit = context.read<AuthCubit>();
-                                await authCubit.updateLoginContext(
-                                  lastLoginOrganizationCode: _selectedOrgCode!,
-                                  lastLoginSchoolCode: null,
-                                );
-                                if (!context.mounted) return;
-                                // Always pass null so school selection fetches fresh from API
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => SchoolSelectionScreen(
-                                      selectedOrg: _selectedOrgCode!,
-                                      isSwitchFlow: widget.isSwitchFlow,
-                                      schoolsForOrg: null,
-                                      orgFromLoginContext: !widget.isSwitchFlow,
-                                    ),
-                                  ),
-                                );
-                              }
-                            : null,
+                      child: ValueListenableBuilder<String?>(
+                        valueListenable: _selectedOrgCode,
+                        builder: (context, selectedOrgCode, _) {
+                          final isNextEnabled = selectedOrgCode != null &&
+                              resolvedOrgCodes.contains(selectedOrgCode);
+                          return CustomButtonLayout(
+                            confirmButtonLabel: 'Next',
+                            showCancelButton: false,
+                            isForm: false,
+                            onPressedConfirm: isNextEnabled
+                                ? () async {
+                                    final authCubit = context.read<AuthCubit>();
+                                    await authCubit.updateLoginContext(
+                                      lastLoginOrganizationCode: selectedOrgCode,
+                                      lastLoginSchoolCode: null,
+                                    );
+                                    if (!context.mounted) return;
+                                    // Always pass null so school selection
+                                    // fetches fresh from API.
+                                    context.push(
+                                      AppRoutes.schoolSelection,
+                                      extra: {
+                                        'selectedOrg': selectedOrgCode,
+                                        'isSwitchFlow': widget.isSwitchFlow,
+                                        'schoolsForOrg': null,
+                                        'orgFromLoginContext':
+                                            !widget.isSwitchFlow,
+                                      },
+                                    );
+                                  }
+                                : null,
+                          );
+                        },
                       ),
                     ),
                   ],
