@@ -188,6 +188,11 @@ class StudentStrings {
   static const String noSelectedStudentsAreEligibleForTransfer = 'No selected students are eligible for Transfer';
   static const String noSiblings = 'No siblings';
   static const String noStudentsFound = 'No students found';
+  static const String noStudentsMatchYourSearch = 'No students match your search';
+  static const String noStudentsMatchFilters =
+      'No students match the selected filters';
+  static const String noClassroomsAssignedEmpty =
+      'No classrooms are assigned to you. Contact your school administrator to get access.';
   static const String not = 'Not';
   static const String notMarked = 'Not Marked';
   static const String notMarked2 = 'Not-Marked';

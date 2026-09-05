@@ -43,6 +43,7 @@ class StudentState extends Equatable {
     this.attendanceStatusError = false,
     this.classroomNameByDetailApi = const {},
     this.classroomDetailFetchFailed = const {},
+    this.noAccessibleClassrooms = false,
   });
 
   const StudentState.initial()
@@ -79,7 +80,8 @@ class StudentState extends Equatable {
         attendanceStatusLoading = false,
         attendanceStatusError = false,
         classroomNameByDetailApi = const {},
-        classroomDetailFetchFailed = const {};
+        classroomDetailFetchFailed = const {},
+        noAccessibleClassrooms = false;
 
   final List<Student> items;
   final int currentPage;
@@ -152,6 +154,13 @@ class StudentState extends Equatable {
   final Map<String, String> classroomNameByDetailApi;
   final Set<String> classroomDetailFetchFailed;
 
+  /// True only when the empty list is caused by a scoped staff/teacher persona
+  /// having NO accessible classrooms (a scope/permission condition), so the UI
+  /// can show a "no classrooms assigned" message instead of the generic
+  /// "No students found" — an empty result here is not the same as no students
+  /// existing. Reset to false on every normal roster load.
+  final bool noAccessibleClassrooms;
+
   StudentState copyWith({
     List<Student>? items,
     int? currentPage,
@@ -185,6 +194,7 @@ class StudentState extends Equatable {
     bool? attendanceStatusError,
     Map<String, String>? classroomNameByDetailApi,
     Set<String>? classroomDetailFetchFailed,
+    bool? noAccessibleClassrooms,
   }) {
     return StudentState(
       items: items ?? this.items,
@@ -237,6 +247,8 @@ class StudentState extends Equatable {
           classroomNameByDetailApi ?? this.classroomNameByDetailApi,
       classroomDetailFetchFailed:
           classroomDetailFetchFailed ?? this.classroomDetailFetchFailed,
+      noAccessibleClassrooms:
+          noAccessibleClassrooms ?? this.noAccessibleClassrooms,
     );
   }
 
@@ -274,6 +286,7 @@ class StudentState extends Equatable {
         attendanceStatusError,
         classroomNameByDetailApi,
         classroomDetailFetchFailed,
+        noAccessibleClassrooms,
       ];
 }
 

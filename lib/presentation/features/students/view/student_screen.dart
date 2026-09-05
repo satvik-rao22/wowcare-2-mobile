@@ -51,6 +51,7 @@ import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
+import 'package:wowcare/presentation/features/students/view/student_empty_state.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/post_add_student_bottom_sheet.dart';
@@ -1692,9 +1693,11 @@ class _StudentScreenState extends State<StudentScreen> {
                           ),
                         )
                       else if (students.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.all(AppSpacing.xxl),
-                          child: Center(child: Text(StudentStrings.noStudentsFound)),
+                        Padding(
+                          padding: const EdgeInsets.all(AppSpacing.xxl),
+                          child: Center(
+                            child: Text(studentListEmptyMessage(state)),
+                          ),
                         )
                       else
                         ListView.builder(

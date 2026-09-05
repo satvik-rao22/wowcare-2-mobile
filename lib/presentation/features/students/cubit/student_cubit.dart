@@ -216,6 +216,7 @@ class StudentCubit extends Cubit<StudentState> {
           status: StudentListStatus.loaded,
           isFromCache: false,
           errorMessage: null,
+          noAccessibleClassrooms: true,
         ),
       );
       return;
@@ -245,6 +246,7 @@ class StudentCubit extends Cubit<StudentState> {
           hasMore: cached.hasMore,
           status: StudentListStatus.loaded,
           isFromCache: true,
+          noAccessibleClassrooms: false,
         ),
       );
       // We don't return here anymore; we trigger a background refresh
@@ -272,6 +274,7 @@ class StudentCubit extends Cubit<StudentState> {
           status: StudentListStatus.loaded,
           isFromCache: false,
           errorMessage: null,
+          noAccessibleClassrooms: true,
         ),
       );
       return;
@@ -368,6 +371,7 @@ class StudentCubit extends Cubit<StudentState> {
           hasMore: hasMore,
           status: StudentListStatus.loaded,
           isFromCache: false,
+          noAccessibleClassrooms: false,
         ),
       );
     } catch (e) {
@@ -425,6 +429,7 @@ class StudentCubit extends Cubit<StudentState> {
           hasMore: false,
           status: StudentListStatus.loaded,
           errorMessage: null,
+          noAccessibleClassrooms: true,
         ),
       );
       return;
@@ -469,6 +474,7 @@ class StudentCubit extends Cubit<StudentState> {
           currentPage: page.page,
           hasMore: page.hasMore,
           status: StudentListStatus.loaded,
+          noAccessibleClassrooms: false,
         ),
       );
     } catch (e) {
