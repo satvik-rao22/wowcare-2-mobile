@@ -731,37 +731,26 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     if (tagCodes.isEmpty) return;
 
     try {
-      if (_parentHome) {
-        final classroomCodes = _parentStudentClassroomByCode.values
-            .map((c) => c.trim())
-            .where((c) => c.isNotEmpty)
-            .toSet()
-            .toList();
-        for (final cc in classroomCodes) {
-          final students = await _feedScope.getStudentCodesForActivityTagFilter(
-            schoolCode: school,
-            classroomCode: cc,
-            tagCodes: tagCodes,
-          );
-          if (!mounted) return;
-          _studentCodesForTagFilter.addAll(students);
-        }
-        return;
-      }
 
-      final classroomName = _selectdClassroom;
-      if (classroomName == null ||
-          !_classroomCodeByName.containsKey(classroomName)) {
-        return;
+      final classroomCodes = _parentHome
+          ? _parentStudentClassroomByCode.values
+                .map((c) => c.trim())
+                .where((c) => c.isNotEmpty)
+                .toSet()
+                .toList()
+          : _selectedClassroomCodesForFeed();
+      if (classroomCodes.isEmpty) return;
+
+      for (final cc in classroomCodes) {
+        if (cc.trim().isEmpty) continue;
+        final students = await _feedScope.getStudentCodesForActivityTagFilter(
+          schoolCode: school,
+          classroomCode: cc,
+          tagCodes: tagCodes,
+        );
+        if (!mounted) return;
+        _studentCodesForTagFilter.addAll(students);
       }
-      final cc = _classroomCodeByName[classroomName]!;
-      final students = await _feedScope.getStudentCodesForActivityTagFilter(
-        schoolCode: school,
-        classroomCode: cc,
-        tagCodes: tagCodes,
-      );
-      if (!mounted) return;
-      _studentCodesForTagFilter.addAll(students);
     } catch (_) {
       if (mounted) _studentCodesForTagFilter.clear();
     }
@@ -1747,6 +1736,15 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     }
 
     final dateStr = _dateQueryParam(date);
+
+    // Resolve the active tag filter to student codes BEFORE fetching/filtering
+    // below — without this, `_studentCodesForTagFilter` stays permanently
+    // empty for the STAFF persona (only the guardian branch above called this),
+    // so `_withTagFilterOnly`/`_withClientFilters` always filtered every item
+    // out regardless of which tags were selected. Mirrors the Custom tab's
+    // `_loadRangeFeed`, which already awaits this before its own fetch.
+    await _rebuildStudentCodesForTagFilter();
+    if (!mounted) return;
 
     final studentCodes = _selectedStudentCodesForAttendanceFilter();
     final selectedEvent = _selectedAttendanceEventFilter();

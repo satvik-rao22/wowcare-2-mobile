@@ -123,23 +123,32 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
   List<String> _filteredClassroomNames(
     Map<String, String> classroomNameToCode,
   ) {
-    // Determine names of classrooms currently occupied by selected students
-    final codeToName = _codeToNameMap();
-    final currentRoomNames = currentStudents
-        .map((s) {
-          final code = s.classroomCode.trim();
-          final resolved = code.isNotEmpty ? (codeToName[code] ?? '') : '';
-          final fallback = s.roomName.trim();
-          return (resolved.isNotEmpty ? resolved : fallback);
-        })
-        .where((name) => name.isNotEmpty)
-        .toSet();
-
-    // Also exclude the room the user is VIEWING the student in. The student
-    // record above can be stale after a transfer (it still points at their
-    // enrolled room), which is what left the current classroom selectable.
+    // The room the user is VIEWING the student in is authoritative when the
+    // caller supplies one — it reflects where the student actually is right
+    // now, including same-day transfers. The student entity's classroomCode
+    // is their static ENROLLED room and does NOT change on a transfer, so
+    // unioning it in here (as a previous version did) permanently excluded
+    // that classroom as a transfer target even after the student had since
+    // left it — e.g. transfer A -> B, then B -> A was blocked because A kept
+    // getting re-added to the exclusion set from the stale entity field.
+    // Only fall back to deriving from the entity when no viewing room is
+    // known at all (a caller outside the single-classroom tab context).
     final viewing = _viewingClassroomName();
-    if (viewing.isNotEmpty) currentRoomNames.add(viewing);
+    final Set<String> currentRoomNames;
+    if (viewing.isNotEmpty) {
+      currentRoomNames = {viewing};
+    } else {
+      final codeToName = _codeToNameMap();
+      currentRoomNames = currentStudents
+          .map((s) {
+            final code = s.classroomCode.trim();
+            final resolved = code.isNotEmpty ? (codeToName[code] ?? '') : '';
+            final fallback = s.roomName.trim();
+            return (resolved.isNotEmpty ? resolved : fallback);
+          })
+          .where((name) => name.isNotEmpty)
+          .toSet();
+    }
 
     return classroomNameToCode.entries
         .where((entry) => entry.key.trim().isNotEmpty)
