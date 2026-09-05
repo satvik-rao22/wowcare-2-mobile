@@ -74,6 +74,13 @@ class StudentCubit extends Cubit<StudentState> {
   /// of clobbering the current one.
   int _generation = 0;
 
+  /// Set by [_resolveSchoolCode] when it detects the active school changed under
+  /// a live cubit (e.g. an FCM-driven in-place switch). The next roster load
+  /// reads and clears it so School A's rows are dropped from the screen
+  /// immediately — a full loader for School B — instead of lingering as a
+  /// background refresh over the previous school's data.
+  bool _pendingSchoolSwitch = false;
+
   /// Debounce for search-as-you-type. Public so a test can shorten it.
   Duration searchDebounceDelay = const Duration(milliseconds: 300);
   Timer? _searchDebounce;
@@ -132,6 +139,7 @@ class StudentCubit extends Cubit<StudentState> {
       _isScopedStaffPersona = null;
       _allowedClassroomCodes = null;
       _generation++;
+      _pendingSchoolSwitch = true;
     }
     _schoolCode = fresh;
     return fresh;
@@ -280,11 +288,18 @@ class StudentCubit extends Cubit<StudentState> {
       return;
     }
 
+    // On an in-place school switch, drop School A's roster + row selection
+    // immediately so it can't remain on screen under School B (a full loader
+    // for the new school) rather than a background refresh over stale rows.
+    final switchedSchool = _pendingSchoolSwitch;
+    _pendingSchoolSwitch = false;
     emit(
       state.copyWith(
+        items: switchedSchool ? const <Student>[] : state.items,
+        selection: switchedSchool ? const <bool>[] : state.selection,
         // Empty list → full-screen loader; otherwise a background refresh over
         // the existing rows. The concurrency guard above keys on `refreshing`.
-        status: state.items.isEmpty
+        status: (switchedSchool || state.items.isEmpty)
             ? StudentListStatus.loading
             : StudentListStatus.refreshing,
         errorMessage: null,
