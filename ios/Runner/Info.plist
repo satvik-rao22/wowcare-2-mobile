@@ -32,6 +32,14 @@
 	<string>This app needs access to the camera to capture photos.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Face ID is used to unlock your saved password for a quick, secure sign-in.</string>
+	<!-- Recording a video with UIImagePickerController (image_picker's
+	     pickVideo(source: camera), reached from the activity "Record Video"
+	     option) captures audio, so iOS performs a microphone TCC check when the
+	     capture UI is presented. Without this key the system TERMINATES the
+	     process instead of prompting - the app appeared to "crash while
+	     uploading a video" on iPhone. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs access to the microphone to record audio with videos you capture.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>This app needs permission to save photos to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

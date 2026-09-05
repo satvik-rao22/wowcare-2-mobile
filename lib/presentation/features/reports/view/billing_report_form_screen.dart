@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/reports/entities/report_entity.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
+import 'package:wowcare/presentation/features/reports/utils/report_filter_defaults.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -55,6 +57,18 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
   int _fetchId = 0;
   String _folderClassGrouping = 'Daily';
   String _periodType = 'Monthly';
+  final ReportFilterDefault _classroomFilter = ReportFilterDefault();
+  final ReportFilterDefault _studentFilter = ReportFilterDefault();
+
+  /// Only these report types render a classroom / student picker; the others
+  /// (Payment Summary, Outstanding, Refund) have no such filter, so seeding a
+  /// default selection for them would silently change their request payload.
+  bool get _showsClassroomFilter =>
+      widget.reportType == ReportType.billingInvoice ||
+      widget.reportType == ReportType.billingStudentMapping;
+
+  bool get _showsStudentFilter =>
+      widget.reportType == ReportType.billingInvoice;
 
   @override
   void initState() {
@@ -63,11 +77,17 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
     _startDate = DateTime(now.year, now.month, 1);
     _endDate = DateTime(now.year, now.month + 1, 0);
     _periodDate = DateTime(now.year, now.month, 1);
-    _selectedClassrooms = <String>[];
+    // All Classrooms / All Students are selected by default (on the forms
+    // that expose those filters) until the user changes them.
+    _selectedClassrooms = _showsClassroomFilter
+        ? List<String>.from(widget.classrooms)
+        : <String>[];
     _availableStudents = List<String>.from(widget.students);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fetchStudentsForClassrooms(_selectedClassrooms);
-    });
+    if (_showsStudentFilter) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _fetchStudentsForClassrooms(_selectedClassrooms);
+      });
+    }
   }
 
   Future<Map<String, String>> _resolveClassroomNameToCodeMap() async {
@@ -172,9 +192,10 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
       setState(() {
         _studentCodeByName = newStudentCodeByName;
         _availableStudents = sortedNames;
-        _selectedStudents = _selectedStudents
-            .where((s) => newStudentCodeByName.containsKey(s))
-            .toList();
+        _selectedStudents = _studentFilter.resolve(
+          options: sortedNames,
+          current: _selectedStudents,
+        );
         _isLoadingStudents = false;
       });
 
@@ -238,7 +259,9 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
       ..._studentCodeByName,
     };
 
-    final targetStudentNames = _selectedStudents.isEmpty
+    final targetStudentNames = !_showsStudentFilter
+        ? const <String>[]
+        : _selectedStudents.isEmpty
         ? _availableStudents
         : _selectedStudents;
 
@@ -289,6 +312,17 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
     );
   }
 
+  /// The billing endpoints stream the file back labelled `*.xlsx` whatever
+  /// format was asked for, so re-label the generated report with the export
+  /// format the user actually picked — the hub uses that name to save and open
+  /// the file with the right handler.
+  ReportEntity? _withSelectedFormatFileName(dynamic report) {
+    if (report is! ReportEntity) return null;
+    return report.copyWith(
+      fileName: reportFileNameForFormat(report.fileName, _format),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
@@ -328,7 +362,9 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
                   // Navigator.push, so only popping actually dismisses it;
                   // the hub's own .then((success) => tab 0) callback reacts
                   // to the pop(true) result.
-                  final reportToReturn = state.generatedReport;
+                  final reportToReturn = _withSelectedFormatFileName(
+                    state.generatedReport,
+                  );
                   context.read<ReportsCubit>().clearGeneratedReport();
                   Navigator.of(context).pop(reportToReturn ?? true);
                 });
@@ -394,7 +430,9 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
                 items: widget.classrooms,
                 isRequired: true,
                 selectedItems: _selectedClassrooms,
-                onChanged: (s) => setState(() => _selectedClassrooms = s),
+                onChanged: (s) => setState(
+                  () => _selectedClassrooms = _classroomFilter.userSelected(s),
+                ),
                 showSelectAll: true,
               ),
               const ReportDefaultNote(
@@ -476,7 +514,10 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
                 isRequired: true,
                 selectedItems: _selectedClassrooms,
                 onChanged: (s) {
-                  setState(() => _selectedClassrooms = s);
+                  setState(
+                    () =>
+                        _selectedClassrooms = _classroomFilter.userSelected(s),
+                  );
                   _fetchStudentsForClassrooms(s);
                 },
                 showSelectAll: true,
@@ -493,7 +534,9 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
                 items: _availableStudents,
                 isRequired: true,
                 selectedItems: _selectedStudents,
-                onChanged: (s) => setState(() => _selectedStudents = s),
+                onChanged: (s) => setState(
+                  () => _selectedStudents = _studentFilter.userSelected(s),
+                ),
                 itemToString: (item) => item,
                 singularLabel: 'Student',
                 pluralLabel: 'Students',

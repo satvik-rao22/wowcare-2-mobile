@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/reports/entities/report_entity.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -18,6 +19,7 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
+import 'package:wowcare/presentation/features/reports/utils/report_filter_defaults.dart';
 
 import '../widgets/multi_select_filter_field.dart';
 
@@ -222,6 +224,17 @@ class _BillingTransactionReportScreenState
     );
   }
 
+  /// The billing endpoints stream the file back labelled `*.xlsx` whatever
+  /// format was asked for, so re-label the generated report with the export
+  /// format the user actually picked — the hub uses that name to save and open
+  /// the file with the right handler.
+  ReportEntity? _withSelectedFormatFileName(dynamic report) {
+    if (report is! ReportEntity) return null;
+    return report.copyWith(
+      fileName: reportFileNameForFormat(report.fileName, _format),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
@@ -261,10 +274,14 @@ class _BillingTransactionReportScreenState
 
                   // Pop (not context.go) — this screen was pushed via plain
                   // Navigator.push, so only popping actually dismisses it;
-                  // the hub's own .then((success) => tab 0) callback reacts
-                  // to the pop(true) result.
+                  // the hub reacts to the popped result: a ReportEntity makes
+                  // it download and open the generated file, anything else
+                  // just returns to the Generated tab.
+                  final reportToReturn = _withSelectedFormatFileName(
+                    state.generatedReport,
+                  );
                   context.read<ReportsCubit>().clearGeneratedReport();
-                  Navigator.of(context).pop(true);
+                  Navigator.of(context).pop(reportToReturn ?? true);
                 });
               }
             }

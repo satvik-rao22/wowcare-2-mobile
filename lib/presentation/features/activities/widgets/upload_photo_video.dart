@@ -178,8 +178,8 @@ class _MediaUploaderState extends State<MediaUploader> {
   Future<void> _generateVideoThumbnail() async {
     if (_newVideoFile == null) return;
 
-    final tempDir = await getTemporaryDirectory();
     try {
+      final tempDir = await getTemporaryDirectory();
       final thumbnailPath = await VideoThumbnail.thumbnailFile(
         video: _newVideoFile!.path,
         thumbnailPath: tempDir.path,
@@ -329,26 +329,52 @@ class _MediaUploaderState extends State<MediaUploader> {
         !_keepPhotoAndVideoTogether) {
       final replace = await _showReplaceConfirmation('video');
       if (!replace) return;
+      if (!mounted) return;
     }
 
     File? file;
-    if (source == ImageSource.camera) {
-      final XFile? picked = await _picker.pickVideo(
-        source: source,
-        maxDuration: const Duration(seconds: videoMaxDurationSec),
+    // Both pickers can throw a PlatformException (permission denied, an OEM
+    // gallery handing back a broken result, the camera being unavailable).
+    // Letting that escape kills the flow with no feedback at all, which reads
+    // as a freeze/crash to the user - surface it as a warning instead.
+    try {
+      if (source == ImageSource.camera) {
+        final XFile? picked = await _picker.pickVideo(
+          source: source,
+          maxDuration: const Duration(seconds: videoMaxDurationSec),
+        );
+        if (!mounted || picked == null) return;
+        file = File(picked.path);
+      } else {
+        final result = await FilePicker.pickFiles(
+          type: FileType.video,
+          allowMultiple: false,
+        );
+        if (!mounted) return;
+        if (result == null || result.files.isEmpty) return;
+        final path = result.files.single.path;
+        if (path == null || path.trim().isEmpty) return;
+        file = File(path);
+      }
+    } catch (e) {
+      debugPrint('[MediaUploader] _pickVideo: picker failed: $e');
+      _showWarning(
+        source == ImageSource.camera
+            ? 'Could not open the camera. Please try again.'
+            : 'Could not open that video. Please try again.',
       );
-      if (!mounted || picked == null) return;
-      file = File(picked.path);
-    } else {
-      final result = await FilePicker.pickFiles(
-        type: FileType.video,
-        allowMultiple: false,
-      );
-      if (result == null || result.files.isEmpty) return;
-      final path = result.files.single.path;
-      if (path == null || path.trim().isEmpty) return;
-      file = File(path);
+      return;
     }
+
+    // On iOS the picked video is a *copy* in the app's temp directory; if the
+    // system reclaimed it (or the copy-out failed) every later step - length(),
+    // AVPlayer init, thumbnailing - would fail on a missing path.
+    if (!await file.exists()) {
+      if (!mounted) return;
+      _showWarning('Could not read the selected video. Please try again.');
+      return;
+    }
+    if (!mounted) return;
 
     final ext = file.path.split('.').last.toLowerCase();
     if (!_videoExt.contains(ext)) {
