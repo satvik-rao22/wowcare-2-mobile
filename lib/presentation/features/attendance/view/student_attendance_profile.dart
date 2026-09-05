@@ -40,6 +40,7 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
 
 /// Builds the small method-tooltip icon for [AttendanceProfileField]'s
 /// [AttendanceProfileField.methodIcon] slot. Kept local (rather than shared
@@ -454,10 +455,50 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         refreshCallback: refreshData,
       );
     } else if (actionLabel == 'Transfer') {
+      // `entity.classroomCode` above is seeded from the profile header
+      // (`current.roomName`), which reflects the student's static enrolled
+      // classroom rather than where they're actually signed in right now —
+      // it only gets updated by `ensureHeaderIdentityLoaded`'s profile fetch
+      // or the guardian flow's today lookup, not for a staff-opened profile.
+      // Resolve the real current classroom the same way the Student screen's
+      // bulk Transfer action does: today's transfer-form-list, matched by
+      // student code, whose classroomCode reflects any transfer applied so
+      // far today.
+      String? liveClassroomCode;
+      String? liveClassroomName;
+      try {
+        final now = ServerTimeService.instance.now();
+        final today =
+            '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+        final useCase = serviceLocator<GetStudentTransferFormListUseCase>();
+        final page = await useCase(
+          fromAttendanceDate: today,
+          toAttendanceDate: today,
+          page: 0,
+          size: 500,
+        );
+        final activeCode = _profileCubit.state.activeStudentCode.trim();
+        for (final item in page.items) {
+          if (item.studentCode.trim() == activeCode) {
+            liveClassroomCode = item.classroomCode.trim();
+            liveClassroomName = item.classroomName.trim();
+            break;
+          }
+        }
+      } catch (_) {
+        // Fall through to the profile-header classroom below.
+      }
+
       target = student_transfer.StudentTransferForm(
         students: [entity],
         refreshCallback: refreshData,
         classroomNameToCode: classroomMap,
+        currentClassroomCode: (liveClassroomCode ?? '').isNotEmpty
+            ? liveClassroomCode
+            : classroomCode,
+        currentClassroomName: (liveClassroomName ?? '').isNotEmpty
+            ? liveClassroomName
+            : current.roomName,
       );
     } else if (actionLabel == 'Absent') {
       target = student_absent.StudentMarkAbsentForm(

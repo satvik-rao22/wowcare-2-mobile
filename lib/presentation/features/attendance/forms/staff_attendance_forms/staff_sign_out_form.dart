@@ -561,6 +561,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                 itemBuilder: (context, index) => AttendanceRemoveTile(
                   name: _selectedStaff[index].name,
                   photoUuid: _selectedStaff[index].photoUuid ?? '',
+                  staffCode: _selectedStaff[index].staffCode,
                   horizontalPadding: AppSpacing.sm,
                   canRemove: _selectedStaff.length > 1,
                   onRemove: () => _removeStaff(_selectedStaff[index]),

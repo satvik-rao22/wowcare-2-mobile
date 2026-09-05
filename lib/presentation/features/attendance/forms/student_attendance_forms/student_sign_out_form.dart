@@ -520,6 +520,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
               itemBuilder: (context, index) => AttendanceRemoveTile(
                 name: currentStudents[index].fullName,
                 photoUuid: currentStudents[index].photoUuid ?? '',
+                studentCode: currentStudents[index].studentCode,
                 onRemove: () => _removeStudent(currentStudents[index]),
                 horizontalPadding: AppSpacing.sm,
                 deleteIconSize: 18,

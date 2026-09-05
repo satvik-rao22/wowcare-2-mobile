@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_remove_tile.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_transfer_request.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_transfer_submit_cubit.dart';
@@ -69,7 +67,6 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
   String? _schoolIana;
   bool? _isStaffPersona;
   String? selectedClassroom;
-  String currentClassroom = '';
   List<String> availableClassrooms = [];
   List<StudentEntity> currentStudents = [];
   bool _isSubmitting = false;
@@ -87,7 +84,6 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     currentStudents = List.from(widget.students);
     _classroomNameToCode = Map<String, String>.from(widget.classroomNameToCode);
     if (widget.students.isNotEmpty) {
-      currentClassroom = _deriveCurrentClassroomName();
       availableClassrooms = _filteredClassroomNames(_classroomNameToCode);
       _hasTransferTargets = availableClassrooms.isNotEmpty;
     }
@@ -192,8 +188,6 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       if (!mounted || apiMap.isEmpty) return;
       setState(() {
         _classroomNameToCode = apiMap;
-        // Re-derive current classroom once we have a reliable map
-        currentClassroom = _deriveCurrentClassroomName();
         availableClassrooms = _filteredClassroomNames(_classroomNameToCode);
         _hasTransferTargets = availableClassrooms.isNotEmpty;
         if (selectedClassroom != null &&
@@ -216,33 +210,6 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       }
     });
     return map;
-  }
-
-  String _deriveCurrentClassroomName() {
-    // The viewing room wins: after a transfer the student record still points at
-    // their enrolled room, so trusting it would both mislabel this field and
-    // leave the real current room selectable as a destination.
-    final viewing = _viewingClassroomName();
-    if (viewing.isNotEmpty) return viewing;
-    if (currentStudents.isEmpty) return 'N/A';
-    final first = currentStudents.firstWhere(
-      (s) => s.classroomCode.trim().isNotEmpty || s.roomName.trim().isNotEmpty,
-      orElse: () => currentStudents.first,
-    );
-    final code = first.classroomCode.trim();
-    final roomName = first.roomName.trim();
-    // Match daily-view logic: treat API name that equals code / looks like CLS_* as missing label.
-    final apiNameLooksLikeCode =
-        roomName.isNotEmpty &&
-        (roomName == code || roomName.startsWith('CLS_'));
-    if (roomName.isNotEmpty && !apiNameLooksLikeCode) return roomName;
-    if (code.isNotEmpty) {
-      final resolved = _codeToNameMap()[code] ?? '';
-      if (resolved.isNotEmpty) return resolved;
-    }
-    if (roomName.isNotEmpty) return roomName;
-    if (code.isNotEmpty) return code;
-    return 'N/A';
   }
 
   void _removeStudent(StudentEntity student) {
@@ -491,6 +458,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
               itemBuilder: (context, index) => AttendanceRemoveTile(
                 name: currentStudents[index].fullName,
                 photoUuid: currentStudents[index].photoUuid ?? '',
+                studentCode: currentStudents[index].studentCode,
                 onRemove: () => _removeStudent(currentStudents[index]),
               ),
             ),
@@ -561,98 +529,20 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
               ],
             ),
             const SizedBox(height: AppSpacing.lg),
-            // Below: Current classroom and Transfer to classroom
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const AppText.label('Current Classroom'),
-                      const SizedBox(height: AppSpacing.xs),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.xs,
-                                vertical: AppSpacing.s14,
-                              ),
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: AppColors.attendanceBorderLightColor,
-                                ),
-                                borderRadius: AppRadius.allSm,
-                                color: AppColors.fieldBackgroundColor,
-                              ),
-                              child: AppText.value(
-                                currentClassroom,
-                                style: AppTextStyles.value.copyWith(
-                                  color: AppColors.primaryColor.withValues(
-                                    alpha: 0.5,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.lg),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const AppText.label('Transfer to Classroom'),
-                      const SizedBox(height: AppSpacing.xs),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.xs,
-                          vertical: AppSpacing.none,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: AppColors.attendanceBorderLightColor,
-                          ),
-                          borderRadius: AppRadius.allSm,
-                          color: AppColors.fieldBackgroundColor,
-                        ),
-                        child: DropdownButton<String>(
-                          value: selectedClassroom,
-                          hint: Text(
-                            _hasTransferTargets
-                                ? 'Select classroom'
-                                : 'No classroom available',
-                          ),
-                          style: AppTextStyles.attendanceDropdownValue(
-                            color: AppColors.primaryColor.withValues(
-                              alpha: 0.5,
-                            ),
-                          ),
-                          isExpanded: true,
-                          icon: SvgPicture.asset(MediaRes.arrow_drop_down),
-                          underline: Container(),
-                          onChanged: !_hasTransferTargets
-                              ? null
-                              : (String? newValue) {
-                                  setState(() {
-                                    selectedClassroom = newValue!;
-                                  });
-                                },
-                          items: availableClassrooms.map((String classroom) {
-                            return DropdownMenuItem<String>(
-                              value: classroom,
-                              child: Text(classroom),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            const AppText.label('Transfer to Classroom'),
+            const SizedBox(height: AppSpacing.xs),
+            CustomDropdown(
+              hintText: _hasTransferTargets
+                  ? 'Select classroom'
+                  : 'No classroom available',
+              items: availableClassrooms,
+              selectedItem: selectedClassroom,
+              isEnabled: _hasTransferTargets,
+              onSelect: (value) {
+                setState(() {
+                  selectedClassroom = value;
+                });
+              },
             ),
             const SizedBox(height: 80),
           ],
