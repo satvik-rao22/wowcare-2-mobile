@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -244,18 +246,18 @@ class _EditStudentPhysicalExamScreenState
                   ],
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: AppSpacing.s6),
               GestureDetector(
                 onTap: _pickDate,
                 child: Container(
                   decoration: BoxDecoration(
                     color: AppColors.whiteColor,
                     border: Border.all(color: AppColors.inputBorderColor),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: AppRadius.allSm,
                   ),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
+                    horizontal: AppSpacing.sm,
+                    vertical: AppSpacing.sm,
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -282,7 +284,7 @@ class _EditStudentPhysicalExamScreenState
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              AppSpacing.gapVMd,
               CustomDropdown(
                 label: StudentStrings.physicalCheckupStatus,
                 hintText: StudentStrings.selectAnOption,
@@ -294,7 +296,7 @@ class _EditStudentPhysicalExamScreenState
                   fontWeight: FontWeight.w400,
                   color: AppColors.primaryColor,
                 ),
-                labelBottomSpacing: 6,
+                labelBottomSpacing: AppSpacing.s6,
                 onSelect: (val) =>
                     _examCubit.setFormStatus(val ?? state.formStatus),
               ),
@@ -303,9 +305,9 @@ class _EditStudentPhysicalExamScreenState
           bottomBar: Container(
             padding: EdgeInsets.only(
               bottom: bottomSafe,
-              left: 16,
-              right: 16,
-              top: 8,
+              left: AppSpacing.md,
+              right: AppSpacing.md,
+              top: AppSpacing.xs,
             ),
             decoration: const BoxDecoration(
               color: AppColors.whiteColor,

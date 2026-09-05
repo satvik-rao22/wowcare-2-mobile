@@ -5,7 +5,10 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_physical_exam_cubit.dart';
@@ -250,7 +253,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                 },
                               ),
                             ),
-                            const SizedBox(width: 16),
+                            AppSpacing.gapHMd,
                             Expanded(
                               child: _DialogDropdown(
                                 label: StudentStrings.status,
@@ -303,7 +306,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                 setLocalState(() => selectedDate = picked);
                               },
                             ),
-                            const SizedBox(height: 16),
+                            AppSpacing.gapVMd,
                             _DialogDropdown(
                               label: StudentStrings.status,
                               isRequired: true,
@@ -441,7 +444,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
           builder: (context, state) {
             if (state.isLoading && state.exams.isEmpty) {
               return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
                 child: StudentExamCardsShimmer(),
               );
             }
@@ -459,7 +462,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                 });
               }
               return Padding(
-                padding: const EdgeInsets.only(top: 24),
+                padding: const EdgeInsets.only(top: AppSpacing.xl),
                 child: Center(
                   child: Text(
                     msg,
@@ -484,7 +487,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
             }
 
             return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.none,
+                vertical: AppSpacing.md,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -523,7 +529,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                         ],
                                       )
                                     : AppColors.buildPrimaryGradient(),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: AppRadius.allSm,
                               ),
                               alignment: Alignment.center,
                               child: const Icon(
@@ -536,7 +542,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         ),
                       ),
                     ),
-                  const SizedBox(height: 16),
+                  AppSpacing.gapVMd,
                   if (exams.isEmpty)
                     Text(
                       StudentStrings.noPhysicalExamsFound,
@@ -562,7 +568,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                 );
                               },
                       ),
-                      const SizedBox(height: 20),
+                      AppSpacing.gapVLg,
                     ],
                 ],
               ),
@@ -616,17 +622,22 @@ class _PhysicalExamCard extends StatelessWidget {
         decoration: const BoxDecoration(
           color: AppColors.whiteColor,
           borderRadius: BorderRadius.only(
-            topRight: Radius.circular(8),
-            bottomLeft: Radius.circular(8),
-            bottomRight: Radius.circular(8),
+            topRight: Radius.circular(AppRadius.sm),
+            bottomLeft: Radius.circular(AppRadius.sm),
+            bottomRight: Radius.circular(AppRadius.sm),
           ),
           border: Border.fromBorderSide(
-            BorderSide(color: AppColors.themeColor, width: 1),
+            BorderSide(color: AppColors.themeColor, width: AppDimensions.hairline),
           ),
         ),
         clipBehavior: Clip.antiAlias,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.s14,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -644,7 +655,7 @@ class _PhysicalExamCard extends StatelessWidget {
                       onPressed: onMore,
                       icon: const Icon(
                         Icons.more_horiz,
-                        size: 20,
+                        size: AppDimensions.iconSm,
                         color: AppColors.primaryColor,
                       ),
                       visualDensity: VisualDensity.compact,
@@ -657,7 +668,7 @@ class _PhysicalExamCard extends StatelessWidget {
                     const SizedBox(width: 36, height: 36),
                 ],
               ),
-              const SizedBox(height: 20),
+              AppSpacing.gapVLg,
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -699,10 +710,13 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s10,
+        vertical: AppSpacing.xxs,
+      ),
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.allSm,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -754,16 +768,16 @@ class _DialogField extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        AppSpacing.gapVXs,
         InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppRadius.r10),
           child: Container(
             height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
             decoration: BoxDecoration(
               color: AppColors.staffLightBackgroundAltColor,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppRadius.r10),
             ),
             child: Row(
               children: [
@@ -821,13 +835,13 @@ class _DialogDropdown extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        AppSpacing.gapVXs,
         Container(
           height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
           decoration: BoxDecoration(
             color: AppColors.staffLightBackgroundAltColor,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppRadius.r10),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(

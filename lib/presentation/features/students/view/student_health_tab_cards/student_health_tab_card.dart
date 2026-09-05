@@ -3,6 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/domain/features/student/entities/student_health_update_request.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_health_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
@@ -84,7 +87,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
           builder: (context, state) {
             if (state.healthLoading && state.health == null) {
               return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
                 child: StudentHealthCardShimmer(),
               );
             }
@@ -110,7 +113,10 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
             final health = state.health;
 
             return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.none,
+                vertical: AppSpacing.md,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -141,7 +147,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                             height: 38,
                             decoration: BoxDecoration(
                               gradient: AppColors.buildPrimaryGradient(),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: AppRadius.allSm,
                             ),
                             alignment: Alignment.center,
                             child: const Icon(
@@ -153,7 +159,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                         ],
                       ),
                     ),
-                  const SizedBox(height: 16),
+                  AppSpacing.gapVMd,
                   _HealthCard(
                     allergies: health?.allergy,
                     medication: health?.medications,
@@ -234,12 +240,12 @@ class _HealthCard extends StatelessWidget {
         decoration: const BoxDecoration(
           color: AppColors.whiteColor,
           borderRadius: BorderRadius.only(
-            topRight: Radius.circular(8),
-            bottomLeft: Radius.circular(8),
-            bottomRight: Radius.circular(8),
+            topRight: Radius.circular(AppRadius.sm),
+            bottomLeft: Radius.circular(AppRadius.sm),
+            bottomRight: Radius.circular(AppRadius.sm),
           ),
           border: Border.fromBorderSide(
-            BorderSide(color: AppColors.themeColor, width: 1),
+            BorderSide(color: AppColors.themeColor, width: AppDimensions.hairline),
           ),
         ),
         clipBehavior: Clip.antiAlias,
@@ -247,7 +253,12 @@ class _HealthCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -272,7 +283,7 @@ class _HealthCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.s10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -294,7 +305,7 @@ class _HealthCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.s10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -316,7 +327,7 @@ class _HealthCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.s10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,

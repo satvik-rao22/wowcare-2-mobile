@@ -6,7 +6,10 @@ import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/domain/features/student/entities/student_important_dates.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_important_dates_usecase.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_important_dates_screen.dart';
@@ -153,7 +156,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
             removeRight: true,
             child: Center(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 child: Text(
                   StudentStrings.studentCodeIsRequiredToLoadImportantDates,
                   textAlign: TextAlign.center,
@@ -204,18 +207,18 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
               controller: widget.scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
-                padding: const EdgeInsets.all(8),
+                margin: const EdgeInsets.symmetric(horizontal: AppSpacing.none, vertical: AppSpacing.md),
+                padding: const EdgeInsets.all(AppSpacing.xs),
                 // Match the Family/Pickup cards: themeColor outline, square top-left.
                 decoration: const BoxDecoration(
                   color: AppColors.whiteColor,
                   borderRadius: BorderRadius.only(
-                    topRight: Radius.circular(8),
-                    bottomLeft: Radius.circular(8),
-                    bottomRight: Radius.circular(8),
+                    topRight: Radius.circular(AppRadius.sm),
+                    bottomLeft: Radius.circular(AppRadius.sm),
+                    bottomRight: Radius.circular(AppRadius.sm),
                   ),
                   border: Border.fromBorderSide(
-                    BorderSide(color: AppColors.themeColor, width: 1),
+                    BorderSide(color: AppColors.themeColor, width: AppDimensions.hairline),
                   ),
                 ),
                 child: Column(
@@ -233,7 +236,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                               height: 38,
                               decoration: BoxDecoration(
                                 gradient: AppColors.buildPrimaryGradient(),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: AppRadius.allSm,
                               ),
                               alignment: Alignment.center,
                               child: const Icon(
@@ -245,12 +248,12 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                           ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    AppSpacing.gapVMd,
                     if (_isLoading)
                       const StudentImportantDatesShimmer()
                     else if (_errorMessage != null)
                       Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(AppSpacing.md),
                         child: Text(
                           _errorMessage!,
                           style: const TextStyle(
@@ -261,7 +264,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                       )
                     else
                       ...List.generate(entries.length * 2 - 1, (i) {
-                        if (i.isOdd) return const SizedBox(height: 16);
+                        if (i.isOdd) return AppSpacing.gapVMd;
                         final idx = i ~/ 2;
                         final e = entries[idx];
                         return _DateRow(label: e.key, text: e.value);
@@ -305,7 +308,7 @@ class _DateRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        const SizedBox(width: 12),
+        AppSpacing.gapHSm,
         Expanded(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,

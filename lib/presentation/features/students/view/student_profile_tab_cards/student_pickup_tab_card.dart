@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -78,11 +81,16 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
         physics: const AlwaysScrollableScrollPhysics(),
         child: Padding(
           // Space between the tab bar and the heading/+ row.
-          padding: const EdgeInsets.fromLTRB(0, 16, 0, 16),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.none,
+            AppSpacing.md,
+            AppSpacing.none,
+            AppSpacing.md,
+          ),
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 0),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.none),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -120,14 +128,14 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                         },
                         wantedButtonSize: 40,
                         iconSize: 22,
-                        borderRadius: 10,
+                        borderRadius: AppRadius.r10,
                       )
                     else
                       const SizedBox.shrink(),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              AppSpacing.gapVMd,
               BlocBuilder<StudentPickupCubit, StudentPickupState>(
                 bloc: _pickupCubit,
                 builder: (context, state) {
@@ -137,7 +145,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
 
                   if (state.errorMessage != null && state.pickups.isEmpty) {
                     return Padding(
-                      padding: const EdgeInsets.only(top: 16),
+                      padding: const EdgeInsets.only(top: AppSpacing.md),
                       child: Text(
                         StudentStrings.failedToLoadPickups,
                         style: AppTextStyles.value.copyWith(
@@ -151,7 +159,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                   final pickups = state.pickups;
                   if (pickups.isEmpty) {
                     return Padding(
-                      padding: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.only(top: AppSpacing.xs),
                       child: Text(
                         StudentStrings.noPickupsFound,
                         style: AppTextStyles.value.copyWith(fontSize: 14),
@@ -188,7 +196,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                           onSetLoading: (v) => setState(() => _isMutating = v),
                           showActionButtons: canStudentWrite,
                         ),
-                        if (i != pickups.length - 1) const SizedBox(height: 12),
+                        if (i != pickups.length - 1) AppSpacing.gapVSm,
                       ],
                     ],
                   );
@@ -376,12 +384,12 @@ class _PickupCardState extends State<_PickupCard> {
             decoration: const BoxDecoration(
               color: AppColors.whiteColor,
               borderRadius: BorderRadius.only(
-                topRight: Radius.circular(8),
-                bottomLeft: Radius.circular(8),
-                bottomRight: Radius.circular(8),
+                topRight: Radius.circular(AppRadius.sm),
+                bottomLeft: Radius.circular(AppRadius.sm),
+                bottomRight: Radius.circular(AppRadius.sm),
               ),
               border: Border.fromBorderSide(
-                BorderSide(color: AppColors.themeColor, width: 1),
+                BorderSide(color: AppColors.themeColor, width: AppDimensions.hairline),
               ),
             ),
             clipBehavior: Clip.antiAlias,
@@ -428,7 +436,12 @@ class _PickupCardState extends State<_PickupCard> {
                   color: AppColors.dividerColor,
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.md,
+                    AppSpacing.md,
+                    AppSpacing.none,
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -452,7 +465,7 @@ class _PickupCardState extends State<_PickupCard> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: AppSpacing.s10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.center,
@@ -473,7 +486,7 @@ class _PickupCardState extends State<_PickupCard> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: AppSpacing.s10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.center,
@@ -502,7 +515,7 @@ class _PickupCardState extends State<_PickupCard> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: AppSpacing.s10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.center,
@@ -523,7 +536,7 @@ class _PickupCardState extends State<_PickupCard> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
+                      AppSpacing.gapVLg,
                       if (widget.showActionButtons) ...[
                         if (isCarpool)
                           CustomButtonLayout(
@@ -546,7 +559,7 @@ class _PickupCardState extends State<_PickupCard> {
                             isForm: false,
                             isLoading: widget.isLoading,
                           ),
-                        const SizedBox(height: 12),
+                        AppSpacing.gapVSm,
                       ],
                     ],
                   ),

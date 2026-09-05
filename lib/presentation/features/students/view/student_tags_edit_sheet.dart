@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -144,7 +145,12 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
         padding: EdgeInsets.only(bottom: bottomInset),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.md,
+          ),
           decoration: const BoxDecoration(
             color: AppColors.whiteColor,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -176,10 +182,10 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                AppSpacing.gapVXs,
                 if (state.isLoading)
                   const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
+                    padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
                     child: Center(child: PrimaryCircularLoader()),
                   )
                 else ...[
@@ -192,7 +198,7 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
                     enableSearch: true,
                     onChanged: (tags) => _tagsCubit.setSelectedTags(tags),
                   ),
-                  const SizedBox(height: 20),
+                  AppSpacing.gapVLg,
                   CustomButtonLayout(
                     confirmButtonLabel: StudentStrings.save,
                     cancelButtonLabel: StudentStrings.cancel,

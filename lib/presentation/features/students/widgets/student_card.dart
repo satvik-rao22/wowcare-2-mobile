@@ -6,6 +6,9 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
@@ -203,8 +206,11 @@ class _StudentCardState extends State<StudentCard> {
             height: isExpanded ? null : 64.0,
             decoration: BoxDecoration(
               color: AppColors.whiteColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.cardBorderColor, width: 1),
+              borderRadius: AppRadius.allMd,
+              border: Border.all(
+                color: AppColors.cardBorderColor,
+                width: AppDimensions.hairline,
+              ),
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
@@ -220,7 +226,7 @@ class _StudentCardState extends State<StudentCard> {
                     Container(
                       height: 60,
                       padding: EdgeInsets.symmetric(
-                        horizontal: isTablet ? 24 : 16,
+                        horizontal: isTablet ? AppSpacing.xl : AppSpacing.md,
                       ),
                       alignment: Alignment.center,
                       child: Row(
@@ -265,7 +271,7 @@ class _StudentCardState extends State<StudentCard> {
                                 ),
                             ],
                           ),
-                          SizedBox(width: isTablet ? 16 : 9),
+                          SizedBox(width: isTablet ? AppSpacing.md : 9),
                           Expanded(
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -283,7 +289,7 @@ class _StudentCardState extends State<StudentCard> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                AppSpacing.gapHXs,
                                 Flexible(
                                   child: Text(
                                     widget.classroom,
@@ -307,13 +313,18 @@ class _StudentCardState extends State<StudentCard> {
                     if (isExpanded) ...[
                       const Divider(
                         height: 1,
-                        thickness: 1,
-                        indent: 16,
-                        endIndent: 16,
+                        thickness: AppDimensions.hairline,
+                        indent: AppSpacing.md,
+                        endIndent: AppSpacing.md,
                         color: AppColors.attendanceCardDividerColor,
                       ),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          AppSpacing.md,
+                          AppSpacing.md,
+                          AppSpacing.md,
+                        ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -323,24 +334,24 @@ class _StudentCardState extends State<StudentCard> {
                                   StudentStrings.tags,
                                   style: AppTextStyles.label,
                                 ),
-                                const SizedBox(width: 8),
+                                AppSpacing.gapHXs,
                                 Expanded(
                                   child: Align(
                                     alignment: Alignment.centerRight,
                                     child: Wrap(
-                                      spacing: 4,
-                                      runSpacing: 4,
+                                      spacing: AppSpacing.xxs,
+                                      runSpacing: AppSpacing.xxs,
                                       children: [
                                         if (tags.isNotEmpty)
                                           Container(
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 4,
+                                              horizontal: AppSpacing.s10,
+                                              vertical: AppSpacing.xxs,
                                             ),
                                             decoration: BoxDecoration(
                                               color: AppColors.staffBadgeActiveBg,
                                               borderRadius:
-                                                  BorderRadius.circular(8),
+                                                  AppRadius.allSm,
                                             ),
                                             child: Text(
                                               tags[0],
@@ -355,13 +366,13 @@ class _StudentCardState extends State<StudentCard> {
                                         if (tags.length > 1)
                                           Container(
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 4,
+                                              horizontal: AppSpacing.s10,
+                                              vertical: AppSpacing.xxs,
                                             ),
                                             decoration: BoxDecoration(
                                               color: AppColors.classroomStaffTabColor,
                                               borderRadius:
-                                                  BorderRadius.circular(8),
+                                                  AppRadius.allSm,
                                             ),
                                             child: Text(
                                               tags[1],
@@ -379,13 +390,13 @@ class _StudentCardState extends State<StudentCard> {
                                             child: Container(
                                               padding:
                                                   const EdgeInsets.symmetric(
-                                                    horizontal: 10,
-                                                    vertical: 4,
+                                                    horizontal: AppSpacing.s10,
+                                                    vertical: AppSpacing.xxs,
                                                   ),
                                               decoration: BoxDecoration(
                                                 color: AppColors.classroomNotesTabColor,
                                                 borderRadius:
-                                                    BorderRadius.circular(8),
+                                                    AppRadius.allSm,
                                               ),
                                               child: Text(
                                                 '+${tags.length - 2}',
@@ -405,7 +416,7 @@ class _StudentCardState extends State<StudentCard> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: AppSpacing.s10),
                             Align(
                               alignment: Alignment.centerLeft,
                               child: Column(
@@ -415,10 +426,10 @@ class _StudentCardState extends State<StudentCard> {
                                     StudentStrings.schedule,
                                     style: AppTextStyles.label,
                                   ),
-                                  const SizedBox(height: 4),
+                                  AppSpacing.gapVXxs,
                                   Wrap(
-                                    spacing: 4,
-                                    runSpacing: 4,
+                                    spacing: AppSpacing.xxs,
+                                    runSpacing: AppSpacing.xxs,
                                     alignment: WrapAlignment.start,
                                     children: [
                                       ...(() {
@@ -452,16 +463,14 @@ class _StudentCardState extends State<StudentCard> {
                                         final isActive = hasDayInList || hasDayInMap;
                                         final dayChip = Container(
                                           padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 4,
+                                            horizontal: AppSpacing.s10,
+                                            vertical: AppSpacing.xxs,
                                           ),
                                           decoration: BoxDecoration(
                                             color: isActive
                                                 ? AppColors.staffBadgeActiveBg
                                                 : AppColors.staffBadgeInactiveBg,
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
+                                            borderRadius: AppRadius.allSm,
                                           ),
                                           child: Text(
                                             day,
@@ -501,7 +510,7 @@ class _StudentCardState extends State<StudentCard> {
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: AppSpacing.s10),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               crossAxisAlignment: CrossAxisAlignment.center,
@@ -516,7 +525,7 @@ class _StudentCardState extends State<StudentCard> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: AppSpacing.s10),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               crossAxisAlignment: CrossAxisAlignment.center,
@@ -532,12 +541,12 @@ class _StudentCardState extends State<StudentCard> {
                               ],
                             ),
                             if (canStudentWrite) ...[
-                              const SizedBox(height: 20),
+                              AppSpacing.gapVLg,
                               Row(
                                 children: [
                                 Expanded(
                                   child: SizedBox(
-                                    height: 40,
+                                    height: AppSpacing.xxxl,
                                     child: OutlinedButton(
                                       onPressed: () {
                                         showModalBottomSheet(
@@ -566,9 +575,7 @@ class _StudentCardState extends State<StudentCard> {
                                           color: AppColors.attendanceActionAccentColor,
                                         ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
+                                          borderRadius: AppRadius.allSm,
                                         ),
                                         padding: EdgeInsets.zero,
                                       ),
@@ -588,10 +595,10 @@ class _StudentCardState extends State<StudentCard> {
                                   ),
                                 ),
                                 if (!showActiveActions) ...[
-                                  const SizedBox(width: 16),
+                                  AppSpacing.gapHMd,
                                   Expanded(
                                     child: SizedBox(
-                                      height: 40,
+                                      height: AppSpacing.xxxl,
                                       child: OutlinedButton(
                                         onPressed: () {
                                           showModalBottomSheet(
@@ -618,7 +625,7 @@ class _StudentCardState extends State<StudentCard> {
                                             color: AppColors.attendanceActionAccentColor,
                                           ),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius: AppRadius.allSm,
                                           ),
                                           padding: EdgeInsets.zero,
                                         ),
@@ -636,12 +643,12 @@ class _StudentCardState extends State<StudentCard> {
                                     ),
                                   ),
                                 ],
-                                const SizedBox(width: 16),
+                                AppSpacing.gapHMd,
                                 Expanded(
                                   child: Container(
                                     height: 40,
                                     decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius: AppRadius.allSm,
                                       gradient:
                                           AppColors.buildPrimaryGradient(),
                                     ),

@@ -6,6 +6,7 @@ import 'package:wowcare/presentation/features/students/view/student_form_formatt
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -190,7 +191,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
             ),
             Column(
               children: [
-                const SizedBox(height: 16),
+                AppSpacing.gapVMd,
                 Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: responsive.horizontalSpacing,
@@ -288,7 +289,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                AppSpacing.gapVSm,
               ],
             ),
           ],
@@ -296,9 +297,9 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
         bottomNavigationBar: Container(
           padding: EdgeInsets.only(
             bottom: safeAreaBottom,
-            left: 16,
-            right: 16,
-            top: 8,
+            left: AppSpacing.md,
+            right: AppSpacing.md,
+            top: AppSpacing.xs,
           ),
           decoration: BoxDecoration(
             color: AppColors.whiteColor,

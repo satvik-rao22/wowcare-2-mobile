@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -262,11 +265,16 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
         physics: const AlwaysScrollableScrollPhysics(),
         child: Padding(
           // Space between the tab bar and the heading/+ row.
-          padding: const EdgeInsets.fromLTRB(0, 16, 0, 16),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.none,
+            AppSpacing.md,
+            AppSpacing.none,
+            AppSpacing.md,
+          ),
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 0),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.none),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -290,7 +298,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              AppSpacing.gapVMd,
               BlocBuilder<StudentGuardianCubit, StudentGuardianState>(
                 bloc: _guardianCubit,
                 builder: (context, state) {
@@ -300,7 +308,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
 
                   if (state.errorMessage != null && state.guardians.isEmpty) {
                     return Padding(
-                      padding: const EdgeInsets.only(top: 16),
+                      padding: const EdgeInsets.only(top: AppSpacing.md),
                       child: Text(
                         StudentStrings.failedToLoadParents,
                         style: AppTextStyles.value.copyWith(
@@ -314,7 +322,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                   final data = state.guardians;
                   if (data.isEmpty) {
                     return Padding(
-                      padding: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.only(top: AppSpacing.xs),
                       child: Text(
                         StudentStrings.noParentsAddedYet,
                         style: AppTextStyles.value.copyWith(fontSize: 14),
@@ -338,7 +346,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                           onEdit: () => _onEditParent(data[i]),
                           onDelete: () => _onDeleteParent(data[i]),
                         ),
-                        if (i != data.length - 1) const SizedBox(height: 12),
+                        if (i != data.length - 1) AppSpacing.gapVSm,
                       ],
                     ],
                   );
@@ -391,12 +399,12 @@ class _FamilyCard extends StatelessWidget {
         decoration: const BoxDecoration(
           color: AppColors.whiteColor,
           borderRadius: BorderRadius.only(
-            topRight: Radius.circular(8),
-            bottomLeft: Radius.circular(8),
-            bottomRight: Radius.circular(8),
+            topRight: Radius.circular(AppRadius.sm),
+            bottomLeft: Radius.circular(AppRadius.sm),
+            bottomRight: Radius.circular(AppRadius.sm),
           ),
           border: Border.fromBorderSide(
-            BorderSide(color: AppColors.themeColor, width: 1),
+            BorderSide(color: AppColors.themeColor, width: AppDimensions.hairline),
           ),
         ),
         clipBehavior: Clip.antiAlias,
@@ -404,7 +412,9 @@ class _FamilyCard extends StatelessWidget {
           children: [
             Container(
               height: 60,
-              padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16),
+              padding: EdgeInsets.symmetric(
+                horizontal: isTablet ? AppSpacing.xl : AppSpacing.md,
+              ),
               alignment: Alignment.center,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.start,
@@ -421,7 +431,7 @@ class _FamilyCard extends StatelessWidget {
                     name: name,
                     size: 45,
                   ),
-                  SizedBox(width: isTablet ? 16 : 9),
+                  SizedBox(width: isTablet ? AppSpacing.md : 9),
                   Flexible(
                     child: Text(
                       name,
@@ -436,13 +446,18 @@ class _FamilyCard extends StatelessWidget {
             ),
             Divider(
               height: 1,
-              thickness: 1,
-              indent: 16,
-              endIndent: 16,
+              thickness: AppDimensions.hairline,
+              indent: AppSpacing.md,
+              endIndent: AppSpacing.md,
               color: AppColors.dividerColor,
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.none,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -460,7 +475,7 @@ class _FamilyCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.s10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -475,7 +490,7 @@ class _FamilyCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.s10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -490,7 +505,7 @@ class _FamilyCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.s10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -505,7 +520,7 @@ class _FamilyCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  AppSpacing.gapVLg,
                   if (showActionButtons)
                     CustomButtonLayout(
                       confirmButtonLabel: StudentStrings.edit,
@@ -515,7 +530,7 @@ class _FamilyCard extends StatelessWidget {
                       isForm: false,
                       isLoading: isLoading,
                     ),
-                  if (showActionButtons) const SizedBox(height: 12),
+                  if (showActionButtons) AppSpacing.gapVSm,
                 ],
               ),
             ),

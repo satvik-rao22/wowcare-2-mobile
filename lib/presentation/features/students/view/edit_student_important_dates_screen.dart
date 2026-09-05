@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -144,7 +145,7 @@ class _EditStudentImportantDatesScreenState
                                     fieldName: 'enroll',
                                   ),
                                 ),
-                                const SizedBox(width: 16),
+                                AppSpacing.gapHMd,
                                 Expanded(
                                   child: _buildDateField(
                                     label: StudentStrings.schoolStartDate,
@@ -177,9 +178,9 @@ class _EditStudentImportantDatesScreenState
                       bottomBar: Container(
                         padding: EdgeInsets.only(
                           bottom: safeAreaBottom,
-                          left: 16,
-                          right: 16,
-                          top: 8,
+                          left: AppSpacing.md,
+                          right: AppSpacing.md,
+                          top: AppSpacing.xs,
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.whiteColor,

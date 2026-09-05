@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
@@ -949,7 +950,7 @@ class _EditStudentProfileDetailsScreenState
             ),
             Column(
               children: [
-                const SizedBox(height: 16),
+                AppSpacing.gapVMd,
                 Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: responsive.horizontalSpacing,
@@ -1004,7 +1005,7 @@ class _EditStudentProfileDetailsScreenState
                               size: 40,
                               fontSize: 14,
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: AppSpacing.s10),
                             Expanded(
                               child: Text(
                                 '${widget.initialFirstName ?? ''} ${widget.initialLastName ?? ''}'
@@ -1203,7 +1204,7 @@ class _EditStudentProfileDetailsScreenState
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                AppSpacing.gapVSm,
               ],
             ),
           ],
@@ -1211,9 +1212,9 @@ class _EditStudentProfileDetailsScreenState
         bottomNavigationBar: Container(
           padding: EdgeInsets.only(
             bottom: safeAreaBottom,
-            left: 16,
-            right: 16,
-            top: 8,
+            left: AppSpacing.md,
+            right: AppSpacing.md,
+            top: AppSpacing.xs,
           ),
           decoration: BoxDecoration(
             color: AppColors.whiteColor,
@@ -1414,7 +1415,7 @@ class _EditStudentProfileDetailsScreenState
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  AppSpacing.gapHXxs,
                   SvgPicture.asset(
                     MediaRes.calender_icon,
                     height: 20.0,

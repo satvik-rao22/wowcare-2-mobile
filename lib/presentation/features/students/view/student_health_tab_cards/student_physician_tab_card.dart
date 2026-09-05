@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -86,11 +89,14 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.none,
+            vertical: AppSpacing.md,
+          ),
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 0),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.none),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -107,14 +113,14 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                         onTap: _onAddPhysician,
                         wantedButtonSize: 40,
                         iconSize: 22,
-                        borderRadius: 10,
+                        borderRadius: AppRadius.r10,
                       )
                     else
                       const SizedBox.shrink(),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              AppSpacing.gapVMd,
               BlocBuilder<StudentPhysicianCubit, StudentPhysicianState>(
                 bloc: _physicianCubit,
                 builder: (context, state) {
@@ -124,7 +130,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
 
                   if (state.errorMessage != null && state.physicians.isEmpty) {
                     return Padding(
-                      padding: const EdgeInsets.only(top: 16),
+                      padding: const EdgeInsets.only(top: AppSpacing.md),
                       child: Text(
                         StudentStrings.failedToLoadPhysicians,
                         style: AppTextStyles.value.copyWith(
@@ -138,7 +144,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                   final physicians = state.physicians;
                   if (physicians.isEmpty) {
                     return Padding(
-                      padding: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.only(top: AppSpacing.xs),
                       child: Text(
                         StudentStrings.noPhysiciansAddedYet,
                         style: AppTextStyles.value.copyWith(fontSize: 14),
@@ -166,8 +172,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                           showActionButtons: canStudentWrite,
                           physicianCubit: _physicianCubit,
                         ),
-                        if (i != physicians.length - 1)
-                          const SizedBox(height: 12),
+                        if (i != physicians.length - 1) AppSpacing.gapVSm,
                       ],
                     ],
                   );
@@ -236,12 +241,12 @@ class _PhysicianCard extends StatelessWidget {
         decoration: const BoxDecoration(
           color: AppColors.whiteColor,
           borderRadius: BorderRadius.only(
-            topRight: Radius.circular(8),
-            bottomLeft: Radius.circular(8),
-            bottomRight: Radius.circular(8),
+            topRight: Radius.circular(AppRadius.sm),
+            bottomLeft: Radius.circular(AppRadius.sm),
+            bottomRight: Radius.circular(AppRadius.sm),
           ),
           border: Border.fromBorderSide(
-            BorderSide(color: AppColors.themeColor, width: 1),
+            BorderSide(color: AppColors.themeColor, width: AppDimensions.hairline),
           ),
         ),
         clipBehavior: Clip.antiAlias,
@@ -272,12 +277,17 @@ class _PhysicianCard extends StatelessWidget {
             Divider(
               height: 1,
               thickness: 1,
-              indent: 16,
-              endIndent: 16,
+              indent: AppSpacing.md,
+              endIndent: AppSpacing.md,
               color: AppColors.dividerColor,
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.none,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -297,7 +307,7 @@ class _PhysicianCard extends StatelessWidget {
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        AppSpacing.gapHXs,
                         Expanded(
                           child: Text(
                             _formatPhoneNumber(phoneNumber),
@@ -308,7 +318,7 @@ class _PhysicianCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.s10),
                   ],
                   if (email != null && email!.trim().isNotEmpty) ...[
                     Row(
@@ -325,7 +335,7 @@ class _PhysicianCard extends StatelessWidget {
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        AppSpacing.gapHXs,
                         Expanded(
                           child: Text(
                             email!,
@@ -336,7 +346,7 @@ class _PhysicianCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.s10),
                   ],
                   if (address != null && address!.trim().isNotEmpty) ...[
                     Row(
@@ -353,7 +363,7 @@ class _PhysicianCard extends StatelessWidget {
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        AppSpacing.gapHXs,
                         Expanded(
                           child: Text(
                             address!,
@@ -364,7 +374,7 @@ class _PhysicianCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.s10),
                   ],
                   if (specialty != null && specialty!.trim().isNotEmpty) ...[
                     Row(
@@ -381,7 +391,7 @@ class _PhysicianCard extends StatelessWidget {
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        AppSpacing.gapHXs,
                         Expanded(
                           child: Text(
                             specialty!,
@@ -392,7 +402,7 @@ class _PhysicianCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.s10),
                   ],
                   if (notes != null && notes!.trim().isNotEmpty) ...[
                     Row(
@@ -409,7 +419,7 @@ class _PhysicianCard extends StatelessWidget {
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        AppSpacing.gapHXs,
                         Expanded(
                           child: Text(
                             notes!,
@@ -419,10 +429,10 @@ class _PhysicianCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.s10),
                   ],
                   if (showActionButtons) ...[
-                    const SizedBox(height: 12),
+                    AppSpacing.gapVSm,
                     CustomButtonLayout(
                       confirmButtonLabel: StudentStrings.edit,
                       cancelButtonLabel: StudentStrings.delete,
@@ -490,7 +500,7 @@ class _PhysicianCard extends StatelessWidget {
                       },
                       isForm: false,
                     ),
-                    const SizedBox(height: 12),
+                    AppSpacing.gapVSm,
                   ],
                 ],
               ),

@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/foundation.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
@@ -279,9 +280,9 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     return Container(
       padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 8,
+        left: AppSpacing.md,
+        right: AppSpacing.md,
+        top: AppSpacing.xs,
         bottom: safeAreaBottom,
       ),
       child: CustomButtonLayout(
@@ -380,8 +381,8 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
             itemCount: widget.sections.length,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
+              crossAxisSpacing: AppSpacing.md,
+              mainAxisSpacing: AppSpacing.md,
               childAspectRatio: 1.6,
             ),
             itemBuilder: (context, index) {
@@ -434,8 +435,8 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
           itemCount: _labelList.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
+            crossAxisSpacing: AppSpacing.md,
+            mainAxisSpacing: AppSpacing.md,
             childAspectRatio: 1.6,
           ),
           itemBuilder: (context, index) {
@@ -450,7 +451,7 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
                     fontWeight: FontWeight.w400,
                   ),
                 ),
-                const SizedBox(height: 8),
+                AppSpacing.gapVXs,
                 const ShimmerLoader(height: 40),
               ],
             );

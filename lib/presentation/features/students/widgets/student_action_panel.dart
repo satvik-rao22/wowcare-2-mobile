@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -456,7 +459,7 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
       children: [
         if (_currentPanel != StudentPanelType.none)
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.only(right: AppSpacing.xs),
             child: _StudentSidePanel(
               panel: _currentPanel,
               onSignInTap: widget.onSignInTap,
@@ -480,19 +483,19 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
           alignment: Alignment.bottomCenter,
           children: [
             Material(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppRadius.r10),
               elevation: 3,
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 12,
+                  horizontal: AppSpacing.xs,
+                  vertical: AppSpacing.sm,
                 ),
                 decoration: BoxDecoration(
                   gradient: AppColors.buildPrimaryGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                   ),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppRadius.r10),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -512,7 +515,7 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                                 StudentStrings
                                     .youCannotMarkAttendanceForInactiveStudent),
                     ),
-                    const SizedBox(height: 20),
+                    AppSpacing.gapVLg,
                     _ActionButton(
                       svgPath: MediaRes.activity_panel_icon,
                       label: StudentStrings.activities,
@@ -531,13 +534,13 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                                         .activitiesCanBeRecordedOnlyWhenAll +
                                     StudentStrings.selectedStudentsAreSignedIn),
                     ),
-                    const SizedBox(height: 20),
+                    AppSpacing.gapVLg,
                     _ActionButton(
                       svgPath: MediaRes.message_panel_icon,
                       label: StudentStrings.message,
                       onTap: widget.onMessageTap,
                     ),
-                    const SizedBox(height: 20),
+                    AppSpacing.gapVLg,
                     _ActionButton(
                       svgPath: MediaRes.profile_panel_icon,
                       label: StudentStrings.profile,
@@ -547,7 +550,7 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                       isEnabled: widget.isProfileEnabled,
                       disabledTooltip: StudentStrings.selectOnlyOneToViewProfile,
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppSpacing.xl),
                   ],
                 ),
               ),
@@ -575,8 +578,8 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                     },
                     customBorder: const CircleBorder(),
                     child: const Padding(
-                      padding: EdgeInsets.all(10.0),
-                      child: Icon(Icons.close, color: AppColors.whiteColor, size: 20),
+                      padding: EdgeInsets.all(AppSpacing.s10),
+                      child: Icon(Icons.close, color: AppColors.whiteColor, size: AppDimensions.iconSm),
                     ),
                   ),
                 ),
@@ -612,13 +615,13 @@ class AttendanceQuickActionsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final a = attendanceAvailability;
     return Material(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(AppRadius.r10),
       elevation: 3,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.s10),
         decoration: BoxDecoration(
           color: AppColors.whiteColor,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppRadius.r10),
           border: Border.all(color: AppColors.studentLavenderBorder),
         ),
         child: Column(
@@ -633,10 +636,10 @@ class AttendanceQuickActionsPanel extends StatelessWidget {
                 color: AppColors.primaryColor,
               ),
             ),
-            const SizedBox(height: 8),
+            AppSpacing.gapVXs,
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
               children: [
                 _AttendanceChipButton(
                   label: StudentStrings.signIn,
@@ -657,8 +660,8 @@ class AttendanceQuickActionsPanel extends StatelessWidget {
               ],
             ),
             if (isLoading) ...[
-              const SizedBox(height: 8),
-              PrimaryCircularLoader(size: 16, strokeWidth: 2),
+              AppSpacing.gapVXs,
+              PrimaryCircularLoader(size: 16, strokeWidth: AppDimensions.borderThick),
             ],
           ],
         ),
@@ -738,11 +741,11 @@ class _StudentSidePanel extends StatelessWidget {
       return Container(
         width: 70,
         constraints: const BoxConstraints(maxHeight: 400),
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
         decoration: BoxDecoration(
           border: Border.all(color: AppColors.billingAccentBlue),
           color: AppColors.whiteColor,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppRadius.r10),
           boxShadow: [
             BoxShadow(
               color: AppColors.blackColor.withValues(alpha: 0.1),
@@ -755,14 +758,14 @@ class _StudentSidePanel extends StatelessWidget {
       );
     }
     return Material(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(AppRadius.r10),
       elevation: 3,
       child: Container(
         constraints: const BoxConstraints(maxHeight: 400, maxWidth: 120),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s10, vertical: AppSpacing.s10),
         decoration: BoxDecoration(
           color: AppColors.whiteColor,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppRadius.r10),
           border: Border.all(color: AppColors.studentLavenderBorder),
         ),
         child: _buildActivitiesColumn(context),
@@ -788,7 +791,7 @@ class _StudentSidePanel extends StatelessWidget {
             actionEnabled: enabled(a.signInEnabled),
           ),
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: AppSpacing.s5),
         _StudentAttendanceActionItem(
           svgPath: MediaRes.Sign_out,
           label: StudentStrings.signOut2,
@@ -800,7 +803,7 @@ class _StudentSidePanel extends StatelessWidget {
             actionEnabled: enabled(a.signOutEnabled),
           ),
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: AppSpacing.s5),
         _StudentAttendanceActionItem(
           svgPath: MediaRes.transfer,
           label: StudentStrings.transfer,
@@ -812,7 +815,7 @@ class _StudentSidePanel extends StatelessWidget {
             actionEnabled: enabled(a.transferEnabled),
           ),
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: AppSpacing.s5),
         _StudentAttendanceActionItem(
           svgPath: MediaRes.Mark_absent,
           label: StudentStrings.absent,
@@ -840,7 +843,7 @@ class _StudentSidePanel extends StatelessWidget {
       return const SizedBox(
         width: 100,
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 8),
+          padding: EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
             StudentStrings.noActivitiesForThisClass,
             textAlign: TextAlign.center,
@@ -859,7 +862,7 @@ class _StudentSidePanel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           for (int i = 0; i < visibleActivityKeys.length; i++) ...[
-            if (i > 0) const SizedBox(height: 10),
+            if (i > 0) const SizedBox(height: AppSpacing.s10),
             Builder(
               builder: (context) {
                 final key = visibleActivityKeys[i];
@@ -917,14 +920,14 @@ class _StudentAttendanceActionItem extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 5),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
                 decoration: BoxDecoration(
                   color: AppColors.studentInfoColor.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: SvgPicture.asset(svgPath, height: 24, width: 24),
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: AppSpacing.s5),
               Text(
                 label,
                 maxLines: 1,
@@ -966,7 +969,7 @@ class _ActivityPngItem extends StatelessWidget {
       message: disabled && tooltip.isNotEmpty ? tooltip : '',
       child: InkWell(
         onTap: disabled || busy ? null : onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.allSm,
         child: Opacity(
           opacity: opacity,
           child: Column(
@@ -976,11 +979,11 @@ class _ActivityPngItem extends StatelessWidget {
                 height: 36,
                 child: busy
                     ? const Center(
-                        child: PrimaryCircularLoader(size: 22, strokeWidth: 2),
+                        child: PrimaryCircularLoader(size: 22, strokeWidth: AppDimensions.borderThick),
                       )
                     : Image.asset(pngPath, scale: 3.5),
               ),
-              const SizedBox(height: 4),
+              AppSpacing.gapVXxs,
               Text(
                 label,
                 maxLines: 2,
@@ -1011,11 +1014,11 @@ class _AttendanceChipButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: AppRadius.allXl,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s10, vertical: AppSpacing.s6),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: AppRadius.allXl,
           color: onTap == null
               ? AppColors.studentSurfaceGrey
               : AppColors.studentPurpleTint,
@@ -1073,7 +1076,7 @@ class _ActionButton extends StatelessWidget {
                   BlendMode.srcIn,
                 ),
               ),
-              const SizedBox(height: 4),
+              AppSpacing.gapVXxs,
               Text(
                 label,
                 style: const TextStyle(color: AppColors.whiteColor, fontSize: 12),

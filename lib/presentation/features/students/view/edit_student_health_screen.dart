@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/entities/student_health_update_request.dart';
@@ -120,27 +122,27 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
             hint: StudentStrings.egPeanutsDairy,
             controller: _allergyController,
           ),
-          const SizedBox(height: 16),
+          AppSpacing.gapVMd,
           _buildLabeledField(
             label: StudentStrings.medications,
             hint: StudentStrings.egInhalerEpipen,
             controller: _medicationsController,
           ),
-          const SizedBox(height: 16),
+          AppSpacing.gapVMd,
           _buildLabeledField(
             label: StudentStrings.dietRestriction,
             hint: StudentStrings.egVegetarianNutFree,
             controller: _dietRestrictionsController,
           ),
-          const SizedBox(height: 16),
+          AppSpacing.gapVMd,
         ],
       ),
       bottomBar: Container(
         padding: EdgeInsets.only(
           bottom: bottomSafe,
-          left: 16,
-          right: 16,
-          top: 8,
+          left: AppSpacing.md,
+          right: AppSpacing.md,
+          top: AppSpacing.xs,
         ),
         decoration: BoxDecoration(
           color: AppColors.whiteColor,
@@ -188,12 +190,12 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
             color: AppColors.primaryColor,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: AppSpacing.s6),
         Container(
           decoration: BoxDecoration(
             color: AppColors.whiteColor,
             border: Border.all(color: AppColors.inputBorderColor),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: AppRadius.allSm,
           ),
           child: TextField(
             controller: controller,
@@ -216,8 +218,8 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
               ),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.s10,
               ),
             ),
           ),

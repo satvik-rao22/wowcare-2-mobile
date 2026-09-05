@@ -11,6 +11,9 @@ import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
@@ -666,7 +669,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
               ),
               Column(
                 children: [
-                  const SizedBox(height: 16),
+                  AppSpacing.gapVMd,
                   Padding(
                     padding: EdgeInsets.symmetric(
                       horizontal: responsive.horizontalSpacing,
@@ -764,7 +767,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                           color: AppColors.primaryColor,
                                         ),
                                       ),
-                                      const SizedBox(height: 8),
+                                      AppSpacing.gapVXs,
                                       // Single-select existing parent (searchable).
                                       // One parent only — store as a 0/1 list so the
                                       // downstream create/validation logic is unchanged.
@@ -952,7 +955,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                   // Profile Photo
                                   _buildProfilePhotoField(responsive),
                                 ],
-                                const SizedBox(height: 12),
+                                AppSpacing.gapVSm,
                               ],
                             ),
                           ),
@@ -960,7 +963,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  AppSpacing.gapVSm,
                 ],
               ),
             ],
@@ -968,9 +971,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
           bottomNavigationBar: Container(
             padding: EdgeInsets.only(
               bottom: safeAreaBottom,
-              left: 16,
-              right: 16,
-              top: 8,
+              left: AppSpacing.md,
+              right: AppSpacing.md,
+              top: AppSpacing.xs,
             ),
             decoration: BoxDecoration(
               color: AppColors.whiteColor,
@@ -1127,12 +1130,12 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             width: 120,
             decoration: BoxDecoration(
               color: AppColors.attendanceShimmerHighlightColor,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: AppRadius.allMd,
               border: Border.all(color: AppColors.inputBorderColor),
             ),
             child: _createCubit.state.step2ProfilePhoto != null
                 ? ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: AppRadius.allMd,
                     child: Image.file(
                       _createCubit.state.step2ProfilePhoto!,
                       fit: BoxFit.cover,
@@ -1144,9 +1147,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                       Icon(
                         Icons.camera_alt,
                         color: AppColors.attendanceDialogHintTextColor,
-                        size: 32,
+                        size: AppDimensions.iconLg,
                       ),
-                      const SizedBox(height: 8),
+                      AppSpacing.gapVXs,
                       Text(
                         StudentStrings.uploadPhoto,
                         style: TextStyle(
@@ -1158,7 +1161,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                   ),
           ),
         ),
-        const SizedBox(height: 4),
+        AppSpacing.gapVXxs,
         Text(
           StudentStrings.jpgPngMax10mbOptional,
           style: TextStyle(

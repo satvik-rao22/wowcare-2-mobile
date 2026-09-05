@@ -6,6 +6,7 @@ import 'package:wowcare/presentation/features/students/view/student_form_formatt
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -355,7 +356,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
               ),
               Column(
                 children: [
-                  const SizedBox(height: 16),
+                  AppSpacing.gapVMd,
                   Padding(
                     padding: EdgeInsets.symmetric(
                       horizontal: responsive.horizontalSpacing,
@@ -555,7 +556,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  AppSpacing.gapVSm,
                 ],
               ),
             ],
@@ -563,9 +564,9 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
           bottomNavigationBar: Container(
             padding: EdgeInsets.only(
               bottom: safeAreaBottom,
-              left: 16,
-              right: 16,
-              top: 8,
+              left: AppSpacing.md,
+              right: AppSpacing.md,
+              top: AppSpacing.xs,
             ),
             decoration: BoxDecoration(
               color: AppColors.whiteColor,

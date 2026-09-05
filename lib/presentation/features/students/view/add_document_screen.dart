@@ -4,6 +4,7 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
@@ -276,16 +277,16 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             _buildFileUploadField(),
             SizedBox(height: responsive.verticalSpacing),
             _buildNotesField(),
-            const SizedBox(height: 12),
+            AppSpacing.gapVSm,
           ],
         ),
       ),
       bottomBar: Container(
         padding: EdgeInsets.only(
           bottom: safeAreaBottom,
-          left: 16,
-          right: 16,
-          top: 8,
+          left: AppSpacing.md,
+          right: AppSpacing.md,
+          top: AppSpacing.xs,
         ),
         decoration: BoxDecoration(
           color: AppColors.whiteColor,

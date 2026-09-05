@@ -10,6 +10,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
@@ -1295,10 +1297,10 @@ class _StudentScreenState extends State<StudentScreen> {
                               isLargeTablet:
                                   MediaQuery.of(context).size.width >= 900,
                             ),
-                          SizedBox(width: 10),
+                          SizedBox(width: AppSpacing.s10),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      AppSpacing.gapVMd,
                       if (!hideSummaryCards) ...[
                         // Total Students stat card
                         LayoutBuilder(
@@ -1326,8 +1328,8 @@ class _StudentScreenState extends State<StudentScreen> {
                             ];
                             return Container(
                               margin: EdgeInsets.only(
-                                top: isTablet ? 16 : 12,
-                                bottom: isTablet ? 8 : 8,
+                                top: isTablet ? AppSpacing.md : AppSpacing.sm,
+                                bottom: isTablet ? AppSpacing.xs : AppSpacing.xs,
                               ),
                               child: CustomStatBarCard(
                                 title: StudentStrings.totalNstudents,
@@ -1352,7 +1354,7 @@ class _StudentScreenState extends State<StudentScreen> {
                             );
                           },
                         ),
-                        const SizedBox(height: 16),
+                        AppSpacing.gapVMd,
                         // Expected Students (same breakdown as Student Attendance daily summary)
                         LayoutBuilder(
                           builder: (context, constraints) {
@@ -1392,8 +1394,8 @@ class _StudentScreenState extends State<StudentScreen> {
                             ];
                             return Container(
                               margin: EdgeInsets.only(
-                                top: isTablet ? 8 : 8,
-                                bottom: isTablet ? 8 : 8,
+                                top: isTablet ? AppSpacing.xs : AppSpacing.xs,
+                                bottom: isTablet ? AppSpacing.xs : AppSpacing.xs,
                               ),
                               child: CustomStatBarCard(
                                 title: StudentStrings.expectedNstudents,
@@ -1426,14 +1428,14 @@ class _StudentScreenState extends State<StudentScreen> {
                             );
                           },
                         ),
-                        const SizedBox(height: 16),
+                        AppSpacing.gapVMd,
                       ],
                       // Filter/search card
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(AppSpacing.sm),
                         decoration: BoxDecoration(
                           border: Border.all(color: AppColors.cardBorderColor),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: AppRadius.allMd,
                           color: AppColors.cardColor,
                         ),
                         child: Column(
@@ -1446,7 +1448,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                     hintText: StudentStrings.searchStudents,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                AppSpacing.gapHXs,
                                 Material(
                                   color: AppColors.transparentColor,
                                   child: InkWell(
@@ -1475,12 +1477,12 @@ class _StudentScreenState extends State<StudentScreen> {
                                         await _applyFiltersToCubit(normalized);
                                       }
                                     },
-                                    borderRadius: BorderRadius.circular(100),
+                                    borderRadius: AppRadius.allPill,
                                     child: Stack(
                                       clipBehavior: Clip.none,
                                       children: [
                                         Padding(
-                                          padding: const EdgeInsets.all(8),
+                                          padding: const EdgeInsets.all(AppSpacing.xs),
                                           child: SvgPicture.asset(
                                             MediaRes.filterIcon,
                                             height: 20,
@@ -1542,14 +1544,14 @@ class _StudentScreenState extends State<StudentScreen> {
                                               child: Container(
                                                 padding:
                                                     const EdgeInsets.symmetric(
-                                                      horizontal: 5,
-                                                      vertical: 2,
+                                                      horizontal: AppSpacing.s5,
+                                                      vertical: AppSpacing.s2,
                                                     ),
                                                 decoration: BoxDecoration(
                                                   color: AppColors
                                                       .attendanceDangerAccentColor,
                                                   borderRadius:
-                                                      BorderRadius.circular(10),
+                                                      BorderRadius.circular(AppRadius.r10),
                                                 ),
                                                 child: Text(
                                                   badgeCount > 99
@@ -1571,7 +1573,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 16),
+                            AppSpacing.gapVMd,
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               crossAxisAlignment: CrossAxisAlignment.center,
@@ -1593,7 +1595,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                       ),
                                       color: AppColors.staffBadgeActiveBg,
                                     ),
-                                    const SizedBox(width: 8),
+                                    AppSpacing.gapHXs,
                                     CustomClearAllChip(
                                       onTap: () => _clearAllFilters(),
                                     ),
@@ -1612,7 +1614,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                         color: AppColors.primaryColor,
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    AppSpacing.gapHXs,
                                     CustomToggle(
                                       label: '',
                                       isToggled: _showInactive,
@@ -1652,7 +1654,7 @@ class _StudentScreenState extends State<StudentScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      AppSpacing.gapVSm,
                       // Select All
                       Align(
                         alignment: Alignment.centerLeft,
@@ -1666,13 +1668,13 @@ class _StudentScreenState extends State<StudentScreen> {
                           },
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      AppSpacing.gapVMd,
                       // Student list from API
                       if (state.isLoading && students.isEmpty)
                         const StudentListShimmer()
                       else if (state.errorMessage != null && students.isEmpty)
                         Padding(
-                          padding: const EdgeInsets.all(32.0),
+                          padding: const EdgeInsets.all(AppSpacing.xxl),
                           child: Center(
                             child: Column(
                               children: [
@@ -1680,7 +1682,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                   StudentStrings.errorLoadingStudents,
                                   style: TextStyle(color: AppColors.errorColor),
                                 ),
-                                const SizedBox(height: 8),
+                                AppSpacing.gapVXs,
                                 ElevatedButton(
                                   onPressed: () =>
                                       context.read<StudentCubit>().refresh(),
@@ -1692,7 +1694,7 @@ class _StudentScreenState extends State<StudentScreen> {
                         )
                       else if (students.isEmpty)
                         const Padding(
-                          padding: EdgeInsets.all(32.0),
+                          padding: EdgeInsets.all(AppSpacing.xxl),
                           child: Center(child: Text(StudentStrings.noStudentsFound)),
                         )
                       else
@@ -1846,7 +1848,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                   ),
                                 ),
                                 if (index != students.length - 1)
-                                  const SizedBox(height: 10),
+                                  const SizedBox(height: AppSpacing.s10),
                               ],
                             );
                           },

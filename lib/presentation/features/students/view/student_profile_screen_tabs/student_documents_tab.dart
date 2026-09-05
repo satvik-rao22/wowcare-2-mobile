@@ -12,8 +12,11 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -491,18 +494,18 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     child: Padding(
                       // Extra bottom padding so the floating add button doesn't overlap the last items.
-                      padding: const EdgeInsets.fromLTRB(6, 16, 6, 96),
+                      padding: const EdgeInsets.fromLTRB(6, AppSpacing.md, 6, 96),
                       child: Column(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(12),
+                            padding: const EdgeInsets.all(AppSpacing.sm),
                             decoration: BoxDecoration(
                               border: Border.all(
                                 color: AppColors.primaryColor.withValues(
                                   alpha: 0.2,
                                 ),
                               ),
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(AppRadius.r14),
                               color: AppColors.whiteColor.withValues(alpha: 0.88),
                             ),
                             child: Column(
@@ -524,13 +527,13 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                     filled: true,
                                     fillColor: AppColors.staffLightBackgroundColor,
                                     border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: AppRadius.allMd,
                                       borderSide: BorderSide.none,
                                     ),
                                   ),
                                   onChanged: (_) => setState(() {}),
                                 ),
-                                const SizedBox(height: 12),
+                                AppSpacing.gapVSm,
                                 CustomToggle(
                                   label: StudentStrings.showExpiredDocuments,
                                   isToggled: _showExpired,
@@ -545,7 +548,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                               ],
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          AppSpacing.gapVMd,
                           if (state.isLoading && documents.isEmpty)
                             const StudentDocumentsListShimmer()
                           else if (documents.isEmpty)
@@ -603,7 +606,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                   });
                                 }
                                 return Padding(
-                                  padding: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                                   child: HighlightableCard(
                                     key: isTarget ? _highlightRowKey : null,
                                     code: doc.documentUuid,
@@ -614,14 +617,14 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                       decoration: const BoxDecoration(
                                         color: AppColors.whiteColor,
                                         borderRadius: BorderRadius.only(
-                                          topRight: Radius.circular(8),
-                                          bottomLeft: Radius.circular(8),
-                                          bottomRight: Radius.circular(8),
+                                          topRight: Radius.circular(AppRadius.sm),
+                                          bottomLeft: Radius.circular(AppRadius.sm),
+                                          bottomRight: Radius.circular(AppRadius.sm),
                                         ),
                                         border: Border.fromBorderSide(
                                           BorderSide(
                                             color: AppColors.themeColor,
-                                            width: 1,
+                                            width: AppDimensions.hairline,
                                           ),
                                         ),
                                       ),
@@ -633,15 +636,15 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                           initiallyExpanded: isTarget,
                                           tilePadding:
                                               const EdgeInsets.symmetric(
-                                                horizontal: 16,
-                                                vertical: 4,
+                                                horizontal: AppSpacing.md,
+                                                vertical: AppSpacing.xxs,
                                               ),
                                           childrenPadding:
                                               const EdgeInsets.fromLTRB(
-                                                16,
-                                                0,
-                                                16,
-                                                16,
+                                                AppSpacing.md,
+                                                AppSpacing.none,
+                                                AppSpacing.md,
+                                                AppSpacing.md,
                                               ),
                                           title: Row(
                                             mainAxisAlignment:
@@ -662,7 +665,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                   ),
                                                 ),
                                               ),
-                                              const SizedBox(width: 8),
+                                              AppSpacing.gapHXs,
                                               Text(
                                                 docTypeDisplay,
                                                 style: TextStyle(
@@ -680,27 +683,27 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                               height: 1,
                                               color: AppColors.attendanceCardDividerColor,
                                             ),
-                                            const SizedBox(height: 12),
+                                            AppSpacing.gapVSm,
                                             _DocumentDetailRow(
                                               label: StudentStrings.documentType,
                                               value: docTypeDisplay,
                                             ),
-                                            const SizedBox(height: 8),
+                                            AppSpacing.gapVXs,
                                             _DocumentDetailRow(
                                               label: StudentStrings.uploadedBy,
                                               value: uploadedBy,
                                             ),
-                                            const SizedBox(height: 8),
+                                            AppSpacing.gapVXs,
                                             _DocumentDetailRow(
                                               label: StudentStrings.uploadedOn,
                                               value: uploadedOn,
                                             ),
-                                            const SizedBox(height: 8),
+                                            AppSpacing.gapVXs,
                                             _DocumentDetailRow(
                                               label: StudentStrings.expiryDate,
                                               value: expiryDisplay,
                                             ),
-                                            const SizedBox(height: 16),
+                                            AppSpacing.gapVMd,
                                             if (canStudentWrite) ...[
                                               Row(
                                                 children: [
@@ -708,10 +711,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                     child: Container(
                                                       height: 40,
                                                       decoration: BoxDecoration(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              8,
-                                                            ),
+                                                        borderRadius: AppRadius.allSm,
                                                         gradient:
                                                             AppColors.buildPrimaryGradient(),
                                                       ),
@@ -741,7 +741,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                       ),
                                                     ),
                                                   ),
-                                                  const SizedBox(width: 12),
+                                                  AppSpacing.gapHSm,
                                                   Expanded(
                                                     child: SizedBox(
                                                       height: 40,
@@ -757,10 +757,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                                 color: AppColors.attendanceActionAccentColor,
                                                               ),
                                                           shape: RoundedRectangleBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  8,
-                                                                ),
+                                                            borderRadius: AppRadius.allSm,
                                                           ),
                                                           padding:
                                                               EdgeInsets.zero,
@@ -781,7 +778,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                   ),
                                                 ],
                                               ),
-                                              const SizedBox(height: 12),
+                                              AppSpacing.gapVSm,
                                             ],
                                             Row(
                                               children: [
@@ -801,10 +798,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                           color: AppColors.attendanceActionAccentColor,
                                                         ),
                                                         shape: RoundedRectangleBorder(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                8,
-                                                              ),
+                                                          borderRadius: AppRadius.allSm,
                                                         ),
                                                         padding:
                                                             EdgeInsets.zero,
@@ -815,7 +809,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                               height: 18,
                                                               child: PrimaryCircularLoader(
                                                                 size: 18,
-                                                                strokeWidth: 2,
+                                                                strokeWidth: AppDimensions.borderThick,
                                                               ),
                                                             )
                                                           : const Text(
@@ -833,15 +827,12 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                     ),
                                                   ),
                                                 ),
-                                                const SizedBox(width: 12),
+                                                AppSpacing.gapHSm,
                                                 Expanded(
                                                   child: Container(
                                                     height: 40,
                                                     decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            8,
-                                                          ),
+                                                      borderRadius: AppRadius.allSm,
                                                       gradient:
                                                           AppColors.buildPrimaryGradient(),
                                                     ),
@@ -881,7 +872,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                             ),
                           if (state.isLoadingMore)
                             const Padding(
-                              padding: EdgeInsets.all(16.0),
+                              padding: EdgeInsets.all(AppSpacing.md),
                               child: PrimaryCircularLoader(),
                             ),
                         ],
@@ -916,7 +907,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                 },
                 size: 50.0,
                 iconSize: 28.0,
-                borderRadius: 12.0,
+                borderRadius: AppRadius.md,
               ),
             ),
         ],
@@ -946,7 +937,7 @@ class _DocumentDetailRow extends StatelessWidget {
             color: AppColors.primaryColor,
           ),
         ),
-        const SizedBox(width: 12),
+        AppSpacing.gapHSm,
         Expanded(
           child: Text(
             value.isEmpty ? '-' : value,

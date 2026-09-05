@@ -3,9 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/date_utils.dart';
@@ -241,7 +244,7 @@ class _StudentImmunizationTabCardState
                                   },
                                 ),
                               ),
-                              const SizedBox(width: 16),
+                              AppSpacing.gapHMd,
                               Expanded(
                                 child: _DialogDropdown(
                                   label: StudentStrings.status2,
@@ -292,7 +295,7 @@ class _StudentImmunizationTabCardState
                                   setLocalState(() => selectedDate = picked);
                                 },
                               ),
-                              const SizedBox(height: 16),
+                              AppSpacing.gapVMd,
                               _DialogDropdown(
                                 label: StudentStrings.status2,
                                 value: statusUi,
@@ -308,7 +311,7 @@ class _StudentImmunizationTabCardState
                             ],
                           ),
                         if (statusUi == 'Exempt') ...[
-                          const SizedBox(height: 16),
+                          AppSpacing.gapVMd,
                           TextField(
                             decoration: const InputDecoration(
                               labelText: StudentStrings.exemptionReason,
@@ -430,7 +433,7 @@ class _StudentImmunizationTabCardState
             final items = state.immunizations;
             if (items.isEmpty) {
               return Padding(
-                padding: const EdgeInsets.only(top: 24),
+                padding: const EdgeInsets.only(top: AppSpacing.xl),
                 child: Text(
                   StudentStrings.noImmunizationRecordsFound,
                   style: AppTextStyles.value.copyWith(fontSize: 16),
@@ -458,7 +461,7 @@ class _StudentImmunizationTabCardState
                         : (_) {},
                     showActions: canMutateStudent,
                   ),
-                  if (i != sortedKeys.length - 1) const SizedBox(height: 20),
+                  if (i != sortedKeys.length - 1) AppSpacing.gapVLg,
                 ],
               ],
             );
@@ -490,17 +493,22 @@ class _ImmunizationCard extends StatelessWidget {
         decoration: const BoxDecoration(
           color: AppColors.whiteColor,
           borderRadius: BorderRadius.only(
-            topRight: Radius.circular(8),
-            bottomLeft: Radius.circular(8),
-            bottomRight: Radius.circular(8),
+            topRight: Radius.circular(AppRadius.sm),
+            bottomLeft: Radius.circular(AppRadius.sm),
+            bottomRight: Radius.circular(AppRadius.sm),
           ),
           border: Border.fromBorderSide(
-            BorderSide(color: AppColors.themeColor, width: 1),
+            BorderSide(color: AppColors.themeColor, width: AppDimensions.hairline),
           ),
         ),
         clipBehavior: Clip.antiAlias,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.s14,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -525,7 +533,7 @@ class _ImmunizationCard extends StatelessWidget {
                           : () => onMore(doses.first),
                       icon: const Icon(
                         Icons.more_horiz,
-                        size: 20,
+                        size: AppDimensions.iconSm,
                         color: AppColors.primaryColor,
                       ),
                       visualDensity: VisualDensity.compact,
@@ -536,7 +544,7 @@ class _ImmunizationCard extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 8),
+              AppSpacing.gapVXs,
               for (final dose in doses)
                 _DoseRow(
                   model: dose,
@@ -576,14 +584,14 @@ class _DoseRow extends StatelessWidget {
               children: [
                 InkWell(
                   onTap: onMore,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: AppRadius.allSm,
                   child: _Chip(
                     label: _statusLabel(model.status),
                     labelColor: _statusLabelColor(model.status),
                     color: _statusBgColor(model.status),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: AppSpacing.s10),
                 Text(
                   _doseDateText(model),
                   style: AppTextStyles.value.copyWith(fontSize: 15),
@@ -675,16 +683,16 @@ class _DialogField extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 8),
+        AppSpacing.gapVXs,
         InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppRadius.r10),
           child: Container(
             height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
             decoration: BoxDecoration(
               color: AppColors.staffLightBackgroundAltColor,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppRadius.r10),
             ),
             child: Row(
               children: [
@@ -746,13 +754,13 @@ class _DialogDropdown extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 8),
+        AppSpacing.gapVXs,
         Container(
           height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
           decoration: BoxDecoration(
             color: AppColors.staffLightBackgroundAltColor,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppRadius.r10),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
@@ -803,10 +811,13 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s10,
+        vertical: AppSpacing.xxs,
+      ),
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.allSm,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

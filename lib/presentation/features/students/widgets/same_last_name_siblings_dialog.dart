@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
@@ -135,7 +136,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                   textAlign: TextAlign.center,
                 ),
               ),
-              const SizedBox(height: 8),
+              AppSpacing.gapVXs,
               Padding(
                 padding:
                     EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
@@ -182,7 +183,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                         child: Container(
                           padding: EdgeInsets.symmetric(
                             horizontal: horizontalPadding / 2,
-                            vertical: isTablet ? 12 : 10,
+                            vertical: isTablet ? AppSpacing.sm : AppSpacing.s10,
                           ),
                           decoration: BoxDecoration(
                             borderRadius:
@@ -195,7 +196,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Padding(
-                                padding: const EdgeInsets.only(top: 2),
+                                padding: const EdgeInsets.only(top: AppSpacing.s2),
                                 child: ShaderMask(
                                   blendMode: BlendMode.srcIn,
                                   shaderCallback: (bounds) =>
@@ -237,7 +238,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                                         color: AppColors.primaryColor,
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
+                                    AppSpacing.gapVXxs,
                                     Text(
                                       'Status: $status | Classroom: $classroom',
                                       style: TextStyle(

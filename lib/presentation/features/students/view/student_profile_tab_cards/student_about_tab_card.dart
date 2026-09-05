@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/domain/features/student/entities/student_regular_schedule_input.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/app_time.dart';
@@ -341,7 +344,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         ),
         // Square top so the card reads as one continuous surface with the tabs
         // (rounded top would bump/overlap the tab borders).
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(AppRadius.lg)),
         scrollController: widget.scrollController,
         onEdit: canEdit
             ? (isStaffPersona
@@ -575,7 +578,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                     final name = names[index];
 
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                       child: Row(
                         children: [
                           DocumentImageWidget(
@@ -583,7 +586,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                             name: name,
                             size: 45,
                           ),
-                          const SizedBox(width: 12),
+                          AppSpacing.gapHSm,
                           Text(
                             name,
                             style: const TextStyle(
@@ -781,18 +784,18 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                       ),
                       const Icon(
                         Icons.edit,
-                        size: 16,
+                        size: AppDimensions.iconXs,
                         color: AppColors.billingTextMuted,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  AppSpacing.gapVXs,
                   Row(
                     children: [
                       Expanded(
                         child: Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
+                          spacing: AppSpacing.xs,
+                          runSpacing: AppSpacing.xs,
                           children:
                               (_schoolOpenDayLabels.isNotEmpty
                                       ? _schoolOpenDayLabels
@@ -924,7 +927,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                                               : AppColors.staffBadgeInactiveBg,
                                         ),
                                         if (isAvailable) ...[
-                                          const SizedBox(height: 6),
+                                          const SizedBox(height: AppSpacing.s6),
                                           _ScheduleChip(
                                             width: 110,
                                             label: timeText,
@@ -1016,8 +1019,8 @@ class _tags extends StatelessWidget {
   Widget build(BuildContext context) {
     final tagList = tags;
     return Wrap(
-      spacing: 6,
-      runSpacing: 6,
+      spacing: AppSpacing.s6,
+      runSpacing: AppSpacing.s6,
       children: List.generate(tagList.length, (index) {
         return _ProfileTagChip(
           label: tagList[index],
@@ -1037,10 +1040,10 @@ class _ProfileTagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s10, vertical: AppSpacing.xxs),
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.allSm,
       ),
       child: Text(
         label,
@@ -1074,12 +1077,12 @@ class _ScheduleChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: width,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s10, vertical: AppSpacing.s6),
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.allSm,
         border: isTimeChip
-            ? Border.all(color: AppColors.staffBadgeActiveBg, width: 1.5)
+            ? Border.all(color: AppColors.staffBadgeActiveBg, width: AppDimensions.borderThin)
             : null,
       ),
       alignment: Alignment.center,
@@ -1114,15 +1117,15 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s10, vertical: AppSpacing.xxs),
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.allSm,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (icon != null) ...[icon!, const SizedBox(width: 6)],
+          if (icon != null) ...[icon!, const SizedBox(width: AppSpacing.s6)],
           Text(
             label,
             style: TextStyle(

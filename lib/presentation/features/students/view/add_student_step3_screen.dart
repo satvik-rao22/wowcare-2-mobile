@@ -5,6 +5,9 @@ import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
@@ -130,7 +133,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
               ),
               Column(
                 children: [
-                  const SizedBox(height: 16),
+                  AppSpacing.gapVMd,
                   Padding(
                     padding: EdgeInsets.symmetric(
                       horizontal: responsive.horizontalSpacing,
@@ -187,7 +190,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                                     color: AppColors.primaryColor,
                                   ),
                                 ),
-                                const SizedBox(height: 8),
+                                AppSpacing.gapVXs,
                                 Text(
                                   StudentStrings.selectDaysAndTimesForThisStudentDefaultTimesAr,
                                   style: TextStyle(
@@ -196,7 +199,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                                     fontFamily: Fonts.manrope,
                                   ),
                                 ),
-                                const SizedBox(height: 12),
+                                AppSpacing.gapVSm,
                                 Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
@@ -228,7 +231,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                                     state,
                                   ),
                                 ),
-                                const SizedBox(height: 12),
+                                AppSpacing.gapVSm,
                               ],
                             ),
                           ),
@@ -236,7 +239,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  AppSpacing.gapVSm,
                 ],
               ),
             ],
@@ -244,9 +247,9 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
           bottomNavigationBar: Container(
             padding: EdgeInsets.only(
               bottom: safeAreaBottom,
-              left: 16,
-              right: 16,
-              top: 8,
+              left: AppSpacing.md,
+              right: AppSpacing.md,
+              top: AppSpacing.xs,
             ),
             decoration: BoxDecoration(
               color: AppColors.whiteColor,
@@ -288,7 +291,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  AppSpacing.gapHSm,
                 ],
                 Expanded(
                   child: Container(
@@ -330,13 +333,13 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
     final schedule = state.schedule[day];
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: hasSchedule
             ? AppColors.primaryColor.withValues(alpha: 0.05)
             : AppColors.staffVeryLightGrey,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.allMd,
         border: Border.all(
           color: hasSchedule
               ? AppColors.primaryColor.withValues(alpha: 0.3)
@@ -360,14 +363,14 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
               ),
               if (hasSchedule)
                 IconButton(
-                  icon: const Icon(Icons.close, size: 20),
+                  icon: const Icon(Icons.close, size: AppDimensions.iconSm),
                   color: AppColors.errorColor,
                   onPressed: () => _scheduleCubit.removeDay(day),
                 ),
             ],
           ),
           if (hasSchedule) ...[
-            const SizedBox(height: 12),
+            AppSpacing.gapVSm,
             Row(
               children: [
                 Expanded(
@@ -387,7 +390,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                     },
                   ),
                 ),
-                const SizedBox(width: 12),
+                AppSpacing.gapHSm,
                 Expanded(
                   child: GradientTimePickerField(
                     label: StudentStrings.endTime,
@@ -408,7 +411,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
             ),
           ] else
             Padding(
-              padding: const EdgeInsets.only(top: 8.0),
+              padding: const EdgeInsets.only(top: AppSpacing.xs),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

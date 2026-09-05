@@ -11,6 +11,9 @@ import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -324,12 +327,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       if (t.isEmpty) return;
       items.add(
         Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               leading,
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.s10),
               Expanded(
                 child: Text(
                   t,
@@ -379,10 +382,15 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       builder: (ctx) {
         return Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadius.allLg,
           ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.md,
+              AppSpacing.lg,
+              AppSpacing.sm,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -396,7 +404,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                     color: AppColors.primaryColor,
                   ),
                 ),
-                const SizedBox(height: 12),
+                AppSpacing.gapVSm,
                 ...items,
                 Align(
                   alignment: Alignment.centerRight,
@@ -658,7 +666,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               indicator: const UnderlineTabIndicator(
                 borderSide: BorderSide(color: AppColors.themeColor),
               ),
-              indicatorPadding: const EdgeInsets.only(bottom: 8),
+              indicatorPadding: const EdgeInsets.only(bottom: AppSpacing.xs),
               labelStyle: const TextStyle(
                 color: AppColors.studentDarkPlum,
                 fontFamily: Fonts.manrope,
@@ -685,7 +693,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
           ),
           _buildStudentProfileCard(context, role, canChangePhoto),
 
-          const SizedBox(height: 16),
+          AppSpacing.gapVMd,
           Expanded(
             child: TabBarView(
               controller: _tabController,
@@ -755,7 +763,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 30),
+            padding: const EdgeInsets.symmetric(
+              vertical: AppSpacing.md,
+              horizontal: 30,
+            ),
             child: Row(
               children: [
                 GestureDetector(
@@ -785,14 +796,16 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                 child: Container(
                                   width: 72,
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
+                                    horizontal: AppSpacing.xs,
                                     vertical: 7,
                                   ),
                                   decoration: BoxDecoration(
                                     color: AppColors.primaryColor.withValues(
                                       alpha: 0.25,
                                     ),
-                                    borderRadius: BorderRadius.circular(14),
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadius.r14,
+                                    ),
                                     border: Border.all(
                                       color: AppColors.whiteColor.withValues(
                                         alpha: 0.22,
@@ -810,7 +823,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
+                                      AppSpacing.gapVXxs,
                                       ClipRRect(
                                         borderRadius: BorderRadius.circular(
                                           999,
@@ -828,7 +841,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                               >(AppColors.themeColor),
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
+                                      AppSpacing.gapVXxs,
                                       Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
@@ -874,7 +887,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                               height: 32,
                               decoration: BoxDecoration(
                                 color: AppColors.whiteColor,
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: AppRadius.allLg,
                                 boxShadow: [
                                   BoxShadow(
                                     color: AppColors.blackColor.withValues(alpha: 0.08),
@@ -884,15 +897,17 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                 ],
                               ),
                               child: Container(
-                                margin: const EdgeInsets.all(2),
+                                margin: const EdgeInsets.all(AppSpacing.s2),
                                 decoration: BoxDecoration(
                                   gradient: AppColors.buildPrimaryGradient(),
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.r14,
+                                  ),
                                 ),
                                 child: const Icon(
                                   Icons.camera_alt,
                                   color: AppColors.whiteColor,
-                                  size: 16,
+                                  size: AppDimensions.iconXs,
                                 ),
                               ),
                             ),
@@ -917,15 +932,15 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: AppSpacing.s6),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                          horizontal: AppSpacing.xs,
+                          vertical: AppSpacing.xxs,
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.studentInfoBg,
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: AppRadius.allXs,
                         ),
                         child: Text(
                           _displayClassroom,
@@ -935,7 +950,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                           ),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      AppSpacing.gapVXs,
                       BlocBuilder<StudentProfileCubit, StudentProfileState>(
                         bloc: _profileCubit,
                         builder: (context, state) {
@@ -981,7 +996,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                   ),
                                 if (hasMedication)
                                   Padding(
-                                    padding: const EdgeInsets.only(left: 4),
+                                    padding: const EdgeInsets.only(left: AppSpacing.xxs),
                                     child: SvgPicture.asset(
                                       MediaRes.healthIcon,
                                       height: 20,
@@ -990,7 +1005,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                   ),
                                 if (hasAllergy)
                                   Padding(
-                                    padding: const EdgeInsets.only(left: 4),
+                                    padding: const EdgeInsets.only(left: AppSpacing.xxs),
                                     child: SvgPicture.asset(
                                       MediaRes.alertIcon,
                                       height: 20,
@@ -999,7 +1014,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                   ),
                                 if (isPhotoPermissionOff)
                                   Padding(
-                                    padding: const EdgeInsets.only(left: 4),
+                                    padding: const EdgeInsets.only(left: AppSpacing.xxs),
                                     child: SvgPicture.asset(
                                       MediaRes.cameraIcon,
                                       height: 20,
@@ -1025,9 +1040,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   Widget _buildStudentActionButtons(BuildContext context, RoleCubit role) {
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(AppSpacing.xs),
       decoration: BoxDecoration(
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+        borderRadius: const BorderRadius.vertical(
+          bottom: Radius.circular(AppRadius.md),
+        ),
         gradient: AppColors.buildPrimaryGradient(),
       ),
       child: Row(
@@ -1297,9 +1314,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       child: Opacity(
         opacity: enabled ? 1 : 0.45,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 8),
+            margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
             child: isSvg
                 ? SvgPicture.asset(
                     asset,

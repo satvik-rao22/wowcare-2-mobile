@@ -6,6 +6,9 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_tab_cards/student_about_tab_card.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -199,7 +202,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
         margin: const EdgeInsets.all(1),
         decoration: BoxDecoration(
           color: color,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.md)),
         ),
         child: Center(child: Text(label)),
       ),
@@ -217,7 +220,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
             dividerHeight: 0,
             indicator: BoxDecoration(
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
+                top: Radius.circular(AppRadius.md),
               ),
               border: Border.all(
                 color: AppColors.classroomStudentTabColor.withValues(alpha: 1),
@@ -230,30 +233,30 @@ class _StudentProfileTabState extends State<StudentProfileTab>
               color: AppColors.primaryColor.withValues(alpha: 0.5),
               fontSize: 15,
             ),
-            labelPadding: const EdgeInsets.all(0),
+            labelPadding: const EdgeInsets.all(AppSpacing.none),
             indicatorPadding: _tabController.index == 0
-                ? const EdgeInsets.only(right: 4)
+                ? const EdgeInsets.only(right: AppSpacing.xxs)
                 : _tabController.index == 1
-                ? const EdgeInsets.symmetric(horizontal: 2)
-                : const EdgeInsets.only(left: 4),
+                ? const EdgeInsets.symmetric(horizontal: AppSpacing.s2)
+                : const EdgeInsets.only(left: AppSpacing.xxs),
             splashFactory: NoSplash.splashFactory,
             tabs: [
               Padding(
-                padding: const EdgeInsets.only(right: 4),
+                padding: const EdgeInsets.only(right: AppSpacing.xxs),
                 child: _buildTab(
                   label: StudentStrings.about,
                   color: AppColors.classroomStudentTabColor,
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s2),
                 child: _buildTab(
                   label: StudentStrings.family,
                   color: AppColors.classroomStaffTabColor,
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.only(left: 4),
+                padding: const EdgeInsets.only(left: AppSpacing.xxs),
                 child: _buildTab(
                   label: StudentStrings.pickup,
                   color: AppColors.classroomNotesTabColor,
@@ -285,8 +288,8 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                   child: ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 16,
+                      horizontal: AppSpacing.xs,
+                      vertical: AppSpacing.md,
                     ),
                     children: const [StudentProfileInfoShimmer()],
                   ),
@@ -337,22 +340,22 @@ class _StudentProfileTabState extends State<StudentProfileTab>
       onRefresh: _refreshProfile,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xl),
         children: [
-          const Icon(Icons.error_outline, size: 48, color: AppColors.errorColor),
-          const SizedBox(height: 16),
+          const Icon(Icons.error_outline, size: AppDimensions.iconXl, color: AppColors.errorColor),
+          AppSpacing.gapVMd,
           Text(
             StudentStrings.failedToLoadStudentProfile,
             style: Theme.of(context).textTheme.titleMedium,
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
+          AppSpacing.gapVXs,
           Text(
             ApiErrorHandler.extractErrorMessage(error),
             style: Theme.of(context).textTheme.bodySmall,
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 16),
+          AppSpacing.gapVMd,
           Center(
             child: ElevatedButton(
               onPressed: _refreshProfile,
