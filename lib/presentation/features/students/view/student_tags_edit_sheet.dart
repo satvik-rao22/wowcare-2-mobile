@@ -8,6 +8,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_tags_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -105,7 +106,7 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
     if (_tagsCubit.state.schoolCode.trim().isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'School could not be resolved. Please try again.',
+        message: StudentStrings.schoolCouldNotBeResolvedPleaseTryAgain,
         isError: true,
       );
       return;
@@ -120,7 +121,7 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
       Navigator.of(context).pop();
       CoreUtils.showTopSnackBar(
         context: context,
-        message: message.isNotEmpty ? message : 'Tags updated successfully',
+        message: message.isNotEmpty ? message : StudentStrings.tagsUpdatedSuccessfully,
         isSuccess: true,
       );
       await widget.onSaved();
@@ -158,7 +159,7 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Edit Tags',
+                      StudentStrings.editTags,
                       style: TextStyle(
                         fontFamily: Fonts.manrope,
                         fontSize: 16,
@@ -183,8 +184,8 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
                   )
                 else ...[
                   CustomMultiSelectDropdown(
-                    label: 'Tags',
-                    hintText: 'Select',
+                    label: StudentStrings.tags,
+                    hintText: StudentStrings.select,
                     items: state.availableTagNames,
                     selectedItems: state.selectedTags,
                     isField: true,
@@ -193,8 +194,8 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
                   ),
                   const SizedBox(height: 20),
                   CustomButtonLayout(
-                    confirmButtonLabel: 'Save',
-                    cancelButtonLabel: 'Cancel',
+                    confirmButtonLabel: StudentStrings.save,
+                    cancelButtonLabel: StudentStrings.cancel,
                     isForm: false,
                     isLoading: state.mutationInProgress,
                     onPressedConfirm: _save,

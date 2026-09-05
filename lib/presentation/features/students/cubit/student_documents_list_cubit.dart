@@ -7,6 +7,7 @@ import '../../../../domain/features/student/entities/student_document.dart';
 import '../../../../domain/features/student/repositories/student_repository.dart';
 import '../../../../domain/features/student/usecases/get_student_documents_usecase.dart';
 import '../../../../domain/features/student/usecases/delete_student_document_usecase.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class StudentDocumentsListCubit extends Cubit<StudentDocumentsListState> {
   StudentDocumentsListCubit({
@@ -147,7 +148,7 @@ class StudentDocumentsListCubit extends Cubit<StudentDocumentsListState> {
 
       return result.fold(
         (failure) {
-          return failure.message ?? 'Failed to delete document';
+          return failure.message ?? StudentStrings.failedToDeleteDocument;
         },
         (message) {
           refresh(studentCode, expiredOnly: null);

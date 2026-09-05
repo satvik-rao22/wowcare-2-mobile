@@ -11,6 +11,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/domain/features/student/entities/student_immunization.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_health_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -209,7 +210,7 @@ class _StudentImmunizationTabCardState
                             children: [
                               Expanded(
                                 child: _DialogField(
-                                  label: 'Date *',
+                                  label: StudentStrings.date,
                                   value: selectedDate != null
                                       ? _apiFormatter.format(selectedDate!)
                                       : '',
@@ -243,7 +244,7 @@ class _StudentImmunizationTabCardState
                               const SizedBox(width: 16),
                               Expanded(
                                 child: _DialogDropdown(
-                                  label: 'Status *',
+                                  label: StudentStrings.status2,
                                   value: statusUi,
                                   options: const [
                                     'Due',
@@ -261,7 +262,7 @@ class _StudentImmunizationTabCardState
                           Column(
                             children: [
                               _DialogField(
-                                label: 'Date *',
+                                label: StudentStrings.date,
                                 value: selectedDate != null
                                     ? _apiFormatter.format(selectedDate!)
                                     : '',
@@ -293,7 +294,7 @@ class _StudentImmunizationTabCardState
                               ),
                               const SizedBox(height: 16),
                               _DialogDropdown(
-                                label: 'Status *',
+                                label: StudentStrings.status2,
                                 value: statusUi,
                                 options: const [
                                   'Due',
@@ -310,7 +311,7 @@ class _StudentImmunizationTabCardState
                           const SizedBox(height: 16),
                           TextField(
                             decoration: const InputDecoration(
-                              labelText: 'Exemption Reason *',
+                              labelText: StudentStrings.exemptionReason,
                               border: OutlineInputBorder(),
                             ),
                             controller: TextEditingController(
@@ -324,8 +325,8 @@ class _StudentImmunizationTabCardState
                         ],
                         SizedBox(height: verticalPadding),
                         CustomButtonLayout(
-                          confirmButtonLabel: 'Save',
-                          cancelButtonLabel: 'Cancel',
+                          confirmButtonLabel: StudentStrings.save,
+                          cancelButtonLabel: StudentStrings.cancel,
                           isForm: false,
                           isLoading: isSaving,
                           onPressedCancel: () => Navigator.of(context).pop(),
@@ -348,7 +349,8 @@ class _StudentImmunizationTabCardState
                                     CoreUtils.showTopSnackBar(
                                       context: context,
                                       message:
-                                          'Immunization updated successfully',
+                                          StudentStrings
+                                              .immunizationUpdatedSuccessfully,
                                       isSuccess: true,
                                     );
                                     Navigator.of(context).pop();
@@ -430,7 +432,7 @@ class _StudentImmunizationTabCardState
               return Padding(
                 padding: const EdgeInsets.only(top: 24),
                 child: Text(
-                  'No immunization records found',
+                  StudentStrings.noImmunizationRecordsFound,
                   style: AppTextStyles.value.copyWith(fontSize: 16),
                 ),
               );

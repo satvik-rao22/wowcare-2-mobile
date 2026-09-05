@@ -34,6 +34,7 @@ import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/entities/student_settings.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_profile_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 
@@ -366,7 +367,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     }
     if (health.photoPermission == false) {
       addLine(
-        'Photo permission not granted',
+        StudentStrings.photoPermissionNotGranted,
         SvgPicture.asset(MediaRes.cameraIcon, height: 22, width: 22),
       );
     }
@@ -387,7 +388,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Details',
+                  StudentStrings.details,
                   style: TextStyle(
                     fontFamily: Fonts.manrope,
                     fontSize: 18,
@@ -402,7 +403,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   child: TextButton(
                     onPressed: () => Navigator.of(ctx).pop(),
                     child: const Text(
-                      'Close',
+                      StudentStrings.close,
                       style: TextStyle(
                         fontFamily: Fonts.manrope,
                         fontWeight: FontWeight.w600,
@@ -484,7 +485,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       if (studentCode.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Student code is required to upload profile photo.',
+          message: StudentStrings.studentCodeIsRequiredToUploadProfilePhoto,
           isError: true,
         );
         return;
@@ -497,7 +498,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       if (resolvedSchoolCode.isEmpty || resolvedOrganizationCode.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Missing school context for photo upload.',
+          message: StudentStrings.missingSchoolContextForPhotoUpload,
           isError: true,
         );
         return;
@@ -585,7 +586,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       );
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Profile photo updated successfully',
+        message: StudentStrings.profilePhotoUpdatedSuccessfully,
         isSuccess: true,
       );
       if (!mounted) return;
@@ -675,10 +676,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               ),
               tabAlignment: TabAlignment.center,
               tabs: const [
-                Tab(text: 'Profile'),
-                Tab(text: 'Health'),
-                Tab(text: 'Dates'),
-                Tab(text: 'Documents'),
+                Tab(text: StudentStrings.profile),
+                Tab(text: StudentStrings.health),
+                Tab(text: StudentStrings.dates),
+                Tab(text: StudentStrings.documents),
               ],
             ),
           ),
@@ -846,8 +847,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                           const SizedBox(width: 3),
                                           Text(
                                             _profilePhotoUploadPercent >= 100
-                                                ? 'Finalizing'
-                                                : 'Uploading',
+                                                ? StudentStrings.finalizing
+                                                : StudentStrings.uploading,
                                             style: TextStyle(
                                               color: AppColors.whiteColor.withValues(
                                                 alpha: 0.92,
@@ -1047,7 +1048,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   if (code.isEmpty) {
                     CoreUtils.showTopSnackBar(
                       context: context,
-                      message: 'Student code is required for attendance.',
+                      message: StudentStrings.studentCodeIsRequiredForAttendance,
                       isError: true,
                     );
                     return;
@@ -1132,7 +1133,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               if (code.isEmpty) {
                 CoreUtils.showTopSnackBar(
                   context: context,
-                  message: 'Student details not loaded yet. Please try again.',
+                  message: StudentStrings.studentDetailsNotLoadedYetPleaseTryAgain,
                   isError: true,
                 );
                 return;
@@ -1183,7 +1184,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                     CoreUtils.showTopSnackBar(
                       context: context,
                       message:
-                          'Student details not loaded yet. Please try again.',
+                          StudentStrings.studentDetailsNotLoadedYetPleaseTryAgain,
                       isError: true,
                     );
                     return;
@@ -1224,7 +1225,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     if (org.isEmpty || school.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Missing school context. Please try again.',
+        message: StudentStrings.missingSchoolContextPleaseTryAgain,
         isError: true,
       );
       return;
@@ -1249,7 +1250,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       if (family == null) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'No billing profile found for this student.',
+          message: StudentStrings.noBillingProfileFoundForThisStudent,
           isError: true,
         );
         return;

@@ -11,6 +11,7 @@ import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/student/usecases/add_student_document_usecase.dart';
 import '../../../../domain/features/student/usecases/update_student_document_usecase.dart';
 import '../../../../shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 part 'student_document_state.dart';
 
@@ -85,18 +86,18 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
           (await _storageService.getString(StorageKeys.organizationCode) ?? '')
               .trim();
       if (schoolCode.isEmpty || organizationCode.isEmpty) {
-        _failUpload('Missing school or organization context');
+        _failUpload(StudentStrings.missingSchoolOrOrganizationContext);
         return;
       }
 
       final selectedPath = file.path;
       if (selectedPath == null || selectedPath.trim().isEmpty) {
-        _failUpload('Selected file path is not available');
+        _failUpload(StudentStrings.selectedFilePathIsNotAvailable);
         return;
       }
       final ioFile = File(selectedPath);
       if (!await ioFile.exists()) {
-        _failUpload('Selected file is not accessible');
+        _failUpload(StudentStrings.selectedFileIsNotAccessible);
         return;
       }
 
@@ -219,7 +220,7 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
     } else {
       emit(state.copyWith(
         submitStatus: DocumentSubmitStatus.error,
-        message: 'Please upload a document',
+        message: StudentStrings.pleaseUploadADocument,
       ));
       return;
     }
@@ -266,7 +267,7 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
       (failure) => emit(state.copyWith(
         submitStatus: DocumentSubmitStatus.error,
         message: failure.message ??
-            (isEdit ? 'Failed to update document' : 'Failed to add document'),
+            (isEdit ? StudentStrings.failedToUpdateDocument : StudentStrings.failedToAddDocument),
       )),
       (message) => emit(state.copyWith(
         submitStatus: DocumentSubmitStatus.success,

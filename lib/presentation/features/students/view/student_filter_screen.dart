@@ -15,6 +15,7 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'dart:convert';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 enum StudentFilterSection { classroom, status, tags, parents, attendance }
@@ -267,7 +268,7 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
     final responsive = ResponsiveHelper(context);
 
     return StaffFormLayout(
-      title: 'Filter Students',
+      title: StudentStrings.filterStudents,
       child: _buildFilterContent(),
       bottomBar: _buildBottomBar(context, responsive),
     );
@@ -284,7 +285,7 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
         bottom: safeAreaBottom,
       ),
       child: CustomButtonLayout(
-        confirmButtonLabel: 'Apply Filters',
+        confirmButtonLabel: StudentStrings.applyFilters,
         onPressedConfirm: _applyFilters,
         showCancelButton: false,
         isForm: false,
@@ -396,7 +397,7 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
 
               return CustomMultiSelectDropdown(
                 label: label,
-                hintText: 'Select',
+                hintText: StudentStrings.select,
                 showSelectAll: showSelectAll,
                 items: items,
                 selectedItems: selected,

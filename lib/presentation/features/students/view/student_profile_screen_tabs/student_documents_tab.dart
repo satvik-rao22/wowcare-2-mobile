@@ -29,6 +29,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class StudentDocumentsTab extends StatefulWidget {
   const StudentDocumentsTab({
@@ -158,7 +159,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
     if (doc.documentUuid == null || doc.documentUuid!.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Document ID not available',
+        message: StudentStrings.documentIdNotAvailable,
         isError: true,
       );
       return;
@@ -213,7 +214,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                 if (!mounted) return;
                 CoreUtils.showTopSnackBar(
                   context: context,
-                  message: 'Document ID not available',
+                  message: StudentStrings.documentIdNotAvailable,
                   isError: true,
                 );
                 return;
@@ -236,7 +237,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
               } else {
                 CoreUtils.showTopSnackBar(
                   context: context,
-                  message: 'Document deleted successfully',
+                  message: StudentStrings.documentDeletedSuccessfully,
                   isSuccess: true,
                 );
               }
@@ -292,7 +293,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
       if (url.isEmpty || Uri.tryParse(url) == null) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Document link not available',
+          message: StudentStrings.documentLinkNotAvailable,
           isError: true,
         );
         return;
@@ -331,7 +332,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
       if (url.isEmpty || Uri.tryParse(url) == null) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Document link not available',
+          message: StudentStrings.documentLinkNotAvailable,
           isError: true,
         );
         return;
@@ -351,7 +352,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
           CoreUtils.showTopSnackBar(
             context: context,
             message:
-                'Photos permission is required to save the document to your gallery.',
+                StudentStrings.photosPermissionIsRequiredToSaveTheDocumentToY,
             isWarning: true,
           );
           return;
@@ -380,7 +381,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
         if (!mounted) return;
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Saved to your gallery.',
+          message: StudentStrings.savedToYourGallery,
           isSuccess: true,
         );
         return;
@@ -393,7 +394,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
       } else if (mounted) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Could not open document',
+          message: StudentStrings.couldNotOpenDocument,
           isError: true,
         );
       }
@@ -424,7 +425,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
     if (studentCode.isEmpty) {
       return const Center(
         child: Text(
-          'Student code is required to load documents',
+          StudentStrings.studentCodeIsRequiredToLoadDocuments,
           style: TextStyle(color: AppColors.primaryColor, fontSize: 16),
         ),
       );
@@ -509,7 +510,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                 TextField(
                                   controller: _searchController,
                                   decoration: InputDecoration(
-                                    hintText: 'Search documents...',
+                                    hintText: StudentStrings.searchDocuments,
                                     prefixIcon: const Icon(Icons.search),
                                     suffixIcon:
                                         _searchController.text.trim().isEmpty
@@ -531,7 +532,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                 ),
                                 const SizedBox(height: 12),
                                 CustomToggle(
-                                  label: 'Show Expired Documents',
+                                  label: StudentStrings.showExpiredDocuments,
                                   isToggled: _showExpired,
                                   onToggle: (v) {
                                     setState(() => _showExpired = v);
@@ -550,10 +551,10 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                           else if (documents.isEmpty)
                             Text(
                               _showExpired
-                                  ? 'No expired documents found'
+                                  ? StudentStrings.noExpiredDocumentsFound
                                   : (query.isEmpty
-                                        ? 'No documents found'
-                                        : 'No documents match your search'),
+                                        ? StudentStrings.noDocumentsFound
+                                        : StudentStrings.noDocumentsMatchYourSearch),
                               style: const TextStyle(
                                 color: AppColors.primaryColor,
                                 fontSize: 16,
@@ -681,22 +682,22 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                             ),
                                             const SizedBox(height: 12),
                                             _DocumentDetailRow(
-                                              label: 'Document Type',
+                                              label: StudentStrings.documentType,
                                               value: docTypeDisplay,
                                             ),
                                             const SizedBox(height: 8),
                                             _DocumentDetailRow(
-                                              label: 'Uploaded By',
+                                              label: StudentStrings.uploadedBy,
                                               value: uploadedBy,
                                             ),
                                             const SizedBox(height: 8),
                                             _DocumentDetailRow(
-                                              label: 'Uploaded On',
+                                              label: StudentStrings.uploadedOn,
                                               value: uploadedOn,
                                             ),
                                             const SizedBox(height: 8),
                                             _DocumentDetailRow(
-                                              label: 'Expiry Date',
+                                              label: StudentStrings.expiryDate,
                                               value: expiryDisplay,
                                             ),
                                             const SizedBox(height: 16),
@@ -727,7 +728,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                                       .zero,
                                                             ),
                                                         child: const Text(
-                                                          'Edit',
+                                                          StudentStrings.edit,
                                                           style: TextStyle(
                                                             fontFamily:
                                                                 Fonts.manrope,
@@ -765,7 +766,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                               EdgeInsets.zero,
                                                         ),
                                                         child: const Text(
-                                                          'Delete',
+                                                          StudentStrings.delete,
                                                           style: TextStyle(
                                                             fontFamily:
                                                                 Fonts.manrope,

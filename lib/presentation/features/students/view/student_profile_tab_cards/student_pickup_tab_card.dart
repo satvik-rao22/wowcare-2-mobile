@@ -8,6 +8,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_pickup_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
@@ -86,7 +87,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Pickup details',
+                      StudentStrings.pickupDetails,
                       style: AppTextStyles.value.copyWith(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -138,7 +139,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                     return Padding(
                       padding: const EdgeInsets.only(top: 16),
                       child: Text(
-                        'Failed to load pickups',
+                        StudentStrings.failedToLoadPickups,
                         style: AppTextStyles.value.copyWith(
                           fontSize: 14,
                           color: AppColors.errorColor,
@@ -152,7 +153,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                     return Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
-                        'No pickups found',
+                        StudentStrings.noPickupsFound,
                         style: AppTextStyles.value.copyWith(fontSize: 14),
                       ),
                     );
@@ -436,7 +437,7 @@ class _PickupCardState extends State<_PickupCard> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
-                            'Type',
+                            StudentStrings.type,
                             style: AppTextStyles.label.copyWith(
                               color: AppColors.primaryColor.withValues(
                                 alpha: 0.5,
@@ -457,7 +458,7 @@ class _PickupCardState extends State<_PickupCard> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
-                            'Relation',
+                            StudentStrings.relation,
                             style: AppTextStyles.label.copyWith(
                               color: AppColors.primaryColor.withValues(
                                 alpha: 0.5,
@@ -478,7 +479,7 @@ class _PickupCardState extends State<_PickupCard> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
-                            'Email ID',
+                            StudentStrings.emailId,
                             style: AppTextStyles.label.copyWith(
                               color: AppColors.primaryColor.withValues(
                                 alpha: 0.5,
@@ -507,7 +508,7 @@ class _PickupCardState extends State<_PickupCard> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
-                            'Phone Number',
+                            StudentStrings.phoneNumber,
                             style: AppTextStyles.label.copyWith(
                               color: AppColors.primaryColor.withValues(
                                 alpha: 0.5,
@@ -526,7 +527,7 @@ class _PickupCardState extends State<_PickupCard> {
                       if (widget.showActionButtons) ...[
                         if (isCarpool)
                           CustomButtonLayout(
-                            confirmButtonLabel: 'Delete',
+                            confirmButtonLabel: StudentStrings.delete,
                             onPressedConfirm: widget.isLoading
                                 ? null
                                 : _onDelete,
@@ -536,8 +537,8 @@ class _PickupCardState extends State<_PickupCard> {
                           )
                         else
                           CustomButtonLayout(
-                            confirmButtonLabel: 'Edit',
-                            cancelButtonLabel: 'Delete',
+                            confirmButtonLabel: StudentStrings.edit,
+                            cancelButtonLabel: StudentStrings.delete,
                             onPressedConfirm: widget.isLoading ? null : _onEdit,
                             onPressedCancel: widget.isLoading
                                 ? null

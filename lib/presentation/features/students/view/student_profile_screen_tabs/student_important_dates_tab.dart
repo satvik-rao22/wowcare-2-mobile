@@ -13,6 +13,7 @@ import 'package:wowcare/presentation/features/students/view/edit_student_importa
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class StudentImportantDatesTab extends StatefulWidget {
   const StudentImportantDatesTab({
@@ -51,7 +52,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
     if (studentCode.isEmpty) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Student code is required';
+        _errorMessage = StudentStrings.studentCodeIsRequired;
         _dates = null;
       });
       return;
@@ -72,7 +73,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
         (failure) {
           setState(() {
             _isLoading = false;
-            _errorMessage = failure.message ?? 'Failed to load important dates';
+            _errorMessage = failure.message ?? StudentStrings.failedToLoadImportantDates;
             _dates = null;
           });
         },
@@ -88,7 +89,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Failed to load important dates';
+        _errorMessage = StudentStrings.failedToLoadImportantDates;
         _dates = null;
       });
     }
@@ -154,7 +155,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  'Student code is required to load important dates',
+                  StudentStrings.studentCodeIsRequiredToLoadImportantDates,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.primaryColor.withValues(alpha: 0.7),
@@ -169,14 +170,14 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
     }
 
     final entries = <MapEntry<String, String>>[
-      MapEntry('Enroll Date', _format(_dates?.enrollDate)),
-      MapEntry('School Start Date', _format(_dates?.schoolStartDate)),
+      MapEntry(StudentStrings.enrollDate, _format(_dates?.enrollDate)),
+      MapEntry(StudentStrings.schoolStartDate, _format(_dates?.schoolStartDate)),
       MapEntry(
-        'Current Classroom Start Date',
+        StudentStrings.currentClassroomStartDate,
         _format(_dates?.currentClassroomStartDate),
       ),
-      MapEntry('Upcoming Moving Date', _format(_dates?.upcomingMoveDate)),
-      MapEntry('School Leaving Date', _format(_dates?.schoolLeavingDate)),
+      MapEntry(StudentStrings.upcomingMovingDate, _format(_dates?.upcomingMoveDate)),
+      MapEntry(StudentStrings.schoolLeavingDate, _format(_dates?.schoolLeavingDate)),
     ];
 
     return Stack(
@@ -223,7 +224,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Important Dates', style: AppTextStyles.title),
+                        Text(StudentStrings.importantDates, style: AppTextStyles.title),
                         if (canStudentWrite)
                           GestureDetector(
                             onTap: () => _openEdit(context),

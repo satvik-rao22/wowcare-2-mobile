@@ -47,6 +47,7 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../shared/common/widgets/post_add_student_bottom_sheet.dart';
@@ -687,7 +688,7 @@ class _StudentScreenState extends State<StudentScreen> {
     if (selectedStudents.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Select at least one student',
+        message: StudentStrings.selectAtLeastOneStudent,
         isError: true,
       );
       return;
@@ -700,7 +701,7 @@ class _StudentScreenState extends State<StudentScreen> {
     if (selectedCodes.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Selected students are missing codes',
+        message: StudentStrings.selectedStudentsAreMissingCodes,
         isError: true,
       );
       return;
@@ -1039,7 +1040,7 @@ class _StudentScreenState extends State<StudentScreen> {
                             _attendanceAvailabilityForSelection(students),
                         attendanceEnabled: !hasInactiveSelected,
                         attendanceDisabledHint: hasInactiveSelected
-                            ? 'You cannot mark attendance for inactive student.'
+                            ? StudentStrings.youCannotMarkAttendanceForInactiveStudent
                             : null,
                         onAttendanceTap: () {
                           setState(() {
@@ -1145,9 +1146,9 @@ class _StudentScreenState extends State<StudentScreen> {
                         activitiesEnabled:
                             canShowActivities && !hasInactiveSelected,
                         activitiesDisabledHint: hasInactiveSelected
-                            ? 'You cannot record activities for inactive student.'
+                            ? StudentStrings.youCannotRecordActivitiesForInactiveStudent
                             : (_hasCrossClassroomSelection(students)
-                                  ? 'Please select students from the same classroom.'
+                                  ? StudentStrings.pleaseSelectStudentsFromTheSameClassroom
                                   : null),
                         showAttendanceActions:
                             _currentPanel == StudentPanelType.attendance,
@@ -1225,7 +1226,7 @@ class _StudentScreenState extends State<StudentScreen> {
                         children: [
                           Expanded(
                             child: Text(
-                              'Students',
+                              StudentStrings.students,
                               style: TextStyle(
                                 fontFamily: Fonts.manrope,
                                 fontSize: titleFontSize,
@@ -1329,7 +1330,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                 bottom: isTablet ? 8 : 8,
                               ),
                               child: CustomStatBarCard(
-                                title: 'Total\nStudents',
+                                title: StudentStrings.totalNstudents,
                                 number: total,
                                 items: items,
                                 fullWidthBar: false,
@@ -1395,7 +1396,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                 bottom: isTablet ? 8 : 8,
                               ),
                               child: CustomStatBarCard(
-                                title: 'Expected\nStudents',
+                                title: StudentStrings.expectedNstudents,
                                 number: '${sState.expectedTotal}',
                                 items: items,
                                 fullWidthBar: false,
@@ -1442,7 +1443,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                 Expanded(
                                   child: CustomSearchBar(
                                     controller: _searchController,
-                                    hintText: 'Search Students',
+                                    hintText: StudentStrings.searchStudents,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -1603,7 +1604,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
                                     const Text(
-                                      'Show inactive',
+                                      StudentStrings.showInactive,
                                       style: TextStyle(
                                         fontFamily: Fonts.manrope,
                                         fontSize: 13,
@@ -1637,8 +1638,8 @@ class _StudentScreenState extends State<StudentScreen> {
                                           CoreUtils.showTopSnackBar(
                                             context: context,
                                             message: v
-                                                ? 'Showing inactive students'
-                                                : 'Showing active students',
+                                                ? StudentStrings.showingInactiveStudents
+                                                : StudentStrings.showingActiveStudents,
                                             isSuccess: true,
                                           );
                                         }
@@ -1656,7 +1657,7 @@ class _StudentScreenState extends State<StudentScreen> {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: CustomCheckbox(
-                          label: 'Select All',
+                          label: StudentStrings.selectAll,
                           value: _selectAll,
                           onChanged: (v) {
                             final newVal = v ?? false;
@@ -1676,14 +1677,14 @@ class _StudentScreenState extends State<StudentScreen> {
                             child: Column(
                               children: [
                                 Text(
-                                  'Error loading students',
+                                  StudentStrings.errorLoadingStudents,
                                   style: TextStyle(color: AppColors.errorColor),
                                 ),
                                 const SizedBox(height: 8),
                                 ElevatedButton(
                                   onPressed: () =>
                                       context.read<StudentCubit>().refresh(),
-                                  child: Text('Retry'),
+                                  child: Text(StudentStrings.retry),
                                 ),
                               ],
                             ),
@@ -1692,7 +1693,7 @@ class _StudentScreenState extends State<StudentScreen> {
                       else if (students.isEmpty)
                         const Padding(
                           padding: EdgeInsets.all(32.0),
-                          child: Center(child: Text('No students found')),
+                          child: Center(child: Text(StudentStrings.noStudentsFound)),
                         )
                       else
                         ListView.builder(

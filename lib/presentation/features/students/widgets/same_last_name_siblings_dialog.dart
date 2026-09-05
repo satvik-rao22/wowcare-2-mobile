@@ -3,6 +3,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 /// Bottom sheet to pick existing students with the same surname as siblings.
 /// Returns selected student codes (may be empty). Null if dismissed without action.
@@ -139,7 +140,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                 padding:
                     EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
                 child: Text(
-                  'Would you like to add any of them as siblings?',
+                  StudentStrings.wouldYouLikeToAddAnyOfThemAsSiblings,
                   style: TextStyle(
                     fontFamily: Fonts.manrope,
                     fontSize: 14,
@@ -286,7 +287,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                               ),
                             ),
                             child: Text(
-                              'Skip',
+                              StudentStrings.skip,
                               style: TextStyle(
                                 fontFamily: Fonts.manrope,
                                 fontSize: buttonFontSize,

@@ -11,6 +11,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_physician_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -100,7 +101,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
     if (first.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'First Name is required',
+        message: StudentStrings.firstNameIsRequired,
         isError: true,
       );
       return;
@@ -108,7 +109,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
     if (last.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Last Name is required',
+        message: StudentStrings.lastNameIsRequired,
         isError: true,
       );
       return;
@@ -117,7 +118,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
     if (digits.length != 10) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Please enter a valid 10-digit phone number',
+        message: StudentStrings.pleaseEnterAValid10DigitPhoneNumber,
         isError: true,
       );
       return;
@@ -197,7 +198,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      widget.isEdit ? 'Edit Physician' : 'Add Physician',
+                      widget.isEdit ? StudentStrings.editPhysician : StudentStrings.addPhysician,
                       style: TextStyle(
                         fontFamily: Fonts.manrope,
                         fontSize: responsive.titleFontSize,
@@ -236,8 +237,8 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                           children: [
                             Expanded(
                               child: _buildInputField(
-                                label: 'First Name',
-                                hint: 'E.g. John',
+                                label: StudentStrings.firstName,
+                                hint: StudentStrings.eGJohn,
                                 controller: _firstNameController,
                                 isRequired: true,
                                 textCapitalization: TextCapitalization.words,
@@ -246,8 +247,8 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                             SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
                             Expanded(
                               child: _buildInputField(
-                                label: 'Last Name',
-                                hint: 'E.g. Smith',
+                                label: StudentStrings.lastName,
+                                hint: StudentStrings.eGSmith,
                                 controller: _lastNameController,
                                 isRequired: true,
                                 textCapitalization: TextCapitalization.words,
@@ -257,15 +258,15 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
-                          label: 'Email ID',
-                          hint: 'E.g. name@example.com',
+                          label: StudentStrings.emailId,
+                          hint: StudentStrings.eGNameExampleCom,
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
-                          label: 'Phone Number',
-                          hint: 'E.g. (000) 000-0000',
+                          label: StudentStrings.phoneNumber,
+                          hint: StudentStrings.eG0000000000,
                           controller: _phoneController,
                           isRequired: true,
                           keyboardType: TextInputType.phone,
@@ -277,8 +278,8 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
-                          label: 'Address',
-                          hint: 'Enter address',
+                          label: StudentStrings.address,
+                          hint: StudentStrings.enterAddress,
                           controller: _addressController,
                           textCapitalization: TextCapitalization.sentences,
                         ),
@@ -317,8 +318,8 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
             bloc: _physicianCubit,
             buildWhen: (p, c) => p.mutationInProgress != c.mutationInProgress,
             builder: (context, state) => CustomButtonLayout(
-              confirmButtonLabel: 'Save',
-              cancelButtonLabel: 'Cancel',
+              confirmButtonLabel: StudentStrings.save,
+              cancelButtonLabel: StudentStrings.cancel,
               onPressedConfirm: _onSave,
               onPressedCancel: () => context.pop(false),
               showCancelButton: true,

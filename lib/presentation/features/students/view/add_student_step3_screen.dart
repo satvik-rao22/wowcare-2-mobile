@@ -13,6 +13,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_schedule_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class AddStudentStep3Screen extends StatefulWidget {
   const AddStudentStep3Screen({
@@ -137,7 +138,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        widget.title ?? 'Add Student - Step 3 of 3 (Optional)',
+                        widget.title ?? StudentStrings.addStudentStep3Of3Optional,
                         style: TextStyle(
                           fontFamily: Fonts.manrope,
                           fontSize: responsive.titleFontSize,
@@ -178,7 +179,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                               children: [
                                 SizedBox(height: responsive.verticalSpacing),
                                 Text(
-                                  'Schedule',
+                                  StudentStrings.schedule,
                                   style: TextStyle(
                                     fontSize: responsive.labelFontSize,
                                     fontFamily: Fonts.manrope,
@@ -188,7 +189,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Select days and times for this student. Default times are school open and close hours.',
+                                  StudentStrings.selectDaysAndTimesForThisStudentDefaultTimesAr,
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: AppColors.attendanceDialogHintTextColor,
@@ -201,7 +202,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                                       MainAxisAlignment.spaceBetween,
                                   children: [
                                     CustomToggle(
-                                      label: 'Copy to all days',
+                                      label: StudentStrings.copyToAllDays,
                                       isToggled: state.copyToAllDays,
                                       labelOnLeftSide: true,
                                       onToggle: (v) {
@@ -276,7 +277,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                       child: TextButton(
                         onPressed: _onSkip,
                         child: Text(
-                          'Skip',
+                          StudentStrings.skip,
                           style: TextStyle(
                             fontFamily: Fonts.manrope,
                             fontSize: responsive.buttonFontSize,
@@ -301,7 +302,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                     child: TextButton(
                       onPressed: _onNext,
                       child: Text(
-                        widget.primaryButtonLabel ?? 'Next',
+                        widget.primaryButtonLabel ?? StudentStrings.next,
                         style: TextStyle(
                           fontFamily: Fonts.manrope,
                           fontSize: responsive.buttonFontSize,
@@ -371,7 +372,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
               children: [
                 Expanded(
                   child: GradientTimePickerField(
-                    label: 'Start Time',
+                    label: StudentStrings.startTime,
                     minuteInterval: 15,
                     time:
                         schedule!['start'] ??
@@ -389,7 +390,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: GradientTimePickerField(
-                    label: 'End Time',
+                    label: StudentStrings.endTime,
                     minuteInterval: 15,
                     time:
                         schedule['end'] ?? _scheduleCubit.defaultEndForDay(day),
@@ -412,7 +413,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Holiday',
+                    StudentStrings.holiday,
                     style: TextStyle(
                       fontFamily: Fonts.manrope,
                       fontSize: 12,
@@ -423,7 +424,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                   TextButton(
                     onPressed: () => _scheduleCubit.enableDay(day),
                     child: const Text(
-                      'Enable',
+                      StudentStrings.enable,
                       style: TextStyle(
                         fontFamily: Fonts.manrope,
                         fontSize: 12,

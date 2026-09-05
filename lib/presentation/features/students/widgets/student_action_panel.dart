@@ -16,6 +16,7 @@ import 'package:wowcare/domain/features/activity/usecases/get_classroom_activity
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -325,12 +326,13 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
     if (_isMultipleStudentsSelected &&
         activityKey.toLowerCase() == 'nap' &&
         _hasMixedNappingSelection()) {
-      return 'Nap is disabled for mixed selection. Select either all currently napping students or all not-napping students.';
+      return StudentStrings
+          .napIsDisabledForMixedSelectionSelectEitherAllC;
     }
     if (activityKey == 'Incident' && _isMultipleStudentsSelected) {
-      return 'Incident can only be recorded for a single student.';
+      return StudentStrings.incidentCanOnlyBeRecordedForASingleStudent;
     }
-    return 'This activity is currently disabled';
+    return StudentStrings.thisActivityIsCurrentlyDisabled;
   }
 
   /// Re-fetches each selected student's LIVE current classroom from the
@@ -409,7 +411,7 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
     if (code == null || code.trim().isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Unable to resolve activity code.',
+        message: StudentStrings.unableToResolveActivityCode,
         isWarning: true,
       );
       return;
@@ -497,7 +499,7 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                   children: [
                     _ActionButton(
                       svgPath: MediaRes.attendance_panel_icon,
-                      label: 'Attendance',
+                      label: StudentStrings.attendance,
                       onTap: () {
                         _togglePanel(StudentPanelType.attendance);
                         widget.onAttendanceTap?.call();
@@ -507,12 +509,13 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                       disabledTooltip: widget.attendanceEnabled
                           ? ''
                           : (widget.attendanceDisabledHint ??
-                                'You cannot mark attendance for inactive student.'),
+                                StudentStrings
+                                    .youCannotMarkAttendanceForInactiveStudent),
                     ),
                     const SizedBox(height: 20),
                     _ActionButton(
                       svgPath: MediaRes.activity_panel_icon,
-                      label: 'Activities',
+                      label: StudentStrings.activities,
                       onTap: widget.activitiesEnabled
                           ? () {
                               _togglePanel(StudentPanelType.activities);
@@ -524,24 +527,25 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                       disabledTooltip: widget.activitiesEnabled
                           ? ''
                           : (widget.activitiesDisabledHint ??
-                                'Activities can be recorded only when all '
-                                    'selected students are signed in.'),
+                                StudentStrings
+                                        .activitiesCanBeRecordedOnlyWhenAll +
+                                    StudentStrings.selectedStudentsAreSignedIn),
                     ),
                     const SizedBox(height: 20),
                     _ActionButton(
                       svgPath: MediaRes.message_panel_icon,
-                      label: 'Message',
+                      label: StudentStrings.message,
                       onTap: widget.onMessageTap,
                     ),
                     const SizedBox(height: 20),
                     _ActionButton(
                       svgPath: MediaRes.profile_panel_icon,
-                      label: 'Profile',
+                      label: StudentStrings.profile,
                       onTap: widget.isProfileEnabled
                           ? widget.onProfileTap
                           : null,
                       isEnabled: widget.isProfileEnabled,
-                      disabledTooltip: 'Select only one to view profile',
+                      disabledTooltip: StudentStrings.selectOnlyOneToViewProfile,
                     ),
                     const SizedBox(height: 24),
                   ],
@@ -622,7 +626,7 @@ class AttendanceQuickActionsPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Attendance',
+              StudentStrings.attendance,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
@@ -635,19 +639,19 @@ class AttendanceQuickActionsPanel extends StatelessWidget {
               runSpacing: 8,
               children: [
                 _AttendanceChipButton(
-                  label: 'Sign In',
+                  label: StudentStrings.signIn,
                   onTap: isLoading || !a.signInEnabled ? null : onSignInTap,
                 ),
                 _AttendanceChipButton(
-                  label: 'Sign Out',
+                  label: StudentStrings.signOut,
                   onTap: isLoading || !a.signOutEnabled ? null : onSignOutTap,
                 ),
                 _AttendanceChipButton(
-                  label: 'Transfer',
+                  label: StudentStrings.transfer,
                   onTap: isLoading || !a.transferEnabled ? null : onTransferTap,
                 ),
                 _AttendanceChipButton(
-                  label: 'Mark Absent',
+                  label: StudentStrings.markAbsent,
                   onTap: isLoading || !a.absentEnabled ? null : onMarkAbsentTap,
                 ),
               ],
@@ -717,13 +721,13 @@ class _StudentSidePanel extends StatelessWidget {
     }
     switch (action) {
       case 'Sign-In':
-        return 'Sign-In can only be done for Students/Staff not signed in.';
+        return StudentStrings.signInCanOnlyBeDoneForStudentsStaffNotSignedIn;
       case 'Sign-Out':
-        return 'Sign-Out can only be done for Students/Staff already signed in.';
+        return StudentStrings.signOutCanOnlyBeDoneForStudentsStaffAlreadySig;
       case 'Transfer':
-        return 'Transfer can only be done for Students/Staff already signed in.';
+        return StudentStrings.transferCanOnlyBeDoneForStudentsStaffAlreadySi;
       case 'Absent':
-        return 'Absent can only be marked for Students/Staff not yet signed in';
+        return StudentStrings.absentCanOnlyBeMarkedForStudentsStaffNotYetSig;
     }
     return '';
   }
@@ -775,7 +779,7 @@ class _StudentSidePanel extends StatelessWidget {
       children: [
         _StudentAttendanceActionItem(
           svgPath: MediaRes.Sign_in,
-          label: 'Sign-In',
+          label: StudentStrings.signIn2,
           onTap: enabled(a.signInEnabled) ? onSignInTap : null,
           isEnabled: enabled(a.signInEnabled),
           disabledTooltip: _attendanceDisabledReason(
@@ -787,7 +791,7 @@ class _StudentSidePanel extends StatelessWidget {
         const SizedBox(height: 5),
         _StudentAttendanceActionItem(
           svgPath: MediaRes.Sign_out,
-          label: 'Sign-Out',
+          label: StudentStrings.signOut2,
           onTap: enabled(a.signOutEnabled) ? onSignOutTap : null,
           isEnabled: enabled(a.signOutEnabled),
           disabledTooltip: _attendanceDisabledReason(
@@ -799,7 +803,7 @@ class _StudentSidePanel extends StatelessWidget {
         const SizedBox(height: 5),
         _StudentAttendanceActionItem(
           svgPath: MediaRes.transfer,
-          label: 'Transfer',
+          label: StudentStrings.transfer,
           onTap: enabled(a.transferEnabled) ? onTransferTap : null,
           isEnabled: enabled(a.transferEnabled),
           disabledTooltip: _attendanceDisabledReason(
@@ -811,7 +815,7 @@ class _StudentSidePanel extends StatelessWidget {
         const SizedBox(height: 5),
         _StudentAttendanceActionItem(
           svgPath: MediaRes.Mark_absent,
-          label: 'Absent',
+          label: StudentStrings.absent,
           onTap: enabled(a.absentEnabled) ? onMarkAbsentTap : null,
           isEnabled: enabled(a.absentEnabled),
           disabledTooltip: _attendanceDisabledReason(
@@ -838,7 +842,7 @@ class _StudentSidePanel extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 8),
           child: Text(
-            'No activities for this class',
+            StudentStrings.noActivitiesForThisClass,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 11,

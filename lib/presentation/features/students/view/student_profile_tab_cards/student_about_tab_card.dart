@@ -23,6 +23,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
 import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 import '../../../../../shared/common/widgets/profile_info_card.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
@@ -285,7 +286,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
       }
     }
 
-    return ProfileField(label: 'Upcoming move', value: value);
+    return ProfileField(label: StudentStrings.upcomingMove, value: value);
   }
 
   /// Staff-only tags editor (bottom sheet). Staff can't open the full profile
@@ -328,7 +329,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         await widget.onRefresh?.call();
       },
       child: ProfileInfoCard(
-        title: 'Profile Information',
+        title: StudentStrings.profileInformation,
         // Full width, flush below the tab bar; bottom pads only by the nav's
         // visible height (above the safe area) so the box's bottom border sits
         // right on the bottom nav with no extra gap.
@@ -468,22 +469,22 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                     })
             : null,
         children: [
-          ProfileField(label: 'Name', value: _getValueOrDash(widget.name)),
+          ProfileField(label: StudentStrings.name, value: _getValueOrDash(widget.name)),
 
           ProfileField(
-            label: 'Status',
+            label: StudentStrings.status,
             valueWidget: _buildStatusChip(widget.studentProfile?.status ?? 'A'),
           ),
 
           ProfileField(
-            label: 'Classroom',
+            label: StudentStrings.classroom,
             value: _getValueOrDash(
               widget.studentProfile?.classroom ?? widget.classroom,
             ),
           ),
 
           ProfileField(
-            label: 'Tags',
+            label: StudentStrings.tags,
             valueWidget: _hasTags()
                 ? _tags(tags: _getTagsList())
                 : const Text(
@@ -498,24 +499,24 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
           ),
 
           ProfileField(
-            label: 'Gender',
+            label: StudentStrings.gender,
             value: _getValueOrDash(
               _prettyGender(widget.studentProfile?.gender),
             ),
           ),
 
           ProfileField(
-            label: 'Birth Date',
+            label: StudentStrings.birthDate,
             value: _formatDobWithAge(widget.studentProfile?.dob),
           ),
 
           ProfileField(
-            label: 'Notes',
+            label: StudentStrings.notes,
             value: _getValueOrDash(widget.studentProfile?.notes),
           ),
 
           ProfileField(
-            label: 'Child Custody',
+            label: StudentStrings.childCustody,
             value: (() {
               final custodians = widget.studentProfile?.legalCustodians ?? [];
               final names = <String>[];
@@ -534,20 +535,22 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                   }
                 }
               }
-              if (names.isEmpty) return 'Child custody not selected';
+              if (names.isEmpty) return StudentStrings.childCustodyNotSelected;
               return names.join(', ');
             })(),
           ),
 
           ProfileField(
-            label: 'State Subsidy',
+            label: StudentStrings.stateSubsidy,
             value: widget.studentProfile != null
-                ? (widget.studentProfile!.subsidy ? 'Yes' : 'No')
+                ? (widget.studentProfile!.subsidy
+                      ? StudentStrings.yes
+                      : StudentStrings.no)
                 : '-',
           ),
 
           ProfileField(
-            label: 'Full Time Equivalent (FTE)',
+            label: StudentStrings.fullTimeEquivalentFte,
             value: _fteDisplay(),
           ),
 
@@ -556,7 +559,10 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
               final names = widget.sibling.names;
 
               if (names.isEmpty) {
-                return ProfileField(label: 'Sibling', value: 'No siblings');
+                return ProfileField(
+                  label: StudentStrings.sibling,
+                  value: StudentStrings.noSiblings,
+                );
               }
 
               final label = names.length == 1 ? 'Sibling' : 'Siblings';
@@ -598,7 +604,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
           ),
 
           ProfileField(
-            label: 'Address',
+            label: StudentStrings.address,
             value: widget.studentProfile?.address != null
                 ? _formatAddress(widget.studentProfile!.address!)
                 : '-',
@@ -746,7 +752,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
 
                   CoreUtils.showTopSnackBar(
                     context: context,
-                    message: 'Schedule updated successfully',
+                    message: StudentStrings.scheduleUpdatedSuccessfully,
                     isSuccess: true,
                   );
                 } catch (e) {
@@ -765,7 +771,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'Schedule',
+                        StudentStrings.schedule,
                         style: TextStyle(
                           fontFamily: Fonts.manrope,
                           fontSize: 16,

@@ -35,6 +35,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/duplicate_student_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/widgets/same_last_name_siblings_dialog.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class AddStudentStep1Screen extends StatefulWidget {
   const AddStudentStep1Screen({
@@ -128,7 +129,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         if (!mounted) return;
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Image size must be less than 10MB',
+          message: StudentStrings.imageSizeMustBeLessThan10mb,
           isError: true,
         );
         return;
@@ -165,7 +166,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         if (selectedDate.isAfter(today.subtract(const Duration(days: 1)))) {
           CoreUtils.showTopSnackBar(
             context: context,
-            message: 'Birthdate must be a past date',
+            message: StudentStrings.birthdateMustBeAPastDate,
             isError: true,
           );
           return;
@@ -209,7 +210,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         if (_isUpcoming && selDay.isBefore(today)) {
           CoreUtils.showTopSnackBar(
             context: context,
-            message: 'School start date cannot be in the past',
+            message: StudentStrings.schoolStartDateCannotBeInThePast,
             isError: true,
           );
           return;
@@ -232,7 +233,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     if (_firstNameController.text.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'First name is required',
+        message: StudentStrings.firstNameIsRequired2,
         isError: true,
       );
       return;
@@ -249,7 +250,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     if (!_nameRegex.hasMatch(_firstNameController.text)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'First name must be letters only and max 50 characters',
+        message: StudentStrings.firstNameMustBeLettersOnlyAndMax50Characters,
         isError: true,
       );
       return;
@@ -258,7 +259,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     if (_lastNameController.text.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Last name is required',
+        message: StudentStrings.lastNameIsRequired2,
         isError: true,
       );
       return;
@@ -275,7 +276,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     if (!_nameRegex.hasMatch(_lastNameController.text)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Last name must be letters only and max 50 characters',
+        message: StudentStrings.lastNameMustBeLettersOnlyAndMax50Characters,
         isError: true,
       );
       return;
@@ -284,7 +285,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     if (_createCubit.state.step1Classroom == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Please select a classroom',
+        message: StudentStrings.pleaseSelectAClassroom,
         isError: true,
       );
       return;
@@ -293,7 +294,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     if (_isActive && _createCubit.state.step1Birthdate == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Birthdate is required for active students',
+        message: StudentStrings.birthdateIsRequiredForActiveStudents,
         isError: true,
       );
       return;
@@ -302,7 +303,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     if (_isUpcoming && _createCubit.state.step1SchoolStartDate == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'School start date is required for upcoming students',
+        message: StudentStrings.schoolStartDateIsRequiredForUpcomingStudents,
         isError: true,
       );
       return;
@@ -329,7 +330,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     if (selectedClassroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Selected classroom is invalid. Please select again.',
+        message: StudentStrings.selectedClassroomIsInvalidPleaseSelectAgain,
         isError: true,
       );
       return;
@@ -365,8 +366,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       builder: (ctx) => ConfirmationBottomSheet(
         icon: Icons.warning_amber_rounded,
         title: message,
-        confirmText: 'Continue anyway',
-        cancelText: 'Cancel',
+        confirmText: StudentStrings.continueAnyway,
+        cancelText: StudentStrings.cancel,
         onConfirm: () => Navigator.of(ctx).pop(true),
         onCancel: () => Navigator.of(ctx).pop(false),
       ),
@@ -655,9 +656,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         isScrollControlled: true,
         backgroundColor: AppColors.transparentColor,
         builder: (context) => ConfirmationBottomSheet(
-          title: 'Do you want to add another parent?',
-          confirmText: 'Yes',
-          cancelText: 'Skip',
+          title: StudentStrings.doYouWantToAddAnotherParent,
+          confirmText: StudentStrings.yes,
+          cancelText: StudentStrings.skip,
           icon: Icons.family_restroom,
           onConfirm: () => Navigator.of(context).pop(true),
           onCancel: () => Navigator.of(context).pop(false),
@@ -700,9 +701,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       isScrollControlled: true,
       backgroundColor: AppColors.transparentColor,
       builder: (context) => ConfirmationBottomSheet(
-        title: 'Do you want to add schedule?',
-        confirmText: 'Yes',
-        cancelText: 'Skip',
+        title: StudentStrings.doYouWantToAddSchedule,
+        confirmText: StudentStrings.yes,
+        cancelText: StudentStrings.skip,
         icon: Icons.schedule,
         onConfirm: () => Navigator.of(context).pop(true),
         onCancel: () => Navigator.of(context).pop(false),
@@ -864,7 +865,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                             child: Align(
                               alignment: Alignment.centerLeft,
                               child: Text(
-                                'Add Student - Step 1 of 3',
+                                StudentStrings.addStudentStep1Of3,
                                 style: TextStyle(
                                   fontFamily: Fonts.manrope,
                                   fontSize: responsive.titleFontSize,
@@ -910,8 +911,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                                         ),
                                         // Status
                                         CustomDropdown(
-                                          label: "Status",
-                                          hintText: 'Select',
+                                          label: StudentStrings.status,
+                                          hintText: StudentStrings.select,
                                           items: _statusOptions,
                                           selectedItem:
                                               _createCubit.state.step1Status,
@@ -937,8 +938,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                                         ),
                                         // Classroom
                                         CustomDropdown(
-                                          label: "Classroom",
-                                          hintText: 'Select',
+                                          label: StudentStrings.classroom,
+                                          hintText: StudentStrings.select,
                                           items: classroomNames,
                                           selectedItem:
                                               _createCubit.state.step1Classroom,
@@ -964,7 +965,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                                         ),
                                         // Birthdate
                                         _buildDateField(
-                                          "Birthdate",
+                                          StudentStrings.birthdate,
                                           _createCubit.state.step1Birthdate,
                                           _selectBirthdate,
                                           isRequired: _isActive,
@@ -976,7 +977,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                                         ),
                                         // School Start Date
                                         _buildDateField(
-                                          "School Start Date",
+                                          StudentStrings.schoolStartDate,
                                           _createCubit
                                               .state
                                               .step1SchoolStartDate,
@@ -1022,7 +1023,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                       ),
                     ),
                     child: CustomButtonLayout(
-                      confirmButtonLabel: 'Next',
+                      confirmButtonLabel: StudentStrings.next,
                       onPressedConfirm: _createCubit.state.step1Submitting
                           ? null
                           : _onNext,
@@ -1044,8 +1045,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       children: [
         Expanded(
           child: _buildInputField(
-            "First Name",
-            "E.g. John",
+            StudentStrings.firstName,
+            StudentStrings.eGJohn,
             _firstNameController,
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s\-']")),
@@ -1058,8 +1059,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
         Expanded(
           child: _buildInputField(
-            "Last Name",
-            "E.g. Smith",
+            StudentStrings.lastName,
+            StudentStrings.eGSmith,
             _lastNameController,
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s\-']")),
@@ -1142,7 +1143,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Profile Photo',
+          StudentStrings.profilePhoto,
           style: TextStyle(
             fontSize: responsive.labelFontSize,
             fontFamily: Fonts.manrope,
@@ -1179,7 +1180,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Upload Photo',
+                        StudentStrings.uploadPhoto,
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.attendanceDialogHintTextColor,
@@ -1191,7 +1192,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         ),
         const SizedBox(height: 4),
         Text(
-          'JPG, PNG, max 10MB (Optional)',
+          StudentStrings.jpgPngMax10mbOptional,
           style: TextStyle(
             fontSize: 12,
             color: AppColors.attendanceDialogHintTextColor,
@@ -1261,7 +1262,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                         Text(
                           selectedDate != null
                               ? DateFormat('MM/dd/yyyy').format(selectedDate)
-                              : 'Select Date',
+                              : StudentStrings.selectDate,
                           style: TextStyle(
                             fontFamily: Fonts.manrope,
                             fontSize: responsive.inputFontSize,

@@ -11,6 +11,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_guardian_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -102,7 +103,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     if (studentCode.isEmpty || schoolCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Student details not loaded yet. Please try again.',
+        message: StudentStrings.studentDetailsNotLoadedYetPleaseTryAgain,
         isError: true,
       );
       return;
@@ -141,7 +142,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     if (studentCode.isEmpty || schoolCode.isEmpty || guardianCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Guardian details are not loaded yet. Please try again.',
+        message: StudentStrings.guardianDetailsAreNotLoadedYetPleaseTryAgain,
         isError: true,
       );
       return;
@@ -197,7 +198,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     if (studentCode.isEmpty || guardianCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Guardian details are not loaded yet. Please try again.',
+        message: StudentStrings.guardianDetailsAreNotLoadedYetPleaseTryAgain,
         isError: true,
       );
       return;
@@ -209,7 +210,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
       backgroundColor: AppColors.transparentColor,
       builder: (sheetContext) {
         return DeleteConfirmationBottomSheet(
-          name: guardianName.isEmpty ? 'this guardian' : guardianName,
+          name: guardianName.isEmpty ? StudentStrings.thisGuardian : guardianName,
           type: 'guardian',
           isLoading: _isMutating,
           onCancel: () => Navigator.of(sheetContext).pop(),
@@ -270,7 +271,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Parents & guardians',
+                      StudentStrings.parentsGuardians,
                       style: AppTextStyles.value.copyWith(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -301,7 +302,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                     return Padding(
                       padding: const EdgeInsets.only(top: 16),
                       child: Text(
-                        'Failed to load parents',
+                        StudentStrings.failedToLoadParents,
                         style: AppTextStyles.value.copyWith(
                           fontSize: 14,
                           color: AppColors.errorColor,
@@ -315,7 +316,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                     return Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
-                        'No parents added yet',
+                        StudentStrings.noParentsAddedYet,
                         style: AppTextStyles.value.copyWith(fontSize: 14),
                       ),
                     );
@@ -450,7 +451,7 @@ class _FamilyCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
-                        'Relation',
+                        StudentStrings.relation,
                         style: AppTextStyles.label,
                       ),
                       Text(
@@ -465,7 +466,7 @@ class _FamilyCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
-                        'Email ID',
+                        StudentStrings.emailId,
                         style: AppTextStyles.label,
                       ),
                       Text(
@@ -480,7 +481,7 @@ class _FamilyCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
-                        'Phone Number',
+                        StudentStrings.phoneNumber,
                         style: AppTextStyles.label,
                       ),
                       Text(
@@ -495,7 +496,7 @@ class _FamilyCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
-                        'Sign-in Pin',
+                        StudentStrings.signInPin,
                         style: AppTextStyles.label,
                       ),
                       Text(
@@ -507,8 +508,8 @@ class _FamilyCard extends StatelessWidget {
                   const SizedBox(height: 20),
                   if (showActionButtons)
                     CustomButtonLayout(
-                      confirmButtonLabel: 'Edit',
-                      cancelButtonLabel: 'Delete',
+                      confirmButtonLabel: StudentStrings.edit,
+                      cancelButtonLabel: StudentStrings.delete,
                       onPressedConfirm: isLoading ? null : onEdit,
                       onPressedCancel: isLoading ? null : onDelete,
                       isForm: false,

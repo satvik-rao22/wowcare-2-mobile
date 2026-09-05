@@ -9,6 +9,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/entities/student_health_update_request.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_health_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
@@ -89,7 +90,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Health details updated successfully',
+        message: StudentStrings.healthDetailsUpdatedSuccessfully,
         isSuccess: true,
       );
       context.pop(true);
@@ -98,7 +99,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Failed to update health details',
+        message: StudentStrings.failedToUpdateHealthDetails,
         isError: true,
       );
     }
@@ -110,25 +111,25 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
     final bottomSafe = media.padding.bottom == 0 ? 16.0 : media.padding.bottom;
 
     return StaffFormLayout(
-      title: 'Edit Health Details',
+      title: StudentStrings.editHealthDetails,
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
           _buildLabeledField(
-            label: 'Allergies',
-            hint: 'Eg. Peanuts, Dairy',
+            label: StudentStrings.allergies,
+            hint: StudentStrings.egPeanutsDairy,
             controller: _allergyController,
           ),
           const SizedBox(height: 16),
           _buildLabeledField(
-            label: 'Medications',
-            hint: 'Eg. Inhaler, EpiPen',
+            label: StudentStrings.medications,
+            hint: StudentStrings.egInhalerEpipen,
             controller: _medicationsController,
           ),
           const SizedBox(height: 16),
           _buildLabeledField(
-            label: 'Diet Restriction',
-            hint: 'Eg. Vegetarian, Nut-free',
+            label: StudentStrings.dietRestriction,
+            hint: StudentStrings.egVegetarianNutFree,
             controller: _dietRestrictionsController,
           ),
           const SizedBox(height: 16),
@@ -159,7 +160,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
           bloc: _healthCubit,
           buildWhen: (p, c) => p.mutationInProgress != c.mutationInProgress,
           builder: (context, state) => CustomButtonLayout(
-            confirmButtonLabel: 'Save',
+            confirmButtonLabel: StudentStrings.save,
             onPressedConfirm: state.mutationInProgress ? null : _save,
             showCancelButton: false,
             isForm: false,

@@ -23,6 +23,7 @@ import 'package:wowcare/presentation/features/students/cubit/student_create_cubi
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class AddStudentStep2Screen extends StatefulWidget {
   const AddStudentStep2Screen({
@@ -196,7 +197,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         if (!mounted) return;
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Image size must be less than 10MB',
+          message: StudentStrings.imageSizeMustBeLessThan10mb,
           isError: true,
         );
         return;
@@ -226,7 +227,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     final trimmed = raw.trim().toLowerCase();
 
     if (trimmed.isEmpty) {
-      return 'Email is required';
+      return StudentStrings.emailIsRequired;
     }
 
     final hasAt = trimmed.contains('@');
@@ -241,7 +242,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         (hasAt && hasDot && trimmed.length >= 6);
 
     if (!matches) {
-      return 'Please enter a valid email address';
+      return StudentStrings.pleaseEnterAValidEmailAddress;
     }
     return null;
   }
@@ -251,13 +252,13 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     final digits = raw.replaceAll(RegExp(r'\D'), '');
 
     if (raw.isEmpty) {
-      return 'Phone number is required';
+      return StudentStrings.phoneNumberIsRequired;
     }
     if (digits.length != 10) {
-      return 'Please enter a valid 10-digit phone number';
+      return StudentStrings.pleaseEnterAValid10DigitPhoneNumber;
     }
     if (!_phoneRegex.hasMatch(raw)) {
-      return 'Please enter a valid 10-digit phone number';
+      return StudentStrings.pleaseEnterAValid10DigitPhoneNumber;
     }
     return null;
   }
@@ -330,7 +331,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       if (_createCubit.state.step2SelectedExistingParents.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Please select at least one parent',
+          message: StudentStrings.pleaseSelectAtLeastOneParent,
           isError: true,
         );
         return;
@@ -338,7 +339,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       if (_createCubit.state.step2Relation == null) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Please select a relation',
+          message: StudentStrings.pleaseSelectARelation,
           isError: true,
         );
         return;
@@ -347,7 +348,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
           _relationOtherController.text.trim().isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Please specify the relation',
+          message: StudentStrings.pleaseSpecifyTheRelation,
           isError: true,
         );
         return;
@@ -357,7 +358,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       if (_firstNameController.text.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'First name is required',
+          message: StudentStrings.firstNameIsRequired2,
           isError: true,
         );
         return;
@@ -374,7 +375,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       if (!_nameRegex.hasMatch(_firstNameController.text)) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'First name must be letters only and max 50 characters',
+          message: StudentStrings.firstNameMustBeLettersOnlyAndMax50Characters,
           isError: true,
         );
         return;
@@ -383,7 +384,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       if (_lastNameController.text.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Last name is required',
+          message: StudentStrings.lastNameIsRequired2,
           isError: true,
         );
         return;
@@ -400,7 +401,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       if (!_nameRegex.hasMatch(_lastNameController.text)) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Last name must be letters only and max 50 characters',
+          message: StudentStrings.lastNameMustBeLettersOnlyAndMax50Characters,
           isError: true,
         );
         return;
@@ -429,7 +430,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       if (_createCubit.state.step2Relation == null) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Please select a relation',
+          message: StudentStrings.pleaseSelectARelation,
           isError: true,
         );
         return;
@@ -439,7 +440,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
           _relationOtherController.text.trim().isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Please specify the relation',
+          message: StudentStrings.pleaseSpecifyTheRelation,
           isError: true,
         );
         return;
@@ -467,7 +468,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             if (!mounted) return;
             CoreUtils.showTopSnackBar(
               context: context,
-              message: 'Parents linked successfully',
+              message: StudentStrings.parentsLinkedSuccessfully,
               isSuccess: true,
             );
             context.pop(true);
@@ -482,7 +483,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
               CoreUtils.showTopSnackBar(
                 context: context,
                 message:
-                    'Organization is missing. Re-select your school from the menu and try again.',
+                    StudentStrings.organizationIsMissingReSelectYourSchoolFromThe,
                 isError: true,
               );
               return;
@@ -674,10 +675,10 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         _isEditMode
-                            ? 'Edit parent'
+                            ? StudentStrings.editParent
                             : (widget.isOptionalStep
-                                  ? 'Add Parent (Optional)'
-                                  : 'Add parent'),
+                                  ? StudentStrings.addParentOptional
+                                  : StudentStrings.addParent),
                         style: TextStyle(
                           fontFamily: Fonts.manrope,
                           fontSize: responsive.titleFontSize,
@@ -725,7 +726,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                         MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
-                                        'Select from existing',
+                                        StudentStrings.selectFromExisting,
                                         style: TextStyle(
                                           fontSize: responsive.labelFontSize,
                                           fontFamily: Fonts.manrope,
@@ -755,7 +756,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Select Parent',
+                                        StudentStrings.selectParent2,
                                         style: TextStyle(
                                           fontSize: responsive.labelFontSize,
                                           fontFamily: Fonts.manrope,
@@ -768,7 +769,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                       // One parent only — store as a 0/1 list so the
                                       // downstream create/validation logic is unchanged.
                                       CustomDropdown(
-                                        hintText: 'Select parent',
+                                        hintText: StudentStrings.selectParent,
                                         items: _createCubit
                                             .state
                                             .step2ExistingParents,
@@ -794,8 +795,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                         height: responsive.verticalSpacing,
                                       ),
                                       CustomDropdown(
-                                        label: "Relation",
-                                        hintText: 'Select',
+                                        label: StudentStrings.relation,
+                                        hintText: StudentStrings.select,
                                         items: _relationOptions,
                                         selectedItem:
                                             _createCubit.state.step2Relation,
@@ -817,8 +818,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                           height: responsive.verticalSpacing,
                                         ),
                                         _buildInputField(
-                                          "Specify Relation",
-                                          "E.g. Grandmother",
+                                          StudentStrings.specifyRelation,
+                                          StudentStrings.egGrandmother,
                                           _relationOtherController,
                                           inputFormatters: [
                                             FilteringTextInputFormatter.allow(
@@ -839,16 +840,16 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                   _buildRowInputs(context),
                                   SizedBox(height: responsive.verticalSpacing),
                                   _buildInputField(
-                                    "Email",
-                                    "E.g. name@example.com",
+                                    StudentStrings.email,
+                                    StudentStrings.eGNameExampleCom,
                                     _emailController,
                                     keyboardType: TextInputType.emailAddress,
                                     inputFormatters: [TrimFormatter()],
                                   ),
                                   SizedBox(height: responsive.verticalSpacing),
                                   _buildInputField(
-                                    "Phone Number",
-                                    "E.g. (000) 000-0000",
+                                    StudentStrings.phoneNumber,
+                                    StudentStrings.eG0000000000,
                                     _phoneController,
                                     keyboardType: TextInputType.phone,
                                     inputFormatters: [
@@ -861,8 +862,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                   SizedBox(height: responsive.verticalSpacing),
                                   // Relation dropdown
                                   CustomDropdown(
-                                    label: "Relation",
-                                    hintText: 'Select',
+                                    label: StudentStrings.relation,
+                                    hintText: StudentStrings.select,
                                     items: _relationOptions,
                                     selectedItem:
                                         _createCubit.state.step2Relation,
@@ -884,8 +885,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                       height: responsive.verticalSpacing,
                                     ),
                                     _buildInputField(
-                                      "Specify Relation",
-                                      "E.g. Grandmother",
+                                      StudentStrings.specifyRelation,
+                                      StudentStrings.egGrandmother,
                                       _relationOtherController,
                                       inputFormatters: [
                                         FilteringTextInputFormatter.allow(
@@ -904,7 +905,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                         MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
-                                        'Emergency Contact',
+                                        StudentStrings.emergencyContact,
                                         style: TextStyle(
                                           fontSize: responsive.labelFontSize,
                                           fontFamily: Fonts.manrope,
@@ -929,7 +930,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                         MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
-                                        'Child Custody',
+                                        StudentStrings.childCustody,
                                         style: TextStyle(
                                           fontSize: responsive.labelFontSize,
                                           fontFamily: Fonts.manrope,
@@ -986,11 +987,11 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
               ),
             ),
             child: CustomButtonLayout(
-              confirmButtonLabel: 'Save',
+              confirmButtonLabel: StudentStrings.save,
               onPressedConfirm: _createCubit.state.step2Submitting
                   ? null
                   : _onNext,
-              cancelButtonLabel: 'Cancel',
+              cancelButtonLabel: StudentStrings.cancel,
               onPressedCancel: _createCubit.state.step2Submitting
                   ? null
                   : _onCancel,
@@ -1010,8 +1011,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       children: [
         Expanded(
           child: _buildInputField(
-            "First Name",
-            "E.g. John",
+            StudentStrings.firstName,
+            StudentStrings.eGJohn,
             _firstNameController,
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s\-']")),
@@ -1024,8 +1025,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
         Expanded(
           child: _buildInputField(
-            "Last Name",
-            "E.g. Smith",
+            StudentStrings.lastName,
+            StudentStrings.eGSmith,
             _lastNameController,
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s\-']")),
@@ -1110,7 +1111,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Profile Photo',
+          StudentStrings.profilePhoto,
           style: TextStyle(
             fontSize: responsive.labelFontSize,
             fontFamily: Fonts.manrope,
@@ -1147,7 +1148,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Upload Photo',
+                        StudentStrings.uploadPhoto,
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.attendanceDialogHintTextColor,
@@ -1159,7 +1160,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         ),
         const SizedBox(height: 4),
         Text(
-          'JPG, PNG, max 10MB (Optional)',
+          StudentStrings.jpgPngMax10mbOptional,
           style: TextStyle(
             fontSize: 12,
             color: AppColors.attendanceDialogHintTextColor,

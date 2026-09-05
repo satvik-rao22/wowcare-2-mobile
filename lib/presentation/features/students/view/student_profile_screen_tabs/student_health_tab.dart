@@ -12,6 +12,7 @@ import '../../../../../shared/common/widgets/custom_toggle.dart';
 import '../student_health_tab_cards/student_dates_tab_card.dart';
 import '../student_health_tab_cards/student_immunization_tab_card.dart';
 import '../student_health_tab_cards/student_physician_tab_card.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 
 class StudentHealthTab extends StatefulWidget {
@@ -144,7 +145,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Exempt students from immunizations',
+                    StudentStrings.exemptStudentsFromImmunizations,
                     maxLines: 3,
                     softWrap: true,
                     style: TextStyle(
@@ -203,7 +204,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                 padding: const EdgeInsets.only(right: 2),
                 child: _buildTab(
                   //width: 80,
-                  label: 'Health',
+                  label: StudentStrings.health,
                   color: AppColors.classroomStudentTabColor,
                 ),
               ),
@@ -211,7 +212,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: _buildTab(
                   //width: 90,
-                  label: 'Physician',
+                  label: StudentStrings.physician,
                   color: AppColors.classroomStaffTabColor,
                 ),
               ),
@@ -219,7 +220,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: _buildTab(
                   //width: 200,
-                  label: 'Physical Examination Dates',
+                  label: StudentStrings.physicalExaminationDates,
                   color: AppColors.classroomNotesTabColor,
                 ),
               ),
@@ -227,7 +228,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                 padding: const EdgeInsets.only(left: 2),
                 child: _buildTab(
                   //width: 120,
-                  label: 'Immunization',
+                  label: StudentStrings.immunization,
                   color: AppColors.studentLavenderTint,
                 ),
               ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 /// Canonical `module` strings from `/api/v1/users/details` `permissions[]`.
@@ -38,10 +39,10 @@ final class ModuleAccess {
   ModuleAccess._();
 
   static const String writeRestrictedMessage =
-      'You only have view access here. Contact your school if you need permission to add or change information.';
+      StudentStrings.youOnlyHaveViewAccessHereContactYourSchoolIfYo;
 
   static const String featureRestrictedMessage =
-      'You do not have access to this area for your selected school.';
+      StudentStrings.youDoNotHaveAccessToThisAreaForYourSelectedSch;
 
   static bool mayWrite(RoleCubit role, String module) {
     return role.canWriteModule(module);

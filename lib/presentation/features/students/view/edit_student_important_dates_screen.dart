@@ -13,6 +13,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_important_dates_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/app/di/di.dart';
 
 class EditStudentImportantDatesScreen extends StatefulWidget {
@@ -127,7 +128,7 @@ class _EditStudentImportantDatesScreenState
                     final isSubmitting = state.isLoading;
 
                     return StaffFormLayout(
-                      title: 'Edit Important Dates',
+                      title: StudentStrings.editImportantDates,
                       child: LayoutBuilder(
                         builder: (context, constraints) {
                           final isTablet = constraints.maxWidth > 600;
@@ -138,7 +139,7 @@ class _EditStudentImportantDatesScreenState
                               children: [
                                 Expanded(
                                   child: _buildDateField(
-                                    label: 'Enroll Date',
+                                    label: StudentStrings.enrollDate,
                                     selectedDate: state.enrollDate,
                                     fieldName: 'enroll',
                                   ),
@@ -146,7 +147,7 @@ class _EditStudentImportantDatesScreenState
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: _buildDateField(
-                                    label: 'School Start Date',
+                                    label: StudentStrings.schoolStartDate,
                                     selectedDate: state.schoolStartDate,
                                     fieldName: 'schoolStart',
                                   ),
@@ -159,13 +160,13 @@ class _EditStudentImportantDatesScreenState
                             padding: EdgeInsets.zero,
                             children: [
                               _buildDateField(
-                                label: 'Enroll Date',
+                                label: StudentStrings.enrollDate,
                                 selectedDate: state.enrollDate,
                                 fieldName: 'enroll',
                               ),
                               SizedBox(height: responsive.verticalSpacing),
                               _buildDateField(
-                                label: 'School Start Date',
+                                label: StudentStrings.schoolStartDate,
                                 selectedDate: state.schoolStartDate,
                                 fieldName: 'schoolStart',
                               ),
@@ -199,7 +200,7 @@ class _EditStudentImportantDatesScreenState
                           ),
                         ),
                         child: CustomButtonLayout(
-                          confirmButtonLabel: 'Save',
+                          confirmButtonLabel: StudentStrings.save,
                           onPressedConfirm: isSubmitting ? null : _save,
                           showCancelButton: false,
                           isForm: false,
@@ -253,7 +254,7 @@ class _EditStudentImportantDatesScreenState
                     child: Text(
                       selectedDate != null
                           ? DateFormat('MMM dd, yyyy').format(selectedDate)
-                          : 'Select Date',
+                          : StudentStrings.selectDate,
                       style: TextStyle(
                         color: selectedDate == null
                             ? AppColors.attendanceMutedTextColor

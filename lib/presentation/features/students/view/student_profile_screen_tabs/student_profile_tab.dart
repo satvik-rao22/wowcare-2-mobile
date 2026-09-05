@@ -15,6 +15,7 @@ import 'package:wowcare/presentation/features/students/models/student_sibling_in
 
 import '../student_profile_tab_cards/student_family_tab_card.dart';
 import '../student_profile_tab_cards/student_pickup_tab_card.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class StudentProfileTab extends StatefulWidget {
   const StudentProfileTab({
@@ -240,21 +241,21 @@ class _StudentProfileTabState extends State<StudentProfileTab>
               Padding(
                 padding: const EdgeInsets.only(right: 4),
                 child: _buildTab(
-                  label: 'About',
+                  label: StudentStrings.about,
                   color: AppColors.classroomStudentTabColor,
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: _buildTab(
-                  label: 'Family',
+                  label: StudentStrings.family,
                   color: AppColors.classroomStaffTabColor,
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.only(left: 4),
                 child: _buildTab(
-                  label: 'Pickup',
+                  label: StudentStrings.pickup,
                   color: AppColors.classroomNotesTabColor,
                 ),
               ),
@@ -341,7 +342,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
           const Icon(Icons.error_outline, size: 48, color: AppColors.errorColor),
           const SizedBox(height: 16),
           Text(
-            'Failed to load student profile',
+            StudentStrings.failedToLoadStudentProfile,
             style: Theme.of(context).textTheme.titleMedium,
             textAlign: TextAlign.center,
           ),
@@ -355,7 +356,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
           Center(
             child: ElevatedButton(
               onPressed: _refreshProfile,
-              child: const Text('Retry'),
+              child: const Text(StudentStrings.retry),
             ),
           ),
         ],

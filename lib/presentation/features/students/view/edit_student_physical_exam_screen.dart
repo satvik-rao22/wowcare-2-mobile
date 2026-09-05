@@ -14,6 +14,7 @@ import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_physical_exam_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -123,7 +124,7 @@ class _EditStudentPhysicalExamScreenState
     if (examDate == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Physical Checkup Date is required',
+        message: StudentStrings.physicalCheckupDateIsRequired,
         isError: true,
       );
       return;
@@ -131,7 +132,7 @@ class _EditStudentPhysicalExamScreenState
     if (status == null || status.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Physical Checkup Status is required',
+        message: StudentStrings.physicalCheckupStatusIsRequired,
         isError: true,
       );
       return;
@@ -167,7 +168,7 @@ class _EditStudentPhysicalExamScreenState
       CoreUtils.showTopSnackBar(
         context: context,
         message:
-            'Completed date cannot be a future date. Please select today or a past date.',
+            StudentStrings.completedDateCannotBeAFutureDatePleaseSelectTo,
         isWarning: true,
       );
       return;
@@ -193,7 +194,7 @@ class _EditStudentPhysicalExamScreenState
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Physical exam added successfully',
+        message: StudentStrings.physicalExamAddedSuccessfully,
         isSuccess: true,
       );
       context.pop(true);
@@ -219,16 +220,16 @@ class _EditStudentPhysicalExamScreenState
         final examDate = state.formExamDate;
         final selectedDateText = examDate != null
             ? DateFormat('MMM dd, yyyy').format(examDate)
-            : 'Select Date';
+            : StudentStrings.selectDate;
 
         return StaffFormLayout(
-          title: 'Add Physical Examination',
+          title: StudentStrings.addPhysicalExamination,
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
               const Text.rich(
                 TextSpan(
-                  text: 'Physical Checkup Date',
+                  text: StudentStrings.physicalCheckupDate,
                   style: TextStyle(
                     fontFamily: Fonts.manrope,
                     fontSize: 15,
@@ -283,8 +284,8 @@ class _EditStudentPhysicalExamScreenState
               ),
               const SizedBox(height: 16),
               CustomDropdown(
-                label: 'Physical Checkup Status',
-                hintText: 'Select an option',
+                label: StudentStrings.physicalCheckupStatus,
+                hintText: StudentStrings.selectAnOption,
                 items: _statusOptions,
                 selectedItem: state.formStatus,
                 labelStyle: const TextStyle(
@@ -321,7 +322,7 @@ class _EditStudentPhysicalExamScreenState
               ),
             ),
             child: CustomButtonLayout(
-              confirmButtonLabel: 'Save',
+              confirmButtonLabel: StudentStrings.save,
               onPressedConfirm: state.mutationInProgress ? null : _save,
               showCancelButton: false,
               isForm: false,

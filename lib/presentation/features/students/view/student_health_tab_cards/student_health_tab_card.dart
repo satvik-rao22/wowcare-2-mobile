@@ -5,6 +5,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/student/entities/student_health_update_request.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_health_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
@@ -134,7 +135,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Health', style: AppTextStyles.title),
+                          Text(StudentStrings.health, style: AppTextStyles.title),
                           Container(
                             width: 38,
                             height: 38,
@@ -187,7 +188,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                         if (!mounted) return;
                         CoreUtils.showTopSnackBar(
                           context: context,
-                          message: 'Failed to update photo permission',
+                          message: StudentStrings.failedToUpdatePhotoPermission,
                           isError: true,
                         );
                       }
@@ -255,52 +256,14 @@ class _HealthCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const Text(
-                        'Allergies',
-                        style: AppTextStyles.label,
-                      ),
-                      Flexible(
-                        child: Text(
-                          _displayOrFallback(allergies, 'No Allergies'),
-                          style: AppTextStyles.value,
-                          softWrap: true,
-                          textAlign: TextAlign.right,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'Medications',
-                        style: AppTextStyles.label,
-                      ),
-                      Flexible(
-                        child: Text(
-                          _displayOrFallback(medication, 'No Medications'),
-                          style: AppTextStyles.value,
-                          softWrap: true,
-                          textAlign: TextAlign.right,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'Diet Restriction',
+                        StudentStrings.allergies,
                         style: AppTextStyles.label,
                       ),
                       Flexible(
                         child: Text(
                           _displayOrFallback(
-                            dietRestrictions,
-                            'No Diet Restriction',
+                            allergies,
+                            StudentStrings.noAllergies,
                           ),
                           style: AppTextStyles.value,
                           softWrap: true,
@@ -315,7 +278,51 @@ class _HealthCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const Text(
-                        'Photo Permission',
+                        StudentStrings.medications,
+                        style: AppTextStyles.label,
+                      ),
+                      Flexible(
+                        child: Text(
+                          _displayOrFallback(
+                            medication,
+                            StudentStrings.noMedications,
+                          ),
+                          style: AppTextStyles.value,
+                          softWrap: true,
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Text(
+                        StudentStrings.dietRestriction,
+                        style: AppTextStyles.label,
+                      ),
+                      Flexible(
+                        child: Text(
+                          _displayOrFallback(
+                            dietRestrictions,
+                            StudentStrings.noDietRestriction,
+                          ),
+                          style: AppTextStyles.value,
+                          softWrap: true,
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Text(
+                        StudentStrings.photoPermission,
                         style: AppTextStyles.label,
                       ),
                       if (canMutateStudent)
@@ -326,7 +333,7 @@ class _HealthCard extends StatelessWidget {
                         )
                       else
                         Text(
-                          photoPermission ? 'Yes' : 'No',
+                          photoPermission ? StudentStrings.yes : StudentStrings.no,
                           style: AppTextStyles.value,
                         ),
                     ],

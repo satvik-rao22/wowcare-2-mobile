@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart' show TimeOfDay, DayPeriod;
 
 import '../../../../domain/features/staff/usecases/get_school_regular_schedules_usecase.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 part 'student_schedule_state.dart';
 
@@ -185,7 +186,7 @@ class StudentScheduleCubit extends Cubit<StudentScheduleState> {
   /// Validate the whole schedule for submit. Returns an error string or null.
   String? validateForSubmit() {
     if (state.schedule.isEmpty) {
-      return 'Please add at least one day to the schedule';
+      return StudentStrings.pleaseAddAtLeastOneDayToTheSchedule;
     }
     for (final entry in state.schedule.entries) {
       final day = entry.key;

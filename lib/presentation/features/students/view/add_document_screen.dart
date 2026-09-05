@@ -19,6 +19,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_document_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class AddStudentDocumentScreen extends StatefulWidget {
   const AddStudentDocumentScreen({
@@ -104,7 +105,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     final state = _cubit.state;
     final name = _documentNameController.text.trim();
     if (name.isEmpty) {
-      _showWarningMessage('Document name is required');
+      _showWarningMessage(StudentStrings.documentNameIsRequired);
       return;
     }
     if (name.length > _documentNameMaxLength) {
@@ -114,7 +115,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
       return;
     }
     if (state.documentType == null) {
-      _showWarningMessage('Please select a document type');
+      _showWarningMessage(StudentStrings.pleaseSelectADocumentType);
       return;
     }
     if (_notesController.text.length > _notesMaxLength) {
@@ -122,15 +123,15 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
       return;
     }
     if (!widget.isEdit && !state.hasSelectedFile) {
-      _showWarningMessage('Please upload a document');
+      _showWarningMessage(StudentStrings.pleaseUploadADocument);
       return;
     }
     if (state.hasSelectedFile && !state.hasUploadedAsset) {
-      _showWarningMessage('Please wait for file upload to complete');
+      _showWarningMessage(StudentStrings.pleaseWaitForFileUploadToComplete);
       return;
     }
     if (widget.studentCode.isEmpty) {
-      _showWarningMessage('Student code is required');
+      _showWarningMessage(StudentStrings.studentCodeIsRequired);
       return;
     }
 
@@ -176,7 +177,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         final today = DateTime(now.year, now.month, now.day);
         if (selectedDate.isBefore(today) ||
             selectedDate.isAtSameMomentAs(today)) {
-          _showWarningMessage('Expiry date must be a future date');
+          _showWarningMessage(StudentStrings.expiryDateMustBeAFutureDate);
           return;
         }
         _cubit.setExpiryDate(selectedDate);
@@ -207,7 +208,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
       }
     } catch (e) {
       CoreUtils.logApiError('Error picking file: $e');
-      _showWarningMessage('Error selecting file. Please try again.');
+      _showWarningMessage(StudentStrings.errorSelectingFilePleaseTryAgain);
     }
   }
 
@@ -253,7 +254,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
 
   Widget _buildForm(ResponsiveHelper responsive, double safeAreaBottom) {
     return StaffFormLayout(
-      title: widget.isEdit ? "Edit Document" : "Add Document",
+      title: widget.isEdit ? StudentStrings.editDocument : StudentStrings.addDocument,
       child: GestureDetector(
         onTap: () {
           FocusScope.of(context).unfocus();
@@ -263,8 +264,8 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
           padding: EdgeInsets.zero,
           children: [
             _buildInputField(
-              "Document name",
-              "E.g. Report Card",
+              StudentStrings.documentName,
+              StudentStrings.egReportCard,
               _documentNameController,
             ),
             SizedBox(height: responsive.verticalSpacing),
@@ -303,8 +304,8 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         child: BlocBuilder<StudentDocumentCubit, StudentDocumentState>(
           builder: (context, state) {
             return CustomButtonLayout(
-              confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-              cancelButtonLabel: 'Cancel',
+              confirmButtonLabel: widget.isEdit ? StudentStrings.save : StudentStrings.add,
+              cancelButtonLabel: StudentStrings.cancel,
               onPressedConfirm: _addDocument,
               onPressedCancel: () => context.pop(false),
               showCancelButton: true,
@@ -378,8 +379,8 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         .state
         .documentType;
     return CustomDropdown(
-      label: "Document Type",
-      hintText: "Select",
+      label: StudentStrings.documentType,
+      hintText: StudentStrings.select,
       items: _documentTypes,
       selectedItem: selectedType,
       onSelect: (value) => _cubit.setDocumentType(value),
@@ -399,7 +400,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Expiry Date', style: labelStyle),
+        Text(StudentStrings.expiryDate, style: labelStyle),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         GestureDetector(
           onTap: _selectExpiryDate,
@@ -425,7 +426,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
                           ? DateFormat(
                               'MMM dd, yyyy',
                             ).format(selectedExpiryDate)
-                          : 'Select Date',
+                          : StudentStrings.selectDate,
                       style: TextStyle(
                         color: selectedExpiryDate == null
                             ? AppColors.attendanceMutedTextColor
@@ -466,7 +467,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
               fontSize: responsive.labelFontSize,
             ),
             children: [
-              const TextSpan(text: 'Upload Document'),
+              const TextSpan(text: StudentStrings.uploadDocument),
               const TextSpan(
                 text: ' *',
                 style: TextStyle(color: AppColors.errorColor),
@@ -495,7 +496,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
                   child: Text(
                     state.isUploading
                         ? 'Uploading... ${state.uploadPercent}%'
-                        : (displayName ?? 'Choose a File'),
+                        : (displayName ?? StudentStrings.chooseAFile),
                     style: TextStyle(
                       color: displayName == null ? AppColors.attendanceMutedTextColor : AppColors.blackColor,
                       fontSize: responsive.inputFontSize,
@@ -528,7 +529,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Notes', style: labelStyle),
+        Text(StudentStrings.notes, style: labelStyle),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           constraints: BoxConstraints(
@@ -548,7 +549,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             maxLength: _notesMaxLength,
             textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(
-              hintText: 'Add notes...',
+              hintText: StudentStrings.addNotes,
               hintStyle: labelStyle.copyWith(color: AppColors.attendanceMutedTextColor),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(

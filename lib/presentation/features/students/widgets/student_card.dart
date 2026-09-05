@@ -15,6 +15,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 
@@ -252,7 +253,7 @@ class _StudentCardState extends State<StudentCard> {
                                   right: 0,
                                   top: 0,
                                   child: Tooltip(
-                                    message: 'Student is currently napping',
+                                    message: StudentStrings.studentIsCurrentlyNapping,
                                     child: SvgPicture.asset(
                                       MediaRes.napIcon.isNotEmpty
                                           ? MediaRes.napIcon
@@ -319,7 +320,7 @@ class _StudentCardState extends State<StudentCard> {
                             Row(
                               children: [
                                 const Text(
-                                  'Tags',
+                                  StudentStrings.tags,
                                   style: AppTextStyles.label,
                                 ),
                                 const SizedBox(width: 8),
@@ -411,7 +412,7 @@ class _StudentCardState extends State<StudentCard> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
-                                    'Schedule',
+                                    StudentStrings.schedule,
                                     style: AppTextStyles.label,
                                   ),
                                   const SizedBox(height: 4),
@@ -506,7 +507,7 @@ class _StudentCardState extends State<StudentCard> {
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 const Text(
-                                  'Birth Date',
+                                  StudentStrings.birthDate,
                                   style: AppTextStyles.label,
                                 ),
                                 Text(
@@ -521,7 +522,7 @@ class _StudentCardState extends State<StudentCard> {
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 const Text(
-                                  'Movement Date',
+                                  StudentStrings.movementDate,
                                   style: AppTextStyles.label,
                                 ),
                                 Text(
@@ -573,8 +574,8 @@ class _StudentCardState extends State<StudentCard> {
                                       ),
                                       child: Text(
                                         showActiveActions
-                                            ? 'Deactivate'
-                                            : 'Reactivate',
+                                            ? StudentStrings.deactivate
+                                            : StudentStrings.reactivate,
                                         style: const TextStyle(
                                           fontFamily: Fonts.manrope,
                                           fontSize: 16,
@@ -622,7 +623,7 @@ class _StudentCardState extends State<StudentCard> {
                                           padding: EdgeInsets.zero,
                                         ),
                                         child: const Text(
-                                          'Delete',
+                                          StudentStrings.delete,
                                           style: TextStyle(
                                             fontFamily: Fonts.manrope,
                                             fontSize: 16,
@@ -650,7 +651,7 @@ class _StudentCardState extends State<StudentCard> {
                                         padding: EdgeInsets.zero,
                                       ),
                                       child: const Text(
-                                        'Edit',
+                                        StudentStrings.edit,
                                         style: TextStyle(
                                           fontFamily: Fonts.manrope,
                                           fontSize: 16,

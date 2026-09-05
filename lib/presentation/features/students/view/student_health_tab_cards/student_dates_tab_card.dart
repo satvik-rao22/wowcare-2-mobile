@@ -9,6 +9,7 @@ import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_physical_exam_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -193,7 +194,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         children: [
                           Expanded(
                             child: Text(
-                              'Edit Physical Examination',
+                              StudentStrings.editPhysicalExamination,
                               style: TextStyle(
                                 fontFamily: Fonts.manrope,
                                 fontSize: titleFontSize,
@@ -217,7 +218,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                           children: [
                             Expanded(
                               child: _DialogField(
-                                label: 'Physical Checkup Date',
+                                label: StudentStrings.physicalCheckupDate,
                                 isRequired: true,
                                 value: selectedDate != null
                                     ? _displayFormatter.format(selectedDate!)
@@ -252,7 +253,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                             const SizedBox(width: 16),
                             Expanded(
                               child: _DialogDropdown(
-                                label: 'Status',
+                                label: StudentStrings.status,
                                 isRequired: true,
                                 value: statusUi,
                                 options: const [
@@ -272,7 +273,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         Column(
                           children: [
                             _DialogField(
-                              label: 'Physical Checkup Date',
+                              label: StudentStrings.physicalCheckupDate,
                               isRequired: true,
                               value: selectedDate != null
                                   ? _displayFormatter.format(selectedDate!)
@@ -304,7 +305,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                             ),
                             const SizedBox(height: 16),
                             _DialogDropdown(
-                              label: 'Status',
+                              label: StudentStrings.status,
                               isRequired: true,
                               value: statusUi,
                               options: const ['Due', 'Scheduled', 'Completed'],
@@ -317,8 +318,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         ),
                       SizedBox(height: verticalPadding),
                       CustomButtonLayout(
-                        confirmButtonLabel: 'Save',
-                        cancelButtonLabel: 'Cancel',
+                        confirmButtonLabel: StudentStrings.save,
+                        cancelButtonLabel: StudentStrings.cancel,
                         isForm: false,
                         isLoading: isSaving,
                         onPressedCancel: () => Navigator.of(context).pop(),
@@ -353,8 +354,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                     picked.isAfter(today)) {
                                   CoreUtils.showTopSnackBar(
                                     context: context,
-                                    message:
-                                        'Completed date cannot be a future date. Please select today or a past date.',
+                                    message: StudentStrings
+                                        .completedDateCannotBeAFutureDatePleaseSelectTo,
                                     isWarning: true,
                                   );
                                   return;
@@ -391,7 +392,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                   if (!context.mounted) return;
                                   CoreUtils.showTopSnackBar(
                                     context: context,
-                                    message: 'Physical exam saved successfully',
+                                    message: StudentStrings
+                                        .physicalExamSavedSuccessfully,
                                     isSuccess: true,
                                   );
                                   Navigator.of(context).pop();
@@ -505,7 +507,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Physical Exams', style: AppTextStyles.title),
+                            Text(
+                              StudentStrings.physicalExams,
+                              style: AppTextStyles.title,
+                            ),
                             Container(
                               width: 38,
                               height: 38,
@@ -534,7 +539,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                   const SizedBox(height: 16),
                   if (exams.isEmpty)
                     Text(
-                      'No physical exams found',
+                      StudentStrings.noPhysicalExamsFound,
                       style: AppTextStyles.value.copyWith(
                         color: AppColors.primaryColor.withValues(alpha: 0.6),
                       ),
@@ -658,7 +663,7 @@ class _PhysicalExamCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
-                    'Checkup Date',
+                    StudentStrings.checkupDate,
                     style: AppTextStyles.value.copyWith(
                       color: AppColors.primaryColor.withValues(alpha: 0.7),
                       fontSize: 14,

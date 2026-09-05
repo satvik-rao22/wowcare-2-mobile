@@ -19,6 +19,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_pickup_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class AddPickupScreen extends StatefulWidget {
   const AddPickupScreen({
@@ -134,7 +135,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
       if (formState.selectedCarer == null || formState.selectedCarer!.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Please select a carer',
+          message: StudentStrings.pleaseSelectACarer,
           isError: true,
         );
         return;
@@ -142,7 +143,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
       if ((formState.selectedRelation ?? '').trim().isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Please select a relation',
+          message: StudentStrings.pleaseSelectARelation,
           isError: true,
         );
         return;
@@ -219,7 +220,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     if (first.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'First Name is required',
+        message: StudentStrings.firstNameIsRequired,
         isError: true,
       );
       return;
@@ -227,7 +228,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     if (last.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Last Name is required',
+        message: StudentStrings.lastNameIsRequired,
         isError: true,
       );
       return;
@@ -235,7 +236,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     if (!_nameRegex.hasMatch(first)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'First name must be letters only and max 50 characters',
+        message: StudentStrings.firstNameMustBeLettersOnlyAndMax50Characters,
         isError: true,
       );
       return;
@@ -243,7 +244,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     if (!_nameRegex.hasMatch(last)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Last name must be letters only and max 50 characters',
+        message: StudentStrings.lastNameMustBeLettersOnlyAndMax50Characters,
         isError: true,
       );
       return;
@@ -252,7 +253,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     if (digits.length != 10) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Please enter a valid 10-digit phone number',
+        message: StudentStrings.pleaseEnterAValid10DigitPhoneNumber,
         isError: true,
       );
       return;
@@ -260,7 +261,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     if (!_phoneRegex.hasMatch(phone)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Please enter phone as (000) 000-0000',
+        message: StudentStrings.pleaseEnterPhoneAs0000000000,
         isError: true,
       );
       return;
@@ -268,7 +269,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     if (relation.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Relation is required',
+        message: StudentStrings.relationIsRequired,
         isError: true,
       );
       return;
@@ -362,7 +363,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        _isEditMode ? 'Edit Pickup' : 'Add Pickup',
+                        _isEditMode ? StudentStrings.editPickup : StudentStrings.addPickup,
                         style: TextStyle(
                           fontFamily: Fonts.manrope,
                           fontSize: responsive.titleFontSize,
@@ -404,7 +405,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'Select from existing',
+                                  StudentStrings.selectFromExisting,
                                   style: TextStyle(
                                     fontSize: responsive.labelFontSize,
                                     fontFamily: Fonts.manrope,
@@ -425,8 +426,8 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                           ],
                           if (state.selectFromExisting && !_isEditLikeMode) ...[
                             CustomDropdown(
-                              label: 'Carer',
-                              hintText: 'Select Carer',
+                              label: StudentStrings.carer,
+                              hintText: StudentStrings.selectCarer,
                               items: state.existingCarers,
                               selectedItem: state.selectedCarer,
                               showAsterisk: true,
@@ -476,8 +477,8 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                               children: [
                                 Expanded(
                                   child: _buildInputField(
-                                    label: 'First Name',
-                                    hint: 'E.g. John',
+                                    label: StudentStrings.firstName,
+                                    hint: StudentStrings.eGJohn,
                                     controller: _firstNameController,
                                     isRequired: true,
                                     textCapitalization:
@@ -497,8 +498,8 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                                 ),
                                 Expanded(
                                   child: _buildInputField(
-                                    label: 'Last Name',
-                                    hint: 'E.g. Smith',
+                                    label: StudentStrings.lastName,
+                                    hint: StudentStrings.eGSmith,
                                     controller: _lastNameController,
                                     isRequired: true,
                                     textCapitalization:
@@ -517,15 +518,15 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                             ),
                             SizedBox(height: responsive.verticalSpacing),
                             _buildInputField(
-                              label: 'Email',
-                              hint: 'E.g. email@example.com',
+                              label: StudentStrings.email,
+                              hint: StudentStrings.eGEmailExampleCom,
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
                             ),
                             SizedBox(height: responsive.verticalSpacing),
                             _buildInputField(
-                              label: 'Phone Number',
-                              hint: 'E.g. (000) 000-0000',
+                              label: StudentStrings.phoneNumber,
+                              hint: StudentStrings.eG0000000000,
                               controller: _phoneController,
                               isRequired: true,
                               keyboardType: TextInputType.phone,
@@ -581,8 +582,8 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
               ),
             ),
             child: CustomButtonLayout(
-              confirmButtonLabel: 'Save',
-              cancelButtonLabel: 'Cancel',
+              confirmButtonLabel: StudentStrings.save,
+              cancelButtonLabel: StudentStrings.cancel,
               onPressedConfirm: _onSave,
               onPressedCancel: () => context.pop(false),
               showCancelButton: true,

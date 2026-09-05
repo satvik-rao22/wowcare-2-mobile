@@ -35,6 +35,7 @@ import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_f
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class EditStudentProfileDetailsScreen extends StatefulWidget {
   const EditStudentProfileDetailsScreen({
@@ -454,7 +455,7 @@ class _EditStudentProfileDetailsScreenState
     if (first.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'First Name is required',
+        message: StudentStrings.firstNameIsRequired,
         isError: true,
       );
       return;
@@ -462,7 +463,7 @@ class _EditStudentProfileDetailsScreenState
     if (first.length > 50 || !_nameRegex.hasMatch(first)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'First Name must be letters only and max 50 characters',
+        message: StudentStrings.firstNameMustBeLettersOnlyAndMax50Characters2,
         isError: true,
       );
       return;
@@ -470,7 +471,7 @@ class _EditStudentProfileDetailsScreenState
     if (last.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Last Name is required',
+        message: StudentStrings.lastNameIsRequired,
         isError: true,
       );
       return;
@@ -478,7 +479,7 @@ class _EditStudentProfileDetailsScreenState
     if (last.length > 50 || !_nameRegex.hasMatch(last)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Last Name must be letters only and max 50 characters',
+        message: StudentStrings.lastNameMustBeLettersOnlyAndMax50Characters2,
         isError: true,
       );
       return;
@@ -486,7 +487,7 @@ class _EditStudentProfileDetailsScreenState
     if (_selectedStatus == null || _selectedStatus!.trim().isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Status is required',
+        message: StudentStrings.statusIsRequired,
         isError: true,
       );
       return;
@@ -494,7 +495,7 @@ class _EditStudentProfileDetailsScreenState
     if (_selectedClassroom == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Classroom is required',
+        message: StudentStrings.classroomIsRequired,
         isError: true,
       );
       return;
@@ -503,7 +504,7 @@ class _EditStudentProfileDetailsScreenState
     if (_selectedBirthDate == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Birthdate is required',
+        message: StudentStrings.birthdateIsRequired,
         isError: true,
       );
       return;
@@ -515,7 +516,7 @@ class _EditStudentProfileDetailsScreenState
       )) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Birthdate must be a past date',
+          message: StudentStrings.birthdateMustBeAPastDate,
           isError: true,
         );
         return;
@@ -525,7 +526,7 @@ class _EditStudentProfileDetailsScreenState
     if (_notesController.text.trim().length > 500) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Notes cannot exceed 500 characters',
+        message: StudentStrings.notesCannotExceed500Characters,
         isError: true,
       );
       return;
@@ -537,7 +538,7 @@ class _EditStudentProfileDetailsScreenState
     if (street.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Street is required',
+        message: StudentStrings.streetIsRequired,
         isError: true,
       );
       return;
@@ -545,7 +546,7 @@ class _EditStudentProfileDetailsScreenState
     if (street.length > 150) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Street address cannot exceed 150 characters',
+        message: StudentStrings.streetAddressCannotExceed150Characters,
         isError: true,
       );
       return;
@@ -553,7 +554,7 @@ class _EditStudentProfileDetailsScreenState
     if (city.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'City is required',
+        message: StudentStrings.cityIsRequired,
         isError: true,
       );
       return;
@@ -561,7 +562,7 @@ class _EditStudentProfileDetailsScreenState
     if (city.length > 50) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'City name cannot exceed 50 characters',
+        message: StudentStrings.cityNameCannotExceed50Characters,
         isError: true,
       );
       return;
@@ -569,7 +570,7 @@ class _EditStudentProfileDetailsScreenState
     if (zipDigits.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Zip Code is required',
+        message: StudentStrings.zipCodeIsRequired,
         isError: true,
       );
       return;
@@ -577,7 +578,7 @@ class _EditStudentProfileDetailsScreenState
     if (!_zipDigitsRegex.hasMatch(zipDigits)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Zip Code must be 5 digits (12345) or ZIP+4 (12345-6789)',
+        message: StudentStrings.zipCodeMustBe5Digits12345OrZip4123456789,
         isError: true,
       );
       return;
@@ -585,7 +586,7 @@ class _EditStudentProfileDetailsScreenState
     if ((_selectedState ?? '').trim().isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'State is required',
+        message: StudentStrings.stateIsRequired,
         isError: true,
       );
       return;
@@ -593,7 +594,7 @@ class _EditStudentProfileDetailsScreenState
     if ((_selectedCountry ?? '').trim().isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Country is required',
+        message: StudentStrings.countryIsRequired,
         isError: true,
       );
       return;
@@ -828,8 +829,8 @@ class _EditStudentProfileDetailsScreenState
       builder: (ctx) => ConfirmationBottomSheet(
         icon: Icons.warning_amber_rounded,
         title: message,
-        confirmText: 'Continue anyway',
-        cancelText: 'Cancel',
+        confirmText: StudentStrings.continueAnyway,
+        cancelText: StudentStrings.cancel,
         onConfirm: () => Navigator.of(ctx).pop(true),
         onCancel: () => Navigator.of(ctx).pop(false),
       ),
@@ -857,7 +858,7 @@ class _EditStudentProfileDetailsScreenState
         if (selectedDate.isAfter(today.subtract(const Duration(days: 1)))) {
           CoreUtils.showTopSnackBar(
             context: context,
-            message: 'Birthdate must be a past date',
+            message: StudentStrings.birthdateMustBeAPastDate,
             isError: true,
           );
           return;
@@ -956,7 +957,7 @@ class _EditStudentProfileDetailsScreenState
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Edit Student',
+                      StudentStrings.editStudent,
                       style: TextStyle(
                         fontFamily: Fonts.manrope,
                         fontSize: responsive.titleFontSize,
@@ -1024,16 +1025,16 @@ class _EditStudentProfileDetailsScreenState
                           children: [
                             Expanded(
                               child: _buildInputField(
-                                "First Name",
-                                "E.g. John",
+                                StudentStrings.firstName,
+                                StudentStrings.eGJohn,
                                 _firstNameController,
                               ),
                             ),
                             SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
                             Expanded(
                               child: _buildInputField(
-                                "Last Name",
-                                "E.g. Smith",
+                                StudentStrings.lastName,
+                                StudentStrings.eGSmith,
                                 _lastNameController,
                               ),
                             ),
@@ -1041,8 +1042,8 @@ class _EditStudentProfileDetailsScreenState
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown(
-                          "Status",
-                          "Select",
+                          StudentStrings.status,
+                          StudentStrings.select,
                           _statusOptions,
                           _selectedStatus,
                           (v) => _profileEditCubit.setStatus(v),
@@ -1050,18 +1051,18 @@ class _EditStudentProfileDetailsScreenState
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown(
-                          "Gender",
-                          "Select",
+                          StudentStrings.gender,
+                          StudentStrings.select,
                           _genderOptions,
                           _selectedGender,
                           (v) => _profileEditCubit.setGender(v),
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown(
-                          "Classroom",
+                          StudentStrings.classroom,
                           (classroomState.isLoading && classroomOptions.isEmpty)
-                              ? "Loading..."
-                              : "Select",
+                              ? StudentStrings.loadingEllipsis
+                              : StudentStrings.select,
                           classroomOptions,
                           selectedClassroomName,
                           (v) => _profileEditCubit.setClassroom(v),
@@ -1070,12 +1071,12 @@ class _EditStudentProfileDetailsScreenState
                               !_isTodayStatusLoading && !_isSignedInToday,
                           disabledTooltip: _isTodayStatusLoading
                               ? null
-                              : "Classroom can't be changed while the student is signed in.",
+                              : StudentStrings.classroomCantBeChangedWhileSignedIn,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         CustomMultiSelectDropdown(
-                          label: 'Tags',
-                          hintText: 'Select',
+                          label: StudentStrings.tags,
+                          hintText: StudentStrings.select,
                           items: _availableTagNames,
                           selectedItems: _selectedTags,
                           onChanged: (tags) =>
@@ -1083,13 +1084,13 @@ class _EditStudentProfileDetailsScreenState
                           isField: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildDateField("Date of birth", _selectedBirthDate),
+                        _buildDateField(StudentStrings.dateOfBirth, _selectedBirthDate),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildInputField("Notes", "", _notesController),
+                        _buildInputField(StudentStrings.notes, "", _notesController),
                         SizedBox(height: responsive.verticalSpacing),
                         CustomMultiSelectDropdown(
-                          label: 'Siblings',
-                          hintText: 'Select student',
+                          label: StudentStrings.siblings,
+                          hintText: StudentStrings.selectStudent,
                           items: _availableStudentNames,
                           selectedItems: _selectedSiblings,
                           onChanged: (siblings) =>
@@ -1099,8 +1100,8 @@ class _EditStudentProfileDetailsScreenState
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         CustomMultiSelectDropdown(
-                          label: 'Child Custody',
-                          hintText: 'Select guardian',
+                          label: StudentStrings.childCustody,
+                          hintText: StudentStrings.selectGuardian,
                           items: _availableGuardianNames,
                           selectedItems: _selectedChildCustody,
                           onChanged: (custodyOptions) => _profileEditCubit
@@ -1109,40 +1110,40 @@ class _EditStudentProfileDetailsScreenState
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown(
-                          "State Subsidy",
-                          "Select",
+                          StudentStrings.stateSubsidy,
+                          StudentStrings.select,
                           _stateSubsidyOptions,
                           _selectedStateSubsidyOption,
                           (v) => _profileEditCubit.setStateSubsidyOption(v),
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
-                          "Street",
-                          "Eg. Street no",
+                          StudentStrings.street,
+                          StudentStrings.egStreetNo,
                           _streetController,
                           isRequired: true,
                           textCapitalization: TextCapitalization.words,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
-                          "Address line 2",
-                          "(Optional)",
+                          StudentStrings.addressLine2,
+                          StudentStrings.optionalParenthetical,
                           _street2Controller,
                           isRequired: false,
                           textCapitalization: TextCapitalization.words,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
-                          "City",
-                          "Eg. Nashua",
+                          StudentStrings.city,
+                          StudentStrings.egNashua,
                           _cityController,
                           isRequired: true,
                           textCapitalization: TextCapitalization.words,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown(
-                          "State",
-                          "Select",
+                          StudentStrings.state,
+                          StudentStrings.select,
                           _stateOptions,
                           _selectedState,
                           (v) => _profileEditCubit.setStateName(v),
@@ -1152,8 +1153,8 @@ class _EditStudentProfileDetailsScreenState
                         Opacity(
                           opacity: 0.8,
                           child: CustomDropdown(
-                            label: "Country",
-                            hintText: 'United States',
+                            label: StudentStrings.country,
+                            hintText: StudentStrings.unitedStates,
                             items: const <String>['United States'],
                             selectedItem: 'United States',
                             isEnabled: false,
@@ -1186,8 +1187,8 @@ class _EditStudentProfileDetailsScreenState
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
-                          "Zip Code",
-                          "Eg. 85001 or 850012222",
+                          StudentStrings.zipCode,
+                          StudentStrings.egZipExample,
                           _zipCodeController,
                           isRequired: true,
                           keyboardType: TextInputType.number,
@@ -1229,7 +1230,7 @@ class _EditStudentProfileDetailsScreenState
             ),
           ),
           child: CustomButtonLayout(
-            confirmButtonLabel: 'Save',
+            confirmButtonLabel: StudentStrings.save,
             onPressedConfirm: _saveProfileDetails,
             showCancelButton: false,
             isForm: false,
@@ -1400,7 +1401,7 @@ class _EditStudentProfileDetailsScreenState
                     child: Text(
                       selectedDate != null
                           ? DateFormat('MMM dd, yyyy').format(selectedDate)
-                          : 'Select Date',
+                          : StudentStrings.selectDate,
                       style: TextStyle(
                         fontFamily: Fonts.manrope,
                         fontSize: responsive.inputFontSize,

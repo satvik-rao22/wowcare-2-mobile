@@ -6,6 +6,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_physician_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
@@ -94,7 +95,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Physicians',
+                      StudentStrings.physicians,
                       style: AppTextStyles.value.copyWith(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -125,7 +126,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                     return Padding(
                       padding: const EdgeInsets.only(top: 16),
                       child: Text(
-                        'Failed to load physicians',
+                        StudentStrings.failedToLoadPhysicians,
                         style: AppTextStyles.value.copyWith(
                           fontSize: 14,
                           color: AppColors.errorColor,
@@ -139,7 +140,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                     return Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
-                        'No physicians added yet',
+                        StudentStrings.noPhysiciansAddedYet,
                         style: AppTextStyles.value.copyWith(fontSize: 14),
                       ),
                     );
@@ -287,7 +288,7 @@ class _PhysicianCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Phone Number',
+                          StudentStrings.phoneNumber,
                           style: AppTextStyles.label.copyWith(
                             color: AppColors.primaryColor.withValues(
                               alpha: 0.5,
@@ -315,7 +316,7 @@ class _PhysicianCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Email ID',
+                          StudentStrings.emailId,
                           style: AppTextStyles.label.copyWith(
                             color: AppColors.primaryColor.withValues(
                               alpha: 0.5,
@@ -343,7 +344,7 @@ class _PhysicianCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Address',
+                          StudentStrings.address,
                           style: AppTextStyles.label.copyWith(
                             color: AppColors.primaryColor.withValues(
                               alpha: 0.5,
@@ -371,7 +372,7 @@ class _PhysicianCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Specialty',
+                          StudentStrings.specialty,
                           style: AppTextStyles.label.copyWith(
                             color: AppColors.primaryColor.withValues(
                               alpha: 0.5,
@@ -399,7 +400,7 @@ class _PhysicianCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Notes',
+                          StudentStrings.notes,
                           style: AppTextStyles.label.copyWith(
                             color: AppColors.primaryColor.withValues(
                               alpha: 0.5,
@@ -423,8 +424,8 @@ class _PhysicianCard extends StatelessWidget {
                   if (showActionButtons) ...[
                     const SizedBox(height: 12),
                     CustomButtonLayout(
-                      confirmButtonLabel: 'Edit',
-                      cancelButtonLabel: 'Delete',
+                      confirmButtonLabel: StudentStrings.edit,
+                      cancelButtonLabel: StudentStrings.delete,
                       gradientCancelLabel: true,
                       onPressedConfirm: () async {
                         final result = await context.push<bool>(

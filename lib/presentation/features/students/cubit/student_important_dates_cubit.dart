@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../domain/features/student/entities/student_important_dates.dart';
 import '../../../../domain/features/student/usecases/update_student_important_dates_usecase.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class StudentImportantDatesCubit extends Cubit<StudentImportantDatesState> {
   StudentImportantDatesCubit({
@@ -76,7 +77,7 @@ class StudentImportantDatesCubit extends Cubit<StudentImportantDatesState> {
           isLoading: false,
           isError: true,
           isSuccess: false,
-          message: failure.message ?? 'Failed to update important dates',
+          message: failure.message ?? StudentStrings.failedToUpdateImportantDates,
         ));
       },
       (String message) {
