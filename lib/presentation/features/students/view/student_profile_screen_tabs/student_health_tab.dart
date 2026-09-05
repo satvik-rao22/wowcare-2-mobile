@@ -9,6 +9,7 @@ import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 
 import '../../../../../shared/common/widgets/custom_toggle.dart';
 import '../student_health_tab_cards/student_dates_tab_card.dart';
@@ -276,40 +277,6 @@ class _StudentHealthTabState extends State<StudentHealthTab>
           ],
         ),
       ],
-    );
-  }
-}
-
-class CustomSectionCard extends StatelessWidget {
-  const CustomSectionCard({
-    required this.child,
-    this.padding = const EdgeInsets.all(AppSpacing.sm),
-    this.margin,
-    this.backgroundColor,
-    this.minHeight,
-    Key? key,
-  }) : super(key: key);
-
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-  final EdgeInsetsGeometry? margin;
-  final Color? backgroundColor;
-  final double? minHeight;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: margin,
-      padding: padding,
-      constraints: BoxConstraints(
-        minHeight: minHeight ?? 0,
-      ),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.cardBorderColor, width: 1.2),
-        borderRadius: AppRadius.allMd,
-        color: backgroundColor ?? AppColors.cardColor,
-      ),
-      child: child,
     );
   }
 }
