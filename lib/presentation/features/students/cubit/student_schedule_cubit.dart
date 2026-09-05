@@ -2,7 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart' show TimeOfDay, DayPeriod;
 
-import '../../../../domain/features/staff/usecases/get_school_regular_schedules_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/get_school_regular_schedules_usecase.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 part 'student_schedule_state.dart';

@@ -2,13 +2,13 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 
-import '../../../../domain/features/student/entities/school_guardian_summary.dart';
-import '../../../../domain/features/student/entities/student_pickup.dart';
-import '../../../../domain/features/student/usecases/add_pickup_usecase.dart';
-import '../../../../domain/features/student/usecases/delete_pickup_usecase.dart';
-import '../../../../domain/features/student/usecases/get_guardians_raw_for_school_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_pickups_usecase.dart';
-import '../../../../domain/features/student/usecases/update_pickup_usecase.dart';
+import 'package:wowcare/domain/features/student/entities/school_guardian_summary.dart';
+import 'package:wowcare/domain/features/student/entities/student_pickup.dart';
+import 'package:wowcare/domain/features/student/usecases/add_pickup_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/delete_pickup_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_guardians_raw_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_pickups_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_pickup_usecase.dart';
 
 part 'student_pickup_state.dart';
 

@@ -1,9 +1,9 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../../../../core/errors/failures.dart';
-import '../../../../domain/features/student/entities/student_important_dates.dart';
-import '../../../../domain/features/student/usecases/update_student_important_dates_usecase.dart';
+import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/domain/features/student/entities/student_important_dates.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_important_dates_usecase.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class StudentImportantDatesCubit extends Cubit<StudentImportantDatesState> {

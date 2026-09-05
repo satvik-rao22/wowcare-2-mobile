@@ -41,9 +41,9 @@ import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 
-import '../../../../app/theme/media_res.dart';
-import '../../../../core/util/core_utils.dart';
-import '../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 

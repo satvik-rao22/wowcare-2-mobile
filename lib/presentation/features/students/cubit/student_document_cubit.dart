@@ -5,12 +5,12 @@ import 'package:equatable/equatable.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/file_picker_utils.dart';
-import '../../../../core/util/storage_keys.dart';
-import '../../../../domain/features/student/usecases/add_student_document_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_document_usecase.dart';
-import '../../../../shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/student/usecases/add_student_document_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_document_usecase.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 part 'student_document_state.dart';

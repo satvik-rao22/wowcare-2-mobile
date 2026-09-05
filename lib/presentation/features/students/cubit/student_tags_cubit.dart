@@ -1,11 +1,11 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../../../../core/util/api_error_handler.dart';
-import '../../../../domain/features/student/usecases/get_student_tag_names_usecase.dart';
-import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import '../../../../domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_tags_usecase.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_tag_names_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_tags_usecase.dart';
 
 part 'student_tags_state.dart';
 

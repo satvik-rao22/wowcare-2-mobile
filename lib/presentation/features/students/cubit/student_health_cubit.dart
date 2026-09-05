@@ -1,13 +1,13 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../../../../domain/features/student/entities/student_health.dart';
-import '../../../../domain/features/student/entities/student_health_update_request.dart';
-import '../../../../domain/features/student/entities/student_immunization.dart';
-import '../../../../domain/features/student/usecases/get_student_health_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_immunizations_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_health_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_immunization_record_usecase.dart';
+import 'package:wowcare/domain/features/student/entities/student_health.dart';
+import 'package:wowcare/domain/features/student/entities/student_health_update_request.dart';
+import 'package:wowcare/domain/features/student/entities/student_immunization.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_health_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_immunizations_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_health_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_immunization_record_usecase.dart';
 
 import 'package:wowcare/core/util/api_error_handler.dart';
 

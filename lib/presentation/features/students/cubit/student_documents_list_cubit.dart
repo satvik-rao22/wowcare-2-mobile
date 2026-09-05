@@ -3,10 +3,10 @@ import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/network/file_download_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 
-import '../../../../domain/features/student/entities/student_document.dart';
-import '../../../../domain/features/student/repositories/student_repository.dart';
-import '../../../../domain/features/student/usecases/get_student_documents_usecase.dart';
-import '../../../../domain/features/student/usecases/delete_student_document_usecase.dart';
+import 'package:wowcare/domain/features/student/entities/student_document.dart';
+import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_documents_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/delete_student_document_usecase.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class StudentDocumentsListCubit extends Cubit<StudentDocumentsListState> {

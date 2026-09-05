@@ -1,18 +1,18 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../../../../domain/features/student/entities/student.dart';
-import '../../../../domain/features/student/entities/student_guardian.dart';
-import '../../../../domain/features/student/entities/update_student_address_request.dart';
-import '../../../../domain/features/student/entities/update_student_profile_request.dart';
-import '../../../../domain/features/student/entities/update_guardian_request.dart';
-import '../../../../domain/features/student/usecases/get_student_guardians_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
-import '../../../../domain/features/student/usecases/update_guardian_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_address_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_profile_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_siblings_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_tags_usecase.dart';
+import 'package:wowcare/domain/features/student/entities/student.dart';
+import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
+import 'package:wowcare/domain/features/student/entities/update_student_address_request.dart';
+import 'package:wowcare/domain/features/student/entities/update_student_profile_request.dart';
+import 'package:wowcare/domain/features/student/entities/update_guardian_request.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_guardians_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_guardian_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_address_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_profile_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_siblings_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_tags_usecase.dart';
 
 part 'student_profile_edit_state.dart';
 

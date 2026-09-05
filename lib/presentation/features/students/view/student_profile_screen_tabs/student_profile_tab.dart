@@ -16,8 +16,8 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 
-import '../student_profile_tab_cards/student_family_tab_card.dart';
-import '../student_profile_tab_cards/student_pickup_tab_card.dart';
+import 'package:wowcare/presentation/features/students/view/student_profile_tab_cards/student_family_tab_card.dart';
+import 'package:wowcare/presentation/features/students/view/student_profile_tab_cards/student_pickup_tab_card.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class StudentProfileTab extends StatefulWidget {

@@ -4,18 +4,18 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/attendance_classroom_scope.dart';
-import '../../../../core/util/storage_keys.dart';
-import '../../../../domain/features/student/entities/student.dart';
-import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_counts_usecase.dart';
-import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import '../../../../domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
-import '../../../../domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
-import '../../../../domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
-import '../../../../domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
-import '../../../../domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/student/entities/student.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
+import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 
 part 'student_state.dart';
 

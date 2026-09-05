@@ -2,11 +2,11 @@ import 'package:bloc/bloc.dart';
 import 'package:wowcare/domain/features/student/entities/student_regular_schedule_input.dart';
 import 'package:equatable/equatable.dart';
 
-import '../../../../domain/features/student/entities/student_health.dart';
-import '../../../../domain/features/student/entities/student_settings.dart';
-import '../../../../domain/features/student/usecases/get_student_health_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_settings_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_regular_schedules_usecase.dart';
+import 'package:wowcare/domain/features/student/entities/student_health.dart';
+import 'package:wowcare/domain/features/student/entities/student_settings.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_health_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_settings_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_regular_schedules_usecase.dart';
 
 import 'package:wowcare/core/util/api_error_handler.dart';
 

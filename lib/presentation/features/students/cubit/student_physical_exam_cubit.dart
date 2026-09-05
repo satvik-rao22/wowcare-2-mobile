@@ -1,10 +1,10 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../../../../domain/features/student/entities/student_physical_exam.dart';
-import '../../../../domain/features/student/usecases/add_student_physical_exam_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_physical_exams_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_physical_exam_usecase.dart';
+import 'package:wowcare/domain/features/student/entities/student_physical_exam.dart';
+import 'package:wowcare/domain/features/student/usecases/add_student_physical_exam_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_physical_exams_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_physical_exam_usecase.dart';
 
 import 'package:wowcare/core/util/api_error_handler.dart';
 

@@ -20,7 +20,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/students/view/add_pickup_screen.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import '../../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class StudentPickupTabCard extends StatefulWidget {
   const StudentPickupTabCard({

@@ -3,20 +3,20 @@ import 'dart:io';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../../../../core/util/app_time.dart';
-import '../../../../domain/features/student/entities/student.dart';
-import '../../../../domain/features/student/entities/student_regular_schedule_input.dart';
-import '../../../../domain/features/student/entities/update_guardian_request.dart';
-import '../../../../domain/features/student/entities/student_profile.dart';
-import '../../../../domain/features/student/usecases/add_student_sibling_usecase.dart';
-import '../../../../domain/features/student/usecases/create_guardian_user_usecase.dart';
-import '../../../../domain/features/student/usecases/create_student_usecase.dart';
-import '../../../../domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_profile_usecase.dart';
-import '../../../../domain/features/student/usecases/link_existing_guardian_usecase.dart';
-import '../../../../domain/features/student/usecases/update_guardian_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_regular_schedules_usecase.dart';
+import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/domain/features/student/entities/student.dart';
+import 'package:wowcare/domain/features/student/entities/student_regular_schedule_input.dart';
+import 'package:wowcare/domain/features/student/entities/update_guardian_request.dart';
+import 'package:wowcare/domain/features/student/entities/student_profile.dart';
+import 'package:wowcare/domain/features/student/usecases/add_student_sibling_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/create_guardian_user_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/create_student_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_profile_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/link_existing_guardian_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_guardian_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_regular_schedules_usecase.dart';
 
 part 'student_create_state.dart';
 

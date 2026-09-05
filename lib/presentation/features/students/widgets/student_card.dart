@@ -21,7 +21,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
-import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 
 class StudentCard extends StatefulWidget {
   const StudentCard({

@@ -52,9 +52,9 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import '../../../../shared/common/widgets/gradient_add_button.dart';
-import '../../../../shared/common/widgets/post_add_student_bottom_sheet.dart';
-import '../widgets/student_card.dart';
+import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/shared/common/widgets/post_add_student_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/students/widgets/student_card.dart';
 import 'add_student_wizard_screen.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 

@@ -28,11 +28,11 @@ import 'package:wowcare/shared/constants/location_constants.dart';
 import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
-import '../../../../../shared/common/widgets/profile_info_card.dart';
-import '../../../../../shared/common/widgets/profile_show_widget.dart';
-import '../edit_student_profile_details_screen.dart';
-import '../add_student_step3_screen.dart';
-import '../student_tags_edit_sheet.dart';
+import 'package:wowcare/shared/common/widgets/profile_info_card.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/presentation/features/students/view/edit_student_profile_details_screen.dart';
+import 'package:wowcare/presentation/features/students/view/add_student_step3_screen.dart';
+import 'package:wowcare/presentation/features/students/view/student_tags_edit_sheet.dart';
 
 class StudentAboutTabCard extends StatefulWidget {
   const StudentAboutTabCard({

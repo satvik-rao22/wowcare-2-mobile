@@ -11,10 +11,10 @@ import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 
-import '../../../../../shared/common/widgets/custom_toggle.dart';
-import '../student_health_tab_cards/student_dates_tab_card.dart';
-import '../student_health_tab_cards/student_immunization_tab_card.dart';
-import '../student_health_tab_cards/student_physician_tab_card.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/presentation/features/students/view/student_health_tab_cards/student_dates_tab_card.dart';
+import 'package:wowcare/presentation/features/students/view/student_health_tab_cards/student_immunization_tab_card.dart';
+import 'package:wowcare/presentation/features/students/view/student_health_tab_cards/student_physician_tab_card.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 
