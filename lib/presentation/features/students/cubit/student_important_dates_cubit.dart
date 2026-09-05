@@ -59,6 +59,13 @@ class StudentImportantDatesCubit extends Cubit<StudentImportantDatesState> {
     required String studentCode,
     required StudentImportantDates dates,
   }) async {
+    // Single-flight: ignore a second submit while one is already in flight.
+    // The Save button disables on `isLoading`, but that only takes effect after
+    // the first emit renders — a fast double-tap (or a programmatic re-call)
+    // could otherwise fire two identical PATCHes. Guard at the cubit so the
+    // duplicate is dropped regardless of UI timing.
+    if (state.isLoading) return;
+
     emit(state.copyWith(
       isLoading: true,
       isSuccess: false,
@@ -70,6 +77,10 @@ class StudentImportantDatesCubit extends Cubit<StudentImportantDatesState> {
       studentCode: studentCode,
       dates: dates,
     );
+
+    // The edit screen may have been popped while the request was in flight;
+    // emitting onto a closed cubit throws, so drop the stale result.
+    if (isClosed) return;
 
     result.fold(
       (Failure failure) {

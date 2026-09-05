@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/errors/failures.dart';
@@ -21,6 +23,10 @@ class _FakeUpdateUseCase extends UpdateStudentImportantDatesUseCase {
   final List<StudentImportantDates> passedDates = <StudentImportantDates>[];
   Either<Failure, String> result = const Right('Updated');
 
+  /// Optional gate so a test can hold the request in flight (to simulate the
+  /// screen closing, or a second submit arriving, before the response lands).
+  Completer<void>? gate;
+
   @override
   Future<Either<Failure, String>> call({
     required String studentCode,
@@ -29,6 +35,7 @@ class _FakeUpdateUseCase extends UpdateStudentImportantDatesUseCase {
     calls++;
     studentCodes.add(studentCode);
     passedDates.add(dates);
+    if (gate != null) await gate!.future;
     return result;
   }
 }
@@ -152,6 +159,48 @@ void main() {
 
       expect(useCase.passedDates.single.enrollDate, enroll);
       expect(useCase.passedDates.single.schoolStartDate, schoolStart);
+    });
+  });
+
+  group('concurrency & lifecycle', () {
+    test('duplicate submit while one is in flight fires the use case once', () async {
+      useCase.result = const Right('ok');
+      useCase.gate = Completer<void>();
+      final cubit = build()
+        ..initialize(enrollDate: enroll, schoolStartDate: schoolStart);
+
+      // Two submits before the first resolves (e.g. a fast double-tap that
+      // slips past the button's isLoading-disable). The second must be dropped.
+      final f1 = cubit.save(studentCode: 'S1');
+      final f2 = cubit.save(studentCode: 'S1');
+
+      useCase.gate!.complete();
+      await Future.wait([f1, f2]);
+
+      expect(useCase.calls, 1);
+      expect(cubit.state.isSuccess, isTrue);
+      await cubit.close();
+    });
+
+    test('a save that resolves after the screen closes does not emit (no throw)',
+        () async {
+      useCase.result = const Right('ok');
+      final gate = Completer<void>();
+      useCase.gate = gate;
+      final cubit = build()
+        ..initialize(enrollDate: enroll, schoolStartDate: schoolStart);
+
+      final emitted = <StudentImportantDatesState>[];
+      final sub = cubit.stream.listen(emitted.add);
+
+      final saving = cubit.save(studentCode: 'S1'); // in flight, awaiting gate
+      await cubit.close(); // screen popped mid-request
+      gate.complete(); // response lands after close
+      await saving; // must NOT throw — emit-after-close is guarded
+
+      // Only the pre-await loading emit reached listeners; no success emit after close.
+      expect(emitted.every((s) => !s.isSuccess), isTrue);
+      await sub.cancel();
     });
   });
 }
