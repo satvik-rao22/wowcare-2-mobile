@@ -3,6 +3,7 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -1292,10 +1293,8 @@ class _StudentScreenState extends State<StudentScreen> {
                                   });
                                 }
                               },
-                              isTablet:
-                                  MediaQuery.of(context).size.width >= 600,
-                              isLargeTablet:
-                                  MediaQuery.of(context).size.width >= 900,
+                              isTablet: ResponsiveHelper(context).isTabletCompact,
+                              isLargeTablet: ResponsiveHelper(context).isWide,
                             ),
                           SizedBox(width: AppSpacing.s10),
                         ],

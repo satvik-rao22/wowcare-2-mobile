@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -170,8 +171,8 @@ class _StudentCardState extends State<StudentCard> {
     // student from the card — those actions are admin-only.
     final canStudentWrite =
         ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isStaff;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final responsive = ResponsiveHelper(context);
+    final isTablet = responsive.isTabletCompact;
     final tags = widget.tags;
     // Upcoming students get the same actions as active ones (Deactivate + Edit),
     // not the inactive set (Reactivate + Delete + Edit).

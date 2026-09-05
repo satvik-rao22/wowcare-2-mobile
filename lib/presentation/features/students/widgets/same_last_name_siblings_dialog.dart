@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/spacing.dart';
@@ -61,9 +62,9 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
-    final isLargeTablet = screenWidth > 900;
+    final responsive = ResponsiveHelper(context);
+    final isTablet = responsive.isTabletCompact;
+    final isLargeTablet = responsive.isWide;
     final bottomSafe = MediaQuery.of(context).padding.bottom;
 
     final horizontalPadding =
@@ -155,7 +156,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
               SizedBox(height: verticalPadding * 0.75),
               ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.42,
+                  maxHeight: responsive.screenHeight * 0.42,
                 ),
                 child: ListView.separated(
                   shrinkWrap: true,

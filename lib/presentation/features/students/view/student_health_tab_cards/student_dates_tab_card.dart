@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/app_time.dart';
@@ -150,9 +151,9 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
       isScrollControlled: true,
       backgroundColor: AppColors.transparentColor,
       builder: (context) {
-        final screenWidth = MediaQuery.of(context).size.width;
-        final isTablet = screenWidth > 600;
-        final isLargeTablet = screenWidth > 900;
+        final responsive = ResponsiveHelper(context);
+        final isTablet = responsive.isTabletCompact;
+        final isLargeTablet = responsive.isWide;
         final bottomSafe = MediaQuery.of(context).padding.bottom;
 
         final horizontalPadding = isLargeTablet

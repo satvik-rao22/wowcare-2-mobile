@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -371,8 +372,8 @@ class _PickupCardState extends State<_PickupCard> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final responsive = ResponsiveHelper(context);
+    final isTablet = responsive.isTabletCompact;
     final isCarpool = widget.pickupType.trim().toUpperCase() == 'CARPOOL';
 
     return LayoutBuilder(
