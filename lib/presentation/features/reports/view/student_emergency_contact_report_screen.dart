@@ -37,6 +37,8 @@ class _StudentEmergencyContactReportScreenState
   @override
   void initState() {
     super.initState();
+    // All Classrooms are selected by default until the user changes it.
+    _selectedClassrooms.value = List<String>.from(widget.classrooms);
   }
 
   @override

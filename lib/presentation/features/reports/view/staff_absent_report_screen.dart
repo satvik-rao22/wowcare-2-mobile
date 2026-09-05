@@ -9,6 +9,7 @@ import 'package:wowcare/domain/features/reports/usecases/report_request_params.d
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
+import 'package:wowcare/presentation/features/reports/utils/report_filter_defaults.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -38,6 +39,7 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
   final ValueNotifier<String> _format = ValueNotifier<String>('XLSX');
   List<String> _availableClassrooms = <String>[];
   Map<String, String> _classroomNameToCode = <String, String>{};
+  final ReportFilterDefault _classroomFilter = ReportFilterDefault();
 
   @override
   void initState() {
@@ -47,6 +49,8 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
     _toDate = ValueNotifier<DateTime>(DateTime(now.year, now.month + 1, 0));
 
     _availableClassrooms = List<String>.from(widget.classrooms);
+    // All Classrooms are selected by default until the user changes it.
+    _selectedClassrooms.value = List<String>.from(widget.classrooms);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _loadAllStaffClassrooms();
@@ -74,7 +78,10 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
           setState(() {
             _availableClassrooms = names;
             _classroomNameToCode = nameToCodeMap;
-            _selectedClassrooms.value = <String>[];
+            _selectedClassrooms.value = _classroomFilter.resolve(
+              options: names,
+              current: _selectedClassrooms.value,
+            );
           });
         }
       }
@@ -249,7 +256,9 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
                     isRequired: true,
                     items: classroomItems,
                     selectedItems: selected,
-                    onChanged: (s) => _selectedClassrooms.value = s,
+                    onChanged: (s) =>
+                        _selectedClassrooms.value = _classroomFilter
+                            .userSelected(s),
                     showSelectAll: true,
                   ),
                 ),

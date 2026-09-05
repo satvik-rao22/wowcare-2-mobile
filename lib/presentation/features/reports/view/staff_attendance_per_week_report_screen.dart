@@ -8,6 +8,7 @@ import 'package:wowcare/domain/features/reports/usecases/report_request_params.d
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
+import 'package:wowcare/presentation/features/reports/utils/report_filter_defaults.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -50,6 +51,7 @@ class _StaffAttendancePerWeekReportScreenState
   String _format = 'XLSX';
   List<String> _availableClassrooms = <String>[];
   Map<String, String> _classroomNameToCode = <String, String>{};
+  final ReportFilterDefault _classroomFilter = ReportFilterDefault();
 
   List<String> _getAvailableStaff(BuildContext context) {
     final cubitStaff = context.watch<ReportsCubit>().state.staffNames;
@@ -65,6 +67,8 @@ class _StaffAttendancePerWeekReportScreenState
 
     _selectedStaff = List<String>.from(widget.staff);
     _availableClassrooms = List<String>.from(widget.classrooms);
+    // All Classrooms are selected by default until the user changes it.
+    _selectedClassrooms = List<String>.from(widget.classrooms);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _loadAllStaffClassrooms();
@@ -92,7 +96,10 @@ class _StaffAttendancePerWeekReportScreenState
           setState(() {
             _availableClassrooms = names;
             _classroomNameToCode = nameToCodeMap;
-            _selectedClassrooms = <String>[];
+            _selectedClassrooms = _classroomFilter.resolve(
+              options: names,
+              current: _selectedClassrooms,
+            );
           });
         }
       }
@@ -318,7 +325,9 @@ class _StaffAttendancePerWeekReportScreenState
                   hintText: 'Select Classroom',
                   items: classroomItems,
                   selectedItems: _selectedClassrooms,
-                  onChanged: (s) => setState(() => _selectedClassrooms = s),
+                  onChanged: (s) => setState(
+                    () => _selectedClassrooms = _classroomFilter.userSelected(s),
+                  ),
                   showSelectAll: true,
                   isRequired: true,
                 ),

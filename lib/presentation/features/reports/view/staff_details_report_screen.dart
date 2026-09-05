@@ -7,6 +7,7 @@ import 'package:wowcare/domain/features/reports/usecases/staff_details_report_pa
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
+import 'package:wowcare/presentation/features/reports/utils/report_filter_defaults.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -66,6 +67,7 @@ class _StaffDirectoryReportScreenState
   String _format = 'XLSX';
   List<String> _availableClassrooms = <String>[];
   Map<String, String> _classroomNameToCode = <String, String>{};
+  final ReportFilterDefault _classroomFilter = ReportFilterDefault();
 
   @override
   void initState() {
@@ -73,6 +75,8 @@ class _StaffDirectoryReportScreenState
     _selectedStaffFields = _defaultStaffFields.toSet();
 
     _availableClassrooms = List<String>.from(widget.classrooms);
+    // All Classrooms are selected by default until the user changes it.
+    _selectedClassrooms = List<String>.from(widget.classrooms);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _loadAllStaffClassrooms();
@@ -100,7 +104,10 @@ class _StaffDirectoryReportScreenState
           setState(() {
             _availableClassrooms = names;
             _classroomNameToCode = nameToCodeMap;
-            _selectedClassrooms = <String>[];
+            _selectedClassrooms = _classroomFilter.resolve(
+              options: names,
+              current: _selectedClassrooms,
+            );
           });
         }
       }
@@ -305,7 +312,9 @@ class _StaffDirectoryReportScreenState
                   items: classroomItems,
                   isRequired: true,
                   selectedItems: _selectedClassrooms,
-                  onChanged: (s) => setState(() => _selectedClassrooms = s),
+                  onChanged: (s) => setState(
+                    () => _selectedClassrooms = _classroomFilter.userSelected(s),
+                  ),
                   showSelectAll: true,
                 ),
                 const ReportDefaultNote(
