@@ -7,6 +7,8 @@ import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart
 import 'package:wowcare/domain/features/staff/usecases/create_school_user_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_all_staff_usecase.dart';
 import 'package:wowcare/presentation/features/staff/cubit/create_school_user_cubit.dart';
+import 'package:wowcare/shared/services/image_upload/profile_photo_uploader.dart';
+import 'package:wowcare/shared/services/image_upload/staff_photo_background_upload_service.dart';
 
 /// Fake [StaffRepository] whose staff-user create parks on an optional gate,
 /// then fails — the use case folds that to a Left, so the cubit's success/error
@@ -41,6 +43,15 @@ class _FakeRepo implements StaffRepository {
       throw UnimplementedError('${invocation.memberName} was not expected');
 }
 
+
+/// Never invoked by these tests — the cubit only forwards to it from
+/// `uploadProfilePhotoInBackground`, which none of them call.
+class _FakePhotoUploader implements ProfilePhotoUploader {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} was not expected');
+}
+
 class _FakeStorage implements StorageService {
   @override
   Future<String?> getString(String key) async => 'CTX';
@@ -52,6 +63,9 @@ class _FakeStorage implements StorageService {
 CreateSchoolUserCubit _cubit(_FakeRepo repo) => CreateSchoolUserCubit(
   createSchoolUserUseCase: CreateSchoolUserUseCase(repo),
   getAllStaffUseCase: GetAllStaffUseCase(repo),
+  photoBackgroundUploadService: StaffPhotoBackgroundUploadService(
+    _FakePhotoUploader(),
+  ),
   storageService: _FakeStorage(),
 );
 

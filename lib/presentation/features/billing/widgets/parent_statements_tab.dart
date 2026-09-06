@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
+import 'package:wowcare/presentation/features/reports/model/report_route_args.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
@@ -181,7 +183,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
       return;
     }
     context.push(
-      ReportFileViewerArgs.routeName,
+      ReportRoutes.billingFileViewer,
       extra: ReportFileViewerArgs(
         fileData: bytes,
         fileName: 'statement-${statement.code}.pdf',

@@ -60,6 +60,27 @@ const _doc = StaffDocument(
 );
 
 void main() {
+  test(
+    'emits a real loading state while the add is in flight, so the save '
+    "button's spinner can actually show",
+    () async {
+      final repo = _FakeRepo()..gate = Completer<String>();
+      final cubit = _cubit(repo);
+      addTearDown(cubit.close);
+
+      expect(cubit.state.isLoading, isFalse);
+      final pending = cubit.addDocument(staffCode: 'STF-1', document: _doc);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(cubit.state.isLoading, isTrue);
+
+      repo.gate!.complete('saved');
+      await pending;
+      expect(cubit.state.isLoading, isFalse);
+      expect(cubit.state.isSuccess, isTrue);
+    },
+  );
+
   test('addDocument emits a success state carrying the API message', () async {
     final repo = _FakeRepo()..result = 'Added!';
     final cubit = _cubit(repo);

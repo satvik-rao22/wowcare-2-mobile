@@ -3,19 +3,19 @@ import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 
 import '../../../../domain/features/staff/entities/staff_profile.dart';
-import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../domain/features/staff/usecases/get_staff_profile_usecase.dart';
+import '../../../../domain/features/staff/usecases/load_cached_staff_profile_usecase.dart';
 
 class StaffProfileCubit extends Cubit<StaffProfileState> {
   StaffProfileCubit({
     required GetStaffProfileUseCase getStaffProfileUseCase,
-    required StaffRepository repository,
+    required LoadCachedStaffProfileUseCase loadCachedStaffProfileUseCase,
   }) : _getStaffProfileUseCase = getStaffProfileUseCase,
-       _repository = repository,
+       _loadCachedStaffProfileUseCase = loadCachedStaffProfileUseCase,
        super(const StaffProfileState.initial());
 
   final GetStaffProfileUseCase _getStaffProfileUseCase;
-  final StaffRepository _repository;
+  final LoadCachedStaffProfileUseCase _loadCachedStaffProfileUseCase;
 
   /// Thin one-shot fetch of a staff profile ENTITY via the use case, for view
   /// call sites that previously read `StaffRepository.getStaffProfile(...)`
@@ -35,12 +35,10 @@ class StaffProfileCubit extends Cubit<StaffProfileState> {
 
   Future<void> loadInitial(String staffCode) async {
     // Try cache first
-    final cached = await (_repository is StaffRepositoryWithCache
-        ? (_repository as StaffRepositoryWithCache).loadCachedStaffProfile(
-            staffCode,
-            forEditStaff: true,
-          )
-        : Future.value(null));
+    final cached = await _loadCachedStaffProfileUseCase(
+      staffCode,
+      forEditStaff: true,
+    );
 
     if (cached != null && !isClosed) {
       emit(StaffProfileState.loaded(profile: cached, isFromCache: true));

@@ -1,16 +1,19 @@
-import '../../../../core/errors/failures.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/cache_manager.dart';
-import '../../../../core/util/logger_service.dart';
-import '../../../../core/util/school_context_helper.dart';
-import '../../../../core/util/storage_keys.dart';
-import '../../../../domain/features/reports/entities/report_entity.dart';
-import '../../../../domain/features/reports/entities/report_metadata_entity.dart';
-import '../../../../domain/features/reports/repositories/reports_repository.dart';
-import '../../../../domain/features/reports/usecases/report_params.dart';
-import '../datasources/reports_remote_datasource.dart';
-import '../models/recent_report_model.dart';
-import '../models/report_response_model.dart';
+import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/cache_manager.dart';
+import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/school_context_helper.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/reports/entities/report_entity.dart';
+import 'package:wowcare/domain/features/reports/entities/report_metadata_entity.dart';
+import 'package:wowcare/domain/features/reports/repositories/reports_repository.dart';
+import 'package:wowcare/domain/features/reports/usecases/report_params.dart';
+import 'package:wowcare/data/features/reports/datasources/reports_remote_datasource.dart';
+import 'package:wowcare/data/features/reports/models/recent_report_model.dart';
+import 'package:wowcare/data/features/reports/mappers/report_entity_mapper.dart';
+import 'package:wowcare/data/features/reports/models/report_request_context.dart';
+import 'package:wowcare/data/features/reports/models/report_request_payload.dart';
+import 'package:wowcare/data/features/reports/models/report_response_model.dart';
 
 class ReportsRepositoryImpl implements ReportsRepository {
   ReportsRepositoryImpl(this._remoteDataSource, StorageService storageService)
@@ -39,31 +42,26 @@ class ReportsRepositoryImpl implements ReportsRepository {
       '[REPORTS-REPO] generateReport called: ${params.reportType.backendValue}',
     );
 
-    // Build request body with required fields
-    var requestBody = params.toRequestBody();
+    // The identity every report payload carries, read from storage rather
+    // than from the form.
+    final context = ReportRequestContext(
+      schoolCode: await _storageService.getString(StorageKeys.schoolCode) ?? '',
+      organizationCode:
+          await _storageService.getString(StorageKeys.organizationCode) ?? '',
+      generatedBy: await _storageService.getString(StorageKeys.userCode) ?? '',
+      // Pass the schoolName properly instead of the schoolCode in the
+      // schoolName field.
+      schoolName: await SchoolContextHelper.getSchoolName(),
+    );
 
-    // Add required fields from storage to all report payloads
-    final schoolCode =
-        await _storageService.getString(StorageKeys.schoolCode) ?? '';
-    final organizationCode =
-        await _storageService.getString(StorageKeys.organizationCode) ?? '';
-    final userCode =
-        await _storageService.getString(StorageKeys.userCode) ?? '';
-    // Pass the schoolName properly instead of the schoolCode in the schoolName field.
-    final schoolName = await SchoolContextHelper.getSchoolName();
-    requestBody['schoolCode'] = schoolCode;
-    requestBody['organizationCode'] = organizationCode;
-    requestBody['generatedBy'] = userCode;
-    if (schoolName != null && schoolName.isNotEmpty) {
-      requestBody['schoolName'] = schoolName;
-    }
+    final payload = ReportRequestPayload.fromParams(params, context: context);
 
     AppLogger.d('[REPORTS-REPO] Calling remote datasource for fresh API call');
 
     // Always make fresh API call - no caching of generated reports
     final response = await _remoteDataSource.generateReport(
       reportType: params.reportType,
-      requestBody: requestBody,
+      payload: payload,
     );
 
     AppLogger.i(

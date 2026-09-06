@@ -5,7 +5,7 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/school_timezone_resolver.dart';
 import '../../../../domain/features/staff/entities/staff_important_date.dart';
-import '../../../../domain/features/staff/repositories/staff_repository.dart';
+import '../../../../domain/features/staff/usecases/load_cached_important_dates_usecase.dart';
 import '../../../../domain/features/staff/usecases/get_important_dates_usecase.dart';
 import '../../../../domain/features/staff/usecases/update_important_dates_usecase.dart';
 
@@ -13,19 +13,19 @@ class ImportantDatesCubit extends Cubit<ImportantDatesState> {
   ImportantDatesCubit({
     required GetImportantDatesUseCase getImportantDatesUseCase,
     required UpdateImportantDatesUseCase updateImportantDatesUseCase,
-    required StaffRepository staffRepository,
+    required LoadCachedImportantDatesUseCase loadCachedImportantDatesUseCase,
     required StorageService storageService,
     required ApiClient apiClient,
   }) : _getImportantDatesUseCase = getImportantDatesUseCase,
        _updateImportantDatesUseCase = updateImportantDatesUseCase,
-       _staffRepository = staffRepository,
+       _loadCachedImportantDatesUseCase = loadCachedImportantDatesUseCase,
        _storageService = storageService,
        _apiClient = apiClient,
        super(ImportantDatesState.initial());
 
   final GetImportantDatesUseCase _getImportantDatesUseCase;
   final UpdateImportantDatesUseCase _updateImportantDatesUseCase;
-  final StaffRepository _staffRepository;
+  final LoadCachedImportantDatesUseCase _loadCachedImportantDatesUseCase;
   final StorageService _storageService;
   final ApiClient _apiClient;
 
@@ -53,9 +53,9 @@ class ImportantDatesCubit extends Cubit<ImportantDatesState> {
   /// Cache-first read of a staff member's important dates.
   ///
   /// Reproduces verbatim the cache-first logic the two important-dates widgets
-  /// used to run inline against the repository: when [useCache] is true and the
-  /// repository exposes a cache ([StaffRepositoryWithCache]), a non-null cached
-  /// list is returned as-is (no API hit); otherwise the read falls through to
+  /// used to run inline against the repository: when [useCache] is true and a
+  /// cached list exists, it is returned as-is (no API hit); otherwise the read
+  /// falls through to
   /// the API via [GetImportantDatesUseCase]. On an API failure the [Failure] is
   /// thrown so callers can surface its message exactly as the old fold did.
   Future<List<StaffImportantDate>> fetchImportantDates(
@@ -63,13 +63,9 @@ class ImportantDatesCubit extends Cubit<ImportantDatesState> {
     bool useCache = true,
   }) async {
     if (useCache) {
-      final repository = _staffRepository;
-      if (repository is StaffRepositoryWithCache) {
-        final cached = await (repository as StaffRepositoryWithCache)
-            .loadCachedImportantDates(staffCode);
-        if (cached != null) {
-          return List<StaffImportantDate>.from(cached);
-        }
+      final cached = await _loadCachedImportantDatesUseCase(staffCode);
+      if (cached != null) {
+        return List<StaffImportantDate>.from(cached);
       }
     }
 

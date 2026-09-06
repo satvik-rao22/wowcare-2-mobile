@@ -10,16 +10,16 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/string_utils.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_schedule_cubit.dart';
+import 'package:wowcare/presentation/features/staff/model/schedule_entry.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab_widgets.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
+import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_classroom_name_cubit.dart';
 
 class StaffProfileTab extends StatelessWidget {
   const StaffProfileTab({
@@ -45,22 +45,12 @@ class StaffProfileTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider<StaffProfileCubit>(
-          create: (_) =>
-              serviceLocator<StaffProfileCubit>()..loadInitial(staffCode),
-        ),
-        BlocProvider<StaffScheduleCubit>(
-          create: (_) => serviceLocator<StaffScheduleCubit>(),
-        ),
-      ],
-      child: _StaffProfileTabView(
-        staffCode: staffCode,
-        classroomNames: classroomNames,
-        classroomNameByCode: classroomNameByCode,
-        onProfileSummaryChanged: onProfileSummaryChanged,
-      ),
+    // Cubits are created by the route builder (§1.6), not here.
+    return _StaffProfileTabView(
+      staffCode: staffCode,
+      classroomNames: classroomNames,
+      classroomNameByCode: classroomNameByCode,
+      onProfileSummaryChanged: onProfileSummaryChanged,
     );
   }
 }
@@ -86,6 +76,7 @@ class _StaffProfileTabView extends StatefulWidget {
 class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
   late final StaffProfileCubit _profileCubit;
   late final StaffScheduleCubit _scheduleCubit;
+  late final StaffClassroomNameCubit _classroomNameCubit;
   final Map<String, String> _resolvedClassroomNameByCode = {};
   final Set<String> _classroomFetchInFlight = <String>{};
 
@@ -116,6 +107,7 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
     super.initState();
     _profileCubit = context.read<StaffProfileCubit>();
     _scheduleCubit = context.read<StaffScheduleCubit>();
+    _classroomNameCubit = context.read<StaffClassroomNameCubit>();
     _loadSchoolOpenDays();
     _resolveIsOwnProfile();
   }
@@ -135,11 +127,8 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
 
   Future<void> _loadSchoolOpenDays() async {
     try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-          .trim();
-      if (schoolCode.isEmpty) return;
-      final days = await _scheduleCubit.fetchSchoolRegularSchedules(schoolCode);
+      final days = await _scheduleCubit.fetchActiveSchoolRegularSchedules();
+      if (days == null) return;
       // Skip days the school is closed on (INACTIVE) or that aren't a
       // regular weekly schedule (e.g. HOLIDAY) — mirrors the filtering in
       // EditScheduleScreen so the profile view doesn't offer off days either.
@@ -245,12 +234,9 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
 
   Future<void> _fetchClassroomNameByCode(String code) async {
     try {
-      final details = await serviceLocator<GetClassroomByCodeUseCase>()(
-        code: code,
-      );
+      final name = await _classroomNameCubit.fetchNameByCode(code);
       if (!mounted) return;
-      final name = details.name.trim();
-      if (name.isNotEmpty) {
+      if (name != null) {
         setState(() {
           _resolvedClassroomNameByCode[code] = name;
         });
@@ -483,35 +469,34 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                                         profile.primaryClassroomCode,
                                       );
 
-                                final result = await context.push(
-                                  '/dashboard/edit-profile-details-screen',
-                                  extra: <String, dynamic>{
-                                    'staffCode': profile.staffCode,
-                                    'initialFirstName': profile.firstName,
-                                    'initialLastName': profile.lastName,
-                                    'initialStatus': _getStatusLabel(
+                                final result = await context.push<bool>(
+                                  StaffRoutes.editProfileDetails,
+                                  extra: EditStaffProfileArgs(
+                                    staffCode: profile.staffCode,
+                                    initialFirstName: profile.firstName,
+                                    initialLastName: profile.lastName,
+                                    initialStatus: _getStatusLabel(
                                       profile.status,
                                     ),
-                                    'initialDesignation': profile.designation,
-                                    'initialAllowedClassrooms':
+                                    initialDesignation: profile.designation,
+                                    initialAllowedClassrooms:
                                         allowedClassroomNames,
-                                    'initialPrimaryClassroom':
+                                    initialPrimaryClassroom:
                                         primaryClassroomName,
-                                    'initialBirthDate':
-                                        profile.birthDate.isEmpty
+                                    initialBirthDate: profile.birthDate.isEmpty
                                         ? null
                                         : DateTime.tryParse(profile.birthDate),
-                                    'initialJobTag': profile.jobTag,
-                                    'initialEmail': profile.email,
-                                    'initialPhoneNumber': profile.phoneNumber,
-                                    'initialStreet': profile.address.street,
-                                    'initialCity': profile.address.city,
-                                    'initialState': profile.address.state,
-                                    'initialCountry': profile.address.country,
-                                    'initialZipCode': profile.address.zipCode,
-                                    'initialClassroomNames':
+                                    initialJobTag: profile.jobTag,
+                                    initialEmail: profile.email,
+                                    initialPhoneNumber: profile.phoneNumber,
+                                    initialStreet: profile.address.street,
+                                    initialCity: profile.address.city,
+                                    initialState: profile.address.state,
+                                    initialCountry: profile.address.country,
+                                    initialZipCode: profile.address.zipCode,
+                                    initialClassroomNames:
                                         widget.classroomNames,
-                                    'initialClassroomCodeByName':
+                                    initialClassroomCodeByName:
                                         widget.classroomNameByCode == null
                                         ? null
                                         : {
@@ -521,7 +506,7 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                                                     .entries)
                                               entry.value: entry.key,
                                           },
-                                  },
+                                  ),
                                 );
 
                                 // If profile was updated, refresh from API.
@@ -699,12 +684,12 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                             );
                           }
                           context
-                              .push(
-                                '/dashboard/edit-schedule-screen',
-                                extra: <String, dynamic>{
-                                  'staffCode': widget.staffCode,
-                                  'initialSchedules': schedules,
-                                },
+                              .push<bool>(
+                                StaffRoutes.editSchedule,
+                                extra: EditStaffScheduleArgs(
+                                  staffCode: widget.staffCode,
+                                  initialSchedules: schedules,
+                                ),
                               )
                               .then((updated) async {
                                 if (updated == true) {

@@ -91,8 +91,25 @@ import 'package:wowcare/presentation/features/billing/view/general_ledger/edit_l
 import 'package:wowcare/presentation/features/billing/view/general_ledger/create_ledger_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/auto_pay_token_webview.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/add_transaction_dialog.dart';
+import 'package:wowcare/core/router/app_routes.dart';
+import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
+import 'package:wowcare/presentation/features/reports/model/report_route_args.dart';
+import 'package:wowcare/presentation/features/reports/view/annual_state_immunization_report_screen.dart';
+import 'package:wowcare/presentation/features/reports/view/billing_report_form_screen.dart';
+import 'package:wowcare/presentation/features/reports/view/billing_transaction_report_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/report_file_viewer_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
+import 'package:wowcare/presentation/features/reports/view/staff_absent_report_screen.dart';
+import 'package:wowcare/presentation/features/reports/view/staff_attendance_per_week_report_screen.dart';
+import 'package:wowcare/presentation/features/reports/view/staff_details_report_screen.dart';
+import 'package:wowcare/presentation/features/reports/view/staff_schedule_report_screen.dart';
+import 'package:wowcare/presentation/features/reports/view/student_absent_report_screen.dart';
+import 'package:wowcare/presentation/features/reports/view/student_attendance_per_student_report_screen.dart';
+import 'package:wowcare/presentation/features/reports/view/student_daily_attendance_report_screen.dart';
+import 'package:wowcare/presentation/features/reports/view/student_emergency_contact_report_screen.dart';
+import 'package:wowcare/presentation/features/reports/view/student_immunization_report_screen.dart';
+import 'package:wowcare/presentation/features/reports/view/student_incident_report_screen.dart';
+import 'package:wowcare/presentation/features/reports/view/students_and_family_report_screen.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/views/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/classroom/views/screens/classroom_info_screen.dart';
@@ -113,8 +130,19 @@ import 'package:wowcare/presentation/features/staff/cubit/staff_attendance_summa
 import 'package:wowcare/presentation/features/staff/view/add_document_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/add_staff_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_schedule_screen.dart';
-import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab_widgets.dart'
-    show ScheduleEntry;
+import 'package:wowcare/presentation/features/staff/model/schedule_entry.dart';
+import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
+import 'package:wowcare/shared/common/views/document_viewer_screen.dart';
+import 'package:wowcare/presentation/features/staff/cubit/important_dates_cubit.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_schedule_cubit.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_profile_edit_cubit.dart';
+import 'package:wowcare/presentation/features/staff/cubit/create_school_user_cubit.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_document_cubit.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_document_upload_cubit.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_documents_list_cubit.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_classroom_name_cubit.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_attendance_action_targets_cubit.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_profile_photo_upload_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_important_dates_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
@@ -902,6 +930,17 @@ final GoRouter appRouter = GoRouter(
                           create: (_) =>
                               serviceLocator<StaffAttendanceSummaryCubit>(),
                         ),
+                        // Each StaffCard reads the school's open days from
+                        // this; they share one instance and one request.
+                        BlocProvider<StaffScheduleCubit>(
+                          create: (_) => serviceLocator<StaffScheduleCubit>(),
+                        ),
+                        BlocProvider<StaffAttendanceActionTargetsCubit>(
+                          create: (_) =>
+                              serviceLocator<
+                                StaffAttendanceActionTargetsCubit
+                              >(),
+                        ),
                       ],
                       child: StaffScreen(
                         incomingHighlightCode:
@@ -917,8 +956,7 @@ final GoRouter appRouter = GoRouter(
                         // filter via `extra` since it has no query-string
                         // equivalent here.
                         incomingStatusFilter:
-                            (state.extra as Map<String, dynamic>?)?['filter']
-                                as String?,
+                            (state.extra as StaffListArgs?)?.statusFilter,
                       ),
                     ),
                   ),
@@ -980,8 +1018,262 @@ final GoRouter appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'reports',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, const ReportsScreen()),
+                  // The hub's four cubits are created here rather than inside
+                  // ReportsScreen.build (§5). §5.4: this pageBuilder re-runs
+                  // whenever a child form route is pushed or popped, but the
+                  // page keeps the same `state.pageKey`, so the Navigator
+                  // reuses the existing element and `create:` — and therefore
+                  // each `..load*()` — still fires exactly once per entry to
+                  // /dashboard/reports, including on back navigation from a
+                  // form. Same counts as when this block lived in build().
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    MultiBlocProvider(
+                      providers: [
+                        BlocProvider<ClassroomCubit>(
+                          create: (_) => serviceLocator<ClassroomCubit>()
+                            ..loadActiveClassrooms(
+                              force: true,
+                              onlyTypeClassroom: true,
+                            ),
+                        ),
+                        BlocProvider<StudentCubit>(
+                          create: (_) =>
+                              serviceLocator<StudentCubit>()..loadInitial(),
+                        ),
+                        BlocProvider<StaffCubit>(
+                          create: (_) =>
+                              serviceLocator<StaffCubit>()..loadInitial(),
+                        ),
+                        BlocProvider<ReportsCubit>(
+                          create: (_) =>
+                              serviceLocator<ReportsCubit>()..loadTags(),
+                        ),
+                      ],
+                      child: const ReportsScreen(),
+                    ),
+                  ),
+                  // The report form screens. Registered as children so they
+                  // are pushed on the dashboard branch navigator, exactly
+                  // where the plain `Navigator.push` they replaced put them —
+                  // and, crucially, so the kiosk redirect above can finally
+                  // see them. A kiosk-locked device could previously reach
+                  // the Students & Family report (guardian names, addresses,
+                  // phone numbers) because the Navigator opened it without
+                  // the router ever being consulted.
+                  //
+                  // `builder:` rather than `_fastPage` on purpose: it yields
+                  // the platform's default page transition, which is what
+                  // MaterialPageRoute gave these screens before.
+                  //
+                  // Every builder wraps its screen in a
+                  // `BlocProvider<ReportsCubit>.value` over the hub's own
+                  // instance, carried in on the typed args. §5.4: there is no
+                  // `..load()` in any of these builders, so back navigation
+                  // re-runs nothing — the forms take their filter lists from
+                  // the args and read the name→code maps off the hub's cubit,
+                  // which is already populated.
+                  routes: [
+                    // ── Student ──────────────────────────────────────────
+                    GoRoute(
+                      path: ReportRoutes.studentDailyAttendanceSegment,
+                      builder: (context, state) {
+                        final args = state.extra! as ReportFormArgs;
+                        return BlocProvider<ReportsCubit>.value(
+                          value: args.cubit,
+                          child: StudentDailyAttendanceReportScreen(
+                            classrooms: args.classrooms ?? const <String>[],
+                          ),
+                        );
+                      },
+                    ),
+                    GoRoute(
+                      path: ReportRoutes.studentAbsentSegment,
+                      builder: (context, state) {
+                        final args = state.extra! as ReportFormArgs;
+                        return BlocProvider<ReportsCubit>.value(
+                          value: args.cubit,
+                          child: StudentAbsentReportScreen(
+                            classrooms: args.classrooms ?? const <String>[],
+                          ),
+                        );
+                      },
+                    ),
+                    GoRoute(
+                      path: ReportRoutes.studentAttendancePerStudentSegment,
+                      builder: (context, state) {
+                        final args = state.extra! as ReportFormArgs;
+                        return BlocProvider<ReportsCubit>.value(
+                          value: args.cubit,
+                          child: StudentAttendancePerStudentReportScreen(
+                            students: args.students ?? const <String>[],
+                            classrooms: args.classrooms ?? const <String>[],
+                          ),
+                        );
+                      },
+                    ),
+                    GoRoute(
+                      path: ReportRoutes.studentsAndFamilySegment,
+                      builder: (context, state) {
+                        final args = state.extra! as ReportFormArgs;
+                        return BlocProvider<ReportsCubit>.value(
+                          value: args.cubit,
+                          child: StudentsAndFamilyReportScreen(
+                            classrooms: args.classrooms ?? const <String>[],
+                            tags: args.tags ?? const <String>[],
+                          ),
+                        );
+                      },
+                    ),
+                    GoRoute(
+                      path: ReportRoutes.studentImmunizationSegment,
+                      builder: (context, state) {
+                        final args = state.extra! as ReportFormArgs;
+                        return BlocProvider<ReportsCubit>.value(
+                          value: args.cubit,
+                          child: StudentImmunizationReportScreen(
+                            classrooms: args.classrooms ?? const <String>[],
+                            tags: args.tags ?? const <String>[],
+                          ),
+                        );
+                      },
+                    ),
+                    GoRoute(
+                      path: ReportRoutes.studentEmergencyContactSegment,
+                      builder: (context, state) {
+                        final args = state.extra! as ReportFormArgs;
+                        return BlocProvider<ReportsCubit>.value(
+                          value: args.cubit,
+                          child: StudentEmergencyContactReportScreen(
+                            classrooms: args.classrooms ?? const <String>[],
+                          ),
+                        );
+                      },
+                    ),
+                    GoRoute(
+                      path: ReportRoutes.studentIncidentSegment,
+                      builder: (context, state) {
+                        final args = state.extra! as ReportFormArgs;
+                        return BlocProvider<ReportsCubit>.value(
+                          value: args.cubit,
+                          child: StudentIncidentReportScreen(
+                            students: args.students ?? const <String>[],
+                            classrooms: args.classrooms ?? const <String>[],
+                          ),
+                        );
+                      },
+                    ),
+
+                    // ── Staff ────────────────────────────────────────────
+                    GoRoute(
+                      path: ReportRoutes.staffAttendancePerWeekSegment,
+                      builder: (context, state) {
+                        final args = state.extra! as ReportFormArgs;
+                        return BlocProvider<ReportsCubit>.value(
+                          value: args.cubit,
+                          child: StaffAttendancePerWeekReportScreen(
+                            staff: args.staff ?? const <String>[],
+                            classrooms: args.classrooms ?? const <String>[],
+                          ),
+                        );
+                      },
+                    ),
+                    GoRoute(
+                      path: ReportRoutes.staffDetailsSegment,
+                      builder: (context, state) {
+                        final args = state.extra! as ReportFormArgs;
+                        return BlocProvider<ReportsCubit>.value(
+                          value: args.cubit,
+                          child: StaffDirectoryReportScreen(
+                            classrooms: args.classrooms ?? const <String>[],
+                          ),
+                        );
+                      },
+                    ),
+                    GoRoute(
+                      path: ReportRoutes.staffAbsentSegment,
+                      builder: (context, state) {
+                        final args = state.extra! as ReportFormArgs;
+                        return BlocProvider<ReportsCubit>.value(
+                          value: args.cubit,
+                          child: StaffAbsentReportScreen(
+                            classrooms: args.classrooms ?? const <String>[],
+                          ),
+                        );
+                      },
+                    ),
+                    GoRoute(
+                      path: ReportRoutes.staffScheduleSegment,
+                      builder: (context, state) {
+                        final args = state.extra! as ReportFormArgs;
+                        return BlocProvider<ReportsCubit>.value(
+                          value: args.cubit,
+                          child: StaffScheduleReportScreen(
+                            classrooms: args.classrooms ?? const <String>[],
+                          ),
+                        );
+                      },
+                    ),
+
+                    // ── Compliance ───────────────────────────────────────
+                    GoRoute(
+                      path: ReportRoutes
+                          .complianceAnnualStateImmunizationSegment,
+                      builder: (context, state) {
+                        final args = state.extra! as ReportFormArgs;
+                        return BlocProvider<ReportsCubit>.value(
+                          value: args.cubit,
+                          child: const AnnualStateImmunizationReportScreen(),
+                        );
+                      },
+                    ),
+
+                    // ── Billing ──────────────────────────────────────────
+                    GoRoute(
+                      path: ReportRoutes.billingTransactionSegment,
+                      builder: (context, state) {
+                        final args = state.extra! as ReportFormArgs;
+                        return BlocProvider<ReportsCubit>.value(
+                          value: args.cubit,
+                          child: const BillingTransactionReportScreen(),
+                        );
+                      },
+                    ),
+                    // One screen, five report types — the variant comes from
+                    // `BillingReportFormArgs.reportType`, as it did when the
+                    // hub constructed the widget directly.
+                    GoRoute(
+                      path: ReportRoutes.billingFormSegment,
+                      builder: (context, state) {
+                        final args = state.extra! as BillingReportFormArgs;
+                        return BlocProvider<ReportsCubit>.value(
+                          value: args.cubit,
+                          child: BillingReportFormScreen(
+                            reportType: args.reportType,
+                            title: args.title,
+                            classrooms: args.classrooms ?? const <String>[],
+                            students: args.students ?? const <String>[],
+                          ),
+                        );
+                      },
+                    ),
+
+                    // ── In-app file viewer ───────────────────────────────
+                    // Nested here, not at the router root like the billing
+                    // copy, so the nav shell stays visible — matching the
+                    // branch-navigator push this replaced.
+                    GoRoute(
+                      path: ReportRoutes.fileViewerSegment,
+                      builder: (context, state) {
+                        final args = state.extra! as ReportFileViewerArgs;
+                        return ReportFileViewerScreen(
+                          fileData: args.fileData,
+                          fileName: args.fileName,
+                          fileType: args.fileType,
+                        );
+                      },
+                    ),
+                  ],
                 ),
                 GoRoute(
                   path: 'scheduling',
@@ -1076,74 +1368,75 @@ final GoRouter appRouter = GoRouter(
                   ),
                 ),
                 GoRoute(
-                  path: 'edit-important-dates-screen',
+                  path: StaffRoutes.editImportantDatesSegment,
                   pageBuilder: (context, state) {
-                    final args = state.extra as Map<String, dynamic>?;
-                    final staffCode = args?['staffCode'] as String? ?? '';
+                    final args = state.extra as EditImportantDatesArgs?;
                     return _fastPage(
                       state,
-                      EditImportantDatesScreen(
-                        staffCode: staffCode,
-                        initialHireDate: args?['initialHireDate'] as DateTime?,
-                        initialCdaExaminationDate:
-                            args?['initialCdaExaminationDate'] as DateTime?,
-                        initialFirstAidCprExpirationDate:
-                            args?['initialFirstAidCprExpirationDate']
-                                as DateTime?,
-                        initialBackgroundRecordCheckExpirationDate:
-                            args?['initialBackgroundRecordCheckExpirationDate']
-                                as DateTime?,
-                        initialPhysicalCheckupDate:
-                            args?['initialPhysicalCheckupDate'] as DateTime?,
-                        initialPhysicalCheckupStatus:
-                            args?['initialPhysicalCheckupStatus'] as String?,
-                      ),
-                    );
-                  },
-                ),
-                GoRoute(
-                  path: 'edit-profile-details-screen',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, _editProfileDetailsScreen(state.extra)),
-                ),
-                GoRoute(
-                  path: 'add-staff-screen',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, _addStaffScreen(state.extra)),
-                ),
-                GoRoute(
-                  path: 'staff-filter-screen',
-                  pageBuilder: (context, state) {
-                    final args = state.extra as Map<String, dynamic>?;
-                    return _fastPage(
-                      state,
-                      BlocProvider<ClassroomCubit>(
-                        create: (_) => serviceLocator<ClassroomCubit>(),
-                        child: StaffFilterScreen(
-                          initialFilters:
-                              args?['initialFilters'] as FilterData?,
+                      BlocProvider<ImportantDatesCubit>(
+                        create: (_) => serviceLocator<ImportantDatesCubit>(),
+                        child: EditImportantDatesScreen(
+                          staffCode: args?.staffCode ?? '',
+                          initialHireDate: args?.initialHireDate,
+                          initialCdaExaminationDate:
+                              args?.initialCdaExaminationDate,
+                          initialFirstAidCprExpirationDate:
+                              args?.initialFirstAidCprExpirationDate,
+                          initialBackgroundRecordCheckExpirationDate:
+                              args?.initialBackgroundRecordCheckExpirationDate,
+                          initialPhysicalCheckupDate:
+                              args?.initialPhysicalCheckupDate,
+                          initialPhysicalCheckupStatus:
+                              args?.initialPhysicalCheckupStatus,
                         ),
                       ),
                     );
                   },
                 ),
                 GoRoute(
-                  path: 'add-document-screen',
+                  path: StaffRoutes.editProfileDetailsSegment,
+                  pageBuilder: (context, state) =>
+                      _fastPage(state, _editProfileDetailsScreen(state.extra)),
+                ),
+                GoRoute(
+                  path: StaffRoutes.addSegment,
+                  pageBuilder: (context, state) =>
+                      _fastPage(state, _addStaffScreen(state.extra)),
+                ),
+                GoRoute(
+                  path: StaffRoutes.filterSegment,
+                  pageBuilder: (context, state) {
+                    final args = state.extra as StaffFilterArgs?;
+                    return _fastPage(
+                      state,
+                      BlocProvider<ClassroomCubit>(
+                        create: (_) => serviceLocator<ClassroomCubit>(),
+                        child: StaffFilterScreen(
+                          initialFilters: args?.initialFilters,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: StaffRoutes.documentFormSegment,
                   pageBuilder: (context, state) =>
                       _fastPage(state, _addDocumentScreen(state.extra)),
                 ),
                 GoRoute(
-                  path: 'edit-schedule-screen',
+                  path: StaffRoutes.editScheduleSegment,
                   pageBuilder: (context, state) {
-                    final args = state.extra as Map<String, dynamic>?;
-                    final rawSchedules = args?['initialSchedules'];
+                    final args = state.extra as EditStaffScheduleArgs?;
                     return _fastPage(
                       state,
-                      EditScheduleScreen(
-                        staffCode: args?['staffCode'] as String? ?? '',
-                        initialSchedules: rawSchedules is List
-                            ? List<ScheduleEntry>.from(rawSchedules)
-                            : const [],
+                      BlocProvider<StaffScheduleCubit>(
+                        create: (_) => serviceLocator<StaffScheduleCubit>(),
+                        child: EditScheduleScreen(
+                          staffCode: args?.staffCode ?? '',
+                          initialSchedules:
+                              args?.initialSchedules ??
+                              const <ScheduleEntry>[],
+                        ),
                       ),
                     );
                   },
@@ -1268,25 +1561,29 @@ final GoRouter appRouter = GoRouter(
                   },
                 ),
                 GoRoute(
-                  path: 'staff-profile',
+                  path: StaffRoutes.profileSegment,
                   pageBuilder: (context, state) =>
                       _fastPage(state, _staffProfileScreen(state.extra)),
                 ),
                 // Notification deep-link: open a staff profile from just a code.
                 GoRoute(
-                  path: 'staff-profile-by-code',
+                  path: StaffRoutes.profileByCodeSegment,
                   pageBuilder: (context, state) {
                     final q = state.uri.queryParameters;
+                    final staffCode = q['code'] ?? '';
                     return _fastPage(
                       state,
-                      StaffProfileScreen(
-                        staffCode: q['code'] ?? '',
-                        name: '',
-                        classroom: '',
-                        designation: '',
-                        phoneNumber: '',
-                        initialTabIndex: int.tryParse(q['tab'] ?? '') ?? 0,
-                        highlightCode: q['highlightCode'],
+                      _staffProfileScope(
+                        staffCode: staffCode,
+                        child: StaffProfileScreen(
+                          staffCode: staffCode,
+                          name: '',
+                          classroom: '',
+                          designation: '',
+                          phoneNumber: '',
+                          initialTabIndex: int.tryParse(q['tab'] ?? '') ?? 0,
+                          highlightCode: q['highlightCode'],
+                        ),
                       ),
                     );
                   },
@@ -2080,7 +2377,18 @@ final GoRouter appRouter = GoRouter(
       },
     ),
     GoRoute(
-      path: ReportFileViewerArgs.routeName,
+      path: StaffRoutes.documentViewer,
+      builder: (context, state) {
+        final args = state.extra! as DocumentViewerArgs;
+        return DocumentViewerScreen(
+          url: args.url,
+          documentName: args.documentName,
+          mimeType: args.mimeType,
+        );
+      },
+    ),
+    GoRoute(
+      path: ReportRoutes.billingFileViewer,
       builder: (context, state) {
         final args = state.extra! as ReportFileViewerArgs;
         return ReportFileViewerScreen(
@@ -2093,84 +2401,101 @@ final GoRouter appRouter = GoRouter(
   ],
 );
 
+/// Builds the edit-staff-profile route, with the cubits it needs created here
+/// rather than inside the screen — §1.6: the `GoRoute` builder is the only
+/// place `serviceLocator` may appear on the presentation side.
 Widget _editProfileDetailsScreen(Object? extra) {
-  final args = extra as Map<String, dynamic>?;
-  List<String>? listArg(String key) {
-    final raw = args?[key];
-    if (raw is List) return List<String>.from(raw);
-    return null;
-  }
-
-  Map<String, String>? mapArg(String key) {
-    final raw = args?[key];
-    if (raw is Map) {
-      return raw.map((k, v) => MapEntry(k.toString(), v?.toString() ?? ''));
-    }
-    return null;
-  }
-
-  final staffCode =
-      args?['staffCode'] as String? ?? args?['userCode'] as String? ?? '';
-  return EditProfileDetailsScreen(
-    staffCode: staffCode,
-    initialFirstName: args?['initialFirstName'] as String?,
-    initialLastName: args?['initialLastName'] as String?,
-    initialEmail: args?['initialEmail'] as String?,
-    initialStatus: args?['initialStatus'] as String?,
-    initialDesignation: args?['initialDesignation'] as String?,
-    initialAllowedClassrooms: listArg('initialAllowedClassrooms'),
-    initialPrimaryClassroom: args?['initialPrimaryClassroom'] as String?,
-    initialPhoneNumber: args?['initialPhoneNumber'] as String?,
-    initialClassroomNames: listArg('initialClassroomNames'),
-    initialClassroomCodeByName: mapArg('initialClassroomCodeByName'),
+  final args = extra as EditStaffProfileArgs?;
+  return MultiBlocProvider(
+    providers: [
+      BlocProvider<StaffProfileEditCubit>(
+        create: (_) => serviceLocator<StaffProfileEditCubit>(),
+      ),
+      BlocProvider<ClassroomCubit>(
+        create: (_) => serviceLocator<ClassroomCubit>(),
+      ),
+    ],
+    child: EditProfileDetailsScreen(
+      staffCode: args?.staffCode ?? '',
+      initialFirstName: args?.initialFirstName,
+      initialLastName: args?.initialLastName,
+      initialEmail: args?.initialEmail,
+      initialStatus: args?.initialStatus,
+      initialDesignation: args?.initialDesignation,
+      initialAllowedClassrooms: args?.initialAllowedClassrooms,
+      initialPrimaryClassroom: args?.initialPrimaryClassroom,
+      initialPhoneNumber: args?.initialPhoneNumber,
+      initialBirthDate: args?.initialBirthDate,
+      initialJobTag: args?.initialJobTag,
+      initialStreet: args?.initialStreet,
+      initialCity: args?.initialCity,
+      initialState: args?.initialState,
+      initialCountry: args?.initialCountry,
+      initialZipCode: args?.initialZipCode,
+      initialClassroomNames: args?.initialClassroomNames,
+      initialClassroomCodeByName: args?.initialClassroomCodeByName,
+    ),
   );
 }
 
 Widget _addStaffScreen(Object? extra) {
-  final args = extra as Map<String, dynamic>?;
-  List<String>? listArg(String key) {
-    final raw = args?[key];
-    if (raw is List) return List<String>.from(raw);
-    return null;
-  }
-
-  Map<String, String>? mapArg(String key) {
-    final raw = args?[key];
-    if (raw is Map) {
-      return raw.map((k, v) => MapEntry(k.toString(), v?.toString() ?? ''));
-    }
-    return null;
-  }
-
-  return AddStaffScreen(
-    isEdit: args?['isEdit'] as bool? ?? false,
-    initialFirstName: args?['initialFirstName'] as String?,
-    initialLastName: args?['initialLastName'] as String?,
-    initialEmail: args?['initialEmail'] as String?,
-    initialPhone: args?['initialPhone'] as String?,
-    initialRole: args?['initialRole'] as String?,
-    initialAllowedClassroomCodes: listArg('initialAllowedClassroomCodes'),
-    initialPrimaryClassroom: args?['initialPrimaryClassroom'] as String?,
-    initialStatus: args?['initialStatus'] as String?,
-    initialClassroomNames: listArg('initialClassroomNames'),
-    initialClassroomCodeByName: mapArg('initialClassroomCodeByName'),
+  final args = extra as AddStaffArgs?;
+  return MultiBlocProvider(
+    providers: [
+      BlocProvider<CreateSchoolUserCubit>(
+        create: (_) => serviceLocator<CreateSchoolUserCubit>(),
+      ),
+      BlocProvider<ClassroomCubit>(
+        create: (_) => serviceLocator<ClassroomCubit>(),
+      ),
+    ],
+    child: AddStaffScreen(
+      isEdit: args?.isEdit ?? false,
+      initialFirstName: args?.initialFirstName,
+      initialLastName: args?.initialLastName,
+      initialEmail: args?.initialEmail,
+      initialPhone: args?.initialPhone,
+      initialRole: args?.initialRole,
+      initialAllowedClassroomCodes: args?.initialAllowedClassroomCodes,
+      initialPrimaryClassroom: args?.initialPrimaryClassroom,
+      initialStatus: args?.initialStatus,
+      initialClassroomNames: args?.initialClassroomNames,
+      initialClassroomCodeByName: args?.initialClassroomCodeByName,
+    ),
   );
 }
 
 Widget _addDocumentScreen(Object? extra) {
-  final args = extra as Map<String, dynamic>?;
-  return AddDocumentScreen(
-    staffCode: args?['staffCode'] as String? ?? '',
-    isEdit: args?['isEdit'] as bool? ?? false,
-    documentUuid: args?['documentUuid'] as String?,
-    initialDocumentName: args?['initialDocumentName'] as String?,
-    initialDocumentType: args?['initialDocumentType'] as String?,
-    initialExpiryDate: args?['initialExpiryDate'] as DateTime?,
-    initialFilePath: args?['initialFilePath'] as String?,
-    initialMimeType: args?['initialMimeType'] as String?,
-    initialFileSizeKb: args?['initialFileSizeKb'] as int?,
-    initialDocumentNotes: args?['initialDocumentNotes'] as String?,
-    initialAssetCode: args?['initialAssetCode'] as String?,
+  final args = extra as StaffDocumentFormArgs?;
+  return MultiBlocProvider(
+    providers: [
+      BlocProvider<StaffProfileCubit>(
+        create: (_) => serviceLocator<StaffProfileCubit>(),
+      ),
+      BlocProvider<StaffDocumentCubit>(
+        create: (_) => serviceLocator<StaffDocumentCubit>(),
+      ),
+      BlocProvider<StaffDocumentUploadCubit>(
+        // Depends on the StaffProfileCubit above, so it reads it from the
+        // provider context rather than resolving a second instance.
+        create: (context) => serviceLocator<StaffDocumentUploadCubit>(
+          param1: context.read<StaffProfileCubit>(),
+        ),
+      ),
+    ],
+    child: AddDocumentScreen(
+      staffCode: args?.staffCode ?? '',
+      isEdit: args?.isEdit ?? false,
+      documentUuid: args?.documentUuid,
+      initialDocumentName: args?.initialDocumentName,
+      initialDocumentType: args?.initialDocumentType,
+      initialExpiryDate: args?.initialExpiryDate,
+      initialFilePath: args?.initialFilePath,
+      initialMimeType: args?.initialMimeType,
+      initialFileSizeKb: args?.initialFileSizeKb,
+      initialDocumentNotes: args?.initialDocumentNotes,
+      initialAssetCode: args?.initialAssetCode,
+    ),
   );
 }
 
@@ -2194,24 +2519,61 @@ Widget _studentProfileScreen(Object? extra) {
   );
 }
 
+/// The cubits the staff-profile screen and its three tabs need.
+///
+/// Created here — the `GoRoute` builder is the only place `serviceLocator` may
+/// appear on the presentation side (§1.6). The profile screen and its Profile
+/// tab previously each provided their own [StaffProfileCubit]; they now share
+/// one, which is safe because the screen only calls the cubit's stateless
+/// `fetchProfile` pass-through and never reads its state.
+///
+/// `create` stays lazy, so a cubit (and its `..loadInitial`) is still only
+/// built when a tab that reads it is first shown — the same timing as the
+/// per-tab providers this replaces.
+Widget _staffProfileScope({required String staffCode, required Widget child}) {
+  return MultiBlocProvider(
+    providers: [
+      BlocProvider<StaffProfileCubit>(
+        create: (_) => serviceLocator<StaffProfileCubit>()
+          ..loadInitial(staffCode),
+      ),
+      BlocProvider<StaffProfilePhotoUploadCubit>(
+        create: (_) => serviceLocator<StaffProfilePhotoUploadCubit>(),
+      ),
+      BlocProvider<StaffScheduleCubit>(
+        create: (_) => serviceLocator<StaffScheduleCubit>(),
+      ),
+      BlocProvider<ImportantDatesCubit>(
+        create: (_) => serviceLocator<ImportantDatesCubit>(),
+      ),
+      BlocProvider<StaffDocumentsListCubit>(
+        create: (_) => serviceLocator<StaffDocumentsListCubit>()
+          ..loadInitial(staffCode),
+      ),
+      BlocProvider<StaffClassroomNameCubit>(
+        create: (_) => serviceLocator<StaffClassroomNameCubit>(),
+      ),
+    ],
+    child: child,
+  );
+}
+
 Widget _staffProfileScreen(Object? extra) {
-  final args = extra as Map<String, dynamic>? ?? const {};
-  final rawClassroomNames = args['classroomNames'];
-  final rawClassroomNameByCode = args['classroomNameByCode'];
-  return StaffProfileScreen(
-    staffCode: args['staffCode'] as String? ?? '',
-    userCode: args['userCode'] as String? ?? '',
-    name: args['name'] as String? ?? '-',
-    classroom: args['classroom'] as String? ?? '-',
-    designation: args['designation'] as String? ?? '',
-    phoneNumber: args['phoneNumber'] as String? ?? '',
-    employmentStatus: args['employmentStatus'] as String?,
-    classroomNames: rawClassroomNames is List
-        ? List<String>.from(rawClassroomNames)
-        : null,
-    classroomNameByCode: rawClassroomNameByCode is Map
-        ? Map<String, String>.from(rawClassroomNameByCode)
-        : null,
+  final args = extra as StaffProfileArgs?;
+  final staffCode = args?.staffCode ?? '';
+  return _staffProfileScope(
+    staffCode: staffCode,
+    child: StaffProfileScreen(
+      staffCode: staffCode,
+      userCode: args?.userCode ?? '',
+      name: args?.name ?? '-',
+      classroom: args?.classroom ?? '-',
+      designation: args?.designation ?? '',
+      phoneNumber: args?.phoneNumber ?? '',
+      employmentStatus: args?.employmentStatus,
+      classroomNames: args?.classroomNames,
+      classroomNameByCode: args?.classroomNameByCode,
+    ),
   );
 }
 

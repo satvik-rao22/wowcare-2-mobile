@@ -1,22 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
-/// One day's work/break schedule entry, used to build [EditScheduleScreen]'s
-/// initial form state from a staff member's current schedule.
-class ScheduleEntry {
-  ScheduleEntry({
-    required this.day,
-    required this.startTime,
-    required this.endTime,
-    required this.isBreakTime,
-  });
-
-  final String day; // e.g. 'monday'
-  final String startTime; // e.g. '09:00 AM'
-  final String endTime; // e.g. '05:00 PM'
-  final bool isBreakTime;
-}
-
 /// A work/break time chip shown in [StaffProfileTab]'s schedule section.
 class ScheduleChip extends StatelessWidget {
   const ScheduleChip({

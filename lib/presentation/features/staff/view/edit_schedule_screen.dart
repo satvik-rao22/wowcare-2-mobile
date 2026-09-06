@@ -5,15 +5,13 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab_widgets.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/presentation/features/staff/model/schedule_entry.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_schedule_entry.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_schedule_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
+import 'package:go_router/go_router.dart';
 
 class EditScheduleScreen extends StatelessWidget {
   const EditScheduleScreen({
@@ -29,12 +27,10 @@ class EditScheduleScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<StaffScheduleCubit>(
-      create: (_) => serviceLocator<StaffScheduleCubit>(),
-      child: _EditScheduleScreenView(
-        staffCode: staffCode,
-        initialSchedules: initialSchedules,
-      ),
+    // Cubits are created by the route builder (§1.6), not here.
+    return _EditScheduleScreenView(
+      staffCode: staffCode,
+      initialSchedules: initialSchedules,
     );
   }
 }
@@ -112,21 +108,17 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
   }
 
   Future<void> _loadSchoolRegularSchedules() async {
-    final storage = serviceLocator<StorageService>();
-    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-        .trim();
-    if (schoolCode.isEmpty) {
-      if (mounted) {
-        setState(() {
-          _schoolHoursLoadError =
-              'No school selected; school-hour limits are disabled.';
-        });
-      }
-      return;
-    }
-
     try {
-      final days = await _scheduleCubit.fetchSchoolRegularSchedules(schoolCode);
+      final days = await _scheduleCubit.fetchActiveSchoolRegularSchedules();
+      if (days == null) {
+        if (mounted) {
+          setState(() {
+            _schoolHoursLoadError =
+                'No school selected; school-hour limits are disabled.';
+          });
+        }
+        return;
+      }
       final map = <String, (int, int)>{};
       for (final d in days) {
         // Skip days the school is closed on (INACTIVE) or that aren't a
@@ -197,8 +189,8 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
     final hasBreak = bs != null && be != null;
 
     if (hasWork) {
-      final wsm = _timeOfDayToMinutes(ws!);
-      final wem = _timeOfDayToMinutes(we!);
+      final wsm = _timeOfDayToMinutes(ws);
+      final wem = _timeOfDayToMinutes(we);
       if (wsm >= wem) {
         return 'On $day, work start must be before work end.';
       }
@@ -215,10 +207,10 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
       if (!hasWork) {
         return 'On $day, set work hours before adding a break.';
       }
-      final wsm = _timeOfDayToMinutes(ws!);
-      final wem = _timeOfDayToMinutes(we!);
-      final bsm = _timeOfDayToMinutes(bs!);
-      final bem = _timeOfDayToMinutes(be!);
+      final wsm = _timeOfDayToMinutes(ws);
+      final wem = _timeOfDayToMinutes(we);
+      final bsm = _timeOfDayToMinutes(bs);
+      final bem = _timeOfDayToMinutes(be);
       if (bsm >= bem) {
         return 'On $day, break start must be before break end.';
       }
@@ -229,17 +221,17 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
     }
     // Partial break: validate break start/end individually when work hours are set
     if (hasWork && (bs != null || be != null)) {
-      final wsm = _timeOfDayToMinutes(ws!);
-      final wem = _timeOfDayToMinutes(we!);
+      final wsm = _timeOfDayToMinutes(ws);
+      final wem = _timeOfDayToMinutes(we);
       if (bs != null) {
-        final bsm = _timeOfDayToMinutes(bs!);
+        final bsm = _timeOfDayToMinutes(bs);
         if (bsm < wsm || bsm > wem) {
           return 'On $day, break start must fall within work hours '
               '(${_format12hFromMinutes(wsm)} – ${_format12hFromMinutes(wem)}).';
         }
       }
       if (be != null) {
-        final bem = _timeOfDayToMinutes(be!);
+        final bem = _timeOfDayToMinutes(be);
         if (bem < wsm || bem > wem) {
           return 'On $day, break end must fall within work hours '
               '(${_format12hFromMinutes(wsm)} – ${_format12hFromMinutes(wem)}).';
@@ -488,7 +480,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
         isSuccess: true,
       );
 
-      Navigator.pop(context, true);
+      context.pop(true);
     } catch (e) {
       if (!mounted) return;
       final message = ApiErrorHandler.extractErrorMessage(e);

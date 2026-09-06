@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../entities/report_type.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'report_params.dart';
 
 /// Parameters for Staff Details report generation.
@@ -38,59 +38,6 @@ class StaffDetailsReportParams extends Equatable implements ReportParams {
 
   /// Optional classroom codes (empty = all classrooms)
   final List<String>? classroomCodes;
-
-  @override
-  Map<String, dynamic> toRequestBody() {
-    return {
-      'reportType': 'STAFF_DETAILS',
-      'status': _mapStatusToBackendValue(statusFilter),
-
-      // Staff field selections (13 fields)
-      'includeName': staffFieldsSelected.contains('Name'),
-      'includeDateOfBirth': staffFieldsSelected.contains('Date Of Birth'),
-      'includeEmailId': staffFieldsSelected.contains('Email ID'),
-      'includePhoneNumber': staffFieldsSelected.contains('Phone Number'),
-      'includeAddress': staffFieldsSelected.contains('Address'),
-      'includePrimaryClassroom': staffFieldsSelected.contains(
-        'Primary Classroom',
-      ),
-
-      'includeClockInOutPin': staffFieldsSelected.contains('Clock-In-Out Pin'),
-      'includeHireDate': staffFieldsSelected.contains('Hire Date'),
-      'includeDesignation': staffFieldsSelected.contains('Designation'),
-      'includeCdaExpirationDate': staffFieldsSelected.contains(
-        'CDA Expiration Date',
-      ),
-      'includeCprExpirationDate': staffFieldsSelected.contains(
-        'CPR Expiration Date',
-      ),
-      'includeLastPhysicalDate': staffFieldsSelected.contains(
-        'Last Physical Date',
-      ),
-      'includeIsActive': staffFieldsSelected.contains('Is Active'),
-
-      // Optional classrooms
-      if (classroomCodes != null && classroomCodes!.isNotEmpty)
-        'classroomCodes': classroomCodes,
-
-      'format': format,
-      'schoolName': schoolName,
-    };
-  }
-
-  /// Map UI status selection to backend status value.
-  String _mapStatusToBackendValue(String uiStatus) {
-    switch (uiStatus) {
-      case 'Active Staff':
-        return 'ACTIVE';
-      case 'Inactive Staff':
-        return 'INACTIVE';
-      case 'All Staff':
-        return 'ALL';
-      default:
-        return 'ACTIVE';
-    }
-  }
 
   @override
   String toCacheIdentifier() {

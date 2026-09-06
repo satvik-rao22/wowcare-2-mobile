@@ -302,10 +302,18 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
   final Dio _client;
 
-  /// Options marking a non-idempotent create as UNSAFE to auto-replay after a
+  /// Options marking a non-idempotent request as UNSAFE to auto-replay after a
   /// 401 token refresh (see [kNoAutoReplayExtraKey]). Applied to the create/add
   /// mutations so a silently-replayed request can't duplicate a staff document,
-  /// school admin, or staff user.
+  /// school admin, or staff user, and to the email-change POST, which starts a
+  /// verification flow rather than setting a value.
+  ///
+  /// Deliberately NOT applied to the remaining mutations: every one of them is
+  /// a value-set (PATCH profile/address/classroom/schedule/important-dates/
+  /// work-break, POST activate/deactivate, DELETE school-user). Replaying one
+  /// writes the same value a second time, so auto-replay is safe there — and
+  /// suppressing it would turn a token expiry mid-save into a spurious failure
+  /// the user has to retry by hand.
   Options get _noReplayOptions =>
       Options(extra: const {kNoAutoReplayExtraKey: true});
 
@@ -782,6 +790,9 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
         'organizationCode': organizationCode,
         'schoolCode': schoolCode,
       },
+      // Not a value-set: this POST starts an email-change/verification flow,
+      // so a silent replay after a 401 refresh starts it twice.
+      options: _noReplayOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {

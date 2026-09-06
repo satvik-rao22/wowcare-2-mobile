@@ -1,6 +1,9 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/storage_keys.dart';
+
 import '../../../../domain/features/staff/entities/school_regular_schedule_day.dart';
 import '../../../../domain/features/staff/entities/staff_schedule_entry.dart';
 import '../../../../domain/features/staff/usecases/get_school_regular_schedules_usecase.dart';
@@ -17,12 +20,15 @@ class StaffScheduleCubit extends Cubit<StaffScheduleState> {
   StaffScheduleCubit({
     required GetSchoolRegularSchedulesUseCase getSchoolRegularSchedulesUseCase,
     required UpdateStaffSchedulesUseCase updateStaffSchedulesUseCase,
+    required StorageService storageService,
   }) : _getSchoolRegularSchedulesUseCase = getSchoolRegularSchedulesUseCase,
        _updateStaffSchedulesUseCase = updateStaffSchedulesUseCase,
+       _storageService = storageService,
        super(const StaffScheduleState.initial());
 
   final GetSchoolRegularSchedulesUseCase _getSchoolRegularSchedulesUseCase;
   final UpdateStaffSchedulesUseCase _updateStaffSchedulesUseCase;
+  final StorageService _storageService;
 
   /// Thin Future-based read for callers that still drive their own
   /// `FutureBuilder`/`setState` (edit-schedule screen, profile tab, staff
@@ -31,6 +37,22 @@ class StaffScheduleCubit extends Cubit<StaffScheduleState> {
     String schoolCode,
   ) {
     return _getSchoolRegularSchedulesUseCase(schoolCode: schoolCode);
+  }
+
+  /// The same read for the currently selected school, resolving the school
+  /// code here instead of in the View.
+  ///
+  /// Returns `null` — rather than an empty list — when no school is selected,
+  /// so the caller can tell "school hours unavailable" apart from "the school
+  /// is closed every day". Three call sites (edit-schedule screen, profile
+  /// tab, staff card) each read [StorageKeys.schoolCode] from a
+  /// [StorageService] they resolved themselves; this is that read, once.
+  Future<List<SchoolRegularScheduleDay>?>
+  fetchActiveSchoolRegularSchedules() async {
+    final schoolCode =
+        (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (schoolCode.isEmpty) return null;
+    return fetchSchoolRegularSchedules(schoolCode);
   }
 
   /// In-flight mutations keyed by `action:code`. A second identical call while
