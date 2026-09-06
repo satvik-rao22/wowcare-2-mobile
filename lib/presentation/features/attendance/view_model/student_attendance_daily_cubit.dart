@@ -9,7 +9,7 @@ import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code
 import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
-import '../../../../domain/features/attendance/repositories/attendance_repository.dart';
+import '../../../../domain/features/attendance/usecases/get_cached_student_attendance_daily_usecase.dart';
 import '../../../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../../../../domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
 
@@ -20,7 +20,8 @@ class StudentAttendanceDailyCubit extends Cubit<StudentAttendanceDailyState> {
     required GetStudentAttendanceDailyUseCase getStudentAttendanceDailyUseCase,
     required GetStudentAttendanceExpectedSummaryUseCase
     getStudentAttendanceExpectedSummaryUseCase,
-    required AttendanceRepository repository,
+    required GetCachedStudentAttendanceDailyUseCase
+    getCachedStudentAttendanceDailyUseCase,
     required GetStudentCountsUseCase getStudentCountsUseCase,
     required GetTagNameCodeMapForSchoolUseCase
     getTagNameCodeMapForSchoolUseCase,
@@ -29,7 +30,8 @@ class StudentAttendanceDailyCubit extends Cubit<StudentAttendanceDailyState> {
   }) : _getStudentAttendanceDailyUseCase = getStudentAttendanceDailyUseCase,
        _getStudentAttendanceExpectedSummaryUseCase =
            getStudentAttendanceExpectedSummaryUseCase,
-       _repository = repository,
+       _getCachedStudentAttendanceDailyUseCase =
+           getCachedStudentAttendanceDailyUseCase,
        _getStudentCountsUseCase = getStudentCountsUseCase,
        _getTagNameCodeMapForSchoolUseCase = getTagNameCodeMapForSchoolUseCase,
        _storageService = storageService,
@@ -39,13 +41,28 @@ class StudentAttendanceDailyCubit extends Cubit<StudentAttendanceDailyState> {
   final GetStudentAttendanceDailyUseCase _getStudentAttendanceDailyUseCase;
   final GetStudentAttendanceExpectedSummaryUseCase
   _getStudentAttendanceExpectedSummaryUseCase;
-  final AttendanceRepository _repository;
+  final GetCachedStudentAttendanceDailyUseCase
+  _getCachedStudentAttendanceDailyUseCase;
   final GetStudentCountsUseCase _getStudentCountsUseCase;
   final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
   final StorageService _storageService;
   final GetClassroomByCodeUseCase _getClassroomByCodeUseCase;
 
   static const int _pageSize = 10;
+
+  // Bumped by every state-replacing emit (both refresh() paths and the
+  // loadInitial() cache-hit path) so loadNextPage() can tell, after its own
+  // await returns, whether a newer request already replaced the list out
+  // from under it — see loadNextPage()'s discard check.
+  int _generation = 0;
+
+  // The most recently REQUESTED refresh() call while one is already in
+  // flight. refresh() used to silently drop a call that arrived mid-flight
+  // (`if (state.isRefreshing) return`), so rapidly changing a filter could
+  // leave the list showing an OLDER selection than the chips displayed.
+  // Now it queues the latest request here and replays it once the in-flight
+  // one finishes, so the user's last selection always wins.
+  _PendingDailyRefresh? _pendingRefresh;
 
   /// Resolves a classroom's display name from its code — used by the View's
   /// own on-demand name cache when a row's classroom name isn't already
@@ -98,17 +115,18 @@ class StudentAttendanceDailyCubit extends Cubit<StudentAttendanceDailyState> {
     }
 
     // Try cache first
-    final cached = await (_repository is AttendanceRepositoryWithCache
-        ? (_repository as AttendanceRepositoryWithCache)
-              .loadCachedStudentAttendanceDaily(
-                dateString,
-                classroomCodes: classroomCodes,
-                tagCodes: tagCodes,
-                search: search,
-              )
-        : Future.value(null));
+    final cached = await _getCachedStudentAttendanceDailyUseCase(
+      dateString,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      search: search,
+    );
 
     if (cached != null && !isClosed) {
+      // This emit fully replaces items/currentPage, same as refresh()'s —
+      // bump so a loadNextPage() already in flight can detect it was
+      // superseded instead of appending onto this cache-hit result.
+      _generation++;
       try {
         final summary = await _getStudentAttendanceExpectedSummaryUseCase(
           classroomCode: _classroomCodeForSummary(classroomCodes),
@@ -143,6 +161,11 @@ class StudentAttendanceDailyCubit extends Cubit<StudentAttendanceDailyState> {
         );
       } catch (_) {
         if (isClosed) return;
+        // The live-summary fetch failed — fall back to the LAST KNOWN counts
+        // instead of leaving them off entirely. `.loaded()` is a full state
+        // reconstruction (not a copyWith), so omitting these fields here
+        // reset the header to blank/0 on every transient summary failure,
+        // even though the list itself loaded fine from cache.
         emit(
           StudentAttendanceDailyState.loaded(
             items: cached.items,
@@ -153,6 +176,11 @@ class StudentAttendanceDailyCubit extends Cubit<StudentAttendanceDailyState> {
             classroomCodes: classroomCodes,
             tagCodes: tagCodes,
             search: search,
+            expectedCount: state.expectedCount,
+            presentCount: state.presentCount,
+            absentCount: state.absentCount,
+            signedOutCount: state.signedOutCount,
+            notMarkedCount: state.notMarkedCount,
             activeCount: state.activeCount,
             upcomingCount: state.upcomingCount,
             enrolledCount: state.enrolledCount,
@@ -177,7 +205,9 @@ class StudentAttendanceDailyCubit extends Cubit<StudentAttendanceDailyState> {
     );
   }
 
-  // Refresh: Always load page 0 from API
+  // Refresh: Always load page 0 from API. Queues (rather than drops) a call
+  // that arrives while a previous refresh is still in flight — see
+  // [_pendingRefresh].
   Future<void> refresh({
     required DateTime attendanceDate,
     List<String>? classroomCodes,
@@ -187,8 +217,60 @@ class StudentAttendanceDailyCubit extends Cubit<StudentAttendanceDailyState> {
     bool? isExpectedNotMarked,
     String? search,
   }) async {
-    if (state.isRefreshing) return;
+    if (state.isRefreshing) {
+      _pendingRefresh = _PendingDailyRefresh(
+        attendanceDate: attendanceDate,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
+        isExpectedNotMarked: isExpectedNotMarked,
+        search: search,
+      );
+      return;
+    }
 
+    await _runRefresh(
+      attendanceDate: attendanceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      signInAtFilter: signInAtFilter,
+      signOutAtFilter: signOutAtFilter,
+      isExpectedNotMarked: isExpectedNotMarked,
+      search: search,
+    );
+
+    // One or more newer calls may have arrived (and been queued above)
+    // while that refresh was in flight. Drain straight to the LAST one —
+    // any intermediate queued request is superseded and would just be a
+    // wasted round-trip — so the final list always matches the user's most
+    // recent filter selection instead of whatever was in flight when they
+    // changed it again.
+    while (_pendingRefresh != null && !isClosed) {
+      final next = _pendingRefresh!;
+      _pendingRefresh = null;
+      await _runRefresh(
+        attendanceDate: next.attendanceDate,
+        classroomCodes: next.classroomCodes,
+        tagCodes: next.tagCodes,
+        signInAtFilter: next.signInAtFilter,
+        signOutAtFilter: next.signOutAtFilter,
+        isExpectedNotMarked: next.isExpectedNotMarked,
+        search: next.search,
+      );
+    }
+  }
+
+  Future<void> _runRefresh({
+    required DateTime attendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? signInAtFilter,
+    String? signOutAtFilter,
+    bool? isExpectedNotMarked,
+    String? search,
+  }) async {
+    _generation++;
     final dateString = _formatDate(attendanceDate);
 
     emit(
@@ -344,11 +426,31 @@ class StudentAttendanceDailyCubit extends Cubit<StudentAttendanceDailyState> {
     return (await _storageService.getString(StorageKeys.username) ?? '').trim();
   }
 
-  // Load next page: Only if not loading and has more
+  // Load next page: Only if not loading and has more. Also bails while a
+  // refresh() is in flight — that's about to replace items/currentPage for a
+  // possibly different filter/date entirely, so starting a next-page fetch
+  // against the CURRENT (soon-to-be-stale) state would be wasted at best.
   Future<void> loadNextPage() async {
-    if (state.isLoading || state.isLoadingMore || !state.hasMore) return;
+    if (state.isLoading ||
+        state.isLoadingMore ||
+        state.isRefreshing ||
+        !state.hasMore) {
+      return;
+    }
     if (state.currentPage < 0) return; // Safety check
     if (state.attendanceDate == null) return;
+
+    // Captured so the result can be discarded below if a refresh() started
+    // (and possibly finished) DURING this method's own await — the guard
+    // above only catches a refresh already in flight at call time, not one
+    // that starts a moment later while this request is still on the wire.
+    final myGeneration = _generation;
+    final classroomCodes = state.classroomCodes;
+    final tagCodes = state.tagCodes;
+    final signInAtFilter = state.signInAtFilter;
+    final signOutAtFilter = state.signOutAtFilter;
+    final isExpectedNotMarked = state.isExpectedNotMarked;
+    final search = state.search;
 
     emit(state.copyWith(isLoadingMore: true, errorMessage: null));
 
@@ -358,17 +460,23 @@ class StudentAttendanceDailyCubit extends Cubit<StudentAttendanceDailyState> {
 
       final page = await _getStudentAttendanceDailyUseCase(
         attendanceDate: dateString,
-        classroomCodes: state.classroomCodes,
-        tagCodes: state.tagCodes,
-        signInAtFilter: state.signInAtFilter,
-        signOutAtFilter: state.signOutAtFilter,
-        isExpectedNotMarked: state.isExpectedNotMarked,
-        search: state.search,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
+        isExpectedNotMarked: isExpectedNotMarked,
+        search: search,
         page: nextPageIndex,
         size: _pageSize,
       );
 
       if (isClosed) return;
+      // A refresh() already replaced state.items/currentPage for a newer
+      // request while this page was in flight — appending this now-stale
+      // page onto the new list would corrupt it (wrong filter's rows) and
+      // desync currentPage from what that refresh just set. The fresh
+      // refresh already has the correct first page; just drop this one.
+      if (myGeneration != _generation) return;
 
       emit(
         state.copyWith(
@@ -380,6 +488,7 @@ class StudentAttendanceDailyCubit extends Cubit<StudentAttendanceDailyState> {
       );
     } catch (e) {
       if (isClosed) return;
+      if (myGeneration != _generation) return;
       emit(
         state.copyWith(
           isLoadingMore: false,
@@ -392,4 +501,26 @@ class StudentAttendanceDailyCubit extends Cubit<StudentAttendanceDailyState> {
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
+}
+
+/// A refresh() call queued while a previous one was still in flight — see
+/// [StudentAttendanceDailyCubit._pendingRefresh].
+class _PendingDailyRefresh {
+  const _PendingDailyRefresh({
+    required this.attendanceDate,
+    this.classroomCodes,
+    this.tagCodes,
+    this.signInAtFilter,
+    this.signOutAtFilter,
+    this.isExpectedNotMarked,
+    this.search,
+  });
+
+  final DateTime attendanceDate;
+  final List<String>? classroomCodes;
+  final List<String>? tagCodes;
+  final String? signInAtFilter;
+  final String? signOutAtFilter;
+  final bool? isExpectedNotMarked;
+  final String? search;
 }

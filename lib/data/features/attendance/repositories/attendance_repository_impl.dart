@@ -1055,6 +1055,7 @@ class AttendanceRepositoryImpl
     required String classroomCode,
     required Map<String, bool> isExpectedTodayByStudentCode,
     String markAbsentMethod = 'APP',
+    String? idempotencyKey,
   }) async {
     final allowed = await _attendanceAllowedClassroomCodes(
       studentCrossClass: true,
@@ -1072,6 +1073,7 @@ class AttendanceRepositoryImpl
         markAbsentMethod: markAbsentMethod,
       ),
       allowedClassroomCodes: allowed,
+      idempotencyKey: idempotencyKey,
     );
 
     return response.message.isNotEmpty
@@ -1090,6 +1092,7 @@ class AttendanceRepositoryImpl
     required Map<String, String> absenceNotes,
     required Map<String, bool> isExpectedTodayByStaffCode,
     String markAbsentMethod = 'APP',
+    String? idempotencyKey,
   }) async {
     final allowed = await _attendanceAllowedClassroomCodes();
     final response = await _remoteDataSource.markStaffAbsent(
@@ -1105,6 +1108,7 @@ class AttendanceRepositoryImpl
         markAbsentMethod: markAbsentMethod,
       ),
       allowedClassroomCodes: allowed,
+      idempotencyKey: idempotencyKey,
     );
 
     return response.message.isNotEmpty

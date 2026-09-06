@@ -4,8 +4,7 @@ import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
@@ -20,21 +19,19 @@ import 'package:wowcare/presentation/features/attendance/view/screens/staff_atte
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_custom_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_absent_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_transfer_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_mark_absent_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_selection_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_selection_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_selection_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_selection_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/model/staff_entity.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -133,12 +130,13 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       // persona manages all staff. staffCode is still loaded for self-scoping.
       final isStaffPersona = context.read<RoleCubit>().isStaff;
 
-      final storage = serviceLocator<StorageService>();
-      var staffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
-          .trim();
-      if (staffCode.isEmpty) {
-        staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
-      }
+      // resolveStaffCodeForLoggedInUser() already checks storage first — and,
+      // unlike a raw storage read, validates the cached value still belongs
+      // to the CURRENT user/org/school before trusting it, clearing (and
+      // re-resolving) a stale cross-context value instead of returning it.
+      // Reading storage directly here first could return exactly that kind
+      // of stale value and skip the validated fallback entirely.
+      final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
 
       if (!mounted) return;
       setState(() {
@@ -175,9 +173,8 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   Widget build(BuildContext context) {
     super.build(context);
     final responsive = ResponsiveHelper(context);
-    final mediaQuery = MediaQuery.of(context);
     final contentPadding = ResponsiveHelper(context).contentPadding;
-    final safeAreaTop = mediaQuery.padding.top;
+    final safeAreaTop = MediaQuery.paddingOf(context).top;
     final appBarHeight = AppBar().preferredSize.height; // kToolbarHeight
 
     // Match GradientAddButton responsive sizes (as used in StaffScreen)
@@ -362,9 +359,8 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   }
 
   void _showActionMenu(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
     final contentPadding = ResponsiveHelper(context).contentPadding;
-    final safeAreaTop = mediaQuery.padding.top;
+    final safeAreaTop = MediaQuery.paddingOf(context).top;
     final appBarHeight = AppBar().preferredSize.height;
     final bool isTablet = ResponsiveHelper(context).isTabletCompact;
     final bool isLargeTablet = ResponsiveHelper(context).isWide;

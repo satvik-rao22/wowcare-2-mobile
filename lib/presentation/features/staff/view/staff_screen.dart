@@ -33,6 +33,7 @@ import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.da
 import 'package:wowcare/presentation/features/staff/cubit/staff_attendance_summary_cubit.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
+import 'package:wowcare/presentation/features/attendance/model/staff_entity.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/services/image_upload/profile_photo_upload_events.dart';
 import 'package:wowcare/core/util/core_utils.dart';
