@@ -2269,6 +2269,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getIndividualMovementByIdUseCase: serviceLocator(),
       getIndividualMovementsUseCase: serviceLocator(),
       transitionIndividualMovementStatusUseCase: serviceLocator(),
+      getStudentPageUseCase: serviceLocator(),
+      getActiveClassroomsUseCase: serviceLocator(),
       repository: serviceLocator(),
       storageService: serviceLocator(),
     ),

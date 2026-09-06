@@ -65,8 +65,12 @@ import 'package:wowcare/presentation/features/attendance/view/screens/widgets/st
     show StaffAttendanceCardData;
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_card.dart'
     show StudentAttendanceCardData;
+import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
+import 'package:wowcare/presentation/features/availability/view/add_edit_individual_movement_screen.dart';
+import 'package:wowcare/presentation/features/availability/view/confirm_individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
+import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
 import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
@@ -1069,11 +1073,29 @@ final GoRouter appRouter = GoRouter(
                   path: 'individual-movement',
                   pageBuilder: (context, state) => _fastPage(
                     state,
-                    IndividualMovementScreen(
-                      highlightCode: state.uri.queryParameters['highlightCode'],
-                      studentCode: state.uri.queryParameters['studentCode'],
+                    // The board's own cubit — created here (not inside the
+                    // screen's initState) so this is the only serviceLocator
+                    // call on this path. Auto-closed when the route is popped.
+                    BlocProvider<IndividualMovementsCubit>(
+                      create: (_) => serviceLocator<IndividualMovementsCubit>(),
+                      child: IndividualMovementScreen(
+                        highlightCode: state.uri.queryParameters['highlightCode'],
+                        studentCode: state.uri.queryParameters['studentCode'],
+                      ),
                     ),
                   ),
+                  routes: [
+                    GoRoute(
+                      path: 'add-edit',
+                      pageBuilder: (context, state) =>
+                          _fastPage(state, _addEditMovementScreen(state.extra)),
+                    ),
+                    GoRoute(
+                      path: 'confirm',
+                      pageBuilder: (context, state) =>
+                          _fastPage(state, _confirmMovementScreen(state.extra)),
+                    ),
+                  ],
                 ),
                 GoRoute(
                   path: 'edit-important-dates-screen',
@@ -2172,6 +2194,27 @@ Widget _addDocumentScreen(Object? extra) {
     initialDocumentNotes: args?['initialDocumentNotes'] as String?,
     initialAssetCode: args?['initialAssetCode'] as String?,
   );
+}
+
+Widget _addEditMovementScreen(Object? extra) {
+  final args = extra as AddEditMovementArgs;
+  return AddEditIndividualMovementScreen(
+    students: args.students,
+    classrooms: args.classrooms,
+    existingMovements: args.existingMovements,
+    studentNamesByCode: args.studentNamesByCode,
+    classroomNamesByCode: args.classroomNamesByCode,
+    movementType: args.movementType,
+    initialData: args.initialData,
+    isEditing: args.isEditing,
+    editingMovementId: args.editingMovementId,
+    disablePastDates: args.disablePastDates,
+    lockClassroomSelection: args.lockClassroomSelection,
+  );
+}
+
+Widget _confirmMovementScreen(Object? extra) {
+  return ConfirmIndividualMovementScreen(item: extra as MovementItem);
 }
 
 Widget _studentProfileScreen(Object? extra) {

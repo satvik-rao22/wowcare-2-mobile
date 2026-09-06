@@ -542,4 +542,21 @@ class AppColors {
       Colors.white24; // Video-progress unplayed track (recurs 1x)
   static const Color activityVideoProgressBufferedColor =
       Colors.white38; // Video-progress buffered segment (recurs 1x)
+
+  // Individual Movements (Mandate 4) — see
+  // lib/presentation/features/availability/**. Board-column background tints
+  // are distinct per bucket (Overdue/Upcoming/Confirmed/Rejected); badge and
+  // dialog-chrome colors reuse existing semantic tokens where the shade
+  // already matches (see [errorColor]/[warningColor]/[successColor] and the
+  // `attendanceDialogXxx`/`attendanceBorderLightColor` tokens above).
+  static const Color movementOverdueBackground = Color(0xFFF8F6FF);
+  static const Color movementUpcomingBackground = Color(0xFFFFFBEE);
+  static const Color movementConfirmedBackground = Color(0xFFEFFFF4);
+  static const Color movementRejectedBackground = Color(0xFFFFF0F0);
+  static const Color movementDialogHeaderColor = Color(
+    0xFFF3EEFA,
+  ); // Drag/drop confirmation dialog header band
+  static const Color movementDueTimeIconColor = Color(
+    0xFFF3B413,
+  ); // Row clock icon
 }

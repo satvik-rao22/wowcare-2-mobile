@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
 
 enum IndividualMovementAction { edit, confirm, reject, moveToPending, delete }
@@ -74,12 +74,7 @@ Future<IndividualMovementAction?> showIndividualMovementOptionsBottomSheet(
                     const Expanded(
                       child: Text(
                         'More Options',
-                        style: TextStyle(
-                          fontFamily: Fonts.manrope,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primaryColor,
-                        ),
+                        style: AppTextStyles.movementBottomSheetTitle,
                       ),
                     ),
                     IconButton(
@@ -170,12 +165,7 @@ class _ActionTile extends StatelessWidget {
               Expanded(
                 child: Text(
                   _actionLabel(action),
-                  style: TextStyle(
-                    fontFamily: Fonts.manrope,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                  ),
+                  style: AppTextStyles.movementActionTileLabel(color: color),
                 ),
               ),
               Icon(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
 
 /// PRD: Pending | Approved (confirmed) | Rejected.
@@ -50,7 +51,7 @@ class MovementItem {
       movementDate: movement.movementDate,
       comment: movement.comment,
       workflowStatus: _workflowStatusFromEntity(movement.status),
-      movementType: _movementTypeFromEntity(movement.movementType),
+      movementType: movementTypeFromEntity(movement.movementType),
     );
   }
 
@@ -115,7 +116,9 @@ MovementWorkflowStatus _workflowStatusFromEntity(IndividualMovementWorkflowStatu
   }
 }
 
-MovementType _movementTypeFromEntity(IndividualMovementType type) {
+/// Public so the screen/cubit layer can map API entities without redefining
+/// this switch a second time (see [MovementItem.fromEntity]).
+MovementType movementTypeFromEntity(IndividualMovementType type) {
   switch (type) {
     case IndividualMovementType.startSchool:
       return MovementType.startSchool;
@@ -123,6 +126,64 @@ MovementType _movementTypeFromEntity(IndividualMovementType type) {
       return MovementType.leaveSchool;
     case IndividualMovementType.moveToNextClassroom:
       return MovementType.moveToNextClassroom;
+  }
+}
+
+/// Single source of truth for how a board bucket is labelled and coloured,
+/// shared by the board columns ([IndividualMovementPager]) and the dashboard
+/// summary ([MovementsCard]) — previously each redefined its own mapping.
+extension MovementBucketPresentation on MovementBucket {
+  String get label {
+    switch (this) {
+      case MovementBucket.overdue:
+        return 'Overdue';
+      case MovementBucket.upcoming:
+        return 'Upcoming';
+      case MovementBucket.confirmed:
+        return 'Confirmed';
+      case MovementBucket.rejected:
+        return 'Rejected';
+    }
+  }
+
+  /// Background tint for the full board column/card.
+  Color get sectionBackgroundColor {
+    switch (this) {
+      case MovementBucket.overdue:
+        return AppColors.movementOverdueBackground;
+      case MovementBucket.upcoming:
+        return AppColors.movementUpcomingBackground;
+      case MovementBucket.confirmed:
+        return AppColors.movementConfirmedBackground;
+      case MovementBucket.rejected:
+        return AppColors.movementRejectedBackground;
+    }
+  }
+
+  /// Foreground colour for the small status pill badge.
+  Color get badgeColor {
+    switch (this) {
+      case MovementBucket.overdue:
+        return AppColors.errorColor;
+      case MovementBucket.upcoming:
+        return AppColors.warningColor;
+      case MovementBucket.confirmed:
+        return AppColors.successColor;
+      case MovementBucket.rejected:
+        return AppColors.errorColor.withValues(alpha: 0.7);
+    }
+  }
+
+  /// Background tint for the small status pill badge.
+  Color get badgeBackgroundColor {
+    switch (this) {
+      case MovementBucket.rejected:
+        return badgeColor.withValues(alpha: 0.20);
+      case MovementBucket.overdue:
+      case MovementBucket.upcoming:
+      case MovementBucket.confirmed:
+        return badgeColor.withValues(alpha: 0.25);
+    }
   }
 }
 
@@ -140,6 +201,48 @@ class MovementSection {
   final List<MovementItem> items;
 }
 
+/// Builds display-only names (no codes) while maintaining a stable mapping
+/// from display string -> code. If multiple items share the same name,
+/// suffix them as "Name (2)", "Name (3)", etc.
+///
+/// Shared by [IndividualMovementScreen] (filter dropdowns) and
+/// [AddEditIndividualMovementScreen] (student/classroom pickers) — both
+/// previously carried an identical private copy of this method.
+({
+  List<String> items,
+  Map<String, String> displayToCode,
+  Map<String, String> codeToDisplay,
+}) buildDisplayOnlyOptions({
+  required List<String> codes,
+  required String Function(String code) nameForCode,
+}) {
+  final counts = <String, int>{};
+  final items = <String>[];
+  final displayToCode = <String, String>{};
+  final codeToDisplay = <String, String>{};
+
+  for (final codeRaw in codes) {
+    final code = codeRaw.trim();
+    if (code.isEmpty) continue;
+    final baseName = nameForCode(code).trim();
+    final name = baseName.isNotEmpty ? baseName : code;
+
+    final next = (counts[name] ?? 0) + 1;
+    counts[name] = next;
+
+    final display = next == 1 ? name : '$name ($next)';
+    items.add(display);
+    displayToCode[display] = code;
+    codeToDisplay[code] = display;
+  }
+
+  return (
+    items: items,
+    displayToCode: displayToCode,
+    codeToDisplay: codeToDisplay,
+  );
+}
+
 class MovementFormResult {
   const MovementFormResult({
     required this.student,
@@ -154,4 +257,34 @@ class MovementFormResult {
   final String nextClassroom;
   final DateTime movementDate;
   final String comment;
+}
+
+/// Typed navigation args for the add/edit movement route — carried through
+/// GoRouter's `extra` in place of an untyped `Map<String, dynamic>`.
+class AddEditMovementArgs {
+  const AddEditMovementArgs({
+    required this.students,
+    required this.classrooms,
+    required this.existingMovements,
+    this.studentNamesByCode = const <String, String>{},
+    this.classroomNamesByCode = const <String, String>{},
+    this.movementType = MovementType.moveToNextClassroom,
+    this.initialData,
+    this.isEditing = false,
+    this.editingMovementId,
+    this.disablePastDates = false,
+    this.lockClassroomSelection = false,
+  });
+
+  final List<String> students;
+  final List<String> classrooms;
+  final List<MovementItem> existingMovements;
+  final Map<String, String> studentNamesByCode;
+  final Map<String, String> classroomNamesByCode;
+  final MovementType movementType;
+  final MovementFormResult? initialData;
+  final bool isEditing;
+  final int? editingMovementId;
+  final bool disablePastDates;
+  final bool lockClassroomSelection;
 }
