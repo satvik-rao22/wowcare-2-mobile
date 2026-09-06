@@ -994,4 +994,29 @@ class AppColors {
   /// [activityRequiredFieldMarkerColor]; the two should collapse into one
   /// shared semantic token in a cross-feature pass.
   static const Color reportsRequiredFieldMarkerColor = Colors.red;
+
+  // Individual Movements (Mandate 4) — see
+  // lib/presentation/features/availability/**. Board-column background tints
+  // are distinct per bucket (Overdue/Upcoming/Confirmed/Rejected); badge and
+  // dialog-chrome colors reuse existing semantic tokens where the shade
+  // already matches (see [errorColor]/[warningColor]/[successColor] and the
+  // `attendanceDialogXxx`/`attendanceBorderLightColor` tokens above).
+  static const Color movementOverdueBackground = Color(0xFFF8F6FF);
+  static const Color movementUpcomingBackground = Color(0xFFFFFBEE);
+  static const Color movementConfirmedBackground = Color(0xFFEFFFF4);
+  static const Color movementRejectedBackground = Color(0xFFFFF0F0);
+  static const Color movementDialogHeaderColor = Color(
+    0xFFF3EEFA,
+  ); // Drag/drop confirmation dialog header band
+  static const Color movementDueTimeIconColor = Color(
+    0xFFF3B413,
+  ); // Row clock icon
+
+  // Future Availability (Mandate 4) — see
+  // lib/presentation/features/availability/view/future_availability_screen.dart.
+  static const Color futureAvailabilityColumnTint = Color.fromRGBO(247, 245, 249, 1);
+  static const Color futureAvailabilityHeaderTint = Color.fromRGBO(245, 243, 247, 1);
+  static const Color futureAvailabilityToggleTrackBg = Color.fromRGBO(246, 244, 248, 1);
+  static const Color futureAvailabilityNegativeCountColor = Color.fromRGBO(236, 99, 99, 1);
+  static const Color futureAvailabilityPositiveCountColor = Color.fromRGBO(0, 145, 94, 1);
 }

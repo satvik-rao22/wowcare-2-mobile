@@ -66,8 +66,14 @@ import 'package:wowcare/presentation/features/attendance/view/screens/widgets/st
     show StaffAttendanceCardData;
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_card.dart'
     show StudentAttendanceCardData;
+import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:wowcare/presentation/features/availability/cubit/future_availability_cubit.dart';
+import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
+import 'package:wowcare/presentation/features/availability/view/add_edit_individual_movement_screen.dart';
+import 'package:wowcare/presentation/features/availability/view/confirm_individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
+import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
 import 'package:wowcare/presentation/features/billing/view_model/parent_billing_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
@@ -1510,18 +1516,41 @@ final GoRouter appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'future-availability',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, const FutureAvailabilityScreen()),
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    BlocProvider<FutureAvailabilityCubit>(
+                      create: (_) => serviceLocator<FutureAvailabilityCubit>(),
+                      child: const FutureAvailabilityScreen(),
+                    ),
+                  ),
                 ),
                 GoRoute(
                   path: 'individual-movement',
                   pageBuilder: (context, state) => _fastPage(
                     state,
-                    IndividualMovementScreen(
-                      highlightCode: state.uri.queryParameters['highlightCode'],
-                      studentCode: state.uri.queryParameters['studentCode'],
+                    // The board's own cubit — created here (not inside the
+                    // screen's initState) so this is the only serviceLocator
+                    // call on this path. Auto-closed when the route is popped.
+                    BlocProvider<IndividualMovementsCubit>(
+                      create: (_) => serviceLocator<IndividualMovementsCubit>(),
+                      child: IndividualMovementScreen(
+                        highlightCode: state.uri.queryParameters['highlightCode'],
+                        studentCode: state.uri.queryParameters['studentCode'],
+                      ),
                     ),
                   ),
+                  routes: [
+                    GoRoute(
+                      path: 'add-edit',
+                      pageBuilder: (context, state) =>
+                          _fastPage(state, _addEditMovementScreen(state.extra)),
+                    ),
+                    GoRoute(
+                      path: 'confirm',
+                      pageBuilder: (context, state) =>
+                          _fastPage(state, _confirmMovementScreen(state.extra)),
+                    ),
+                  ],
                 ),
                 GoRoute(
                   path: StaffRoutes.editImportantDatesSegment,
@@ -1644,7 +1673,10 @@ final GoRouter appRouter = GoRouter(
                   },
                 ),
                 // Notification deep-link: open the Classroom Info screen with a
-                // classroom pre-selected by code (e.g. RATIO_BREACHED).
+                // classroom pre-selected by code (e.g. RATIO_BREACHED). Future
+                // Availability instead passes the full Classroom via `extra`
+                // since it lists every classroom school-wide, not just the
+                // staff's own — a code-only lookup would miss it.
                 GoRoute(
                   path: 'classroom-info-screen',
                   pageBuilder: (context, state) => _fastPage(
@@ -1652,6 +1684,8 @@ final GoRouter appRouter = GoRouter(
                     ClassroomInfoScreen(
                       initialClassroomCode:
                           state.uri.queryParameters['classroomCode'],
+                      initialClassroom:
+                          state.extra is Classroom ? state.extra as Classroom : null,
                     ),
                   ),
                 ),
@@ -2663,6 +2697,27 @@ Widget _addDocumentScreen(Object? extra) {
       initialAssetCode: args?.initialAssetCode,
     ),
   );
+}
+
+Widget _addEditMovementScreen(Object? extra) {
+  final args = extra as AddEditMovementArgs;
+  return AddEditIndividualMovementScreen(
+    students: args.students,
+    classrooms: args.classrooms,
+    existingMovements: args.existingMovements,
+    studentNamesByCode: args.studentNamesByCode,
+    classroomNamesByCode: args.classroomNamesByCode,
+    movementType: args.movementType,
+    initialData: args.initialData,
+    isEditing: args.isEditing,
+    editingMovementId: args.editingMovementId,
+    disablePastDates: args.disablePastDates,
+    lockClassroomSelection: args.lockClassroomSelection,
+  );
+}
+
+Widget _confirmMovementScreen(Object? extra) {
+  return ConfirmIndividualMovementScreen(item: extra as MovementItem);
 }
 
 Widget _studentProfileScreen(Object? extra) {

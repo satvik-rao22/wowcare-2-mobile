@@ -768,6 +768,189 @@ class AppTextStyles {
     color: AppColors.cardColor,
     fontWeight: FontWeight.w600,
   );
+
+  // ---------------------------------------------------------------------
+  // Individual Movements (Mandate 4) — see
+  // lib/presentation/features/availability/**. Named per the same
+  // `movement<Purpose>` convention as the `activityXxx`/`attendanceXxx`
+  // entries above.
+  // ---------------------------------------------------------------------
+
+  /// Board screen "Overview" heading.
+  /// fontSize: 18, fontWeight: w500, color: primaryColor
+  static const TextStyle movementSectionHeading = TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primaryColor,
+  );
+
+  /// Load-error message and "No movements available" empty state.
+  /// fontSize: 14, color: primaryColor
+  static const TextStyle movementErrorText = TextStyle(
+    fontSize: 14,
+    color: AppColors.primaryColor,
+  );
+
+  /// Pager's current-bucket title, under the prev/next arrows.
+  /// fontSize: 14, fontWeight: w600, color: primaryColor
+  static const TextStyle movementPagerSectionTitle = TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+  /// Board column card title (Overdue/Upcoming/Confirmed/Rejected).
+  /// fontSize: 18, fontWeight: w600, color: primaryColor
+  static const TextStyle movementColumnTitle = TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// "Start School"/"Leave School" type chip label.
+  /// fontSize: 12, fontWeight: w600, color: primaryColor
+  static const TextStyle movementTypeChipLabel = TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// Row classroom name and movement-date text.
+  /// fontSize: 14, fontWeight: w500, color: primaryColor
+  static const TextStyle movementClassroomLabel = TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primaryColor,
+  );
+
+  /// Row student-name link.
+  /// fontSize: 15, fontWeight: w500, color: primaryColor
+  static const TextStyle movementStudentNameLabel = TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primaryColor,
+  );
+
+  /// Row comment preview text.
+  /// fontSize: 13, fontWeight: w500, color: primaryColor @ 85% opacity
+  static TextStyle get movementCommentText => TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primaryColor.withValues(alpha: 0.85),
+  );
+
+  /// "More Options" bottom-sheet title.
+  /// fontSize: 18, fontWeight: w700, color: primaryColor
+  static const TextStyle movementBottomSheetTitle = TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w700,
+    color: AppColors.primaryColor,
+  );
+
+  /// Bottom-sheet action row label — destructive (delete) rows pass
+  /// [AppColors.errorColor].
+  /// fontSize: 15, fontWeight: w600
+  static TextStyle movementActionTileLabel({required Color color}) => TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    color: color,
+  );
+
+  /// Confirm-movement screen field label.
+  /// fontSize: 13, fontWeight: w500, color: primaryColor @ 55% opacity
+  static TextStyle get movementConfirmLabel => TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primaryColor.withValues(alpha: 0.55),
+  );
+
+  /// Confirm-movement screen field value.
+  /// fontSize: 14, fontWeight: w600, color: primaryColor
+  static const TextStyle movementConfirmValue = TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// Add/edit-movement form field label (responsive size).
+  /// fontWeight: w400, color: primaryColor
+  static TextStyle movementFormLabel({required double fontSize}) => TextStyle(
+    fontSize: fontSize,
+    fontWeight: FontWeight.w400,
+    color: AppColors.primaryColor,
+  );
+
+  /// Add/edit-movement form field value / dropdown selection (responsive size).
+  /// fontWeight: w600, color: primaryColor, height: 19/14
+  static TextStyle movementFormValue({required double fontSize}) => TextStyle(
+    fontSize: fontSize,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+    height: 19 / 14,
+  );
+
+  // ---------------------------------------------------------------------
+  // Future Availability (Mandate 4) — see
+  // lib/presentation/features/availability/view/future_availability_screen.dart.
+  // ---------------------------------------------------------------------
+
+  /// Date navigator's formatted-date label.
+  /// fontSize: 15, fontWeight: w600, color: primaryColor
+  static const TextStyle futureAvailabilityDateNavLabel = TextStyle(
+    color: AppColors.primaryColor,
+    fontWeight: FontWeight.w600,
+    fontSize: 15,
+  );
+
+  /// "Availability" screen title.
+  /// fontSize: 18, fontWeight: w500, color: primaryColor
+  static const TextStyle futureAvailabilityTitle = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 18,
+    fontWeight: FontWeight.w500,
+  );
+
+  /// "Full Day"/"2 Shifts" toggle label — bold+full colour when selected.
+  /// fontSize: 15
+  static TextStyle futureAvailabilityShiftToggleLabel({required bool isSelected}) =>
+      TextStyle(
+        fontSize: 15,
+        color: isSelected
+            ? AppColors.primaryColor
+            : AppColors.primaryColor.withValues(alpha: 0.55),
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+      );
+
+  /// Empty/error state message under the grid.
+  /// fontSize: 13, fontWeight: w500, color: primaryColor @ 80% opacity
+  static TextStyle get futureAvailabilityEmptyMessage => TextStyle(
+    color: AppColors.primaryColor.withValues(alpha: 0.8),
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+  );
+
+  /// Grid header cell text (Classroom/Morning/Afternoon).
+  /// fontSize: 15, fontWeight: w700, color: primaryColor @ 80% opacity
+  static TextStyle get futureAvailabilityHeaderCellText => TextStyle(
+    fontWeight: FontWeight.w700,
+    fontSize: 15,
+    color: AppColors.primaryColor.withValues(alpha: 0.8),
+  );
+
+  /// Grid classroom-name cell text.
+  /// fontSize: 13, fontWeight: w600, color: primaryColor @ 90% opacity
+  static TextStyle get futureAvailabilityClassroomName => TextStyle(
+    fontWeight: FontWeight.w600,
+    fontSize: 13,
+    color: AppColors.primaryColor.withValues(alpha: 0.9),
+  );
+
+  /// Grid available-spot count — colour signals negative vs non-negative.
+  /// fontSize: 18, fontWeight: w700
+  static TextStyle futureAvailabilityCountValue({required Color color}) => TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w700,
+    color: color,
+  );
 }
 
 /// Reusable text widgets with predefined styles

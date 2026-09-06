@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
@@ -70,12 +69,7 @@ class ConfirmIndividualMovementScreen extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
-                fontFamily: Fonts.manrope,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppColors.primaryColor.withValues(alpha: 0.55),
-              ),
+              style: AppTextStyles.movementConfirmLabel,
             ),
           ),
           const SizedBox(width: 12),
@@ -83,12 +77,7 @@ class ConfirmIndividualMovementScreen extends StatelessWidget {
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: const TextStyle(
-                fontFamily: Fonts.manrope,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryColor,
-              ),
+              style: AppTextStyles.movementConfirmValue,
             ),
           ),
         ],

@@ -45,12 +45,22 @@ import 'package:wowcare/domain/features/classroom/usecases/finalize_classroom_lo
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 class ClassroomInfoScreen extends StatelessWidget {
-  const ClassroomInfoScreen({super.key, this.initialClassroomCode});
+  const ClassroomInfoScreen({
+    super.key,
+    this.initialClassroomCode,
+    this.initialClassroom,
+  });
 
   /// When opened from a notification deep-link (e.g. RATIO_BREACHED), the
   /// classroom to pre-select by code. Takes precedence over the cached/first
   /// selection.
   final String? initialClassroomCode;
+
+  /// Passed directly when the caller already has the full classroom (e.g.
+  /// Future Availability, which lists every classroom school-wide — a
+  /// code-only lookup would be scoped to the staff's own classrooms and miss
+  /// it). Takes precedence over [initialClassroomCode].
+  final Classroom? initialClassroom;
 
   static const String routeName = '/classroom-info-screen';
 
@@ -58,15 +68,19 @@ class ClassroomInfoScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider<IndividualMovementsCubit>(
       create: (_) => serviceLocator<IndividualMovementsCubit>()..loadInitial(),
-      child: _ClassroomInfoView(initialClassroomCode: initialClassroomCode),
+      child: _ClassroomInfoView(
+        initialClassroomCode: initialClassroomCode,
+        initialClassroom: initialClassroom,
+      ),
     );
   }
 }
 
 class _ClassroomInfoView extends StatefulWidget {
-  const _ClassroomInfoView({this.initialClassroomCode});
+  const _ClassroomInfoView({this.initialClassroomCode, this.initialClassroom});
 
   final String? initialClassroomCode;
+  final Classroom? initialClassroom;
 
   @override
   State<_ClassroomInfoView> createState() => _ClassroomInfoViewState();
@@ -125,6 +139,18 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
     _cacheManager = CacheManager(_storage);
     _movementsCubit = context.read<IndividualMovementsCubit>();
     _loadLastSelectedClassroomFromCache();
+    final initialClassroom = widget.initialClassroom;
+    if (initialClassroom != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _selectedRoom = initialClassroom;
+        });
+        _saveLastSelectedClassroomToCache(initialClassroom.code, initialClassroom.name);
+        _loadDetails(initialClassroom.code);
+      });
+      return;
+    }
     // Selected room may be passed as a route argument
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final args = ModalRoute.of(context)?.settings.arguments;

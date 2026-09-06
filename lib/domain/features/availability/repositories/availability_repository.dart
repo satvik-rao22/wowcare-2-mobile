@@ -1,6 +1,6 @@
-import '../entities/individual_movement_board.dart';
-import '../entities/individual_movement.dart';
-import '../entities/future_availability.dart';
+import 'package:wowcare/domain/features/availability/entities/individual_movement_board.dart';
+import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
+import 'package:wowcare/domain/features/availability/entities/future_availability.dart';
 
 abstract class AvailabilityRepository {
   Future<IndividualMovementBoard> getIndividualMovements({

@@ -14,6 +14,9 @@ import 'package:wowcare/domain/features/availability/usecases/get_individual_mov
 import 'package:wowcare/domain/features/availability/usecases/get_individual_movements_usecase.dart';
 import 'package:wowcare/domain/features/availability/usecases/transition_individual_movement_status_usecase.dart';
 import 'package:wowcare/domain/features/availability/usecases/update_individual_movement_usecase.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:wowcare/domain/features/student/entities/student.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
 
 class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
   IndividualMovementsCubit({
@@ -23,6 +26,8 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
     required GetIndividualMovementByIdUseCase getIndividualMovementByIdUseCase,
     required GetIndividualMovementsUseCase getIndividualMovementsUseCase,
     required TransitionIndividualMovementStatusUseCase transitionIndividualMovementStatusUseCase,
+    required GetStudentPageUseCase getStudentPageUseCase,
+    required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
     required AvailabilityRepository repository,
     required StorageService storageService,
   })  : _createIndividualMovementUseCase = createIndividualMovementUseCase,
@@ -31,6 +36,8 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
         _getIndividualMovementByIdUseCase = getIndividualMovementByIdUseCase,
         _getIndividualMovementsUseCase = getIndividualMovementsUseCase,
         _transitionIndividualMovementStatusUseCase = transitionIndividualMovementStatusUseCase,
+        _getStudentPageUseCase = getStudentPageUseCase,
+        _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
         _repository = repository,
         _storageService = storageService,
         super(const IndividualMovementsState.initial());
@@ -41,6 +48,8 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
   final GetIndividualMovementByIdUseCase _getIndividualMovementByIdUseCase;
   final GetIndividualMovementsUseCase _getIndividualMovementsUseCase;
   final TransitionIndividualMovementStatusUseCase _transitionIndividualMovementStatusUseCase;
+  final GetStudentPageUseCase _getStudentPageUseCase;
+  final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   final AvailabilityRepository _repository;
   final StorageService _storageService;
   _MovementFilters _lastFilters = const _MovementFilters();
@@ -409,6 +418,169 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
 
   Future<IndividualMovement> getMovementById(int id) {
     return _getIndividualMovementByIdUseCase(id: id);
+  }
+
+  /// Fetches the students/classrooms usable as filter options, scoped to a
+  /// staff member's allowed classrooms when [isStaffRole] is true. Throws on
+  /// failure — the caller decides whether to keep its previous options.
+  Future<MovementFilterOptions> loadFilterOptions({
+    required bool isStaffRole,
+  }) async {
+    final schoolCode = await _resolveSchoolCode();
+    final allowedClassrooms =
+        isStaffRole ? await _resolveAllowedClassroomsForStaff() : const <String>{};
+
+    Future<List<Student>> fetchStudentsByStatus(String status) async {
+      final out = <Student>[];
+      var page = 0;
+      const size = 200;
+      while (true) {
+        final res = await _getStudentPageUseCase(
+          schoolCode: schoolCode,
+          status: status,
+          classroomCodes: allowedClassrooms.isNotEmpty ? allowedClassrooms.toList() : null,
+          page: page,
+          size: size,
+        );
+        out.addAll(res.items);
+        if (!res.hasMore || page >= (res.totalPages - 1)) break;
+        page += 1;
+      }
+      return out;
+    }
+
+    final activeStudents = await fetchStudentsByStatus('ACTIVE');
+    final upcomingStudents = await fetchStudentsByStatus('UPCOMING');
+    final allStudents = [...activeStudents, ...upcomingStudents];
+    final studentNamesByCode = <String, String>{};
+    for (final s in allStudents) {
+      final code = s.code.trim();
+      if (code.isEmpty) continue;
+      final full = '${s.firstName.trim()} ${s.lastName.trim()}'.trim();
+      studentNamesByCode[code] = full.isNotEmpty ? full : code;
+    }
+
+    final classroomsRaw = await _getActiveClassroomsUseCase(
+      schoolCode: schoolCode,
+      onlyTypeClassroom: true,
+    );
+    final classroomNamesByCode = <String, String>{};
+    for (final c in classroomsRaw) {
+      final code = c.code.trim();
+      if (code.isEmpty) continue;
+      if (allowedClassrooms.isNotEmpty && !allowedClassrooms.contains(code)) continue;
+      final name = c.name.trim();
+      classroomNamesByCode[code] = name.isNotEmpty ? name : code;
+    }
+
+    final studentCodes = studentNamesByCode.keys.toList()
+      ..sort((a, b) => (studentNamesByCode[a] ?? a)
+          .toLowerCase()
+          .compareTo((studentNamesByCode[b] ?? b).toLowerCase()));
+    final classroomCodes = classroomNamesByCode.keys.toList()
+      ..sort((a, b) => (classroomNamesByCode[a] ?? a)
+          .toLowerCase()
+          .compareTo((classroomNamesByCode[b] ?? b).toLowerCase()));
+
+    return MovementFilterOptions(
+      studentNamesByCode: studentNamesByCode,
+      classroomNamesByCode: classroomNamesByCode,
+      studentCodes: studentCodes,
+      classroomCodes: classroomCodes,
+    );
+  }
+
+  /// Persists the current filter selection so it survives app restarts.
+  /// Best-effort: storage failures are swallowed, matching the previous
+  /// screen-local behaviour.
+  Future<void> persistFilters(MovementFilterSnapshot snapshot) async {
+    try {
+      await _storageService.saveJson(
+        StorageKeys.individualMovementFilters,
+        snapshot.toJson(),
+      );
+    } catch (_) {}
+  }
+
+  Future<MovementFilterSnapshot?> loadPersistedFilters() async {
+    try {
+      final json = await _storageService.getJson(StorageKeys.individualMovementFilters);
+      if (json == null) return null;
+      return MovementFilterSnapshot.fromJson(json);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> clearPersistedFilters() async {
+    try {
+      await _storageService.remove(StorageKeys.individualMovementFilters);
+    } catch (_) {}
+  }
+}
+
+/// Filter selection resolved to display-ready options — students/classrooms
+/// usable as filter values, scoped to the current staff member's allowed
+/// classrooms where applicable.
+class MovementFilterOptions {
+  const MovementFilterOptions({
+    required this.studentNamesByCode,
+    required this.classroomNamesByCode,
+    required this.studentCodes,
+    required this.classroomCodes,
+  });
+
+  final Map<String, String> studentNamesByCode;
+  final Map<String, String> classroomNamesByCode;
+  final List<String> studentCodes;
+  final List<String> classroomCodes;
+}
+
+/// A typed snapshot of the board's persisted filter selection — replaces the
+/// hand-built `Map<String, dynamic>` the screen used to read/write directly.
+class MovementFilterSnapshot {
+  const MovementFilterSnapshot({
+    this.studentCodes = const <String>[],
+    this.fromClassroomCodes = const <String>[],
+    this.toClassroomCodes = const <String>[],
+    this.rangeStart,
+    this.rangeEnd,
+  });
+
+  final List<String> studentCodes;
+  final List<String> fromClassroomCodes;
+  final List<String> toClassroomCodes;
+  final DateTime? rangeStart;
+  final DateTime? rangeEnd;
+
+  factory MovementFilterSnapshot.fromJson(Map<String, dynamic> json) {
+    List<String> readCodes(dynamic value) {
+      if (value is! List) return const <String>[];
+      return value.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+    }
+
+    DateTime? readMs(dynamic value) {
+      final ms = (value as num?)?.toInt();
+      return ms != null ? DateTime.fromMillisecondsSinceEpoch(ms) : null;
+    }
+
+    return MovementFilterSnapshot(
+      studentCodes: readCodes(json['students']),
+      fromClassroomCodes: readCodes(json['fromClassrooms']),
+      toClassroomCodes: readCodes(json['toClassrooms']),
+      rangeStart: readMs(json['rangeStartMs']),
+      rangeEnd: readMs(json['rangeEndMs']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'students': studentCodes,
+      'fromClassrooms': fromClassroomCodes,
+      'toClassrooms': toClassroomCodes,
+      if (rangeStart != null) 'rangeStartMs': rangeStart!.millisecondsSinceEpoch,
+      if (rangeEnd != null) 'rangeEndMs': rangeEnd!.millisecondsSinceEpoch,
+    };
   }
 }
 
