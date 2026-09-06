@@ -3,8 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
-import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
-import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/bool_toggle_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/transactions_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 
@@ -125,21 +125,21 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
           final netPaidItem = ProgressItemHelper(
             label: labelFor(BillingStrings.netPaid, widget.netPaidAmount),
             value: barValue(widget.netPaidAmount),
-            color: Colors.greenAccent.shade100,
+            color: AppColors.billingStatBarNetPaidColor,
             filterValue: BillingSummaryFilter.netPaid.name,
           );
 
           final outstandingItem = ProgressItemHelper(
             label: labelFor(BillingStrings.outstanding, widget.outstandingAmount),
             value: barValue(widget.outstandingAmount),
-            color: Colors.redAccent.shade100,
+            color: AppColors.billingStatBarOutstandingColor,
             filterValue: BillingSummaryFilter.outstanding.name,
           );
 
           final inProcessItem = ProgressItemHelper(
             label: labelFor(BillingStrings.inProcess, widget.inProcessAmount),
             value: barValue(widget.inProcessAmount),
-            color: Colors.yellow,
+            color: AppColors.billingStatBarInProcessColor,
             filterValue: BillingSummaryFilter.inProcess.name,
           );
 

@@ -10,7 +10,7 @@ import 'package:wowcare/presentation/features/dashboard/cubit/my_childs_day_cubi
 import 'package:wowcare/presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
-import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/parent_billing_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 

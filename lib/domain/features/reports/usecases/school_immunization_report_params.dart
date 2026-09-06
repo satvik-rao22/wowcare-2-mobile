@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../entities/report_type.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'report_params.dart';
 
 /// Parameters for School Immunization report generation.
@@ -51,50 +51,6 @@ class SchoolImmunizationReportParams extends Equatable implements ReportParams {
 
   /// Optional tag codes (empty = all tags)
   final List<String>? tagCodes;
-
-  // @override
-  // Map<String, dynamic> toRequestBody() {
-  //   return {
-  //     'reportType': 'IMMUNIZATION',
-  //     'startDate': startDate.toIso8601String().split('T')[0],
-  //     'endDate': endDate.toIso8601String().split('T')[0],
-  //     'vaccineCodes': vaccineCodes,
-  //     'schoolName': schoolName,
-  //     // Key names confirmed against the web client's verified IMMUNIZATION
-  //     // payload: roomCodes/tagCodes/statusFilter, not classrooms/tags/statuses.
-  //     'statusFilter': statusFilters,
-  //     'includeParentName': includeParentName,
-  //     'includeParentEmail': includeParentEmail,
-  //     if (classroomCodes != null && classroomCodes!.isNotEmpty)
-  //       'roomCodes': classroomCodes,
-  //     if (tagCodes != null && tagCodes!.isNotEmpty) 'tagCodes': tagCodes,
-  //     'format': format,
-  //   };
-  // }
-
-  @override
-  Map<String, dynamic> toRequestBody() {
-    final body = <String, dynamic>{
-      'reportType': 'IMMUNIZATION',
-      'startDate': startDate.toIso8601String().split('T')[0],
-      'endDate': endDate.toIso8601String().split('T')[0],
-      'vaccineCodes': vaccineCodes,
-      'schoolName': schoolName,
-      'statusFilter': statusFilters,
-      'includeParentName': includeParentName,
-      'includeParentEmail': includeParentEmail,
-      'format': format,
-    };
-
-    if (classroomCodes != null && classroomCodes!.isNotEmpty) {
-      body['roomCodes'] = classroomCodes;
-    }
-    if (tagCodes != null && tagCodes!.isNotEmpty) {
-      body['tagCodes'] = tagCodes;
-    }
-
-    return body;
-  }
 
   @override
   String toCacheIdentifier() {

@@ -4,6 +4,7 @@ import 'package:wowcare/presentation/features/billing/model/billing_route_args.d
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/transaction_details_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
@@ -99,10 +100,10 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color.fromRGBO(156, 132, 255, 1),
+              color: AppColors.billingCircleAccentColor,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
+                  color: AppColors.blackColor.withValues(alpha: 0.2),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
@@ -115,7 +116,11 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
                 customBorder: const CircleBorder(),
                 child: const Padding(
                   padding: EdgeInsets.all(10.0),
-                  child: Icon(Icons.close, color: Colors.white, size: 20),
+                  child: Icon(
+                    Icons.close,
+                    color: AppColors.billingCardOnColorText,
+                    size: 20,
+                  ),
                 ),
               ),
             ),
@@ -330,11 +335,15 @@ class _PopupActionButton extends StatelessWidget {
                           width: iconSize,
                           fit: BoxFit.contain,
                           colorFilter: const ColorFilter.mode(
-                            Colors.white,
+                            AppColors.billingCardOnColorText,
                             BlendMode.srcIn,
                           ),
                         )
-                      : Icon(iconData, color: Colors.white, size: iconSize),
+                      : Icon(
+                          iconData,
+                          color: AppColors.billingCardOnColorText,
+                          size: iconSize,
+                        ),
                 ),
               ),
               const SizedBox(height: 4),
@@ -343,7 +352,10 @@ class _PopupActionButton extends StatelessWidget {
                 maxLines: 2,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: const TextStyle(
+                  color: AppColors.billingCardOnColorText,
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
@@ -452,11 +464,11 @@ class BillingMoreOptionsPopup extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.billingAccentBlue),
-        color: Colors.white,
+        color: AppColors.billingCardColor,
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: AppColors.blackColor.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -517,7 +529,7 @@ class _MoreOptionItem extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                fontFamily: 'Manrope',
+                fontFamily: Fonts.manrope,
                 color: AppColors.primaryColor,
               ),
             ),
@@ -551,11 +563,15 @@ class _GradientIcon extends StatelessWidget {
               height: size,
               width: size,
               colorFilter: const ColorFilter.mode(
-                Colors.white,
+                AppColors.billingCardOnColorText,
                 BlendMode.srcIn,
               ),
             )
-          : Icon(iconData, size: size, color: Colors.white),
+          : Icon(
+              iconData,
+              size: size,
+              color: AppColors.billingCardOnColorText,
+            ),
     );
   }
 }

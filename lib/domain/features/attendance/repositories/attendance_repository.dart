@@ -152,6 +152,10 @@ abstract class AttendanceRepository {
   });
 
   /// Creates student absence records (Mark Absent).
+  ///
+  /// [idempotencyKey], when provided, is sent as the `Idempotency-Key` header
+  /// so a 401-refresh auto-replay (or a retried tap) of this exact request
+  /// can't create a duplicate absence record — mirrors sign-in/out/transfer.
   Future<String> markStudentsAbsent({
     required String staffCode,
     required List<String> studentCodes,
@@ -162,9 +166,14 @@ abstract class AttendanceRepository {
     required String classroomCode,
     required Map<String, bool> isExpectedTodayByStudentCode,
     String markAbsentMethod = 'APP',
+    String? idempotencyKey,
   });
 
   /// Creates staff absence records (Mark Absent).
+  ///
+  /// [idempotencyKey], when provided, is sent as the `Idempotency-Key` header
+  /// so a 401-refresh auto-replay (or a retried tap) of this exact request
+  /// can't create a duplicate absence record — mirrors sign-in/out/transfer.
   Future<String> markStaffAbsent({
     required String staffCode,
     required List<String> staffCodes,
@@ -175,6 +184,7 @@ abstract class AttendanceRepository {
     required Map<String, String> absenceNotes,
     required Map<String, bool> isExpectedTodayByStaffCode,
     String markAbsentMethod = 'APP',
+    String? idempotencyKey,
   });
 
   /// Student Absent toggle view - absent students for daily screen toggle.

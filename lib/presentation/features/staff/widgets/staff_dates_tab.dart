@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -17,6 +16,8 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab_widgets.dart';
+import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
+import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 
 class StaffDatesTab extends StatelessWidget {
   const StaffDatesTab({super.key, required this.staffCode});
@@ -25,10 +26,8 @@ class StaffDatesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<ImportantDatesCubit>(
-      create: (_) => serviceLocator<ImportantDatesCubit>(),
-      child: _StaffDatesTabView(staffCode: staffCode),
-    );
+    // Cubits are created by the route builder (§1.6), not here.
+    return _StaffDatesTabView(staffCode: staffCode);
   }
 }
 
@@ -806,23 +805,23 @@ class _StaffDatesTabViewState extends State<_StaffDatesTabView> {
                         final physical = _getEntryByType('PHYSICAL_CHECKUP');
                         context
                             .push(
-                              '/dashboard/edit-important-dates-screen',
-                              extra: <String, dynamic>{
-                                'staffCode': widget.staffCode,
-                                'initialHireDate': _parseIsoDate(hire?.dueDate),
-                                'initialCdaExaminationDate': _parseIsoDate(
+                              StaffRoutes.editImportantDates,
+                              extra: EditImportantDatesArgs(
+                                staffCode: widget.staffCode,
+                                initialHireDate: _parseIsoDate(hire?.dueDate),
+                                initialCdaExaminationDate: _parseIsoDate(
                                   cda?.dueDate,
                                 ),
-                                'initialFirstAidCprExpirationDate':
+                                initialFirstAidCprExpirationDate:
                                     _parseIsoDate(firstAid?.dueDate),
-                                'initialBackgroundRecordCheckExpirationDate':
+                                initialBackgroundRecordCheckExpirationDate:
                                     _parseIsoDate(brc?.dueDate),
-                                'initialPhysicalCheckupDate': _parseIsoDate(
+                                initialPhysicalCheckupDate: _parseIsoDate(
                                   physical?.dueDate,
                                 ),
-                                'initialPhysicalCheckupStatus':
+                                initialPhysicalCheckupStatus:
                                     _apiStatusToDropdown(physical?.status),
-                              },
+                              ),
                             )
                             .then((_) {
                               if (mounted) _loadDates(useCache: false);

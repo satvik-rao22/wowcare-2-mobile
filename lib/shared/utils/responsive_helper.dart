@@ -1,34 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/responsive/app_breakpoints.dart';
 
 class ResponsiveHelper {
   final BuildContext context;
 
   ResponsiveHelper(this.context);
 
-  bool get isTablet => MediaQuery.of(context).size.width >= 768;
-  bool get isLargeTablet => MediaQuery.of(context).size.width >= 1024;
+  /// M7: delegates to the single breakpoint source. This MOVED from >= 768
+  /// to >= 600, so widths 600-767 are now tablet app-wide. That was the
+  /// deliberate unification — see AppBreakpoints.compactMaxWidth.
+  double get _width => MediaQuery.sizeOf(context).width;
+
+  bool get isTablet => AppBreakpoints.classify(_width).isTablet;
+  bool get isLargeTablet =>
+      AppBreakpoints.classify(_width) == ScreenSizeClass.expanded;
 
   // Compact breakpoints preserved from the legacy ResponsiveSizing (tablet >=600)
   // and the inline attendance literals (wide >=900). Kept verbatim so
   // consolidating onto this single helper does NOT shift any existing visual
   // breakpoint. Distinct from the canonical isTablet(768)/isLargeTablet(1024).
-  bool get isTabletCompact => MediaQuery.of(context).size.width >= 600;
-  bool get isWide => MediaQuery.of(context).size.width >= 900;
+  /// Was a separate 600 breakpoint added because [isTablet] sat at 768.
+  /// Now identical to [isTablet]; kept so its 34 call sites keep compiling.
+  bool get isTabletCompact => isTablet;
+  bool get isWide => AppBreakpoints.isWide(_width);
 
   // Narrow-phone breakpoint, preserved verbatim from inline attendance
   // literals (`screenWidth < 360`) so consolidating onto this helper does
   // NOT shift any existing visual breakpoint.
-  bool get isNarrow => MediaQuery.of(context).size.width < 360;
+  bool get isNarrow => AppBreakpoints.isNarrow(_width);
 
   /// Raw screen dimensions, for call sites that need the actual pixel value
   /// (e.g. popup positioning math) rather than a breakpoint boolean. Routing
   /// these through the helper — even as a plain passthrough — keeps every
   /// screen-dimension read in one place.
-  double get screenWidth => MediaQuery.of(context).size.width;
-  double get screenHeight => MediaQuery.of(context).size.height;
+  double get screenWidth => _width;
+  double get screenHeight => MediaQuery.sizeOf(context).height;
 
-  double get containerWidth =>
-      isLargeTablet ? 1200.0 : MediaQuery.of(context).size.width;
+  double get containerWidth => isLargeTablet ? 1200.0 : _width;
 
   double get titleFontSize => isTablet ? 24.0 : 18.0;
   double get labelFontSize => isTablet ? 16.0 : 14.0;

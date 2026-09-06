@@ -26,11 +26,11 @@ import 'package:wowcare/domain/features/attendance/usecases/get_staff_absent_for
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_staff_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_staff_state.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/model/staff_entity.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';

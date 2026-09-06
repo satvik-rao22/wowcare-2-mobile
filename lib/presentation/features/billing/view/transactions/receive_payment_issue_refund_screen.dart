@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
-import 'package:wowcare/presentation/features/billing/cubit/receive_payment_refund_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/receive_payment_refund_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -240,7 +241,7 @@ class _ReceivePaymentIssueRefundScreenState
 
   TextStyle _labelStyle(ResponsiveHelper responsive) => TextStyle(
     fontSize: responsive.labelFontSize,
-    fontFamily: 'Manrope',
+    fontFamily: Fonts.manrope,
     fontWeight: FontWeight.w400,
     color: AppColors.billingTextColor,
   );
@@ -301,14 +302,14 @@ class _ReceivePaymentIssueRefundScreenState
                 null,
         onChanged: onChanged,
         style: TextStyle(
-          fontFamily: 'Manrope',
+          fontFamily: Fonts.manrope,
           fontSize: responsive.inputFontSize,
           fontWeight: FontWeight.w600,
           color: AppColors.billingTextColor,
         ),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: _labelStyle(responsive).copyWith(color: Colors.grey),
+          hintStyle: _labelStyle(responsive).copyWith(color: AppColors.billingGrey),
           border: InputBorder.none,
           contentPadding: _fieldPadding(responsive),
         ),
@@ -415,7 +416,7 @@ class _ReceivePaymentIssueRefundScreenState
             padding: EdgeInsets.only(top: 4.0, left: 2.0),
             child: Text(
               BillingStrings.pleaseEnterAnAmountError,
-              style: TextStyle(color: Colors.red, fontSize: 12),
+              style: TextStyle(color: AppColors.errorColor, fontSize: 12),
             ),
           ),
       ],
@@ -442,7 +443,7 @@ class _ReceivePaymentIssueRefundScreenState
         Text(
           BillingStrings.receiveMethod,
           style: TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: Fonts.manrope,
             fontSize: responsive.isTablet ? 18.0 : 16.0,
             fontWeight: FontWeight.w700,
             color: AppColors.billingTextColor,
@@ -502,7 +503,7 @@ class _ReceivePaymentIssueRefundScreenState
             padding: EdgeInsets.only(top: 4.0, left: 2.0),
             child: Text(
               BillingStrings.pleaseEnterAnAmountError,
-              style: TextStyle(color: Colors.red, fontSize: 12),
+              style: TextStyle(color: AppColors.errorColor, fontSize: 12),
             ),
           ),
       ],
@@ -526,7 +527,7 @@ class _ReceivePaymentIssueRefundScreenState
       decoration: BoxDecoration(
         color: AppColors.billingCardColor,
         border: Border.all(
-          color: over ? AppColors.errorColor : const Color(0x33573353),
+          color: over ? AppColors.errorColor : AppColors.billingBorderFaint,
         ),
         borderRadius: BorderRadius.circular(radius),
       ),
@@ -549,7 +550,7 @@ class _ReceivePaymentIssueRefundScreenState
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: AppColors.billingTextColor,
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -559,7 +560,7 @@ class _ReceivePaymentIssueRefundScreenState
                         fontSize: 13,
                         fontWeight: FontWeight.w400,
                         color: AppColors.billingGrey,
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                       ),
                     ),
                   ],
@@ -582,7 +583,7 @@ class _ReceivePaymentIssueRefundScreenState
               padding: EdgeInsets.only(top: 6.0, left: 2.0),
               child: Text(
                 BillingStrings.amountExceedsOutstanding,
-                style: TextStyle(color: Colors.red, fontSize: 12),
+                style: TextStyle(color: AppColors.errorColor, fontSize: 12),
               ),
             ),
         ],
@@ -592,13 +593,7 @@ class _ReceivePaymentIssueRefundScreenState
 
   /// Initials avatar (matches the staff-card 50px size) for a sibling row.
   Widget _avatar(String name) {
-    const List<Color> palette = <Color>[
-      Color(0xFFB983FF),
-      Color(0xFFF6D365),
-      AppColors.billingAccentBlue,
-      Color(0xFF7ED9A6),
-      Color(0xFFFF9AA2),
-    ];
+    const List<Color> palette = AppColors.billingAvatarPalette;
     final Color color = palette[name.hashCode.abs() % palette.length];
     return Container(
       width: 50,
@@ -608,10 +603,10 @@ class _ReceivePaymentIssueRefundScreenState
         child: Text(
           _initials(name),
           style: const TextStyle(
-            color: Colors.white,
+            color: AppColors.billingCardOnColorText,
             fontSize: 16,
             fontWeight: FontWeight.bold,
-            fontFamily: 'Manrope',
+            fontFamily: Fonts.manrope,
           ),
         ),
       ),
@@ -642,7 +637,7 @@ class _ReceivePaymentIssueRefundScreenState
             child: Text(
               label,
               style: TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: Fonts.manrope,
                 fontSize: responsive.isTablet ? 17.0 : 15.0,
                 fontWeight: FontWeight.w500,
                 color: AppColors.billingTextColor,
@@ -664,7 +659,7 @@ class _ReceivePaymentIssueRefundScreenState
     VoidCallback? onChanged,
   }) {
     final TextStyle valueStyle = TextStyle(
-      fontFamily: 'Manrope',
+      fontFamily: Fonts.manrope,
       fontSize: responsive.inputFontSize,
       fontWeight: FontWeight.w600,
       color: AppColors.billingTextColor,
@@ -674,7 +669,9 @@ class _ReceivePaymentIssueRefundScreenState
     return Container(
       constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
       decoration: BoxDecoration(
-        color: active ? AppColors.billingCardColor : const Color(0xFFF4F4F6),
+        color: active
+            ? AppColors.billingCardColor
+            : AppColors.billingInactiveFieldBackground,
         border: Border.all(color: AppColors.billingBorderDefault),
         borderRadius: BorderRadius.circular(radius),
       ),
@@ -708,7 +705,7 @@ class _ReceivePaymentIssueRefundScreenState
                       hintText: '0.00',
                       hintStyle: _labelStyle(
                         responsive,
-                      ).copyWith(color: AppColors.billingGrey),
+                      ).copyWith(color: AppColors.billingMutedIconColor),
                       border: InputBorder.none,
                       contentPadding: _fieldPadding(responsive),
                     ),
@@ -731,7 +728,7 @@ class _ReceivePaymentIssueRefundScreenState
         ? _selectedPaymentType
         : null;
     final TextStyle valueStyle = TextStyle(
-      fontFamily: 'Manrope',
+      fontFamily: Fonts.manrope,
       fontSize: responsive.inputFontSize,
       fontWeight: FontWeight.w600,
       color: AppColors.billingTextColor,
@@ -753,7 +750,7 @@ class _ReceivePaymentIssueRefundScreenState
                 enabled: !_isSubmitting,
                 padding: EdgeInsets.zero,
                 position: PopupMenuPosition.under,
-                color: Colors.white,
+                color: AppColors.billingCardColor,
                 // Make the menu span the full width of the field.
                 constraints: BoxConstraints(
                   minWidth: constraints.maxWidth,
@@ -789,7 +786,7 @@ class _ReceivePaymentIssueRefundScreenState
                               ? valueStyle
                               : _labelStyle(
                                   responsive,
-                                ).copyWith(color: Colors.grey),
+                                ).copyWith(color: AppColors.billingMutedIconColor),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -821,10 +818,10 @@ class _ReceivePaymentIssueRefundScreenState
         top: 8,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.billingCardColor,
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: AppColors.blackColor.withValues(alpha: 0.05),
             offset: const Offset(0, -4),
             blurRadius: 16,
           ),
@@ -861,7 +858,7 @@ class _ReceivePaymentIssueRefundScreenState
                     Text(
                       BillingStrings.processing,
                       style: TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                         fontSize: responsive.buttonFontSize,
                         fontWeight: FontWeight.w600,
                         color: AppColors.billingCardColor,
@@ -872,7 +869,7 @@ class _ReceivePaymentIssueRefundScreenState
               : Text(
                   BillingStrings.save,
                   style: TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: Fonts.manrope,
                     fontSize: responsive.buttonFontSize,
                     fontWeight: FontWeight.w600,
                     color: AppColors.billingCardColor,
@@ -896,17 +893,17 @@ class _ReceivePaymentIssueRefundScreenState
               width: 50,
               height: 50,
               decoration: const BoxDecoration(
-                color: Colors.orange,
+                color: AppColors.billingUserAvatarBackground,
                 shape: BoxShape.circle,
               ),
               child: Center(
                 child: Text(
                   _getUserInitials(),
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.billingCardOnColorText,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    fontFamily: 'Manrope',
+                    fontFamily: Fonts.manrope,
                   ),
                 ),
               ),
@@ -919,7 +916,7 @@ class _ReceivePaymentIssueRefundScreenState
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: AppColors.billingTextColor,
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                 ),
               ),
             ),
@@ -933,7 +930,7 @@ class _ReceivePaymentIssueRefundScreenState
               fontSize: 16,
               fontWeight: FontWeight.bold,
               color: AppColors.billingTextColor,
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
             ),
           ),
           const SizedBox(height: 6),
@@ -943,7 +940,7 @@ class _ReceivePaymentIssueRefundScreenState
               fontSize: 16,
               fontWeight: FontWeight.bold,
               color: AppColors.billingTextColor,
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
             ),
           ),
         ] else
@@ -953,7 +950,7 @@ class _ReceivePaymentIssueRefundScreenState
               fontSize: 16,
               fontWeight: FontWeight.bold,
               color: AppColors.billingTextColor,
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
             ),
           ),
         const SizedBox(height: 12),

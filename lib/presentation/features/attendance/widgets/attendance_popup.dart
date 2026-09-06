@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/src/app_router.dart' show dashboardBranchKey;
@@ -23,7 +23,7 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
+import 'package:wowcare/presentation/features/attendance/model/staff_entity.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_profile_fetch_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
@@ -476,14 +476,13 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     final isAdmin = roleProvider.isAdmin && !_isParentRole;
     final isParent = _isParentRole;
     final isTeacherPersona = _isTeacherStaffPersona == true;
-    final mediaQuery = MediaQuery.of(context);
     final screenHeight = ResponsiveHelper(context).screenHeight;
     final screenWidth = ResponsiveHelper(context).screenWidth;
     final isTablet = ResponsiveHelper(context).isTabletCompact;
     final navBarHeight = CustomNavigationBar.navBarHeight;
     // Use a default height if navBarHeight hasn't been measured yet
     final effectiveNavBarHeight = navBarHeight > 0 ? navBarHeight : 80.0;
-    final safeAreaBottom = mediaQuery.padding.bottom;
+    final safeAreaBottom = MediaQuery.paddingOf(context).bottom;
 
     // Calculate spacing between popup and navigation bar
     final spacingFromNavBar = 10.0;

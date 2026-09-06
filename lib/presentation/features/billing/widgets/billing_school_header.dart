@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/billing/cubit/billing_school_header_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/billing_school_header_cubit.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// Shared school header for billing receipt/invoice screens: shows the real

@@ -4,11 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/payment_settings_entity.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
-import 'package:wowcare/presentation/features/billing/cubit/pay_now_authorize_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/pay_now_authorize_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
 /// Pay Now — step 3: review + authorize. Charges the selected saved method via
@@ -83,7 +84,7 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
   TextStyle _t(double size, FontWeight weight, Color color,
           {double? spacing}) =>
       TextStyle(
-        fontFamily: 'Manrope',
+        fontFamily: Fonts.manrope,
         fontSize: size,
         fontWeight: weight,
         color: color,
@@ -168,12 +169,12 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.billingCardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.primaryColor.withValues(alpha: 0.12)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppColors.blackColor.withValues(alpha: 0.04),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -194,7 +195,7 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
                 ),
                 child: Icon(
                   _isEcheck ? Icons.account_balance : Icons.credit_card,
-                  color: Colors.white,
+                  color: AppColors.billingCardOnColorText,
                   size: 26,
                 ),
               ),
@@ -317,11 +318,12 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
                 width: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                      AppColors.billingCardOnColorText),
                 ),
               )
             : Text(BillingStrings.confirmPayment,
-                style: _t(16, FontWeight.w700, Colors.white)),
+                style: _t(16, FontWeight.w700, AppColors.billingCardOnColorText)),
       ),
     );
   }

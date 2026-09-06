@@ -4,7 +4,7 @@ import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_sign_in_gate_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/view_model/staff_sign_in_gate_cubit.dart';
 
 class _UnusedRepo implements AttendanceRepository {
   @override

@@ -12,6 +12,8 @@ import 'package:wowcare/domain/features/staff/usecases/deactivate_school_user_us
 import 'package:wowcare/domain/features/staff/usecases/activate_organization_admin_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/deactivate_organization_admin_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/delete_school_user_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/load_cached_staff_page_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/invalidate_cached_staff_page_usecase.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 
 StaffMember _staff(String code) => StaffMember(
@@ -92,7 +94,8 @@ StaffCubit _buildCubit(GetStaffPageUseCase page) => StaffCubit(
   deactivateOrganizationAdminUseCase:
       DeactivateOrganizationAdminUseCase(_UnusedRepo()),
   deleteSchoolUserUseCase: DeleteSchoolUserUseCase(_UnusedRepo()),
-  repository: _UnusedRepo(),
+  loadCachedStaffPageUseCase: LoadCachedStaffPageUseCase(_UnusedRepo()),
+  invalidateCachedStaffPageUseCase: InvalidateCachedStaffPageUseCase(_UnusedRepo()),
   storageService: _FakeStorage(),
 );
 

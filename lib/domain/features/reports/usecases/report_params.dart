@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../entities/report_type.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 
 /// Base interface for all report parameter classes.
 ///
@@ -15,11 +15,9 @@ abstract class ReportParams extends Equatable {
   /// Export format for the report (PDF or XLSX).
   String get format;
 
-  /// Convert this parameter instance to API request body format.
-  ///
-  /// Returns a Map<String, dynamic> with keys/values matching the
-  /// backend API's expected JSON payload.
-  Map<String, dynamic> toRequestBody();
+  /// The wire body is *not* built here. `ReportRequestPayload.fromParams`
+  /// in the data layer turns these typed values into JSON, so no map ever
+  /// crosses the domain boundary (§8).
 
   /// Build a unique cache identifier from these parameters.
   ///

@@ -5,8 +5,8 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_in_gate_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/view_model/student_sign_in_gate_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_sign_in_form.dart'
     show StudentEntity;
 
 class _UnusedRepo implements AttendanceRepository {

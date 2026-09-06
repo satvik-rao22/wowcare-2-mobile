@@ -4,13 +4,33 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
-import 'package:wowcare/presentation/features/billing/cubit/send_invoice_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/send_invoice_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/core/util/billing_school_time.dart';
+
+/// Locally-derived invoice header shown on the Send Invoice form (not parsed
+/// from any API response — built from [SendInvoiceScreen.transaction]).
+class _SendInvoiceDummyData {
+  const _SendInvoiceDummyData({
+    required this.invoiceNumber,
+    required this.startDate,
+    required this.endDate,
+    required this.dueDate,
+    required this.invoiceAmount,
+    required this.description,
+  });
+
+  final String invoiceNumber;
+  final DateTime startDate;
+  final DateTime endDate;
+  final DateTime dueDate;
+  final double invoiceAmount;
+  final String description;
+}
 
 class SendInvoiceScreen extends StatelessWidget {
   const SendInvoiceScreen({super.key, required this.transaction});
@@ -40,7 +60,7 @@ class _SendInvoiceForm extends StatefulWidget {
 
 class _SendInvoiceFormState extends State<_SendInvoiceForm> {
   // Dummy data for UI
-  Map<String, dynamic>? _invoiceDetails;
+  _SendInvoiceDummyData? _invoiceDetails;
 
   // Form controllers
   final TextEditingController _invoiceNumberController =
@@ -61,23 +81,19 @@ class _SendInvoiceFormState extends State<_SendInvoiceForm> {
 
   void _initializeDummyData() {
     // Load dummy data
-    Map<String, dynamic>? invoiceData;
+    _SendInvoiceDummyData? invoiceData;
     if (widget.transaction.refTable == 'Invoice' &&
         widget.transaction.refTableId != null) {
-      invoiceData = {
-        'invoiceNumber': 'INV-2025-${widget.transaction.refTableId}',
-        'startDate': widget.transaction.date
-            .subtract(const Duration(days: 30))
-            .toIso8601String(),
-        'endDate': widget.transaction.date.toIso8601String(),
-        'dueDate': widget.transaction.endDate != null
-            ? DateTime.parse(widget.transaction.endDate!).toIso8601String()
-            : widget.transaction.date
-                  .add(const Duration(days: 7))
-                  .toIso8601String(),
-        'invoiceAmount': widget.transaction.amount,
-        'description': widget.transaction.description,
-      };
+      invoiceData = _SendInvoiceDummyData(
+        invoiceNumber: 'INV-2025-${widget.transaction.refTableId}',
+        startDate: widget.transaction.date.subtract(const Duration(days: 30)),
+        endDate: widget.transaction.date,
+        dueDate: widget.transaction.endDate != null
+            ? DateTime.parse(widget.transaction.endDate!)
+            : widget.transaction.date.add(const Duration(days: 7)),
+        invoiceAmount: widget.transaction.amount,
+        description: widget.transaction.description,
+      );
     }
 
     _invoiceDetails = invoiceData;
@@ -103,36 +119,22 @@ class _SendInvoiceFormState extends State<_SendInvoiceForm> {
     // Set form data
   }
 
-  void _updateFormWithInvoiceData(Map<String, dynamic> invoiceData) {
+  void _updateFormWithInvoiceData(_SendInvoiceDummyData invoiceData) {
     // Update invoice number
-    if (invoiceData['invoiceNumber'] != null) {
-      _invoiceNumberController.text = invoiceData['invoiceNumber'].toString();
-      _invoiceNumber = _invoiceNumberController.text;
-    }
+    _invoiceNumberController.text = invoiceData.invoiceNumber;
+    _invoiceNumber = _invoiceNumberController.text;
 
     // Update due date
-    if (invoiceData['dueDate'] != null) {
-      try {
-        final dueDateParsed = DateTime.parse(invoiceData['dueDate'].toString());
-        _dueDateController.text = DateUtilsNew.formatToReadableDate(
-          dueDateParsed,
-        );
-      } catch (e) {
-        // Date parsing failed, keep current value
-      }
-    }
+    _dueDateController.text = DateUtilsNew.formatToReadableDate(
+      invoiceData.dueDate,
+    );
 
     // Update amount
-    if (invoiceData['invoiceAmount'] != null) {
-      final invoiceAmount =
-          double.tryParse(invoiceData['invoiceAmount'].toString()) ?? 0.0;
-      _amountController.text = invoiceAmount.toStringAsFixed(2);
-    }
+    _amountController.text = invoiceData.invoiceAmount.toStringAsFixed(2);
 
     // Update description if available
-    if (invoiceData['description'] != null &&
-        invoiceData['description'].toString().isNotEmpty) {
-      _descriptionController.text = invoiceData['description'].toString();
+    if (invoiceData.description.isNotEmpty) {
+      _descriptionController.text = invoiceData.description;
     }
   }
 
@@ -146,31 +148,11 @@ class _SendInvoiceFormState extends State<_SendInvoiceForm> {
       return BillingStrings.na;
     }
 
-    final startDate = _invoiceDetails!['startDate'];
-    final endDate = _invoiceDetails!['endDate'];
-
-    if (startDate == null && endDate == null) {
-      return BillingStrings.notSpecifiedInInvoice;
-    }
-
-    try {
-      String startText = BillingStrings.notSpecified;
-      String endText = BillingStrings.notSpecified;
-
-      if (startDate != null) {
-        final startParsed = DateTime.parse(startDate.toString());
-        startText = DateUtilsNew.formatToReadableDate(startParsed);
-      }
-
-      if (endDate != null) {
-        final endParsed = DateTime.parse(endDate.toString());
-        endText = DateUtilsNew.formatToReadableDate(endParsed);
-      }
-
-      return '$startText - $endText';
-    } catch (e) {
-      return BillingStrings.dateFormatError;
-    }
+    final startText = DateUtilsNew.formatToReadableDate(
+      _invoiceDetails!.startDate,
+    );
+    final endText = DateUtilsNew.formatToReadableDate(_invoiceDetails!.endDate);
+    return '$startText - $endText';
   }
 
   @override
@@ -487,7 +469,7 @@ class _SendInvoiceFormState extends State<_SendInvoiceForm> {
                     height: 22,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.5,
-                      color: Colors.white,
+                      color: AppColors.billingCardOnColorText,
                     ),
                   )
                 : Text(

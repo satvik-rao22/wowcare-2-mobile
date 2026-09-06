@@ -11,16 +11,13 @@ import 'dart:async';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/staff/cubit/create_school_user_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'dart:convert';
 import 'dart:io';
-import 'package:wowcare/presentation/features/staff/staff_photo_background.dart';
+import 'package:wowcare/presentation/features/staff/model/staff_route_results.dart';
+import 'package:go_router/go_router.dart';
 
 class AddStaffScreen extends StatelessWidget {
   const AddStaffScreen({
@@ -54,28 +51,19 @@ class AddStaffScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider<CreateSchoolUserCubit>(
-          create: (_) => serviceLocator<CreateSchoolUserCubit>(),
-        ),
-        BlocProvider<ClassroomCubit>(
-          create: (_) => serviceLocator<ClassroomCubit>(),
-        ),
-      ],
-      child: _AddStaffScreenView(
-        isEdit: isEdit,
-        initialFirstName: initialFirstName,
-        initialLastName: initialLastName,
-        initialEmail: initialEmail,
-        initialPhone: initialPhone,
-        initialRole: initialRole,
-        initialAllowedClassroomCodes: initialAllowedClassroomCodes,
-        initialPrimaryClassroom: initialPrimaryClassroom,
-        initialStatus: initialStatus,
-        initialClassroomNames: initialClassroomNames,
-        initialClassroomCodeByName: initialClassroomCodeByName,
-      ),
+    // Cubits are created by the route builder (§1.6), not here.
+    return _AddStaffScreenView(
+      isEdit: isEdit,
+      initialFirstName: initialFirstName,
+      initialLastName: initialLastName,
+      initialEmail: initialEmail,
+      initialPhone: initialPhone,
+      initialRole: initialRole,
+      initialAllowedClassroomCodes: initialAllowedClassroomCodes,
+      initialPrimaryClassroom: initialPrimaryClassroom,
+      initialStatus: initialStatus,
+      initialClassroomNames: initialClassroomNames,
+      initialClassroomCodeByName: initialClassroomCodeByName,
     );
   }
 }
@@ -135,7 +123,6 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
   /// True when the *logged-in* user has an admin persona (e.g. SCHOOL_ADMIN / ORGANIZATION_ADMIN).
   /// Used to make classroom fields read-only in edit flow for admin persona users.
   bool _isLoggedInAdminPersona = false;
-  Set<String> _loggedInStaffAllowedClassroomCodes = <String>{};
 
   OverlayEntry? _overlayEntry;
   String? _warningMessage;
@@ -213,13 +200,6 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
     if (firstName.isEmpty || lastName.isEmpty) return true;
 
     try {
-      final storage = serviceLocator<StorageService>();
-      final org = (await storage.getString(StorageKeys.organizationCode) ?? '')
-          .trim();
-      final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
-          .trim();
-      if (org.isEmpty || school.isEmpty) return true;
-
       String norm(String s) =>
           s.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
       final full = '$firstName $lastName';
@@ -227,11 +207,10 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
 
       // Fetch the full staff list and match client-side (mirrors the Add Student
       // duplicate check). Avoids relying on the search param / first-page window.
-      final allStaff = await _createSchoolUserCubit.fetchAllStaff(
-        organizationCode: org,
-        schoolCode: school,
-        size: 500,
-      );
+      final allStaff = await _createSchoolUserCubit
+          .fetchAllStaffForActiveSchool(size: 500);
+      // No org/school selected — nothing to check against; let the add proceed.
+      if (allStaff == null) return true;
       final exists = allStaff.any((m) => norm(m.name) == fullNorm);
       if (!exists) return true;
       if (!mounted) return true;
@@ -266,36 +245,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
 
   Future<void> _loadCurrentPersonaAdminFlag() async {
     try {
-      final storage = serviceLocator<StorageService>();
-      // Prefer staffType from profile.
-      String staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-          .trim()
-          .toUpperCase();
-      bool isAdmin =
-          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
-
-      // Fallback to roles JSON when staffType is not available.
-      if (!isAdmin) {
-        final rolesJson = await storage.getString(StorageKeys.roles);
-        if (rolesJson != null && rolesJson.isNotEmpty) {
-          try {
-            final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
-            for (final r in roles) {
-              final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
-                  .toString()
-                  .toUpperCase();
-              if (roleCode == 'SCHOOL_ADMIN' ||
-                  roleCode == 'ORGANIZATION_ADMIN') {
-                isAdmin = true;
-                break;
-              }
-            }
-          } catch (_) {
-            // Ignore parsing errors; default to non-admin persona.
-          }
-        }
-      }
-
+      final isAdmin = await _createSchoolUserCubit.loadIsAdminPersona();
       if (!mounted) return;
       setState(() {
         _isLoggedInAdminPersona = isAdmin;
@@ -538,7 +488,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
   Future<void> _loadClassrooms() async {
     // Load classrooms via cubit using the classroom-only API
     // (maps to type=CLASSROOM in the backend URL for all roles).
-    _classroomCubit!.loadActiveClassrooms(onlyTypeClassroom: true);
+    _classroomCubit.loadActiveClassrooms(onlyTypeClassroom: true);
   }
 
   void _updateClassroomsFromCubitState(ClassroomState state) {
@@ -730,22 +680,11 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
               final photo = _profilePhoto;
               final newStaffCode = (u.staffCode ?? u.userCode).trim();
               if (photo != null && newStaffCode.isNotEmpty) {
-                unawaited(() async {
-                  final storage = serviceLocator<StorageService>();
-                  final sc =
-                      (await storage.getString(StorageKeys.schoolCode) ?? '')
-                          .trim();
-                  final oc =
-                      (await storage.getString(StorageKeys.organizationCode) ??
-                              '')
-                          .trim();
-                  await uploadStaffPhotoInBackground(
-                    staffCode: newStaffCode,
-                    file: photo,
-                    schoolCode: sc,
-                    organizationCode: oc,
-                  );
-                }());
+                context.read<CreateSchoolUserCubit>()
+                    .uploadProfilePhotoInBackground(
+                      staffCode: newStaffCode,
+                      file: photo,
+                    );
               }
               CoreUtils.showTopSnackBar(
                 context: context,
@@ -758,26 +697,27 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
                         : ''),
                 isSuccess: true,
               );
-              Navigator.pop(context, {
-                'showPostAddPrompt': true,
-                'staffName': staffName,
-                'userCode': u.userCode,
-                'staffCode': u.staffCode ?? u.userCode,
-                'initialFirstName': u.firstName,
-                'initialLastName': u.lastName,
-                'initialEmail': u.email,
-                'initialDesignation': u.designation,
-                'initialPhoneNumber': u.mobile,
-                'initialPrimaryClassroom': _selectedPrimaryClassroomName,
-                'initialAllowedClassrooms': List<String>.from(
-                  _selectedAllowedClassroomNames,
+              context.pop(
+                AddStaffResult(
+                  staffName: staffName,
+                  userCode: u.userCode,
+                  staffCode: u.staffCode ?? u.userCode,
+                  firstName: u.firstName,
+                  lastName: u.lastName,
+                  email: u.email,
+                  designation: u.designation,
+                  phoneNumber: u.mobile,
+                  primaryClassroom: _selectedPrimaryClassroomName,
+                  allowedClassrooms: List<String>.from(
+                    _selectedAllowedClassroomNames,
+                  ),
+                  classroomNames: List<String>.from(_classrooms),
+                  classroomCodeByName: Map<String, String>.from(
+                    _classroomCodeByName,
+                  ),
+                  status: u.status ?? _selectedStatus,
                 ),
-                'initialClassroomNames': List<String>.from(_classrooms),
-                'initialClassroomCodeByName': Map<String, String>.from(
-                  _classroomCodeByName,
-                ),
-                'initialStatus': u.status ?? _selectedStatus,
-              });
+              );
             }
           },
           child: GestureDetector(

@@ -1,0 +1,341 @@
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/domain/features/reports/usecases/download_report_usecase.dart';
+import 'package:wowcare/domain/features/reports/usecases/generate_report_usecase.dart';
+import 'package:wowcare/domain/features/reports/usecases/get_recent_reports_usecase.dart';
+import 'package:wowcare/domain/features/reports/usecases/get_student_tags_usecase.dart';
+import 'package:wowcare/domain/features/reports/usecases/open_report_file_usecase.dart';
+import 'package:wowcare/domain/features/reports/usecases/report_params.dart';
+import 'package:wowcare/domain/features/reports/usecases/save_report_file_usecase.dart';
+import 'package:wowcare/presentation/features/reports/view_model/reports_lookup_cubit.dart';
+
+export 'package:wowcare/presentation/features/reports/view_model/reports_lookup_cubit.dart'
+    show ReportsState, GeneratedReportsLoadingState, FormClassroomsStatus;
+
+/// Report generation, the recent-reports list, and the saved-file actions.
+///
+/// Extends [ReportsLookupCubit], which carries the form lookup data — one
+/// instance, one provider, one state object; only the source files are split.
+class ReportsCubit extends ReportsLookupCubit {
+  ReportsCubit({
+    required super.getSchoolCodeUseCase,
+    required super.getSchoolNameUseCase,
+    required super.getTagNameCodeMapForSchoolUseCase,
+    required super.getActiveClassroomsUseCase,
+    required super.getStudentClassroomListUseCase,
+    required super.getImmunizationSettingsUseCase,
+    required GenerateReportUseCase generateReportUseCase,
+    required GetRecentReportsUseCase getRecentReportsUseCase,
+    required GetStudentTagsUseCase getStudentTagsUseCase,
+    required DownloadReportUseCase downloadReportUseCase,
+    required SaveReportFileUseCase saveReportFileUseCase,
+    required OpenReportFileUseCase openReportFileUseCase,
+  }) : _generateReportUseCase = generateReportUseCase,
+       _getRecentReportsUseCase = getRecentReportsUseCase,
+       _getStudentTagsUseCase = getStudentTagsUseCase,
+       _downloadReportUseCase = downloadReportUseCase,
+       _saveReportFileUseCase = saveReportFileUseCase,
+       _openReportFileUseCase = openReportFileUseCase;
+
+  final GenerateReportUseCase _generateReportUseCase;
+  final GetRecentReportsUseCase _getRecentReportsUseCase;
+  final GetStudentTagsUseCase _getStudentTagsUseCase;
+  final DownloadReportUseCase _downloadReportUseCase;
+  final SaveReportFileUseCase _saveReportFileUseCase;
+  final OpenReportFileUseCase _openReportFileUseCase;
+
+  /// Prevent concurrent loadRecentReports calls
+  bool _isLoadingRecentReports = false;
+
+  /// Generate a report based on request params.
+  /// Every call triggers a fresh API request - no caching or deduplication.
+  Future<void> generateReport(ReportParams params) async {
+    if (isClosed) return;
+
+    AppLogger.d(
+      '[REPORTS-CUBIT] generateReport() entered: ${params.reportType.backendValue}',
+    );
+    AppLogger.d(
+      '[REPORTS-CUBIT] Setting isGenerating=true, clearing previous errors/success',
+    );
+    // CRITICAL: Must create new state with explicit null values, not copyWith(null)
+    // because copyWith treats null as "don't change this field"
+    emit(
+      ReportsState(
+        classroomNames: state.classroomNames,
+        studentNames: state.studentNames,
+        staffNames: state.staffNames,
+        tagNames: state.tagNames,
+        classroomNameToCode: state.classroomNameToCode,
+        staffNameToCode: state.staffNameToCode,
+        // Carry the student name→code map forward. Omitting it reset it to the
+        // empty default, so a later generate could no longer resolve the selected
+        // student names → "Could not resolve student …" (first attempt worked,
+        // the next failed).
+        studentNameToCode: state.studentNameToCode,
+        tagNameToCode: state.tagNameToCode,
+        generatedReport: null,
+        recentReports: state.recentReports,
+        dynamicTagNames: state.dynamicTagNames,
+        isGenerating: true,
+        generationError: null,
+        generationSuccess: null,
+        generatedReportsState: state.generatedReportsState,
+        generatedReportsError: state.generatedReportsError,
+      ),
+    );
+
+    AppLogger.d('[REPORTS-CUBIT] Calling usecase for fresh API call');
+    final result = await _generateReportUseCase(params);
+
+    if (isClosed) return;
+    result.fold(
+      (failure) {
+        AppLogger.e(
+          '[REPORTS-CUBIT] Report generation FAILED: ${failure.message}',
+        );
+        emit(
+          state.copyWith(
+            isGenerating: false,
+            generationError: failure.message,
+            generationSuccess: null,
+          ),
+        );
+      },
+      (report) {
+        AppLogger.i(
+          '[REPORT_GENERATION_SUCCESS] ID: ${report.reportId}, Asset: ${report.assetCode}, File: ${report.fileName}',
+        );
+        emit(
+          state.copyWith(
+            isGenerating: false,
+            generatedReport: report,
+            generationSuccess:
+                'generated', // Non-UI signal: just marks generation success
+            generationError: null,
+          ),
+        );
+        AppLogger.d(
+          '[RECENT_REPORTS_BACKGROUND_REFRESH] Triggering silent background refresh',
+        );
+        // Refresh recent reports after successful generation (background refresh - silent)
+        unawaited(loadRecentReports(isRefresh: true));
+      },
+    );
+  }
+
+  /// Load recent reports from all sources (merged and deduplicated).
+  ///
+  /// [isRefresh]: If true, treats this as a background refresh and preserves
+  /// existing data while loading. If false, treats as initial load and shows
+  /// loading state.
+
+  /// Load recent reports from all sources (merged and deduplicated).
+  ///
+  /// [isRefresh]: If true, treats this as a background refresh and preserves
+  /// existing data while loading. If false, treats as initial load and shows
+  /// loading state.
+  Future<void> loadRecentReports({bool isRefresh = false}) async {
+    if (isClosed) return;
+
+    // Prevent concurrent calls
+    if (_isLoadingRecentReports) {
+      AppLogger.d(
+        '[REPORTS-CUBIT] loadRecentReports() called while already loading - ignoring',
+      );
+      return;
+    }
+
+    _isLoadingRecentReports = true;
+    final loadingState = isRefresh
+        ? GeneratedReportsLoadingState.refreshing
+        : GeneratedReportsLoadingState.loading;
+
+    AppLogger.d(
+      '[REPORTS-CUBIT] loadRecentReports() called [isRefresh=$isRefresh, '
+      'state=${state.generatedReportsState}, '
+      'currentReportsCount=${state.recentReports.length}]',
+    );
+
+    emit(
+      state.copyWith(
+        generatedReportsState: loadingState,
+        generatedReportsError: null,
+      ),
+    );
+
+    final result = await _getRecentReportsUseCase(NoParams());
+
+    if (isClosed) {
+      _isLoadingRecentReports = false;
+      return;
+    }
+
+    result.fold(
+      (failure) {
+        AppLogger.e(
+          '[REPORTS-CUBIT] Failed to load recent reports: ${failure.message}',
+        );
+        emit(
+          state.copyWith(
+            generatedReportsState: GeneratedReportsLoadingState.error,
+            generatedReportsError: failure.message,
+          ),
+        );
+        _isLoadingRecentReports = false;
+      },
+      (reports) {
+        AppLogger.i(
+          '[REPORTS-CUBIT] Successfully loaded recent reports: ${reports.length} reports',
+        );
+        for (final report in reports.take(3)) {
+          AppLogger.d(
+            '[REPORTS-CUBIT]   - ${report.fileName} (${report.reportType.backendValue})',
+          );
+        }
+        emit(
+          state.copyWith(
+            generatedReportsState: GeneratedReportsLoadingState.loaded,
+            recentReports: reports,
+            generatedReportsError: null,
+          ),
+        );
+        _isLoadingRecentReports = false;
+      },
+    );
+  }
+
+  /// Load dynamic student tags for filtering.
+  /// Tags are optional; failures are silently ignored.
+
+  /// Clear the generated report and success signal from state.
+  void clearGeneratedReport() {
+    if (isClosed) return;
+    // CRITICAL: Must create new state with explicit null values, not copyWith(null)
+    emit(
+      ReportsState(
+        classroomNames: state.classroomNames,
+        studentNames: state.studentNames,
+        staffNames: state.staffNames,
+        tagNames: state.tagNames,
+        classroomNameToCode: state.classroomNameToCode,
+        staffNameToCode: state.staffNameToCode,
+        // Carry the student name→code map forward. Omitting it reset it to the
+        // empty default, so a later generate could no longer resolve the selected
+        // student names → "Could not resolve student …" (first attempt worked,
+        // the next failed).
+        studentNameToCode: state.studentNameToCode,
+        tagNameToCode: state.tagNameToCode,
+        generatedReport: null,
+        recentReports: state.recentReports,
+        dynamicTagNames: state.dynamicTagNames,
+        isGenerating: state.isGenerating,
+        generationError: null,
+        generationSuccess: null,
+        generatedReportsState: state.generatedReportsState,
+        generatedReportsError: state.generatedReportsError,
+      ),
+    );
+  }
+
+  /// Download a report file by asset code.
+  Future<List<int>?> downloadReport(String assetCode) async {
+    if (isClosed) return null;
+
+    AppLogger.d('[DOWNLOAD-API] Downloading report: assetCode=$assetCode');
+    final result = await _downloadReportUseCase(assetCode);
+
+    return result.fold(
+      (failure) {
+        AppLogger.e(
+          '[DOWNLOAD-API] Failed for $assetCode:\n'
+          '  message: ${failure.message}',
+        );
+        return null;
+      },
+      (fileData) {
+        AppLogger.i(
+          '[DOWNLOAD-API] Success for $assetCode:\n'
+          '  bytesLength: ${fileData.length}\n'
+          '  isEmpty: ${fileData.isEmpty}\n'
+          '  isValid: ${fileData.length > 0}',
+        );
+        return fileData;
+      },
+    );
+  }
+
+  /// Save file to device storage
+
+  /// Save file to device storage
+  Future<String?> saveReportFile({
+    required Uint8List fileData,
+    required String fileName,
+    required String assetCode,
+  }) async {
+    if (isClosed) return null;
+
+    AppLogger.d('[CUBIT-SAVE] Saving file: $fileName for $assetCode');
+
+    final result = await _saveReportFileUseCase(
+      fileData: fileData,
+      fileName: fileName,
+      assetCode: assetCode,
+    );
+
+    return result.fold(
+      (failure) {
+        AppLogger.e('[CUBIT-SAVE] Failed: ${failure.message}');
+        return null;
+      },
+      (filePath) {
+        AppLogger.i('[CUBIT-SAVE] Success: $filePath');
+        return filePath;
+      },
+    );
+  }
+
+  /// Open file with default application
+
+  /// Open file with default application
+  Future<bool> openReportFile({
+    required String filePath,
+    required String fileName,
+    required String assetCode,
+  }) async {
+    if (isClosed) return false;
+
+    AppLogger.d('[CUBIT] Opening report file: $fileName from $filePath');
+
+    final result = await _openReportFileUseCase(
+      filePath: filePath,
+      fileName: fileName,
+      assetCode: assetCode,
+    );
+
+    return result.fold(
+      (failure) {
+        AppLogger.e('[CUBIT] Failed to open file: ${failure.message}');
+        return false;
+      },
+      (success) {
+        AppLogger.i('[CUBIT] File opened successfully');
+        return success;
+      },
+    );
+  }
+
+  Future<void> loadDynamicTags() async {
+    if (isClosed) return;
+
+    final result = await _getStudentTagsUseCase(NoParams());
+
+    if (isClosed) return;
+    result.fold(
+      (failure) => null, // Silently ignore tag loading failures
+      (tags) => emit(state.copyWith(dynamicTagNames: tags)),
+    );
+  }
+}

@@ -4,20 +4,24 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/staff_details_report_params.dart';
-import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
+import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
+import 'package:wowcare/presentation/features/reports/widgets/report_code_resolver.dart';
+import 'package:wowcare/presentation/features/reports/widgets/form_classrooms_field.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
-import 'package:wowcare/presentation/features/reports/utils/report_filter_defaults.dart';
+import 'package:wowcare/presentation/features/reports/model/report_filter_defaults.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
 
-import '../../../../app/di/di.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/storage_keys.dart';
-import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
-import '../../../../core/util/school_context_helper.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/reports/model/report_form_result.dart';
+import 'package:wowcare/presentation/features/reports/widgets/report_checkbox_grid.dart';
+import 'package:wowcare/presentation/features/reports/widgets/report_section_label.dart';
+import 'package:wowcare/core/responsive/responsive_scope.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/presentation/features/reports/widgets/resolve_school_name.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 
 class StaffDirectoryReportScreen extends StatefulWidget {
   const StaffDirectoryReportScreen({super.key, required this.classrooms});
@@ -34,25 +38,25 @@ class StaffDirectoryReportScreen extends StatefulWidget {
 class _StaffDirectoryReportScreenState
     extends State<StaffDirectoryReportScreen> {
   static const List<String> _staffFields = <String>[
-    'Name',
-    'Date Of Birth',
-    'Email ID',
-    'Phone Number',
-    'Address',
-    'Primary Classroom',
-    'Clock-In-Out Pin',
-    'Hire Date',
-    'Designation',
-    'CDA Expiration Date',
-    'CPR Expiration Date',
-    'Last Physical Date',
+    ReportsStrings.name,
+    ReportsStrings.dateOfBirth,
+    ReportsStrings.emailId,
+    ReportsStrings.phoneNumber,
+    ReportsStrings.address,
+    ReportsStrings.primaryClassroom,
+    ReportsStrings.clockInOutPin,
+    ReportsStrings.hireDate,
+    ReportsStrings.designation,
+    ReportsStrings.cdaExpirationDate,
+    ReportsStrings.cprExpirationDate,
+    ReportsStrings.lastPhysicalDate,
     'Is Active',
   ];
 
   static const List<String> _defaultStaffFields = <String>[
-    'Name',
-    'Email ID',
-    'Designation',
+    ReportsStrings.name,
+    ReportsStrings.emailId,
+    ReportsStrings.designation,
   ];
 
   static const List<String> _statusOptions = <String>[
@@ -61,105 +65,74 @@ class _StaffDirectoryReportScreenState
     'All Staff',
   ];
 
-  late Set<String> _selectedStaffFields;
-  String _status = 'Active Staff';
-  List<String> _selectedClassrooms = <String>[];
-  String _format = 'XLSX';
-  List<String> _availableClassrooms = <String>[];
-  Map<String, String> _classroomNameToCode = <String, String>{};
+  /// §2.2 bucket B — which staff columns the report includes.
+  final ValueNotifier<Set<String>> _selectedStaffFields =
+      ValueNotifier<Set<String>>(<String>{});
+  final ValueNotifier<String> _status = ValueNotifier<String>('Active Staff');
+  final ValueNotifier<List<String>> _selectedClassrooms =
+      ValueNotifier<List<String>>(<String>[]);
+  final ValueNotifier<String> _format = ValueNotifier<String>('XLSX');
   final ReportFilterDefault _classroomFilter = ReportFilterDefault();
 
   @override
   void initState() {
     super.initState();
-    _selectedStaffFields = _defaultStaffFields.toSet();
+    _selectedStaffFields.value = _defaultStaffFields.toSet();
 
-    _availableClassrooms = List<String>.from(widget.classrooms);
     // All Classrooms are selected by default until the user changes it.
-    _selectedClassrooms = List<String>.from(widget.classrooms);
+    _selectedClassrooms.value = List<String>.from(widget.classrooms);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _loadAllStaffClassrooms();
+        // Staff reports need the wider list that also contains Office and
+        // primary rooms (onlyTypeClassroom: false).
+        context.read<ReportsCubit>().loadFormClassrooms(
+          includeNonClassroomTypes: true,
+        );
       }
     });
   }
 
-  Future<void> _loadAllStaffClassrooms() async {
-    try {
-      final storageService = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
-      if (schoolCode.isNotEmpty) {
-        final classrooms = await serviceLocator<GetActiveClassroomsUseCase>()(
-          schoolCode: schoolCode,
-          onlyTypeClassroom: false,
-        );
-        final nameToCodeMap = <String, String>{};
-        final names = <String>[];
-        for (final c in classrooms) {
-          names.add(c.name);
-          nameToCodeMap[c.name] = c.code;
-        }
-        if (mounted) {
-          setState(() {
-            _availableClassrooms = names;
-            _classroomNameToCode = nameToCodeMap;
-            _selectedClassrooms = _classroomFilter.resolve(
-              options: names,
-              current: _selectedClassrooms,
-            );
-          });
-        }
-      }
-    } catch (e) {
-      AppLogger.e('[STAFF-DETAILS-UI] Failed to load staff classrooms: $e');
-    }
-  }
-
-  bool get _selectAll => _selectedStaffFields.length == _staffFields.length;
+  bool get _selectAll =>
+      _selectedStaffFields.value.length == _staffFields.length;
 
   void _toggleSelectAll(bool checked) {
-    setState(() {
-      if (checked) {
-        _selectedStaffFields = _staffFields.toSet();
-      } else {
-        _selectedStaffFields = <String>{};
-      }
-    });
+    _selectedStaffFields.value = checked ? _staffFields.toSet() : <String>{};
   }
 
   void _toggleField(String field, bool checked) {
-    setState(() {
-      if (checked) {
-        _selectedStaffFields.add(field);
-      } else {
-        _selectedStaffFields.remove(field);
-      }
-    });
+    // A new Set, not an in-place mutation: ValueNotifier only notifies on a
+    // reference change.
+    final next = Set<String>.from(_selectedStaffFields.value);
+    if (checked) {
+      next.add(field);
+    } else {
+      next.remove(field);
+    }
+    _selectedStaffFields.value = next;
   }
 
   void _onGenerate() async {
     AppLogger.d('[STAFF-DETAILS-UI] Generate button tapped');
 
-    if (_selectedStaffFields.isEmpty) {
+    if (_selectedStaffFields.value.isEmpty) {
       AppLogger.w('[STAFF-DETAILS-UI] Generation blocked: no fields selected');
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Please select at least one field',
+        message: ReportsStrings.pleaseSelectAtLeastOneField,
         isError: true,
       );
       return;
     }
 
     final cubit = context.read<ReportsCubit>();
-    final nameToCode = _classroomNameToCode.isNotEmpty
-        ? _classroomNameToCode
+    final nameToCode = cubit.state.allClassroomNameToCode.isNotEmpty
+        ? cubit.state.allClassroomNameToCode
         : cubit.state.classroomNameToCode;
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms.isEmpty
+      names: _selectedClassrooms.value.isEmpty
           ? widget.classrooms
-          : _selectedClassrooms,
+          : _selectedClassrooms.value,
       nameToCode: nameToCode,
       labelPlural: 'classrooms',
     );
@@ -168,51 +141,54 @@ class _StaffDirectoryReportScreenState
     AppLogger.d('[STAFF-DETAILS-UI] Selected classrooms: $_selectedClassrooms');
     AppLogger.d('[STAFF-DETAILS-UI] Resolved classroomCodes: $classroomCodes');
 
-    // Retrieve the school name from storage
-    final schoolName = await SchoolContextHelper.getSchoolName();
-    AppLogger.d('resolvedSchoolName=$schoolName');
-    if (schoolName == null || schoolName.isEmpty) {
-      if (!mounted) return;
-
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Unable to resolve school name',
-        isError: true,
-      );
-      return;
-    }
+    final schoolName = await resolveSchoolNameOrWarn(context);
+    if (schoolName == null || !mounted) return;
 
     AppLogger.d(
-      '[STAFF-DETAILS-UI] Creating report params with ${_selectedStaffFields.length} fields',
+      '[STAFF-DETAILS-UI] Creating report params with ${_selectedStaffFields.value.length} fields',
     );
     final params = StaffDetailsReportParams(
       reportType: ReportType.staffDetails,
-      staffFieldsSelected: _selectedStaffFields,
-      statusFilter: _status,
+      staffFieldsSelected: _selectedStaffFields.value,
+      statusFilter: _status.value,
       classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
-      format: _format,
+      format: _format.value,
       schoolName: schoolName,
     );
     AppLogger.d('[STAFF-DETAILS-UI] Calling cubit.generateReport()');
     cubit.generateReport(params);
   }
 
-  TextStyle _labelStyle(ResponsiveHelper r) => TextStyle(
-    fontSize: r.labelFontSize,
-    fontFamily: 'Manrope',
-    fontWeight: FontWeight.w400,
-    color: const Color(0xff573353),
-  );
+  TextStyle _labelStyle(BuildContext context) =>
+      AppTextStyles.reportsFieldLabel(
+        fontSize: context.responsive(compact: 14.0, medium: 16.0),
+      );
+
+  @override
+  void dispose() {
+    _selectedStaffFields.dispose();
+    _format.dispose();
+    _selectedClassrooms.dispose();
+    _status.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final responsive = ResponsiveHelper(context);
-    final classroomItems = _availableClassrooms.isNotEmpty
-        ? _availableClassrooms
-        : widget.classrooms;
-
     return MultiBlocListener(
       listeners: [
+        // Keep the "all classrooms selected by default" behaviour once the
+        // wider list arrives, the way the old setState in the fetch did.
+        BlocListener<ReportsCubit, ReportsState>(
+          listenWhen: (previous, current) =>
+              previous.allClassroomNames != current.allClassroomNames,
+          listener: (context, state) {
+            _selectedClassrooms.value = _classroomFilter.resolve(
+              options: state.allClassroomNames,
+              current: _selectedClassrooms.value,
+            );
+          },
+        ),
         BlocListener<ReportsCubit, ReportsState>(
           listenWhen: (previous, current) =>
               previous.generationError != current.generationError,
@@ -236,7 +212,7 @@ class _StaffDirectoryReportScreenState
                 state.generatedReport != null) {
               CoreUtils.showTopSnackBar(
                 context: context,
-                message: 'Report generated successfully',
+                message: ReportsStrings.reportGeneratedSuccessfully,
                 isSuccess: true,
               );
 
@@ -244,12 +220,11 @@ class _StaffDirectoryReportScreenState
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
 
-                  // Pop (not context.go) — this screen was pushed via plain
-                  // Navigator.push, so only popping actually dismisses it;
-                  // the hub's own .then((success) => tab 0) callback reacts
-                  // to the pop(true) result.
+                  // Hand the hub a typed result. The report is generated
+                  // but the file is not attached, so the hub animates to the
+                  // Generated tab -- the outcome pop(true) used to encode.
                   context.read<ReportsCubit>().clearGeneratedReport();
-                  Navigator.of(context).pop(true);
+                  context.pop(const ReportGeneratedRefreshList());
                 });
               }
             }
@@ -259,141 +234,99 @@ class _StaffDirectoryReportScreenState
       child: BlocSelector<ReportsCubit, ReportsState, bool>(
         selector: (state) => state.isGenerating,
         builder: (context, isGenerating) {
-          return ReportFormLayout(
-            title: 'Staff Details',
-            onGenerate: (_selectedStaffFields.isNotEmpty && !isGenerating)
-                ? _onGenerate
-                : null,
-            isLoading: isGenerating,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Choose the below fields and generate a report',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: responsive.labelFontSize,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xff573353),
+          return ValueListenableBuilder<Set<String>>(
+            valueListenable: _selectedStaffFields,
+            builder: (context, staffFields, _) => ReportFormLayout(
+              title: ReportsStrings.staffDetailsName,
+              onGenerate: (staffFields.isNotEmpty && !isGenerating)
+                  ? _onGenerate
+                  : null,
+              isLoading: isGenerating,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    ReportsStrings.chooseTheBelowFieldsAndGenerateAReport,
+                    style: AppTextStyles.reportsHeading(
+                      fontSize: context.responsive(compact: 14.0, medium: 16.0),
+                    ),
                   ),
-                ),
-                SizedBox(height: responsive.verticalSpacing),
-                const _SectionLabel(label: 'FIELDS'),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: CustomCheckbox(
-                    value: _selectAll,
-                    label: 'Select All',
-                    onChanged: (v) => _toggleSelectAll(v ?? false),
+                  SizedBox(
+                    height: context.responsive(compact: 16.0, medium: 24.0),
                   ),
-                ),
-                const SizedBox(height: 8),
-                _CheckboxGrid(
-                  items: _staffFields,
-                  selected: _selectedStaffFields,
-                  onChanged: _toggleField,
-                ),
-                const Divider(height: 32),
-                CustomDropdown(
-                  label: 'Status',
-                  hintText: 'Select',
-                  items: _statusOptions,
-                  selectedItem: _status,
-                  labelStyle: _labelStyle(responsive),
-                  showAsterisk: true,
-                  labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                  onSelect: (val) => setState(() => _status = val ?? _status),
-                ),
-                SizedBox(height: responsive.verticalSpacing),
-                CustomMultiSelectDropdown(
-                  label: 'Classroom',
-                  hintText: 'Select Classroom',
-                  items: classroomItems,
-                  isRequired: true,
-                  selectedItems: _selectedClassrooms,
-                  onChanged: (s) => setState(
-                    () => _selectedClassrooms = _classroomFilter.userSelected(s),
+                  const ReportSectionLabel(label: ReportsStrings.fields),
+                  const SizedBox(height: AppSizes.xs),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: CustomCheckbox(
+                      value: _selectAll,
+                      label: ReportsStrings.selectAll,
+                      onChanged: (v) => _toggleSelectAll(v ?? false),
+                    ),
                   ),
-                  showSelectAll: true,
-                ),
-                const ReportDefaultNote(
-                  text: 'Note: All Classrooms will be selected by Default.',
-                ),
-                SizedBox(height: responsive.verticalSpacing),
-                const ReportFieldLabel(label: 'Export Format'),
-                ReportFormatSelector(
-                  selectedFormat: _format,
-                  onFormatChanged: (value) => setState(() => _format = value),
-                  showLabel: false,
-                ),
-              ],
+                  const SizedBox(height: AppSizes.xs),
+                  ReportCheckboxGrid(
+                    items: _staffFields,
+                    selected: staffFields,
+                    onChanged: _toggleField,
+                  ),
+                  const Divider(height: 32),
+                  CustomDropdown(
+                    label: ReportsStrings.status,
+                    hintText: ReportsStrings.select,
+                    items: _statusOptions,
+                    selectedItem: _status.value,
+                    labelStyle: _labelStyle(context),
+                    showAsterisk: true,
+                    labelBottomSpacing: context.isTablet ? 8.0 : 6.0,
+                    onSelect: (val) => _status.value = val ?? _status.value,
+                  ),
+                  SizedBox(
+                    height: context.responsive(compact: 16.0, medium: 24.0),
+                  ),
+                  FormClassroomsField(
+                    includeNonClassroomTypes: true,
+                    child:
+                        BlocSelector<ReportsCubit, ReportsState, List<String>>(
+                          selector: (state) =>
+                              state.allClassroomNames.isNotEmpty
+                              ? state.allClassroomNames
+                              : widget.classrooms,
+                          builder: (context, classroomItems) =>
+                              CustomMultiSelectDropdown(
+                                label: ReportsStrings.classroom,
+                                hintText: ReportsStrings.selectClassroom,
+                                items: classroomItems,
+                                isRequired: true,
+                                selectedItems: _selectedClassrooms.value,
+                                onChanged: (s) => _selectedClassrooms.value =
+                                    _classroomFilter.userSelected(s),
+                                showSelectAll: true,
+                              ),
+                        ),
+                  ),
+                  const ReportDefaultNote(
+                    text:
+                        ReportsStrings.noteAllClassroomsWillBeSelectedByDefault,
+                  ),
+                  SizedBox(
+                    height: context.responsive(compact: 16.0, medium: 24.0),
+                  ),
+                  const ReportFieldLabel(label: ReportsStrings.exportFormat),
+                  ValueListenableBuilder<String>(
+                    valueListenable: _format,
+                    builder: (_, v, __) => ReportFormatSelector(
+                      selectedFormat: v,
+                      onFormatChanged: (value) => _format.value = value,
+                      showLabel: false,
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },
       ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: const TextStyle(
-        fontFamily: 'Manrope',
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.4,
-        color: Color(0xff4F46E5),
-      ),
-    );
-  }
-}
-
-class _CheckboxGrid extends StatelessWidget {
-  const _CheckboxGrid({
-    required this.items,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  final List<String> items;
-  final Set<String> selected;
-  final void Function(String field, bool checked) onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth > 480;
-        final columns = isWide ? 3 : 2;
-        return Wrap(
-          alignment: WrapAlignment.start,
-          crossAxisAlignment: WrapCrossAlignment.start,
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final item in items)
-              SizedBox(
-                width: (constraints.maxWidth - (columns - 1) * 8) / columns,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: CustomCheckbox(
-                    value: selected.contains(item),
-                    label: item,
-                    onChanged: (v) => onChanged(item, v ?? false),
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
     );
   }
 }

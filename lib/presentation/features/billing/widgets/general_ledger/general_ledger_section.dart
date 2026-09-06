@@ -5,9 +5,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/billing/cubit/general_ledger_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/general_ledger_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view/general_ledger/ledger_detail_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -106,7 +107,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.billingCardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -130,7 +131,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.billingCardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -154,7 +155,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.billingCardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -246,7 +247,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
                             const Text(
                               BillingStrings.showInactive,
                               style: TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: Fonts.manrope,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                                 color: AppColors.billingTextColor,

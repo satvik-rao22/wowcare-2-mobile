@@ -3,11 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/presentation/features/scheduling/cubit/edit_shift_cubit.dart';
-import 'package:wowcare/presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
+import 'package:wowcare/presentation/features/scheduling/view_model/edit_shift_cubit.dart';
+import 'package:wowcare/presentation/features/scheduling/view_model/scheduling_staff_list_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/no_schedule_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/shift_override_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_absent_bottom_sheet.dart';
@@ -19,7 +19,7 @@ import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/presentation/features/scheduling/model/scheduling_responsive.dart';
 
 /// Whether the Edit screen affects a single occurrence or every occurrence in
 /// a recurring series. Drives the screen title and which PUT API is hit on
@@ -60,8 +60,6 @@ class EditShiftScreen extends StatelessWidget {
     this.isPublished = true,
     this.selectedDays = const <String>{},
     this.untilDate,
-    this.classrooms = const <String>[],
-    this.staffOptions = const <String>[],
     this.onSave,
   });
 
@@ -84,8 +82,6 @@ class EditShiftScreen extends StatelessWidget {
   final bool isPublished;
   final Set<String> selectedDays;
   final DateTime? untilDate;
-  final List<String> classrooms;
-  final List<String> staffOptions;
   final VoidCallback? onSave;
 
   @override
@@ -215,7 +211,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
 
   @override
   Widget build(BuildContext context) {
-    final responsive = ResponsiveHelper(context);
+    final responsive = SchedulingResponsive(context);
     final safeBottom = MediaQuery.of(context).padding.bottom;
     final bottomPadding = safeBottom > 0 ? safeBottom : 16.0;
     final title = _isSeriesMode ? 'Edit entire series' : 'Edit this shift';
@@ -297,9 +293,8 @@ class _EditShiftViewState extends State<_EditShiftView> {
                           selectedItem: widget.staffName,
                           labelStyle: TextStyle(
                             fontSize: responsive.labelFontSize,
-                            fontFamily: 'Manrope',
                             fontWeight: FontWeight.w400,
-                            color: const Color(0xff573353),
+                            color: AppColors.primaryColor,
                           ),
                           showAsterisk: true,
                           labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
@@ -316,9 +311,8 @@ class _EditShiftViewState extends State<_EditShiftView> {
                     selectedItem: selectedClassroomName,
                     labelStyle: TextStyle(
                       fontSize: responsive.labelFontSize,
-                      fontFamily: 'Manrope',
                       fontWeight: FontWeight.w400,
-                      color: const Color(0xff573353),
+                      color: AppColors.primaryColor,
                     ),
                     showAsterisk: true,
                     labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
@@ -400,7 +394,6 @@ class _EditShiftViewState extends State<_EditShiftView> {
                           color: Colors.red,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
-                          fontFamily: 'Manrope',
                         ),
                       ),
                     ],
@@ -438,7 +431,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
     );
   }
 
-  Widget _buildStatusHeader(ResponsiveHelper responsive) {
+  Widget _buildStatusHeader(SchedulingResponsive responsive) {
     final formatted = DateFormat('MMM d, yyyy').format(widget.initialDate);
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -447,17 +440,16 @@ class _EditShiftViewState extends State<_EditShiftView> {
       child: Text(
         'Shift on $formatted (${widget.status.label})',
         style: TextStyle(
-          fontFamily: 'Manrope',
           fontSize: responsive.titleFontSize * 0.85,
           fontWeight: FontWeight.w600,
-          color: const Color(0xff573353),
+          color: AppColors.primaryColor,
         ),
       ),
     );
   }
 
   Widget _buildDateField(
-    ResponsiveHelper responsive, {
+    SchedulingResponsive responsive, {
     required String label,
     required DateTime? date,
     required ValueChanged<DateTime> onDateSelected,
@@ -466,9 +458,8 @@ class _EditShiftViewState extends State<_EditShiftView> {
   }) {
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: 'Manrope',
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -499,7 +490,6 @@ class _EditShiftViewState extends State<_EditShiftView> {
               color: Colors.red,
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              fontFamily: 'Manrope',
             ),
           ),
         ],
@@ -507,7 +497,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
     );
   }
 
-  Widget _buildRepeatHeader(ResponsiveHelper responsive, EditShiftState state) {
+  Widget _buildRepeatHeader(SchedulingResponsive responsive, EditShiftState state) {
     final cubit = context.read<EditShiftCubit>();
     return Row(
       children: [
@@ -515,9 +505,8 @@ class _EditShiftViewState extends State<_EditShiftView> {
           'Repeat On',
           style: TextStyle(
             fontSize: responsive.labelFontSize,
-            fontFamily: 'Manrope',
             fontWeight: FontWeight.w500,
-            color: const Color(0xff573353),
+            color: AppColors.primaryColor,
           ),
         ),
         const Spacer(),
@@ -533,7 +522,6 @@ class _EditShiftViewState extends State<_EditShiftView> {
                   : 'Select All',
               style: TextStyle(
                 fontSize: responsive.labelFontSize,
-                fontFamily: 'Manrope',
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
               ),
@@ -544,7 +532,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
     );
   }
 
-  Widget _buildDaysGrid(ResponsiveHelper responsive, EditShiftState state) {
+  Widget _buildDaysGrid(SchedulingResponsive responsive, EditShiftState state) {
     final cubit = context.read<EditShiftCubit>();
     final days = state.availableWeekDays;
     return GridView.builder(
@@ -574,7 +562,6 @@ class _EditShiftViewState extends State<_EditShiftView> {
             scale: 1.0,
             labelStyle: TextStyle(
               fontSize: responsive.isTablet ? 14.0 : 12.5,
-              fontFamily: 'Manrope',
               fontWeight: FontWeight.w500,
               color: AppColors.primaryColor,
             ),
@@ -586,7 +573,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
   }
 
   Widget _buildPublishCheckbox(
-    ResponsiveHelper responsive,
+    SchedulingResponsive responsive,
     EditShiftState state,
   ) {
     final cubit = context.read<EditShiftCubit>();
@@ -596,20 +583,18 @@ class _EditShiftViewState extends State<_EditShiftView> {
       scale: 1.0,
       labelStyle: TextStyle(
         fontSize: responsive.labelFontSize,
-        fontFamily: 'Manrope',
         fontWeight: FontWeight.w500,
-        color: const Color(0xff573353),
+        color: AppColors.primaryColor,
       ),
       onChanged: (val) => cubit.setPublish(val ?? false),
     );
   }
 
-  Widget _buildNoteField(ResponsiveHelper responsive) {
+  Widget _buildNoteField(SchedulingResponsive responsive) {
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: 'Manrope',
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -632,10 +617,9 @@ class _EditShiftViewState extends State<_EditShiftView> {
             maxLines: 3,
             minLines: 1,
             style: TextStyle(
-              fontFamily: 'Manrope',
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 19 / 14,
             ),
             decoration: InputDecoration(

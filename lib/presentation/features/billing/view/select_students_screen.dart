@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
-import 'package:wowcare/presentation/features/billing/cubit/select_students_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/select_students_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -143,7 +144,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                   value: areAllSelected,
                   label: BillingStrings.selectAll,
                   labelStyle: const TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: Fonts.manrope,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: AppColors.billingTextColor,
@@ -163,7 +164,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                                   state.errorMessage!,
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(
-                                    fontFamily: 'Manrope',
+                                    fontFamily: Fonts.manrope,
                                     fontSize: 14,
                                     color: AppColors.billingTextColor,
                                   ),
@@ -175,7 +176,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                                   child: Text(
                                     BillingStrings.noStudentsFound,
                                     style: TextStyle(
-                                      fontFamily: 'Manrope',
+                                      fontFamily: Fonts.manrope,
                                       fontSize: 14,
                                       color: AppColors.billingTextColor,
                                     ),
@@ -316,7 +317,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
               : const Text(
                   BillingStrings.next,
                   style: TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: Fonts.manrope,
                     fontSize: 16.0,
                     fontWeight: FontWeight.w600,
                     color: AppColors.billingCardColor,
@@ -379,7 +380,7 @@ class _StudentRow extends StatelessWidget {
                   Text(
                     student.fullName,
                     style: const TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: AppColors.billingTextColor,
@@ -391,7 +392,7 @@ class _StudentRow extends StatelessWidget {
                     Text(
                       subtitle,
                       style: const TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                         fontSize: 12,
                         color: AppColors.billingTextMuted,
                       ),

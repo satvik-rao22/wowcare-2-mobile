@@ -22,8 +22,9 @@ class NewsletterComponentList extends StatelessWidget {
   Widget build(BuildContext context) {
     if (components.isEmpty) return const SizedBox.shrink();
 
-    final NewsletterThemeColors theme =
-        NewsletterThemeColors.fromKey(colorThemeKey);
+    final NewsletterThemeColors theme = NewsletterThemeColors.fromKey(
+      colorThemeKey,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -60,18 +61,12 @@ class _NewsletterComponentTile extends StatelessWidget {
 
     switch (type) {
       case 'HEADING':
-        return _HeadingBlock(
-          part: _firstTextPart(parts),
-          theme: theme,
-        );
+        return _HeadingBlock(part: _firstTextPart(parts), theme: theme);
       case 'IMAGE':
         return _ImageBlock(part: _firstImagePart(parts));
       case 'TEXT':
       case 'TEXT_BLOCK':
-        return _TextBlock(
-          part: _firstTextPart(parts),
-          theme: theme,
-        );
+        return _TextBlock(part: _firstTextPart(parts), theme: theme);
       case 'TEXT_IMAGE':
       case 'IMAGE_TEXT':
         return _SideBySideBlock(
@@ -153,8 +148,7 @@ class _NewsletterComponentTile extends StatelessWidget {
 
   Widget _buildTwoColumn(List<NewsletterContentPart> parts) {
     final NewsletterContentPart? first = parts.isNotEmpty ? parts.first : null;
-    final NewsletterContentPart? second =
-        parts.length > 1 ? parts[1] : null;
+    final NewsletterContentPart? second = parts.length > 1 ? parts[1] : null;
 
     if (first == null) return const SizedBox.shrink();
 
@@ -163,31 +157,18 @@ class _NewsletterComponentTile extends StatelessWidget {
         second != null && second.type == NewsletterPartType.image;
 
     if (firstIsImage && secondIsImage) {
-      return _StackedImagesBlock(imageParts: <NewsletterContentPart>[
-        first,
-        second!,
-      ]);
+      return _StackedImagesBlock(
+        imageParts: <NewsletterContentPart>[first, second],
+      );
     }
     if (firstIsImage && second != null && !secondIsImage) {
-      return _SideBySideBlock(
-        textPart: second,
-        imagePart: first,
-        theme: theme,
-      );
+      return _SideBySideBlock(textPart: second, imagePart: first, theme: theme);
     }
     if (!firstIsImage && secondIsImage) {
-      return _SideBySideBlock(
-        textPart: first,
-        imagePart: second,
-        theme: theme,
-      );
+      return _SideBySideBlock(textPart: first, imagePart: second, theme: theme);
     }
     if (!firstIsImage && second != null && !secondIsImage) {
-      return _TwoColumnTextBlock(
-        left: first,
-        right: second,
-        theme: theme,
-      );
+      return _TwoColumnTextBlock(left: first, right: second, theme: theme);
     }
     if (firstIsImage) {
       return _ImageBlock(part: first);
@@ -225,10 +206,7 @@ class _NewsletterComponentTile extends StatelessWidget {
 }
 
 class _HeadingBlock extends StatelessWidget {
-  const _HeadingBlock({
-    required this.part,
-    required this.theme,
-  });
+  const _HeadingBlock({required this.part, required this.theme});
 
   final NewsletterContentPart? part;
   final NewsletterThemeColors theme;
@@ -245,10 +223,7 @@ class _HeadingBlock extends StatelessWidget {
 }
 
 class _TextBlock extends StatelessWidget {
-  const _TextBlock({
-    required this.part,
-    required this.theme,
-  });
+  const _TextBlock({required this.part, required this.theme});
 
   final NewsletterContentPart? part;
   final NewsletterThemeColors theme;
@@ -256,10 +231,7 @@ class _TextBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (part == null || !part!.hasText) return const SizedBox.shrink();
-    return NewsletterRichHtmlText(
-      htmlData: part!.text,
-      theme: theme,
-    );
+    return NewsletterRichHtmlText(htmlData: part!.text, theme: theme);
   }
 }
 
@@ -327,8 +299,9 @@ class _StackedBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Widget? imageWidget =
-        imagePart != null && imagePart!.hasImage ? _ImageBlock(part: imagePart) : null;
+    final Widget? imageWidget = imagePart != null && imagePart!.hasImage
+        ? _ImageBlock(part: imagePart)
+        : null;
     final Widget? textWidget = textPart != null && textPart!.hasText
         ? _TextBlock(part: textPart, theme: theme)
         : null;
@@ -399,11 +372,7 @@ class _DividerBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Divider(
-        color: theme.divider,
-        thickness: 1.2,
-        height: 1,
-      ),
+      child: Divider(color: theme.divider, thickness: 1.2, height: 1),
     );
   }
 }

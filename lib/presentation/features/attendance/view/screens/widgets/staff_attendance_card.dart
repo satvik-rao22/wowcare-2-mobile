@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/theme/radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -168,14 +167,9 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                                 const SizedBox(height: AppSpacing.s2),
                                 Text(
                                   staff.designationName!,
-                                  // Survivor: 13/12·w400·primary@0.6 with NO
-                                  // line-height. No AppTextStyles base is w400
-                                  // without a height, so a base+copyWith would
-                                  // inject height and change layout — left inline.
-                                  style: TextStyle(
-                                    fontFamily: Fonts.manrope,
-                                    fontSize: isTablet ? 13 : 12,
-                                    fontWeight: FontWeight.w400,
+                                  style: AppTextStyles.attendanceDesignationLabel(
+                                    isTablet: isTablet,
+                                  ).copyWith(
                                     color: AppColors.primaryColor.withValues(
                                       alpha: 0.6,
                                     ),

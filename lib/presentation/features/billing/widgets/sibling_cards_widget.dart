@@ -38,10 +38,10 @@ class SiblingCardsWidget extends StatelessWidget {
   /// Family billing totals from the ledger (paid / net paid / refunded / …).
   Widget _statsSection() {
     final items = <List<dynamic>>[
-      [BillingStrings.paid, paid, const Color(0xFF2E9E5B)],
+      [BillingStrings.paid, paid, AppColors.billingSiblingPaidColor],
       [BillingStrings.netPaid, netPaid, AppColors.themeColor],
-      [BillingStrings.refunded, refunded, const Color(0xFFE08600)],
-      [BillingStrings.unpaid, unpaid, const Color(0xFFD64545)],
+      [BillingStrings.refunded, refunded, AppColors.billingSiblingRefundedColor],
+      [BillingStrings.unpaid, unpaid, AppColors.billingSiblingUnpaidColor],
       [BillingStrings.inProcess, inProcess, AppColors.billingAccentBlue],
     ];
     return Container(

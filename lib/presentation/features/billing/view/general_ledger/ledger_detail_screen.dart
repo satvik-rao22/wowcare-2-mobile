@@ -8,9 +8,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/ledger_transaction_entity.dart';
-import 'package:wowcare/presentation/features/billing/cubit/ledger_detail_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/ledger_detail_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/add_transaction_dialog.dart';
 import 'package:wowcare/presentation/features/billing/model/ledger_account_model.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
@@ -94,7 +95,9 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
   Widget build(BuildContext context) {
     final double titleFontSize = ResponsiveSizing.titleFontSize(context);
     final double titleLineHeight = ResponsiveSizing.titleLineHeight(context);
-    final EdgeInsets contentPadding = ResponsiveSizing.contentPadding(context);
+    // ResponsiveHelper.contentPadding is a verbatim port of this method (see
+    // its doc comment) — routed through the single canonical helper.
+    final EdgeInsets contentPadding = ResponsiveHelper(context).contentPadding;
     final bool isTablet = ResponsiveHelper(context).isTabletCompact;
 
     return BlocProvider<LedgerDetailCubit>.value(
@@ -133,7 +136,7 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
                                       Text(
                                         ledger.name,
                                         style: TextStyle(
-                                          fontFamily: 'Manrope',
+                                          fontFamily: Fonts.manrope,
                                           fontSize: titleFontSize,
                                           fontWeight: FontWeight.w600,
                                           color: _kPrimary,
@@ -211,7 +214,7 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
               state.errorMessage ?? BillingStrings.errorLoadingTransactions,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: Fonts.manrope,
                 color: AppColors.billingTextSecondary,
                 fontSize: 14,
               ),
@@ -243,7 +246,7 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
                 BillingStrings.noTransactionsFound,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                   color: AppColors.billingTextSecondary,
                   fontSize: 14,
                 ),
@@ -295,7 +298,7 @@ class _LedgerSubtitle extends StatelessWidget {
         '${balType != null ? ' $balType' : ''}';
 
     const style = TextStyle(
-      fontFamily: 'Manrope',
+      fontFamily: Fonts.manrope,
       fontSize: 13,
       fontWeight: FontWeight.w400,
       color: AppColors.billingTextSecondary,
@@ -330,9 +333,9 @@ class _LedgerEntryCard extends StatelessWidget {
     final double amount =
         hasDebit ? tx.debit! : hasCredit ? tx.credit! : 0.0;
     final Color amountColor = hasDebit
-        ? const Color(0xFFF85A5A)
+        ? AppColors.billingLedgerDebitColor
         : hasCredit
-            ? const Color(0xFF4CAF50)
+            ? AppColors.billingLedgerCreditColor
             : kBillingCardTextColor;
     final String amountPrefix = hasDebit ? '-' : hasCredit ? '+' : '';
 
@@ -350,16 +353,16 @@ class _LedgerEntryCard extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: const Color(0xFF1565C0).withValues(alpha: 0.1),
+                color: AppColors.billingLedgerTypeChipColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 tx.type!,
                 style: const TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF1565C0),
+                  color: AppColors.billingLedgerTypeChipColor,
                 ),
               ),
             ),
@@ -401,7 +404,7 @@ class _LedgerEntryCard extends StatelessWidget {
           StaffCardDetailRow(
             label: BillingStrings.debit,
             value: '\$${tx.debit!.toStringAsFixed(2)}',
-            valueColor: const Color(0xFFF85A5A),
+            valueColor: AppColors.billingLedgerDebitColor,
           ),
           const SizedBox(height: 10),
         ],
@@ -409,7 +412,7 @@ class _LedgerEntryCard extends StatelessWidget {
           StaffCardDetailRow(
             label: BillingStrings.credit,
             value: '\$${tx.credit!.toStringAsFixed(2)}',
-            valueColor: const Color(0xFF4CAF50),
+            valueColor: AppColors.billingLedgerCreditColor,
           ),
           const SizedBox(height: 10),
         ],

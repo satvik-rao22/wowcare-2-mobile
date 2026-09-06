@@ -5,7 +5,11 @@ class StaffDocumentState extends Equatable {
 
   const StaffDocumentState.initial() : this();
 
-  const StaffDocumentState.loading() : this();
+  /// A factory, not a redirecting `this()` constructor: as the latter it built
+  /// a plain [StaffDocumentState] rather than a [_LoadingState], so [isLoading]
+  /// was permanently false and the save button's spinner never appeared while
+  /// the add/update request was in flight.
+  factory StaffDocumentState.loading() => const _LoadingState();
 
   factory StaffDocumentState.success(String message) => _SuccessState(message);
 

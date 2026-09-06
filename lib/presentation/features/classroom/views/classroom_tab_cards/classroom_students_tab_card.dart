@@ -18,7 +18,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
@@ -30,13 +30,13 @@ import 'package:wowcare/presentation/features/classroom/cubit/classroom_students
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_students_state.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/views/filters/classroom_student_filter_screen.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_sign_in_form.dart'
     as sign_in_form;
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_out_form.dart'
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_sign_out_form.dart'
     as sign_out_form;
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_transfer_form.dart'
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_transfer_form.dart'
     as transfer_form;
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_mark_absent_form.dart'
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_mark_absent_form.dart'
     as absent_form;
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';

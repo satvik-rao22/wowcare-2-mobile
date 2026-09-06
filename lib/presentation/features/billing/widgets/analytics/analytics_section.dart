@@ -3,12 +3,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_analytics_entity.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
-import 'package:wowcare/presentation/features/billing/cubit/analytics_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/analytics_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/util/billing_school_time.dart';
 
 class AnalyticsSection extends StatelessWidget {
@@ -79,7 +80,7 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
   Widget build(BuildContext context) {
     return BlocBuilder<AnalyticsCubit, AnalyticsState>(
       builder: (context, state) {
-        final bool isTablet = ResponsiveSizing.isTablet(context);
+        final bool isTablet = ResponsiveHelper(context).isTabletCompact;
         final double sectionGap = isTablet ? 16 : 12;
         final int currentYear = billingSchoolCurrentYear();
 
@@ -98,7 +99,7 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
                     state.errorMessage!,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: isTablet ? 14 : 13,
                       color: AppColors.billingTextColor.withValues(alpha: 0.7),
                     ),
@@ -167,7 +168,7 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
               data: revenue,
               months: _months,
               gradient: AppColors.buildPrimaryGradient(
-                colors: const <Color>[Color(0xFF1BB686), Color(0xFF31C9A5)],
+                colors: AppColors.billingRevenueGradientColors,
               ),
               legendLabel: BillingStrings.revenue,
             ),
@@ -179,7 +180,7 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
               data: invoiced,
               months: _months,
               gradient: AppColors.buildPrimaryGradient(
-                colors: const <Color>[Color(0xFF5A86FF), Color(0xFF3F7DE3)],
+                colors: AppColors.billingInvoicedGradientColors,
               ),
               legendLabel: BillingStrings.invoiced,
             ),
@@ -191,7 +192,7 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
               data: refunds,
               months: _months,
               gradient: AppColors.buildPrimaryGradient(
-                colors: const <Color>[Color(0xFFFF5A68), Color(0xFFEF3D4B)],
+                colors: AppColors.billingRefundsGradientColors,
               ),
               legendLabel: BillingStrings.refunds,
             ),
@@ -255,7 +256,7 @@ class _AnalyticsShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isTablet = ResponsiveSizing.isTablet(context);
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
     final double gap = isTablet ? 16 : 12;
     final double chartHeight = isTablet ? 220 : 170;
 
@@ -266,13 +267,13 @@ class _AnalyticsShimmer extends StatelessWidget {
         Align(
           alignment: Alignment.centerRight,
           child: Shimmer.fromColors(
-            baseColor: Colors.grey.shade300,
-            highlightColor: Colors.grey.shade100,
+            baseColor: AppColors.billingShimmerBaseColor,
+            highlightColor: AppColors.billingShimmerHighlightColor,
             child: Container(
               height: 32,
               width: 110,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.billingCardColor,
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
@@ -298,18 +299,18 @@ class _AnalyticsCardShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isTablet = ResponsiveSizing.isTablet(context);
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
     return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
+      baseColor: AppColors.billingShimmerBaseColor,
+      highlightColor: AppColors.billingShimmerHighlightColor,
       child: Container(
         padding: EdgeInsets.all(isTablet ? 16 : 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.billingCardColor,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: AppColors.blackColor.withValues(alpha: 0.04),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -326,7 +327,7 @@ class _AnalyticsCardShimmer extends StatelessWidget {
                     height: isTablet ? 16 : 14,
                     width: 120,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.billingCardColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -339,7 +340,7 @@ class _AnalyticsCardShimmer extends StatelessWidget {
                       height: 12,
                       width: 80,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.billingCardColor,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -348,7 +349,7 @@ class _AnalyticsCardShimmer extends StatelessWidget {
                       height: isTablet ? 24 : 20,
                       width: 90,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.billingCardColor,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -360,7 +361,7 @@ class _AnalyticsCardShimmer extends StatelessWidget {
             Container(
               height: chartHeight,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.billingCardColor,
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
@@ -370,7 +371,7 @@ class _AnalyticsCardShimmer extends StatelessWidget {
                 height: 12,
                 width: 70,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.billingCardColor,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -447,7 +448,7 @@ class _AnalyticsBarCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isTablet = ResponsiveSizing.isTablet(context);
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
     final double maxY = _maxValue(data);
     final NumberFormatHelper formatter = NumberFormatHelper();
 
@@ -463,7 +464,7 @@ class _AnalyticsBarCard extends StatelessWidget {
                 child: Text(
                   title,
                   style: TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: Fonts.manrope,
                     fontSize: isTablet ? 16 : 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.billingTextColor,
@@ -476,7 +477,7 @@ class _AnalyticsBarCard extends StatelessWidget {
                   Text(
                     ytdLabel,
                     style: TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: isTablet ? 13 : 12,
                       fontWeight: FontWeight.w500,
                       color: AppColors.billingTextColor.withValues(alpha: 0.8),
@@ -486,7 +487,7 @@ class _AnalyticsBarCard extends StatelessWidget {
                   Text(
                     formatter.currency(ytdAmount),
                     style: TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: isTablet ? 24 : 20,
                       fontWeight: FontWeight.w700,
                       color: AppColors.billingTextColor,
@@ -519,7 +520,7 @@ class _AnalyticsBarCard extends StatelessWidget {
               Text(
                 legendLabel,
                 style: TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                   fontSize: isTablet ? 13 : 12,
                   color: AppColors.billingTextColor.withValues(alpha: 0.8),
                 ),
@@ -553,7 +554,7 @@ class _SubsidiesOverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isTablet = ResponsiveSizing.isTablet(context);
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
     final NumberFormatHelper formatter = NumberFormatHelper();
 
     return CustomSectionCard(
@@ -568,7 +569,7 @@ class _SubsidiesOverviewCard extends StatelessWidget {
                 child: Text(
                   BillingStrings.subsidiesOverview,
                   style: TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: Fonts.manrope,
                     fontSize: isTablet ? 16 : 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.billingTextColor,
@@ -581,7 +582,7 @@ class _SubsidiesOverviewCard extends StatelessWidget {
                   Text(
                     BillingStrings.totalSubsidiesInvoiced,
                     style: TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: isTablet ? 13 : 12,
                       fontWeight: FontWeight.w500,
                       color: AppColors.billingTextColor.withValues(alpha: 0.8),
@@ -591,7 +592,7 @@ class _SubsidiesOverviewCard extends StatelessWidget {
                   Text(
                     formatter.currency(subsidiesInvoicedYtd),
                     style: TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: isTablet ? 24 : 20,
                       fontWeight: FontWeight.w700,
                       color: AppColors.billingTextColor,
@@ -609,26 +610,17 @@ class _SubsidiesOverviewCard extends StatelessWidget {
               _ChartSeries(
                 label: BillingStrings.balance,
                 data: balance,
-                gradientColors: const <Color>[
-                  Color(0xFFFFC453),
-                  Color(0xFFFFA600),
-                ],
+                gradientColors: AppColors.billingSubsidyBalanceGradientColors,
               ),
               _ChartSeries(
                 label: BillingStrings.invoiced,
                 data: invoiced,
-                gradientColors: const <Color>[
-                  Color(0xFF8E6EFF),
-                  Color(0xFF6A57E0),
-                ],
+                gradientColors: AppColors.billingSubsidyInvoicedGradientColors,
               ),
               _ChartSeries(
                 label: BillingStrings.received,
                 data: received,
-                gradientColors: const <Color>[
-                  Color(0xFF2BC7A2),
-                  Color(0xFF1CA482),
-                ],
+                gradientColors: AppColors.billingSubsidyReceivedGradientColors,
               ),
             ],
           ),
@@ -655,7 +647,7 @@ class _SimpleBarChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isTablet = ResponsiveSizing.isTablet(context);
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
     final double chartHeight = isTablet ? 220 : 170;
     final double rowLabelWidth = isTablet ? 56 : 46;
     final double minPlotWidth = isTablet ? 720 : 560;
@@ -721,7 +713,7 @@ class _GroupedBarChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isTablet = ResponsiveSizing.isTablet(context);
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
     final double chartHeight = isTablet ? 230 : 180;
     final double rowLabelWidth = isTablet ? 56 : 46;
     final double minPlotWidth = isTablet ? 760 : 580;
@@ -839,7 +831,7 @@ class _PlotArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isTablet = ResponsiveSizing.isTablet(context);
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
     final double totalRange = maxY - negativeMin;
     final double zeroRatio = totalRange == 0 ? 1 : (maxY / totalRange);
 
@@ -856,7 +848,10 @@ class _PlotArea extends StatelessWidget {
                     child: Container(
                       decoration: const BoxDecoration(
                         border: Border(
-                          top: BorderSide(color: Color(0xFFE9E8EF), width: 1),
+                          top: BorderSide(
+                            color: AppColors.billingChartGridLineColor,
+                            width: 1,
+                          ),
                         ),
                       ),
                     ),
@@ -868,7 +863,10 @@ class _PlotArea extends StatelessWidget {
                   left: 0,
                   right: 0,
                   top: chartHeight * (1 - zeroRatio),
-                  child: Container(height: 1.2, color: const Color(0xFFCFCAD8)),
+                  child: Container(
+                    height: 1.2,
+                    color: AppColors.billingChartZeroLineColor,
+                  ),
                 ),
               child,
             ],
@@ -882,7 +880,7 @@ class _PlotArea extends StatelessWidget {
                 months[index],
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                   fontSize: isTablet ? 12 : 10.5,
                   color: AppColors.billingTextColor.withValues(alpha: 0.75),
                   fontWeight: FontWeight.w500,
@@ -1042,7 +1040,7 @@ class _YAxisLabels extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isTablet = ResponsiveSizing.isTablet(context);
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
     final NumberFormatHelper formatter = NumberFormatHelper();
     final double range = maxY - negativeMin;
 
@@ -1053,7 +1051,7 @@ class _YAxisLabels extends StatelessWidget {
         return Text(
           formatCompact ? formatter.currencyCompact(v) : formatter.currency(v),
           style: TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: Fonts.manrope,
             fontSize: isTablet ? 11 : 10,
             color: AppColors.billingTextColor.withValues(alpha: 0.6),
             fontWeight: FontWeight.w500,
@@ -1073,7 +1071,7 @@ class _LegendDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isTablet = ResponsiveSizing.isTablet(context);
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1089,7 +1087,7 @@ class _LegendDot extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: Fonts.manrope,
             fontSize: isTablet ? 12 : 11,
             fontWeight: FontWeight.w500,
             color: AppColors.billingTextColor.withValues(alpha: 0.8),

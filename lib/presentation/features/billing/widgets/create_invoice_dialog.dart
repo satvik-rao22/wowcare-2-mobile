@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
-import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/bool_toggle_cubit.dart';
 
 class CreateInvoiceDialog extends StatelessWidget {
   final VoidCallback? onSelectOneTime;
@@ -18,7 +19,7 @@ class CreateInvoiceDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.billingCardColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
@@ -34,7 +35,7 @@ class CreateInvoiceDialog extends StatelessWidget {
                     child: Text(
                       BillingStrings.createInvoice,
                       style: TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: AppColors.billingTextColor,
@@ -59,7 +60,7 @@ class CreateInvoiceDialog extends StatelessWidget {
               const Text(
                 BillingStrings.selectTheTypeOfInvoice,
                 style: TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: AppColors.billingTextMuted,
@@ -124,13 +125,13 @@ class BillingActionCardState extends State<BillingActionCard> {
               ? AppColors.billingButtonTextColor
               : AppColors.billingTextColor;
           final Color secondaryText = _isHighlighted
-              ? Colors.white70
+              ? AppColors.billingHighlightSecondaryText
               : AppColors.billingTextMuted;
           final Color iconBg = _isHighlighted
-              ? Colors.white24
+              ? AppColors.billingHighlightIconBackground
               : AppColors.themeColor.withValues(alpha: 0.1);
           final Color iconColor = _isHighlighted
-              ? Colors.white
+              ? AppColors.billingCardOnColorText
               : AppColors.themeColor;
 
           return InkWell(
@@ -165,7 +166,7 @@ class BillingActionCardState extends State<BillingActionCard> {
                   Text(
                     widget.title,
                     style: TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                       color: primaryText,
@@ -176,7 +177,7 @@ class BillingActionCardState extends State<BillingActionCard> {
                   Text(
                     widget.subtitle,
                     style: TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: 12,
                       color: secondaryText,
                       height: 1.3,

@@ -5,8 +5,8 @@ import 'package:wowcare/domain/features/attendance/entities/attendance_action_re
 import 'package:wowcare/domain/features/attendance/entities/student_sign_out_request.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_student_sign_out_usecase.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_out_submit_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_out_submit_state.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/view_model/student_sign_out_submit_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/view_model/student_sign_out_submit_state.dart';
 
 class _UnusedStorageService implements StorageService {
   @override

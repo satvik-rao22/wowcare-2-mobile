@@ -32,7 +32,7 @@ class StaffDocumentCubit extends Cubit<StaffDocumentState> {
     if (_inFlight) return;
     _inFlight = true;
     try {
-      emit(const StaffDocumentState.loading());
+      emit(StaffDocumentState.loading());
 
       final result = await _addStaffDocumentUseCase(
         staffCode: staffCode,
