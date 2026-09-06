@@ -1,6 +1,9 @@
 import '../repositories/staff_repository.dart';
 
-/// Use case to change the login email for a user.
+/// Changes the login email for a user via
+/// `POST /api/v1/users/{userCode}/email-change`. Lives on [StaffRepository]
+/// (it's user-generic, keyed by userCode, not staffCode) but is reused as-is
+/// by both the staff and guardian edit-profile flows.
 class ChangeUserEmailUseCase {
   ChangeUserEmailUseCase(this._repository);
 

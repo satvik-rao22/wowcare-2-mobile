@@ -1,68 +1,36 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
-// UI-only: use wowcare widgets and theme; backend/bloc imports removed
+
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
-import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import 'package:wowcare/domain/features/student_classroom/usecases/assign_students_to_classroom_usecase.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
-import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
+import 'package:wowcare/domain/features/student/entities/student.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/assign_student_confirmation_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/assign_student_confirmation_state.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/assign_student_selection_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/assign_student_selection_state.dart';
+import 'package:wowcare/presentation/features/classroom/forms/widgets/assign_classroom_form_widgets.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
-import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
-import 'package:wowcare/presentation/features/classroom/utils/classroom_age_range.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_students_cubit.dart';
-import 'package:wowcare/presentation/features/classroom/forms/widgets/assign_classroom_form_widgets.dart';
 
-// UI-only lightweight types
-class _TagEntity {
-  final String name;
-  const _TagEntity(this.name);
+String? _studentImageUrl(Student student) {
+  final raw = (student.profileImage ?? '').trim();
+  return raw.isEmpty ? null : raw;
 }
 
-class StudentEntity {
-  final int id;
-  final String code;
-  final String fullName;
-  final String? profileImageUrl;
-  final String? profilePhotoAssetCode;
-  final String? roomName;
-  final String? roomCode;
-  final List<_TagEntity> tags;
-
-  /// Raw DOB string from the student list (may be empty / unparseable). Kept so
-  /// the assign flow can WARN when a student's age is outside the target room.
-  final String dob;
-  const StudentEntity({
-    required this.id,
-    required this.code,
-    required this.fullName,
-    this.profileImageUrl,
-    this.profilePhotoAssetCode,
-    this.roomName,
-    this.roomCode,
-    this.tags = const [],
-    this.dob = '',
-  });
+String? _studentAssetCode(Student student) {
+  final raw = (student.profilePhotoAssetCode ?? '').trim();
+  return raw.isEmpty ? null : raw;
 }
 
-class AssignStudentToClassroomForm extends StatefulWidget {
-  final VoidCallback onStudentsAssigned; // Add this line
-  final String selectedRoomName;
-  final String classroomCode;
-
+class AssignStudentToClassroomForm extends StatelessWidget {
   const AssignStudentToClassroomForm({
     required this.onStudentsAssigned,
     required this.selectedRoomName,
@@ -70,329 +38,70 @@ class AssignStudentToClassroomForm extends StatefulWidget {
     super.key,
   });
 
+  final VoidCallback onStudentsAssigned;
+  final String selectedRoomName;
+  final String classroomCode;
+
   @override
-  State<AssignStudentToClassroomForm> createState() =>
-      _AssignStudentToClassroomFormState();
+  Widget build(BuildContext context) {
+    return BlocProvider<AssignStudentSelectionCubit>(
+      create: (_) => serviceLocator<AssignStudentSelectionCubit>()
+        ..init(classroomCode: classroomCode),
+      child: _AssignStudentSelectionView(
+        selectedRoomName: selectedRoomName,
+        classroomCode: classroomCode,
+        onStudentsAssigned: onStudentsAssigned,
+      ),
+    );
+  }
 }
 
-class _AssignStudentToClassroomFormState
-    extends State<AssignStudentToClassroomForm> {
-  static const int _pageSize = 200;
+class _AssignStudentSelectionView extends StatefulWidget {
+  const _AssignStudentSelectionView({
+    required this.selectedRoomName,
+    required this.classroomCode,
+    required this.onStudentsAssigned,
+  });
 
-  bool isSelectAllChecked = false;
-  String? _selectedClassroom = '';
-  List<String> _selectedTag = [];
-  List<StudentEntity> _filteredStudents = [];
-  final List<StudentEntity> _allStudents = [];
-  final List<String> _allRooms = [];
-  final List<String> _allTags = [];
+  final String selectedRoomName;
+  final String classroomCode;
+  final VoidCallback onStudentsAssigned;
 
-  /// Classroom display name → code, so the (name-based) Classroom dropdown
-  /// selection can be sent to the API as `classroomCodes`.
-  Map<String, String> _classroomNameToCode = {};
+  @override
+  State<_AssignStudentSelectionView> createState() =>
+      _AssignStudentSelectionViewState();
+}
 
-  /// Tag display name → code, for the `tagCodes` query param.
-  Map<String, String> _tagNameToCode = {};
-
-  /// Every classroom code except the target — the default `classroomCodes`
-  /// query when no specific Classroom filter is selected.
-  List<String> _availableClassroomCodes = [];
-
-  Set<String> _assignedStudentCodes = {};
-  bool _isLoadingStudents = false;
-  String? _studentsError;
-  Set<StudentEntity> selectedStudents = {};
+class _AssignStudentSelectionViewState
+    extends State<_AssignStudentSelectionView> {
   final TextEditingController _searchController = TextEditingController();
-  Timer? _searchDebounce;
-
-  // Today's sign-in status per student code — drives disabling the
-  // selection checkbox for students who are currently signed in (they can't
-  // be reassigned to another classroom while signed in).
-  Map<String, String> _todayStatusByCode = {};
-
-  bool _isStudentSignedIn(String code) {
-    final gate = studentAttendanceGateFromTodayStatus(
-      isActiveProfile: true,
-      todayStatusRaw: _todayStatusByCode[code],
-    );
-    return gate.isSignedInToday;
-  }
 
   @override
   void initState() {
     super.initState();
-    try {
-      final cubit = serviceLocator<ClassroomStudentsCubit>();
-      _assignedStudentCodes = cubit.state.students
-          .map((s) => s.studentCode.trim().toUpperCase())
-          .where((code) => code.isNotEmpty)
-          .toSet();
-    } catch (_) {}
-    _loadFilterOptionsThenStudents();
     _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    context.read<AssignStudentSelectionCubit>().onSearchChanged(
+      _searchController.text,
+    );
   }
 
   @override
   void dispose() {
-    _searchDebounce?.cancel();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
 
-  /// Loads the full Classroom/Tags option lists once (every active
-  /// classroom except the target, and the school's full tag catalog — not
-  /// derived from whichever students the first fetch happens to return),
-  /// then does the first student fetch.
-  Future<void> _loadFilterOptionsThenStudents() async {
-    try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-          .trim();
-
-      final activeClassrooms =
-          await serviceLocator<GetActiveClassroomsUseCase>()(
-            schoolCode: schoolCode,
-            onlyTypeClassroom: true,
-          );
-      final availableClassrooms = activeClassrooms
-          .where((classroom) => classroom.code != widget.classroomCode)
-          .toList();
-      _classroomNameToCode = {
-        for (final c in availableClassrooms)
-          if (c.name.trim().isNotEmpty) c.name.trim(): c.code.trim(),
-      };
-      _availableClassroomCodes = availableClassrooms
-          .map((c) => c.code)
-          .toList();
-
-      // Full school tag catalog — not just the tags present among the
-      // currently loaded students, which would silently hide any tag no
-      // student outside the target classroom happens to have right now.
-      final tagCatalog =
-          await serviceLocator<GetTagNameCodeMapForSchoolUseCase>()(
-            schoolCode: schoolCode,
-          );
-      _tagNameToCode = tagCatalog;
-
-      if (mounted) {
-        setState(() {
-          _allRooms
-            ..clear()
-            ..addAll(_classroomNameToCode.keys.toList()..sort());
-          _allTags
-            ..clear()
-            ..addAll(_tagNameToCode.keys.toList()..sort());
-        });
-      }
-    } catch (_) {
-      // Filter options failing to load shouldn't block the student fetch
-      // below — the dropdowns just stay empty and the user can retry via search.
-    }
-    await _loadStudentsFromApi();
-  }
-
-  /// Fetches students with the current Classroom/Tags selections applied
-  /// server-side (`classroomCodes` / `tagCodes` query params) — re-run
-  /// whenever either selection changes. Free-text search stays client-side
-  /// over this already-filtered result.
-  Future<void> _loadStudentsFromApi() async {
-    setState(() {
-      _isLoadingStudents = true;
-      _studentsError = null;
-    });
-
-    try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
-      if (schoolCode.trim().isEmpty) {
-        throw 'School code is not set. Please sign in and select a school.';
-      }
-
-      final getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
-
-      final selectedClassroomCode =
-          (_selectedClassroom != null && _selectedClassroom!.trim().isNotEmpty)
-          ? _classroomNameToCode[_selectedClassroom!.trim()]
-          : null;
-      final classroomCodes = selectedClassroomCode != null
-          ? [selectedClassroomCode]
-          : _availableClassroomCodes;
-
-      final tagCodes = _selectedTag
-          .map((label) => _tagNameToCode[label])
-          .whereType<String>()
-          .toList();
-
-      final fetchedStudents = <StudentEntity>[];
-
-      int page = 0;
-      bool hasMore = true;
-      while (hasMore) {
-        final studentPage = await getStudentPageUseCase(
-          schoolCode: schoolCode,
-          page: page,
-          size: _pageSize,
-          status: 'ACTIVE',
-          classroomCodes: classroomCodes,
-          tagCodes: tagCodes.isEmpty ? null : tagCodes,
-        );
-
-        for (final s in studentPage.items) {
-          final tagEntities = s.tags
-              .where((t) => t.trim().isNotEmpty)
-              .map((t) => _TagEntity(t.trim()))
-              .toList();
-          fetchedStudents.add(
-            StudentEntity(
-              id: fetchedStudents.length + 1,
-              code: s.code,
-              fullName: s.fullName,
-              profileImageUrl: (s.profileImage ?? '').trim().isEmpty
-                  ? null
-                  : s.profileImage!.trim(),
-              profilePhotoAssetCode:
-                  (s.profilePhotoAssetCode ?? '').trim().isEmpty
-                  ? null
-                  : s.profilePhotoAssetCode!.trim(),
-              roomName: s.classroom,
-              roomCode: s.classroomCode,
-              tags: tagEntities,
-              dob: s.dob,
-            ),
-          );
-        }
-
-        hasMore = studentPage.hasMore;
-        page += 1;
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _allStudents
-          ..clear()
-          ..addAll(fetchedStudents);
-        _filterStudents();
-      });
-      unawaited(_loadTodaySignInStatuses(fetchedStudents));
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _studentsError = e.toString();
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingStudents = false;
-        });
-      }
-    }
-  }
-
-  /// Fetches today's sign-in status for every loaded student in one batch
-  /// call, reusing the same use case the Student list/profile screens use —
-  /// students currently signed in can't be reassigned to another classroom.
-  Future<void> _loadTodaySignInStatuses(List<StudentEntity> students) async {
-    final codes = students
-        .map((s) => s.code.trim())
-        .where((c) => c.isNotEmpty)
-        .toList();
-    if (codes.isEmpty) return;
-    try {
-      final useCase = serviceLocator<GetStudentTodaySignInStatusMapUseCase>();
-      final map = await useCase(studentCodes: codes);
-      if (!mounted) return;
-      setState(() => _todayStatusByCode = map);
-    } catch (_) {
-      // Non-critical: leave statuses empty so nothing is incorrectly
-      // disabled if the status check itself fails.
-    }
-  }
-
-  void _onSearchChanged() {
-    // Debounce so the list filters once the user pauses typing.
-    _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
-      if (!mounted) return;
-      _filterStudents();
-    });
-  }
-
-  /// Search-text filtering (plus the already-assigned exclusion) only —
-  /// Classroom and Tags are applied server-side by [_loadStudentsFromApi]
-  /// via `classroomCodes` / `tagCodes` query params, so [_allStudents] is
-  /// already scoped to them.
-  void _filterStudents() {
-    final query = _searchController.text.trim().toLowerCase();
-    _filteredStudents = _allStudents.where((student) {
-      // Exclude students whose current classroom matches the target classroom
-      if (student.roomCode != null &&
-          student.roomCode!.trim().toUpperCase() ==
-              widget.classroomCode.trim().toUpperCase()) {
-        return false;
-      }
-      // Fallback: exclude students already assigned to the selected classroom based on the Cubit
-      if (_assignedStudentCodes.contains(student.code.trim().toUpperCase())) {
-        return false;
-      }
-      if (query.isEmpty) return true;
-      return student.fullName.toLowerCase().contains(query);
-    }).toList();
-    setState(() {});
-  }
-
-  void _toggleSelectAll(bool? value) {
-    if (value == null) return;
-
-    setState(() {
-      isSelectAllChecked = value;
-
-      // Get the current visible students based on filters, excluding
-      // anyone currently signed in — they can't be selected at all.
-      final List<StudentEntity> visibleStudents = _getVisibleStudents()
-          .where((s) => !_isStudentSignedIn(s.code))
-          .toList();
-
-      if (value) {
-        // Add all visible students to selection
-        selectedStudents.addAll(visibleStudents);
-      } else {
-        // Remove all visible students from selection
-        selectedStudents.removeAll(visibleStudents);
-      }
-    });
-  }
-
-  void _toggleStudentSelection(StudentEntity student, bool? value) {
-    if (value == null || _isStudentSignedIn(student.code)) return;
-
-    setState(() {
-      if (value) {
-        selectedStudents.add(student);
-      } else {
-        selectedStudents.remove(student);
-      }
-
-      // Update select all checkbox based on visible, selectable students.
-      final visibleStudents = _getVisibleStudents().where(
-        (s) => !_isStudentSignedIn(s.code),
-      );
-      isSelectAllChecked = visibleStudents.every(
-        (student) => selectedStudents.contains(student),
-      );
-    });
-  }
-
-  /// [_filterStudents] keeps this in sync with the search box on every
-  /// change, so it's always safe to read directly.
-  List<StudentEntity> _getVisibleStudents() => _filteredStudents;
-
   @override
   Widget build(BuildContext context) {
+    final cubit = context.read<AssignStudentSelectionCubit>();
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardColor,
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: Column(
@@ -415,109 +124,116 @@ class _AssignStudentToClassroomFormState
             hintText: 'Search Students',
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                flex: 4,
-                child: CustomDropdown(
-                  onSelect: (value) {
-                    setState(() => _selectedClassroom = value);
-                    _loadStudentsFromApi();
-                  },
-                  hintText: 'Classroom',
-                  items: _allRooms
-                      .where((name) => name != widget.selectedRoomName)
-                      .toList(),
-                  isField: true,
-                  isEnabled: true,
+          BlocBuilder<AssignStudentSelectionCubit, AssignStudentSelectionState>(
+            builder: (context, state) => Row(
+              children: [
+                Expanded(
+                  flex: 4,
+                  child: CustomDropdown(
+                    onSelect: cubit.selectClassroom,
+                    hintText: 'Classroom',
+                    items: state.rooms
+                        .where((name) => name != widget.selectedRoomName)
+                        .toList(),
+                    isField: true,
+                    isEnabled: true,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 4,
-                child: CustomMultiSelectDropdown(
-                  hintText: 'Tags',
-                  showSelectAll: true,
-                  items: _allTags,
-                  selectedItems: _selectedTag,
-                  onChanged: (selectedItems) {
-                    setState(() => _selectedTag = selectedItems);
-                    _loadStudentsFromApi();
-                  },
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 4,
+                  child: CustomMultiSelectDropdown(
+                    hintText: 'Tags',
+                    showSelectAll: true,
+                    items: state.tags,
+                    selectedItems: state.selectedTags,
+                    onChanged: cubit.selectTags,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 12),
-          SelectAllCheckboxRow(
-            value: isSelectAllChecked,
-            onChanged: _toggleSelectAll,
-            checkboxBuilder: (value, onChanged) => CustomCheckbox(
-              borderColor: AppColors.themeColor,
-              value: value,
-              onChanged: onChanged,
+          BlocBuilder<AssignStudentSelectionCubit, AssignStudentSelectionState>(
+            builder: (context, state) => SelectAllCheckboxRow(
+              value: state.isSelectAllChecked,
+              onChanged: (value) => cubit.toggleSelectAll(value ?? false),
+              checkboxBuilder: (value, onChanged) => CustomCheckbox(
+                borderColor: AppColors.themeColor,
+                value: value,
+                onChanged: onChanged,
+              ),
             ),
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: AssignFormResultsArea(
-              isLoading: _isLoadingStudents,
-              errorMessage: _studentsError,
-              onRetry: _loadStudentsFromApi,
-              content: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  mainAxisExtent: 72,
+            child:
+                BlocBuilder<
+                  AssignStudentSelectionCubit,
+                  AssignStudentSelectionState
+                >(
+                  builder: (context, state) => AssignFormResultsArea(
+                    isLoading: state.isLoading,
+                    errorMessage: state.errorMessage,
+                    onRetry: cubit.loadStudents,
+                    content: GridView.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            mainAxisExtent: 72,
+                          ),
+                      itemCount: state.visibleStudents.length,
+                      itemBuilder: (context, index) {
+                        final student = state.visibleStudents[index];
+                        final isSelected = state.selectedStudents.contains(
+                          student,
+                        );
+                        return StudentListItem(
+                          student: student,
+                          isSelected: isSelected,
+                          isSignedIn: state.isStudentSignedIn(student.code),
+                          onSelectionChanged: (value) =>
+                              cubit.toggleStudent(student, value ?? false),
+                        );
+                      },
+                    ),
+                  ),
                 ),
-                itemCount: _getVisibleStudents().length,
-                itemBuilder: (context, index) {
-                  final student = _getVisibleStudents()[index];
-                  final isSelected = selectedStudents.contains(student);
-                  return StudentListItem(
-                    student: student,
-                    isSelected: isSelected,
-                    isSignedIn: _isStudentSignedIn(student.code),
-                    onSelectionChanged: (value) {
-                      _toggleStudentSelection(student, value);
-                    },
-                  );
-                },
-              ),
-            ),
           ),
           const SizedBox(height: 16),
-          CustomButtonLayout(
-            confirmButtonLabel: 'Next',
-            cancelButtonLabel: 'Cancel',
-            onPressedCancel: () => Navigator.pop(context),
-            onPressedConfirm: () {
-              if (selectedStudents.isEmpty) {
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: 'Please select at least one student',
-                  isWarning: true,
-                );
-                return;
-              } else {
+          BlocBuilder<AssignStudentSelectionCubit, AssignStudentSelectionState>(
+            builder: (context, state) => CustomButtonLayout(
+              confirmButtonLabel: 'Next',
+              cancelButtonLabel: 'Cancel',
+              onPressedCancel: () => Navigator.pop(context),
+              onPressedConfirm: () {
+                if (state.selectedStudents.isEmpty) {
+                  CoreUtils.showTopSnackBar(
+                    context: context,
+                    message: 'Please select at least one student',
+                    isWarning: true,
+                  );
+                  return;
+                }
                 Navigator.pop(context);
                 showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
+                  backgroundColor: AppColors.transparentColor,
                   builder: (context) => DraggableScrollableSheet(
                     maxChildSize: 0.95,
                     builder: (_, controller) => StudentConfirmationForm(
-                      selectedStudents: selectedStudents,
+                      selectedStudents: state.selectedStudents,
                       selectedRoomName: widget.selectedRoomName,
                       classroomCode: widget.classroomCode,
                       onStudentsAssigned: widget.onStudentsAssigned,
                     ),
                   ),
                 );
-              }
-            },
+              },
+            ),
           ),
         ],
       ),
@@ -525,76 +241,53 @@ class _AssignStudentToClassroomFormState
   }
 }
 
-class StudentConfirmationForm extends StatefulWidget {
-  final Set<StudentEntity> selectedStudents;
-  final String selectedRoomName;
-  final String classroomCode;
-  final VoidCallback onStudentsAssigned;
-
+class StudentConfirmationForm extends StatelessWidget {
   const StudentConfirmationForm({
-    Key? key,
     required this.selectedStudents,
     required this.selectedRoomName,
     required this.classroomCode,
     required this.onStudentsAssigned,
-  }) : super(key: key);
+    super.key,
+  });
+
+  final Set<Student> selectedStudents;
+  final String selectedRoomName;
+  final String classroomCode;
+  final VoidCallback onStudentsAssigned;
 
   @override
-  State<StudentConfirmationForm> createState() =>
-      _StudentConfirmationFormState();
+  Widget build(BuildContext context) {
+    return BlocProvider<AssignStudentConfirmationCubit>(
+      create: (_) => serviceLocator<AssignStudentConfirmationCubit>()
+        ..init(initialSelection: selectedStudents, classroomCode: classroomCode),
+      child: _StudentConfirmationView(
+        selectedRoomName: selectedRoomName,
+        classroomCode: classroomCode,
+        onStudentsAssigned: onStudentsAssigned,
+      ),
+    );
+  }
 }
 
-class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
-  late Set<StudentEntity> currentSelectedStudents;
-  bool _isSubmitting = false;
+class _StudentConfirmationView extends StatelessWidget {
+  const _StudentConfirmationView({
+    required this.selectedRoomName,
+    required this.classroomCode,
+    required this.onStudentsAssigned,
+  });
 
-  /// Target classroom (with age bounds), loaded once on init. Null while loading
-  /// or if the fetch fails — either way the age warning is simply skipped.
-  Classroom? _targetClassroom;
+  final String selectedRoomName;
+  final String classroomCode;
+  final VoidCallback onStudentsAssigned;
 
-  @override
-  void initState() {
-    super.initState();
-    currentSelectedStudents = Set.from(widget.selectedStudents);
-    unawaited(_loadTargetClassroom());
-  }
-
-  /// Resolves the target classroom's age bounds. Self-contained (uses the
-  /// use case directly) so it doesn't depend on a ClassroomCubit being in scope.
-  Future<void> _loadTargetClassroom() async {
-    try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-          .trim();
-      if (schoolCode.isEmpty) return;
-      final classrooms = await serviceLocator<GetActiveClassroomsUseCase>()(
-        schoolCode: schoolCode,
-      );
-      if (!mounted) return;
-      for (final c in classrooms) {
-        if (c.code.trim() == widget.classroomCode.trim()) {
-          setState(() => _targetClassroom = c);
-          return;
-        }
-      }
-    } catch (_) {
-      // Bounds unknown → the warning is skipped (never blocks the assign).
-    }
-  }
-
-  /// Shows an amber confirm listing any selected students whose age is outside
-  /// the target room. Returns true to proceed (including when there's nothing to
-  /// warn about, or the room's bounds/DOBs are unknown).
-  Future<bool> _confirmIfAnyOutsideAgeRange() async {
-    final classroom = _targetClassroom;
-    if (classroom == null) return true; // bounds unknown → don't block
-
-    final outside = studentsOutsideAgeRange(
-      classroom: classroom,
-      students: currentSelectedStudents
-          .map((s) => (name: s.fullName.trim(), dob: _parseDob(s.dob)))
-          .toList(),
-    );
+  /// Shows an amber confirm listing any selected students whose age is
+  /// outside the target room. Returns true to proceed (including when
+  /// there's nothing to warn about, or the room's bounds/DOBs are unknown).
+  Future<bool> _confirmIfAnyOutsideAgeRange(
+    BuildContext context,
+    AssignStudentConfirmationCubit cubit,
+  ) async {
+    final outside = cubit.outsideAgeRangeNames();
     if (outside.isEmpty) return true;
 
     final names = outside.where((n) => n.isNotEmpty).toList();
@@ -610,7 +303,7 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (ctx) => ConfirmationBottomSheet(
         icon: Icons.warning_amber_rounded,
         title: message,
@@ -623,144 +316,131 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
     return result == true;
   }
 
-  /// Parses the raw DOB string; null when empty / unparseable (skip the check).
-  DateTime? _parseDob(String raw) {
-    final t = raw.trim();
-    if (t.isEmpty) return null;
-    return DateTime.tryParse(t);
-  }
-
-  void removeStudent(StudentEntity student) {
-    setState(() {
-      currentSelectedStudents.remove(student);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
+    final cubit = context.read<AssignStudentConfirmationCubit>();
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardColor,
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AssignFormHeader(title: 'Assign to ${widget.selectedRoomName}'),
+          AssignFormHeader(title: 'Assign to $selectedRoomName'),
           const SizedBox(height: 16),
-          if (currentSelectedStudents.isEmpty)
-            const AssignFormEmptySelection(message: 'No students selected')
-          else
-            Expanded(
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  mainAxisExtent: 72,
-                ),
-                itemCount: currentSelectedStudents.length,
-                itemBuilder: (context, index) {
-                  final student = currentSelectedStudents.elementAt(index);
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.themeColor),
-                      borderRadius: BorderRadius.circular(10),
-                      color: const Color.fromRGBO(249, 245, 250, 1),
-                    ),
-                    child: Row(
-                      children: [
-                        DocumentImageWidget(
-                          fileUuid: '',
-                          imageUrl: student.profileImageUrl,
-                          mediaAssetCode: student.profilePhotoAssetCode,
-                          name: student.fullName,
-                          studentCode: student.code,
-                          size: 32,
-                          fontSize: 12,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: EllipsisTooltipText(
-                            text: student.fullName.trim().isEmpty
-                                ? 'Student'
-                                : student.fullName.trim(),
-                            maxLines: 2,
-                            preferLongPress: true,
-                            style: const TextStyle(
-                              fontFamily: 'Manrope',
-                              color: AppColors.primaryColor,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
+          BlocBuilder<
+            AssignStudentConfirmationCubit,
+            AssignStudentConfirmationState
+          >(
+            builder: (context, state) {
+              if (state.selectedStudents.isEmpty) {
+                return const AssignFormEmptySelection(
+                  message: 'No students selected',
+                );
+              }
+              final studentList = state.selectedStudents.toList();
+              return Expanded(
+                child: GridView.builder(
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        mainAxisExtent: 72,
+                      ),
+                  itemCount: studentList.length,
+                  itemBuilder: (context, index) {
+                    final student = studentList[index];
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.themeColor),
+                        borderRadius: BorderRadius.circular(10),
+                        color: AppColors.classroomNeutralTintColor,
+                      ),
+                      child: Row(
+                        children: [
+                          DocumentImageWidget(
+                            fileUuid: '',
+                            imageUrl: _studentImageUrl(student),
+                            mediaAssetCode: _studentAssetCode(student),
+                            name: student.fullName,
+                            studentCode: student.code,
+                            size: 32,
+                            fontSize: 12,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: EllipsisTooltipText(
+                              text: student.fullName.trim().isEmpty
+                                  ? 'Student'
+                                  : student.fullName.trim(),
+                              maxLines: 2,
+                              preferLongPress: true,
+                              style: const TextStyle(
+                                fontFamily: 'Manrope',
+                                color: AppColors.primaryColor,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
-                        ),
-                        GestureDetector(
-                          onTap: () => removeStudent(student),
-                          child: SvgPicture.asset(MediaRes.delete_icon),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          const SizedBox(height: 16),
-          CustomButtonLayout(
-            confirmButtonLabel: 'Submit',
-            cancelButtonLabel: 'Cancel',
-            onPressedCancel: () => Navigator.pop(context),
-            onPressedConfirm: _isSubmitting
-                ? () {}
-                : () async {
-                    if (currentSelectedStudents.isEmpty) {
-                      CoreUtils.showTopSnackBar(
-                        context: context,
-                        message: 'Please select at least one student',
-                        isWarning: true,
-                      );
-                      return;
-                    }
-
-                    // WARN (never block) if any selected student is outside the
-                    // target room's age range — matching web "warn but allow".
-                    final proceed = await _confirmIfAnyOutsideAgeRange();
-                    if (!proceed || !mounted) return;
-
-                    await submitClassroomAssignment(
-                      context: context,
-                      isSelectionEmpty: currentSelectedStudents.isEmpty,
-                      emptySelectionMessage:
-                          'Please select at least one student',
-                      setSubmitting: (submitting) {
-                        if (mounted) {
-                          setState(() => _isSubmitting = submitting);
-                        }
-                      },
-                      submit: (schoolCode) {
-                        // NOTE: In this UI module we only have the selected
-                        // room name. The backend expects classroomCode; we
-                        // pass the selectedRoomName as the code until the
-                        // classroom code is wired into this form.
-                        final classroomCode = widget.classroomCode.trim();
-                        final studentCodes = currentSelectedStudents
-                            .map((s) => s.code.trim())
-                            .where((code) => code.isNotEmpty)
-                            .toList();
-                        return serviceLocator<
-                          AssignStudentsToClassroomUseCase
-                        >()(
-                          schoolCode: schoolCode,
-                          classroomCode: classroomCode,
-                          studentCodes: studentCodes,
-                        );
-                      },
-                      onSuccess: widget.onStudentsAssigned,
+                          GestureDetector(
+                            onTap: () => cubit.removeStudent(student),
+                            child: SvgPicture.asset(MediaRes.delete_icon),
+                          ),
+                        ],
+                      ),
                     );
                   },
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          BlocBuilder<
+            AssignStudentConfirmationCubit,
+            AssignStudentConfirmationState
+          >(
+            builder: (context, state) => CustomButtonLayout(
+              confirmButtonLabel: 'Submit',
+              cancelButtonLabel: 'Cancel',
+              onPressedCancel: () => Navigator.pop(context),
+              onPressedConfirm: state.isSubmitting
+                  ? () {}
+                  : () async {
+                      if (state.selectedStudents.isEmpty) {
+                        CoreUtils.showTopSnackBar(
+                          context: context,
+                          message: 'Please select at least one student',
+                          isWarning: true,
+                        );
+                        return;
+                      }
+
+                      // WARN (never block) if any selected student is
+                      // outside the target room's age range — matching web
+                      // "warn but allow".
+                      final proceed = await _confirmIfAnyOutsideAgeRange(
+                        context,
+                        cubit,
+                      );
+                      if (!proceed || !context.mounted) return;
+
+                      await submitClassroomAssignment(
+                        context: context,
+                        isSelectionEmpty: state.selectedStudents.isEmpty,
+                        emptySelectionMessage:
+                            'Please select at least one student',
+                        submit: () =>
+                            cubit.submit(classroomCode: classroomCode),
+                        onSuccess: onStudentsAssigned,
+                      );
+                    },
+            ),
           ),
         ],
       ),
@@ -769,18 +449,18 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
 }
 
 class StudentListItem extends StatelessWidget {
-  final StudentEntity student;
-  final bool isSelected;
-  final bool isSignedIn;
-  final ValueChanged<bool?> onSelectionChanged;
-
   const StudentListItem({
-    Key? key,
     required this.student,
     required this.isSelected,
     required this.onSelectionChanged,
     this.isSignedIn = false,
-  }) : super(key: key);
+    super.key,
+  });
+
+  final Student student;
+  final bool isSelected;
+  final bool isSignedIn;
+  final ValueChanged<bool?> onSelectionChanged;
 
   String get _disabledReason =>
       "This Student ${student.fullName.trim().isEmpty ? 'This student' : student.fullName.trim()} is already signed in. Please sign out before assigning to another classroom.";
@@ -806,8 +486,8 @@ class StudentListItem extends StatelessWidget {
             border: Border.all(color: AppColors.themeColor),
             borderRadius: BorderRadius.circular(8),
             color: isSelected
-                ? const Color.fromARGB(255, 249, 245, 250)
-                : Colors.white,
+                ? AppColors.classroomNeutralTintColor
+                : AppColors.cardColor,
           ),
           child: Padding(
             padding: const EdgeInsets.only(right: 4),
@@ -823,8 +503,8 @@ class StudentListItem extends StatelessWidget {
                 ),
                 DocumentImageWidget(
                   fileUuid: '',
-                  imageUrl: student.profileImageUrl,
-                  mediaAssetCode: student.profilePhotoAssetCode,
+                  imageUrl: _studentImageUrl(student),
+                  mediaAssetCode: _studentAssetCode(student),
                   name: student.fullName,
                   studentCode: student.code,
                   size: 32,

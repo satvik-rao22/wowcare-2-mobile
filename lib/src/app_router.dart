@@ -35,6 +35,7 @@ import 'package:wowcare/presentation/features/activities/view_model/medication_a
 import 'package:wowcare/presentation/features/activities/view_model/nap_activity_cubit.dart';
 import 'package:wowcare/presentation/features/activities/widgets/upload_photo_video.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
+import 'package:wowcare/presentation/features/auth/view_model/forgot_password_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
@@ -159,14 +160,18 @@ import 'package:wowcare/presentation/features/scheduling/model/scheduling_route_
 import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
-import 'package:wowcare/presentation/features/user-profile/view/notification_settings_screen.dart';
-import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
+import 'package:wowcare/presentation/features/user_profile/view/edit_user_profile_screen.dart';
+import 'package:wowcare/presentation/features/user_profile/view/notification_settings_screen.dart';
+import 'package:wowcare/presentation/features/user_profile/view/user_profile_screen.dart';
+import 'package:wowcare/presentation/features/user_profile/view_model/edit_user_profile_cubit.dart';
+import 'package:wowcare/presentation/features/user_profile/view_model/notification_preference_groups_cubit.dart';
+import 'package:wowcare/presentation/features/user_profile/view_model/user_profile_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/user_persona.dart';
 import 'package:wowcare/presentation/features/splash/view/splash_screen.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-import 'package:wowcare/presentation/features/splash/cubit/splash_cubit.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
+import 'package:wowcare/presentation/features/splash/view_model/splash_cubit.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
 import 'package:wowcare/domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
@@ -188,6 +193,7 @@ class AppRoutes {
   static const String forgotPassword = ForgotPasswordScreen.routeName;
   static const String orgSelection = '/org-selection';
   static const String schoolSelection = '/school-selection';
+  static const String editUserProfile = EditUserProfileScreen.routeName;
 
   static const String dashboard = DashboardScreen.routeName;
   static const String classroom = ClassroomScreen.routeName;
@@ -500,7 +506,10 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.forgotPassword,
-      builder: (context, state) => const ForgotPasswordScreen(),
+      builder: (context, state) => BlocProvider(
+        create: (_) => serviceLocator<ForgotPasswordCubit>(),
+        child: const ForgotPasswordScreen(),
+      ),
     ),
     GoRoute(
       path: AppRoutes.orgSelection,
@@ -529,6 +538,33 @@ final GoRouter appRouter = GoRouter(
                     .toList()
               : null,
           orgFromLoginContext: args['orgFromLoginContext'] as bool? ?? false,
+        );
+      },
+    ),
+    GoRoute(
+      path: AppRoutes.editUserProfile,
+      builder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        final isParent = args['isParent'] as bool? ?? false;
+        return BlocProvider(
+          create: (_) =>
+              serviceLocator<EditUserProfileCubit>()
+                ..loadProfile(isParent: isParent),
+          child: EditUserProfileScreen(
+            initialFirstName: args['initialFirstName'] as String?,
+            initialLastName: args['initialLastName'] as String?,
+            initialEmail: args['initialEmail'] as String?,
+            initialPhoneNo: args['initialPhoneNo'] as String?,
+            initialStreet: args['initialStreet'] as String?,
+            initialCity: args['initialCity'] as String?,
+            initialState: args['initialState'] as String?,
+            initialCountry: args['initialCountry'] as String?,
+            initialZipCode: args['initialZipCode'] as String?,
+            role: args['role'] as String?,
+            signInPin: args['signInPin'] as String?,
+            initialAddressLine2: args['initialAddressLine2'] as String?,
+            isParent: isParent,
+          ),
         );
       },
     ),
@@ -1626,19 +1662,29 @@ final GoRouter appRouter = GoRouter(
                         state.extra as Map<String, dynamic>? ?? const {};
                     return _fastPage(
                       state,
-                      UserProfileScreen(
-                        userName: args['userName'] as String? ?? '',
-                        userEmail: args['userEmail'] as String? ?? '',
-                        userPersona: args['userPersona'] as String? ?? '',
-                        staffCode: args['staffCode'] as String?,
+                      BlocProvider(
+                        create: (_) => serviceLocator<UserProfileCubit>(),
+                        child: UserProfileScreen(
+                          userName: args['userName'] as String? ?? '',
+                          userEmail: args['userEmail'] as String? ?? '',
+                          userPersona: args['userPersona'] as String? ?? '',
+                          staffCode: args['staffCode'] as String?,
+                        ),
                       ),
                     );
                   },
                 ),
                 GoRoute(
                   path: 'notificationSettings',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, const NotificationSettingsScreen()),
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    BlocProvider(
+                      create: (_) =>
+                          serviceLocator<NotificationPreferenceGroupsCubit>()
+                            ..load(),
+                      child: const NotificationSettingsScreen(),
+                    ),
+                  ),
                 ),
                 GoRoute(
                   path: 'student-profile',

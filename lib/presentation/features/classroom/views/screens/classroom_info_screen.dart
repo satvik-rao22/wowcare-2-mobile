@@ -30,7 +30,6 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/domain/features/classroom/repositories/classroom_repository.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
@@ -40,9 +39,12 @@ import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_expected_summary.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_attendance_expected_summary_usecase.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_student_classroom_enrolled_count_usecase.dart';
+import 'package:wowcare/domain/features/classroom/usecases/create_classroom_logo_upload_session_usecase.dart';
+import 'package:wowcare/domain/features/classroom/usecases/finalize_classroom_logo_usecase.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
-class ClassroomInfoScreen extends StatefulWidget {
+class ClassroomInfoScreen extends StatelessWidget {
   const ClassroomInfoScreen({super.key, this.initialClassroomCode});
 
   /// When opened from a notification deep-link (e.g. RATIO_BREACHED), the
@@ -53,10 +55,24 @@ class ClassroomInfoScreen extends StatefulWidget {
   static const String routeName = '/classroom-info-screen';
 
   @override
-  State<ClassroomInfoScreen> createState() => _ClassroomInfoScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider<IndividualMovementsCubit>(
+      create: (_) => serviceLocator<IndividualMovementsCubit>()..loadInitial(),
+      child: _ClassroomInfoView(initialClassroomCode: initialClassroomCode),
+    );
+  }
 }
 
-class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
+class _ClassroomInfoView extends StatefulWidget {
+  const _ClassroomInfoView({this.initialClassroomCode});
+
+  final String? initialClassroomCode;
+
+  @override
+  State<_ClassroomInfoView> createState() => _ClassroomInfoViewState();
+}
+
+class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
   Classroom? _selectedRoom;
   ClassroomDetails? _details;
   /// True while classroom details, enrolled counts, and attendance summaries
@@ -68,6 +84,14 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   final GetStudentAttendanceExpectedSummaryUseCase
       _getStudentAttendanceExpectedSummaryUseCase =
       serviceLocator<GetStudentAttendanceExpectedSummaryUseCase>();
+  final GetStudentClassroomEnrolledCountUseCase
+      _getStudentClassroomEnrolledCountUseCase =
+      serviceLocator<GetStudentClassroomEnrolledCountUseCase>();
+  final CreateClassroomLogoUploadSessionUseCase
+      _createClassroomLogoUploadSessionUseCase =
+      serviceLocator<CreateClassroomLogoUploadSessionUseCase>();
+  final FinalizeClassroomLogoUseCase _finalizeClassroomLogoUseCase =
+      serviceLocator<FinalizeClassroomLogoUseCase>();
   final GetStaffAttendanceExpectedSummaryUseCase
       _getStaffAttendanceExpectedSummaryUseCase =
       serviceLocator<GetStaffAttendanceExpectedSummaryUseCase>();
@@ -99,8 +123,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     super.initState();
     _storage = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storage);
-    _movementsCubit = serviceLocator<IndividualMovementsCubit>()
-      ..loadInitial();
+    _movementsCubit = context.read<IndividualMovementsCubit>();
     _loadLastSelectedClassroomFromCache();
     // Selected room may be passed as a route argument
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -117,7 +140,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
 
   @override
   void dispose() {
-    _movementsCubit.close();
+    // No manual _movementsCubit.close() — the ancestor BlocProvider in
+    // ClassroomInfoScreen now owns the cubit's lifecycle.
     super.dispose();
   }
 
@@ -166,17 +190,17 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   Widget _buildRoomDetailsLoadingCard(String classroomName) {
     return Card(
       elevation: 0,
-      color: Colors.white,
-      surfaceTintColor: Colors.white,
+      color: AppColors.cardColor,
+      surfaceTintColor: AppColors.cardColor,
       shape: RoundedRectangleBorder(
         side: const BorderSide(
           width: 1.5,
-          color: Color.fromARGB(255, 232, 234, 234),
+          color: AppColors.classroomCardBorderColor,
         ),
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
-        tileColor: Colors.white,
+        tileColor: AppColors.cardColor,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
           vertical: 10,
@@ -253,20 +277,15 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     final orgCode = (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
 
-    final body = await serviceLocator<ClassroomRepository>()
-        .getStudentClassroomEnrolledCount(
+    final count = await _getStudentClassroomEnrolledCountUseCase(
       classroomCode: code,
       organizationCode: orgCode,
       schoolCode: schoolCode,
     );
-    if (body is! Map<String, dynamic>) return;
-    final data = body['data'];
-    if (data is! Map) return;
-    final map = Map<String, dynamic>.from(data);
 
-    final active = (map['activeCount'] as num?)?.toInt() ?? 0;
-    final upcoming = (map['upcomingCount'] as num?)?.toInt() ?? 0;
-    final enrolled = (map['enrolledCount'] as num?)?.toInt() ?? 0;
+    final active = count.activeCount;
+    final upcoming = count.upcomingCount;
+    final enrolled = count.enrolledCount;
 
     await _cacheManager.saveCache(_enrolledCountCacheKey(code), {
       'data': {
@@ -428,10 +447,10 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
             child: Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.cardColor,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: const Color.fromARGB(255, 232, 234, 234),
+                  color: AppColors.classroomCardBorderColor,
                   width: 1,
                 ),
               ),
@@ -488,26 +507,13 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
 
       final uploadService = serviceLocator<ImageUploadService>();
 
-      final sessionBody = await serviceLocator<ClassroomRepository>()
-          .createClassroomLogoUploadSession(
+      final session = await _createClassroomLogoUploadSessionUseCase(
         classroomCode: classroomCode,
         organizationCode: organizationCode,
         schoolCode: schoolCode,
       );
-      if (sessionBody is! Map<String, dynamic> ||
-          sessionBody['success'] == false) {
-        final msg = (sessionBody?['message'] ?? '').toString().trim();
-        throw Exception(
-          msg.isNotEmpty ? msg : 'Unable to create upload session',
-        );
-      }
-      final sessionData = sessionBody['data'];
-      if (sessionData is! Map<String, dynamic>) {
-        throw Exception('Missing upload session data');
-      }
-      final sessionCode = (sessionData['sessionCode'] ?? '').toString().trim();
-      final documentApiBasePath =
-          (sessionData['documentApiBasePath'] ?? '/api/v1').toString().trim();
+      final sessionCode = session.sessionCode;
+      final documentApiBasePath = session.documentApiBasePath;
       if (sessionCode.isEmpty) {
         throw Exception('Upload session code is missing');
       }
@@ -562,20 +568,12 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
       );
       if (mounted) setState(() => _logoUploadPercent = 100);
 
-      final finalizeBody = await serviceLocator<ClassroomRepository>()
-          .finalizeClassroomLogo(
+      await _finalizeClassroomLogoUseCase(
             classroomCode: classroomCode,
             assetCode: presign.assetCode.trim(),
           )
           // A non-responding finalize must not lock the overlay at 100% forever.
           .timeout(const Duration(seconds: 30));
-      if (finalizeBody is! Map<String, dynamic> ||
-          finalizeBody['success'] == false) {
-        final msg = (finalizeBody?['message'] ?? '').toString().trim();
-        throw Exception(
-          msg.isNotEmpty ? msg : 'Unable to finalize classroom logo',
-        );
-      }
 
       // Resolve the fresh delivery URL; even if this comes back empty the
       // avatar still refetches by classroomCode because the cache is cleared.
@@ -657,7 +655,10 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
           : 'Signed-in attendance is not available to evaluate staffing.';
       return Tooltip(
         message: message,
-        child: const Icon(Icons.help_outline, color: Colors.grey),
+        child: const Icon(
+          Icons.help_outline,
+          color: AppColors.classroomMutedIconColor,
+        ),
       );
     }
     final signedInStudents = _studentSummary?.present;
@@ -668,7 +669,9 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
           : 'Not enough signed-in staff for $signedInStudents signed-in students at ${details.studentTeacherRatioDisplay}.',
       child: Icon(
         ok ? Icons.thumb_up : Icons.thumb_down,
-        color: ok ? Colors.green : Colors.red,
+        color: ok
+            ? AppColors.classroomPositiveStatusColor
+            : AppColors.classroomNegativeStatusColor,
       ),
     );
   }
@@ -676,17 +679,17 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   Widget _buildRoomDetailsCard(ClassroomDetails details) {
     return Card(
       elevation: 0,
-      color: Colors.white,
-      surfaceTintColor: Colors.white,
+      color: AppColors.cardColor,
+      surfaceTintColor: AppColors.cardColor,
       shape: RoundedRectangleBorder(
         side: const BorderSide(
           width: 1.5,
-          color: Color.fromARGB(255, 232, 234, 234),
+          color: AppColors.classroomCardBorderColor,
         ),
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
-        tileColor: Colors.white,
+        tileColor: AppColors.cardColor,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
           vertical: 10,
@@ -727,7 +730,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                 details.ageRangeCompactDisplay,
                 style: const TextStyle(
                   fontFamily: 'Manrope',
-                  color: Color(0xff573353),
+                  color: AppColors.classroomTextColor,
                 ),
               ),
               const SizedBox(height: 4),
@@ -740,7 +743,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                       text: 'Capacity: ',
                       style: const TextStyle(
                         fontFamily: 'Manrope',
-                        color: Color(0xff573353),
+                        color: AppColors.classroomTextColor,
                       ),
                       children: [
                         TextSpan(
@@ -748,7 +751,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                           style: const TextStyle(
                             fontFamily: 'Manrope',
                             fontWeight: FontWeight.bold,
-                            color: Color(0xff573353),
+                            color: AppColors.classroomTextColor,
                           ),
                         ),
                       ],
@@ -762,7 +765,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                       text: 'Ratio: ',
                       style: const TextStyle(
                         fontFamily: 'Manrope',
-                        color: Color(0xff573353),
+                        color: AppColors.classroomTextColor,
                       ),
                       children: [
                         TextSpan(
@@ -770,7 +773,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                           style: const TextStyle(
                             fontFamily: 'Manrope',
                             fontWeight: FontWeight.bold,
-                            color: Color(0xff573353),
+                            color: AppColors.classroomTextColor,
                           ),
                         ),
                       ],
@@ -928,7 +931,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                               style: Theme.of(context)
                                   .textTheme
                                   .bodyMedium
-                                  ?.copyWith(color: Colors.red),
+                                  ?.copyWith(color: AppColors.classroomNegativeStatusColor),
                             ),
                           )
                         else if (_details != null) ...[
@@ -940,7 +943,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodyMedium
-                                    ?.copyWith(color: Colors.red),
+                                    ?.copyWith(color: AppColors.classroomNegativeStatusColor),
                               ),
                             ),
                           _buildRoomDetailsCard(_details!),
@@ -988,57 +991,6 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                             ),
                           ),
                         ],
-                        // Events section (temporarily disabled)
-                        // Card(
-                        //   elevation: 0,
-                        //   color: Colors.white,
-                        //   surfaceTintColor: Colors.white,
-                        //   shape: RoundedRectangleBorder(
-                        //     side: const BorderSide(
-                        //       width: 1.5,
-                        //       color: Color.fromARGB(255, 232, 234, 234),
-                        //     ),
-                        //     borderRadius: BorderRadius.circular(12),
-                        //   ),
-                        //   child: Padding(
-                        //     padding: const EdgeInsets.all(16),
-                        //     child: Column(
-                        //       crossAxisAlignment: CrossAxisAlignment.start,
-                        //       children: [
-                        //         Text(
-                        //           'Events',
-                        //           style: TextStyle(
-                        //             fontFamily: 'Manrope',
-                        //             fontSize: 20,
-                        //             fontWeight: FontWeight.bold,
-                        //             color: const Color(0xff573353),
-                        //           ),
-                        //         ),
-                        //         const SizedBox(height: 16),
-                        //         Row(
-                        //           mainAxisAlignment:
-                        //               MainAxisAlignment.spaceBetween,
-                        //           children: const [
-                        //             Icon(Icons.chevron_left,
-                        //                 color: Colors.grey),
-                        //             Text(
-                        //               'Nov 2025',
-                        //               style: TextStyle(
-                        //                 fontFamily: 'Manrope',
-                        //                 color: Color(0xff573353),
-                        //               ),
-                        //             ),
-                        //             Icon(Icons.chevron_right,
-                        //                 color: Colors.grey),
-                        //           ],
-                        //         ),
-                        //         const SizedBox(height: 16),
-                        //         const EventsCard(),
-                        //         const SizedBox(height: 16),
-                        //       ],
-                        //     ),
-                        //   ),
-                        // ),
                       ],
                     ),
                   ),
@@ -1178,8 +1130,8 @@ class ClassroomInfoShimmer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
+      baseColor: AppColors.classroomShimmerBaseColor,
+      highlightColor: AppColors.classroomShimmerHighlightColor,
       child: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -1192,7 +1144,7 @@ class ClassroomInfoShimmer extends StatelessWidget {
                     width: 200,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.cardColor,
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
@@ -1200,7 +1152,7 @@ class ClassroomInfoShimmer extends StatelessWidget {
                     width: 28,
                     height: 28,
                     decoration: const BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.cardColor,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -1212,7 +1164,7 @@ class ClassroomInfoShimmer extends StatelessWidget {
               Container(
                 height: 100,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.cardColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
@@ -1234,7 +1186,7 @@ class ClassroomInfoShimmer extends StatelessWidget {
               Container(
                 height: 400,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.cardColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Padding(
@@ -1246,7 +1198,7 @@ class ClassroomInfoShimmer extends StatelessWidget {
                       Container(
                         width: 80,
                         height: 24,
-                        color: Colors.white,
+                        color: AppColors.cardColor,
                       ),
                       const SizedBox(height: 16),
 
@@ -1259,7 +1211,7 @@ class ClassroomInfoShimmer extends StatelessWidget {
                                   width: 40,
                                   height: 40,
                                   decoration: const BoxDecoration(
-                                    color: Colors.white,
+                                    color: AppColors.cardColor,
                                     shape: BoxShape.circle,
                                   ),
                                 )),
@@ -1278,7 +1230,7 @@ class ClassroomInfoShimmer extends StatelessWidget {
                                       width: 50,
                                       height: 50,
                                       decoration: BoxDecoration(
-                                        color: Colors.white,
+                                        color: AppColors.cardColor,
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
@@ -1288,7 +1240,7 @@ class ClassroomInfoShimmer extends StatelessWidget {
                                       child: Container(
                                         height: 50,
                                         decoration: BoxDecoration(
-                                          color: Colors.white,
+                                          color: AppColors.cardColor,
                                           borderRadius:
                                               BorderRadius.circular(8),
                                         ),
@@ -1312,7 +1264,7 @@ class ClassroomInfoShimmer extends StatelessWidget {
     return Container(
       height: 120,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
@@ -1326,13 +1278,13 @@ class ClassroomInfoShimmer extends StatelessWidget {
                 Container(
                   width: 80,
                   height: 32,
-                  color: Colors.white,
+                  color: AppColors.cardColor,
                 ),
                 const SizedBox(height: 8),
                 Container(
                   width: 60,
                   height: 40,
-                  color: Colors.white,
+                  color: AppColors.cardColor,
                 ),
               ],
             ),
@@ -1345,7 +1297,7 @@ class ClassroomInfoShimmer extends StatelessWidget {
                   Container(
                     height: 24,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.cardColor,
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
@@ -1356,12 +1308,12 @@ class ClassroomInfoShimmer extends StatelessWidget {
                       Container(
                         width: 80,
                         height: 12,
-                        color: Colors.white,
+                        color: AppColors.cardColor,
                       ),
                       Container(
                         width: 80,
                         height: 12,
-                        color: Colors.white,
+                        color: AppColors.cardColor,
                       ),
                     ],
                   ),

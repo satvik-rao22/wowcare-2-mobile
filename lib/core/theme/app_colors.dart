@@ -678,6 +678,136 @@ class AppColors {
   /// as an independent activity-scoped constant.
   static const Color activitySearchFieldBg = Color(0xFFF8F7FA);
 
+  // Classroom module colors — Mandate 4 sweep
+  //
+  // Primary text color for classroom detail cards, roster rows, and dropdown
+  // labels (was `Color(0xff573353)`) — same value as [billingTextColor],
+  // kept as an independent classroom-scoped alias per the codebase's
+  // feature-scoping convention (recurs 20x+).
+  static const Color classroomTextColor = Color(0xff573353);
+
+  /// Light mauve border for search bars and dropdown fields across the
+  /// classroom feature (was `Color.fromARGB(255, 188, 173, 186)`, recurs 8x).
+  static const Color classroomBorderColor = Color.fromARGB(255, 188, 173, 186);
+
+  /// Light grey border for the classroom-detail cards on
+  /// [ClassroomInfoScreen] (was `Color.fromARGB(255, 232, 234, 234)`).
+  static const Color classroomCardBorderColor = Color.fromARGB(
+    255,
+    232,
+    234,
+    234,
+  );
+
+  /// Bright "good" status: signed-in attendance dot, ratio-met icon (was
+  /// bare `Colors.green`).
+  static const Color classroomPositiveStatusColor = Colors.green;
+
+  /// Bright "bad" status: absent attendance dot, ratio-not-met icon, error
+  /// text (was bare `Colors.red`).
+  static const Color classroomNegativeStatusColor = Colors.red;
+
+  /// Muted icon/text tint — empty-state icons, help tooltips (was bare
+  /// `Colors.grey`).
+  static const Color classroomMutedIconColor = Colors.grey;
+
+  /// Roster-row border (was `Colors.grey[300]`/`Colors.grey.shade300`).
+  static const Color classroomRowBorderColor = Color(0xFFE0E0E0);
+
+  /// Greyed-out roster-row background for staff/students not expected today
+  /// (was `Colors.grey[100]`).
+  static const Color classroomRowGreyedBackgroundColor = Color(0xFFF5F5F5);
+
+  /// Dropdown placeholder/hint text, e.g. an unselected designation filter
+  /// (was `Colors.grey[600]`).
+  static const Color classroomPlaceholderTextColor = Color(0xFF757575);
+
+  /// Search-field hint text on the assign-staff/assign-student forms (was
+  /// `Colors.grey[700]`).
+  static const Color classroomSearchFieldHintColor = Color(0xFF616161);
+
+  /// Status-filter chip background on the staff/students tab cards (was
+  /// `Color.fromRGBO(177, 175, 233, 0.3)`).
+  static const Color classroomStatusChipBackgroundColor = Color.fromRGBO(
+    177,
+    175,
+    233,
+    0.3,
+  );
+
+  /// Roster scrollbar thumb color on the staff tab card (was
+  /// `Color.fromRGBO(222, 228, 253, 1)`).
+  static const Color classroomScrollbarThumbColor = Color.fromRGBO(
+    222,
+    228,
+    253,
+    1,
+  );
+
+  /// Message/mail icon accent on a staff roster row (was
+  /// `Color.fromRGBO(44, 99, 226, 1)`).
+  static const Color classroomMessageIconColor = Color.fromRGBO(
+    44,
+    99,
+    226,
+    1,
+  );
+
+  /// Search-field hint text on the students tab card's own search bar — 70%
+  /// [primaryColor] (was `Color.fromRGBO(87, 51, 83, 0.7)`).
+  static final Color classroomSearchHintTextColor = primaryColor.withValues(
+    alpha: 0.7,
+  );
+
+  /// Neutral pastel tint: selected-row background on the assign forms, and
+  /// the Ratio Monitoring table's "Classroom" header column (was
+  /// `Color.fromRGBO(249, 245, 250, 1)` / `Color.fromARGB(255, 249, 245,
+  /// 250)` — numerically identical, same use).
+  static const Color classroomNeutralTintColor = Color.fromRGBO(
+    249,
+    245,
+    250,
+    1,
+  );
+
+  /// Ratio Monitoring table's "Students" header column background (was
+  /// `Color.fromRGBO(234, 240, 253, 1)`).
+  static const Color classroomRatioStudentsHeaderColor = Color.fromRGBO(
+    234,
+    240,
+    253,
+    1,
+  );
+
+  /// Ratio Monitoring table's "Staff" header column background (was
+  /// `Color.fromRGBO(234, 251, 255, 1)`).
+  static const Color classroomRatioStaffHeaderColor = Color.fromRGBO(
+    234,
+    251,
+    255,
+    1,
+  );
+
+  /// Ratio Monitoring table's "Ratio" header column background (was
+  /// `Color.fromRGBO(255, 245, 234, 1)`).
+  static const Color classroomRatioCurrentHeaderColor = Color.fromRGBO(
+    255,
+    245,
+    234,
+    1,
+  );
+
+  /// Ratio Monitoring table header sub-label text, e.g. "Present"/"Current"
+  /// (was `Colors.grey.shade800`).
+  static const Color classroomRatioHeaderSubtextColor = Color(0xFF424242);
+
+  /// [ClassroomInfoShimmer]'s loading-skeleton base/highlight — kept
+  /// separate from [classroomRowBorderColor] despite an identical base
+  /// value, matching this file's existing shimmer-vs-border convention (see
+  /// [attendanceShimmerBaseColor]).
+  static const Color classroomShimmerBaseColor = Color(0xFFE0E0E0);
+  static const Color classroomShimmerHighlightColor = Color(0xFFF5F5F5);
+
   // Bare Colors.* sweep, grouped by confirmed semantic role (see per-file
   // recon before this batch was written).
   static const Color activityUploadSuccessColor =
@@ -720,6 +850,109 @@ class AppColors {
   static const Color activityVideoProgressBufferedColor =
       Colors.white38; // Video-progress buffered segment (recurs 1x)
 
+  // Auth module colors — Mandate 4 sweep
+  //
+  // Primary headings/icons/body text across sign-in, org/school selection,
+  // and password screens (was `Color(0xFF333333)`, recurs 17x).
+  static const Color authPrimaryTextColor = Color(0xFF333333);
+
+  /// Org/school selection accent text — same value as [billingTextColor],
+  /// kept as an independent auth-scoped alias per the codebase's
+  /// feature-scoping convention (was `Color(0xFF573353)`, recurs 5x).
+  static const Color authAccentTextColor = Color(0xFF573353);
+
+  /// Thin divider line under the "Select Organization/School" heading (was
+  /// `Color(0xFFFFF3E9)`, recurs 4x).
+  static const Color authDividerColor = Color(0xFFFFF3E9);
+
+  /// Password field background — same value as [billingSurfaceLight] (was
+  /// `Color(0xFFF8F9FA)`, recurs 3x).
+  static const Color authSurfaceLight = Color(0xFFF8F9FA);
+
+  /// Password-strength "met" indicator (icon, banner text, success circle) —
+  /// was both bare `Colors.green` and the identical `Color(0xFF4CAF50)`
+  /// (recurs 3x).
+  static const Color authSuccessColor = Colors.green;
+
+  /// Field label above each password input, and the show/hide eye icon (was
+  /// `Color(0xFF888888)`, recurs 4x).
+  static const Color authFieldLabelColor = Color(0xFF888888);
+
+  /// Password field placeholder/hint text (was `Color(0xFFBBBBBB)`).
+  static const Color authHintTextColor = Color(0xFFBBBBBB);
+
+  /// Password field border (was `Color(0xFFEEEEEE)`).
+  static const Color authInputBorderColor = Color(0xFFEEEEEE);
+
+  /// Password-strength "met" banner background (was `Color(0xFFEFFBEF)`).
+  static const Color authSuccessBackgroundColor = Color(0xFFEFFBEF);
+
+  /// Muted icon tint, e.g. the sign-out confirmation sheet (was bare
+  /// `Colors.grey`).
+  static const Color authMutedIconColor = Colors.grey;
+
+  /// Bottom-sheet drag handle (was `Colors.grey[300]`, equivalent to
+  /// `Colors.grey.shade300`).
+  static final Color authDragHandleColor = Colors.grey.shade300;
+
+  /// Role label under the user's name on org/school selection (was
+  /// `Colors.grey.shade600`, recurs 2x).
+  static final Color authSecondaryTextColor = Colors.grey.shade600;
+
+  // User profile module colors — Mandate 4 sweep
+  //
+  // Primary purple-brown text — same value as [billingTextColor] /
+  // [authAccentTextColor], kept as an independent user-profile-scoped alias
+  // (was `Color(0xff573353)`, recurs 11x).
+  static const Color userProfileTextColor = Color(0xff573353);
+
+  /// Card/input border — same value as [billingBorderDefault] (user-profile
+  /// text @ 40% alpha) (was `Color(0x66573353)`).
+  static const Color userProfileBorderColor = Color(0x66573353);
+
+  /// Muted icon tint (was bare `Colors.grey`, recurs 2x).
+  static const Color userProfileMutedIconColor = Colors.grey;
+
+  /// Disabled "Save" button background on the edit-profile form — same
+  /// value as [billingButtonDisabled] (was `Colors.grey[300]`).
+  static final Color userProfileDisabledButtonColor = Colors.grey[300]!;
+
+  /// Disabled "Country" field text on the edit-profile form (was
+  /// `Colors.grey.shade700`).
+  static final Color userProfileSecondaryTextColor = Colors.grey.shade700;
+
+  /// Validation/required-field marker (was bare `Colors.red`, recurs 2x).
+  static const Color userProfileErrorColor = Colors.red;
+
+  /// "Soft purple" header/badge background — same value as
+  /// [activitySoftPurpleFieldColor] (was `Color(0xFFB1AFE9)`, recurs 2x).
+  static const Color userProfileSoftPurpleColor = Color(0xFFB1AFE9);
+
+  /// Divider — same value as [billingDividerLight] (was `Color(0xFFE9ECEF)`,
+  /// recurs 2x).
+  static const Color userProfileDividerColor = Color(0xFFE9ECEF);
+
+  /// Divider between the work-schedule and break-schedule sections on the
+  /// profile screen (was `Color(0xFFF0ECF4)`).
+  static const Color userProfileSectionDividerColor = Color(0xFFF0ECF4);
+
+  /// Light panel background — same value as [staffLightBackgroundColor] (was
+  /// `Color(0xFFF8F7FA)`).
+  static const Color userProfileLightBackgroundColor = Color(0xFFF8F7FA);
+
+  /// Disabled notification-channel checkbox fill (was `Colors.grey.shade300`).
+  static final Color userProfileDisabledCheckboxFillColor =
+      Colors.grey.shade300;
+
+  /// Disabled notification-channel checkbox border (was
+  /// `Colors.grey.shade400`).
+  static final Color userProfileDisabledCheckboxBorderColor =
+      Colors.grey.shade400;
+
+  // Onboarding module colors — Mandate 4 sweep
+  //
+  // Inactive page-indicator dot (was `Colors.grey.shade300`).
+  static final Color onboardingInactiveDotColor = Colors.grey.shade300;
   // ── Reports (Mandate M4) ────────────────────────────────────────────────
   /// Error-state icon on the Generated-reports failure panel. This is the
   /// exact value of the `Colors.red` it replaced (#F44336), NOT

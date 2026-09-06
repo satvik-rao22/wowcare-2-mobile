@@ -40,7 +40,7 @@ import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/core/util/context_switch_cache_cleaner.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/user_details_school_roles.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';

@@ -19,9 +19,19 @@ class ClassroomDropdown extends StatefulWidget {
 }
 
 class _ClassroomDropdownState extends State<ClassroomDropdown> {
+  // Not reactive state: nothing in build() reads this. The overlay's
+  // visibility is driven entirely by inserting/removing [_overlayEntry]
+  // from the Overlay directly, so tracking this in setState only forced a
+  // pointless rebuild of the label/arrow row on every open and close.
   bool _isOpen = false;
   final LayerLink _layerLink = LayerLink();
   late OverlayEntry _overlayEntry;
+
+  @override
+  void dispose() {
+    if (_isOpen) _overlayEntry.remove();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,11 +75,11 @@ class _ClassroomDropdownState extends State<ClassroomDropdown> {
   void _toggleDropdown() {
     if (_isOpen) {
       _overlayEntry.remove();
-      setState(() => _isOpen = false);
+      _isOpen = false;
     } else {
       _overlayEntry = _createOverlayEntry();
       Overlay.of(context).insert(_overlayEntry);
-      setState(() => _isOpen = true);
+      _isOpen = true;
     }
   }
 
@@ -88,7 +98,7 @@ class _ClassroomDropdownState extends State<ClassroomDropdown> {
             onTap: _toggleDropdown,
             behavior: HitTestBehavior.opaque,
             child: Container(
-              color: Colors.transparent,
+              color: AppColors.transparentColor,
             ),
           ),
           Positioned(
