@@ -1,5 +1,5 @@
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
-import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/attendance_school_time.dart';
 
 /// Shared age-vs-classroom-range rules.
 ///

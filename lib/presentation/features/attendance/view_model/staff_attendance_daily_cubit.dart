@@ -37,6 +37,11 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
 
   static const int _pageSize = 10;
 
+  // See StudentAttendanceDailyCubit for the full rationale — this cubit
+  // mirrors that one's fetch/pagination shape and had the identical bugs.
+  int _generation = 0;
+  _PendingStaffDailyRefresh? _pendingRefresh;
+
   /// Resolves a classroom's display name from its code — used by the View's
   /// own on-demand name cache when a row's classroom name isn't already
   /// known. Returns null (rather than throwing) on failure, matching the
@@ -77,6 +82,8 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
     );
   }
 
+  // Queues (rather than drops) a refresh() call that arrives while a
+  // previous one is still in flight — see [_pendingRefresh].
   Future<void> refresh({
     required DateTime attendanceDate,
     List<String>? classroomCodes,
@@ -86,8 +93,54 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
     bool? isExpectedNotMarked,
     String? search,
   }) async {
-    if (state.isRefreshing) return;
+    if (state.isRefreshing) {
+      _pendingRefresh = _PendingStaffDailyRefresh(
+        attendanceDate: attendanceDate,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
+        isExpectedNotMarked: isExpectedNotMarked,
+        search: search,
+      );
+      return;
+    }
 
+    await _runRefresh(
+      attendanceDate: attendanceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      signInAtFilter: signInAtFilter,
+      signOutAtFilter: signOutAtFilter,
+      isExpectedNotMarked: isExpectedNotMarked,
+      search: search,
+    );
+
+    while (_pendingRefresh != null && !isClosed) {
+      final next = _pendingRefresh!;
+      _pendingRefresh = null;
+      await _runRefresh(
+        attendanceDate: next.attendanceDate,
+        classroomCodes: next.classroomCodes,
+        tagCodes: next.tagCodes,
+        signInAtFilter: next.signInAtFilter,
+        signOutAtFilter: next.signOutAtFilter,
+        isExpectedNotMarked: next.isExpectedNotMarked,
+        search: next.search,
+      );
+    }
+  }
+
+  Future<void> _runRefresh({
+    required DateTime attendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? signInAtFilter,
+    String? signOutAtFilter,
+    bool? isExpectedNotMarked,
+    String? search,
+  }) async {
+    _generation++;
     final dateString = _formatDate(attendanceDate);
 
     emit(
@@ -203,9 +256,22 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
   }
 
   Future<void> loadNextPage() async {
-    if (state.isLoading || state.isLoadingMore || !state.hasMore) return;
+    if (state.isLoading ||
+        state.isLoadingMore ||
+        state.isRefreshing ||
+        !state.hasMore) {
+      return;
+    }
     if (state.currentPage < 0) return;
     if (state.attendanceDate == null) return;
+
+    final myGeneration = _generation;
+    final classroomCodes = state.classroomCodes;
+    final tagCodes = state.tagCodes;
+    final signInAtFilter = state.signInAtFilter;
+    final signOutAtFilter = state.signOutAtFilter;
+    final isExpectedNotMarked = state.isExpectedNotMarked;
+    final search = state.search;
 
     emit(state.copyWith(isLoadingMore: true, errorMessage: null));
 
@@ -216,17 +282,18 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
       final page = await _getStaffAttendanceDailyUseCase(
         fromAttendanceDate: dateString,
         toAttendanceDate: dateString,
-        classroomCodes: state.classroomCodes,
-        tagCodes: state.tagCodes,
-        signInAtFilter: state.signInAtFilter,
-        signOutAtFilter: state.signOutAtFilter,
-        isExpectedNotMarked: state.isExpectedNotMarked,
-        search: state.search,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
+        isExpectedNotMarked: isExpectedNotMarked,
+        search: search,
         page: nextPageIndex,
         size: _pageSize,
       );
 
       if (isClosed) return;
+      if (myGeneration != _generation) return;
 
       emit(
         state.copyWith(
@@ -238,6 +305,7 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
       );
     } catch (e) {
       if (isClosed) return;
+      if (myGeneration != _generation) return;
       emit(
         state.copyWith(
           isLoadingMore: false,
@@ -250,4 +318,26 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
+}
+
+/// A refresh() call queued while a previous one was still in flight — see
+/// [StaffAttendanceDailyCubit._pendingRefresh].
+class _PendingStaffDailyRefresh {
+  const _PendingStaffDailyRefresh({
+    required this.attendanceDate,
+    this.classroomCodes,
+    this.tagCodes,
+    this.signInAtFilter,
+    this.signOutAtFilter,
+    this.isExpectedNotMarked,
+    this.search,
+  });
+
+  final DateTime attendanceDate;
+  final List<String>? classroomCodes;
+  final List<String>? tagCodes;
+  final String? signInAtFilter;
+  final String? signOutAtFilter;
+  final bool? isExpectedNotMarked;
+  final String? search;
 }

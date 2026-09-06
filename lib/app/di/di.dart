@@ -219,24 +219,27 @@ import '../../domain/features/attendance/usecases/get_student_today_sign_in_stat
 import '../../domain/features/attendance/usecases/get_student_sign_in_status_at_time_usecase.dart';
 import '../../domain/features/attendance/usecases/get_staff_sign_in_status_at_time_usecase.dart';
 import '../../domain/features/attendance/usecases/update_student_attendance_record_usecase.dart';
+import '../../domain/features/attendance/usecases/update_staff_attendance_record_usecase.dart';
+import '../../domain/features/attendance/usecases/get_cached_student_attendance_daily_usecase.dart';
+import '../../domain/features/attendance/usecases/get_cached_student_attendance_custom_usecase.dart';
 import '../../domain/features/attendance/usecases/submit_student_sign_in_usecase.dart';
-import '../../presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_in_submit_cubit.dart';
-import '../../presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_in_gate_cubit.dart';
-import '../../presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_sign_in_gate_cubit.dart';
+import '../../presentation/features/attendance/view/student_attendance_forms/view_model/student_sign_in_submit_cubit.dart';
+import '../../presentation/features/attendance/view/student_attendance_forms/view_model/student_sign_in_gate_cubit.dart';
+import '../../presentation/features/attendance/view/staff_attendance_forms/view_model/staff_sign_in_gate_cubit.dart';
 import '../../domain/features/attendance/usecases/submit_student_sign_out_usecase.dart';
-import '../../presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_out_submit_cubit.dart';
+import '../../presentation/features/attendance/view/student_attendance_forms/view_model/student_sign_out_submit_cubit.dart';
 import '../../domain/features/attendance/usecases/submit_student_transfer_usecase.dart';
-import '../../presentation/features/attendance/forms/student_attendance_forms/view_model/student_transfer_submit_cubit.dart';
+import '../../presentation/features/attendance/view/student_attendance_forms/view_model/student_transfer_submit_cubit.dart';
 import '../../domain/features/attendance/usecases/submit_staff_sign_in_usecase.dart';
-import '../../presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_sign_in_submit_cubit.dart';
+import '../../presentation/features/attendance/view/staff_attendance_forms/view_model/staff_sign_in_submit_cubit.dart';
 import '../../domain/features/attendance/usecases/submit_staff_sign_out_usecase.dart';
-import '../../presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_sign_out_submit_cubit.dart';
+import '../../presentation/features/attendance/view/staff_attendance_forms/view_model/staff_sign_out_submit_cubit.dart';
 import '../../domain/features/attendance/usecases/submit_staff_transfer_usecase.dart';
-import '../../presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_transfer_submit_cubit.dart';
-import '../../presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_sign_in_selection_cubit.dart';
-import '../../presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_transfer_selection_cubit.dart';
-import '../../presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_sign_out_selection_cubit.dart';
-import '../../presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_mark_absent_selection_cubit.dart';
+import '../../presentation/features/attendance/view/staff_attendance_forms/view_model/staff_transfer_submit_cubit.dart';
+import '../../presentation/features/attendance/view/staff_attendance_forms/view_model/staff_sign_in_selection_cubit.dart';
+import '../../presentation/features/attendance/view/staff_attendance_forms/view_model/staff_transfer_selection_cubit.dart';
+import '../../presentation/features/attendance/view/staff_attendance_forms/view_model/staff_sign_out_selection_cubit.dart';
+import '../../presentation/features/attendance/view/staff_attendance_forms/view_model/staff_mark_absent_selection_cubit.dart';
 import '../../domain/features/attendance/usecases/delete_staff_attendance_record_usecase.dart';
 import '../../domain/features/attendance/usecases/delete_student_attendance_record_usecase.dart';
 import '../../domain/features/attendance/usecases/delete_student_absence_record_usecase.dart';
@@ -244,6 +247,7 @@ import '../../domain/features/attendance/usecases/delete_staff_absence_record_us
 import '../../domain/features/attendance/usecases/fetch_student_attendance_profile_usecase.dart';
 import '../../presentation/features/attendance/view_model/student_attendance_profile_fetch_cubit.dart';
 import '../../presentation/features/attendance/view_model/qr_code_validation_cubit.dart';
+import '../../presentation/features/attendance/view/student_attendance_forms/view_model/student_sign_in_out_selection_cubit.dart';
 import '../../presentation/features/attendance/view_model/staff_attendance_profile_fetch_cubit.dart';
 import '../../presentation/features/attendance/view_model/student_attendance_absent_fetch_cubit.dart';
 import '../../domain/features/attendance/usecases/fetch_student_attendance_profile_absent_toggle_usecase.dart';
@@ -305,10 +309,10 @@ import '../../presentation/features/activities/view/choose_activity.dart';
 import '../../presentation/features/activities/view_model/activity_filter_cubit.dart';
 import '../../presentation/features/activities/view_model/activity_student_selection_cubit.dart';
 import '../../presentation/features/activities/view_model/choose_activity_cubit.dart';
-import '../../presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_in_selection_cubit.dart';
-import '../../presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_out_selection_cubit.dart';
-import '../../presentation/features/attendance/forms/student_attendance_forms/view_model/student_transfer_selection_cubit.dart';
-import '../../presentation/features/attendance/forms/student_attendance_forms/view_model/student_mark_absent_selection_cubit.dart';
+import '../../presentation/features/attendance/view/student_attendance_forms/view_model/student_sign_in_selection_cubit.dart';
+import '../../presentation/features/attendance/view/student_attendance_forms/view_model/student_sign_out_selection_cubit.dart';
+import '../../presentation/features/attendance/view/student_attendance_forms/view_model/student_transfer_selection_cubit.dart';
+import '../../presentation/features/attendance/view/student_attendance_forms/view_model/student_mark_absent_selection_cubit.dart';
 import '../../presentation/features/activities/view_model/activity_editor_cubit.dart';
 import '../../presentation/features/activities/view_model/activity_moderation_cubit.dart';
 import '../../presentation/features/activities/view_model/school_cloud_image_uploader_cubit.dart';
@@ -358,10 +362,10 @@ import '../../presentation/features/staff/cubit/staff_profile_edit_cubit.dart';
 import '../../presentation/features/staff/cubit/create_school_user_cubit.dart';
 import '../../presentation/features/students/cubit/student_cubit.dart';
 import '../../presentation/features/attendance/view_model/student_attendance_daily_cubit.dart';
-import '../../presentation/features/attendance/forms/student_attendance_forms/view_model/student_mark_absent_cubit.dart';
-import '../../presentation/features/attendance/forms/student_attendance_forms/view_model/student_edit_attendance_cubit.dart';
-import '../../presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_mark_absent_cubit.dart';
-import '../../presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_edit_attendance_cubit.dart';
+import '../../presentation/features/attendance/view/student_attendance_forms/view_model/student_mark_absent_cubit.dart';
+import '../../presentation/features/attendance/view/student_attendance_forms/view_model/student_edit_attendance_cubit.dart';
+import '../../presentation/features/attendance/view/staff_attendance_forms/view_model/staff_mark_absent_cubit.dart';
+import '../../presentation/features/attendance/view/staff_attendance_forms/view_model/staff_edit_attendance_cubit.dart';
 import '../../presentation/features/availability/cubit/future_availability_cubit.dart';
 import '../../presentation/features/availability/cubit/individual_movements_cubit.dart';
 import '../../presentation/features/attendance/view_model/student_attendance_custom_cubit.dart';
@@ -1165,7 +1169,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<StaffEditAttendanceFormCubit>(
     () => StaffEditAttendanceFormCubit(
-      attendanceRepository: serviceLocator(),
+      updateStaffAttendanceRecordUseCase: serviceLocator(),
       storageService: serviceLocator(),
       apiClient: serviceLocator(),
     ),
@@ -1250,6 +1254,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<UpdateStudentAttendanceRecordUseCase>(
     () => UpdateStudentAttendanceRecordUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateStaffAttendanceRecordUseCase>(
+    () => UpdateStaffAttendanceRecordUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetCachedStudentAttendanceDailyUseCase>(
+    () => GetCachedStudentAttendanceDailyUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetCachedStudentAttendanceCustomUseCase>(
+    () => GetCachedStudentAttendanceCustomUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<SubmitStudentSignInUseCase>(
     () => SubmitStudentSignInUseCase(serviceLocator()),
@@ -2241,6 +2254,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storageService: serviceLocator(),
     ),
   );
+  serviceLocator.registerFactory<StudentSignInOutSelectionCubit>(
+    () => StudentSignInOutSelectionCubit(qrValidation: serviceLocator()),
+  );
   serviceLocator.registerFactory<QrValidationCubit>(
     () => QrValidationCubit(
       validateQrCodeUseCase: serviceLocator(),
@@ -2254,7 +2270,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StudentAttendanceDailyCubit(
       getStudentAttendanceDailyUseCase: serviceLocator(),
       getStudentAttendanceExpectedSummaryUseCase: serviceLocator(),
-      repository: serviceLocator(),
+      getCachedStudentAttendanceDailyUseCase: serviceLocator(),
       getStudentCountsUseCase: serviceLocator(),
       getTagNameCodeMapForSchoolUseCase: serviceLocator(),
       storageService: serviceLocator(),
@@ -2288,7 +2304,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<StudentAttendanceCustomCubit>(
     () => StudentAttendanceCustomCubit(
       getStudentAttendanceCustomUseCase: serviceLocator(),
-      repository: serviceLocator(),
+      getCachedStudentAttendanceCustomUseCase: serviceLocator(),
       getClassroomByCodeUseCase: serviceLocator(),
       storageService: serviceLocator(),
     ),

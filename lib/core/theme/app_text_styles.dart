@@ -199,6 +199,18 @@ class AppTextStyles {
   static TextStyle attendanceDropdownValue({required Color color}) =>
       TextStyle(color: color, fontSize: 15);
 
+  /// Staff attendance card's designation label. 13/12·w400 with NO
+  /// line-height — deliberately left off this base (unlike most entries
+  /// above) because no existing height matched this exact metric and every
+  /// candidate base would have injected one via `.copyWith()`, changing this
+  /// row's layout. Color varies per call site via `.copyWith(color: ...)`.
+  static TextStyle attendanceDesignationLabel({required bool isTablet}) =>
+      TextStyle(
+        fontFamily: Fonts.manrope,
+        fontSize: isTablet ? 13 : 12,
+        fontWeight: FontWeight.w400,
+      );
+
   // ---------------------------------------------------------------------
   // Activity module (Mandate 4, final slice) — see
   // lib/presentation/features/activities/**. Named per the same

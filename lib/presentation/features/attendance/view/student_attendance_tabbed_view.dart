@@ -132,9 +132,8 @@ class _StudentAttendanceTabbedViewState
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final mediaQuery = MediaQuery.of(context);
     final contentPadding = ResponsiveHelper(context).contentPadding;
-    final safeAreaTop = mediaQuery.padding.top;
+    final safeAreaTop = MediaQuery.paddingOf(context).top;
     final appBarHeight = AppBar().preferredSize.height; // kToolbarHeight
 
     // Match GradientAddButton responsive sizes (as used in StaffScreen)
