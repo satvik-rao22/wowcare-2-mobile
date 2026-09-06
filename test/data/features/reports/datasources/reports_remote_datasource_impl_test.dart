@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/data/features/reports/models/report_request_payload.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/data/features/reports/datasources/reports_remote_datasource_impl.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
@@ -116,7 +118,7 @@ void main() {
 
           final result = await dataSource.generateReport(
             reportType: reportType,
-            requestBody: requestBody,
+            payload: _RawPayload(requestBody),
           );
 
           expect(result.reportId, 'report-123');
@@ -143,7 +145,7 @@ void main() {
 
         final result = await dataSource.generateReport(
           reportType: reportType,
-          requestBody: requestBody,
+          payload: _RawPayload(requestBody),
         );
 
         expect(result.reportType, 'STUDENT_ABSENT');
@@ -166,7 +168,7 @@ void main() {
 
         final result = await dataSource.generateReport(
           reportType: reportType,
-          requestBody: requestBody,
+          payload: _RawPayload(requestBody),
         );
 
         expect(result.reportType, 'STAFF_ABSENT');
@@ -191,7 +193,7 @@ void main() {
 
         final result = await dataSource.generateReport(
           reportType: reportType,
-          requestBody: requestBody,
+          payload: _RawPayload(requestBody),
         );
 
         expect(result.reportType, 'STAFF_DETAILS');
@@ -216,7 +218,7 @@ void main() {
 
         final result = await dataSource.generateReport(
           reportType: reportType,
-          requestBody: requestBody,
+          payload: _RawPayload(requestBody),
         );
 
         expect(result.reportType, 'STUDENTS_AND_FAMILY');
@@ -239,7 +241,7 @@ void main() {
 
         final result = await dataSource.generateReport(
           reportType: reportType,
-          requestBody: requestBody,
+          payload: _RawPayload(requestBody),
         );
 
         expect(result.reportType, 'EMERGENCY_CONTACTS');
@@ -264,7 +266,7 @@ void main() {
 
         final result = await dataSource.generateReport(
           reportType: reportType,
-          requestBody: requestBody,
+          payload: _RawPayload(requestBody),
         );
 
         expect(result.reportType, 'IMMUNIZATION');
@@ -277,40 +279,43 @@ void main() {
       // compile time, so the old runtime ArgumentError path is structurally
       // unreachable — there is nothing left for a test to exercise.
 
-      test('routes BILLING_TRANSACTION to billing transaction endpoint via GET', () async {
-        const reportType = ReportType.billingTransaction;
-        final requestBody = <String, dynamic>{
-          'dateFrom': '2026-01-01T00:00:00.000Z',
-          'dateTo': '2026-01-15T00:00:00.000Z',
-          'paymentMethods': ['Card', 'Cash'],
-          'transactionStatuses': ['Success'],
-        };
-        final responseData = {
-          'reportId': 'report-txn-1',
-          'reportType': 'BILLING_TRANSACTION',
-          'generatedAt': '2026-01-15T10:30:00Z',
-        };
+      test(
+        'routes BILLING_TRANSACTION to billing transaction endpoint via GET',
+        () async {
+          const reportType = ReportType.billingTransaction;
+          final requestBody = <String, dynamic>{
+            'dateFrom': '2026-01-01T00:00:00.000Z',
+            'dateTo': '2026-01-15T00:00:00.000Z',
+            'paymentMethods': ['Card', 'Cash'],
+            'transactionStatuses': ['Success'],
+          };
+          // The billing endpoints stream the file back as bytes
+          // (ResponseType.bytes) rather than returning JSON, so the fake must
+          // answer with bytes or generateReport null-checks on response.data.
+          final responseData = utf8.encode('fake-xlsx-bytes');
 
-        String? capturedPath;
-        fakeDio.responseBuilder = (path) {
-          capturedPath = path;
-          if (path.endsWith('/api/v1/accounts/reports/billing/TRANSACTION')) {
-            return responseData;
-          }
-          return null;
-        };
+          String? capturedPath;
+          fakeDio.responseBuilder = (path) {
+            capturedPath = path;
+            if (path.endsWith('/api/v1/reports/billing/TRANSACTION')) {
+              return responseData;
+            }
+            return null;
+          };
 
-        final result = await dataSource.generateReport(
-          reportType: reportType,
-          requestBody: requestBody,
-        );
+          final result = await dataSource.generateReport(
+            reportType: reportType,
+            payload: _RawPayload(requestBody),
+          );
 
-        expect(capturedPath, endsWith('/api/v1/accounts/reports/billing/TRANSACTION'));
-        expect(result.reportType, 'BILLING_TRANSACTION');
-      });
+          expect(capturedPath, endsWith('/api/v1/reports/billing/TRANSACTION'));
+          // The datasource stamps ReportType.billingTransaction.backendValue,
+          // which is 'TRANSACTION'.
+          expect(result.reportType, 'TRANSACTION');
+        },
+      );
 
       test(
-
         'throws FormatException when backend response is missing required fields',
         () async {
           const reportType = ReportType.studentDailyAttendance;
@@ -321,7 +326,7 @@ void main() {
           expect(
             () => dataSource.generateReport(
               reportType: reportType,
-              requestBody: requestBody,
+              payload: _RawPayload(requestBody),
             ),
             throwsA(isA<FormatException>()),
           );
@@ -342,7 +347,7 @@ void main() {
         expect(
           () => dataSource.generateReport(
             reportType: reportType,
-            requestBody: requestBody,
+            payload: _RawPayload(requestBody),
           ),
           throwsA(isA<DioException>()),
         );
@@ -631,10 +636,7 @@ void main() {
         fakeDio.responseBuilder = (_) => {
           'data': {
             'assets': [
-              {
-                'assetCode': 'AST_123',
-                'status': 'FAILED',
-              },
+              {'assetCode': 'AST_123', 'status': 'FAILED'},
             ],
           },
         };
@@ -658,4 +660,18 @@ void main() {
       });
     });
   });
+}
+
+/// A payload that serialises to a literal map.
+///
+/// The datasource's job is endpoint routing and response handling — it treats
+/// the payload as opaque and only calls `toJson()` — so these tests pin the
+/// exact body rather than going through a params class.
+class _RawPayload extends ReportRequestPayload {
+  const _RawPayload(this._json);
+
+  final Map<String, dynamic> _json;
+
+  @override
+  Map<String, dynamic> toJson() => _json;
 }

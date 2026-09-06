@@ -562,6 +562,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                     itemBuilder: (context, index) => AttendanceRemoveTile(
                       name: currentStudents[index].fullName,
                       photoUuid: currentStudents[index].photoUuid ?? '',
+                      studentCode: currentStudents[index].studentCode,
                       onRemove: () => _removeStudent(currentStudents[index]),
                       horizontalPadding: AppSpacing.sm,
                     ),

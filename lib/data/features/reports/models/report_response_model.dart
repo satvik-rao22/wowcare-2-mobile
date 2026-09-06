@@ -1,8 +1,18 @@
 import 'package:equatable/equatable.dart';
-import '../../../../core/util/app_time.dart';
-import '../../../../domain/features/reports/entities/report_entity.dart';
-import '../../../../domain/features/reports/entities/report_type.dart';
+import 'package:json_annotation/json_annotation.dart';
+import 'package:wowcare/data/features/reports/models/report_generation_envelope.dart';
 
+part 'report_response_model.g.dart';
+
+/// A generated report, as the backend describes it.
+///
+/// Field mapping is generated (§8); `includeIfNull: false` preserves the wire
+/// contract that `toJson` omits absent optional keys instead of sending
+/// explicit nulls. What generation cannot express — unwrapping the response
+/// envelope and rejecting a report that could never be downloaded — stays in
+/// [ReportResponseModel.fromJson], which is transport logic rather than field
+/// serialisation.
+@JsonSerializable(includeIfNull: false)
 class ReportResponseModel extends Equatable {
   const ReportResponseModel({
     required this.reportId,
@@ -13,14 +23,8 @@ class ReportResponseModel extends Equatable {
     this.message,
   });
 
-  final String reportId;
-  final String reportType;
-  final String generatedAt;
-  final String? assetCode;
-  final String? fileName;
-  final String? message;
-
-  /// Parses the wrapped response format: `{success, message, data: {reportId, ...}, timestamp, error}`.
+  /// Parses the wrapped response format:
+  /// `{success, message, data: {reportId, ...}, timestamp, error}`.
   ///
   /// Throws [FormatException] when the backend reports failure
   /// (`success: false`) or when a required field is missing, instead of
@@ -29,77 +33,58 @@ class ReportResponseModel extends Equatable {
   /// failure immediately is more useful than a UI that says "generated"
   /// for a report nobody can open.
   factory ReportResponseModel.fromJson(Map<String, dynamic> json) {
-    final success = json['success'];
-    if (success is bool && !success) {
-      throw FormatException(
-        'Report generation failed: ${json['message'] ?? json['error'] ?? 'unknown error'}',
-      );
-    }
+    final envelope = ReportGenerationEnvelope.fromJson(json);
+    envelope.throwIfFailed();
 
-    final dataObject = json['data'] as Map<String, dynamic>?;
-    final reportData = dataObject ?? json;
+    // No `data` object means the endpoint returned the report unwrapped.
+    final reportData = envelope.data ?? json;
 
+    // Cast all three before validating any: a wrong *type* is reported as a
+    // TypeError even when an earlier field is also missing, which is what
+    // the hand-written parser did.
     final reportId = reportData['reportId'] as String?;
     final reportType = reportData['reportType'] as String?;
     final generatedAt = reportData['generatedAt'] as String?;
+    _requireField(reportId, 'reportId', reportData);
+    _requireField(reportType, 'reportType', reportData);
+    _requireField(generatedAt, 'generatedAt', reportData);
 
-    if (reportId == null || reportId.isEmpty) {
-      throw FormatException(
-        'Report response missing required field "reportId": $reportData',
-      );
-    }
-    if (reportType == null || reportType.isEmpty) {
-      throw FormatException(
-        'Report response missing required field "reportType": $reportData',
-      );
-    }
-    if (generatedAt == null || generatedAt.isEmpty) {
-      throw FormatException(
-        'Report response missing required field "generatedAt": $reportData',
-      );
-    }
-
-    return ReportResponseModel(
-      reportId: reportId,
-      reportType: reportType,
-      generatedAt: generatedAt,
-      assetCode: reportData['assetCode'] as String?,
-      fileName: reportData['fileName'] as String?,
-      message: json['message'] as String?,
-    );
+    // `message` belongs to the envelope, not to the report — a `data` object
+    // carrying its own `message` must not win over the outer one.
+    return _$ReportResponseModelFromJson({
+      ...reportData,
+      'message': envelope.message,
+    });
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'reportId': reportId,
-      'reportType': reportType,
-      'generatedAt': generatedAt,
-      if (assetCode != null) 'assetCode': assetCode,
-      if (fileName != null) 'fileName': fileName,
-      if (message != null) 'message': message,
-    };
+  static void _requireField(
+    String? value,
+    String name,
+    Map<String, dynamic> reportData,
+  ) {
+    if (value == null || value.isEmpty) {
+      throw FormatException(
+        'Report response missing required field "$name": $reportData',
+      );
+    }
   }
 
-  /// Convert model to domain entity.
-  ///
-  /// Throws [FormatException] for an unrecognized `reportType` instead of
-  /// silently mislabeling the report as Student Daily Attendance.
-  ReportEntity toEntity() {
-    final reportTypeEnum = ReportType.values.firstWhere(
-      (e) => e.backendValue == reportType,
-      orElse: () =>
-          throw FormatException('Unknown reportType in response: $reportType'),
-    );
+  final String reportId;
+  final String reportType;
+  final String generatedAt;
+  final String? assetCode;
+  final String? fileName;
+  final String? message;
 
-    return ReportEntity(
-      reportId: reportId,
-      reportType: reportTypeEnum,
-      generatedAt: DateTime.tryParse(generatedAt) ?? AppTime.nowUtc(),
-      assetCode: assetCode,
-      fileName: fileName,
-    );
-  }
+  Map<String, dynamic> toJson() => _$ReportResponseModelToJson(this);
 
   @override
-  List<Object?> get props => [reportId, reportType, generatedAt, assetCode, fileName, message];
+  List<Object?> get props => [
+    reportId,
+    reportType,
+    generatedAt,
+    assetCode,
+    fileName,
+    message,
+  ];
 }

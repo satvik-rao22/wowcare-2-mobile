@@ -1646,6 +1646,9 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
           'schoolCode': schoolCode,
           'page': '$page',
           'size': '$pageSize',
+          'sort': 'name,asc',
+          // Archived/inactive tags shouldn't surface in the filter dropdown.
+          'status': 'ACTIVE',
         },
       );
 

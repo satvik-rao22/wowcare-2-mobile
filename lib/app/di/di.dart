@@ -89,7 +89,7 @@ import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
 import '../../presentation/features/billing/view_model/parent_billing_cubit.dart';
 import '../../presentation/features/onboarding/view_model/onboarding_cubit.dart';
 import '../../presentation/features/user-profile/view_model/profile_menu_header_cubit.dart';
-import '../../presentation/features/reports/cubit/reports_cubit.dart';
+import '../../presentation/features/reports/view_model/reports_cubit.dart';
 import '../../data/features/reports/datasources/reports_remote_datasource.dart';
 import '../../data/features/reports/datasources/reports_remote_datasource_impl.dart';
 import '../../data/features/reports/repositories/reports_repository_impl.dart';
@@ -169,6 +169,11 @@ import '../../domain/features/staff/usecases/deactivate_organization_admin_useca
 import '../../domain/features/staff/usecases/activate_school_user_usecase.dart';
 import '../../domain/features/staff/usecases/deactivate_school_user_usecase.dart';
 import '../../domain/features/staff/usecases/delete_school_user_usecase.dart';
+import '../../domain/features/staff/usecases/load_cached_staff_page_usecase.dart';
+import '../../domain/features/staff/usecases/invalidate_cached_staff_page_usecase.dart';
+import '../../domain/features/staff/usecases/load_cached_staff_profile_usecase.dart';
+import '../../domain/features/staff/usecases/load_cached_staff_documents_usecase.dart';
+import '../../domain/features/staff/usecases/load_cached_important_dates_usecase.dart';
 import '../../domain/features/staff/usecases/create_school_user_usecase.dart';
 import '../../domain/features/student/repositories/student_repository.dart';
 import '../../domain/features/student/usecases/get_student_page_usecase.dart';
@@ -348,8 +353,11 @@ import '../../presentation/features/classroom/cubit/classroom_students_cubit.dar
 import '../../presentation/features/classroom/cubit/classroom_staff_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_document_cubit.dart';
+import '../../presentation/features/staff/cubit/staff_document_upload_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_documents_list_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_profile_cubit.dart';
+import '../../presentation/features/staff/cubit/staff_classroom_name_cubit.dart';
+import '../../presentation/features/staff/cubit/staff_attendance_action_targets_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_attendance_summary_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_profile_photo_upload_cubit.dart';
 import '../../presentation/features/staff/cubit/important_dates_cubit.dart';
@@ -465,6 +473,7 @@ import '../../presentation/features/communication/shared/utils/chat_attachment_u
 import '../../presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import '../../shared/services/image_upload/image_upload_service.dart';
 import '../../shared/services/image_upload/profile_photo_uploader.dart';
+import '../../shared/services/image_upload/staff_photo_background_upload_service.dart';
 import '../../domain/features/newsletter/repositories/student_newsletters_repository.dart';
 import '../../domain/features/newsletter/usecases/get_student_newsletters_usecase.dart';
 import '../../domain/features/student/usecases/get_student_profile_usecase.dart';
@@ -479,7 +488,14 @@ import '../../presentation/features/geofencing/cubit/geofence_cubit.dart';
 import '../../shared/common/app/cubit/parent_child_cubit.dart';
 import '../../shared/services/geofence_notification_service.dart';
 import '../../data/services/file_download_service.dart';
-import '../../data/features/reports/repositories/file_download_repository.dart';
+import 'package:wowcare/data/features/reports/repositories/file_download_repository_impl.dart';
+import 'package:wowcare/domain/features/reports/repositories/file_download_repository.dart';
+import 'package:wowcare/domain/features/reports/usecases/save_report_file_usecase.dart';
+import 'package:wowcare/domain/features/reports/usecases/open_report_file_usecase.dart';
+import 'package:wowcare/domain/features/reports/repositories/school_context_repository.dart';
+import 'package:wowcare/data/features/reports/repositories/school_context_repository_impl.dart';
+import 'package:wowcare/domain/features/reports/usecases/get_school_code_usecase.dart';
+import 'package:wowcare/domain/features/reports/usecases/get_school_name_usecase.dart';
 import '../../data/features/billing/datasources/billing_statements_remote_datasource.dart';
 import '../../data/features/billing/datasources/ledger_remote_datasource.dart';
 import '../../data/features/billing/datasources/ledger_transaction_remote_datasource.dart';
@@ -642,10 +658,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ImageUploadService(serviceLocator<ApiClient>()),
   );
   serviceLocator.registerFactory<StaffProfilePhotoUploadCubit>(
-    () => StaffProfilePhotoUploadCubit(imageUploadService: serviceLocator()),
+    () => StaffProfilePhotoUploadCubit(
+      imageUploadService: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
   );
   serviceLocator.registerLazySingleton<ProfilePhotoUploader>(
     () => ProfilePhotoUploader(serviceLocator<ImageUploadService>()),
+  );
+  serviceLocator.registerLazySingleton<StaffPhotoBackgroundUploadService>(
+    () => StaffPhotoBackgroundUploadService(
+      serviceLocator<ProfilePhotoUploader>(),
+    ),
   );
 
   // Auth Data Sources
@@ -938,7 +962,27 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
 
   serviceLocator.registerLazySingleton<FileDownloadRepository>(
-    () => FileDownloadRepository(serviceLocator<FileDownloadService>()),
+    () => FileDownloadRepositoryImpl(serviceLocator<FileDownloadService>()),
+  );
+
+  serviceLocator.registerFactory<SaveReportFileUseCase>(
+    () => SaveReportFileUseCase(serviceLocator()),
+  );
+
+  serviceLocator.registerFactory<OpenReportFileUseCase>(
+    () => OpenReportFileUseCase(serviceLocator()),
+  );
+
+  serviceLocator.registerLazySingleton<SchoolContextRepository>(
+    () => SchoolContextRepositoryImpl(serviceLocator<StorageService>()),
+  );
+
+  serviceLocator.registerFactory<GetSchoolCodeUseCase>(
+    () => GetSchoolCodeUseCase(serviceLocator()),
+  );
+
+  serviceLocator.registerFactory<GetSchoolNameUseCase>(
+    () => GetSchoolNameUseCase(serviceLocator()),
   );
 
   serviceLocator.registerLazySingleton<ReportsRepository>(
@@ -968,13 +1012,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
   // Reports - Presentation Layer (Cubit)
   serviceLocator.registerFactory<ReportsCubit>(
     () => ReportsCubit(
-      storageService: serviceLocator(),
+      getSchoolCodeUseCase: serviceLocator(),
+      getSchoolNameUseCase: serviceLocator(),
       getTagNameCodeMapForSchoolUseCase: serviceLocator(),
       generateReportUseCase: serviceLocator(),
       getRecentReportsUseCase: serviceLocator(),
       getStudentTagsUseCase: serviceLocator(),
       downloadReportUseCase: serviceLocator(),
-      fileDownloadRepository: serviceLocator(),
+      saveReportFileUseCase: serviceLocator(),
+      openReportFileUseCase: serviceLocator(),
+      getActiveClassroomsUseCase: serviceLocator(),
+      getStudentClassroomListUseCase: serviceLocator(),
+      getImmunizationSettingsUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<EditUserProfileCubit>(
@@ -1065,6 +1114,21 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<DeleteSchoolUserUseCase>(
     () => DeleteSchoolUserUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<LoadCachedStaffPageUseCase>(
+    () => LoadCachedStaffPageUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<InvalidateCachedStaffPageUseCase>(
+    () => InvalidateCachedStaffPageUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<LoadCachedStaffProfileUseCase>(
+    () => LoadCachedStaffProfileUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<LoadCachedStaffDocumentsUseCase>(
+    () => LoadCachedStaffDocumentsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<LoadCachedImportantDatesUseCase>(
+    () => LoadCachedImportantDatesUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<CreateSchoolUserUseCase>(
     () => CreateSchoolUserUseCase(serviceLocator()),
@@ -2128,10 +2192,23 @@ Future<void> configureDependencies({String? baseUrl}) async {
       activateOrganizationAdminUseCase: serviceLocator(),
       deactivateOrganizationAdminUseCase: serviceLocator(),
       deleteSchoolUserUseCase: serviceLocator(),
-      repository: serviceLocator(),
+      loadCachedStaffPageUseCase: serviceLocator(),
+      invalidateCachedStaffPageUseCase: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );
+  // Takes the screen's own StaffProfileCubit as a parameter: the upload flow
+  // pushes the finalized document onto the profile the screen is already
+  // showing, so it must be the SAME instance, not a second one from the
+  // locator.
+  serviceLocator
+      .registerFactoryParam<StaffDocumentUploadCubit, StaffProfileCubit, void>(
+        (staffProfileCubit, _) => StaffDocumentUploadCubit(
+          storageService: serviceLocator(),
+          imageUploadService: serviceLocator(),
+          staffProfileCubit: staffProfileCubit,
+        ),
+      );
   serviceLocator.registerFactory<StaffDocumentCubit>(
     () => StaffDocumentCubit(
       addStaffDocumentUseCase: serviceLocator(),
@@ -2142,26 +2219,43 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StaffDocumentsListCubit(
       getStaffDocumentsUseCase: serviceLocator(),
       deleteStaffDocumentUseCase: serviceLocator(),
-      repository: serviceLocator(),
+      loadCachedStaffDocumentsUseCase: serviceLocator(),
+      imageUploadService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffAttendanceActionTargetsCubit>(
+    () => StaffAttendanceActionTargetsCubit(
+      getStaffSignInFormListUseCase: serviceLocator(),
+      getStaffSignOutFormListUseCase: serviceLocator(),
+      getStaffTransferFormListUseCase: serviceLocator(),
+      getStaffAbsentFormListUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffClassroomNameCubit>(
+    () => StaffClassroomNameCubit(
+      getClassroomByCodeUseCase: serviceLocator(),
+      getActiveClassroomsUseCase: serviceLocator(),
+      storageService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StaffProfileCubit>(
     () => StaffProfileCubit(
       getStaffProfileUseCase: serviceLocator(),
-      repository: serviceLocator(),
+      loadCachedStaffProfileUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<ImportantDatesCubit>(
     () => ImportantDatesCubit(
       getImportantDatesUseCase: serviceLocator(),
       updateImportantDatesUseCase: serviceLocator(),
-      staffRepository: serviceLocator(),
+      loadCachedImportantDatesUseCase: serviceLocator(),
       storageService: serviceLocator(),
       apiClient: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StaffScheduleCubit>(
     () => StaffScheduleCubit(
+      storageService: serviceLocator(),
       getSchoolRegularSchedulesUseCase: serviceLocator(),
       updateStaffSchedulesUseCase: serviceLocator(),
     ),
@@ -2177,12 +2271,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
       deactivateOrganizationAdminUseCase: serviceLocator(),
       activateSchoolUserUseCase: serviceLocator(),
       deactivateSchoolUserUseCase: serviceLocator(),
+      getStaffProfileUseCase: serviceLocator(),
+      photoBackgroundUploadService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<CreateSchoolUserCubit>(
     () => CreateSchoolUserCubit(
       createSchoolUserUseCase: serviceLocator(),
       getAllStaffUseCase: serviceLocator(),
+      photoBackgroundUploadService: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );

@@ -29,21 +29,20 @@ import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_attendance_summary_cubit.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_out_form_list_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_staff_transfer_form_list_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_staff_absent_form_list_usecase.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/services/image_upload/profile_photo_upload_events.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
+import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
+import 'package:wowcare/presentation/features/staff/model/staff_route_results.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_attendance_action_targets_cubit.dart';
+import 'package:wowcare/presentation/features/staff/model/staff_attendance_action.dart';
 
 class StaffScreen extends StatefulWidget {
   const StaffScreen({
@@ -71,6 +70,7 @@ class _StaffScreenState extends State<StaffScreen> {
   /// [MultiBlocProvider] and read once in [initState].
   late final StaffProfileCubit _staffProfileCubit;
   late final StaffAttendanceSummaryCubit _attendanceSummaryCubit;
+  late final StaffAttendanceActionTargetsCubit _actionTargetsCubit;
   bool _showInactive = false;
   final Set<String> _selectedStaffCodes = <String>{};
   bool _selectAll = false;
@@ -105,6 +105,7 @@ class _StaffScreenState extends State<StaffScreen> {
     super.initState();
     _staffProfileCubit = context.read<StaffProfileCubit>();
     _attendanceSummaryCubit = context.read<StaffAttendanceSummaryCubit>();
+    _actionTargetsCubit = context.read<StaffAttendanceActionTargetsCubit>();
     _highlightStaffCode = widget.incomingHighlightCode?.trim();
     _scrollController.addListener(_onScroll);
     _loadOwnStaffCodeIfStaff();
@@ -434,7 +435,7 @@ class _StaffScreenState extends State<StaffScreen> {
     return StaffAttendanceActionAvailability.fromGates(gates);
   }
 
-  Future<void> _openAttendanceActionFlow(String actionName) async {
+  Future<void> _openAttendanceActionFlow(StaffAttendanceAction action) async {
     if (_selectedStaffCodes.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -458,132 +459,21 @@ class _StaffScreenState extends State<StaffScreen> {
 
     final date = _formatDate(AppTime.now());
     try {
-      List<StaffEntity> targets = <StaffEntity>[];
-
-      if (actionName == 'sign_in') {
-        final useCase = serviceLocator<GetStaffSignInFormListUseCase>();
-        final page = await useCase(
-          fromAttendanceDate: date,
-          toAttendanceDate: date,
-          page: 0,
-          size: 500,
-        );
-        final eligible = page.items
-            .where((item) => selectedCodes.contains(item.staffCode))
-            .toList();
-        targets = eligible.asMap().entries.map((entry) {
-          final item = entry.value;
-          return StaffEntity(
-            id: entry.key + 1,
-            name: item.staffName,
-            primaryRoomId: 0,
-            photoUuid: null,
-            classroomCode: item.classroomCode,
-            designation: item.designation.isNotEmpty
-                ? item.designation.first
-                : 'Staff',
-            staffCode: item.staffCode,
-            isExpectedToday: item.isExpectedToday,
-          );
-        }).toList();
-      } else if (actionName == 'sign_out') {
-        final useCase = serviceLocator<GetStaffSignOutFormListUseCase>();
-        final page = await useCase(
-          fromAttendanceDate: date,
-          toAttendanceDate: date,
-          page: 0,
-          size: 500,
-        );
-        final eligible = page.items
-            .where((item) => selectedCodes.contains(item.staffCode))
-            .toList();
-        targets = eligible.asMap().entries.map((entry) {
-          final item = entry.value;
-          return StaffEntity(
-            id: entry.key + 1,
-            name: item.staffName,
-            primaryRoomId: 0,
-            photoUuid: null,
-            designation: item.designation.isNotEmpty
-                ? item.designation.first
-                : 'Staff',
-            staffCode: item.staffCode,
-          );
-        }).toList();
-      } else if (actionName == 'transfer') {
-        final useCase = serviceLocator<GetStaffTransferFormListUseCase>();
-        final page = await useCase(
-          fromAbsenceDate: date,
-          toAbsenceDate: date,
-          page: 0,
-          size: 500,
-        );
-        final eligible = page.items
-            .where((item) => selectedCodes.contains(item.staffCode))
-            .toList();
-        targets = eligible.asMap().entries.map((entry) {
-          final item = entry.value;
-          return StaffEntity(
-            id: entry.key + 1,
-            name: item.staffName,
-            primaryRoomId: 0,
-            photoUuid: null,
-            designation: item.designation.isNotEmpty
-                ? item.designation.first
-                : 'Staff',
-            staffCode: item.staffCode,
-          );
-        }).toList();
-      } else {
-        final useCase = serviceLocator<GetStaffAbsentFormListUseCase>();
-        final page = await useCase(
-          fromAbsenceDate: date,
-          toAbsenceDate: date,
-          page: 0,
-          size: 500,
-        );
-        final eligible = page.items
-            .where((item) => selectedCodes.contains(item.staffCode))
-            .toList();
-        targets = eligible.asMap().entries.map((entry) {
-          final item = entry.value;
-          return StaffEntity(
-            id: entry.key + 1,
-            name: item.staffName,
-            primaryRoomId: 0,
-            photoUuid: null,
-            designation: 'Staff',
-            staffCode: item.staffCode,
-          );
-        }).toList();
-      }
+      final targets = await _actionTargetsCubit.resolveTargets(
+        action: action,
+        date: date,
+        selectedStaffCodes: selectedCodes,
+      );
 
       if (!mounted) return;
       if (targets.isEmpty) {
         throw Exception('No selected staff is eligible for this action');
       }
 
-      if (actionName == 'sign_in') {
-        await context.push(
-          '/attendance/staff-sign-in',
-          extra: <String, dynamic>{'staffList': targets},
-        );
-      } else if (actionName == 'sign_out') {
-        await context.push(
-          '/attendance/staff-sign-out',
-          extra: <String, dynamic>{'staffList': targets},
-        );
-      } else if (actionName == 'transfer') {
-        await context.push(
-          '/attendance/staff-transfer',
-          extra: <String, dynamic>{'staffList': targets},
-        );
-      } else {
-        await context.push(
-          '/attendance/staff-mark-absent',
-          extra: <String, dynamic>{'staffList': targets},
-        );
-      }
+      await context.push(
+        action.routePath,
+        extra: <String, dynamic>{'staffList': targets},
+      );
       if (!mounted) return;
       setState(() {
         _selectAll = false;
@@ -602,17 +492,18 @@ class _StaffScreenState extends State<StaffScreen> {
     }
   }
 
-  Future<void> _openEditProfileDetailsFromPostAdd(
-    Map<String, dynamic> args,
-  ) async {
-    final staffCode =
-        ((args['staffCode'] as String?)?.trim().isNotEmpty == true
-            ? (args['staffCode'] as String).trim()
-            : (args['userCode'] as String?)?.trim()) ??
-        '';
+  Future<void> _openEditProfileDetailsFromPostAdd(AddStaffResult result) async {
+    // The create response may carry only a userCode until the staff record is
+    // materialised, so fall back to it exactly as before.
+    final staffCode = result.staffCode.trim().isNotEmpty
+        ? result.staffCode.trim()
+        : result.userCode.trim();
     if (staffCode.isEmpty) return;
 
-    await context.push('/dashboard/edit-profile-details-screen', extra: args);
+    await context.push(
+      StaffRoutes.editProfileDetails,
+      extra: result.toEditProfileArgs(),
+    );
   }
 
   @override
@@ -714,36 +605,34 @@ class _StaffScreenState extends State<StaffScreen> {
                               ))
                                 GradientAddButton(
                                   onTap: () async {
-                                    final result = await context.push(
-                                      '/dashboard/add-staff-screen',
-                                      extra: <String, dynamic>{
-                                        'initialClassroomNames': classroomNames,
-                                        // AddStaffScreen expects a name -> code map.
-                                        'initialClassroomCodeByName': {
-                                          for (final entry
-                                              in classroomNameByCode.entries)
-                                            entry.value: entry.key,
-                                        },
-                                      },
-                                    );
+                                    final result =
+                                        await context.push<AddStaffResult>(
+                                          StaffRoutes.add,
+                                          extra: AddStaffArgs(
+                                            initialClassroomNames:
+                                                classroomNames,
+                                            // AddStaffScreen expects a
+                                            // name -> code map.
+                                            initialClassroomCodeByName: {
+                                              for (final entry
+                                                  in classroomNameByCode
+                                                      .entries)
+                                                entry.value: entry.key,
+                                            },
+                                          ),
+                                        );
                                     if (!mounted) return;
                                     AppLogger.d(
-                                      '[StaffScreen] Received result from AddStaffScreen: ' +
-                                          result.toString(),
+                                      '[StaffScreen] Received result from AddStaffScreen: '
+                                      '${result?.staffCode}',
                                     );
 
                                     // After a successful add, refresh the staff list so cache + UI reflect new staff
-                                    if (result is Map) {
-                                      await staffCubit.refresh();
-                                    }
+                                    if (result == null) return;
+                                    await staffCubit.refresh();
 
-                                    if (result is Map &&
-                                        (result['showPostAddPrompt'] == true)) {
-                                      final staffName =
-                                          (result['staffName'] as String?) ??
-                                          '';
-                                      final editArgs =
-                                          Map<String, dynamic>.from(result);
+                                    if (result.showPostAddPrompt) {
+                                      final staffName = result.staffName;
                                       WidgetsBinding.instance.addPostFrameCallback((
                                         _,
                                       ) {
@@ -765,7 +654,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                             onYes: () {
                                               Navigator.of(ctx).pop();
                                               _openEditProfileDetailsFromPostAdd(
-                                                editArgs,
+                                                result,
                                               ).then((_) {
                                                 if (mounted)
                                                   staffCubit.refresh();
@@ -1030,63 +919,56 @@ class _StaffScreenState extends State<StaffScreen> {
                                                   .where((n) => n.isNotEmpty)
                                                   .toList();
 
-                                          final result = await context.push(
-                                            '/dashboard/staff-filter-screen',
-                                            extra: <String, dynamic>{
-                                              'initialFilters': FilterData(
-                                                classroomIds: const [],
-                                                classrooms: const [],
-                                                primaryClassrooms:
-                                                    initialPrimaryNames,
-                                                allowedClassrooms:
-                                                    initialAllowedNames,
-                                                statuses: initialStatus != null
-                                                    ? <String>[initialStatus]
-                                                    : const <String>[],
-                                                tags: initialDesignation != null
-                                                    ? <String>[
-                                                        initialDesignation,
-                                                      ]
-                                                    : const <String>[],
-                                                attendanceStatuses:
-                                                    staffState
-                                                        .attendanceStatuses ??
-                                                    const <String>[],
-                                                sortBy: staffState.sortBy,
-                                              ),
-                                            },
-                                          );
+                                          final result =
+                                              await context
+                                                  .push<StaffFilterResult>(
+                                                    StaffRoutes.filter,
+                                                    extra: StaffFilterArgs(
+                                                      initialFilters: FilterData(
+                                                        classroomIds: const [],
+                                                        classrooms: const [],
+                                                        primaryClassrooms:
+                                                            initialPrimaryNames,
+                                                        allowedClassrooms:
+                                                            initialAllowedNames,
+                                                        statuses:
+                                                            initialStatus !=
+                                                                null
+                                                            ? <String>[
+                                                                initialStatus,
+                                                              ]
+                                                            : const <String>[],
+                                                        tags:
+                                                            initialDesignation !=
+                                                                null
+                                                            ? <String>[
+                                                                initialDesignation,
+                                                              ]
+                                                            : const <String>[],
+                                                        attendanceStatuses:
+                                                            staffState
+                                                                .attendanceStatuses ??
+                                                            const <String>[],
+                                                        sortBy:
+                                                            staffState.sortBy,
+                                                      ),
+                                                    ),
+                                                  );
                                           if (!mounted) return;
-                                          if (result is Map) {
-                                            final status =
-                                                result['status'] as String?;
-                                            final designation =
-                                                result['designation']
-                                                    as String?;
-                                            final primaryClassroomCodes =
-                                                result['primaryClassroomCodes']
-                                                    as List<String>?;
-                                            final classCodes =
-                                                result['classCodes']
-                                                    as List<String>?;
-                                            final sortBy =
-                                                result['sortBy'] as String?;
-                                            final attendanceStatuses =
-                                                result['attendanceStatuses']
-                                                    as List<String>?;
+                                          if (result != null) {
                                             staffCubit.updateFilters(
-                                              status: status,
-                                              designation: designation,
+                                              status: result.status,
+                                              designation: result.designation,
                                               primaryClassroomCodes:
-                                                  primaryClassroomCodes,
-                                              classCodes: classCodes,
-                                              sortBy: sortBy,
+                                                  result.primaryClassroomCodes,
+                                              classCodes: result.classCodes,
+                                              sortBy: result.sortBy,
                                               attendanceStatuses:
-                                                  attendanceStatuses,
+                                                  result.attendanceStatuses,
                                             );
                                             setState(() {
                                               _showInactive =
-                                                  (status ?? '')
+                                                  (result.status ?? '')
                                                       .toUpperCase() ==
                                                   'INACTIVE';
                                               _refreshTriggeredByFilters = true;
@@ -1670,26 +1552,26 @@ class _StaffScreenState extends State<StaffScreen> {
                                           ? allowedClassroomNames.first
                                           : '');
                                 context.push(
-                                  '/dashboard/staff-profile',
-                                  extra: <String, dynamic>{
-                                    'staffCode': staff.code,
-                                    'userCode': staff.userCode,
-                                    'name': staff.name,
-                                    'classroom': classroomName,
-                                    'designation': staff.designation,
-                                    'phoneNumber': staff.phoneNumber,
-                                    'employmentStatus': staff.status,
-                                    'classroomNames': classroomNames,
-                                    'classroomNameByCode': classroomNameByCode,
-                                  },
+                                  StaffRoutes.profile,
+                                  extra: StaffProfileArgs(
+                                    staffCode: staff.code,
+                                    userCode: staff.userCode,
+                                    name: staff.name,
+                                    classroom: classroomName,
+                                    designation: staff.designation,
+                                    phoneNumber: staff.phoneNumber,
+                                    employmentStatus: staff.status,
+                                    classroomNames: classroomNames,
+                                    classroomNameByCode: classroomNameByCode,
+                                  ),
                                 );
                               }
                             : null,
-                        onSignIn: () => _openAttendanceActionFlow('sign_in'),
-                        onSignOut: () => _openAttendanceActionFlow('sign_out'),
-                        onTransfer: () => _openAttendanceActionFlow('transfer'),
+                        onSignIn: () => _openAttendanceActionFlow(StaffAttendanceAction.signIn),
+                        onSignOut: () => _openAttendanceActionFlow(StaffAttendanceAction.signOut),
+                        onTransfer: () => _openAttendanceActionFlow(StaffAttendanceAction.transfer),
                         onAbsent: () =>
-                            _openAttendanceActionFlow('mark_absent'),
+                            _openAttendanceActionFlow(StaffAttendanceAction.markAbsent),
                         onClearSelections: () {
                           setState(() {
                             _selectAll = false;

@@ -18,6 +18,8 @@ class AttendanceRemoveTile extends StatelessWidget {
     required this.name,
     required this.photoUuid,
     required this.onRemove,
+    this.studentCode,
+    this.staffCode,
     this.horizontalPadding = AppSpacing.xs,
     this.deleteIconSize,
     this.canRemove = true,
@@ -26,6 +28,14 @@ class AttendanceRemoveTile extends StatelessWidget {
   final String name;
   final String photoUuid;
   final VoidCallback onRemove;
+
+  /// Identifies who the photo belongs to so [DocumentImageWidget] can
+  /// actually resolve it — [photoUuid] alone is NOT enough to fetch an
+  /// image (it's only ever used as a fallback seed for the initials-avatar
+  /// color), so without one of these every tile fell straight back to
+  /// initials regardless of whether the person has a photo.
+  final String? studentCode;
+  final String? staffCode;
 
   /// The staff-side copies gated the delete affordance on there being more
   /// than one selected staff member left; the student-side copies had no
@@ -62,6 +72,8 @@ class AttendanceRemoveTile extends StatelessWidget {
               children: [
                 DocumentImageWidget(
                   fileUuid: photoUuid,
+                  studentCode: studentCode,
+                  staffCode: staffCode,
                   name: name,
                   size: 30,
                   fontSize: 12,

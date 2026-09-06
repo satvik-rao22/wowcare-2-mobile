@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
+import 'package:wowcare/core/util/tab_visibility_events.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_custom_tab.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_student_selection.dart';
@@ -113,8 +114,11 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
   @override
   void didUpdateWidget(covariant ActivityFeedScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final bool forceReset = widget.resetKey != oldWidget.resetKey && widget.resetKey != null;
-    if (forceReset || (widget.initialTab != oldWidget.initialTab && widget.initialTab != null)) {
+    final bool forceReset =
+        widget.resetKey != oldWidget.resetKey && widget.resetKey != null;
+    if (forceReset ||
+        (widget.initialTab != oldWidget.initialTab &&
+            widget.initialTab != null)) {
       final int initialIndex = widget.initialTab == 1 ? 1 : 0;
       if (_tabController.index != initialIndex) {
         _tabController.animateTo(initialIndex);
@@ -126,7 +130,11 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
   void initState() {
     super.initState();
     final int initialIndex = widget.initialTab == 1 ? 1 : 0;
-    _tabController = TabController(initialIndex: initialIndex, length: 2, vsync: this);
+    _tabController = TabController(
+      initialIndex: initialIndex,
+      length: 2,
+      vsync: this,
+    );
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });

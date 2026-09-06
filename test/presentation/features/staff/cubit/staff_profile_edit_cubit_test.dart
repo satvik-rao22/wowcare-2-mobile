@@ -13,7 +13,19 @@ import 'package:wowcare/domain/features/staff/usecases/update_staff_address_usec
 import 'package:wowcare/domain/features/staff/usecases/update_staff_allowed_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/update_staff_primary_classroom_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/update_staff_profile_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_profile_edit_cubit.dart';
+import 'package:wowcare/shared/services/image_upload/profile_photo_uploader.dart';
+import 'package:wowcare/shared/services/image_upload/staff_photo_background_upload_service.dart';
+
+
+/// Never invoked by these tests — the cubit only forwards to it from
+/// `uploadProfilePhotoInBackground`, which none of them call.
+class _FakePhotoUploader implements ProfilePhotoUploader {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} was not expected');
+}
 
 /// Repository that fails loudly — the use-case fakes never touch it.
 class _FakeRepo implements StaffRepository {
@@ -217,6 +229,10 @@ class _Fakes {
     deactivateOrganizationAdminUseCase: deactivateOrgAdmin,
     activateSchoolUserUseCase: activateSchoolUser,
     deactivateSchoolUserUseCase: deactivateSchoolUser,
+    getStaffProfileUseCase: GetStaffProfileUseCase(_FakeRepo()),
+    photoBackgroundUploadService: StaffPhotoBackgroundUploadService(
+      _FakePhotoUploader(),
+    ),
   );
 }
 

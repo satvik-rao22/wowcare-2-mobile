@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/reports/model/report_route_args.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
-import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
+import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
 import 'package:wowcare/presentation/features/billing/view_model/admin_statements_cubit.dart';
@@ -96,10 +97,7 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Column(
-          children: List.generate(
-            5,
-            (_) => const BillingTransactionShimmer(),
-          ),
+          children: List.generate(5, (_) => const BillingTransactionShimmer()),
         ),
       );
     }
@@ -109,8 +107,11 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
         child: Center(
           child: Column(
             children: [
-              Icon(Icons.error_outline,
-                  size: 40, color: AppColors.billingErrorIconColor),
+              Icon(
+                Icons.error_outline,
+                size: 40,
+                color: AppColors.billingErrorIconColor,
+              ),
               const SizedBox(height: 12),
               Text(
                 state.errorMessage,
@@ -134,9 +135,11 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
         child: Center(
           child: Column(
             children: [
-              Icon(Icons.description_outlined,
-                  size: 48,
-                  color: AppColors.primaryColor.withValues(alpha: 0.4)),
+              Icon(
+                Icons.description_outlined,
+                size: 48,
+                color: AppColors.primaryColor.withValues(alpha: 0.4),
+              ),
               const SizedBox(height: 16),
               const AppText.value(BillingStrings.noStatementsFound),
             ],
@@ -152,16 +155,18 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Column(
         children: items
-            .map((s) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: _AdminStatementCard(
-                    statement: s,
-                    studentNames: studentNames,
-                    isDownloading: state.isDownloading(s.code),
-                    onDownload: () => _handleDownload(s),
-                    onView: () => _handleView(s),
-                  ),
-                ))
+            .map(
+              (s) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: _AdminStatementCard(
+                  statement: s,
+                  studentNames: studentNames,
+                  isDownloading: state.isDownloading(s.code),
+                  onDownload: () => _handleDownload(s),
+                  onView: () => _handleView(s),
+                ),
+              ),
+            )
             .toList(),
       ),
     );
@@ -203,7 +208,7 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
       return;
     }
     context.push(
-      ReportFileViewerArgs.routeName,
+      ReportRoutes.billingFileViewer,
       extra: ReportFileViewerArgs(
         fileData: bytes,
         fileName: 'statement-${statement.code}.pdf',
@@ -245,17 +250,11 @@ class _FamilySiblingsCard extends StatelessWidget {
           ),
           itemBuilder: (context, index) {
             final child = children[index];
-            final name =
-                (child.fullName ?? child.name ?? '').toString();
-            final room =
-                (child.room ?? child.roomName ?? '').toString();
+            final name = (child.fullName ?? child.name ?? '').toString();
+            final room = (child.room ?? child.roomName ?? '').toString();
             return Row(
               children: [
-                DocumentImageWidget(
-                  fileUuid: '',
-                  name: name,
-                  size: 50,
-                ),
+                DocumentImageWidget(fileUuid: '', name: name, size: 50),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -279,7 +278,9 @@ class _FamilySiblingsCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: AppTextStyles.value.copyWith(
                             fontSize: 11,
-                            color: AppColors.primaryColor.withValues(alpha: 0.7),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.7,
+                            ),
                           ),
                         ),
                     ],
@@ -333,8 +334,7 @@ class _DateFilterCard extends StatelessWidget {
               initialDate: state.customStartDate,
               label: BillingStrings.dateRange,
               fetchInitialTime: false,
-              onRangeSelected: (start, end) =>
-                  cubit.applyDateRange(start, end),
+              onRangeSelected: (start, end) => cubit.applyDateRange(start, end),
             ),
           ),
         ],
@@ -362,11 +362,10 @@ class _AdminStatementCard extends StatelessWidget {
   final VoidCallback onDownload;
   final VoidCallback onView;
 
-  String get _formattedType =>
-      statement.statementType.isEmpty
-          ? '—'
-          : statement.statementType[0].toUpperCase() +
-              statement.statementType.substring(1).toLowerCase();
+  String get _formattedType => statement.statementType.isEmpty
+      ? '—'
+      : statement.statementType[0].toUpperCase() +
+            statement.statementType.substring(1).toLowerCase();
 
   @override
   Widget build(BuildContext context) {
@@ -428,9 +427,13 @@ class _AdminStatementCard extends StatelessWidget {
           // ever one request per statement at a time), so the label stays
           // generic rather than claiming "Downloading…" while a View fetch
           // is actually what's in flight.
-          secondaryLabel: isDownloading ? BillingStrings.loading : BillingStrings.view,
+          secondaryLabel: isDownloading
+              ? BillingStrings.loading
+              : BillingStrings.view,
           onSecondary: isDownloading ? null : onView,
-          primaryLabel: isDownloading ? BillingStrings.loading : BillingStrings.download,
+          primaryLabel: isDownloading
+              ? BillingStrings.loading
+              : BillingStrings.download,
           onPrimary: isDownloading ? null : onDownload,
         ),
       ],

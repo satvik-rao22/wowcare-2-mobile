@@ -18,8 +18,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_document_cubit.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_document_upload_cubit.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_document.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
-import 'package:wowcare/app/di/di.dart';
+import 'package:go_router/go_router.dart';
 
 class AddDocumentScreen extends StatelessWidget {
   const AddDocumentScreen({
@@ -52,35 +51,19 @@ class AddDocumentScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider<StaffProfileCubit>(
-          create: (_) => serviceLocator<StaffProfileCubit>(),
-        ),
-        BlocProvider<StaffDocumentCubit>(
-          create: (_) => serviceLocator<StaffDocumentCubit>(),
-        ),
-        BlocProvider<StaffDocumentUploadCubit>(
-          create: (context) => StaffDocumentUploadCubit(
-            storageService: serviceLocator(),
-            imageUploadService: serviceLocator(),
-            staffProfileCubit: context.read<StaffProfileCubit>(),
-          ),
-        ),
-      ],
-      child: _AddDocumentScreenView(
-        staffCode: staffCode,
-        isEdit: isEdit,
-        documentUuid: documentUuid,
-        initialDocumentName: initialDocumentName,
-        initialDocumentType: initialDocumentType,
-        initialExpiryDate: initialExpiryDate,
-        initialFilePath: initialFilePath,
-        initialMimeType: initialMimeType,
-        initialFileSizeKb: initialFileSizeKb,
-        initialDocumentNotes: initialDocumentNotes,
-        initialAssetCode: initialAssetCode,
-      ),
+    // Cubits are created by the route builder (§1.6), not here.
+    return _AddDocumentScreenView(
+      staffCode: staffCode,
+      isEdit: isEdit,
+      documentUuid: documentUuid,
+      initialDocumentName: initialDocumentName,
+      initialDocumentType: initialDocumentType,
+      initialExpiryDate: initialExpiryDate,
+      initialFilePath: initialFilePath,
+      initialMimeType: initialMimeType,
+      initialFileSizeKb: initialFileSizeKb,
+      initialDocumentNotes: initialDocumentNotes,
+      initialAssetCode: initialAssetCode,
     );
   }
 }
@@ -361,7 +344,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
                 isSuccess: true,
               );
               // Pop with success result to trigger refresh in parent
-              Navigator.pop(context, true);
+              context.pop(true);
             } else if (state.isError && state.message != null) {
               CoreUtils.showTopSnackBar(
                 context: context,

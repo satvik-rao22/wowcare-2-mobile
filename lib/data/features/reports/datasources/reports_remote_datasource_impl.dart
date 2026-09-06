@@ -1,26 +1,45 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/api_constants.dart';
-import '../../../../core/util/api_paths.dart';
-import '../../../../core/util/logger_service.dart';
-import '../../../../core/util/storage_keys.dart' as storage_keys;
-import '../../../../domain/features/reports/entities/report_type.dart';
-import '../models/report_response_model.dart';
-import '../models/recent_report_model.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart' as storage_keys;
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
+import 'package:wowcare/data/features/reports/models/report_response_model.dart';
+import 'package:wowcare/data/features/reports/models/report_generation_envelope.dart';
+import 'package:wowcare/data/features/reports/models/recent_report_model.dart';
+import 'package:wowcare/data/features/reports/models/recent_reports_response.dart';
+import 'package:wowcare/data/features/reports/models/student_tags_response.dart';
+import 'package:wowcare/data/features/reports/models/report_request_payload.dart';
+import 'report_asset_source.dart';
 import 'reports_remote_datasource.dart';
 
 class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
-  ReportsRemoteDataSourceImpl(this._dio, this._storageService);
+  ReportsRemoteDataSourceImpl(this._dio, this._storageService)
+    : _assets = ReportAssetSource(_dio);
 
   final Dio _dio;
   final StorageService _storageService;
 
+  /// Asset-code resolution and file download, which talk to the media service
+  /// rather than the reports API.
+  final ReportAssetSource _assets;
+
+  @override
+  Future<String> getReportDownloadUrl(String assetCode) =>
+      _assets.getReportDownloadUrl(assetCode);
+
+  @override
+  Future<List<int>> downloadReportFile(String downloadUrl) =>
+      _assets.downloadReportFile(downloadUrl);
+
   @override
   Future<ReportResponseModel> generateReport({
     required ReportType reportType,
-    required Map<String, dynamic> requestBody,
+    required ReportRequestPayload payload,
   }) async {
+    // The one and only place a report request becomes a map.
+    final requestBody = payload.toJson();
     final endpoint = _generateEndpointFor(reportType);
     final headers = Map<String, dynamic>.from(_dio.options.headers);
 
@@ -74,10 +93,11 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
             fileName: '${reportType.backendValue}_report.xlsx',
           );
         } else {
-          final errStr = utf8.decode(rawResponse.data!);
-          final json = jsonDecode(errStr);
+          final envelope = ReportGenerationEnvelope.fromJson(
+            jsonDecode(utf8.decode(rawResponse.data!)) as Map<String, dynamic>,
+          );
           throw FormatException(
-            'Report generation failed: ${json['message'] ?? 'unknown error'}',
+            'Report generation failed: ${envelope.message ?? 'unknown error'}',
           );
         }
       } else {
@@ -243,24 +263,12 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       '[REPORTS] $label API: Raw response keys=${data.keys.toList()}',
     );
 
-    // The backend's envelope shape for this family of endpoints hasn't been
-    // confirmed (see audit), so we still try the three observed shapes
-    // rather than assuming one — but unlike before, finding none of them
-    // returns an empty list normally (not via a swallowed exception).
-    List? reportsList = data['reports'] as List?;
-    final dataField = data['data'];
-    if (reportsList == null && dataField is List) {
-      reportsList = dataField;
-    } else if (reportsList == null && dataField is Map) {
-      reportsList = dataField['reports'] as List?;
-    }
+    // The envelope decides which of the three observed shapes this is; the
+    // datasource does not read keys off the map itself (§8).
+    final reports = RecentReportsResponse.fromJson(data).toModels();
 
-    AppLogger.d('[REPORTS] $label Reports Count: ${reportsList?.length ?? 0}');
-    if (reportsList == null) return const [];
-
-    return reportsList
-        .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-        .toList();
+    AppLogger.d('[REPORTS] $label Reports Count: ${reports.length}');
+    return reports;
   }
 
   @override
@@ -269,254 +277,6 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       ApiPaths.url(ApiPaths.studentTags),
     );
 
-    final data = response.data ?? {};
-    final tagsList = (data['tags'] as List?) ?? [];
-    return tagsList.map((tag) => tag.toString()).toList();
-  }
-
-  static const List<Duration> _readyPollDelays = [
-    Duration.zero,
-    Duration(milliseconds: 600),
-    Duration(milliseconds: 1200),
-    Duration(milliseconds: 2000),
-    Duration(milliseconds: 2500),
-    Duration(seconds: 3),
-    Duration(seconds: 3),
-  ];
-
-  static const Set<String> _terminalFailureStatuses = {
-    'FAILED',
-    'DELETED',
-    'ABANDONED',
-  };
-
-  @override
-  Future<String> getReportDownloadUrl(String assetCode) async {
-    final cleanCode = assetCode.trim();
-    AppLogger.d('Resolving asset code to get download URL: $cleanCode');
-
-    String? lastCandidateUrl;
-
-    for (final delay in _readyPollDelays) {
-      if (delay > Duration.zero) {
-        await Future.delayed(delay);
-      }
-
-      try {
-        final response = await _dio.post<Map<String, dynamic>>(
-          ApiPaths.url(ApiPaths.documentMediaAssetsResolve),
-          data: {
-            'assetCodes': [cleanCode],
-          },
-        );
-
-        final responseData = response.data ?? {};
-        final assets = responseData['data']?['assets'] as List?;
-
-        if (assets == null || assets.isEmpty) {
-          continue;
-        }
-
-        final asset = assets[0] as Map<String, dynamic>;
-        final status = (asset['status'] ?? '').toString().trim().toUpperCase();
-
-        if (_terminalFailureStatuses.contains(status)) {
-          throw Exception(
-            'Report processing failed on the server. Please try again.',
-          );
-        }
-
-        final downloadUrl = _extractAssetDownloadUrl(asset);
-        if (downloadUrl != null && downloadUrl.isNotEmpty) {
-          lastCandidateUrl = downloadUrl;
-
-          final hasProcessedVariant = _hasProcessedVariant(asset);
-          if (status == 'READY' || hasProcessedVariant) {
-            final normalized = _normalizeDownloadUrl(downloadUrl);
-            AppLogger.d(
-              'Asset resolved successfully (status=$status), download URL obtained: $normalized',
-            );
-            return normalized;
-          }
-        }
-      } catch (e) {
-        if (e is Exception &&
-            e.toString().contains('Report processing failed')) {
-          rethrow;
-        }
-        AppLogger.w('Transient error resolving report asset $cleanCode: $e');
-      }
-    }
-
-    if (lastCandidateUrl != null && lastCandidateUrl.isNotEmpty) {
-      final normalized = _normalizeDownloadUrl(lastCandidateUrl);
-      AppLogger.d(
-        'Asset polling completed, using candidate download URL: $normalized',
-      );
-      return normalized;
-    }
-
-    throw Exception(
-      'Report is still processing. Please try again in a few moments.',
-    );
-  }
-
-  bool _hasProcessedVariant(Map<String, dynamic> asset) {
-    final direct = (asset['deliveryUrl'] ?? '').toString().trim();
-    if (direct.isNotEmpty) return true;
-
-    final variants = asset['variants'];
-    if (variants is List) {
-      for (final row in variants.whereType<Map>()) {
-        final delivery = (row['deliveryUrl'] ?? '').toString().trim();
-        final artifact = (row['artifactUrl'] ?? '').toString().trim();
-        if (delivery.isNotEmpty || artifact.isNotEmpty) return true;
-      }
-    }
-    return false;
-  }
-
-  /// Pulls the downloadable URL out of a resolved media-asset.
-  ///
-  /// Some assets carry the URL directly (`deliveryUrl`/`originalDownloadUrl`),
-  /// but report assets only get a URL once a processed artifact exists —
-  /// that lives under `variants[]` (e.g. `artifactUrl` on the
-  /// `defaultVariant: true` entry), not on the asset itself.
-  String? _extractAssetDownloadUrl(Map<String, dynamic> asset) {
-    String pickFromMap(Map<dynamic, dynamic> map) {
-      final candidates = <dynamic>[
-        map['deliveryUrl'],
-        map['artifactUrl'],
-        map['url'],
-      ];
-      for (final raw in candidates) {
-        final value = (raw ?? '').toString().trim();
-        if (value.isNotEmpty) return value;
-      }
-      return '';
-    }
-
-    // 1. Prioritize processed variants
-    final variants = asset['variants'];
-    if (variants is List) {
-      for (final row in variants.whereType<Map>()) {
-        final isDefault =
-            (row['defaultVariant'] ?? false).toString().toLowerCase() == 'true';
-        if (!isDefault) continue;
-        final fromDefault = pickFromMap(row);
-        if (fromDefault.isNotEmpty) return fromDefault;
-      }
-      for (final row in variants.whereType<Map>()) {
-        final any = pickFromMap(row);
-        if (any.isNotEmpty) return any;
-      }
-    }
-
-    // 2. Direct fields on asset
-    final direct = pickFromMap(asset);
-    if (direct.isNotEmpty) return direct;
-
-    // 3. Fallback to original download URL if variants are not available
-    final original = (asset['originalDownloadUrl'] ?? '').toString().trim();
-    if (original.isNotEmpty) return original;
-
-    return null;
-  }
-
-  String _normalizeDownloadUrl(String url) {
-    var downloadUrl = url.trim();
-    if (downloadUrl.isEmpty) return downloadUrl;
-
-    // Replace template variable if present (fallback for originalDownloadUrl)
-    if (downloadUrl.contains(r'${DOCUMENT_PUBLIC_BASE_URL}')) {
-      final baseUrl = _dio.options.baseUrl.isNotEmpty
-          ? _dio.options.baseUrl
-          : ApiConstants.documentMsBaseUrl;
-      downloadUrl = downloadUrl.replaceAll(
-        r'${DOCUMENT_PUBLIC_BASE_URL}',
-        baseUrl,
-      );
-      AppLogger.d('Replaced DOCUMENT_PUBLIC_BASE_URL template with: $baseUrl');
-    }
-
-    // In UAT, ensure /api/v1/media-assets/ has the /document/ prefix
-    if (ApiConstants.isGatewayEnv) {
-      if (downloadUrl.startsWith('/api/v1/media-assets/')) {
-        downloadUrl = downloadUrl.replaceFirst(
-          '/api/v1/media-assets/',
-          '/api/v1/document/media-assets/',
-        );
-      } else if (downloadUrl.contains('://') &&
-          downloadUrl.contains('/api/v1/media-assets/')) {
-        downloadUrl = downloadUrl.replaceAll(
-          '/api/v1/media-assets/',
-          '/api/v1/document/media-assets/',
-        );
-      }
-    }
-
-    // If relative path, turn into full URL using ApiPaths.url
-    if (downloadUrl.startsWith('/')) {
-      downloadUrl = ApiPaths.url(downloadUrl);
-    }
-
-    downloadUrl = _sanitizeDownloadUrlHost(downloadUrl);
-    return downloadUrl;
-  }
-
-  /// The document microservice sometimes echoes back its own internal
-  /// `localhost` (or unreachable loopback) host in `deliveryUrl`/
-  /// `originalDownloadUrl` instead of the public-facing one — the device
-  /// can never reach that host, so rewrite scheme/host/port to the
-  /// configured document-MS base URL while keeping the backend's path
-  /// (e.g. `/document-ms/api/v1/media-assets/{code}/artifacts/original`)
-  /// untouched.
-  String _sanitizeDownloadUrlHost(String url) {
-    final uri = Uri.tryParse(url);
-    if (uri == null || !uri.hasAuthority) return url;
-
-    final isLoopback =
-        uri.host.isEmpty || uri.host == 'localhost' || uri.host == '127.0.0.1';
-    if (!isLoopback) return url;
-
-    final documentBase = Uri.tryParse(ApiConstants.documentMsBaseUrl);
-    if (documentBase == null || !documentBase.hasAuthority) return url;
-
-    final rewritten = uri.replace(
-      scheme: documentBase.scheme,
-      host: documentBase.host,
-      port: documentBase.hasPort ? documentBase.port : null,
-    );
-    AppLogger.w(
-      '[REPORTS] Backend returned a loopback download URL ($url); '
-      'rewriting host to ${documentBase.host}',
-    );
-    return rewritten.toString();
-  }
-
-  @override
-  Future<List<int>> downloadReportFile(String downloadUrl) async {
-    if (downloadUrl.startsWith('base64:')) {
-      final base64String = downloadUrl.substring(7);
-      return base64Decode(base64String);
-    }
-
-    AppLogger.d('Downloading report file from URL');
-
-    final normalizedUrl = _normalizeDownloadUrl(downloadUrl);
-
-    final response = await _dio.get<List<int>>(
-      normalizedUrl,
-      options: Options(responseType: ResponseType.bytes),
-    );
-
-    if (response.data == null) {
-      throw Exception('Failed to download report: No data received');
-    }
-
-    AppLogger.d(
-      'Report file downloaded successfully: ${response.data!.length} bytes',
-    );
-    return response.data!;
+    return StudentTagsResponse.fromJson(response.data ?? const {}).names;
   }
 }

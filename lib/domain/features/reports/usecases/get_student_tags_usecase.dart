@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
-import '../../../../core/errors/failures.dart';
-import '../repositories/reports_repository.dart';
+import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/domain/features/reports/repositories/reports_repository.dart';
 import 'generate_report_usecase.dart';
 import 'get_recent_reports_usecase.dart';
 

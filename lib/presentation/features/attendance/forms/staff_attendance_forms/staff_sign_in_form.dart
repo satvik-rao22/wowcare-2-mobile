@@ -589,6 +589,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                       itemBuilder: (context, index) => AttendanceRemoveTile(
                         name: selectedStaff[index].name,
                         photoUuid: selectedStaff[index].photoUuid ?? '',
+                        staffCode: selectedStaff[index].staffCode,
                         horizontalPadding: AppSpacing.sm,
                         canRemove: selectedStaff.length > 1,
                         onRemove: () => _removeStaff(selectedStaff[index]),

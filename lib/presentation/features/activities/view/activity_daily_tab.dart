@@ -650,6 +650,32 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         .toSet();
   }
 
+  /// `_filterTags` holds tag NAMES (the multi-select shows names) — the
+  /// attendance/absent endpoints' `tagCodes` query param, and the student-code
+  /// resolution in `_rebuildStudentCodesForTagFilter`, both need actual codes.
+  /// Case-insensitive fallback because `_tagNameToCode`'s keys come from the
+  /// API's own casing, which may not exactly match a name round-tripped
+  /// through the multi-select. A name with no resolved code (stale
+  /// selection, options not loaded yet) is dropped rather than sent as a
+  /// bogus filter value.
+  List<String> _tagCodesForApiFilter() {
+    final tagNameToCodeLower = <String, String>{
+      for (final e in _tagNameToCode.entries)
+        e.key.trim().toLowerCase(): e.value,
+    };
+    return _filterTags
+        .map((name) {
+          final key = name.trim();
+          if (key.isEmpty) return null;
+          return (_tagNameToCode[key] ?? tagNameToCodeLower[key.toLowerCase()])
+              ?.trim();
+        })
+        .whereType<String>()
+        .where((code) => code.isNotEmpty)
+        .toSet()
+        .toList();
+  }
+
   int _appliedFilterBadgeCount() {
     final hasActivityTypeFilter = _filterActivityTypes.isNotEmpty;
     final hasTagFilter = _filterTags.isNotEmpty;
@@ -701,45 +727,30 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     final school = _schoolCode;
     if (school == null || school.isEmpty) return;
 
-    final tagCodes = _filterTags
-        .map((name) => _tagNameToCode[name]?.trim())
-        .whereType<String>()
-        .where((c) => c.isNotEmpty)
-        .toList();
+    final tagCodes = _tagCodesForApiFilter();
     if (tagCodes.isEmpty) return;
 
     try {
-      if (_parentHome) {
-        final classroomCodes = _parentStudentClassroomByCode.values
-            .map((c) => c.trim())
-            .where((c) => c.isNotEmpty)
-            .toSet()
-            .toList();
-        for (final cc in classroomCodes) {
-          final students = await _feedScope.getStudentCodesForActivityTagFilter(
-            schoolCode: school,
-            classroomCode: cc,
-            tagCodes: tagCodes,
-          );
-          if (!mounted) return;
-          _studentCodesForTagFilter.addAll(students);
-        }
-        return;
-      }
 
-      final classroomName = _selectdClassroom;
-      if (classroomName == null ||
-          !_classroomCodeByName.containsKey(classroomName)) {
-        return;
+      final classroomCodes = _parentHome
+          ? _parentStudentClassroomByCode.values
+                .map((c) => c.trim())
+                .where((c) => c.isNotEmpty)
+                .toSet()
+                .toList()
+          : _selectedClassroomCodesForFeed();
+      if (classroomCodes.isEmpty) return;
+
+      for (final cc in classroomCodes) {
+        if (cc.trim().isEmpty) continue;
+        final students = await _feedScope.getStudentCodesForActivityTagFilter(
+          schoolCode: school,
+          classroomCode: cc,
+          tagCodes: tagCodes,
+        );
+        if (!mounted) return;
+        _studentCodesForTagFilter.addAll(students);
       }
-      final cc = _classroomCodeByName[classroomName]!;
-      final students = await _feedScope.getStudentCodesForActivityTagFilter(
-        schoolCode: school,
-        classroomCode: cc,
-        tagCodes: tagCodes,
-      );
-      if (!mounted) return;
-      _studentCodesForTagFilter.addAll(students);
     } catch (_) {
       if (mounted) _studentCodesForTagFilter.clear();
     }
@@ -1654,7 +1665,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         signOutAtFilter: signOutAtFilter,
         typeCodes: typeCodes,
         approvalStatuses: approvalStatuses,
-        tagCodes: _filterTags,
+        tagCodes: _tagCodesForApiFilter(),
         guardianPersona: true,
         includeAttendance: includeAttendance,
         isMarkedAbsentEvent: _isMarkedAbsentEvent(selectedEvent),
@@ -1725,6 +1736,15 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     }
 
     final dateStr = _dateQueryParam(date);
+
+    // Resolve the active tag filter to student codes BEFORE fetching/filtering
+    // below — without this, `_studentCodesForTagFilter` stays permanently
+    // empty for the STAFF persona (only the guardian branch above called this),
+    // so `_withTagFilterOnly`/`_withClientFilters` always filtered every item
+    // out regardless of which tags were selected. Mirrors the Custom tab's
+    // `_loadRangeFeed`, which already awaits this before its own fetch.
+    await _rebuildStudentCodesForTagFilter();
+    if (!mounted) return;
 
     final studentCodes = _selectedStudentCodesForAttendanceFilter();
     final selectedEvent = _selectedAttendanceEventFilter();
@@ -1804,7 +1824,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         signOutAtFilter: signOutAtFilter,
         typeCodes: typeCodes,
         approvalStatuses: approvalStatuses,
-        tagCodes: _filterTags,
+        tagCodes: _tagCodesForApiFilter(),
         guardianPersona: false,
         includeAttendance: includeAttendance,
         isMarkedAbsentEvent: _isMarkedAbsentEvent(selectedEvent),

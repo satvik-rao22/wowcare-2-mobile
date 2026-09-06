@@ -1,9 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/data/features/reports/models/report_request_payload.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 
 void main() {
-  group('ReportRequestParams', () {
+  /// Payload assertions for GenericReportRequestBody, moved here with the wire-building logic
+  /// when the domain params classes lost `toRequestBody()` (§8).
+  group('GenericReportRequestBody', () {
     final startDate = DateTime(2026, 1, 1);
     final endDate = DateTime(2026, 1, 31);
     const classroomCodes = ['CLS_1', 'CLS_2'];
@@ -20,7 +23,7 @@ void main() {
         schoolName: 'Test School',
       );
 
-      final body = params.toRequestBody();
+      final body = ReportRequestPayload.fromParams(params).toJson();
 
       expect(body['reportType'], 'STUDENT_ATTENDANCE_PER_STUDENT');
       expect(body['roomCodes'], classroomCodes);
@@ -28,7 +31,6 @@ void main() {
       expect(body['studentCodes'], studentCodes);
       expect(body['schoolName'], 'Test School');
     });
-
     test('uses roomCodes for SCHOOL_INCIDENT', () {
       final params = ReportRequestParams(
         reportType: ReportType.studentIncident,
@@ -40,13 +42,12 @@ void main() {
         schoolName: 'Test School',
       );
 
-      final body = params.toRequestBody();
+      final body = ReportRequestPayload.fromParams(params).toJson();
 
       expect(body['reportType'], 'SCHOOL_INCIDENT');
       expect(body['roomCodes'], classroomCodes);
       expect(body.containsKey('classroomCodes'), false);
     });
-
     test('uses roomCodes for STAFF_ABSENT', () {
       final params = ReportRequestParams(
         reportType: ReportType.staffAbsent,
@@ -57,7 +58,7 @@ void main() {
         schoolName: 'Test School',
       );
 
-      final body = params.toRequestBody();
+      final body = ReportRequestPayload.fromParams(params).toJson();
 
       expect(body['reportType'], 'STAFF_ABSENT');
       expect(body['startDate'], '2026-01-01');
@@ -67,7 +68,6 @@ void main() {
       expect(body['schoolName'], 'Test School');
       expect(body['format'], 'PDF');
     });
-
     test('omits schoolName when null', () {
       final params = ReportRequestParams(
         reportType: ReportType.studentAttendancePerStudent,
@@ -78,11 +78,10 @@ void main() {
         schoolName: null,
       );
 
-      final body = params.toRequestBody();
+      final body = ReportRequestPayload.fromParams(params).toJson();
 
       expect(body.containsKey('schoolName'), false);
     });
-
     test('uses dateFrom and dateTo in ISO-8601 for BILLING_TRANSACTION', () {
       final utcStart = DateTime.utc(2026, 1, 1);
       final utcEnd = DateTime.utc(2026, 1, 31);
@@ -95,9 +94,12 @@ void main() {
         schoolName: 'School name ',
       );
 
-      final body = params.toRequestBody();
+      final body = ReportRequestPayload.fromParams(params).toJson();
 
-      expect(body['reportType'], 'BILLING_TRANSACTION');
+      // ReportType.billingTransaction.backendValue is 'TRANSACTION' — the
+      // accounts service routes on /reports/billing/<value>, so the path is
+      // /billing/TRANSACTION. 'BILLING_TRANSACTION' has never existed in lib/.
+      expect(body['reportType'], 'TRANSACTION');
       expect(body['dateFrom'], '2026-01-01T00:00:00.000Z');
       expect(body['dateTo'], '2026-01-31T00:00:00.000Z');
       expect(body.containsKey('startDate'), false);

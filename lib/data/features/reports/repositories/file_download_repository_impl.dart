@@ -4,13 +4,15 @@ import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/data/services/file_download_service.dart';
+import 'package:wowcare/domain/features/reports/repositories/file_download_repository.dart';
 
-class FileDownloadRepository {
+class FileDownloadRepositoryImpl implements FileDownloadRepository {
   final FileDownloadService _fileDownloadService;
 
-  FileDownloadRepository(this._fileDownloadService);
+  FileDownloadRepositoryImpl(this._fileDownloadService);
 
   /// Download and save file to device storage
+  @override
   Future<Either<Failure, String>> downloadAndSaveFile({
     required Uint8List fileData,
     required String fileName,
@@ -53,6 +55,7 @@ class FileDownloadRepository {
   }
 
   /// Open file with default application
+  @override
   Future<Either<Failure, bool>> openFile({
     required String filePath,
     required String fileName,

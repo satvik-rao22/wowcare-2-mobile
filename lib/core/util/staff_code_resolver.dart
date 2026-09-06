@@ -29,6 +29,18 @@ Future<String> resolveStaffCodeForLoggedInUser({
 
   final rolesJsonEarly = (await storage.getString(StorageKeys.roles) ?? '')
       .trim();
+
+  // The `schoolCode` this context actually looks up with: `'-'` for
+  // ORGANIZATION_ADMINs (mapped org-level), the real school for everyone else.
+  // The cache is keyed on THIS value, not on the raw selected school, so that
+  // what is written on resolve and what is compared on the next read are the
+  // same thing.
+  final lookupSchoolCode = staffCodeLookupSchoolCode(
+    rolesJson: rolesJsonEarly,
+    organizationCode: currentOrganizationCode,
+    schoolCode: currentSchoolCode,
+  );
+
   if (shouldSkipStaffCodeResolutionForContext(
     rolesJson: rolesJsonEarly,
     organizationCode: currentOrganizationCode,
@@ -52,7 +64,7 @@ Future<String> resolveStaffCodeForLoggedInUser({
       currentUserCode.isNotEmpty &&
       staffCodeOwner == currentUserCode &&
       staffCodeOrganization == currentOrganizationCode &&
-      staffCodeSchool == currentSchoolCode) {
+      staffCodeSchool == lookupSchoolCode) {
     // Re-validate cached mapping against backend to avoid using stale staffCode.
     // Org admins are org-level: the lookup expects '-' and 404s on a real
     // school code, so resolve the right lookup school instead of the raw one.
@@ -60,11 +72,7 @@ Future<String> resolveStaffCodeForLoggedInUser({
       final verified = await staffRepository.getStaffCodeForUser(
         userCode: currentUserCode,
         organizationCode: currentOrganizationCode,
-        schoolCode: staffCodeLookupSchoolCode(
-          rolesJson: rolesJsonEarly,
-          organizationCode: currentOrganizationCode,
-          schoolCode: currentSchoolCode,
-        ),
+        schoolCode: lookupSchoolCode,
       );
       final verifiedTrimmed = (verified ?? '').trim();
       if (verifiedTrimmed.isNotEmpty) {
@@ -82,47 +90,24 @@ Future<String> resolveStaffCodeForLoggedInUser({
     }
   }
 
-  final userCode = (await storage.getString(StorageKeys.userCode) ?? '').trim();
-  final organizationCode =
-      (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-  final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-      .trim();
+  // Re-using the values read at the top: nothing between here and there writes
+  // any of these keys (the failure paths only clear the staffCode* cache), and
+  // re-reading them was what let `schoolCode` drift from `lookupSchoolCode`.
+  final userCode = currentUserCode;
+  final organizationCode = currentOrganizationCode;
 
   if (userCode.isEmpty || organizationCode.isEmpty) return '';
-
-  // Best-effort: determine whether the backend expects `schoolCode = '-'`
-  // for this org (ORGANIZATION_ADMIN role).
-  bool isOrgAdmin = false;
-  try {
-    final rolesJson = await storage.getString(StorageKeys.roles);
-    if (rolesJson != null && rolesJson.trim().isNotEmpty) {
-      final decoded = jsonDecode(rolesJson);
-      if (decoded is List) {
-        for (final r in decoded) {
-          if (r is Map) {
-            final rOrg = (r['organizationCode'] ?? '').toString().trim();
-            final rRole = (r['role'] ?? '').toString().toUpperCase().trim();
-            if (rOrg == organizationCode && rRole == 'ORGANIZATION_ADMIN') {
-              isOrgAdmin = true;
-              break;
-            }
-          }
-        }
-      }
-    }
-  } catch (_) {
-    // Non-blocking: keep isOrgAdmin=false and try default fallbacks below.
-  }
 
   // Candidates:
   // - org admin: mapped org-level, so the backend expects '-' and 404s on a
   //   real school code. Send '-' only.
   // - normal: use stored schoolCode
+  //
+  // [lookupSchoolCode] already encodes that rule (§6.1: one implementation of
+  // "which school does this persona look up with").
   final candidates = <String>{};
-  if (isOrgAdmin) {
-    candidates.add('-');
-  } else if (schoolCode.isNotEmpty) {
-    candidates.add(schoolCode);
+  if (lookupSchoolCode.isNotEmpty) {
+    candidates.add(lookupSchoolCode);
   }
   if (candidates.isEmpty && allowOrganizationLevelFallback) {
     candidates.add('-'); // last-resort fallback
@@ -150,7 +135,15 @@ Future<String> resolveStaffCodeForLoggedInUser({
         StorageKeys.staffCodeOrganization,
         organizationCode,
       );
-      await storage.saveString(StorageKeys.staffCodeSchool, schoolCode);
+      // Store the school code the mapping was ACTUALLY resolved with, not the
+      // raw selected school. For an org admin those differ ('-' vs 'SCH-1'),
+      // and writing the raw one made the ownership check on the next read
+      // compare two different things — so the cache either never hit, or hit
+      // for a school it was not resolved under.
+      await storage.saveString(
+        StorageKeys.staffCodeSchool,
+        candidateSchoolCode,
+      );
       return trimmed;
     }
   }
@@ -170,8 +163,12 @@ Future<String> resolveStaffCodeForLoggedInUser({
 /// after a persona switch and misresolve a staff/teacher persona as admin —
 /// so a mounted View with context should check `RoleCubit` first and only
 /// fall back to this when unmounted.
-Future<bool> resolveIsStaffAdminPersonaFromStorage() async {
-  final storage = serviceLocator<StorageService>();
+Future<bool> resolveIsStaffAdminPersonaFromStorage() =>
+    resolveIsStaffAdminPersona(serviceLocator<StorageService>());
+
+/// [resolveIsStaffAdminPersonaFromStorage] against an INJECTED storage, for
+/// cubits that already hold one and must not reach into the service locator.
+Future<bool> resolveIsStaffAdminPersona(StorageService storage) async {
   final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
       .trim()
       .toUpperCase();

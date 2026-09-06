@@ -3,19 +3,43 @@ import 'dart:io';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/app_time.dart';
 import '../../../../core/util/file_picker_utils.dart';
+import '../../../../core/util/storage_keys.dart';
 import '../../../../shared/services/image_upload/image_upload_service.dart';
 
 /// Owns the multi-step staff profile-photo upload flow (create session,
 /// presign, upload with progress, complete, wait-until-ready, finalize) —
 /// previously run inline in [StaffProfileScreen]'s `State`.
 class StaffProfilePhotoUploadCubit extends Cubit<StaffProfilePhotoUploadState> {
-  StaffProfilePhotoUploadCubit({required ImageUploadService imageUploadService})
-    : _imageUploadService = imageUploadService,
-      super(const StaffProfilePhotoUploadState.initial());
+  StaffProfilePhotoUploadCubit({
+    required ImageUploadService imageUploadService,
+    required StorageService storageService,
+  }) : _imageUploadService = imageUploadService,
+       _storageService = storageService,
+       super(const StaffProfilePhotoUploadState.initial());
 
   final ImageUploadService _imageUploadService;
+  final StorageService _storageService;
+
+  /// The org/school the upload runs under, read from the active selection.
+  ///
+  /// The profile screen resolved these from a [StorageService] it fetched
+  /// itself; the cubit that needs them owns the read instead. Either value is
+  /// null when nothing is selected, which the screen treats as "cannot upload".
+  Future<({String? schoolCode, String? organizationCode})>
+  loadUploadContext() async {
+    final schoolCode =
+        (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+    final organizationCode =
+        (await _storageService.getString(StorageKeys.organizationCode) ?? '')
+            .trim();
+    return (
+      schoolCode: schoolCode.isEmpty ? null : schoolCode,
+      organizationCode: organizationCode.isEmpty ? null : organizationCode,
+    );
+  }
 
   /// Runs the upload and returns the finalized photo URL. Progress is also
   /// emitted via cubit state for the View to render a percent indicator.

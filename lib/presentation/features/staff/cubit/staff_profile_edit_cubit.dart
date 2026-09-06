@@ -1,17 +1,23 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../../domain/features/staff/entities/staff_address_update.dart';
+import '../../../../domain/features/staff/entities/staff_profile.dart';
 import '../../../../domain/features/staff/entities/staff_profile_update.dart';
 import '../../../../domain/features/staff/usecases/activate_organization_admin_usecase.dart';
 import '../../../../domain/features/staff/usecases/activate_school_user_usecase.dart';
 import '../../../../domain/features/staff/usecases/change_user_email_usecase.dart';
 import '../../../../domain/features/staff/usecases/deactivate_organization_admin_usecase.dart';
 import '../../../../domain/features/staff/usecases/deactivate_school_user_usecase.dart';
+import '../../../../domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import '../../../../domain/features/staff/usecases/update_staff_address_usecase.dart';
 import '../../../../domain/features/staff/usecases/update_staff_allowed_classrooms_usecase.dart';
 import '../../../../domain/features/staff/usecases/update_staff_primary_classroom_usecase.dart';
 import '../../../../domain/features/staff/usecases/update_staff_profile_usecase.dart';
+import '../../../../shared/services/image_upload/staff_photo_background_upload_service.dart';
 
 part 'staff_profile_edit_state.dart';
 
@@ -36,6 +42,8 @@ class StaffProfileEditCubit extends Cubit<StaffProfileEditState> {
     deactivateOrganizationAdminUseCase,
     required ActivateSchoolUserUseCase activateSchoolUserUseCase,
     required DeactivateSchoolUserUseCase deactivateSchoolUserUseCase,
+    required GetStaffProfileUseCase getStaffProfileUseCase,
+    required StaffPhotoBackgroundUploadService photoBackgroundUploadService,
   }) : _updateStaffProfileUseCase = updateStaffProfileUseCase,
        _updateStaffAddressUseCase = updateStaffAddressUseCase,
        _updateStaffAllowedClassroomsUseCase =
@@ -46,6 +54,8 @@ class StaffProfileEditCubit extends Cubit<StaffProfileEditState> {
        _deactivateOrganizationAdminUseCase = deactivateOrganizationAdminUseCase,
        _activateSchoolUserUseCase = activateSchoolUserUseCase,
        _deactivateSchoolUserUseCase = deactivateSchoolUserUseCase,
+       _getStaffProfileUseCase = getStaffProfileUseCase,
+       _photoBackgroundUploadService = photoBackgroundUploadService,
        super(const StaffProfileEditState.initial());
 
   final UpdateStaffProfileUseCase _updateStaffProfileUseCase;
@@ -58,6 +68,37 @@ class StaffProfileEditCubit extends Cubit<StaffProfileEditState> {
   final DeactivateOrganizationAdminUseCase _deactivateOrganizationAdminUseCase;
   final ActivateSchoolUserUseCase _activateSchoolUserUseCase;
   final DeactivateSchoolUserUseCase _deactivateSchoolUserUseCase;
+  final GetStaffProfileUseCase _getStaffProfileUseCase;
+  final StaffPhotoBackgroundUploadService _photoBackgroundUploadService;
+
+  /// One-shot read of the staff profile the form prefills from.
+  ///
+  /// Returns the entity for the View to seed its controllers with, rather than
+  /// emitting it as cubit state: the form's fields are user-editable from the
+  /// first frame, so re-rendering them from state on every emit would fight the
+  /// user's typing. The View previously called [GetStaffProfileUseCase] itself.
+  Future<StaffProfile> loadProfileForPrefill({required String staffCode}) {
+    return _getStaffProfileUseCase(staffCode: staffCode);
+  }
+
+  /// Starts the edited staff member's profile-photo upload and returns
+  /// immediately, so saving stays instant. The upload runs in a
+  /// lifecycle-detached service and therefore survives the screen popping.
+  void uploadProfilePhotoInBackground({
+    required String staffCode,
+    required File file,
+    required String schoolCode,
+    required String organizationCode,
+  }) {
+    unawaited(
+      _photoBackgroundUploadService.upload(
+        staffCode: staffCode,
+        file: file,
+        schoolCode: schoolCode,
+        organizationCode: organizationCode,
+      ),
+    );
+  }
 
   // --- Mutations (each keyed single-flight; rethrow) ---
 

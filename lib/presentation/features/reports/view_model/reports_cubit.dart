@@ -1,121 +1,53 @@
-import 'package:bloc/bloc.dart';
-import 'package:equatable/equatable.dart';
 import 'dart:async';
 import 'dart:typed_data';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/storage_keys.dart';
-import '../../../../core/util/logger_service.dart';
-import '../../../../domain/features/reports/entities/report_metadata_entity.dart';
-import '../../../../domain/features/reports/usecases/generate_report_usecase.dart';
-import '../../../../domain/features/reports/usecases/get_recent_reports_usecase.dart';
-import '../../../../domain/features/reports/usecases/get_student_tags_usecase.dart';
-import '../../../../domain/features/reports/usecases/download_report_usecase.dart';
-import '../../../../domain/features/reports/usecases/report_params.dart';
-import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import '../../../../data/features/reports/repositories/file_download_repository.dart';
-part 'reports_state.dart';
 
-/// Owns the lookup data (classroom / student / staff / tag names) the report
-/// forms need, so the reports screen no longer juggles these lists in
-/// `setState`.
+import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/domain/features/reports/usecases/download_report_usecase.dart';
+import 'package:wowcare/domain/features/reports/usecases/generate_report_usecase.dart';
+import 'package:wowcare/domain/features/reports/usecases/get_recent_reports_usecase.dart';
+import 'package:wowcare/domain/features/reports/usecases/get_student_tags_usecase.dart';
+import 'package:wowcare/domain/features/reports/usecases/open_report_file_usecase.dart';
+import 'package:wowcare/domain/features/reports/usecases/report_params.dart';
+import 'package:wowcare/domain/features/reports/usecases/save_report_file_usecase.dart';
+import 'package:wowcare/presentation/features/reports/view_model/reports_lookup_cubit.dart';
+
+export 'package:wowcare/presentation/features/reports/view_model/reports_lookup_cubit.dart'
+    show ReportsState, GeneratedReportsLoadingState, FormClassroomsStatus;
+
+/// Report generation, the recent-reports list, and the saved-file actions.
 ///
-/// The classroom/student/staff names are fed in from their respective cubits
-/// via [setClassroomNames] / [setStudentNames] / [setStaffNames]; tag names are
-/// loaded directly here since no dedicated cubit owns them.
-///
-/// Also handles report generation and retrieval of recent reports.
-class ReportsCubit extends Cubit<ReportsState> {
+/// Extends [ReportsLookupCubit], which carries the form lookup data — one
+/// instance, one provider, one state object; only the source files are split.
+class ReportsCubit extends ReportsLookupCubit {
   ReportsCubit({
-    required StorageService storageService,
-    required GetTagNameCodeMapForSchoolUseCase getTagNameCodeMapForSchoolUseCase,
+    required super.getSchoolCodeUseCase,
+    required super.getSchoolNameUseCase,
+    required super.getTagNameCodeMapForSchoolUseCase,
+    required super.getActiveClassroomsUseCase,
+    required super.getStudentClassroomListUseCase,
+    required super.getImmunizationSettingsUseCase,
     required GenerateReportUseCase generateReportUseCase,
     required GetRecentReportsUseCase getRecentReportsUseCase,
     required GetStudentTagsUseCase getStudentTagsUseCase,
     required DownloadReportUseCase downloadReportUseCase,
-    required FileDownloadRepository fileDownloadRepository,
-  }) : _storageService = storageService,
-       _getTagNameCodeMapForSchoolUseCase = getTagNameCodeMapForSchoolUseCase,
-       _generateReportUseCase = generateReportUseCase,
+    required SaveReportFileUseCase saveReportFileUseCase,
+    required OpenReportFileUseCase openReportFileUseCase,
+  }) : _generateReportUseCase = generateReportUseCase,
        _getRecentReportsUseCase = getRecentReportsUseCase,
        _getStudentTagsUseCase = getStudentTagsUseCase,
        _downloadReportUseCase = downloadReportUseCase,
-       _fileDownloadRepository = fileDownloadRepository,
-       super(const ReportsState.initial());
+       _saveReportFileUseCase = saveReportFileUseCase,
+       _openReportFileUseCase = openReportFileUseCase;
 
-  final StorageService _storageService;
-  final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
   final GenerateReportUseCase _generateReportUseCase;
   final GetRecentReportsUseCase _getRecentReportsUseCase;
   final GetStudentTagsUseCase _getStudentTagsUseCase;
   final DownloadReportUseCase _downloadReportUseCase;
-  final FileDownloadRepository _fileDownloadRepository;
+  final SaveReportFileUseCase _saveReportFileUseCase;
+  final OpenReportFileUseCase _openReportFileUseCase;
 
   /// Prevent concurrent loadRecentReports calls
   bool _isLoadingRecentReports = false;
-
-  /// Loads the school's tags (names + name→TAG_* code map) and stores both in
-  /// state. Tags are optional metadata so failures are swallowed.
-  Future<void> loadTags() async {
-    try {
-      final schoolCode =
-          (await _storageService.getString(StorageKeys.schoolCode) ?? '')
-              .trim();
-      if (schoolCode.isEmpty) return;
-
-      final nameToCode = await _getTagNameCodeMapForSchoolUseCase(
-        schoolCode: schoolCode,
-      );
-
-      AppLogger.d('[ReportsCubit] Loaded tag name→code map: $nameToCode');
-
-      if (isClosed) return;
-      emit(
-        state.copyWith(
-          tagNames: nameToCode.keys.toList(),
-          tagNameToCode: nameToCode,
-        ),
-      );
-    } catch (e) {
-      // Tags are optional; ignore failures.
-      AppLogger.w('[ReportsCubit] loadTags failed (non-fatal): $e');
-    }
-  }
-
-  void setClassroomNames(
-    List<String> names, {
-    Map<String, String>? nameToCodeMap,
-  }) {
-    if (isClosed) return;
-    emit(
-      state.copyWith(
-        classroomNames: names,
-        classroomNameToCode: nameToCodeMap ?? state.classroomNameToCode,
-      ),
-    );
-  }
-
-  void setStudentNames(
-    List<String> names, {
-    Map<String, String>? nameToCodeMap,
-  }) {
-    if (isClosed) return;
-    emit(
-      state.copyWith(
-        studentNames: names,
-        studentNameToCode: nameToCodeMap ?? state.studentNameToCode,
-      ),
-    );
-  }
-
-  void setStaffNames(List<String> names, {Map<String, String>? nameToCodeMap}) {
-    if (isClosed) return;
-    emit(
-      state.copyWith(
-        staffNames: names,
-        staffNameToCode: nameToCodeMap ?? state.staffNameToCode,
-      ),
-    );
-  }
 
   /// Generate a report based on request params.
   /// Every call triggers a fresh API request - no caching or deduplication.
@@ -199,6 +131,12 @@ class ReportsCubit extends Cubit<ReportsState> {
   /// [isRefresh]: If true, treats this as a background refresh and preserves
   /// existing data while loading. If false, treats as initial load and shows
   /// loading state.
+
+  /// Load recent reports from all sources (merged and deduplicated).
+  ///
+  /// [isRefresh]: If true, treats this as a background refresh and preserves
+  /// existing data while loading. If false, treats as initial load and shows
+  /// loading state.
   Future<void> loadRecentReports({bool isRefresh = false}) async {
     if (isClosed) return;
 
@@ -271,17 +209,6 @@ class ReportsCubit extends Cubit<ReportsState> {
 
   /// Load dynamic student tags for filtering.
   /// Tags are optional; failures are silently ignored.
-  Future<void> loadDynamicTags() async {
-    if (isClosed) return;
-
-    final result = await _getStudentTagsUseCase(NoParams());
-
-    if (isClosed) return;
-    result.fold(
-      (failure) => null, // Silently ignore tag loading failures
-      (tags) => emit(state.copyWith(dynamicTagNames: tags)),
-    );
-  }
 
   /// Clear the generated report and success signal from state.
   void clearGeneratedReport() {
@@ -341,6 +268,8 @@ class ReportsCubit extends Cubit<ReportsState> {
   }
 
   /// Save file to device storage
+
+  /// Save file to device storage
   Future<String?> saveReportFile({
     required Uint8List fileData,
     required String fileName,
@@ -350,7 +279,7 @@ class ReportsCubit extends Cubit<ReportsState> {
 
     AppLogger.d('[CUBIT-SAVE] Saving file: $fileName for $assetCode');
 
-    final result = await _fileDownloadRepository.downloadAndSaveFile(
+    final result = await _saveReportFileUseCase(
       fileData: fileData,
       fileName: fileName,
       assetCode: assetCode,
@@ -369,6 +298,8 @@ class ReportsCubit extends Cubit<ReportsState> {
   }
 
   /// Open file with default application
+
+  /// Open file with default application
   Future<bool> openReportFile({
     required String filePath,
     required String fileName,
@@ -378,7 +309,7 @@ class ReportsCubit extends Cubit<ReportsState> {
 
     AppLogger.d('[CUBIT] Opening report file: $fileName from $filePath');
 
-    final result = await _fileDownloadRepository.openFile(
+    final result = await _openReportFileUseCase(
       filePath: filePath,
       fileName: fileName,
       assetCode: assetCode,
@@ -393,6 +324,18 @@ class ReportsCubit extends Cubit<ReportsState> {
         AppLogger.i('[CUBIT] File opened successfully');
         return success;
       },
+    );
+  }
+
+  Future<void> loadDynamicTags() async {
+    if (isClosed) return;
+
+    final result = await _getStudentTagsUseCase(NoParams());
+
+    if (isClosed) return;
+    result.fold(
+      (failure) => null, // Silently ignore tag loading failures
+      (tags) => emit(state.copyWith(dynamicTagNames: tags)),
     );
   }
 }
