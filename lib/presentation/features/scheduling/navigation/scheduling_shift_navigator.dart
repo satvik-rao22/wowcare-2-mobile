@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/di/di.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/scheduling/usecases/delete_staff_shift_series_usecase.dart';
-import 'package:wowcare/domain/features/scheduling/usecases/delete_staff_shift_usecase.dart';
-import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shift_by_code_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
+import 'package:wowcare/presentation/features/scheduling/view_model/scheduling_cubit.dart';
+import 'package:wowcare/presentation/features/scheduling/view_model/scheduling_staff_list_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_models.dart';
+import 'package:wowcare/presentation/features/scheduling/model/scheduling_route_args.dart';
 import 'package:wowcare/presentation/features/scheduling/view/edit_shift_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
 
@@ -65,20 +65,19 @@ class SchedulingShiftNavigator {
       return;
     }
     if (!detail.hasShiftData) return;
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => ViewShiftScreen(
-          date: selectedDay,
-          staff: staffName,
-          classroom: classroomName,
-          shiftStart: detail.shiftStart!,
-          shiftEnd: detail.shiftEnd!,
-          breakStart: detail.breakStart,
-          breakEnd: detail.breakEnd,
-          status: detail.isPublished
-              ? ShiftStatus.published
-              : ShiftStatus.draft,
-        ),
+    await context.push<void>(
+      SchedulingRoutes.viewShift,
+      extra: ViewShiftRouteArgs(
+        date: selectedDay,
+        staff: staffName,
+        classroom: classroomName,
+        shiftStart: detail.shiftStart!,
+        shiftEnd: detail.shiftEnd!,
+        breakStart: detail.breakStart,
+        breakEnd: detail.breakEnd,
+        status: detail.isPublished
+            ? ShiftStatus.published
+            : ShiftStatus.draft,
       ),
     );
   }
@@ -88,10 +87,9 @@ class SchedulingShiftNavigator {
     required String shiftCode,
     String fallbackStaffName = '',
   }) async {
-    final navigator = Navigator.of(context);
+    final schedulingCubit = context.read<SchedulingCubit>();
     try {
-      final shift =
-          await serviceLocator<GetStaffShiftByCodeUseCase>()(shiftCode);
+      final shift = await schedulingCubit.getShiftByCode(shiftCode);
       if (!context.mounted) return;
       final classroomName = shift.classroomName.trim().isNotEmpty
           ? shift.classroomName
@@ -100,47 +98,45 @@ class SchedulingShiftNavigator {
       final staffName = shift.staffName.trim().isNotEmpty
           ? shift.staffName
           : fallbackStaffName;
-      final mutated = await navigator.push<bool>(
-        MaterialPageRoute<bool>(
-          settings: const RouteSettings(name: ViewShiftScreen.routeName),
-          builder: (_) => ViewShiftScreen(
-            date: shift.shiftDate,
-            staff: staffName,
-            classroom: classroomName,
-            shiftStart: shift.startTime,
-            shiftEnd: shift.endTime,
-            breakStart: shift.breakStartTime,
-            breakEnd: shift.breakEndTime,
-            note: shift.notes,
-            status: shift.isPublished
-                ? ShiftStatus.published
-                : ShiftStatus.draft,
-            isRecurring: shift.isRecurring,
-            onEditThis: () => _openEditShiftScreen(
-              context,
-              shiftCode: shiftCode,
-              fallbackStaffName: fallbackStaffName,
-              mode: EditShiftMode.thisShift,
-            ),
-            onEditSeries: () => _openEditShiftScreen(
-              context,
-              shiftCode: shiftCode,
-              fallbackStaffName: fallbackStaffName,
-              mode: EditShiftMode.entireSeries,
-            ),
-            onDeleteThis: () => _deleteStaffShift(
-              context,
-              shiftCode: shift.shiftCode,
-              staffCode: shift.staffCode,
-              isSeries: false,
-            ),
-            onDeleteSeries: () => _deleteStaffShift(
-              context,
-              shiftCode: shift.shiftCode,
-              staffCode: shift.staffCode,
-              seriesCode: shift.seriesCode,
-              isSeries: true,
-            ),
+      final mutated = await context.push<bool>(
+        SchedulingRoutes.viewShift,
+        extra: ViewShiftRouteArgs(
+          date: shift.shiftDate,
+          staff: staffName,
+          classroom: classroomName,
+          shiftStart: shift.startTime,
+          shiftEnd: shift.endTime,
+          breakStart: shift.breakStartTime,
+          breakEnd: shift.breakEndTime,
+          note: shift.notes,
+          status: shift.isPublished
+              ? ShiftStatus.published
+              : ShiftStatus.draft,
+          isRecurring: shift.isRecurring,
+          onEditThis: () => _openEditShiftScreen(
+            context,
+            shiftCode: shiftCode,
+            fallbackStaffName: fallbackStaffName,
+            mode: EditShiftMode.thisShift,
+          ),
+          onEditSeries: () => _openEditShiftScreen(
+            context,
+            shiftCode: shiftCode,
+            fallbackStaffName: fallbackStaffName,
+            mode: EditShiftMode.entireSeries,
+          ),
+          onDeleteThis: () => _deleteStaffShift(
+            context,
+            shiftCode: shift.shiftCode,
+            staffCode: shift.staffCode,
+            isSeries: false,
+          ),
+          onDeleteSeries: () => _deleteStaffShift(
+            context,
+            shiftCode: shift.shiftCode,
+            staffCode: shift.staffCode,
+            seriesCode: shift.seriesCode,
+            isSeries: true,
           ),
         ),
       );
@@ -168,10 +164,9 @@ class SchedulingShiftNavigator {
   }) async {
     final classroomCubit = context.read<ClassroomCubit>();
     final schedulingStaffListCubit = context.read<SchedulingStaffListCubit>();
-    final navigator = Navigator.of(context);
+    final schedulingCubit = context.read<SchedulingCubit>();
     try {
-      final shift =
-          await serviceLocator<GetStaffShiftByCodeUseCase>()(shiftCode);
+      final shift = await schedulingCubit.getShiftByCode(shiftCode);
       if (!context.mounted) return false;
       final classroomName = shift.classroomName.trim().isNotEmpty
           ? shift.classroomName
@@ -208,38 +203,30 @@ class SchedulingShiftNavigator {
           (actualDay != null && decodedDays.contains(actualDay))
               ? decodedDays
               : <String>{if (actualDay != null) actualDay};
-      final saved = await navigator.push<bool>(
-        MaterialPageRoute<bool>(
-          settings: const RouteSettings(name: EditShiftScreen.routeName),
-          builder: (_) => MultiBlocProvider(
-            providers: [
-              BlocProvider<SchedulingStaffListCubit>.value(
-                value: schedulingStaffListCubit,
-              ),
-              BlocProvider<ClassroomCubit>.value(value: classroomCubit),
-            ],
-            child: EditShiftScreen(
-              mode: mode,
-              shiftCode: shift.shiftCode,
-              seriesCode: shift.seriesCode,
-              staffCode: shift.staffCode,
-              classroomCode: shift.classroomCode,
-              initialDate: shift.shiftDate,
-              staff: staffName,
-              classroom: classroomName,
-              shiftStart: shift.startTime,
-              shiftEnd: shift.endTime,
-              breakStart: shift.breakStartTime,
-              breakEnd: shift.breakEndTime,
-              note: shift.notes,
-              status: shift.isPublished
-                  ? ShiftStatus.published
-                  : ShiftStatus.draft,
-              isPublished: shift.isPublished,
-              selectedDays: selectedDays,
-              untilDate: shift.seriesEndDate ?? shift.shiftDate,
-            ),
-          ),
+      final saved = await context.push<bool>(
+        SchedulingRoutes.editShift,
+        extra: EditShiftRouteArgs(
+          schedulingStaffListCubit: schedulingStaffListCubit,
+          classroomCubit: classroomCubit,
+          mode: mode,
+          shiftCode: shift.shiftCode,
+          seriesCode: shift.seriesCode,
+          staffCode: shift.staffCode,
+          classroomCode: shift.classroomCode,
+          initialDate: shift.shiftDate,
+          staff: staffName,
+          classroom: classroomName,
+          shiftStart: shift.startTime,
+          shiftEnd: shift.endTime,
+          breakStart: shift.breakStartTime,
+          breakEnd: shift.breakEndTime,
+          note: shift.notes,
+          status: shift.isPublished
+              ? ShiftStatus.published
+              : ShiftStatus.draft,
+          isPublished: shift.isPublished,
+          selectedDays: selectedDays,
+          untilDate: shift.seriesEndDate ?? shift.shiftDate,
         ),
       );
       return saved == true;
@@ -264,18 +251,19 @@ class SchedulingShiftNavigator {
     String? seriesCode,
     required bool isSeries,
   }) async {
+    final schedulingCubit = context.read<SchedulingCubit>();
     try {
       if (isSeries) {
         final code = (seriesCode ?? '').trim();
         if (code.isEmpty) {
           throw Exception('Missing series code');
         }
-        await serviceLocator<DeleteStaffShiftSeriesUseCase>()(
+        await schedulingCubit.deleteShiftSeries(
           seriesCode: code,
           staffCode: staffCode,
         );
       } else {
-        await serviceLocator<DeleteStaffShiftUseCase>()(
+        await schedulingCubit.deleteShift(
           shiftCode: shiftCode,
           staffCode: staffCode,
         );
@@ -311,16 +299,15 @@ class SchedulingShiftNavigator {
     final start = _parseClockTime(startTime);
     final end = _parseClockTime(endTime);
     if (start == null || end == null) return;
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => ViewShiftScreen(
-          date: selectedDay,
-          staff: staffName,
-          classroom: classroomName,
-          shiftStart: start,
-          shiftEnd: end,
-          status: isPublished ? ShiftStatus.published : ShiftStatus.draft,
-        ),
+    await context.push<void>(
+      SchedulingRoutes.viewShift,
+      extra: ViewShiftRouteArgs(
+        date: selectedDay,
+        staff: staffName,
+        classroom: classroomName,
+        shiftStart: start,
+        shiftEnd: end,
+        status: isPublished ? ShiftStatus.published : ShiftStatus.draft,
       ),
     );
   }

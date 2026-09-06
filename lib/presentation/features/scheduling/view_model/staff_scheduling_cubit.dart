@@ -4,20 +4,26 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift.dart'
     as sched;
 import '../../../../domain/features/scheduling/entities/staff_shift_hours_entry.dart';
+import '../../../../domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
+import '../../../../domain/features/scheduling/usecases/bootstrap_scheduling_school_timezone_usecase.dart';
+import '../../../../domain/features/scheduling/usecases/delete_staff_shift_series_usecase.dart';
+import '../../../../domain/features/scheduling/usecases/delete_staff_shift_usecase.dart';
 import '../../../../domain/features/scheduling/usecases/get_school_staff_shifts_usecase.dart';
+import '../../../../domain/features/scheduling/usecases/get_staff_shift_by_code_usecase.dart';
 import '../../../../domain/features/scheduling/usecases/get_staff_shift_hours_range_usecase.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/entities/staff_shift.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../utils/classroom_name_resolver.dart';
 import '../utils/school_hours_resolver.dart';
-import '../utils/scheduling_school_scope_mixin.dart';
-import '../utils/scheduling_school_time.dart';
-import '../utils/staff_hours_aggregator.dart';
+import 'scheduling_school_scope_mixin.dart';
+import '../../../../domain/features/scheduling/services/scheduling_school_time.dart';
+import '../../../../domain/features/scheduling/services/staff_hours_aggregator.dart';
 import 'scheduling_staff_list_cubit.dart';
 
 part 'staff_scheduling_state.dart';
@@ -31,12 +37,26 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState>
     required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
     required StaffRepository staffRepository,
     required StorageService storageService,
+    required GetStaffTodaySignInStatusMapUseCase
+        getStaffTodaySignInStatusMapUseCase,
+    required GetStaffShiftByCodeUseCase getStaffShiftByCodeUseCase,
+    required DeleteStaffShiftUseCase deleteStaffShiftUseCase,
+    required DeleteStaffShiftSeriesUseCase deleteStaffShiftSeriesUseCase,
+    required BootstrapSchedulingSchoolTimezoneUseCase
+        bootstrapSchedulingSchoolTimezoneUseCase,
   }) : _schedulingStaffListCubit = schedulingStaffListCubit,
        _getSchoolStaffShiftsUseCase = getSchoolStaffShiftsUseCase,
        _getStaffShiftHoursRangeUseCase = getStaffShiftHoursRangeUseCase,
        _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
        _staffRepository = staffRepository,
        _storageService = storageService,
+       _getStaffTodaySignInStatusMapUseCase =
+           getStaffTodaySignInStatusMapUseCase,
+       _getStaffShiftByCodeUseCase = getStaffShiftByCodeUseCase,
+       _deleteStaffShiftUseCase = deleteStaffShiftUseCase,
+       _deleteStaffShiftSeriesUseCase = deleteStaffShiftSeriesUseCase,
+       _bootstrapSchedulingSchoolTimezoneUseCase =
+           bootstrapSchedulingSchoolTimezoneUseCase,
        super(StaffSchedulingState.initial());
 
   final SchedulingStaffListCubit _schedulingStaffListCubit;
@@ -48,6 +68,42 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState>
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   final StaffRepository _staffRepository;
   final StorageService _storageService;
+  final GetStaffTodaySignInStatusMapUseCase
+      _getStaffTodaySignInStatusMapUseCase;
+  final GetStaffShiftByCodeUseCase _getStaffShiftByCodeUseCase;
+  final DeleteStaffShiftUseCase _deleteStaffShiftUseCase;
+  final DeleteStaffShiftSeriesUseCase _deleteStaffShiftSeriesUseCase;
+  final BootstrapSchedulingSchoolTimezoneUseCase
+      _bootstrapSchedulingSchoolTimezoneUseCase;
+
+  Future<String> bootstrapSchoolTimezone() =>
+      _bootstrapSchedulingSchoolTimezoneUseCase();
+
+  /// Single-shift detail lookup for the View/Edit shift screens — kept on
+  /// the cubit (rather than resolved via serviceLocator in the view layer)
+  /// so presentation only ever talks to its cubit.
+  Future<sched.StaffShift> getShiftByCode(String shiftCode) =>
+      _getStaffShiftByCodeUseCase(shiftCode);
+
+  Future<void> deleteShift({
+    required String shiftCode,
+    String? staffCode,
+  }) =>
+      _deleteStaffShiftUseCase(shiftCode: shiftCode, staffCode: staffCode);
+
+  Future<void> deleteShiftSeries({
+    required String seriesCode,
+    String? staffCode,
+  }) =>
+      _deleteStaffShiftSeriesUseCase(
+        seriesCode: seriesCode,
+        staffCode: staffCode,
+      );
+
+  /// Tracks the most recent set of staff codes requested via
+  /// [refreshSignInStatusForRoster] so an unchanged roster doesn't refire
+  /// the bulk POST on every rebuild.
+  Set<String> _lastRequestedSignInStatusCodes = const <String>{};
 
   @override
   StorageService get storageService => _storageService;
@@ -62,15 +118,14 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState>
   bool get isStaffPersonaScope => _isStaffPersonaScope;
 
   /// Caller-driven persona scope. The screen reads [RoleCubit.isStaff] (the
-  /// single source of truth used across the app) and feeds it in here, plus
-  /// the logged-in user's `staffCode`. Re-filters the roster + re-emits state
-  /// whenever the scope flips so the UI reacts even if scope is set after the
-  /// initial load.
-  Future<void> applyPersonaScope({
-    required bool isStaffPersona,
-    String? loggedInStaffCode,
-  }) async {
-    final code = (loggedInStaffCode ?? '').trim();
+  /// single source of truth used across the app) and feeds it in here; the
+  /// logged-in user's `staffCode` is resolved from storage internally.
+  /// Re-filters the roster + re-emits state whenever the scope flips so the
+  /// UI reacts even if scope is set after the initial load.
+  Future<void> applyPersonaScope({required bool isStaffPersona}) async {
+    final code = isStaffPersona
+        ? (await _storageService.getString(StorageKeys.staffCode) ?? '').trim()
+        : '';
     final nextLoggedInStaffCode = code.isNotEmpty ? code : null;
     final scopeChanged =
         _isStaffPersonaScope != isStaffPersona ||
@@ -482,6 +537,48 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState>
     if (!exists) return;
     emit(state.copyWith(selectedStaffCode: wanted));
     _loadShiftsForSelection();
+  }
+
+  /// Fires the bulk POST `/staff-attendance/sign-in/status` for every staff
+  /// in [staff]. Skips the call when the roster hasn't changed since the
+  /// last request, unless [force] clears the dedupe guard first (used by
+  /// pull-to-refresh, which needs the call to re-fire even for an unchanged
+  /// roster).
+  Future<void> refreshSignInStatusForRoster(
+    List<StaffMember> staff, {
+    bool force = false,
+  }) async {
+    if (force) _lastRequestedSignInStatusCodes = const <String>{};
+    final codes = <String>{
+      for (final s in staff)
+        if (s.code.trim().isNotEmpty) s.code.trim(),
+    };
+    if (codes.isEmpty) {
+      if (state.staffSignInStatusByCode.isNotEmpty ||
+          _lastRequestedSignInStatusCodes.isNotEmpty) {
+        _lastRequestedSignInStatusCodes = const <String>{};
+        if (!isClosed) {
+          emit(
+            state.copyWith(staffSignInStatusByCode: const <String, String>{}),
+          );
+        }
+      }
+      return;
+    }
+    if (codes.length == _lastRequestedSignInStatusCodes.length &&
+        codes.containsAll(_lastRequestedSignInStatusCodes)) {
+      return;
+    }
+    _lastRequestedSignInStatusCodes = codes;
+    try {
+      final map = await _getStaffTodaySignInStatusMapUseCase(
+        staffCodes: codes.toList(growable: false),
+      );
+      if (isClosed) return;
+      emit(state.copyWith(staffSignInStatusByCode: map));
+    } catch (_) {
+      // Best-effort: a failed status fetch just keeps the previous dots.
+    }
   }
 
   void shiftSelectedDay(int deltaDays) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/util/app_time.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift.dart';
+import 'scheduling_json_parsing.dart';
 
 /// Wire-format `{hour, minute, second, nano}` block.
 class TimeOfDayModel {
@@ -32,8 +33,8 @@ class TimeOfDayModel {
       return TimeOfDayModel(
         hour: hour,
         minute: minute,
-        second: (raw['second'] as num?)?.toInt() ?? 0,
-        nano: (raw['nano'] as num?)?.toInt() ?? 0,
+        second: SchedulingJsonParsing.intValue(raw['second']),
+        nano: SchedulingJsonParsing.intValue(raw['nano']),
       );
     }
     if (raw is String && raw.trim().isNotEmpty) {
@@ -280,16 +281,14 @@ class StaffShiftModel {
         : const <int>[];
     final seriesEnd =
         (json['seriesEndDate'] ?? json['repeatUntilDate'])?.toString();
-    int parseHours(dynamic raw) =>
-        raw is num ? raw.toInt() : (int.tryParse(raw?.toString() ?? '') ?? 0);
 
     return StaffShiftModel(
-      shiftCode: (json['shiftCode'] ?? json['code'] ?? '').toString(),
-      staffCode: (json['staffCode'] ?? '').toString(),
-      classroomCode: (json['classroomCode'] ?? '').toString(),
-      classroomName: (json['classroomName'] ?? '').toString(),
+      shiftCode: SchedulingJsonParsing.string(json['shiftCode'] ?? json['code']),
+      staffCode: SchedulingJsonParsing.string(json['staffCode']),
+      classroomCode: SchedulingJsonParsing.string(json['classroomCode']),
+      classroomName: SchedulingJsonParsing.string(json['classroomName']),
       staffName: composedStaffName(),
-      shiftDate: (json['shiftDate'] ?? json['date'] ?? '').toString(),
+      shiftDate: SchedulingJsonParsing.string(json['shiftDate'] ?? json['date']),
       startTime: start,
       endTime: end,
       breakStartTime: TimeOfDayModel.tryParse(json['breakStartTime']),
@@ -302,9 +301,9 @@ class StaffShiftModel {
           : (seriesCode != null && seriesCode.isNotEmpty),
       seriesRecurrenceDays: recurrenceDays,
       seriesEndDate: (seriesEnd ?? '').isEmpty ? null : seriesEnd,
-      availableHours: parseHours(json['availableHours']),
-      scheduledHours: parseHours(json['scheduledHours']),
-      unscheduledHours: parseHours(json['unscheduledHours']),
+      availableHours: SchedulingJsonParsing.intValue(json['availableHours']),
+      scheduledHours: SchedulingJsonParsing.intValue(json['scheduledHours']),
+      unscheduledHours: SchedulingJsonParsing.intValue(json['unscheduledHours']),
     );
   }
 
@@ -386,9 +385,9 @@ class StaffShiftCreateResultModel {
     }
 
     return StaffShiftCreateResultModel(
-      createdCount: (json['createdCount'] as num?)?.toInt() ?? 0,
-      skippedCount: (json['skippedCount'] as num?)?.toInt() ?? 0,
-      overriddenCount: (json['overriddenCount'] as num?)?.toInt() ?? 0,
+      createdCount: SchedulingJsonParsing.intValue(json['createdCount']),
+      skippedCount: SchedulingJsonParsing.intValue(json['skippedCount']),
+      overriddenCount: SchedulingJsonParsing.intValue(json['overriddenCount']),
       seriesCode: json['seriesCode']?.toString(),
       createdShiftCodes: asStringList(json['createdShiftCodes']),
       skippedDates: asStringList(json['skippedDates']),

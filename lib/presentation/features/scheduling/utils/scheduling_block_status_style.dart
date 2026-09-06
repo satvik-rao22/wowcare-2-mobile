@@ -4,7 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 
 
-import '../../../../app/theme/colors.dart';
+import '../../../../core/theme/app_colors.dart';
 
 import '../../../../app/theme/media_res.dart';
 
