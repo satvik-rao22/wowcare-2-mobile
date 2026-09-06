@@ -4,8 +4,8 @@ import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/view_model/student_transfer_selection_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/view_model/student_transfer_selection_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_transfer_form.dart';
 
 /// The selection methods under test never touch any dependency — they only
 /// mutate in-memory state — so these fakes throw if anything unexpectedly

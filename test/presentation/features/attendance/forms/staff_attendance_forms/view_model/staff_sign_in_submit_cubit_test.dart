@@ -6,8 +6,8 @@ import 'package:wowcare/domain/features/attendance/repositories/attendance_repos
 import 'package:wowcare/domain/features/attendance/usecases/delete_staff_absence_record_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_absent_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_staff_sign_in_usecase.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_sign_in_submit_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/view_model/staff_sign_in_submit_state.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/view_model/staff_sign_in_submit_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/view_model/staff_sign_in_submit_state.dart';
 
 const _sampleRequest = StaffSignInRequest(
   mode: StaffSignInMode.self,
