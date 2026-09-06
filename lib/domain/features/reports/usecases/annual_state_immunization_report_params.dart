@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../entities/report_type.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'report_params.dart';
 
 /// Parameters for Annual State Immunization report generation.
@@ -29,17 +29,6 @@ class AnnualStateImmunizationReportParams extends Equatable
   final String format;
 
   final String schoolName;
-
-  @override
-  Map<String, dynamic> toRequestBody() {
-    return {
-      'reportType': reportType.backendValue,
-      'startDate': startDate.toIso8601String().split('T')[0],
-      'endDate': endDate.toIso8601String().split('T')[0],
-      'format': format,
-      'schoolName': schoolName,
-    };
-  }
 
   @override
   String toCacheIdentifier() {

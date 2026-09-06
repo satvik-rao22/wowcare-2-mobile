@@ -6,9 +6,10 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/transactions_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
 import 'package:wowcare/presentation/features/billing/view/create_invoice_screen.dart';
@@ -161,7 +162,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                       child: Text(
                         BillingStrings.noTransactionsMatchYourFilters,
                         style: TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: Fonts.manrope,
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
                           color: AppColors.primaryColor,

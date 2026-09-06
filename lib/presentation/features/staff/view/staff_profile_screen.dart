@@ -8,12 +8,7 @@ import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 // import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.dart';
@@ -24,6 +19,7 @@ import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_profile_photo_upload_cubit.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_classroom_name_cubit.dart';
 
 class StaffProfileScreen extends StatelessWidget {
   static const String routeName = '/dashboard/staff-profile';
@@ -73,28 +69,19 @@ class StaffProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider<StaffProfileCubit>(
-          create: (_) => serviceLocator<StaffProfileCubit>(),
-        ),
-        BlocProvider<StaffProfilePhotoUploadCubit>(
-          create: (_) => serviceLocator<StaffProfilePhotoUploadCubit>(),
-        ),
-      ],
-      child: _StaffProfileScreenView(
-        staffCode: staffCode,
-        name: name,
-        classroom: classroom,
-        designation: designation,
-        phoneNumber: phoneNumber,
-        userCode: userCode,
-        employmentStatus: employmentStatus,
-        classroomNames: classroomNames,
-        classroomNameByCode: classroomNameByCode,
-        initialTabIndex: initialTabIndex,
-        highlightCode: highlightCode,
-      ),
+    // Cubits are created by the route builder (§1.6), not here.
+    return _StaffProfileScreenView(
+      staffCode: staffCode,
+      name: name,
+      classroom: classroom,
+      designation: designation,
+      phoneNumber: phoneNumber,
+      userCode: userCode,
+      employmentStatus: employmentStatus,
+      classroomNames: classroomNames,
+      classroomNameByCode: classroomNameByCode,
+      initialTabIndex: initialTabIndex,
+      highlightCode: highlightCode,
     );
   }
 }
@@ -136,6 +123,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
   late TabController _tabController;
 
   late final StaffProfileCubit _staffProfileCubit;
+  late final StaffClassroomNameCubit _classroomNameCubit;
 
   late String _displayName;
   late String _displayDesignation;
@@ -179,6 +167,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
   void initState() {
     super.initState();
     _staffProfileCubit = context.read<StaffProfileCubit>();
+    _classroomNameCubit = context.read<StaffClassroomNameCubit>();
     _tabController = TabController(
       length: 3,
       vsync: this,
@@ -247,15 +236,13 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
   }
 
   Future<void> _loadUploadContext() async {
-    final storage = serviceLocator<StorageService>();
-    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-        .trim();
-    final organizationCode =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final uploadContext = await context
+        .read<StaffProfilePhotoUploadCubit>()
+        .loadUploadContext();
     if (!mounted) return;
     setState(() {
-      _schoolCode = schoolCode.isEmpty ? null : schoolCode;
-      _organizationCode = organizationCode.isEmpty ? null : organizationCode;
+      _schoolCode = uploadContext.schoolCode;
+      _organizationCode = uploadContext.organizationCode;
     });
   }
 
@@ -317,37 +304,9 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
 
     setState(() => _isResolvingClassroom = true);
     try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-          .trim();
-      // Try active-classrooms list first (fast, cached on backend).
-      if (schoolCode.isNotEmpty) {
-        final useCase = serviceLocator<GetActiveClassroomsUseCase>();
-        final classrooms = await useCase(
-          schoolCode: schoolCode,
-          onlyTypeClassroom: false,
-        );
-
-        for (final c in classrooms) {
-          if (c.code.trim() == raw) {
-            final name = c.name.trim();
-            if (name.isNotEmpty) {
-              if (!mounted) return;
-              setState(() => _displayClassroom = name);
-              return;
-            }
-            break;
-          }
-        }
-      }
-
-      // Fallback: fetch by code (works even when not in active list).
-      final details = await serviceLocator<GetClassroomByCodeUseCase>()(
-        code: raw,
-      );
-      final name = details.name.trim();
+      final name = await _classroomNameCubit.resolveNameForActiveSchool(raw);
       if (!mounted) return;
-      if (name.isNotEmpty) {
+      if (name != null) {
         setState(() => _displayClassroom = name);
       }
     } catch (_) {

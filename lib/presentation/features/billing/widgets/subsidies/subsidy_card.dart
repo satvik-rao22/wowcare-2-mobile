@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/presentation/features/billing/cubit/subsidies_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/subsidies_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
 
-import '../../../../../app/theme/colors.dart';
-import '../../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 
 class SubsidyCard extends StatefulWidget {
   const SubsidyCard({
@@ -26,19 +26,27 @@ class SubsidyCard extends StatefulWidget {
 }
 
 class _SubsidyCardState extends State<SubsidyCard> {
-  bool _isExpanded = false;
+  final ValueNotifier<bool> _isExpanded = ValueNotifier<bool>(false);
 
   NumberFormat get _currency =>
       NumberFormat.currency(locale: 'en_US', symbol: '\$', decimalDigits: 0);
+
+  @override
+  void dispose() {
+    _isExpanded.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final isTablet = ResponsiveHelper(context).isTabletCompact;
     final item = widget.subsidy;
 
-    return StaffStyleCard(
-      isExpanded: _isExpanded,
-      onExpandChanged: (v) => setState(() => _isExpanded = v),
+    return ValueListenableBuilder<bool>(
+      valueListenable: _isExpanded,
+      builder: (context, isExpanded, _) => StaffStyleCard(
+      isExpanded: isExpanded,
+      onExpandChanged: (v) => _isExpanded.value = v,
       onLongPress: widget.onLongPress,
       header: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -53,7 +61,7 @@ class _SubsidyCardState extends State<SubsidyCard> {
           ),
           const SizedBox(width: 8),
           Text(
-            _isExpanded && item.balance != null
+            isExpanded && item.balance != null
                 ? _currency.format(item.balance)
                 : '-',
             maxLines: 1,
@@ -81,6 +89,7 @@ class _SubsidyCardState extends State<SubsidyCard> {
           onPrimary: widget.onEdit,
         ),
       ],
+      ),
     );
   }
 

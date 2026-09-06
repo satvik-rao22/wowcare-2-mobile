@@ -139,7 +139,7 @@ class MessageInfoDialog extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (messageText.trim().isNotEmpty) ...[
-                    _SectionLabel(label: 'Message'),
+                    _MessageSectionLabel(label: 'Message'),
                     const SizedBox(height: 6),
                     Container(
                       width: double.infinity,
@@ -190,7 +190,7 @@ class MessageInfoDialog extends StatelessWidget {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _SectionLabel(label: 'Read By (${readBy.length})'),
+                          _MessageSectionLabel(label: 'Read By (${readBy.length})'),
                           const SizedBox(height: 8),
                           if (readBy.isEmpty)
                             const _EmptyNote(
@@ -206,7 +206,7 @@ class MessageInfoDialog extends StatelessWidget {
                               ),
                             ),
                           const SizedBox(height: 16),
-                          _SectionLabel(
+                          _MessageSectionLabel(
                             label: 'Delivered To (${deliveredOnly.length})',
                           ),
                           const SizedBox(height: 8),
@@ -237,8 +237,14 @@ class MessageInfoDialog extends StatelessWidget {
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label});
+/// Section heading inside the message-info dialog.
+///
+/// Renamed from `_SectionLabel` to clear a name collision with the reports
+/// module's label (§6.5). The two are NOT interchangeable: this one is
+/// 12/w700 in `AppColors.primaryColor` at 60% alpha, the reports one is
+/// 13/w600 in the opaque indigo #4F46E5. Styling is unchanged by the rename.
+class _MessageSectionLabel extends StatelessWidget {
+  const _MessageSectionLabel({required this.label});
   final String label;
 
   @override

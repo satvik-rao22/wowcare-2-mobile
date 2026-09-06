@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../app/theme/colors.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/common/widgets/highlightable_card.dart';
 import '../model/scheduling_models.dart';
 import '../utils/scheduling_block_status_style.dart';
@@ -106,7 +106,6 @@ class DailyClassroomScheduleHeader extends StatelessWidget {
                 child: Text(
                   expandAll ? 'Collapse All' : 'Expand All',
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.primaryColor,
@@ -188,14 +187,21 @@ class DayClassroomSection extends StatefulWidget {
 }
 
 class _DayClassroomSectionState extends State<DayClassroomSection> {
-  late bool _expanded = widget.initiallyExpanded;
+  late final ValueNotifier<bool> _expanded =
+      ValueNotifier<bool>(widget.initiallyExpanded);
 
   @override
   void didUpdateWidget(covariant DayClassroomSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initiallyExpanded != widget.initiallyExpanded) {
-      _expanded = widget.initiallyExpanded;
+      _expanded.value = widget.initiallyExpanded;
     }
+  }
+
+  @override
+  void dispose() {
+    _expanded.dispose();
+    super.dispose();
   }
 
   bool get _isDayView => widget.viewMode == SchedulingViewMode.day;
@@ -213,20 +219,95 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
     final staff = widget.classroom.staff;
     final hasStaff = staff.isNotEmpty;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Flash the classroom row when it's the under-ratio notification target.
-        HighlightableCard(
-          code: widget.classroom.classroomCode,
-          highlightCode: widget.highlightClassroomCode,
-          scrollOnHighlight: true,
-          borderRadius: 8,
-          child: SchedulingDayGanttRow(
-            left: InkWell(
-              onTap:
-                  hasStaff ? () => setState(() => _expanded = !_expanded) : null,
-              child: Row(
+    return ValueListenableBuilder<bool>(
+      valueListenable: _expanded,
+      builder: (context, expanded, _) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Flash the classroom row when it's the under-ratio notification target.
+          HighlightableCard(
+            code: widget.classroom.classroomCode,
+            highlightCode: widget.highlightClassroomCode,
+            scrollOnHighlight: true,
+            borderRadius: 8,
+            child: SchedulingDayGanttRow(
+              left: InkWell(
+                onTap: hasStaff ? () => _expanded.value = !expanded : null,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Center(
+                        child: ClassroomRowLeft(
+                          classroomCode: widget.classroom.classroomCode,
+                          classroomName: widget.classroom.classroomName,
+                        ),
+                      ),
+                    ),
+                    if (hasStaff)
+                      Icon(
+                        expanded
+                            ? Icons.keyboard_arrow_up
+                            : Icons.keyboard_arrow_down,
+                        size: 18,
+                        color: AppColors.primaryColor,
+                      ),
+                  ],
+                ),
+              ),
+              right: SchedulingClassroomDayTimeline(
+                slots: widget.classroom.daySlots,
+                slotDetails: widget.classroom.slotDetails,
+                day: widget.day,
+                classroomName: widget.classroom.classroomName,
+                dayStartMinutes: widget.classroom.timelineStartMinutes,
+                dayEndMinutes: widget.classroom.timelineEndMinutes,
+                slotMinutes: widget.classroom.slotMinutes,
+              ),
+            ),
+          ),
+          if (expanded)
+            for (final entry in staff)
+              SchedulingDayGanttRow(
+                left: StaffRowLeft(
+                  entry: entry,
+                  attendanceStatus:
+                      widget._attendanceStatusForStaff(entry.staffCode),
+                ),
+                right: SchedulingStaffDayTimeline(
+                  slots: entry.staffDaySlots,
+                  slotDetails: entry.staffSlotDetails,
+                  day: widget.day,
+                  classroomName: widget.classroom.classroomName,
+                  dayStartMinutes: entry.timelineStartMinutes,
+                  dayEndMinutes: entry.timelineEndMinutes,
+                  slotMinutes: entry.slotMinutes,
+                  staffName: entry.staffName,
+                  onShiftSlotTap: widget.onStaffSlotTap == null
+                      ? null
+                      : (detail) => widget.onStaffSlotTap!(entry, detail),
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+
+  /// Week view — staff list with shift pills and compliance icon column.
+  Widget _buildWeekView(BuildContext context) {
+    final staff = widget.classroom.staff;
+    final hasStaff = staff.isNotEmpty;
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: _expanded,
+      builder: (context, expanded, _) {
+        final headerIsLastInSection = !expanded || !hasStaff;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SchedulingTableRow(
+              onTap: hasStaff ? () => _expanded.value = !expanded : null,
+              isLast: widget.isLast && headerIsLastInSection,
+              left: Row(
                 children: [
                   Expanded(
                     child: Center(
@@ -237,117 +318,48 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
                     ),
                   ),
                   if (hasStaff)
-                    Icon(
-                      _expanded
-                          ? Icons.keyboard_arrow_up
-                          : Icons.keyboard_arrow_down,
-                      size: 18,
-                      color: AppColors.primaryColor,
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Icon(
+                        expanded
+                            ? Icons.keyboard_arrow_up
+                            : Icons.keyboard_arrow_down,
+                        size: 20,
+                        color: AppColors.primaryColor,
+                      ),
                     ),
                 ],
               ),
+              right: _weekComplianceIcon(),
             ),
-            right: SchedulingClassroomDayTimeline(
-              slots: widget.classroom.daySlots,
-              slotDetails: widget.classroom.slotDetails,
-              day: widget.day,
-              classroomName: widget.classroom.classroomName,
-              dayStartMinutes: widget.classroom.timelineStartMinutes,
-              dayEndMinutes: widget.classroom.timelineEndMinutes,
-              slotMinutes: widget.classroom.slotMinutes,
-            ),
-          ),
-        ),
-        if (_expanded)
-          for (final entry in staff)
-            SchedulingDayGanttRow(
-              left: StaffRowLeft(
-                entry: entry,
-                attendanceStatus:
-                    widget._attendanceStatusForStaff(entry.staffCode),
-              ),
-              right: SchedulingStaffDayTimeline(
-                slots: entry.staffDaySlots,
-                slotDetails: entry.staffSlotDetails,
-                day: widget.day,
-                classroomName: widget.classroom.classroomName,
-                dayStartMinutes: entry.timelineStartMinutes,
-                dayEndMinutes: entry.timelineEndMinutes,
-                slotMinutes: entry.slotMinutes,
-                staffName: entry.staffName,
-                onShiftSlotTap: widget.onStaffSlotTap == null
-                    ? null
-                    : (detail) => widget.onStaffSlotTap!(entry, detail),
-              ),
-            ),
-      ],
-    );
-  }
-
-  /// Week view — staff list with shift pills and compliance icon column.
-  Widget _buildWeekView(BuildContext context) {
-    final staff = widget.classroom.staff;
-    final hasStaff = staff.isNotEmpty;
-    final headerIsLastInSection = !_expanded || !hasStaff;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SchedulingTableRow(
-          onTap: hasStaff
-              ? () => setState(() => _expanded = !_expanded)
-              : null,
-          isLast: widget.isLast && headerIsLastInSection,
-          left: Row(
-            children: [
-              Expanded(
-                child: Center(
-                  child: ClassroomRowLeft(
-                    classroomCode: widget.classroom.classroomCode,
-                    classroomName: widget.classroom.classroomName,
+            if (expanded)
+              for (int i = 0; i < staff.length; i++)
+                HighlightableCard(
+                  code: staff[i].shiftCode,
+                  highlightCode: widget.highlightShiftCode,
+                  scrollOnHighlight: true,
+                  borderRadius: 8,
+                  child: SchedulingTableRow(
+                    isLast: widget.isLast && i == staff.length - 1,
+                    left: StaffRowLeft(
+                      entry: staff[i],
+                      attendanceStatus: widget._attendanceStatusForStaff(
+                        staff[i].staffCode,
+                      ),
+                    ),
+                    right: StaffTimeRangePill(
+                      startTime: staff[i].startTime,
+                      endTime: staff[i].endTime,
+                      isPublished: staff[i].isPublished,
+                      onTap: widget.onStaffShiftTap == null
+                          ? null
+                          : () => widget.onStaffShiftTap!(staff[i]),
+                    ),
                   ),
                 ),
-              ),
-              if (hasStaff)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Icon(
-                    _expanded
-                        ? Icons.keyboard_arrow_up
-                        : Icons.keyboard_arrow_down,
-                    size: 20,
-                    color: AppColors.primaryColor,
-                  ),
-                ),
-            ],
-          ),
-          right: _weekComplianceIcon(),
-        ),
-        if (_expanded)
-          for (int i = 0; i < staff.length; i++)
-            HighlightableCard(
-              code: staff[i].shiftCode,
-              highlightCode: widget.highlightShiftCode,
-              scrollOnHighlight: true,
-              borderRadius: 8,
-              child: SchedulingTableRow(
-                isLast: widget.isLast && i == staff.length - 1,
-                left: StaffRowLeft(
-                  entry: staff[i],
-                  attendanceStatus:
-                      widget._attendanceStatusForStaff(staff[i].staffCode),
-                ),
-                right: StaffTimeRangePill(
-                  startTime: staff[i].startTime,
-                  endTime: staff[i].endTime,
-                  isPublished: staff[i].isPublished,
-                  onTap: widget.onStaffShiftTap == null
-                      ? null
-                      : () => widget.onStaffShiftTap!(staff[i]),
-                ),
-              ),
-            ),
-      ],
+          ],
+        );
+      },
     );
   }
 

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
-import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/admin_statements_cubit.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -388,10 +388,10 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
           top: 8,
         ),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.billingCardColor,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: AppColors.blackColor.withValues(alpha: 0.05),
               offset: const Offset(0, -4),
               blurRadius: 16,
             ),
@@ -471,8 +471,8 @@ class _SelectedStudentsCard extends StatelessWidget {
                   border: Border.all(color: AppColors.themeColor),
                   borderRadius: BorderRadius.circular(8),
                   color: isSelected
-                      ? const Color.fromARGB(255, 249, 245, 250)
-                      : Colors.white,
+                      ? AppColors.billingSelectedTintColor
+                      : AppColors.billingCardColor,
                 ),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 8),

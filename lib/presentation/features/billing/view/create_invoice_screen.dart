@@ -4,9 +4,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
-import 'package:wowcare/presentation/features/billing/cubit/create_invoice_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/create_invoice_cubit.dart';
 import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
 import 'package:wowcare/presentation/features/billing/model/student_models.dart';
 import 'package:go_router/go_router.dart';
@@ -39,7 +40,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   final TextEditingController _internalNoteController = TextEditingController();
 
   /// Local, mutable copy so a student can be removed from this invoice.
-  late List<Student> _students;
+  late final ValueNotifier<List<Student>> _students;
 
   final ValueNotifier<bool> _isSubmitting = ValueNotifier<bool>(false);
 
@@ -55,7 +56,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   @override
   void initState() {
     super.initState();
-    _students = List<Student>.of(widget.selectedStudents);
+    _students = ValueNotifier<List<Student>>(
+      List<Student>.of(widget.selectedStudents),
+    );
     final editCode =
         widget.initialInvoiceData?.invoiceCode?.toString().trim() ?? '';
     if (editCode.isNotEmpty) {
@@ -70,7 +73,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
   void _removeStudent(Student student) {
     // An invoice always needs at least one student — block removing the last one.
-    if (_students.length <= 1) {
+    if (_students.value.length <= 1) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: BillingStrings.atLeastOneStudentMustBeSelected,
@@ -78,13 +81,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       );
       return;
     }
-    setState(() => _students.remove(student));
+    _students.value = List<Student>.of(_students.value)..remove(student);
   }
 
   @override
   void dispose() {
     _internalNoteController.dispose();
     _isSubmitting.dispose();
+    _students.dispose();
     _cubit.close();
     super.dispose();
   }
@@ -153,7 +157,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     final submitted = await context.push<bool>(
       SelectedStudentsReceiptScreen.routeName,
       extra: SelectedStudentsReceiptArgs(
-        selectedStudents: _students,
+        selectedStudents: _students.value,
         invoiceData: invoiceData,
         onSubmit: _submitInvoice,
       ),
@@ -206,9 +210,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                _SelectedStudentsBanner(
-                  students: _students,
-                  onRemove: _isFormLocked ? null : _removeStudent,
+                ValueListenableBuilder<List<Student>>(
+                  valueListenable: _students,
+                  builder: (context, students, _) => _SelectedStudentsBanner(
+                    students: students,
+                    onRemove: _isFormLocked ? null : _removeStudent,
+                  ),
                 ),
                 SizedBox(height: responsive.verticalSpacing),
                 _buildDateField(
@@ -287,7 +294,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   /// Field label style matching the Add Staff form (Manrope, responsive size).
   TextStyle _formLabelStyle(ResponsiveHelper responsive) => TextStyle(
         fontSize: responsive.labelFontSize,
-        fontFamily: 'Manrope',
+        fontFamily: Fonts.manrope,
         fontWeight: FontWeight.w400,
         color: AppColors.billingTextColor,
       );
@@ -358,7 +365,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               child: _requiredLabel(
                 BillingStrings.invoiceItems,
                 TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                   fontSize: responsive.labelFontSize,
                   fontWeight: FontWeight.w600,
                   color: AppColors.billingTextColor,
@@ -434,7 +441,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.billingCardColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.billingInputBorderDefault),
         boxShadow: [
@@ -668,7 +675,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   }
 
   bool _validateRequiredFields() {
-    if (_students.isEmpty) {
+    if (_students.value.isEmpty) {
       _showValidationMessage(BillingStrings.pleaseKeepAtLeastOneStudent);
       return false;
     }
@@ -825,7 +832,7 @@ class _ItemTextField extends StatelessWidget {
     // background with the themed border, w600 input text).
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: 'Manrope',
+      fontFamily: Fonts.manrope,
       fontWeight: FontWeight.w400,
       color: AppColors.billingTextColor,
     );
@@ -837,7 +844,7 @@ class _ItemTextField extends StatelessWidget {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(text: ' *', style: TextStyle(color: AppColors.errorColor)),
             ],
           ),
         ),
@@ -845,7 +852,9 @@ class _ItemTextField extends StatelessWidget {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: enabled ? Colors.white : Colors.grey.shade200,
+            color: enabled
+                ? AppColors.billingCardColor
+                : AppColors.billingBadgeInactiveBackground,
             border: Border.all(color: AppColors.billingBorderDefault),
             borderRadius:
                 BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
@@ -857,7 +866,7 @@ class _ItemTextField extends StatelessWidget {
             keyboardType: keyboardType,
             onChanged: onChanged,
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.billingTextColor,
@@ -865,7 +874,7 @@ class _ItemTextField extends StatelessWidget {
             ),
             decoration: InputDecoration(
               hintText: hintText,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.billingGrey),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,

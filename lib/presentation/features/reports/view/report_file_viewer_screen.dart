@@ -5,6 +5,10 @@ import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 
 class ReportFileViewerScreen extends StatefulWidget {
   final Uint8List fileData;
@@ -24,7 +28,9 @@ class ReportFileViewerScreen extends StatefulWidget {
 
 class _ReportFileViewerScreenState extends State<ReportFileViewerScreen> {
   late ScrollController scrollController;
-  bool _isDownloading = false;
+
+  /// §2.2 bucket B — the save-in-progress spinner is UI micro-state.
+  final ValueNotifier<bool> _isDownloading = ValueNotifier<bool>(false);
 
   @override
   void initState() {
@@ -35,15 +41,16 @@ class _ReportFileViewerScreenState extends State<ReportFileViewerScreen> {
   @override
   void dispose() {
     scrollController.dispose();
+    _isDownloading.dispose();
     super.dispose();
   }
 
   Future<void> _downloadFile() async {
     AppLogger.d('Starting file save process...');
 
-    if (_isDownloading) return;
+    if (_isDownloading.value) return;
 
-    setState(() => _isDownloading = true);
+    _isDownloading.value = true;
 
     try {
       // Save to app documents directory (no special permissions required)
@@ -82,7 +89,7 @@ class _ReportFileViewerScreenState extends State<ReportFileViewerScreen> {
       }
     } finally {
       if (mounted) {
-        setState(() => _isDownloading = false);
+        _isDownloading.value = false;
       }
     }
   }
@@ -94,39 +101,64 @@ class _ReportFileViewerScreenState extends State<ReportFileViewerScreen> {
         title: Text(widget.fileName),
         elevation: 0,
         actions: [
-          if (_isDownloading)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ),
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.download),
-              onPressed: _downloadFile,
-              tooltip: 'Download',
-            ),
+          ValueListenableBuilder<bool>(
+            valueListenable: _isDownloading,
+            builder: (context, downloading, _) => downloading
+                ? const Padding(
+                    padding: EdgeInsets.all(AppSizes.md),
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.cardColor,
+                        ),
+                      ),
+                    ),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.download),
+                    onPressed: _downloadFile,
+                    tooltip: ReportsStrings.download,
+                  ),
+          ),
           IconButton(
             icon: const Icon(Icons.close),
-            onPressed: () => Navigator.of(context).pop(),
-            tooltip: 'Close',
+            onPressed: () => context.pop(),
+            tooltip: ReportsStrings.close,
           ),
         ],
       ),
-      body: _buildFileViewer(),
+      body: _FileViewerBody(
+        fileType: widget.fileType,
+        fileData: widget.fileData,
+        onDownload: _downloadFile,
+      ),
     );
   }
+}
 
-  Widget _buildFileViewer() {
-    if (widget.fileType.toLowerCase() == 'pdf') {
-      return PDFView(pdfData: widget.fileData);
-    } else if (widget.fileType.toLowerCase() == 'xlsx') {
+/// Renders the report's bytes: a PDF view, or a placeholder with a download
+/// action for formats that cannot be previewed in-app.
+///
+/// Was `Widget _buildFileViewer()` on the State (§6.4).
+class _FileViewerBody extends StatelessWidget {
+  const _FileViewerBody({
+    required this.fileType,
+    required this.fileData,
+    required this.onDownload,
+  });
+
+  final String fileType;
+  final Uint8List fileData;
+  final VoidCallback onDownload;
+
+  @override
+  Widget build(BuildContext context) {
+    if (fileType.toLowerCase() == 'pdf') {
+      return PDFView(pdfData: fileData);
+    } else if (fileType.toLowerCase() == 'xlsx') {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -134,24 +166,24 @@ class _ReportFileViewerScreenState extends State<ReportFileViewerScreen> {
             Icon(
               Icons.table_chart,
               size: 64,
-              color: Colors.grey[400],
+              color: AppColors.reportsMutedColor,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSizes.md),
             Text(
-              'Excel File Preview',
+              ReportsStrings.excelFilePreview,
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSizes.xs),
             Text(
-              'Tap download to save and open this Excel file',
+              ReportsStrings.tapDownloadToSaveAndOpenThisExcelFile,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSizes.xl),
             ElevatedButton.icon(
               icon: const Icon(Icons.download),
-              label: const Text('Download File'),
-              onPressed: _downloadFile,
+              label: const Text(ReportsStrings.downloadFile),
+              onPressed: onDownload,
             ),
           ],
         ),
@@ -164,24 +196,24 @@ class _ReportFileViewerScreenState extends State<ReportFileViewerScreen> {
             Icon(
               Icons.description,
               size: 64,
-              color: Colors.grey[400],
+              color: AppColors.reportsMutedColor,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSizes.md),
             Text(
-              'File Preview',
+              ReportsStrings.filePreview,
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSizes.xs),
             Text(
-              'File type not supported for preview',
+              ReportsStrings.fileTypeNotSupportedForPreview,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSizes.xl),
             ElevatedButton.icon(
               icon: const Icon(Icons.download),
-              label: const Text('Download File'),
-              onPressed: _downloadFile,
+              label: const Text(ReportsStrings.downloadFile),
+              onPressed: onDownload,
             ),
           ],
         ),

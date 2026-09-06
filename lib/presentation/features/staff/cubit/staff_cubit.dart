@@ -18,7 +18,8 @@ import '../../../../domain/features/staff/usecases/deactivate_school_user_usecas
 import '../../../../domain/features/staff/usecases/activate_organization_admin_usecase.dart';
 import '../../../../domain/features/staff/usecases/deactivate_organization_admin_usecase.dart';
 import '../../../../domain/features/staff/usecases/delete_school_user_usecase.dart';
-import '../../../../domain/features/staff/repositories/staff_repository.dart';
+import '../../../../domain/features/staff/usecases/load_cached_staff_page_usecase.dart';
+import '../../../../domain/features/staff/usecases/invalidate_cached_staff_page_usecase.dart';
 import '../../scheduling/utils/scheduling_cache_gate.dart';
 
 part 'staff_state.dart';
@@ -34,7 +35,8 @@ class StaffCubit extends Cubit<StaffState> {
     required DeactivateOrganizationAdminUseCase
     deactivateOrganizationAdminUseCase,
     required DeleteSchoolUserUseCase deleteSchoolUserUseCase,
-    required StaffRepository repository,
+    required LoadCachedStaffPageUseCase loadCachedStaffPageUseCase,
+    required InvalidateCachedStaffPageUseCase invalidateCachedStaffPageUseCase,
     required StorageService storageService,
   }) : _getStaffPageUseCase = getStaffPageUseCase,
        _getStaffCountUseCase = getStaffCountUseCase,
@@ -44,7 +46,8 @@ class StaffCubit extends Cubit<StaffState> {
        _activateOrganizationAdminUseCase = activateOrganizationAdminUseCase,
        _deactivateOrganizationAdminUseCase = deactivateOrganizationAdminUseCase,
        _deleteSchoolUserUseCase = deleteSchoolUserUseCase,
-       _repository = repository,
+       _loadCachedStaffPageUseCase = loadCachedStaffPageUseCase,
+       _invalidateCachedStaffPageUseCase = invalidateCachedStaffPageUseCase,
        _storageService = storageService,
        super(const StaffState.initial());
 
@@ -56,7 +59,8 @@ class StaffCubit extends Cubit<StaffState> {
   final ActivateOrganizationAdminUseCase _activateOrganizationAdminUseCase;
   final DeactivateOrganizationAdminUseCase _deactivateOrganizationAdminUseCase;
   final DeleteSchoolUserUseCase _deleteSchoolUserUseCase;
-  final StaffRepository _repository;
+  final LoadCachedStaffPageUseCase _loadCachedStaffPageUseCase;
+  final InvalidateCachedStaffPageUseCase _invalidateCachedStaffPageUseCase;
   final StorageService _storageService;
   String? _schoolCode;
   String? _organizationCode;
@@ -135,18 +139,16 @@ class StaffCubit extends Cubit<StaffState> {
     final schoolCode = await _resolveSchoolCode();
 
     // 1. Try cache first for immediate UI update
-    final cached = await (_repository is StaffRepositoryWithCache
-        ? (_repository as StaffRepositoryWithCache).loadCachedStaffPage(
-            schoolCode,
-            status: _effectiveStatusFilter(),
-            designation: state.designationFilter,
-            search: state.searchQuery,
-            primaryClassroomCodes: state.primaryClassroomCodes,
-            classCodes: state.classCodes,
-            sortBy: state.sortBy,
-            attendanceStatuses: state.attendanceStatuses,
-          )
-        : Future.value(null));
+    final cached = await _loadCachedStaffPageUseCase(
+      schoolCode,
+      status: _effectiveStatusFilter(),
+      designation: state.designationFilter,
+      search: state.searchQuery,
+      primaryClassroomCodes: state.primaryClassroomCodes,
+      classCodes: state.classCodes,
+      sortBy: state.sortBy,
+      attendanceStatuses: state.attendanceStatuses,
+    );
 
     if (cached != null && !isClosed) {
       emit(
@@ -293,18 +295,16 @@ class StaffCubit extends Cubit<StaffState> {
 
   Future<void> refreshWithCacheReset() async {
     final schoolCode = await _resolveSchoolCode();
-    if (_repository is StaffRepositoryWithCache) {
-      await (_repository as StaffRepositoryWithCache).invalidateCachedStaffPage(
-        schoolCode,
-        status: _effectiveStatusFilter(),
-        designation: state.designationFilter,
-        search: state.searchQuery,
-        primaryClassroomCodes: state.primaryClassroomCodes,
-        classCodes: state.classCodes,
-        sortBy: state.sortBy,
-        attendanceStatuses: state.attendanceStatuses,
-      );
-    }
+    await _invalidateCachedStaffPageUseCase(
+      schoolCode,
+      status: _effectiveStatusFilter(),
+      designation: state.designationFilter,
+      search: state.searchQuery,
+      primaryClassroomCodes: state.primaryClassroomCodes,
+      classCodes: state.classCodes,
+      sortBy: state.sortBy,
+      attendanceStatuses: state.attendanceStatuses,
+    );
     await refresh(ignoreRefreshingGuard: true);
   }
 
@@ -317,7 +317,12 @@ class StaffCubit extends Cubit<StaffState> {
       'currentPage=${state.currentPage}, '
       'items=${state.items.length}',
     );
-    if (state.isLoadingMore || !state.hasMore) {
+    // `isRefreshing` is part of the guard: a refresh resets the list to pages
+    // 0-1, so a load-more that started against the pre-refresh `currentPage`
+    // would land its page N on top of the reset list and set `currentPage: N`.
+    // Pages 2..N-1 would then never be requested — the list silently drops
+    // whole pages of staff rather than showing a duplicate.
+    if (state.isLoadingMore || state.isRefreshing || !state.hasMore) {
       // ignore: avoid_print
       AppLogger.d('[StaffCubit] loadNextPage aborted due to guard.');
       return;

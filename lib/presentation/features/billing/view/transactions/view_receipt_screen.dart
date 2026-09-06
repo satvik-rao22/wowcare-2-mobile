@@ -7,6 +7,38 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 
+/// Locally-derived invoice header shown alongside a receipt/invoice (not
+/// parsed from any API response — built from [ViewReceiptScreen.transaction]).
+class _ReceiptInvoiceDetails {
+  const _ReceiptInvoiceDetails({required this.dueDate, required this.invoiceNumber});
+
+  final DateTime? dueDate;
+  final String invoiceNumber;
+}
+
+/// One row of the invoice/receipt items table.
+class _ReceiptLineItem {
+  const _ReceiptLineItem({
+    required this.type,
+    required this.description,
+    required this.amount,
+    required this.deductionAmt,
+  });
+
+  final String type;
+  final String description;
+  final String amount;
+  final String deductionAmt;
+
+  bool get _isDeduction => type == 'discount' || type == 'subsidy';
+
+  /// Currency-prefixed, sign-adjusted amount text for the table row.
+  String get displayText {
+    final value = _isDeduction && deductionAmt != '0' ? deductionAmt : amount;
+    return _isDeduction ? '-\$$value' : '\$$value';
+  }
+}
+
 class ViewReceiptScreen extends StatefulWidget {
   const ViewReceiptScreen({
     super.key,
@@ -25,8 +57,8 @@ class ViewReceiptScreen extends StatefulWidget {
 
 class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
   // Dummy data for UI
-  Map<String, dynamic>? _invoiceDetails;
-  List<Map<String, dynamic>>? _invoiceItems;
+  _ReceiptInvoiceDetails? _invoiceDetails;
+  List<_ReceiptLineItem>? _invoiceItems;
 
   @override
   void initState() {
@@ -35,19 +67,12 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
   }
 
   void _initializeDummyData() {
-    _invoiceDetails = {
-      'invoiceNumber': 'INV-2025-${widget.transaction.id}',
-      'date': widget.transaction.date.toIso8601String(),
-      'startDate': widget.transaction.date
-          .subtract(const Duration(days: 30))
-          .toIso8601String(),
-      'endDate': widget.transaction.date.toIso8601String(),
-      'dueDate': widget.transaction.endDate != null
-          ? DateTime.parse(widget.transaction.endDate!).toIso8601String()
-          : widget.transaction.date
-                .add(const Duration(days: 7))
-                .toIso8601String(),
-    };
+    _invoiceDetails = _ReceiptInvoiceDetails(
+      invoiceNumber: 'INV-2025-${widget.transaction.id}',
+      dueDate: widget.transaction.endDate != null
+          ? DateTime.parse(widget.transaction.endDate!)
+          : widget.transaction.date.add(const Duration(days: 7)),
+    );
 
     // Receipts already render a single payment row (description + mode + amount),
     // so no additional items are needed — leave _invoiceItems null to avoid duplicates.
@@ -57,35 +82,26 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
     }
 
     _invoiceItems = [
-      {
-        'type': 'item',
-        'description': widget.transaction.description,
-        'amount': widget.transaction.amount.toString(),
-        'deductionAmt': '0',
-      },
-      if (widget.transaction.amount > 200) ...[
-        {
-          'type': 'discount',
-          'description': 'Early Payment Discount',
-          'amount': '0',
-          'deductionAmt': (widget.transaction.amount * 0.1).toStringAsFixed(2),
-        },
-      ],
+      _ReceiptLineItem(
+        type: 'item',
+        description: widget.transaction.description,
+        amount: widget.transaction.amount.toString(),
+        deductionAmt: '0',
+      ),
+      if (widget.transaction.amount > 200)
+        _ReceiptLineItem(
+          type: 'discount',
+          description: 'Early Payment Discount',
+          amount: '0',
+          deductionAmt: (widget.transaction.amount * 0.1).toStringAsFixed(2),
+        ),
     ];
   }
 
   String _getDueDate() {
-    if (_invoiceDetails != null && _invoiceDetails!['dueDate'] != null) {
-      try {
-        final dueDateParsed = DateTime.parse(
-          _invoiceDetails!['dueDate'].toString(),
-        );
-        return DateUtilsNew.formatToReadableDate(dueDateParsed);
-      } catch (e) {
-        // Fall through
-      }
-    }
-    return BillingStrings.notAvailable;
+    final dueDate = _invoiceDetails?.dueDate;
+    if (dueDate == null) return BillingStrings.notAvailable;
+    return DateUtilsNew.formatToReadableDate(dueDate);
   }
 
   Widget _buildInvoiceItemsTable() {
@@ -306,61 +322,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
               ],
             ),
             // Invoice items below
-            ..._invoiceItems!.map((item) {
-              final type = item['type']?.toString() ?? '';
-              final description = item['description']?.toString() ?? '';
-              final amount = item['amount']?.toString() ?? '0';
-              final deductionAmt = item['deductionAmt']?.toString() ?? '0';
-              const currencySign = '\$';
-
-              String displayAmount = '';
-              bool isNegative = false;
-
-              if (type == 'discount' || type == 'subsidy') {
-                displayAmount = deductionAmt != '0' ? deductionAmt : amount;
-                isNegative = true;
-              } else {
-                displayAmount = amount;
-                isNegative = false;
-              }
-
-              String displayText = '';
-              if (isNegative) {
-                displayText = '-$currencySign$displayAmount';
-              } else {
-                displayText = '$currencySign$displayAmount';
-              }
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      flex: 4,
-                      child: Text(
-                        description,
-                        style: const TextStyle(
-                          color: AppColors.primaryColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        textAlign: TextAlign.start,
-                      ),
-                    ),
-                    Text(
-                      displayText,
-                      style: const TextStyle(
-                        color: AppColors.primaryColor,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      textAlign: TextAlign.end,
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
+            ..._invoiceItems!.map((item) => _buildLineItemRow(item)),
           ],
         );
       }
@@ -381,7 +343,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
               flex: 4,
               child: Text(
                 BillingStrings.description,
-                style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
+                style: TextStyle(fontSize: 15, color: AppColors.billingGreyMedium),
                 textAlign: TextAlign.start,
               ),
             ),
@@ -389,70 +351,48 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
               flex: 2,
               child: Text(
                 BillingStrings.amount,
-                style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
+                style: TextStyle(fontSize: 15, color: AppColors.billingGreyMedium),
                 textAlign: TextAlign.end,
               ),
             ),
           ],
         ),
-        Divider(thickness: 0.5, color: Colors.grey.withValues(alpha: 0.3)),
+        Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
         // Invoice items
-        ..._invoiceItems!.map((item) {
-          final type = item['type']?.toString() ?? '';
-          final description = item['description']?.toString() ?? '';
-          final amount = item['amount']?.toString() ?? '0';
-          final deductionAmt = item['deductionAmt']?.toString() ?? '0';
-          const currencySign = '\$';
-
-          String displayAmount = '';
-          bool isNegative = false;
-
-          if (type == 'discount' || type == 'subsidy') {
-            displayAmount = deductionAmt != '0' ? deductionAmt : amount;
-            isNegative = true;
-          } else {
-            displayAmount = amount;
-            isNegative = false;
-          }
-
-          String displayText = '';
-          if (isNegative) {
-            displayText = '-$currencySign$displayAmount';
-          } else {
-            displayText = '$currencySign$displayAmount';
-          }
-
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  flex: 4,
-                  child: Text(
-                    description,
-                    style: const TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.start,
-                  ),
-                ),
-                Text(
-                  displayText,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  textAlign: TextAlign.end,
-                ),
-              ],
-            ),
-          );
-        }).toList(),
+        ..._invoiceItems!.map((item) => _buildLineItemRow(item)),
       ],
+    );
+  }
+
+  Widget _buildLineItemRow(_ReceiptLineItem item) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            flex: 4,
+            child: Text(
+              item.description,
+              style: const TextStyle(
+                color: AppColors.primaryColor,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.start,
+            ),
+          ),
+          Text(
+            item.displayText,
+            style: const TextStyle(
+              color: AppColors.primaryColor,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.end,
+          ),
+        ],
+      ),
     );
   }
 
@@ -515,8 +455,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                     ),
                   ),
                   Text(
-                    _invoiceDetails!['invoiceNumber']?.toString() ??
-                        BillingStrings.na,
+                    _invoiceDetails?.invoiceNumber ?? BillingStrings.na,
                     style: TextStyle(
                       fontSize: 15,
                       color: AppColors.billingGreyDark,
@@ -562,7 +501,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   BillingStrings.paymentDateColon,
                   style: TextStyle(
                     fontSize: 15,
-                    color: Colors.grey.shade500,
+                    color: AppColors.billingGreyMedium,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -570,7 +509,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   DateUtilsNew.formatToReadableDate(date),
                   style: TextStyle(
                     fontSize: 15,
-                    color: Colors.grey.shade700,
+                    color: AppColors.billingGreyDark,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -579,7 +518,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
             const SizedBox(height: 10),
           ],
           _buildInvoiceItemsTable(),
-          Divider(thickness: 0.5, color: Colors.grey.withValues(alpha: 0.3)),
+          Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [

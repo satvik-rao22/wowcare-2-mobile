@@ -4,11 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 import 'package:wowcare/core/util/billing_events.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
-import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
-import 'package:wowcare/presentation/features/billing/cubit/transaction_details_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/admin_statements_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/transaction_details_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
 import 'package:wowcare/presentation/features/billing/widgets/admin_statements_tab.dart';
@@ -439,12 +440,12 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                     unselectedLabelColor:
                         AppColors.primaryColor.withValues(alpha: 0.5),
                     labelStyle: const TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
                     unselectedLabelStyle: const TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: 16,
                     ),
                     tabs: const [
@@ -696,20 +697,20 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
             width: w,
             height: h,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.billingCardColor,
               borderRadius: BorderRadius.circular(radius),
             ),
           );
       // Mirrors AmountInvoicedStatBar: title, the segmented amount bar, and a
       // legend row.
       return Shimmer.fromColors(
-        baseColor: Colors.grey.shade300,
-        highlightColor: Colors.grey.shade100,
+        baseColor: AppColors.billingShimmerBaseColor,
+        highlightColor: AppColors.billingShimmerHighlightColor,
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.billingCardColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppColors.cardBorderColor),
           ),
@@ -749,7 +750,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
           BillingStrings.noInvoicedDataAvailable,
           style: TextStyle(
             color: AppColors.primaryColor,
-            fontFamily: 'Manrope',
+            fontFamily: Fonts.manrope,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -774,20 +775,20 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
             width: w,
             height: h,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.billingCardColor,
               borderRadius: BorderRadius.circular(4),
             ),
           );
       // Mirrors the real family-info box: a row of child chips (avatar + name)
       // and the "Parents: …" line below.
       return Shimmer.fromColors(
-        baseColor: Colors.grey.shade300,
-        highlightColor: Colors.grey.shade100,
+        baseColor: AppColors.billingShimmerBaseColor,
+        highlightColor: AppColors.billingShimmerHighlightColor,
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.billingCardColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppColors.cardBorderColor),
           ),
@@ -806,7 +807,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                           width: 32,
                           height: 32,
                           decoration: const BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.billingCardColor,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -830,9 +831,9 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
         width: double.infinity,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.red.shade50,
+          color: AppColors.billingErrorBackgroundColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.red.shade200),
+          border: Border.all(color: AppColors.billingErrorBorderColor),
         ),
         child: Text(
           'Failed to load family: $_familyError',
@@ -898,7 +899,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
               fontWeight: FontWeight.w700,
               color: AppColors.billingTextColor,
               fontSize: 14,
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
             ),
           ),
           TextSpan(
@@ -907,7 +908,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
               fontWeight: FontWeight.w400,
               color: AppColors.billingTextColor,
               fontSize: 14,
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
             ),
           ),
         ],

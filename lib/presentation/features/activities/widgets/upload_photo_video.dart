@@ -7,7 +7,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
-
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import '../../../../app/theme/media_res.dart';
@@ -178,8 +177,8 @@ class _MediaUploaderState extends State<MediaUploader> {
   Future<void> _generateVideoThumbnail() async {
     if (_newVideoFile == null) return;
 
-    final tempDir = await getTemporaryDirectory();
     try {
+      final tempDir = await getTemporaryDirectory();
       final thumbnailPath = await VideoThumbnail.thumbnailFile(
         video: _newVideoFile!.path,
         thumbnailPath: tempDir.path,
@@ -329,26 +328,52 @@ class _MediaUploaderState extends State<MediaUploader> {
         !_keepPhotoAndVideoTogether) {
       final replace = await _showReplaceConfirmation('video');
       if (!replace) return;
+      if (!mounted) return;
     }
 
     File? file;
-    if (source == ImageSource.camera) {
-      final XFile? picked = await _picker.pickVideo(
-        source: source,
-        maxDuration: const Duration(seconds: videoMaxDurationSec),
+    // Both pickers can throw a PlatformException (permission denied, an OEM
+    // gallery handing back a broken result, the camera being unavailable).
+    // Letting that escape kills the flow with no feedback at all, which reads
+    // as a freeze/crash to the user - surface it as a warning instead.
+    try {
+      if (source == ImageSource.camera) {
+        final XFile? picked = await _picker.pickVideo(
+          source: source,
+          maxDuration: const Duration(seconds: videoMaxDurationSec),
+        );
+        if (!mounted || picked == null) return;
+        file = File(picked.path);
+      } else {
+        final result = await FilePicker.pickFiles(
+          type: FileType.video,
+          allowMultiple: false,
+        );
+        if (!mounted) return;
+        if (result == null || result.files.isEmpty) return;
+        final path = result.files.single.path;
+        if (path == null || path.trim().isEmpty) return;
+        file = File(path);
+      }
+    } catch (e) {
+      debugPrint('[MediaUploader] _pickVideo: picker failed: $e');
+      _showWarning(
+        source == ImageSource.camera
+            ? 'Could not open the camera. Please try again.'
+            : 'Could not open that video. Please try again.',
       );
-      if (!mounted || picked == null) return;
-      file = File(picked.path);
-    } else {
-      final result = await FilePicker.pickFiles(
-        type: FileType.video,
-        allowMultiple: false,
-      );
-      if (result == null || result.files.isEmpty) return;
-      final path = result.files.single.path;
-      if (path == null || path.trim().isEmpty) return;
-      file = File(path);
+      return;
     }
+
+    // On iOS the picked video is a *copy* in the app's temp directory; if the
+    // system reclaimed it (or the copy-out failed) every later step - length(),
+    // AVPlayer init, thumbnailing - would fail on a missing path.
+    if (!await file.exists()) {
+      if (!mounted) return;
+      _showWarning('Could not read the selected video. Please try again.');
+      return;
+    }
+    if (!mounted) return;
 
     final ext = file.path.split('.').last.toLowerCase();
     if (!_videoExt.contains(ext)) {
@@ -455,7 +480,6 @@ class _MediaUploaderState extends State<MediaUploader> {
     });
     _notifyParent();
   }
-
 
   void _openVideoFullscreen() {
     final url = _existingVideoUrl?.trim();
@@ -649,7 +673,12 @@ class _MediaUploaderState extends State<MediaUploader> {
               Icons.play_circle_fill,
               size: 60,
               color: AppColors.cardColor.withValues(alpha: 0.9),
-              shadows: const [Shadow(blurRadius: 10, color: AppColors.activityIconBackdropColor)],
+              shadows: const [
+                Shadow(
+                  blurRadius: 10,
+                  color: AppColors.activityIconBackdropColor,
+                ),
+              ],
             ),
           ),
         ],
@@ -666,7 +695,8 @@ class _MediaUploaderState extends State<MediaUploader> {
         fit: BoxFit.cover,
         loadingBuilder: (_, child, progress) =>
             progress == null ? child : const CircularProgressIndicator(),
-        errorBuilder: (_, __, ___) => Container(color: AppColors.activityMediaLoadingPlaceholderBg),
+        errorBuilder: (_, __, ___) =>
+            Container(color: AppColors.activityMediaLoadingPlaceholderBg),
       ),
       onRemove: () => _removeExistingPhoto(url),
       // Open the shared full-screen viewer so a saved (network) photo gets the
@@ -690,7 +720,11 @@ class _MediaUploaderState extends State<MediaUploader> {
           file,
           fit: BoxFit.contain,
           errorBuilder: (_, __, ___) => const Center(
-            child: Icon(Icons.broken_image, color: AppColors.activityMediaPlaceholderIconColor, size: 60),
+            child: Icon(
+              Icons.broken_image,
+              color: AppColors.activityMediaPlaceholderIconColor,
+              size: 60,
+            ),
           ),
         ),
       ),
@@ -761,7 +795,11 @@ class _MediaUploaderState extends State<MediaUploader> {
                     color: AppColors.activityIconBackdropColor,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.close, color: AppColors.cardColor, size: 16),
+                  child: const Icon(
+                    Icons.close,
+                    color: AppColors.cardColor,
+                    size: 16,
+                  ),
                 ),
               ),
             ),
@@ -769,7 +807,6 @@ class _MediaUploaderState extends State<MediaUploader> {
       ),
     );
   }
-
 
   Widget _buildAllPreviews() {
     final showVideoPreview = _keepPhotoAndVideoTogether
@@ -1033,7 +1070,8 @@ class _FullscreenLocalVideoPlayerPageState
                               duration: const Duration(milliseconds: 300),
                               child: const Icon(
                                 Icons.play_circle_fill,
-                                color: AppColors.activityMediaPlaceholderIconColor,
+                                color:
+                                    AppColors.activityMediaPlaceholderIconColor,
                                 size: 72,
                               ),
                             ),

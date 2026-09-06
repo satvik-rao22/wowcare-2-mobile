@@ -431,14 +431,13 @@ class AppTextStyles {
 
   /// Date-field selected-value text — dimmed while unselected.
   /// fontSize: 14, fontWeight: w500
-  static TextStyle activityDateValueText({required bool hasValue}) =>
-      TextStyle(
-        color: hasValue
-            ? AppColors.primaryColor
-            : AppColors.primaryColor.withValues(alpha: 0.6),
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-      );
+  static TextStyle activityDateValueText({required bool hasValue}) => TextStyle(
+    color: hasValue
+        ? AppColors.primaryColor
+        : AppColors.primaryColor.withValues(alpha: 0.6),
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+  );
 
   /// "Video preview unavailable" placeholder text — color only.
   static const TextStyle activityMediaUnavailableText = TextStyle(
@@ -663,6 +662,111 @@ class AppTextStyles {
   static TextStyle get activityFilterErrorText => TextStyle(
     color: AppColors.primaryColor.withValues(alpha: 0.7),
     fontSize: 14,
+  );
+
+  // ── Reports (Mandate M4) ────────────────────────────────────────────────
+
+  /// Reports hub page title. Size and line height are responsive, so they are
+  /// parameters rather than baked in.
+  /// fontWeight: w600, color: primaryColor
+  static TextStyle reportsScreenTitle({
+    required double fontSize,
+    required double height,
+  }) => TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: fontSize,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+    height: height,
+  );
+
+  /// Reports hub tab label. Deliberately has NO color of its own: the TabBar
+  /// supplies it through `labelColor` / `unselectedLabelColor`, and baking a
+  /// color in here would flatten the selected/unselected distinction.
+  /// fontSize: 16, fontWeight: w600
+  static const TextStyle reportsTabLabel = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+  );
+
+  /// "No reports available yet." placeholder. No explicit height — the text it
+  /// replaced had none, and adding one would change the line box.
+  /// fontSize: 14, fontWeight: w500, color: primaryColor @ 60% opacity
+  static TextStyle get reportsEmptyListText => TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primaryColor.withValues(alpha: 0.6),
+  );
+
+  /// Base report form field label. fontWeight w400, color primaryColor.
+  /// Local variation (opacity, height) goes through `.copyWith(...)`.
+  static TextStyle reportsFieldLabel({required double fontSize}) => TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: fontSize,
+    fontWeight: FontWeight.w400,
+    color: AppColors.primaryColor,
+  );
+
+  /// Base report field VALUE. fontWeight w500, color primaryColor.
+  static TextStyle reportsFieldValue({required double fontSize}) => TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: fontSize,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primaryColor,
+  );
+
+  /// Base report heading. fontWeight w600, color primaryColor.
+  static TextStyle reportsHeading({required double fontSize}) => TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: fontSize,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// "Note: All Classrooms will be selected by Default." fontSize 12, w400.
+  static const TextStyle reportsNote = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.reportsAccentColor,
+  );
+
+  /// Small uppercase section heading above a group of filter fields.
+  static const TextStyle reportsSectionLabel = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.4,
+    color: AppColors.reportsAccentColor,
+  );
+
+  /// Required-field "*" marker inside a RichText label. Colour only, so the
+  /// surrounding TextSpan supplies size, weight and family.
+  static const TextStyle reportsRequiredMarker = TextStyle(
+    color: AppColors.reportsRequiredFieldMarkerColor,
+  );
+
+  /// Multi-select row label. Deliberately has NO colour of its own — these
+  /// rows sit inside a popup that supplies the ambient colour, and baking one
+  /// in would override it.
+  /// fontSize: 14, fontWeight: w500
+  static const TextStyle reportsSelectionRowLabel = TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+  );
+
+  /// "No <items> found" empty text inside a multi-select popup. Colour only.
+  static const TextStyle reportsSelectionEmptyLabel = TextStyle(
+    color: AppColors.reportsDisabledForegroundColor,
+  );
+
+  /// Label on the filled Download button. Colour + weight only; the button
+  /// supplies the size.
+  static const TextStyle reportsDownloadButtonLabel = TextStyle(
+    color: AppColors.cardColor,
+    fontWeight: FontWeight.w600,
   );
 }
 
