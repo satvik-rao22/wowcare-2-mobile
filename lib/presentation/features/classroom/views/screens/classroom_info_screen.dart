@@ -43,12 +43,22 @@ import 'package:wowcare/domain/features/attendance/usecases/get_staff_attendance
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 class ClassroomInfoScreen extends StatefulWidget {
-  const ClassroomInfoScreen({super.key, this.initialClassroomCode});
+  const ClassroomInfoScreen({
+    super.key,
+    this.initialClassroomCode,
+    this.initialClassroom,
+  });
 
   /// When opened from a notification deep-link (e.g. RATIO_BREACHED), the
   /// classroom to pre-select by code. Takes precedence over the cached/first
   /// selection.
   final String? initialClassroomCode;
+
+  /// Passed directly when the caller already has the full classroom (e.g.
+  /// Future Availability, which lists every classroom school-wide — a
+  /// code-only lookup would be scoped to the staff's own classrooms and miss
+  /// it). Takes precedence over [initialClassroomCode].
+  final Classroom? initialClassroom;
 
   static const String routeName = '/classroom-info-screen';
 
@@ -102,6 +112,18 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     _movementsCubit = serviceLocator<IndividualMovementsCubit>()
       ..loadInitial();
     _loadLastSelectedClassroomFromCache();
+    final initialClassroom = widget.initialClassroom;
+    if (initialClassroom != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _selectedRoom = initialClassroom;
+        });
+        _saveLastSelectedClassroomToCache(initialClassroom.code, initialClassroom.name);
+        _loadDetails(initialClassroom.code);
+      });
+      return;
+    }
     // Selected room may be passed as a route argument
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final args = ModalRoute.of(context)?.settings.arguments;

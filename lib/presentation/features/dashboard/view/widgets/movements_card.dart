@@ -312,7 +312,7 @@ class _MovementAvatarStack extends StatelessWidget {
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                              color: AppColors.cardColor,
                             ),
                           ),
                         )

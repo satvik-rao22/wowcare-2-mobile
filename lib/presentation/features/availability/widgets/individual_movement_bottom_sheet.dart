@@ -52,7 +52,7 @@ Future<IndividualMovementAction?> showIndividualMovementOptionsBottomSheet(
         top: false,
         child: Container(
           decoration: const BoxDecoration(
-            color: Colors.white,
+            color: AppColors.cardColor,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(

@@ -52,7 +52,7 @@ class IndividualMovementFilterCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.primaryColor.withValues(alpha: 0.08)),
       ),

@@ -559,4 +559,12 @@ class AppColors {
   static const Color movementDueTimeIconColor = Color(
     0xFFF3B413,
   ); // Row clock icon
+
+  // Future Availability (Mandate 4) — see
+  // lib/presentation/features/availability/view/future_availability_screen.dart.
+  static const Color futureAvailabilityColumnTint = Color.fromRGBO(247, 245, 249, 1);
+  static const Color futureAvailabilityHeaderTint = Color.fromRGBO(245, 243, 247, 1);
+  static const Color futureAvailabilityToggleTrackBg = Color.fromRGBO(246, 244, 248, 1);
+  static const Color futureAvailabilityNegativeCountColor = Color.fromRGBO(236, 99, 99, 1);
+  static const Color futureAvailabilityPositiveCountColor = Color.fromRGBO(0, 145, 94, 1);
 }

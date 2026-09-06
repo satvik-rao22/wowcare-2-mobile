@@ -65,6 +65,8 @@ import 'package:wowcare/presentation/features/attendance/view/screens/widgets/st
     show StaffAttendanceCardData;
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_card.dart'
     show StudentAttendanceCardData;
+import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:wowcare/presentation/features/availability/cubit/future_availability_cubit.dart';
 import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
 import 'package:wowcare/presentation/features/availability/view/add_edit_individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/confirm_individual_movement_screen.dart';
@@ -1066,8 +1068,13 @@ final GoRouter appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'future-availability',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, const FutureAvailabilityScreen()),
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    BlocProvider<FutureAvailabilityCubit>(
+                      create: (_) => serviceLocator<FutureAvailabilityCubit>(),
+                      child: const FutureAvailabilityScreen(),
+                    ),
+                  ),
                 ),
                 GoRoute(
                   path: 'individual-movement',
@@ -1217,7 +1224,10 @@ final GoRouter appRouter = GoRouter(
                   },
                 ),
                 // Notification deep-link: open the Classroom Info screen with a
-                // classroom pre-selected by code (e.g. RATIO_BREACHED).
+                // classroom pre-selected by code (e.g. RATIO_BREACHED). Future
+                // Availability instead passes the full Classroom via `extra`
+                // since it lists every classroom school-wide, not just the
+                // staff's own — a code-only lookup would miss it.
                 GoRoute(
                   path: 'classroom-info-screen',
                   pageBuilder: (context, state) => _fastPage(
@@ -1225,6 +1235,8 @@ final GoRouter appRouter = GoRouter(
                     ClassroomInfoScreen(
                       initialClassroomCode:
                           state.uri.queryParameters['classroomCode'],
+                      initialClassroom:
+                          state.extra is Classroom ? state.extra as Classroom : null,
                     ),
                   ),
                 ),
