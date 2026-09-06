@@ -1,8 +1,7 @@
-import 'package:flutter/material.dart';
 import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
 
-import '../model/scheduling_models.dart';
-import 'forecast_slot_mapper.dart';
+import 'scheduling_models.dart';
+import '../utils/forecast_slot_mapper.dart';
 
 /// Builds staff-row Gantt slots from shift API times (work / break), not forecast.
 class StaffShiftSlotMapper {

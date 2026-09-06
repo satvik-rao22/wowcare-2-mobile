@@ -149,3 +149,21 @@ class StaffRoutes {
   /// route would leave the bottom bar visible over the document.
   static const String documentViewer = '/document-viewer';
 }
+
+/// Route paths for the scheduling feature.
+///
+/// Mirrors [ReportRoutes] / [StaffRoutes]: named `SchedulingRoutes` rather
+/// than `AppRoutes` because a class of that name already exists on
+/// `lib/src/app_router.dart` (§6.5).
+abstract final class SchedulingRoutes {
+  static const String scheduling = '/dashboard/scheduling';
+  static const String staffScheduling = '/dashboard/staff-scheduling';
+
+  /// Reachable from both [scheduling] and [staffScheduling] — siblings of
+  /// both under the same `/dashboard` shell, not nested under either parent,
+  /// since both entry screens push the same four destinations.
+  static const String addShift = '/dashboard/add-shift-screen';
+  static const String editShift = '/dashboard/edit-shift-screen';
+  static const String viewShift = '/dashboard/view-shift-screen';
+  static const String publishShifts = '/dashboard/publish-shifts-screen';
+}

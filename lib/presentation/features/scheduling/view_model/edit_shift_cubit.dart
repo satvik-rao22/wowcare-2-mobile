@@ -9,12 +9,13 @@ import '../../../../domain/features/classroom/entities/classroom.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift.dart';
 import '../../../../domain/features/scheduling/repositories/staff_shift_repository.dart';
+import '../../../../domain/features/scheduling/usecases/bootstrap_scheduling_school_timezone_usecase.dart';
 import '../../../../domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
 import '../../../../domain/features/scheduling/usecases/update_staff_shift_series_usecase.dart';
 import '../../../../domain/features/scheduling/usecases/update_staff_shift_usecase.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
-import '../utils/scheduling_school_time.dart';
+import '../../../../domain/features/scheduling/services/scheduling_school_time.dart';
 import '../utils/school_hours_resolver.dart';
 import '../view/edit_shift_screen.dart';
 
@@ -34,6 +35,8 @@ class EditShiftCubit extends Cubit<EditShiftState> {
     required UpdateStaffShiftUseCase updateStaffShiftUseCase,
     required UpdateStaffShiftSeriesUseCase updateStaffShiftSeriesUseCase,
     required StorageService storageService,
+    required BootstrapSchedulingSchoolTimezoneUseCase
+        bootstrapSchedulingSchoolTimezoneUseCase,
   }) : _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
        _staffRepository = staffRepository,
        _staffShiftRepository = staffShiftRepository,
@@ -41,6 +44,8 @@ class EditShiftCubit extends Cubit<EditShiftState> {
        _updateStaffShiftUseCase = updateStaffShiftUseCase,
        _updateStaffShiftSeriesUseCase = updateStaffShiftSeriesUseCase,
        _storageService = storageService,
+       _bootstrapSchedulingSchoolTimezoneUseCase =
+           bootstrapSchedulingSchoolTimezoneUseCase,
        super(const EditShiftState());
 
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
@@ -50,6 +55,8 @@ class EditShiftCubit extends Cubit<EditShiftState> {
   final UpdateStaffShiftUseCase _updateStaffShiftUseCase;
   final UpdateStaffShiftSeriesUseCase _updateStaffShiftSeriesUseCase;
   final StorageService _storageService;
+  final BootstrapSchedulingSchoolTimezoneUseCase
+      _bootstrapSchedulingSchoolTimezoneUseCase;
 
   // Immutable identity of the shift being edited — set once in [init].
   late EditShiftMode _mode;
@@ -98,7 +105,7 @@ class EditShiftCubit extends Cubit<EditShiftState> {
     // ignore: discarded_futures
     _loadAdminClassrooms();
     // ignore: discarded_futures
-    bootstrapSchedulingSchoolTimezone();
+    _bootstrapSchedulingSchoolTimezoneUseCase();
   }
 
   Future<void> _loadAdminClassrooms() async {

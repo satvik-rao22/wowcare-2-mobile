@@ -5,7 +5,7 @@ import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/usecases/get_all_staff_usecase.dart';
-import '../utils/scheduling_school_scope_mixin.dart';
+import 'scheduling_school_scope_mixin.dart';
 
 part 'scheduling_staff_list_state.dart';
 
