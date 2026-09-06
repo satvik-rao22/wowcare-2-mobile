@@ -19,7 +19,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
@@ -31,13 +31,13 @@ import 'package:wowcare/presentation/features/classroom/cubit/classroom_students
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_students_state.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/views/filters/classroom_student_filter_screen.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_sign_in_form.dart'
     as sign_in_form;
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_out_form.dart'
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_sign_out_form.dart'
     as sign_out_form;
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_transfer_form.dart'
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_transfer_form.dart'
     as transfer_form;
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_mark_absent_form.dart'
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_mark_absent_form.dart'
     as absent_form;
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
@@ -59,7 +59,7 @@ void clearClassroomStudentsAttendanceCache() {
   ClassroomStudentsCubit.clearAttendanceStatusCache();
 }
 
-class ClassroomStudentsTabCard extends StatefulWidget {
+class ClassroomStudentsTabCard extends StatelessWidget {
   const ClassroomStudentsTabCard({
     required this.scrollController,
     required this.selectedRoom,
@@ -75,11 +75,36 @@ class ClassroomStudentsTabCard extends StatefulWidget {
   final String? highlightCode;
 
   @override
-  State<ClassroomStudentsTabCard> createState() =>
-      _ClassroomStudentsTabCardState();
+  Widget build(BuildContext context) {
+    return BlocProvider<ClassroomStudentsCubit>(
+      create: (_) => serviceLocator<ClassroomStudentsCubit>(),
+      child: _ClassroomStudentsTabCardView(
+        scrollController: scrollController,
+        selectedRoom: selectedRoom,
+        highlightCode: highlightCode,
+      ),
+    );
+  }
 }
 
-class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
+class _ClassroomStudentsTabCardView extends StatefulWidget {
+  const _ClassroomStudentsTabCardView({
+    required this.scrollController,
+    required this.selectedRoom,
+    this.highlightCode,
+  });
+
+  final ScrollController scrollController;
+  final Classroom? selectedRoom;
+  final String? highlightCode;
+
+  @override
+  State<_ClassroomStudentsTabCardView> createState() =>
+      _ClassroomStudentsTabCardViewState();
+}
+
+class _ClassroomStudentsTabCardViewState
+    extends State<_ClassroomStudentsTabCardView> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
 
@@ -117,7 +142,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   @override
   void initState() {
     super.initState();
-    _cubit = serviceLocator<ClassroomStudentsCubit>();
+    _cubit = context.read<ClassroomStudentsCubit>();
     _searchController.addListener(_onSearchChanged);
     _loadForSelectedRoom(refresh: false);
     _loadNapStartStudentCodes(refresh: false);
@@ -277,7 +302,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       _cubit.state.nappingStudentCodes.isEmpty;
 
   @override
-  void didUpdateWidget(ClassroomStudentsTabCard oldWidget) {
+  void didUpdateWidget(_ClassroomStudentsTabCardView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedRoom != widget.selectedRoom) {
       setState(() {
@@ -310,7 +335,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     classroomStudentsRefreshTick.removeListener(_handleExternalRefresh);
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
-    _cubit.close();
+    // No manual _cubit.close() — the ancestor BlocProvider in
+    // ClassroomStudentsTabCard now owns the cubit's lifecycle.
     super.dispose();
   }
 
@@ -390,11 +416,11 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       padding: const EdgeInsets.symmetric(horizontal: 2),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
-        color: const Color.fromRGBO(177, 175, 233, 0.3),
+        color: AppColors.classroomStatusChipBackgroundColor,
       ),
       child: TextButton(
         style: TextButton.styleFrom(
-          foregroundColor: Colors.white,
+          foregroundColor: AppColors.cardColor,
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
           minimumSize: Size.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -405,7 +431,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
           _statusChipLabel(apiStatus),
           style: const TextStyle(
             fontFamily: 'Manrope',
-            color: Color.fromRGBO(27, 35, 126, 1),
+            color: AppColors.secondaryColor,
             fontSize: 12,
           ),
         ),
@@ -1119,10 +1145,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   @override
   Widget build(BuildContext context) {
     context.watch<GeofenceCubit>();
-    return BlocProvider.value(
-      value: _cubit,
-      child: BlocBuilder<ClassroomStudentsCubit, ClassroomStudentsState>(
-        builder: (context, state) {
+    return BlocBuilder<ClassroomStudentsCubit, ClassroomStudentsState>(
+      builder: (context, state) {
           final q = _searchController.text.trim().toLowerCase();
           final visibleStudents = state.students.where((s) {
             if (_isPresentFilter && !_isSignedInFromAttendanceStatus(s)) {
@@ -1182,7 +1206,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                   right: BorderSide(color: AppColors.themeColor),
                   bottom: BorderSide(color: AppColors.themeColor),
                 ),
-                color: Colors.white,
+                color: AppColors.cardColor,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                   child: Column(
@@ -1195,17 +1219,17 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                               constraints: const BoxConstraints(minHeight: 36),
                               backgroundColor:
                                   const WidgetStatePropertyAll<Color>(
-                                    Colors.white,
+                                    AppColors.cardColor,
                                   ),
                               surfaceTintColor:
                                   const WidgetStatePropertyAll<Color>(
-                                    Colors.white,
+                                    AppColors.cardColor,
                                   ),
                               hintText: 'Search',
-                              hintStyle: const WidgetStatePropertyAll(
+                              hintStyle: WidgetStatePropertyAll(
                                 TextStyle(
                                   fontFamily: 'Manrope',
-                                  color: Color.fromRGBO(87, 51, 83, 0.7),
+                                  color: AppColors.classroomSearchHintTextColor,
                                   fontSize: 13,
                                 ),
                               ),
@@ -1218,7 +1242,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                               side: const WidgetStatePropertyAll(
                                 BorderSide(
                                   width: 1,
-                                  color: Color.fromARGB(255, 188, 173, 186),
+                                  color: AppColors.classroomBorderColor,
                                 ),
                               ),
                               shape: WidgetStatePropertyAll(
@@ -1284,7 +1308,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                     ),
                                     child: TextButton(
                                       style: TextButton.styleFrom(
-                                        foregroundColor: Colors.white,
+                                        foregroundColor: AppColors.cardColor,
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 4,
                                           vertical: 3,
@@ -1677,8 +1701,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
             ],
           );
         },
-      ),
-    );
+      );
   }
 }
 
@@ -1734,25 +1757,25 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           filled: true,
-          fillColor: Colors.white,
+          fillColor: AppColors.cardColor,
           hintText: widget.hintText,
           contentPadding: const EdgeInsets.symmetric(horizontal: 5),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Color.fromARGB(255, 188, 173, 186),
+              color: AppColors.classroomBorderColor,
             ),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Color.fromARGB(255, 188, 173, 186),
+              color: AppColors.classroomBorderColor,
             ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Color.fromARGB(255, 188, 173, 186),
+              color: AppColors.classroomBorderColor,
             ),
           ),
         ),
@@ -1761,10 +1784,10 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
         elevation: 2,
         style: const TextStyle(
           fontFamily: 'Manrope',
-          color: Color(0xff573353),
+          color: AppColors.classroomTextColor,
           fontSize: 16,
         ),
-        dropdownColor: Colors.white,
+        dropdownColor: AppColors.cardColor,
         items: widget.items.map((String item) {
           return DropdownMenuItem<String>(
             value: item,
@@ -1810,7 +1833,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                             style: const TextStyle(
                               fontFamily: 'Manrope',
                               fontSize: 14,
-                              color: Color(0xff573353),
+                              color: AppColors.classroomTextColor,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1830,8 +1853,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
           style: TextStyle(
             fontFamily: 'Manrope',
             color: _localSelectedItems.isEmpty
-                ? Colors.grey[600]
-                : const Color(0xff573353),
+                ? AppColors.classroomPlaceholderTextColor
+                : AppColors.classroomTextColor,
             fontSize: 14,
           ),
           overflow: TextOverflow.ellipsis,

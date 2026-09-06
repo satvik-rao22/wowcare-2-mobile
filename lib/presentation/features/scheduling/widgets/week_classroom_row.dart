@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../app/theme/colors.dart';
+import '../../../../core/theme/app_colors.dart';
 import 'day_classroom_section.dart';
 import 'staff_schedule_tile.dart';
 
@@ -32,7 +32,6 @@ class WeekClassroomHeaderRow extends StatelessWidget {
         child: Text(
           expandAll ? 'Collapse All' : 'Expand All',
           style: const TextStyle(
-            fontFamily: 'Manrope',
             fontSize: 16,
             fontWeight: FontWeight.w600,
             color: AppColors.primaryColor,
@@ -42,7 +41,6 @@ class WeekClassroomHeaderRow extends StatelessWidget {
       right: Text(
         dayLabel,
         style: const TextStyle(
-          fontFamily: 'Manrope',
           fontSize: 16,
           fontWeight: FontWeight.w600,
           color: AppColors.primaryColor,

@@ -2,7 +2,10 @@ import 'package:dio/dio.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/data/features/classroom/models/classroom_all_models.dart';
+import 'package:wowcare/data/features/classroom/models/classroom_attendance_summary_model.dart';
 import 'package:wowcare/data/features/classroom/models/classroom_details_models.dart';
+import 'package:wowcare/data/features/classroom/models/classroom_enrollment_models.dart';
+import 'package:wowcare/data/features/classroom/models/classroom_logo_models.dart';
 import 'package:wowcare/data/features/classroom/models/dashboard_summary_models.dart';
 
 /// Data source for Classroom-related remote APIs.
@@ -44,40 +47,40 @@ abstract class ClassroomRemoteDataSource {
   });
 
   /// Per-classroom student attendance counts from by-classrooms summary API.
-  Future<Map<String, dynamic>> getStudentAttendanceSummaryByClassrooms({
+  Future<Map<String, ClassroomAttendanceSummaryDataModel>>
+  getStudentAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
     DateTime? date,
   });
 
   /// Per-classroom staff attendance counts from by-classrooms summary API.
-  Future<Map<String, dynamic>> getStaffAttendanceSummaryByClassrooms({
+  Future<Map<String, ClassroomAttendanceSummaryDataModel>>
+  getStaffAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
     DateTime? date,
   });
 
   /// GET student-classroom enrolled count (active/upcoming/enrolled) for a
   /// classroom. Optional [organizationCode]/[schoolCode] are sent as headers.
-  Future<Map<String, dynamic>?> getStudentClassroomEnrolledCount({
+  /// Throws if the response is malformed.
+  Future<StudentClassroomEnrolledCountDataModel>
+  getStudentClassroomEnrolledCount({
     required String classroomCode,
     String? organizationCode,
     String? schoolCode,
   });
 
-  /// GET the logo asset codes list for a school's classrooms.
-  Future<Map<String, dynamic>?> getClassroomLogoAssetCodes({
-    required String classroomCode,
-    required String schoolCode,
-  });
-
-  /// POST to create a classroom-logo upload session.
-  Future<Map<String, dynamic>?> createClassroomLogoUploadSession({
+  /// POST to create a classroom-logo upload session. Throws with the
+  /// server-provided message if the request is rejected.
+  Future<ClassroomLogoUploadSessionDataModel> createClassroomLogoUploadSession({
     required String classroomCode,
     required String organizationCode,
     required String schoolCode,
   });
 
-  /// POST to finalize a classroom logo with the uploaded [assetCode].
-  Future<Map<String, dynamic>?> finalizeClassroomLogo({
+  /// POST to finalize a classroom logo with the uploaded [assetCode]. Throws
+  /// with the server-provided message if the request is rejected.
+  Future<void> finalizeClassroomLogo({
     required String classroomCode,
     required String assetCode,
   });
@@ -244,12 +247,28 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     );
   }
 
+  static Map<String, ClassroomAttendanceSummaryDataModel> _parseSummaryMap(
+    Map<String, dynamic> raw,
+  ) {
+    return raw.map(
+      (code, value) => MapEntry(
+        code,
+        ClassroomAttendanceSummaryDataModel.fromJson(
+          value is Map<String, dynamic> ? value : <String, dynamic>{},
+        ),
+      ),
+    );
+  }
+
   @override
-  Future<Map<String, dynamic>> getStudentAttendanceSummaryByClassrooms({
+  Future<Map<String, ClassroomAttendanceSummaryDataModel>>
+  getStudentAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
     DateTime? date,
   }) async {
-    if (classroomCodes.isEmpty) return <String, dynamic>{};
+    if (classroomCodes.isEmpty) {
+      return <String, ClassroomAttendanceSummaryDataModel>{};
+    }
 
     final endpoint = ApiPaths.url(
       ApiPaths.studentAttendanceExpectedSummaryCardByClassrooms,
@@ -274,16 +293,19 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     }
     final body = response.data! as Map<String, dynamic>;
     final data = body['data'];
-    if (data is Map<String, dynamic>) return data;
-    return <String, dynamic>{};
+    if (data is Map<String, dynamic>) return _parseSummaryMap(data);
+    return <String, ClassroomAttendanceSummaryDataModel>{};
   }
 
   @override
-  Future<Map<String, dynamic>> getStaffAttendanceSummaryByClassrooms({
+  Future<Map<String, ClassroomAttendanceSummaryDataModel>>
+  getStaffAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
     DateTime? date,
   }) async {
-    if (classroomCodes.isEmpty) return <String, dynamic>{};
+    if (classroomCodes.isEmpty) {
+      return <String, ClassroomAttendanceSummaryDataModel>{};
+    }
 
     final endpoint = ApiPaths.url(
       ApiPaths.staffAttendanceExpectedSummaryCardByClassrooms,
@@ -311,12 +333,13 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     }
     final body = response.data! as Map<String, dynamic>;
     final data = body['data'];
-    if (data is Map<String, dynamic>) return data;
-    return <String, dynamic>{};
+    if (data is Map<String, dynamic>) return _parseSummaryMap(data);
+    return <String, ClassroomAttendanceSummaryDataModel>{};
   }
 
   @override
-  Future<Map<String, dynamic>?> getStudentClassroomEnrolledCount({
+  Future<StudentClassroomEnrolledCountDataModel>
+  getStudentClassroomEnrolledCount({
     required String classroomCode,
     String? organizationCode,
     String? schoolCode,
@@ -351,29 +374,21 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
       );
     }
 
-    final data = response.data;
-    return data is Map<String, dynamic> ? data : null;
-  }
-
-  @override
-  Future<Map<String, dynamic>?> getClassroomLogoAssetCodes({
-    required String classroomCode,
-    required String schoolCode,
-  }) async {
-    final endpoint = ApiPaths.url(ApiPaths.classroomLogoAssetCodes);
-    final response = await _client.get<dynamic>(
-      endpoint,
-      queryParameters: <String, dynamic>{
-        'classroomCode': classroomCode,
-        'schoolCode': schoolCode,
-      },
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected enrolled-count API response format');
+    }
+    final envelope = StudentClassroomEnrolledCountResponseModel.fromJson(
+      response.data! as Map<String, dynamic>,
     );
-    final data = response.data;
-    return data is Map<String, dynamic> ? data : null;
+    final data = envelope.data;
+    if (data == null) {
+      throw Exception('Unexpected enrolled-count API data format');
+    }
+    return data;
   }
 
   @override
-  Future<Map<String, dynamic>?> createClassroomLogoUploadSession({
+  Future<ClassroomLogoUploadSessionDataModel> createClassroomLogoUploadSession({
     required String classroomCode,
     required String organizationCode,
     required String schoolCode,
@@ -387,12 +402,29 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
         'schoolCode': schoolCode,
       },
     );
-    final data = response.data;
-    return data is Map<String, dynamic> ? data : null;
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unable to create upload session');
+    }
+    final envelope = ClassroomLogoUploadSessionResponseModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+    if (!envelope.success) {
+      throw Exception(
+        envelope.message.isNotEmpty
+            ? envelope.message
+            : 'Unable to create upload session',
+      );
+    }
+    final data = envelope.data;
+    if (data == null) {
+      throw Exception('Missing upload session data');
+    }
+    return data;
   }
 
   @override
-  Future<Map<String, dynamic>?> finalizeClassroomLogo({
+  Future<void> finalizeClassroomLogo({
     required String classroomCode,
     required String assetCode,
   }) async {
@@ -402,7 +434,19 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
       endpoint,
       data: <String, dynamic>{'assetCode': assetCode},
     );
-    final data = response.data;
-    return data is Map<String, dynamic> ? data : null;
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unable to finalize classroom logo');
+    }
+    final envelope = ClassroomLogoFinalizeResponseModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+    if (!envelope.success) {
+      throw Exception(
+        envelope.message.isNotEmpty
+            ? envelope.message
+            : 'Unable to finalize classroom logo',
+      );
+    }
   }
 }

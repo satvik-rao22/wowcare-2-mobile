@@ -271,12 +271,14 @@ abstract class AttendanceRemoteDataSource {
   Future<MarkAbsentResponseModel> markStudentsAbsent({
     required MarkAbsentRequestModel request,
     required List<String> allowedClassroomCodes,
+    String? idempotencyKey,
   });
 
   /// Marks staff absent for a date range.
   Future<StaffMarkAbsentResponseModel> markStaffAbsent({
     required StaffMarkAbsentRequestModel request,
     required List<String> allowedClassroomCodes,
+    String? idempotencyKey,
   });
 
   /// Expected attendance summary used for the daily "Expected Students" card.
@@ -1531,6 +1533,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   Future<MarkAbsentResponseModel> markStudentsAbsent({
     required MarkAbsentRequestModel request,
     required List<String> allowedClassroomCodes,
+    String? idempotencyKey,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAbsenceRecordsMarkAbsent,
@@ -1543,6 +1546,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
         ...request.toJson(),
         'allowedClassroomCodes': List<String>.from(allowedClassroomCodes),
       },
+      options: idempotencyKey != null
+          ? Options(headers: {IdempotencyKey.headerName: idempotencyKey})
+          : null,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -1558,6 +1564,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   Future<StaffMarkAbsentResponseModel> markStaffAbsent({
     required StaffMarkAbsentRequestModel request,
     required List<String> allowedClassroomCodes,
+    String? idempotencyKey,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAbsenceRecordsMarkAbsent,
@@ -1570,6 +1577,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
         ...request.toJson(),
         'allowedClassroomCodes': List<String>.from(allowedClassroomCodes),
       },
+      options: idempotencyKey != null
+          ? Options(headers: {IdempotencyKey.headerName: idempotencyKey})
+          : null,
     );
 
     if (response.data is! Map<String, dynamic>) {

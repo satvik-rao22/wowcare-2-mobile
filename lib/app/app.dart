@@ -5,6 +5,7 @@ import 'package:sizer/sizer.dart';
 import 'package:wowcare/app/app_bloc_providers.dart';
 import 'package:wowcare/app/app_providers.dart';
 import 'package:wowcare/app/app_sizer_init.dart';
+import 'package:wowcare/core/responsive/responsive_scope.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_navigator.dart';
 import 'package:wowcare/shared/common/app/cubit/theme_cubit.dart';
 import 'package:wowcare/src/app_router.dart';
@@ -73,7 +74,14 @@ class MyApp extends StatelessWidget {
                           orientation,
                           599,
                         );
-                        return child ?? const SizedBox.shrink();
+                        // ResponsiveScope publishes the screen size class
+                        // to every routed screen (M7). Mounted here, inside
+                        // MaterialApp's builder, so it wraps the routed
+                        // subtree without putting a new buildScope around
+                        // MaterialApp.router itself.
+                        return ResponsiveScope(
+                          child: child ?? const SizedBox.shrink(),
+                        );
                       },
                     ),
                   ),

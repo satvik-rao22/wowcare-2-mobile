@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_schedule_cubit.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
@@ -15,6 +12,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
+import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 
 class StaffCard extends StatefulWidget {
   const StaffCard({
@@ -143,7 +142,12 @@ class _StaffCardState extends State<StaffCard> {
 
   Future<void> _loadSchoolOpenDays() async {
     try {
-      final future = _inFlightLoad ??= _fetchSchoolOpenDays();
+      // Static single-flight + cache: every visible card wants the same list,
+      // so the first one issues the request and the rest await its future.
+      final future =
+          _inFlightLoad ??= _fetchSchoolOpenDays(
+            context.read<StaffScheduleCubit>(),
+          );
       final result = await future;
       if (!mounted) return;
       setState(() => _schoolOpenShortDays = result);
@@ -152,13 +156,11 @@ class _StaffCardState extends State<StaffCard> {
     }
   }
 
-  static Future<List<String>> _fetchSchoolOpenDays() async {
-    final storage = serviceLocator<StorageService>();
-    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-        .trim();
-    if (schoolCode.isEmpty) return const <String>[];
-    final days = await serviceLocator<StaffScheduleCubit>()
-        .fetchSchoolRegularSchedules(schoolCode);
+  static Future<List<String>> _fetchSchoolOpenDays(
+    StaffScheduleCubit scheduleCubit,
+  ) async {
+    final days = await scheduleCubit.fetchActiveSchoolRegularSchedules();
+    if (days == null) return const <String>[];
     final open = <String>{for (final d in days) d.dayOfWeek.toUpperCase()};
     final ordered = _weekOrder
         .where(open.contains)
@@ -756,32 +758,33 @@ class _StaffCardState extends State<StaffCard> {
                                               }
 
                                               context
-                                                  .push(
-                                                    '/dashboard/edit-profile-details-screen',
-                                                    extra: <String, dynamic>{
-                                                      'staffCode':
+                                                  .push<bool>(
+                                                    StaffRoutes
+                                                        .editProfileDetails,
+                                                    extra: EditStaffProfileArgs(
+                                                      staffCode:
                                                           widget.staffCode,
-                                                      'initialFirstName':
+                                                      initialFirstName:
                                                           initialFirstName,
-                                                      'initialLastName':
+                                                      initialLastName:
                                                           initialLastName,
-                                                      'initialStatus':
+                                                      initialStatus:
                                                           mappedStatus,
-                                                      'initialDesignation':
+                                                      initialDesignation:
                                                           widget.designation,
-                                                      'initialAllowedClassrooms':
+                                                      initialAllowedClassrooms:
                                                           widget
                                                               .allowedClassrooms,
-                                                      'initialPrimaryClassroom':
+                                                      initialPrimaryClassroom:
                                                           widget.classroom,
-                                                      'initialEmail':
+                                                      initialEmail:
                                                           widget.email,
-                                                      'initialPhoneNumber':
+                                                      initialPhoneNumber:
                                                           widget.phoneNumber,
-                                                      'initialClassroomNames':
+                                                      initialClassroomNames:
                                                           widget
                                                               .availableClassrooms,
-                                                      'initialClassroomCodeByName': {
+                                                      initialClassroomCodeByName: {
                                                         for (final entry
                                                             in widget
                                                                 .classroomCodeByName
@@ -789,7 +792,7 @@ class _StaffCardState extends State<StaffCard> {
                                                           entry.value:
                                                               entry.key,
                                                       },
-                                                    },
+                                                    ),
                                                   )
                                                   .then((_) {
                                                     if (context.mounted) {

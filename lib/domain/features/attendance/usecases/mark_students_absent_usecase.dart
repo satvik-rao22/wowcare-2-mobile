@@ -1,4 +1,5 @@
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/idempotency_key.dart';
 import '../repositories/attendance_repository.dart';
 
 class MarkStudentsAbsentUseCase {
@@ -36,6 +37,12 @@ class MarkStudentsAbsentUseCase {
       for (; !day.isAfter(endDay); day = day.add(const Duration(days: 1))) {
         final dayStr = _ymd(day);
         try {
+          // A fresh key PER DAY — each iteration is a genuinely distinct
+          // mutation (a different day's absence record), so a single shared
+          // key across the whole range would make the backend dedupe day 2
+          // as a "replay" of day 1. Stable across a 401-refresh auto-replay
+          // of THIS specific day's request, since that reuses the same
+          // RequestOptions/headers.
           lastMessage = await _repository.markStudentsAbsent(
             staffCode: staffCode,
             studentCodes: studentCodes,
@@ -46,6 +53,7 @@ class MarkStudentsAbsentUseCase {
             classroomCode: classroomCode,
             isExpectedTodayByStudentCode: isExpectedTodayByStudentCode,
             markAbsentMethod: markAbsentMethod,
+            idempotencyKey: IdempotencyKey.generate(),
           );
         } catch (e) {
           final msg = ApiErrorHandler.extractErrorMessage(e);

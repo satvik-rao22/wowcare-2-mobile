@@ -4,7 +4,8 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/network/file_download_service.dart';
 
 import '../../../../domain/features/staff/entities/staff_document.dart';
-import '../../../../domain/features/staff/repositories/staff_repository.dart';
+import '../../../../domain/features/staff/usecases/load_cached_staff_documents_usecase.dart';
+import '../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../domain/features/staff/usecases/get_staff_documents_usecase.dart';
 import '../../../../domain/features/staff/usecases/delete_staff_document_usecase.dart';
 
@@ -12,17 +13,20 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
   StaffDocumentsListCubit({
     required GetStaffDocumentsUseCase getStaffDocumentsUseCase,
     required DeleteStaffDocumentUseCase deleteStaffDocumentUseCase,
-    required StaffRepository repository,
+    required LoadCachedStaffDocumentsUseCase loadCachedStaffDocumentsUseCase,
+    required ImageUploadService imageUploadService,
     FileDownloadService? fileDownloadService,
   }) : _getStaffDocumentsUseCase = getStaffDocumentsUseCase,
        _deleteStaffDocumentUseCase = deleteStaffDocumentUseCase,
-       _repository = repository,
+       _loadCachedStaffDocumentsUseCase = loadCachedStaffDocumentsUseCase,
+       _imageUploadService = imageUploadService,
        _fileDownloadService = fileDownloadService ?? FileDownloadService(),
        super(const StaffDocumentsListState.initial());
 
   final GetStaffDocumentsUseCase _getStaffDocumentsUseCase;
   final DeleteStaffDocumentUseCase _deleteStaffDocumentUseCase;
-  final StaffRepository _repository;
+  final LoadCachedStaffDocumentsUseCase _loadCachedStaffDocumentsUseCase;
+  final ImageUploadService _imageUploadService;
   final FileDownloadService _fileDownloadService;
 
   /// Downloads a resolved document URL to [savePath]. Kept off the View (which
@@ -31,15 +35,23 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
   Future<void> downloadFile(String url, String savePath) =>
       _fileDownloadService.downloadToFile(url, savePath);
 
+  /// `documentUrl` from the API is often just a file name (e.g. "photo.webp"),
+  /// not a link — this resolves the downloadable URL from the asset code.
+  ///
+  /// Lives here rather than in the documents tab, which resolved it by reaching
+  /// for [ImageUploadService] out of the service locator.
+  Future<String> resolveMediaAssetUrl(String assetCode) async {
+    final url = await _imageUploadService.getMediaAssetUrlByCode(
+      assetCode: assetCode,
+    );
+    return url.trim();
+  }
+
   static const int _pageSize = 10;
 
   Future<void> loadInitial(String staffCode, {bool? expired}) async {
     // Try cache first
-    final cached = await (_repository is StaffRepositoryWithCache
-        ? (_repository as StaffRepositoryWithCache).loadCachedStaffDocuments(
-            staffCode,
-          )
-        : Future.value(null));
+    final cached = await _loadCachedStaffDocumentsUseCase(staffCode);
 
     if (cached != null && !isClosed) {
       // Always start from page 0 on initial load, even if cache has a different page

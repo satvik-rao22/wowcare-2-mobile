@@ -3,7 +3,7 @@
 // import 'package:flutter_svg/svg.dart';
 // import '../../../app/theme/colors.dart';
 // import '../../../app/theme/media_res.dart';
-// import '../../../presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart';
+// import '../../../presentation/features/attendance/view/student_attendance_forms/student_sign_in_form.dart';
 // import 'profile_show_widget.dart';
 
 // class RemoveStudentTile extends StatelessWidget {

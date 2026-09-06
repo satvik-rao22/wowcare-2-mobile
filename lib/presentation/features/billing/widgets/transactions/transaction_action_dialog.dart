@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_dialog.dart'
     show BillingActionCard;
@@ -25,7 +26,7 @@ class TransactionActionDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.billingCardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
@@ -43,7 +44,7 @@ class TransactionActionDialog extends StatelessWidget {
                     child: Text(
                       BillingStrings.newTransaction,
                       style: TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: AppColors.billingTextColor,
@@ -65,7 +66,7 @@ class TransactionActionDialog extends StatelessWidget {
               const Text(
                 BillingStrings.whatWouldYouLikeToDo,
                 style: TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: AppColors.billingTextMuted,

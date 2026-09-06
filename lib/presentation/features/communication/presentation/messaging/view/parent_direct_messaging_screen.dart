@@ -9,7 +9,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';

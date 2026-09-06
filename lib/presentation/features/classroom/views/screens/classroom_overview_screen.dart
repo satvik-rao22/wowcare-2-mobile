@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/domain/features/classroom/repositories/classroom_repository.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_student_classroom_enrolled_count_usecase.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -21,6 +21,9 @@ class ClassroomOverviewScreen extends StatefulWidget {
 
 class _ClassroomOverviewScreenState extends State<ClassroomOverviewScreen> {
   late final CacheManager _cacheManager;
+  final GetStudentClassroomEnrolledCountUseCase
+  _getStudentClassroomEnrolledCountUseCase =
+      serviceLocator<GetStudentClassroomEnrolledCountUseCase>();
   String? _selectedClassroomCode;
 
   int _enrolledCount = 0;
@@ -76,20 +79,13 @@ class _ClassroomOverviewScreenState extends State<ClassroomOverviewScreen> {
     final code = classroomCode.trim();
     if (code.isEmpty) return;
 
-    final body = await serviceLocator<ClassroomRepository>()
-        .getStudentClassroomEnrolledCount(classroomCode: code);
-    if (body is! Map<String, dynamic>) {
-      throw Exception('Unexpected enrolled-count API response format');
-    }
-    final data = body['data'];
-    if (data is! Map) {
-      throw Exception('Unexpected enrolled-count API data format');
-    }
+    final count = await _getStudentClassroomEnrolledCountUseCase(
+      classroomCode: code,
+    );
 
-    final dataMap = Map<String, dynamic>.from(data);
-    final active = (dataMap['activeCount'] as num?)?.toInt() ?? 0;
-    final upcoming = (dataMap['upcomingCount'] as num?)?.toInt() ?? 0;
-    final enrolled = (dataMap['enrolledCount'] as num?)?.toInt() ?? 0;
+    final active = count.activeCount;
+    final upcoming = count.upcomingCount;
+    final enrolled = count.enrolledCount;
 
     await _cacheManager.saveCache(_enrolledCountCacheKey(code), {
       'data': {
@@ -150,7 +146,7 @@ class _ClassroomOverviewScreenState extends State<ClassroomOverviewScreen> {
                       minHeight: constraints.maxHeight,
                     ),
                     child: Container(
-                      color: Colors.white,
+                      color: AppColors.cardColor,
                       padding: const EdgeInsets.all(8),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -197,7 +193,7 @@ class _EnrollmentOverviewCard extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.cardBorderColor),
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
+        color: AppColors.cardColor,
       ),
       child: Column(
         children: [
@@ -478,7 +474,7 @@ class _RatioMonitoringPlaceholder extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.cardBorderColor),
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
+        color: AppColors.cardColor,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -515,22 +511,22 @@ class _RatioMonitoringPlaceholder extends StatelessWidget {
         _RatioHeaderCell(
           mainText: 'Classroom',
           subText: '',
-          backgroundColor: Color.fromRGBO(249, 245, 250, 1),
+          backgroundColor: AppColors.classroomNeutralTintColor,
         ),
         _RatioHeaderCell(
           mainText: 'Students',
           subText: 'Present',
-          backgroundColor: Color.fromRGBO(234, 240, 253, 1),
+          backgroundColor: AppColors.classroomRatioStudentsHeaderColor,
         ),
         _RatioHeaderCell(
           mainText: 'Staff',
           subText: 'Present',
-          backgroundColor: Color.fromRGBO(234, 251, 255, 1),
+          backgroundColor: AppColors.classroomRatioStaffHeaderColor,
         ),
         _RatioHeaderCell(
           mainText: 'Ratio',
           subText: 'Current',
-          backgroundColor: Color.fromRGBO(255, 245, 234, 1),
+          backgroundColor: AppColors.classroomRatioCurrentHeaderColor,
         ),
       ],
     );
@@ -577,7 +573,7 @@ class _RatioHeaderCell extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: Color.fromRGBO(87, 51, 83, 1),
+                color: AppColors.primaryColor,
                 fontFamily: 'Manrope',
               ),
             ),
@@ -590,7 +586,7 @@ class _RatioHeaderCell extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: Colors.grey.shade800,
+                color: AppColors.classroomRatioHeaderSubtextColor,
                 fontFamily: 'Manrope',
               ),
             ),
@@ -603,7 +599,7 @@ class _RatioHeaderCell extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: Colors.grey.shade800,
+                color: AppColors.classroomRatioHeaderSubtextColor,
                 fontFamily: 'Manrope',
               ),
             ),

@@ -83,7 +83,7 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
       appBar: AppBar(
         title: const Text(BillingStrings.addPaymentMethod),
         backgroundColor: AppColors.transparentColor,
-        foregroundColor: Colors.white,
+        foregroundColor: AppColors.billingCardOnColorText,
         elevation: 0,
         flexibleSpace: Container(
           decoration: BoxDecoration(

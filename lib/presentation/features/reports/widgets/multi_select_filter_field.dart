@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/responsive/responsive_scope.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/presentation/features/reports/widgets/multi_select_overlay_panel.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
 
 /// Reusable multi-select filter field with search, select all, and smart display.
 ///
@@ -86,11 +89,15 @@ class MultiSelectFilterField<T> extends StatefulWidget {
 }
 
 class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
-  late List<T> _localSelectedItems;
-  late List<T> _filteredItems;
-  final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
-  bool isDropdownOpen = false;
+  /// §2.2 bucket B — the local selection mirror and the open/closed flag are
+  /// UI micro-state owned by this field.
+  ///
+  /// Created once here rather than in [_initializeSelection], which also runs
+  /// from didUpdateWidget — a `late final` would throw on the second call.
+  final ValueNotifier<List<T>> _localSelectedItems = ValueNotifier<List<T>>(
+    <T>[],
+  );
+  final ValueNotifier<bool> isDropdownOpen = ValueNotifier<bool>(false);
   final LayerLink _layerLink = LayerLink();
   final GlobalKey _fieldKey = GlobalKey();
   OverlayEntry? _overlayEntry;
@@ -102,8 +109,7 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
   }
 
   void _initializeSelection() {
-    _localSelectedItems = _synchronizeSelection(widget.selectedItems);
-    _updateFilteredItems();
+    _localSelectedItems.value = _synchronizeSelection(widget.selectedItems);
   }
 
   /// Synchronize external selection with internal list, removing invalid items
@@ -137,39 +143,24 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
     }
   }
 
-  void _updateFilteredItems() {
-    if (_searchQuery.isEmpty) {
-      _filteredItems = widget.items;
-    } else {
-      _filteredItems = widget.items
-          .where(
-            (item) => widget
-                .itemToString(item)
-                .toLowerCase()
-                .contains(_searchQuery.toLowerCase()),
-          )
-          .toList();
-    }
-  }
-
   String _getDisplayText() {
-    if (_localSelectedItems.isEmpty) {
+    if (_localSelectedItems.value.isEmpty) {
       return widget.hintText;
     }
 
-    if (_localSelectedItems.length == widget.items.length) {
+    if (_localSelectedItems.value.length == widget.items.length) {
       return 'All ${widget.pluralLabel} Selected';
     }
 
-    if (_localSelectedItems.length == 1) {
+    if (_localSelectedItems.value.length == 1) {
       return '1 ${widget.singularLabel} Selected';
     }
 
-    return '${_localSelectedItems.length} ${widget.pluralLabel} Selected';
+    return '${_localSelectedItems.value.length} ${widget.pluralLabel} Selected';
   }
 
   void _toggleDropdown() {
-    if (isDropdownOpen) {
+    if (isDropdownOpen.value) {
       _closeDropdown();
     } else {
       _openDropdown();
@@ -177,15 +168,10 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
   }
 
   void _openDropdown() {
-    _searchQuery = '';
-    _searchController.clear();
-    _updateFilteredItems();
     _overlayEntry = _createOverlayEntry();
     if (mounted) {
       Overlay.of(context).insert(_overlayEntry!);
-      setState(() {
-        isDropdownOpen = true;
-      });
+      isDropdownOpen.value = true;
     }
   }
 
@@ -193,63 +179,41 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
     _overlayEntry?.remove();
     _overlayEntry = null;
     if (updateState && mounted) {
-      setState(() {
-        isDropdownOpen = false;
-      });
+      isDropdownOpen.value = false;
     }
   }
 
   void _toggleItemSelection(T item) {
-    setState(() {
-      final index = _localSelectedItems.indexWhere((i) => _itemsEqual(i, item));
-      if (index >= 0) {
-        _localSelectedItems.removeAt(index);
-      } else {
-        _localSelectedItems.add(item);
-      }
-      widget.onChanged(List.from(_localSelectedItems));
-    });
+    // A new list, not an in-place mutation: ValueNotifier only notifies when
+    // the reference changes.
+    final next = List<T>.from(_localSelectedItems.value);
+    final index = next.indexWhere((i) => _itemsEqual(i, item));
+    if (index >= 0) {
+      next.removeAt(index);
+    } else {
+      next.add(item);
+    }
+    _localSelectedItems.value = next;
+    widget.onChanged(List<T>.from(next));
   }
 
   void _selectAll() {
-    setState(() {
-      _localSelectedItems = List.from(widget.items);
-      widget.onChanged(List.from(_localSelectedItems));
-    });
+    _localSelectedItems.value = List<T>.from(widget.items);
+    widget.onChanged(List<T>.from(_localSelectedItems.value));
   }
 
   void _clearAll() {
-    setState(() {
-      _localSelectedItems.clear();
-      widget.onChanged([]);
-    });
+    _localSelectedItems.value = <T>[];
+    widget.onChanged(<T>[]);
   }
 
   bool _isItemSelected(T item) {
-    return _localSelectedItems.any((i) => _itemsEqual(i, item));
+    return _localSelectedItems.value.any((i) => _itemsEqual(i, item));
   }
 
   bool _isAllSelected() {
-    return _localSelectedItems.length == widget.items.length &&
+    return _localSelectedItems.value.length == widget.items.length &&
         widget.items.isNotEmpty;
-  }
-
-  Widget _buildCheckbox(bool isSelected) {
-    return Container(
-      width: 20,
-      height: 20,
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: isSelected ? AppColors.themeColor : Colors.grey.shade400,
-          width: 2,
-        ),
-        borderRadius: BorderRadius.circular(4),
-        color: isSelected ? AppColors.themeColor : Colors.transparent,
-      ),
-      child: isSelected
-          ? const Icon(Icons.check, size: 14, color: Colors.white)
-          : null,
-    );
   }
 
   OverlayEntry _createOverlayEntry() {
@@ -266,7 +230,7 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
           Positioned.fill(
             child: GestureDetector(
               onTap: _closeDropdown,
-              child: Container(color: Colors.transparent),
+              child: Container(color: AppColors.transparentColor),
             ),
           ),
           // Dropdown
@@ -279,134 +243,30 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
               child: Material(
                 elevation: 8,
                 borderRadius: BorderRadius.circular(8),
-                shadowColor: Colors.black26,
+                shadowColor: AppColors.blackColor.withValues(alpha: 0.26),
                 child: Container(
                   constraints: BoxConstraints(maxHeight: 350),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.cardColor,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300, width: 1),
+                    border: Border.all(
+                      color: AppColors.reportsDisabledSurfaceColor,
+                      width: 1,
+                    ),
                   ),
-                  child: StatefulBuilder(
-                    builder: (context, setOverlayState) {
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Search field
-                          if (widget.enableSearch)
-                            Padding(
-                              padding: const EdgeInsets.all(8),
-                              child: TextField(
-                                controller: _searchController,
-                                decoration: InputDecoration(
-                                  hintText:
-                                      widget.searchHintText ??
-                                      'Search ${widget.pluralLabel}',
-                                  prefixIcon: const Icon(Icons.search),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                ),
-                                onChanged: (value) {
-                                  setOverlayState(() {
-                                    _searchQuery = value;
-                                    _updateFilteredItems();
-                                  });
-                                },
-                              ),
-                            ),
-                          // Select All / Clear All buttons
-                          if (widget.showSelectAll)
-                            InkWell(
-                              onTap: () {
-                                setOverlayState(() {
-                                  if (_isAllSelected()) {
-                                    _clearAll();
-                                  } else {
-                                    _selectAll();
-                                  }
-                                });
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 12,
-                                ),
-                                child: Row(
-                                  children: [
-                                    _buildCheckbox(_isAllSelected()),
-                                    const SizedBox(width: 12),
-                                    const Expanded(
-                                      child: Text(
-                                        'Select All',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          // Items list
-                          Expanded(
-                            child: _filteredItems.isEmpty
-                                ? Center(
-                                    child: Text(
-                                      'No ${widget.pluralLabel.toLowerCase()} found',
-                                      style: TextStyle(
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    padding: EdgeInsets.zero,
-                                    itemCount: _filteredItems.length,
-                                    itemBuilder: (context, index) {
-                                      final item = _filteredItems[index];
-                                      final isSelected = _isItemSelected(item);
-                                      return InkWell(
-                                        onTap: () {
-                                          setOverlayState(
-                                            () => _toggleItemSelection(item),
-                                          );
-                                        },
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 12,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              _buildCheckbox(isSelected),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: Text(
-                                                  widget.itemToString(item),
-                                                  style: const TextStyle(
-                                                    fontSize: 14,
-                                                    color: Colors.black87,
-                                                    fontWeight: FontWeight.w400,
-                                                  ),
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                          ),
-                        ],
-                      );
-                    },
+                  child: MultiSelectOverlayPanel<T>(
+                    items: widget.items,
+                    itemToString: widget.itemToString,
+                    enableSearch: widget.enableSearch,
+                    showSelectAll: widget.showSelectAll,
+                    pluralLabel: widget.pluralLabel,
+                    searchHintText: widget.searchHintText,
+                    selectedItems: _localSelectedItems,
+                    isItemSelected: _isItemSelected,
+                    isAllSelected: _isAllSelected,
+                    onToggleItem: _toggleItemSelection,
+                    onSelectAll: _selectAll,
+                    onClearAll: _clearAll,
                   ),
                 ),
               ),
@@ -419,14 +279,15 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
 
   @override
   void dispose() {
-    _searchController.dispose();
+    // Close the overlay BEFORE disposing the notifiers it reads.
     _closeDropdown(updateState: false);
+    _localSelectedItems.dispose();
+    isDropdownOpen.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final responsive = ResponsiveHelper(context);
     final displayText = _getDisplayText();
 
     return Column(
@@ -435,23 +296,20 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
         // Label
         RichText(
           text: TextSpan(
-            style: TextStyle(
-              fontSize: responsive.labelFontSize,
-              fontFamily: 'Manrope',
-              fontWeight: FontWeight.w400,
-              color: const Color(0xff573353),
+            style: AppTextStyles.reportsFieldLabel(
+              fontSize: context.responsive(compact: 14.0, medium: 16.0),
             ),
             children: [
               TextSpan(text: widget.label),
               if (widget.showAsterisk || widget.isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: AppTextStyles.reportsRequiredMarker,
                 ),
             ],
           ),
         ),
-        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
+        SizedBox(height: context.isTablet ? 8.0 : 6.0),
         // Field
         CompositedTransformTarget(
           link: _layerLink,
@@ -460,7 +318,7 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
             onTap: _toggleDropdown,
             child: Container(
               constraints: BoxConstraints(minHeight: 44),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: AppSizes.sm),
               decoration: BoxDecoration(
                 color: AppColors.fieldBackgroundColor,
                 borderRadius: BorderRadius.circular(10),
@@ -469,23 +327,35 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: Text(
-                      displayText,
-                      style: TextStyle(
-                        color: _localSelectedItems.isEmpty
-                            ? Colors.grey.shade600
-                            : Colors.black87,
-                        fontSize: responsive.labelFontSize,
-                        fontWeight: FontWeight.w500,
+                    child: ValueListenableBuilder<List<T>>(
+                      valueListenable: _localSelectedItems,
+                      builder: (context, selected, _) => Text(
+                        displayText,
+                        style:
+                            AppTextStyles.reportsFieldValue(
+                              fontSize: context.responsive(
+                                compact: 14.0,
+                                medium: 16.0,
+                              ),
+                            ).copyWith(
+                              color: selected.isEmpty
+                                  ? AppColors.reportsDisabledForegroundColor
+                                  : AppColors.blackColor.withValues(
+                                      alpha: 0.87,
+                                    ),
+                            ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Icon(
-                    isDropdownOpen
-                        ? Icons.keyboard_arrow_up
-                        : Icons.keyboard_arrow_down,
-                    size: 24,
+                  ValueListenableBuilder<bool>(
+                    valueListenable: isDropdownOpen,
+                    builder: (context, open, _) => Icon(
+                      open
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      size: 24,
+                    ),
                   ),
                 ],
               ),
@@ -498,12 +368,9 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
             padding: const EdgeInsets.only(top: 6),
             child: Text(
               widget.defaultNote!,
-              style: const TextStyle(
-                fontFamily: 'Manrope',
+              style: AppTextStyles.reportsFieldLabel(
                 fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: Color(0xff4F46E5),
-              ),
+              ).copyWith(color: AppColors.reportsAccentColor),
             ),
           ),
       ],
@@ -511,48 +378,6 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
   }
 }
 
-/// Select All button component
-class _SelectAllButton extends StatelessWidget {
-  final bool isAllSelected;
-  final VoidCallback onSelectAll;
-
-  const _SelectAllButton({
-    required this.isAllSelected,
-    required this.onSelectAll,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: onSelectAll,
-      icon: Icon(
-        isAllSelected ? Icons.check_box : Icons.check_box_outline_blank,
-        size: 20,
-      ),
-      label: Text(isAllSelected ? 'Clear All' : 'Select All'),
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-      ),
-    );
-  }
-}
-
-/// Clear All button component
-class _ClearAllButton extends StatelessWidget {
-  final bool isEmpty;
-  final VoidCallback onClearAll;
-
-  const _ClearAllButton({required this.isEmpty, required this.onClearAll});
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: isEmpty ? null : onClearAll,
-      icon: const Icon(Icons.clear, size: 20),
-      label: const Text('Clear'),
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-      ),
-    );
-  }
-}
+/// Square check indicator used by each row of the multi-select popup.
+///
+/// Was `Widget _buildCheckbox(bool)` on the State. A private widget class can

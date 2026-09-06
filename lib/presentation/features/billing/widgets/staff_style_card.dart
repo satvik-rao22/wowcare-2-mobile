@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 
 /// Shared visual language for every billing card, inherited from
 /// [staff_card.dart] (`lib/presentation/features/staff/widgets/staff_card.dart`).
@@ -17,7 +18,7 @@ class BillingCardText {
 
   /// Header name/title — Manrope 14 (16 on tablet), w500.
   static TextStyle name(bool isTablet) => TextStyle(
-        fontFamily: 'Manrope',
+        fontFamily: Fonts.manrope,
         fontSize: isTablet ? 16 : 14,
         fontWeight: FontWeight.w500,
         color: kBillingCardTextColor,
@@ -26,7 +27,7 @@ class BillingCardText {
 
   /// Detail-row label — Manrope 13, w400.
   static const TextStyle label = TextStyle(
-    fontFamily: 'Manrope',
+    fontFamily: Fonts.manrope,
     fontSize: 13,
     fontWeight: FontWeight.w400,
     color: kBillingCardTextColor,
@@ -35,7 +36,7 @@ class BillingCardText {
 
   /// Detail-row value — Manrope 14, w500.
   static const TextStyle value = TextStyle(
-    fontFamily: 'Manrope',
+    fontFamily: Fonts.manrope,
     fontSize: 14,
     fontWeight: FontWeight.w500,
     color: kBillingCardTextColor,
@@ -44,7 +45,7 @@ class BillingCardText {
 
   /// Small sub-note shown under a value — Manrope 10, w500.
   static const TextStyle note = TextStyle(
-    fontFamily: 'Manrope',
+    fontFamily: Fonts.manrope,
     fontSize: 10,
     fontWeight: FontWeight.w500,
     color: kBillingCardTextColor,
@@ -96,14 +97,19 @@ class StaffStyleCard extends StatefulWidget {
 }
 
 class _StaffStyleCardState extends State<StaffStyleCard> {
-  late bool _isExpanded = widget.initiallyExpanded;
+  late final ValueNotifier<bool> _isExpanded =
+      ValueNotifier<bool>(widget.initiallyExpanded);
 
-  bool get _expanded => widget.isExpanded ?? _isExpanded;
+  @override
+  void dispose() {
+    _isExpanded.dispose();
+    super.dispose();
+  }
 
   void _toggle() {
-    final next = !_expanded;
+    final next = !(widget.isExpanded ?? _isExpanded.value);
     if (widget.isExpanded == null) {
-      setState(() => _isExpanded = next);
+      _isExpanded.value = next;
     }
     widget.onExpandChanged?.call(next);
   }
@@ -113,11 +119,15 @@ class _StaffStyleCardState extends State<StaffStyleCard> {
     final isTablet = ResponsiveHelper(context).isTabletCompact;
     return LayoutBuilder(
       builder: (context, constraints) {
-        return IntrinsicHeight(
+        return ValueListenableBuilder<bool>(
+          valueListenable: _isExpanded,
+          builder: (context, internalExpanded, _) {
+            final expanded = widget.isExpanded ?? internalExpanded;
+            return IntrinsicHeight(
           child: Container(
             width: constraints.maxWidth,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.billingCardColor,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.cardBorderColor, width: 1),
             ),
@@ -139,7 +149,7 @@ class _StaffStyleCardState extends State<StaffStyleCard> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          if (!_expanded && widget.collapsedPrefix != null) ...[
+                          if (!expanded && widget.collapsedPrefix != null) ...[
                             widget.collapsedPrefix!,
                             SizedBox(width: isTablet ? 16 : 9),
                           ],
@@ -151,7 +161,7 @@ class _StaffStyleCardState extends State<StaffStyleCard> {
                         ],
                       ),
                     ),
-                    if (_expanded) ...[
+                    if (expanded) ...[
                       const Divider(
                         height: 1,
                         thickness: 1,
@@ -173,6 +183,8 @@ class _StaffStyleCardState extends State<StaffStyleCard> {
               ),
             ),
           ),
+        );
+          },
         );
       },
     );
@@ -232,6 +244,88 @@ class StaffCardDetailRow extends StatelessWidget {
   }
 }
 
+/// Full-width gradient-filled primary action button (e.g. View, Edit),
+/// shared by [LedgerCard] and [DiscountCard], whose View / Edit-or-Reactivate
+/// / Deactivate-or-Delete button arrangement varies per row and doesn't fit
+/// [StaffCardActions]'s fixed outline+primary pair.
+class FilledActionButton extends StatelessWidget {
+  const FilledActionButton({super.key, required this.label, this.onTap});
+
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 40,
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: AppColors.buildPrimaryGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: TextButton(
+          onPressed: onTap,
+          style: TextButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontFamily: Fonts.manrope,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppColors.billingCardOnColorText,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Full-width outlined secondary action button (e.g. Delete, Deactivate) —
+/// the counterpart to [FilledActionButton].
+class OutlineActionButton extends StatelessWidget {
+  const OutlineActionButton({super.key, required this.label, this.onTap});
+
+  final String label;
+  final VoidCallback? onTap;
+
+  static const Color _accent = AppColors.billingCardAccent;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 40,
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: _accent),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontFamily: Fonts.manrope,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: _accent,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// The staff card's bottom action row: an outlined secondary button (e.g.
 /// Delete) next to a gradient-filled primary button (e.g. Edit).
 class StaffCardActions extends StatelessWidget {
@@ -270,7 +364,7 @@ class StaffCardActions extends StatelessWidget {
                 child: Text(
                   secondaryLabel!,
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: Fonts.manrope,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: _accent,
@@ -295,10 +389,10 @@ class StaffCardActions extends StatelessWidget {
               child: Text(
                 primaryLabel,
                 style: const TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: AppColors.billingCardOnColorText,
                   height: 16 / 16,
                 ),
               ),

@@ -3,9 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
-import 'package:wowcare/presentation/features/billing/cubit/add_credit_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/add_credit_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
@@ -47,7 +48,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
     // 'Discount Adjustment',
     'Other',
   ];
-  String? _selectedReason;
+  final ValueNotifier<String?> _selectedReason = ValueNotifier<String?>(null);
 
   bool get _isSubmitting => _cubit.state.isSubmitting;
   bool get _amountError => _cubit.state.amountError;
@@ -58,11 +59,12 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
     _amountController.dispose();
     _descriptionController.dispose();
     _internalNoteController.dispose();
+    _selectedReason.dispose();
     super.dispose();
   }
 
   Future<void> _onSave() async {
-    if (_selectedReason == null) {
+    if (_selectedReason.value == null) {
       _showMessage(BillingStrings.pleaseSelectReason, isError: true);
       return;
     }
@@ -72,7 +74,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
     }
     final result = await _cubit.submit(
       amount: _amountController.text,
-      reason: _selectedReason,
+      reason: _selectedReason.value,
       description: _descriptionController.text.trim(),
       ownerType: widget.ownerType,
       ownerCode: widget.ownerCode,
@@ -107,7 +109,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
 
   TextStyle _labelStyle(ResponsiveHelper responsive) => TextStyle(
         fontSize: responsive.labelFontSize,
-        fontFamily: 'Manrope',
+        fontFamily: Fonts.manrope,
         fontWeight: FontWeight.w400,
         color: AppColors.billingTextColor,
       );
@@ -141,7 +143,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
       );
 
   TextStyle _valueStyle(ResponsiveHelper responsive) => TextStyle(
-        fontFamily: 'Manrope',
+        fontFamily: Fonts.manrope,
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w600,
         color: AppColors.billingTextColor,
@@ -173,7 +175,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                     padding: EdgeInsets.only(top: 4.0, left: 2.0),
                     child: Text(
                       BillingStrings.pleaseEnterValidAmount,
-                      style: TextStyle(color: Colors.red, fontSize: 12),
+                      style: TextStyle(color: AppColors.errorColor, fontSize: 12),
                     ),
                   ),
                 SizedBox(height: verticalSpacing),
@@ -220,17 +222,17 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
               width: 50,
               height: 50,
               decoration: const BoxDecoration(
-                color: Color(0xFF67C2A6),
+                color: AppColors.billingFamilyAvatarBackground,
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
               child: Text(
                 _initials(name),
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppColors.billingCardOnColorText,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                 ),
               ),
             ),
@@ -242,7 +244,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: AppColors.billingTextColor,
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                 ),
               ),
             ),
@@ -324,11 +326,13 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
         return Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: _fieldBox(responsive),
-          child: PopupMenuButton<String>(
+          child: ValueListenableBuilder<String?>(
+            valueListenable: _selectedReason,
+            builder: (context, selectedReason, _) => PopupMenuButton<String>(
             enabled: !_isSubmitting,
             padding: EdgeInsets.zero,
             position: PopupMenuPosition.under,
-            color: Colors.white,
+            color: AppColors.billingCardColor,
             constraints: BoxConstraints(
               minWidth: constraints.maxWidth,
               maxWidth: constraints.maxWidth,
@@ -337,7 +341,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
               borderRadius:
                   BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
             ),
-            onSelected: (value) => setState(() => _selectedReason = value),
+            onSelected: (value) => _selectedReason.value = value,
             itemBuilder: (context) => _reasonOptions
                 .map(
                   (r) => PopupMenuItem<String>(
@@ -356,10 +360,10 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                 children: <Widget>[
                   Expanded(
                     child: Text(
-                      _selectedReason ?? BillingStrings.selectReason,
-                      style: _selectedReason != null
+                      selectedReason ?? BillingStrings.selectReason,
+                      style: selectedReason != null
                           ? _valueStyle(responsive)
-                          : _labelStyle(responsive).copyWith(color: Colors.grey),
+                          : _labelStyle(responsive).copyWith(color: AppColors.billingGrey),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -372,6 +376,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                 ],
               ),
             ),
+          ),
           ),
         );
       },
@@ -398,7 +403,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
             style: _valueStyle(responsive),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: _labelStyle(responsive).copyWith(color: Colors.grey),
+              hintStyle: _labelStyle(responsive).copyWith(color: AppColors.billingGrey),
               border: InputBorder.none,
               contentPadding: _fieldPadding(responsive),
             ),
@@ -428,10 +433,10 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
       padding:
           EdgeInsets.only(bottom: safeAreaBottom, left: 16, right: 16, top: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.billingCardColor,
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: AppColors.blackColor.withValues(alpha: 0.05),
             offset: const Offset(0, -4),
             blurRadius: 16,
           ),
@@ -467,7 +472,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                     Text(
                       BillingStrings.processing,
                       style: TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                         fontSize: responsive.buttonFontSize,
                         fontWeight: FontWeight.w600,
                         color: AppColors.billingCardColor,
@@ -478,7 +483,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
               : Text(
                   BillingStrings.save,
                   style: TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: Fonts.manrope,
                     fontSize: responsive.buttonFontSize,
                     fontWeight: FontWeight.w600,
                     color: AppColors.billingCardColor,

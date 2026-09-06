@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/reports/widgets/generated_report_card.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 
 enum GeneratedReportFileType { xlsx, pdf }
 
@@ -34,30 +38,28 @@ class GeneratedReportsList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(4, 0, 4, 12),
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            AppSizes.xxs,
+            0,
+            AppSizes.xxs,
+            AppSizes.sm,
+          ),
           child: Text(
-            'Recently Generated Reports',
-            style: TextStyle(
-              fontFamily: 'Manrope',
+            ReportsStrings.recentlyGeneratedReports,
+            style: AppTextStyles.reportsHeading(
               fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Color(0xff573353),
-              height: 20 / 16,
-            ),
+            ).copyWith(height: 20 / 16),
           ),
         ),
         if (items.isEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
+            padding: const EdgeInsets.symmetric(vertical: AppSizes.xl),
             child: Center(
               child: Text(
-                'No reports generated yet.',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xff573353).withValues(alpha: 0.6),
+                ReportsStrings.noReportsGeneratedYetAlt,
+                style: AppTextStyles.reportsFieldValue(fontSize: 14).copyWith(
+                  color: AppColors.primaryColor.withValues(alpha: 0.6),
                 ),
               ),
             ),
@@ -67,10 +69,11 @@ class GeneratedReportsList extends StatelessWidget {
             GeneratedReportCard(
               item: items[i],
               onView: onView == null ? null : () => onView!(items[i]),
-              onDownload:
-                  onDownload == null ? null : (assetCode) => onDownload!(assetCode),
+              onDownload: onDownload == null
+                  ? null
+                  : (assetCode) => onDownload!(assetCode),
             ),
-            if (i != items.length - 1) const SizedBox(height: 10),
+            if (i != items.length - 1) const SizedBox(height: AppSizes.xsPlus),
           ],
       ],
     );

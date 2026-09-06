@@ -22,6 +22,19 @@ enum _DocKind { image, video, pdf, office }
 /// Documents tab. Renders natively for images/videos/PDFs; falls back to
 /// Google's document viewer (via WebView) for office formats (docx, xlsx,
 /// pptx, txt, etc.) so users can preview before deciding to download.
+/// Typed `extra` for the document-viewer route (§1.5 — no untyped maps).
+class DocumentViewerArgs {
+  const DocumentViewerArgs({
+    required this.url,
+    required this.documentName,
+    required this.mimeType,
+  });
+
+  final String url;
+  final String documentName;
+  final String mimeType;
+}
+
 class DocumentViewerScreen extends StatefulWidget {
   const DocumentViewerScreen({
     super.key,

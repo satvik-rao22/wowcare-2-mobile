@@ -6,12 +6,15 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
-import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
+import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
+import 'package:wowcare/presentation/features/reports/widgets/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import '../../../../core/util/school_context_helper.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/reports/model/report_form_result.dart';
+import 'package:wowcare/core/responsive/responsive_scope.dart';
+import 'package:wowcare/presentation/features/reports/widgets/resolve_school_name.dart';
+import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 
 class StudentEmergencyContactReportScreen extends StatefulWidget {
   const StudentEmergencyContactReportScreen({
@@ -54,7 +57,7 @@ class _StudentEmergencyContactReportScreenState
     if (!_isFormValid) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Please select at least one classroom',
+        message: ReportsStrings.pleaseSelectAtLeastOneClassroom,
         isError: true,
       );
       return;
@@ -72,19 +75,8 @@ class _StudentEmergencyContactReportScreenState
     );
     if (classroomCodes == null) return;
 
-    // Retrieve the school name from storage
-    final schoolName = await SchoolContextHelper.getSchoolName();
-    AppLogger.d('resolvedSchoolName=$schoolName');
-    if (schoolName == null || schoolName.isEmpty) {
-      if (!mounted) return;
-
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Unable to resolve school name',
-        isError: true,
-      );
-      return;
-    }
+    final schoolName = await resolveSchoolNameOrWarn(context);
+    if (schoolName == null || !mounted) return;
     final params = ReportRequestParams(
       reportType: ReportType.emergencyContacts,
       startDate: AppTime.now(),
@@ -133,7 +125,7 @@ class _StudentEmergencyContactReportScreenState
               AppLogger.d('[LISTENER-SHOW-SNACKBAR] About to show snackbar');
               CoreUtils.showTopSnackBar(
                 context: context,
-                message: 'Report generated successfully',
+                message: ReportsStrings.reportGeneratedSuccessfully,
                 isSuccess: true,
               );
 
@@ -148,12 +140,11 @@ class _StudentEmergencyContactReportScreenState
                   }
 
                   AppLogger.d('[LISTENER-NAVIGATE-EXEC] Executing navigation');
-                  // Pop (not context.go) — this screen was pushed via plain
-                  // Navigator.push, so only popping actually dismisses it;
-                  // the hub's own .then((success) => tab 0) callback reacts
-                  // to the pop(true) result.
+                  // Hand the hub a typed result. The report is generated
+                  // but the file is not attached, so the hub animates to the
+                  // Generated tab -- the outcome pop(true) used to encode.
                   context.read<ReportsCubit>().clearGeneratedReport();
-                  Navigator.of(context).pop(true);
+                  context.pop(const ReportGeneratedRefreshList());
                 });
               }
             } else {
@@ -166,7 +157,7 @@ class _StudentEmergencyContactReportScreenState
         selector: (state) => state.isGenerating,
         builder: (context, isGenerating) {
           return ReportFormLayout(
-            title: 'Student Emergency Contact List',
+            title: ReportsStrings.studentEmergencyContactName,
             onGenerate: _onGenerate,
             isLoading: isGenerating,
             showButton: true,
@@ -177,8 +168,8 @@ class _StudentEmergencyContactReportScreenState
                 ValueListenableBuilder<List<String>>(
                   valueListenable: _selectedClassrooms,
                   builder: (_, selected, __) => CustomMultiSelectDropdown(
-                    label: 'Classroom',
-                    hintText: 'Select Classroom',
+                    label: ReportsStrings.classroom,
+                    hintText: ReportsStrings.selectClassroom,
                     items: widget.classrooms,
                     isRequired: true,
                     selectedItems: selected,
@@ -187,10 +178,12 @@ class _StudentEmergencyContactReportScreenState
                   ),
                 ),
                 const ReportDefaultNote(
-                  text: 'Note: All Classrooms will be selected by Default.',
+                  text: ReportsStrings.noteAllClassroomsWillBeSelectedByDefault,
                 ),
-                SizedBox(height: ResponsiveHelper(context).verticalSpacing),
-                const ReportFieldLabel(label: 'Export Format'),
+                SizedBox(
+                  height: context.responsive(compact: 16.0, medium: 24.0),
+                ),
+                const ReportFieldLabel(label: ReportsStrings.exportFormat),
                 ValueListenableBuilder<String>(
                   valueListenable: _format,
                   builder: (_, format, __) => ReportFormatSelector(

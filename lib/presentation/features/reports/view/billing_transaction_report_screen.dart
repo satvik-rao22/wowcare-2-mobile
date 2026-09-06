@@ -1,27 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/reports/entities/report_entity.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
-import 'package:wowcare/domain/features/student_classroom/entities/student_classroom_item.dart';
-import 'package:wowcare/domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
-import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
+import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
 import 'dart:async';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
-import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
-import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
-import 'package:wowcare/presentation/features/reports/utils/report_filter_defaults.dart';
-
-import '../widgets/multi_select_filter_field.dart';
+import 'package:wowcare/presentation/features/reports/widgets/report_code_resolver.dart';
+import 'package:wowcare/domain/features/reports/usecases/report_file_name_for_format.dart';
+import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
+import 'package:wowcare/presentation/features/reports/model/report_form_result.dart';
+import 'package:wowcare/core/responsive/responsive_scope.dart';
+import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 
 class BillingTransactionReportScreen extends StatefulWidget {
   const BillingTransactionReportScreen({super.key});
@@ -41,160 +36,84 @@ class _BillingTransactionReportScreenState
     'Refunded',
   ];
 
-  static const List<String> _transactionTypeOptions = <String>[
-    'Cash',
-    'Cheque',
-    'Online',
-    'Others',
-  ];
+  // §2.2 bucket B — form inputs. Final notifier fields, all disposed below.
+  late final ValueNotifier<DateTime> _startDate;
+  late final ValueNotifier<DateTime> _endDate;
+  final ValueNotifier<String> _format = ValueNotifier<String>('XLSX');
+  final ValueNotifier<List<String>> _selectedTransactionStatuses =
+      ValueNotifier<List<String>>(<String>[]);
+  final ValueNotifier<List<String>> _selectedPaymentMethods =
+      ValueNotifier<List<String>>(<String>[]);
+  final ValueNotifier<List<String>> _selectedStudents =
+      ValueNotifier<List<String>>(<String>[]);
 
-  late DateTime _startDate;
-  late DateTime _endDate;
-  List<String> _selectedTransactionStatuses = <String>[];
-  List<String> _selectedTransactionTypes = <String>[];
-  List<String> _selectedPaymentMethods = <String>[];
-  String _format = 'XLSX';
-  List<String> _availableStudents = <String>[];
-  bool _isLoadingStudents = false;
-  List<String> _selectedStudents = <String>[];
+  /// No Transaction Type filter is rendered, so this stays empty and the
+  /// request omits `transactionTypes`.
+  final List<String> _selectedTransactionTypes = <String>[];
+
+  // §2.2 bucket A — the student list and its loading flag are API-owned and
+  // live on ReportsCubit. No local copies.
 
   @override
   void initState() {
     super.initState();
     final now = AppTime.now();
-    _startDate = DateTime(now.year, now.month, 1);
-    _endDate = DateTime(now.year, now.month + 1, 0);
+    _startDate = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
+    _endDate = ValueNotifier<DateTime>(DateTime(now.year, now.month + 1, 0));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _fetchStudents();
+        context.read<ReportsCubit>().loadAllRoomStudents();
       }
     });
   }
 
-  Future<void> _fetchStudents() async {
-    setState(() {
-      _isLoadingStudents = true;
-    });
-
-    try {
-      final storageService = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
-
-      final getActiveClassroomsUseCase =
-          serviceLocator<GetActiveClassroomsUseCase>();
-      final classrooms = await getActiveClassroomsUseCase(
-        schoolCode: schoolCode,
-        onlyTypeClassroom: false,
-      );
-
-      final classroomCodes = classrooms.map((c) => c.code).toList();
-
-      if (classroomCodes.isEmpty) {
-        if (!mounted) return;
-        setState(() {
-          _availableStudents = <String>[];
-          _selectedStudents = <String>[];
-          _isLoadingStudents = false;
-        });
-        return;
-      }
-
-      final getStudentClassroomListUseCase =
-          serviceLocator<GetStudentClassroomListUseCase>();
-
-      final results = <List<StudentClassroomItem>>[];
-      for (final code in classroomCodes) {
-        try {
-          final students = await getStudentClassroomListUseCase(
-            schoolCode: schoolCode,
-            classroomCode: code,
-            status: const ['ACTIVE'],
-            refresh: true,
-          );
-          results.add(students);
-        } catch (_) {
-          results.add(<StudentClassroomItem>[]);
-        }
-      }
-
-      if (!mounted) return;
-
-      final newStudentCodeByName = <String, String>{};
-      for (final studentList in results) {
-        for (final s in studentList) {
-          final fullName = s.fullName.trim();
-          if (fullName.isNotEmpty && s.studentCode.trim().isNotEmpty) {
-            newStudentCodeByName[fullName] = s.studentCode.trim();
-          }
-        }
-      }
-
-      final sortedNames = newStudentCodeByName.keys.toList()
-        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-
-      setState(() {
-        _availableStudents = sortedNames;
-        if (_selectedStudents.isEmpty) {
-          _selectedStudents = List<String>.from(sortedNames);
-        } else {
-          _selectedStudents = _selectedStudents
-              .where((s) => newStudentCodeByName.containsKey(s))
-              .toList();
-        }
-        _isLoadingStudents = false;
-      });
-
-      if (mounted) {
-        context.read<ReportsCubit>().setStudentNames(
-          sortedNames,
-          nameToCodeMap: newStudentCodeByName,
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoadingStudents = false;
-      });
-    }
+  @override
+  void dispose() {
+    _startDate.dispose();
+    _endDate.dispose();
+    _format.dispose();
+    _selectedTransactionStatuses.dispose();
+    _selectedPaymentMethods.dispose();
+    _selectedStudents.dispose();
+    super.dispose();
   }
 
   Future<void> _onGenerate() async {
-    if (_endDate.isBefore(_startDate)) {
+    if (_endDate.value.isBefore(_startDate.value)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'End date cannot be before Start date',
-        isError: true,
-      );
-      return;
-    }
-    
-    if (_selectedPaymentMethods.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select at least one Payment Method',
+        message: ReportsStrings.endDateCannotBeBeforeStartDate,
         isError: true,
       );
       return;
     }
 
-    if (_selectedTransactionStatuses.isEmpty) {
+    if (_selectedPaymentMethods.value.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Please select at least one Transaction Status',
+        message: ReportsStrings.pleaseSelectAtLeastOnePaymentMethod,
         isError: true,
       );
       return;
     }
 
-    final storage = serviceLocator<StorageService>();
-    final schoolName = (await storage.getString(StorageKeys.schoolName) ?? '')
-        .trim();
+    if (_selectedTransactionStatuses.value.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ReportsStrings.pleaseSelectAtLeastOneTransactionStatus,
+        isError: true,
+      );
+      return;
+    }
+
+    final schoolName = await context.read<ReportsCubit>().resolveSchoolName();
+    if (!mounted) return;
 
     final reportsState = context.read<ReportsCubit>().state;
-    final namesToResolve =
-        _selectedStudents.isEmpty ? _availableStudents : _selectedStudents;
+    final namesToResolve = _selectedStudents.value.isEmpty
+        ? reportsState.studentNames
+        : _selectedStudents.value;
     final studentCodes = resolveReportCodes(
       context: context,
       names: namesToResolve,
@@ -206,19 +125,19 @@ class _BillingTransactionReportScreenState
     context.read<ReportsCubit>().generateReport(
       ReportRequestParams(
         reportType: ReportType.billingTransaction,
-        startDate: _startDate,
-        endDate: _endDate,
-        format: _format,
+        startDate: _startDate.value,
+        endDate: _endDate.value,
+        format: _format.value,
         studentCodes: studentCodes,
         schoolName: schoolName.isNotEmpty ? schoolName : null,
-        transactionStatuses: _selectedTransactionStatuses.isNotEmpty
-            ? _selectedTransactionStatuses
+        transactionStatuses: _selectedTransactionStatuses.value.isNotEmpty
+            ? _selectedTransactionStatuses.value
             : null,
         transactionTypes: _selectedTransactionTypes.isNotEmpty
             ? _selectedTransactionTypes
             : null,
-        paymentMethods: _selectedPaymentMethods.isNotEmpty
-            ? _selectedPaymentMethods
+        paymentMethods: _selectedPaymentMethods.value.isNotEmpty
+            ? _selectedPaymentMethods.value
             : null,
       ),
     );
@@ -231,16 +150,29 @@ class _BillingTransactionReportScreenState
   ReportEntity? _withSelectedFormatFileName(dynamic report) {
     if (report is! ReportEntity) return null;
     return report.copyWith(
-      fileName: reportFileNameForFormat(report.fileName, _format),
+      fileName: reportFileNameForFormat(report.fileName, _format.value),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final responsive = ResponsiveHelper(context);
-
     return MultiBlocListener(
       listeners: [
+        // Re-resolve the student selection when the cubit publishes a new
+        // list — the same rule the old in-widget fetch applied inline: an
+        // empty selection re-expands to every student, otherwise keep only
+        // the students that still exist.
+        BlocListener<ReportsCubit, ReportsState>(
+          listenWhen: (previous, current) =>
+              previous.studentNames != current.studentNames,
+          listener: (context, state) {
+            _selectedStudents.value = _selectedStudents.value.isEmpty
+                ? List<String>.from(state.studentNames)
+                : _selectedStudents.value
+                      .where(state.studentNameToCode.containsKey)
+                      .toList();
+          },
+        ),
         BlocListener<ReportsCubit, ReportsState>(
           listenWhen: (previous, current) =>
               previous.generationError != current.generationError,
@@ -264,7 +196,7 @@ class _BillingTransactionReportScreenState
                 state.generatedReport != null) {
               CoreUtils.showTopSnackBar(
                 context: context,
-                message: 'Report generated successfully',
+                message: ReportsStrings.reportGeneratedSuccessfully,
                 isSuccess: true,
               );
 
@@ -272,16 +204,20 @@ class _BillingTransactionReportScreenState
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
 
-                  // Pop (not context.go) — this screen was pushed via plain
-                  // Navigator.push, so only popping actually dismisses it;
-                  // the hub reacts to the popped result: a ReportEntity makes
-                  // it download and open the generated file, anything else
-                  // just returns to the Generated tab.
+                  // Hand the hub a typed result. Billing reports stream the
+                  // file back with the response, so when there is an entity
+                  // the hub downloads and opens it; without one it just
+                  // returns to the Generated tab. Same two outcomes the old
+                  // `pop(reportToReturn ?? true)` encoded.
                   final reportToReturn = _withSelectedFormatFileName(
                     state.generatedReport,
                   );
                   context.read<ReportsCubit>().clearGeneratedReport();
-                  Navigator.of(context).pop(reportToReturn ?? true);
+                  context.pop(
+                    reportToReturn == null
+                        ? const ReportGeneratedRefreshList()
+                        : ReportGeneratedWithEntity(reportToReturn),
+                  );
                 });
               }
             }
@@ -289,85 +225,109 @@ class _BillingTransactionReportScreenState
         ),
       ],
       child: ReportFormLayout(
-        title: 'Transaction Report',
+        title: ReportsStrings.billingTransactionName,
         onGenerate: _onGenerate,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const ReportFieldLabel(label: 'Start Date'),
-            CustomDateTimeField(
-              hasLabel: false,
-              dateFormat: "dd-MM-yyyy",
-              fetchInitialTime: false,
-              initialDate: _startDate,
-              onDateSelected: (d) => setState(() => _startDate = d),
+            const ReportFieldLabel(label: ReportsStrings.startDate),
+            ValueListenableBuilder<DateTime>(
+              valueListenable: _startDate,
+              builder: (_, startDate, __) => CustomDateTimeField(
+                hasLabel: false,
+                dateFormat: "dd-MM-yyyy",
+                fetchInitialTime: false,
+                initialDate: startDate,
+                onDateSelected: (d) => _startDate.value = d,
+              ),
             ),
-            SizedBox(height: responsive.verticalSpacing),
-            const ReportFieldLabel(label: 'End Date'),
-            CustomDateTimeField(
-              hasLabel: false,
-              dateFormat: "dd-MM-yyyy",
-              fetchInitialTime: false,
-              initialDate: _endDate,
-              onDateSelected: (d) => setState(() => _endDate = d),
+            SizedBox(height: context.responsive(compact: 16.0, medium: 24.0)),
+            const ReportFieldLabel(label: ReportsStrings.endDate),
+            ValueListenableBuilder<DateTime>(
+              valueListenable: _endDate,
+              builder: (_, endDate, __) => CustomDateTimeField(
+                hasLabel: false,
+                dateFormat: "dd-MM-yyyy",
+                fetchInitialTime: false,
+                initialDate: endDate,
+                onDateSelected: (d) => _endDate.value = d,
+              ),
             ),
-            SizedBox(height: responsive.verticalSpacing),
-            const ReportFieldLabel(label: 'Export Format'),
-            ReportFormatSelector(
-              selectedFormat: _format,
-              onFormatChanged: (value) => setState(() => _format = value),
-              showLabel: false,
+            SizedBox(height: context.responsive(compact: 16.0, medium: 24.0)),
+            const ReportFieldLabel(label: ReportsStrings.exportFormat),
+            ValueListenableBuilder<String>(
+              valueListenable: _format,
+              builder: (_, format, __) => ReportFormatSelector(
+                selectedFormat: format,
+                onFormatChanged: (value) => _format.value = value,
+                showLabel: false,
+              ),
             ),
-            SizedBox(height: responsive.verticalSpacing),
+            SizedBox(height: context.responsive(compact: 16.0, medium: 24.0)),
 
-            CustomMultiSelectDropdown(
-              label: 'Payment Method',
-              hintText: "Select Payment Methods",
-              items: const ["Card", "ACH", "Cash"],
-              selectedItems: _selectedPaymentMethods,
-              showSelectAll: true,
-              isRequired: true,
-              onChanged: (s) => setState(() => _selectedPaymentMethods = s),
+            ValueListenableBuilder<List<String>>(
+              valueListenable: _selectedPaymentMethods,
+              builder: (_, selected, __) => CustomMultiSelectDropdown(
+                label: ReportsStrings.paymentMethod,
+                hintText: "Select Payment Methods",
+                items: const ["Card", "ACH", "Cash"],
+                selectedItems: selected,
+                showSelectAll: true,
+                isRequired: true,
+                onChanged: (s) => _selectedPaymentMethods.value = s,
+              ),
             ),
-            SizedBox(height: responsive.verticalSpacing),
+            SizedBox(height: context.responsive(compact: 16.0, medium: 24.0)),
 
-            CustomMultiSelectDropdown(
-              label: 'Transaction Status',
-              hintText: 'Select Transaction Statuses',
-              items: _transactionOptions,
-              selectedItems: _selectedTransactionStatuses,
-              showSelectAll: true,
-              isRequired: true,
-              onChanged: (s) =>
-                  setState(() => _selectedTransactionStatuses = s),
+            ValueListenableBuilder<List<String>>(
+              valueListenable: _selectedTransactionStatuses,
+              builder: (_, selected, __) => CustomMultiSelectDropdown(
+                label: ReportsStrings.transactionStatus,
+                hintText: ReportsStrings.selectTransactionStatuses,
+                items: _transactionOptions,
+                selectedItems: selected,
+                showSelectAll: true,
+                isRequired: true,
+                onChanged: (s) => _selectedTransactionStatuses.value = s,
+              ),
             ),
-            SizedBox(height: responsive.verticalSpacing),
+            SizedBox(height: context.responsive(compact: 16.0, medium: 24.0)),
 
-            // CustomMultiSelectDropdown(
-            //   label: 'Transaction Type',
-            //   hintText: 'Select Transaction Types',
-            //   items: _transactionTypeOptions,
-            //   selectedItems: _selectedTransactionTypes,
-            //   showSelectAll: true,
-            //   onChanged: (s) => setState(() => _selectedTransactionTypes = s),
-            // ),
-            SizedBox(height: responsive.verticalSpacing),
+            // No Transaction Type filter is rendered, so
+            // `_selectedTransactionTypes` stays empty and the request omits
+            // `transactionTypes`.
+            SizedBox(height: context.responsive(compact: 16.0, medium: 24.0)),
             // Student Dropdown
-            MultiSelectFilterField<String>(
-              label: 'Student',
-              hintText: _isLoadingStudents
-                  ? 'Loading Students...'
-                  : 'Select Students',
-              items: _availableStudents,
-              isRequired: true,
-              selectedItems: _selectedStudents,
-              onChanged: (s) => setState(() => _selectedStudents = s),
-              itemToString: (item) => item,
-              singularLabel: 'Student',
-              pluralLabel: 'Students',
-              showSelectAll: true,
-              enableSearch: true,
-              searchHintText: 'Search Students',
+            BlocSelector<
+              ReportsCubit,
+              ReportsState,
+              ({List<String> items, bool loading})
+            >(
+              selector: (state) => (
+                items: state.studentNames,
+                loading: state.formStudentsLoading,
+              ),
+              builder: (context, students) =>
+                  ValueListenableBuilder<List<String>>(
+                    valueListenable: _selectedStudents,
+                    builder: (_, selected, __) =>
+                        MultiSelectFilterField<String>(
+                          label: ReportsStrings.tabStudent,
+                          hintText: students.loading
+                              ? ReportsStrings.loadingStudents
+                              : ReportsStrings.selectStudents,
+                          items: students.items,
+                          isRequired: true,
+                          selectedItems: selected,
+                          onChanged: (s) => _selectedStudents.value = s,
+                          itemToString: (item) => item,
+                          singularLabel: ReportsStrings.tabStudent,
+                          pluralLabel: ReportsStrings.students,
+                          showSelectAll: true,
+                          enableSearch: true,
+                          searchHintText: ReportsStrings.searchStudents,
+                        ),
+                  ),
             ),
           ],
         ),

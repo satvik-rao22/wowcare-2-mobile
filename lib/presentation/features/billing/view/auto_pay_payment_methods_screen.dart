@@ -6,9 +6,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
-import 'package:wowcare/presentation/features/billing/cubit/auto_pay_methods_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/auto_pay_methods_cubit.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
@@ -40,8 +41,8 @@ class AutoPayPaymentMethodsScreen extends StatefulWidget {
 class _AutoPayPaymentMethodsScreenState
     extends State<AutoPayPaymentMethodsScreen> {
   static const Color _accent = AppColors.billingAccentBlue;
-  static const Color _autopayTagBg = Color(0xFFEEE9FF);
-  static const Color _autopayTagFg = Color(0xFF6F52FF);
+  static const Color _autopayTagBg = AppColors.billingAutopayTagBackground;
+  static const Color _autopayTagFg = AppColors.billingAutopayTagForeground;
 
   /// Large base so the looping PageView can scroll both directions endlessly.
   static const int _loopBase = 100000;
@@ -156,12 +157,12 @@ class _AutoPayPaymentMethodsScreenState
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.billingCardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: AppColors.billingInputBorderDefault),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppColors.billingShadowColor,
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -193,7 +194,7 @@ class _AutoPayPaymentMethodsScreenState
                         style: TextStyle(
                           fontSize: 15.5,
                           fontWeight: FontWeight.w700,
-                          color: Colors.black87,
+                          color: AppColors.billingBlackText87,
                         ),
                       ),
                     ),
@@ -204,7 +205,7 @@ class _AutoPayPaymentMethodsScreenState
                       decoration: BoxDecoration(
                         color: enabled
                             ? AppColors.billingSuccessBackground
-                            : Colors.grey.shade200,
+                            : AppColors.billingBadgeInactiveBackground,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -212,8 +213,9 @@ class _AutoPayPaymentMethodsScreenState
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
-                          color:
-                              enabled ? AppColors.successColor : Colors.grey,
+                          color: enabled
+                              ? AppColors.successColor
+                              : AppColors.billingMutedIconColor,
                         ),
                       ),
                     ),
@@ -222,7 +224,7 @@ class _AutoPayPaymentMethodsScreenState
                 const SizedBox(height: 2),
                 const Text(
                   BillingStrings.automaticallyPayInvoicesUsing,
-                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                  style: TextStyle(fontSize: 12, color: AppColors.billingBlackText54),
                 ),
               ],
             ),
@@ -260,7 +262,7 @@ class _AutoPayPaymentMethodsScreenState
                       triggerMode: TooltipTriggerMode.tap,
                       showDuration: const Duration(seconds: 3),
                       child: Icon(Icons.info_outline,
-                          size: 16, color: Colors.grey.shade500),
+                          size: 16, color: AppColors.billingMutedIconColor),
                     ),
                   ),
                 ),
@@ -269,7 +271,7 @@ class _AutoPayPaymentMethodsScreenState
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,
-              color: Colors.black87,
+              color: AppColors.billingBlackText87,
             ),
           ),
         ),
@@ -372,7 +374,7 @@ class _AutoPayPaymentMethodsScreenState
           const Center(
             child: Text(
               BillingStrings.savingYourPaymentMethod,
-              style: TextStyle(color: Color(0xFF718096), fontSize: 12),
+              style: TextStyle(color: AppColors.billingMutedSlateText, fontSize: 12),
             ),
           ),
         ],
@@ -391,7 +393,7 @@ class _AutoPayPaymentMethodsScreenState
           width: active ? 18 : 7,
           height: 7,
           decoration: BoxDecoration(
-            color: active ? _accent : Colors.grey.shade300,
+            color: active ? _accent : AppColors.billingBorderStrong,
             borderRadius: BorderRadius.circular(4),
           ),
         );
@@ -405,16 +407,16 @@ class _AutoPayPaymentMethodsScreenState
       child: Opacity(
         opacity: onTap == null ? 0.35 : 1,
         child: Material(
-          color: Colors.white,
+          color: AppColors.billingCardColor,
           shape: const CircleBorder(),
           elevation: 3,
-          shadowColor: Colors.black26,
+          shadowColor: AppColors.billingBlackText26,
           child: InkWell(
             customBorder: const CircleBorder(),
             onTap: onTap,
             child: Padding(
               padding: const EdgeInsets.all(4),
-              child: Icon(icon, size: 22, color: Colors.black54),
+              child: Icon(icon, size: 22, color: AppColors.billingBlackText54),
             ),
           ),
         ),
@@ -445,15 +447,21 @@ class _AutoPayPaymentMethodsScreenState
       margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: selected ? const Color(0xFFF1FFF6) : Colors.white,
+        color: selected
+            ? AppColors.billingSelectedCardBackground
+            : AppColors.billingCardColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: selected ? AppColors.successColor : Colors.grey.shade200,
+          color: selected
+              ? AppColors.successColor
+              : AppColors.billingInputBorderDefault,
           width: selected ? 2 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: selected ? 0.08 : 0.04),
+            color: AppColors.blackColor.withValues(
+              alpha: selected ? 0.08 : 0.04,
+            ),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -508,14 +516,14 @@ class _AutoPayPaymentMethodsScreenState
       children: [
         _iconAction(
           Icons.edit_outlined,
-          const Color(0xFF667EEA),
+          AppColors.billingEditActionColor,
           busy ? null : () => _openEditMethod(m),
         ),
         // A primary method can't be deleted — pick another primary first.
         if (!m.primary)
           _iconAction(
             Icons.delete_outline,
-            const Color(0xFFE53E3E),
+            AppColors.billingDeleteActionColor,
             busy ? null : () => _confirmAndDelete(m),
           ),
       ],
@@ -528,7 +536,11 @@ class _AutoPayPaymentMethodsScreenState
       customBorder: const CircleBorder(),
       child: Padding(
         padding: const EdgeInsets.all(6),
-        child: Icon(icon, size: 18, color: onTap == null ? Colors.grey : color),
+        child: Icon(
+          icon,
+          size: 18,
+          color: onTap == null ? AppColors.billingMutedIconColor : color,
+        ),
       ),
     );
   }
@@ -564,7 +576,7 @@ class _AutoPayPaymentMethodsScreenState
         gradient: gradient,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
+            color: AppColors.blackColor.withValues(alpha: 0.15),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -586,7 +598,7 @@ class _AutoPayPaymentMethodsScreenState
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.billingCardOnColorText,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 1,
                   ),
@@ -602,7 +614,7 @@ class _AutoPayPaymentMethodsScreenState
                 const Text(
                   '•••• •••• ••••',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.billingCardOnColorText,
                     letterSpacing: 2,
                     fontSize: 16,
                   ),
@@ -611,7 +623,7 @@ class _AutoPayPaymentMethodsScreenState
                 Text(
                   last4,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.billingCardOnColorText,
                     letterSpacing: 2,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -648,9 +660,9 @@ class _AutoPayPaymentMethodsScreenState
       constraints: const BoxConstraints(maxWidth: 480),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFE8F4FC),
+        color: AppColors.billingEcheckCardBackground,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFB8DAEF)),
+        border: Border.all(color: AppColors.billingEcheckCardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -663,13 +675,13 @@ class _AutoPayPaymentMethodsScreenState
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF334455),
+                  color: AppColors.billingEcheckTitleColor,
                 ),
               ),
               Text(
                 _echeckAccountTypeLabel(e?.accountType),
                 style: const TextStyle(
-                  color: Colors.black54,
+                  color: AppColors.billingBlackText54,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -733,27 +745,27 @@ class _AutoPayPaymentMethodsScreenState
     final type = cardType.toLowerCase();
     if (type.contains('visa')) {
       return const LinearGradient(
-        colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+        colors: AppColors.billingVisaGradientColors,
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       );
     }
     if (type.contains('mast') || type.contains('master')) {
       return const LinearGradient(
-        colors: [Color(0xFFF093FB), Color(0xFFF5576C)],
+        colors: AppColors.billingMastercardGradientColors,
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       );
     }
     if (type.contains('disc')) {
       return const LinearGradient(
-        colors: [Color(0xFFFF9966), Color(0xFFFF5E62)],
+        colors: AppColors.billingDiscoverGradientColors,
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       );
     }
     return const LinearGradient(
-      colors: [Color(0xFF5B5B5B), Color(0xFF1A1A1A)],
+      colors: AppColors.billingGenericCardGradientColors,
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );
@@ -766,13 +778,13 @@ class _AutoPayPaymentMethodsScreenState
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
         gradient: const LinearGradient(
-          colors: [Color(0xFFD1D1D1), Color(0xFFFCFCFC)],
+          colors: AppColors.billingCardChipGradientColors,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
+            color: AppColors.blackColor.withValues(alpha: 0.12),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -791,7 +803,9 @@ class _AutoPayPaymentMethodsScreenState
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 12,
-            color: isDark ? Colors.white70 : Colors.black54,
+            color: isDark
+                ? AppColors.billingDetailLabelOnDark
+                : AppColors.billingBlackText54,
             letterSpacing: 0.2,
           ),
         ),
@@ -803,7 +817,9 @@ class _AutoPayPaymentMethodsScreenState
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w700,
-            color: isDark ? Colors.white : Colors.black87,
+            color: isDark
+                ? AppColors.billingCardOnColorText
+                : AppColors.billingBlackText87,
           ),
         ),
       ],
@@ -817,16 +833,20 @@ class _AutoPayPaymentMethodsScreenState
       decoration: BoxDecoration(
         color: AppColors.billingSurfaceLight,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: AppColors.billingBorderStrong),
       ),
       child: const Column(
         children: [
-          Icon(Icons.credit_card_off_outlined, size: 36, color: Colors.grey),
+          Icon(
+            Icons.credit_card_off_outlined,
+            size: 36,
+            color: AppColors.billingMutedIconColor,
+          ),
           SizedBox(height: 8),
           Text(
             BillingStrings.noSavedPaymentMethodsYet,
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.black54),
+            style: TextStyle(color: AppColors.billingBlackText54),
           ),
         ],
       ),
@@ -846,7 +866,7 @@ class _AutoPayPaymentMethodsScreenState
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
           decoration: BoxDecoration(
-            color: const Color(0xFFF7F6FD),
+            color: AppColors.billingAddMethodButtonBackground,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: _autopayTagFg.withValues(alpha: 0.35)),
           ),
@@ -863,7 +883,9 @@ class _AutoPayPaymentMethodsScreenState
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: canAdd ? _autopayTagFg : Colors.grey,
+                  color: canAdd
+                      ? _autopayTagFg
+                      : AppColors.billingMutedIconColor,
                 ),
               ),
             ],
@@ -889,10 +911,10 @@ class _AutoPayPaymentMethodsScreenState
         top: 10,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.billingCardColor,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: AppColors.blackColor.withValues(alpha: 0.05),
             offset: const Offset(0, -4),
             blurRadius: 16,
           ),
@@ -926,14 +948,14 @@ class _AutoPayPaymentMethodsScreenState
                           width: 22,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.5,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              AppColors.billingCardOnColorText),
                           ),
                         )
                       : Text(
                           widget.isPicker ? BillingStrings.continueLabel : BillingStrings.save,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: AppColors.billingCardOnColorText,
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
                           ),
@@ -946,11 +968,13 @@ class _AutoPayPaymentMethodsScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.lock_outline, size: 14, color: Colors.grey.shade500),
+              Icon(Icons.lock_outline,
+                  size: 14, color: AppColors.billingMutedIconColor),
               const SizedBox(width: 6),
               Text(
                 BillingStrings.yourPaymentInformationIsSecure,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                style: TextStyle(
+                    fontSize: 12, color: AppColors.billingCaptionTextColor),
               ),
             ],
           ),
@@ -1200,7 +1224,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
       child: Container(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.billingCardColor,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: SingleChildScrollView(
@@ -1214,7 +1238,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: AppColors.billingBorderStrong,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -1351,13 +1375,13 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2.5,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white),
+                                      AppColors.billingCardOnColorText),
                                 ),
                               )
                             : const Text(
                                 BillingStrings.saveChanges,
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: AppColors.billingCardOnColorText,
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -1376,7 +1400,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
 
   // Label style shared by the CustomDropdowns (matches the Add Staff form).
   static const TextStyle _ddLabel = TextStyle(
-    fontFamily: 'Manrope',
+    fontFamily: Fonts.manrope,
     fontSize: 13,
     fontWeight: FontWeight.w400,
     color: _primary,
@@ -1387,7 +1411,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
         child: Text(
           text,
           style: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: Fonts.manrope,
             fontSize: 13,
             fontWeight: FontWeight.w400,
             color: _primary,
@@ -1404,7 +1428,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.billingCardColor,
         border: Border.all(color: AppColors.billingBorderDefault),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -1415,7 +1439,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
         textCapitalization:
             capsAll ? TextCapitalization.characters : TextCapitalization.none,
         style: const TextStyle(
-          fontFamily: 'Manrope',
+          fontFamily: Fonts.manrope,
           fontSize: 14,
           fontWeight: FontWeight.w600,
           color: _primary,
@@ -1424,10 +1448,10 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: Fonts.manrope,
             fontSize: 13,
             fontWeight: FontWeight.w400,
-            color: Colors.grey,
+            color: AppColors.billingMutedIconColor,
           ),
           border: InputBorder.none,
           contentPadding:
@@ -1472,7 +1496,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: AppColors.billingBorderStrong),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -1492,7 +1516,8 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(
+                      fontSize: 12, color: AppColors.billingCaptionTextColor),
                 ),
               ],
             ),

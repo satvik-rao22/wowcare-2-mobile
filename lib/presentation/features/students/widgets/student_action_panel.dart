@@ -19,8 +19,9 @@ import 'package:wowcare/domain/features/activity/usecases/get_activity_type_deta
 import 'package:wowcare/domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
-import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';

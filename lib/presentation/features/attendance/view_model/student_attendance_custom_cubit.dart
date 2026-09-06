@@ -7,7 +7,7 @@ import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
-import '../../../../domain/features/attendance/repositories/attendance_repository.dart';
+import '../../../../domain/features/attendance/usecases/get_cached_student_attendance_custom_usecase.dart';
 import '../../../../domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
 
 part 'student_attendance_custom_state.dart';
@@ -16,17 +16,20 @@ class StudentAttendanceCustomCubit extends Cubit<StudentAttendanceCustomState> {
   StudentAttendanceCustomCubit({
     required GetStudentAttendanceCustomUseCase
     getStudentAttendanceCustomUseCase,
-    required AttendanceRepository repository,
+    required GetCachedStudentAttendanceCustomUseCase
+    getCachedStudentAttendanceCustomUseCase,
     required GetClassroomByCodeUseCase getClassroomByCodeUseCase,
     required StorageService storageService,
   }) : _getStudentAttendanceCustomUseCase = getStudentAttendanceCustomUseCase,
-       _repository = repository,
+       _getCachedStudentAttendanceCustomUseCase =
+           getCachedStudentAttendanceCustomUseCase,
        _getClassroomByCodeUseCase = getClassroomByCodeUseCase,
        _storage = storageService,
        super(const StudentAttendanceCustomState.initial());
 
   final GetStudentAttendanceCustomUseCase _getStudentAttendanceCustomUseCase;
-  final AttendanceRepository _repository;
+  final GetCachedStudentAttendanceCustomUseCase
+  _getCachedStudentAttendanceCustomUseCase;
   final GetClassroomByCodeUseCase _getClassroomByCodeUseCase;
   final StorageService _storage;
 
@@ -65,16 +68,13 @@ class StudentAttendanceCustomCubit extends Cubit<StudentAttendanceCustomState> {
     final fromDateString = _formatDate(fromDate);
     final toDateString = _formatDate(toDate);
 
-    final cached = await (_repository is AttendanceRepositoryWithCache
-        ? (_repository as AttendanceRepositoryWithCache)
-              .loadCachedStudentAttendanceCustom(
-                fromDateString,
-                toDateString,
-                classroomCodes: classroomCodes,
-                tagCodes: tagCodes,
-                search: search,
-              )
-        : Future.value(null));
+    final cached = await _getCachedStudentAttendanceCustomUseCase(
+      fromDateString,
+      toDateString,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      search: search,
+    );
 
     final hasActiveFilters =
         (classroomCodes != null && classroomCodes.isNotEmpty) ||

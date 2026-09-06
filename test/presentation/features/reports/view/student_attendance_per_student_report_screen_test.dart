@@ -7,7 +7,9 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/classroom/repositories/classroom_repository.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
-import 'package:wowcare/data/features/reports/repositories/file_download_repository.dart';
+import 'package:wowcare/domain/features/reports/repositories/file_download_repository.dart';
+import 'package:wowcare/domain/features/reports/usecases/save_report_file_usecase.dart';
+import 'package:wowcare/domain/features/reports/usecases/open_report_file_usecase.dart';
 import 'package:wowcare/domain/features/reports/repositories/reports_repository.dart';
 import 'package:wowcare/domain/features/reports/usecases/download_report_usecase.dart';
 import 'package:wowcare/domain/features/reports/usecases/generate_report_usecase.dart';
@@ -19,18 +21,23 @@ import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_schoo
 import 'package:wowcare/domain/features/student_classroom/entities/student_classroom_item.dart';
 import 'package:wowcare/domain/features/student_classroom/repositories/student_classroom_repository.dart';
 import 'package:wowcare/domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_state.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/notification_badge_cubit.dart';
-import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
+import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/view/student_attendance_per_student_report_screen.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import 'package:wowcare/presentation/features/user-profile/view_model/profile_menu_header_cubit.dart';
-import 'package:wowcare/presentation/features/user-profile/view_model/user_profile_cubit.dart';
+import 'package:wowcare/presentation/features/user_profile/view_model/profile_menu_header_cubit.dart';
+import 'package:wowcare/presentation/features/user_profile/view_model/user_profile_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/domain/features/student/usecases/get_immunization_settings_usecase.dart';
+import 'package:wowcare/domain/features/reports/repositories/school_context_repository.dart';
+import 'package:wowcare/domain/features/reports/usecases/get_school_code_usecase.dart';
+import 'package:wowcare/domain/features/reports/usecases/get_school_name_usecase.dart';
 
 class _FakeStorageService implements StorageService {
   final Map<String, dynamic> _data = {
@@ -257,12 +264,29 @@ void main() {
     final mockReportsRepo = _FakeReportsRepository();
     final mockStudentRepo = _FakeStudentRepository();
     reportsCubit = ReportsCubit(
-      storageService: fakeStorage,
+      getSchoolCodeUseCase: GetSchoolCodeUseCase(
+        _FakeSchoolContextRepository(),
+      ),
+      getSchoolNameUseCase: GetSchoolNameUseCase(
+        _FakeSchoolContextRepository(),
+      ),
       generateReportUseCase: GenerateReportUseCase(mockReportsRepo),
       getRecentReportsUseCase: GetRecentReportsUseCase(mockReportsRepo),
       getStudentTagsUseCase: GetStudentTagsUseCase(mockReportsRepo),
       downloadReportUseCase: DownloadReportUseCase(mockReportsRepo),
-      fileDownloadRepository: _FakeFileDownloadRepository(),
+      saveReportFileUseCase: SaveReportFileUseCase(
+        _FakeFileDownloadRepository(),
+      ),
+      openReportFileUseCase: OpenReportFileUseCase(
+        _FakeFileDownloadRepository(),
+      ),
+      getActiveClassroomsUseCase: GetActiveClassroomsUseCase(fakeClassroomRepo),
+      getStudentClassroomListUseCase: GetStudentClassroomListUseCase(
+        fakeStudentClassroomRepo,
+      ),
+      getImmunizationSettingsUseCase: GetImmunizationSettingsUseCase(
+        _FakeStudentRepository(),
+      ),
       getTagNameCodeMapForSchoolUseCase: GetTagNameCodeMapForSchoolUseCase(
         mockStudentRepo,
       ),
@@ -295,9 +319,27 @@ void main() {
         BlocProvider<AuthCubit>(create: (_) => _MockAuthCubit()),
         BlocProvider<ReportsCubit>.value(value: reportsCubit),
       ],
-      child: const MaterialApp(
-        home: StudentAttendancePerStudentReportScreen(
-          classrooms: ['Toddler Room A', 'Preschool Room B'],
+      child: MaterialApp.router(
+        // The form screens are GoRoute children of the reports hub,
+        // so they must be hosted by a router here too: they call
+        // context.pop(ReportFormResult) on success, which needs both a
+        // GoRouter in scope and a page beneath them to pop back to.
+        routerConfig: GoRouter(
+          initialLocation: '/form',
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, __) => const SizedBox.shrink(),
+              routes: [
+                GoRoute(
+                  path: 'form',
+                  builder: (_, __) => StudentAttendancePerStudentReportScreen(
+                    classrooms: ['Toddler Room A', 'Preschool Room B'],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -371,4 +413,15 @@ void main() {
       expect(studentField.hintText, equals('Select Classroom First'));
     },
   );
+}
+
+/// Mirrors the fake storage service the tests already install: school code
+/// and name resolve to the same fixture values the cubit used to read
+/// straight off StorageService.
+class _FakeSchoolContextRepository implements SchoolContextRepository {
+  @override
+  Future<String> getSchoolCode() async => 'school-123';
+
+  @override
+  Future<String> getSchoolName() async => 'Test School';
 }

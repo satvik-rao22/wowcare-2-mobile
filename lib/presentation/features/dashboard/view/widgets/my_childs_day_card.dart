@@ -24,9 +24,9 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_sign_in_form.dart'
     as student_sign_in;
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_out_form.dart'
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_sign_out_form.dart'
     as student_sign_out;
 import 'package:wowcare/domain/features/student/entities/student_regular_schedule.dart';
 import 'dashboard_error_chip.dart';

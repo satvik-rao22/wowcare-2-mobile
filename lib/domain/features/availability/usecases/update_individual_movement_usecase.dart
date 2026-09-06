@@ -1,7 +1,7 @@
 import 'package:wowcare/core/util/api_error_handler.dart';
 
-import '../entities/individual_movement.dart';
-import '../repositories/availability_repository.dart';
+import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
+import 'package:wowcare/domain/features/availability/repositories/availability_repository.dart';
 
 class UpdateIndividualMovementUseCase {
   UpdateIndividualMovementUseCase(this._repository);

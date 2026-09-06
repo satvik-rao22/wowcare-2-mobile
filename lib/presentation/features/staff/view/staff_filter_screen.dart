@@ -8,9 +8,12 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/views/filters/designation_display_utils.dart';
-import 'package:wowcare/presentation/features/staff/view/staff_filter_data.dart';
+import 'package:wowcare/presentation/features/staff/model/staff_filter_data.dart';
+import 'package:wowcare/presentation/features/staff/model/staff_route_results.dart';
 
-export 'package:wowcare/presentation/features/staff/view/staff_filter_data.dart';
+export 'package:wowcare/presentation/features/staff/model/staff_filter_data.dart';
+export 'package:wowcare/presentation/features/staff/model/staff_route_results.dart'
+    show StaffFilterResult;
 
 class StaffFilterScreen extends StatefulWidget {
   final FilterData? initialFilters;
@@ -257,29 +260,37 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
         .whereType<String>()
         .toList();
 
-    Navigator.pop(context, {
-      'status': status,
-      'designation': designation,
-
-      /// All selected designations (backend codes), for screens that support multi-select.
-      'designations': widget.sections.contains(StaffFilterSection.designation)
-          ? List<String>.from(_selectedDesignationList)
-          : const <String>[],
-      'primaryClassroomCodes':
-          widget.sections.contains(StaffFilterSection.primaryClassroom)
-          ? primaryCodes
-          : const <String>[],
-      'classCodes':
-          (widget.sections.contains(StaffFilterSection.classroom) ||
-              widget.sections.contains(StaffFilterSection.allowedClassroom))
-          ? allowedCodes
-          : const <String>[],
-      'sortBy': sortBy,
-      'attendanceStatuses':
-          widget.sections.contains(StaffFilterSection.attendanceStatus)
-          ? attendanceStatuses
-          : const <String>[],
-    });
+    // `Navigator.pop`, deliberately, and the one place in this module that is
+    // not `context.pop`: this screen is reachable BOTH as a GoRouter page (the
+    // staff list) and as an imperatively-pushed route that carries a live
+    // ClassroomCubit (staff attendance daily — see its own note). `context.pop`
+    // pops go_router's match list, which knows nothing about the imperative
+    // route, so it would dismiss the page underneath instead. `Navigator.pop`
+    // returns the result correctly for both.
+    Navigator.pop(
+      context,
+      StaffFilterResult(
+        status: status,
+        designation: designation,
+        designations: widget.sections.contains(StaffFilterSection.designation)
+            ? List<String>.from(_selectedDesignationList)
+            : const <String>[],
+        primaryClassroomCodes:
+            widget.sections.contains(StaffFilterSection.primaryClassroom)
+            ? primaryCodes
+            : const <String>[],
+        classCodes:
+            (widget.sections.contains(StaffFilterSection.classroom) ||
+                widget.sections.contains(StaffFilterSection.allowedClassroom))
+            ? allowedCodes
+            : const <String>[],
+        sortBy: sortBy,
+        attendanceStatuses:
+            widget.sections.contains(StaffFilterSection.attendanceStatus)
+            ? attendanceStatuses
+            : const <String>[],
+      ),
+    );
   }
 
   @override

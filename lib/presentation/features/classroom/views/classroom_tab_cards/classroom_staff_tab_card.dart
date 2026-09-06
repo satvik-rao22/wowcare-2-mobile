@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -24,15 +23,14 @@ import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_fo
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_transfer_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_absent_form_list_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_staff_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_staff_state.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/model/staff_entity.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
@@ -47,16 +45,6 @@ final ValueNotifier<int> classroomStaffRefreshTick = ValueNotifier<int>(0);
 
 void notifyClassroomStaffChanged() {
   classroomStaffRefreshTick.value++;
-}
-
-class _StaffAttendanceCacheEntry {
-  const _StaffAttendanceCacheEntry({
-    required this.fetchedAt,
-    required this.statusByCode,
-  });
-
-  final DateTime fetchedAt;
-  final Map<String, String> statusByCode;
 }
 
 class Staff {
@@ -87,7 +75,7 @@ class Staff {
   final String profileStatus;
 }
 
-class ClassroomStaffTabCard extends StatefulWidget {
+class ClassroomStaffTabCard extends StatelessWidget {
   const ClassroomStaffTabCard({
     required this.scrollController,
     required this.selectedRoom,
@@ -105,10 +93,36 @@ class ClassroomStaffTabCard extends StatefulWidget {
   static const routeName = '/classroom-staff-screen';
 
   @override
-  State<ClassroomStaffTabCard> createState() => _ClassroomStaffTabCardState();
+  Widget build(BuildContext context) {
+    return BlocProvider<ClassroomStaffCubit>(
+      create: (_) => serviceLocator<ClassroomStaffCubit>(),
+      child: _ClassroomStaffTabCardView(
+        scrollController: scrollController,
+        selectedRoom: selectedRoom,
+        highlightCode: highlightCode,
+      ),
+    );
+  }
 }
 
-class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
+class _ClassroomStaffTabCardView extends StatefulWidget {
+  const _ClassroomStaffTabCardView({
+    required this.scrollController,
+    required this.selectedRoom,
+    this.highlightCode,
+  });
+
+  final ScrollController scrollController;
+  final Classroom? selectedRoom;
+  final String? highlightCode;
+
+  @override
+  State<_ClassroomStaffTabCardView> createState() =>
+      _ClassroomStaffTabCardViewState();
+}
+
+class _ClassroomStaffTabCardViewState
+    extends State<_ClassroomStaffTabCardView> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
 
@@ -130,15 +144,6 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   List<String> _selectedStatusList = ['ACTIVE'];
   List<String> _selectedAttendanceStatusList = [];
   StaffPanelType _currentPanel = StaffPanelType.none;
-  final Map<String, String> _attendanceStatusByStaffCode = <String, String>{};
-  bool _attendanceStatusLoading = false;
-  bool _attendanceStatusError = false;
-  int _visibleAttendanceFetchToken = 0;
-  Set<String> _lastVisibleAttendanceCodes = <String>{};
-
-  static const Duration _attendanceCacheTtl = Duration(minutes: 10);
-  static final Map<String, _StaffAttendanceCacheEntry> _attendanceCacheByKey =
-      <String, _StaffAttendanceCacheEntry>{};
 
   final List<String> designations = const [
     'Director',
@@ -186,7 +191,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   @override
   void initState() {
     super.initState();
-    _cubit = serviceLocator<ClassroomStaffCubit>();
+    _cubit = context.read<ClassroomStaffCubit>();
     _searchController.addListener(_onSearchChanged);
     _loadForSelectedRoom(refresh: false);
     classroomStaffRefreshTick.addListener(_handleExternalRefresh);
@@ -215,14 +220,12 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     // Staff roster changed elsewhere (assign sheet, etc.) — drop today's
     // attendance status cache for this room so the new staff shows up with
     // fresh status, then refetch the staff list bypassing the repo cache.
-    _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
-    _attendanceStatusByStaffCode.clear();
-    _lastVisibleAttendanceCodes = <String>{};
+    _cubit.invalidateAttendanceStatus();
     _loadForSelectedRoom(refresh: true);
   }
 
   @override
-  void didUpdateWidget(ClassroomStaffTabCard oldWidget) {
+  void didUpdateWidget(_ClassroomStaffTabCardView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedRoom != widget.selectedRoom) {
       setState(() {
@@ -244,7 +247,9 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     classroomStaffRefreshTick.removeListener(_handleExternalRefresh);
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
-    _cubit.close();
+    // No manual _cubit.close() — the ancestor BlocProvider in
+    // ClassroomStaffTabCard now owns the cubit's lifecycle and closes it
+    // when that provider itself leaves the tree.
     super.dispose();
   }
 
@@ -349,7 +354,9 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
         (staff) => staffSelections[staff.staffCode] == true,
       );
     });
-    _refreshAttendanceStatusForSelection();
+    _cubit.refreshAttendanceStatusForSelection(
+      _getSelectedStaffCodes().toList(),
+    );
   }
 
   List<Staff> _getVisibleStaff() {
@@ -392,116 +399,13 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
-  String _attendanceCacheKeyForRoomToday() {
-    final classroomCode = (widget.selectedRoom?.code ?? '').trim();
-    final date = _formatDate(AppTime.now());
-    return 'staff:$classroomCode:$date';
-  }
-
-  Future<void> _refreshAttendanceStatusForSelection() async {
-    final codes = _getSelectedStaffCodes();
-    if (codes.isEmpty) {
-      if (!mounted) return;
-      setState(() {
-        _attendanceStatusByStaffCode.clear();
-        _attendanceStatusLoading = false;
-        _attendanceStatusError = false;
-      });
-      return;
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _attendanceStatusLoading = true;
-      _attendanceStatusError = false;
-    });
-
-    try {
-      final useCase = serviceLocator<GetStaffTodaySignInStatusMapUseCase>();
-      final map = await useCase(staffCodes: codes.toList());
-      if (!mounted) return;
-      setState(() {
-        _attendanceStatusByStaffCode
-          ..clear()
-          ..addAll(map);
-        _attendanceStatusLoading = false;
-        _attendanceStatusError = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _attendanceStatusByStaffCode.clear();
-        _attendanceStatusLoading = false;
-        _attendanceStatusError = true;
-      });
-    }
-  }
-
-  Future<void> _refreshAttendanceStatusForVisibleStaff() async {
-    final visible = _getVisibleStaff();
-    final codes = visible
+  /// Staff codes for the currently visible (post-filter) roster — passed to
+  /// [ClassroomStaffCubit.refreshAttendanceStatusForVisible].
+  List<String> _visibleStaffCodes() {
+    return _getVisibleStaff()
         .map((s) => s.staffCode.trim())
         .where((c) => c.isNotEmpty)
-        .toSet();
-
-    final cacheKey = _attendanceCacheKeyForRoomToday();
-    final cached = _attendanceCacheByKey[cacheKey];
-    if (cached != null &&
-        AppTime.nowUtc().difference(cached.fetchedAt) <= _attendanceCacheTtl) {
-      if (!mounted) return;
-      setState(() {
-        _attendanceStatusByStaffCode
-          ..clear()
-          ..addAll(cached.statusByCode);
-        _attendanceStatusLoading = false;
-        _attendanceStatusError = false;
-      });
-    }
-
-    if (codes.isEmpty) {
-      _lastVisibleAttendanceCodes = <String>{};
-      if (!mounted) return;
-      setState(() {
-        _attendanceStatusByStaffCode.clear();
-        _attendanceStatusLoading = false;
-        _attendanceStatusError = false;
-      });
-      return;
-    }
-
-    if (setEquals(codes, _lastVisibleAttendanceCodes)) return;
-    _lastVisibleAttendanceCodes = codes;
-
-    final token = ++_visibleAttendanceFetchToken;
-    if (!mounted) return;
-    setState(() {
-      _attendanceStatusLoading = true;
-      _attendanceStatusError = false;
-    });
-
-    try {
-      final useCase = serviceLocator<GetStaffTodaySignInStatusMapUseCase>();
-      final map = await useCase(staffCodes: codes.toList());
-      if (!mounted || token != _visibleAttendanceFetchToken) return;
-      setState(() {
-        _attendanceStatusByStaffCode
-          ..clear()
-          ..addAll(map);
-        _attendanceStatusLoading = false;
-        _attendanceStatusError = false;
-      });
-      _attendanceCacheByKey[cacheKey] = _StaffAttendanceCacheEntry(
-        fetchedAt: AppTime.nowUtc(),
-        statusByCode: Map<String, String>.from(map),
-      );
-    } catch (_) {
-      if (!mounted || token != _visibleAttendanceFetchToken) return;
-      setState(() {
-        _attendanceStatusByStaffCode.clear();
-        _attendanceStatusLoading = false;
-        _attendanceStatusError = true;
-      });
-    }
+        .toList();
   }
 
   /// Pull-to-refresh: re-run every API this tab uses (staff roster + today's
@@ -509,16 +413,14 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   Future<void> _refreshAll() async {
     if (!mounted) return;
     // Drop attendance caches/guards so the status is fetched fresh.
-    _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
-    _lastVisibleAttendanceCodes = <String>{};
-    _attendanceStatusByStaffCode.clear();
+    _cubit.invalidateAttendanceStatus();
     // Refresh the shared classroom dropdown list too, so a pull refreshes the
     // whole page's data — not just this tab.
     await _reloadClassroomList();
     // Reload the staff roster (bypasses the repository cache).
     _loadForSelectedRoom(refresh: true);
     // Re-fetch today's attendance status.
-    await _refreshAttendanceStatusForVisibleStaff();
+    await _cubit.refreshAttendanceStatusForVisible(_visibleStaffCodes());
   }
 
   /// Force-reloads the classroom dropdown list (bypassing its cache) via the
@@ -546,11 +448,9 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
 
   void _refreshAfterAttendanceAction() {
     _dismissSelectionPanel();
-    _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
-    _lastVisibleAttendanceCodes = <String>{};
-    _attendanceStatusByStaffCode.clear();
+    _cubit.invalidateAttendanceStatus();
     _loadForSelectedRoom(refresh: true);
-    _refreshAttendanceStatusForVisibleStaff();
+    _cubit.refreshAttendanceStatusForVisible(_visibleStaffCodes());
   }
 
   StaffAttendanceActionAvailability _attendanceAvailabilityForSelection() {
@@ -558,7 +458,8 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     if (codes.isEmpty) {
       return StaffAttendanceActionAvailability.allDisabled;
     }
-    if (_attendanceStatusLoading || _attendanceStatusError) {
+    if (_cubit.state.attendanceStatusLoading ||
+        _cubit.state.attendanceStatusError) {
       return StaffAttendanceActionAvailability.allDisabled;
     }
 
@@ -578,7 +479,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
       gates.add(
         staffAttendanceGateFromTodayStatus(
           isActiveProfile: isActive,
-          todayStatusRaw: _attendanceStatusByStaffCode[code],
+          todayStatusRaw: _cubit.state.attendanceStatusByStaffCode[code],
           // Admin-only override: lets an admin sign in a staff member who
           // was marked absent for the day, clearing that absence record.
           allowAbsentSignInOverride: context.read<RoleCubit>().isTrueAdmin,
@@ -761,11 +662,11 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
       padding: const EdgeInsets.symmetric(horizontal: 2),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
-        color: const Color.fromRGBO(177, 175, 233, 0.3),
+        color: AppColors.classroomStatusChipBackgroundColor,
       ),
       child: TextButton(
         style: TextButton.styleFrom(
-          foregroundColor: Colors.white,
+          foregroundColor: AppColors.cardColor,
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
           minimumSize: Size.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -776,7 +677,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
           _statusChipLabel(apiStatus),
           style: const TextStyle(
             fontFamily: 'Manrope',
-            color: Color.fromRGBO(27, 35, 126, 1),
+            color: AppColors.secondaryColor,
             fontSize: 12,
           ),
         ),
@@ -792,9 +693,6 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
       _selectedDesignation = [];
       _selectedStatusList = ['ACTIVE'];
       _selectedAttendanceStatusList = [];
-      _attendanceStatusByStaffCode.clear();
-      _attendanceStatusLoading = false;
-      _attendanceStatusError = false;
     });
     _loadForSelectedRoom(refresh: false);
   }
@@ -892,10 +790,12 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider.value(
-      value: _cubit,
-      child: BlocListener<ClassroomStaffCubit, ClassroomStaffState>(
-        listener: (context, state) {
+    return BlocConsumer<ClassroomStaffCubit, ClassroomStaffState>(
+      // Only the roster itself re-maps into local UI state; an
+      // attendance-status-only update (which also changes `state`) must
+      // not re-trigger the roster mapping + another attendance refetch.
+      listenWhen: (previous, current) => previous.staff != current.staff,
+      listener: (context, state) {
           final raw = state.staff.map(_mapApiToUi).toList();
           // De-duplicate by staffCode to avoid repeated cards.
           final byCode = <String, Staff>{};
@@ -911,10 +811,10 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
             _filterStaff();
           });
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _refreshAttendanceStatusForVisibleStaff();
+            _cubit.refreshAttendanceStatusForVisible(_visibleStaffCodes());
           });
         },
-        child: Stack(
+        builder: (context, state) => Stack(
           children: [
             Column(
               children: [
@@ -928,7 +828,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                       right: BorderSide(color: AppColors.themeColor),
                       bottom: BorderSide(color: AppColors.themeColor),
                     ),
-                    color: Colors.white,
+                    color: AppColors.cardColor,
                     child: Column(
                       children: [
                         Padding(
@@ -945,22 +845,18 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                       ),
                                       backgroundColor:
                                           const WidgetStatePropertyAll<Color>(
-                                            Colors.white,
+                                            AppColors.cardColor,
                                           ),
                                       surfaceTintColor:
                                           const WidgetStatePropertyAll<Color>(
-                                            Colors.white,
+                                            AppColors.cardColor,
                                           ),
                                       hintText: 'Search',
-                                      hintStyle: const WidgetStatePropertyAll(
+                                      hintStyle: WidgetStatePropertyAll(
                                         TextStyle(
                                           fontFamily: 'Manrope',
-                                          color: Color.fromRGBO(
-                                            87,
-                                            51,
-                                            83,
-                                            0.7,
-                                          ),
+                                          color:
+                                              AppColors.classroomSearchHintTextColor,
                                           fontSize: 13,
                                         ),
                                       ),
@@ -975,12 +871,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                       side: const WidgetStatePropertyAll(
                                         BorderSide(
                                           width: 1,
-                                          color: Color.fromARGB(
-                                            255,
-                                            188,
-                                            173,
-                                            186,
-                                          ),
+                                          color: AppColors.classroomBorderColor,
                                         ),
                                       ),
                                       shape: WidgetStatePropertyAll(
@@ -1019,7 +910,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                     ),
                                     child: TextButton(
                                       style: TextButton.styleFrom(
-                                        foregroundColor: Colors.white,
+                                        foregroundColor: AppColors.cardColor,
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 4,
                                           vertical: 3,
@@ -1053,7 +944,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                           child: ScrollbarTheme(
                             data: ScrollbarThemeData(
                               thumbColor: WidgetStateProperty.all(
-                                const Color.fromRGBO(222, 228, 253, 1),
+                                AppColors.classroomScrollbarThumbColor,
                               ),
                               radius: const Radius.circular(20),
                             ),
@@ -1114,7 +1005,9 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                               );
                                               WidgetsBinding.instance
                                                   .addPostFrameCallback((_) {
-                                                    _refreshAttendanceStatusForVisibleStaff();
+                                                    _cubit.refreshAttendanceStatusForVisible(
+                                                      _visibleStaffCodes(),
+                                                    );
                                                   });
                                               final isTarget =
                                                   _isHighlightTarget(
@@ -1162,7 +1055,8 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                                             .staffCode] ??
                                                         false,
                                                     todayAttendanceStatusRaw:
-                                                        _attendanceStatusByStaffCode[staff
+                                                        state
+                                                            .attendanceStatusByStaffCode[staff
                                                             .staffCode],
                                                     designationLabel:
                                                         formatDesignationForDisplay(
@@ -1279,8 +1173,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
               ),
           ],
         ),
-      ),
-    );
+      );
   }
 }
 
@@ -1316,8 +1209,10 @@ class _StaffListItem extends StatelessWidget {
         !staff.isAbsent &&
         !hasAttendanceStatus;
     final Color? attendanceDotColor = normalizedAttendance == 'SIGNED_IN'
-        ? Colors.green
-        : (normalizedAttendance == 'ABSENT' ? Colors.red : null);
+        ? AppColors.classroomPositiveStatusColor
+        : (normalizedAttendance == 'ABSENT'
+              ? AppColors.classroomNegativeStatusColor
+              : null);
     final String? attendanceTooltip = normalizedAttendance == 'SIGNED_IN'
         ? 'Staff is signed in'
         : (normalizedAttendance == 'ABSENT' ? 'Staff is absent' : null);
@@ -1325,9 +1220,9 @@ class _StaffListItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.only(top: 10, bottom: 10, left: 10),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
+        border: Border.all(color: AppColors.classroomRowBorderColor),
         borderRadius: BorderRadius.circular(12),
-        color: shouldGreyOut ? Colors.grey[100] : null,
+        color: shouldGreyOut ? AppColors.classroomRowGreyedBackgroundColor : null,
       ),
       child: Row(
         children: [
@@ -1382,14 +1277,14 @@ class _StaffListItem extends StatelessWidget {
                         fontFamily: 'Manrope',
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
-                        color: Color.fromRGBO(87, 51, 83, 1),
+                        color: AppColors.primaryColor,
                       ),
                     ),
                     Text(
                       designationLabel,
                       style: const TextStyle(
                         fontFamily: 'Manrope',
-                        color: Color(0xff573353),
+                        color: AppColors.classroomTextColor,
                       ),
                     ),
                   ],
@@ -1399,7 +1294,7 @@ class _StaffListItem extends StatelessWidget {
           ),
           if (showMessageIcon) ...[
             IconButton(
-              color: const Color.fromRGBO(44, 99, 226, 1),
+              color: AppColors.classroomMessageIconColor,
               iconSize: 20,
               icon: const Icon(Icons.mail),
               onPressed: () {},
@@ -1458,25 +1353,25 @@ class _DesignationMultiSelectDropdownState
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           filled: true,
-          fillColor: Colors.white,
+          fillColor: AppColors.cardColor,
           hintText: widget.hintText,
           contentPadding: const EdgeInsets.symmetric(horizontal: 5),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Color.fromARGB(255, 188, 173, 186),
+              color: AppColors.classroomBorderColor,
             ),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Color.fromARGB(255, 188, 173, 186),
+              color: AppColors.classroomBorderColor,
             ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Color.fromARGB(255, 188, 173, 186),
+              color: AppColors.classroomBorderColor,
             ),
           ),
         ),
@@ -1485,10 +1380,10 @@ class _DesignationMultiSelectDropdownState
         elevation: 2,
         style: const TextStyle(
           fontFamily: 'Manrope',
-          color: Color(0xff573353),
+          color: AppColors.classroomTextColor,
           fontSize: 16,
         ),
-        dropdownColor: Colors.white,
+        dropdownColor: AppColors.cardColor,
         items: widget.items.map((String item) {
           return DropdownMenuItem<String>(
             value: item,
@@ -1530,7 +1425,7 @@ class _DesignationMultiSelectDropdownState
                           style: const TextStyle(
                             fontFamily: 'Manrope',
                             fontSize: 14,
-                            color: Color(0xff573353),
+                            color: AppColors.classroomTextColor,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1549,8 +1444,8 @@ class _DesignationMultiSelectDropdownState
           style: TextStyle(
             fontFamily: 'Manrope',
             color: _localSelectedItems.isEmpty
-                ? Colors.grey[600]
-                : const Color(0xff573353),
+                ? AppColors.classroomPlaceholderTextColor
+                : AppColors.classroomTextColor,
             fontSize: 14,
           ),
           overflow: TextOverflow.ellipsis,

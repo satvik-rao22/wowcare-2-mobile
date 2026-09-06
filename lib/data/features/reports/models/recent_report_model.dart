@@ -1,8 +1,18 @@
 import 'package:equatable/equatable.dart';
-import '../../../../core/util/app_time.dart';
-import '../../../../domain/features/reports/entities/report_metadata_entity.dart';
-import '../../../../domain/features/reports/entities/report_type.dart';
+import 'package:json_annotation/json_annotation.dart';
 
+part 'recent_report_model.g.dart';
+
+/// One entry in the recent-reports list, as the backend sends it.
+///
+/// Serialisation is generated (§8). Two wire quirks are preserved as
+/// annotations rather than inline expressions:
+///   * `includeIfNull: false` — `toJson` omits `assetCode`/`fileName` entirely
+///     rather than emitting explicit nulls;
+///   * `@JsonKey(defaultValue: '')` — a missing or null required field reads
+///     back as the empty string, which is what the list rendering already
+///     expects. Changing that to a throw would drop rows the UI shows today.
+@JsonSerializable(includeIfNull: false)
 class RecentReportModel extends Equatable {
   const RecentReportModel({
     required this.reportId,
@@ -12,54 +22,26 @@ class RecentReportModel extends Equatable {
     this.fileName,
   });
 
+  factory RecentReportModel.fromJson(Map<String, dynamic> json) =>
+      _$RecentReportModelFromJson(json);
+
+  @JsonKey(defaultValue: '')
   final String reportId;
+  @JsonKey(defaultValue: '')
   final String reportType;
+  @JsonKey(defaultValue: '')
   final String generatedAt;
   final String? assetCode;
   final String? fileName;
 
-  factory RecentReportModel.fromJson(Map<String, dynamic> json) {
-    return RecentReportModel(
-      reportId: json['reportId'] as String? ?? '',
-      reportType: json['reportType'] as String? ?? '',
-      generatedAt: json['generatedAt'] as String? ?? '',
-      assetCode: json['assetCode'] as String?,
-      fileName: json['fileName'] as String?,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'reportId': reportId,
-      'reportType': reportType,
-      'generatedAt': generatedAt,
-      if (assetCode != null) 'assetCode': assetCode,
-      if (fileName != null) 'fileName': fileName,
-    };
-  }
-
-  /// Convert model to metadata entity.
-  ///
-  /// Throws [FormatException] for an unrecognized `reportType`. The caller
-  /// (`ReportsRepositoryImpl.getRecentReports`) catches this per-item so one
-  /// unparseable entry is skipped and logged instead of either crashing the
-  /// whole list or silently mislabeling the report.
-  ReportMetadataEntity toEntity() {
-    final reportTypeEnum = ReportType.values.firstWhere(
-      (e) => e.backendValue == reportType,
-      orElse: () =>
-          throw FormatException('Unknown reportType in response: $reportType'),
-    );
-
-    return ReportMetadataEntity(
-      reportId: reportId,
-      reportType: reportTypeEnum,
-      generatedAt: DateTime.tryParse(generatedAt) ?? AppTime.nowUtc(),
-      assetCode: assetCode,
-      fileName: fileName,
-    );
-  }
+  Map<String, dynamic> toJson() => _$RecentReportModelToJson(this);
 
   @override
-  List<Object?> get props => [reportId, reportType, generatedAt, assetCode, fileName];
+  List<Object?> get props => [
+    reportId,
+    reportType,
+    generatedAt,
+    assetCode,
+    fileName,
+  ];
 }

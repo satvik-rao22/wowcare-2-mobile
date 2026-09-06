@@ -5,7 +5,7 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_health_usecase.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 // The following imports depend on backend/bloc not available now. Keeping commented.
@@ -88,8 +88,10 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
         ? 'UPCOMING'
         : widget.studentStatus.trim();
     final Color? attendanceDotColor = normalizedAttendance == 'SIGNED_IN'
-        ? Colors.green
-        : (normalizedAttendance == 'ABSENT' ? Colors.red : null);
+        ? AppColors.classroomPositiveStatusColor
+        : (normalizedAttendance == 'ABSENT'
+              ? AppColors.classroomNegativeStatusColor
+              : null);
     final String? attendanceTooltip = normalizedAttendance == 'SIGNED_IN'
         ? 'Student is signed in'
         : (normalizedAttendance == 'ABSENT' ? 'Student is absent' : null);
@@ -104,9 +106,9 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
       padding: const EdgeInsets.symmetric(vertical: 12),
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
+        border: Border.all(color: AppColors.classroomRowBorderColor),
         borderRadius: BorderRadius.circular(12),
-        color: shouldGreyOut ? Colors.grey[100] : null,
+        color: shouldGreyOut ? AppColors.classroomRowGreyedBackgroundColor : null,
       ),
       child: Row(
         children: [
@@ -301,8 +303,9 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
   Future<void> _fetchHealth() async {
     final code = widget.studentCode.trim();
     try {
-      final result = await serviceLocator<StudentRepository>()
-          .getStudentHealth(studentCode: code);
+      final result = await serviceLocator<GetStudentHealthUseCase>()(
+        studentCode: code,
+      );
       _healthCache[code] = _HealthCacheEntry(
         fetchedAt: AppTime.nowUtc(),
         health: result,
@@ -425,7 +428,7 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
                     fontFamily: 'Manrope',
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
-                    color: Color(0xff573353),
+                    color: AppColors.classroomTextColor,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -434,7 +437,7 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
                   style: const TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: 14,
-                    color: Color(0xff573353),
+                    color: AppColors.classroomTextColor,
                   ),
                 ),
               ],
@@ -491,8 +494,9 @@ Future<void> prefetchStudentDetailsHealth(String studentCode) async {
 
   final future = () async {
     try {
-      final result = await serviceLocator<StudentRepository>()
-          .getStudentHealth(studentCode: code);
+      final result = await serviceLocator<GetStudentHealthUseCase>()(
+        studentCode: code,
+      );
       _healthCache[code] = _HealthCacheEntry(
         fetchedAt: AppTime.nowUtc(),
         health: result,

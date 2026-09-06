@@ -1,6 +1,7 @@
-import '../../../../domain/features/reports/entities/report_type.dart';
-import '../models/report_response_model.dart';
-import '../models/recent_report_model.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
+import 'package:wowcare/data/features/reports/models/report_response_model.dart';
+import 'package:wowcare/data/features/reports/models/recent_report_model.dart';
+import 'package:wowcare/data/features/reports/models/report_request_payload.dart';
 
 /// Remote data source interface for reports API calls.
 ///
@@ -24,9 +25,11 @@ abstract class ReportsRemoteDataSource {
   ///
   /// Throws DioException on network/server errors, FormatException if the
   /// backend response doesn't match the expected contract.
+  /// [payload] is the typed request body; `toJson()` is called here, at the
+  /// edge, and nowhere further in (§8).
   Future<ReportResponseModel> generateReport({
     required ReportType reportType,
-    required Map<String, dynamic> requestBody,
+    required ReportRequestPayload payload,
   });
 
   /// Get recent student attendance reports.

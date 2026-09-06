@@ -1,9 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
-
-import '../models/future_availability_models.dart';
-import '../models/individual_movement_models.dart';
+import 'package:wowcare/data/features/availability/models/future_availability_models.dart';
+import 'package:wowcare/data/features/availability/models/individual_movement_models.dart';
 
 abstract class AvailabilityRemoteDataSource {
   Future<IndividualMovementBoardModel> getIndividualMovements({

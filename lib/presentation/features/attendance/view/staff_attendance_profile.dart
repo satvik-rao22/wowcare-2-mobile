@@ -28,12 +28,12 @@ import 'package:wowcare/domain/features/attendance/entities/attendance_profile_a
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/staff_attendance_vertical_popup.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
-import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/model/staff_entity.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/attendance_school_time.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
@@ -1083,9 +1083,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   }
 
   void _showActionMenu(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
     final contentPadding = ResponsiveHelper(context).contentPadding;
-    final safeAreaTop = mediaQuery.padding.top;
+    final safeAreaTop = MediaQuery.paddingOf(context).top;
     final appBarHeight = AppBar().preferredSize.height;
     final bool isTablet = ResponsiveHelper(context).isTabletCompact;
     final bool isLargeTablet = ResponsiveHelper(context).isWide;

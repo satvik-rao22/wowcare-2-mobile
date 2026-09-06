@@ -1,8 +1,8 @@
 import 'package:dartz/dartz.dart';
-import '../../../../core/errors/failures.dart';
-import '../../../../core/util/api_error_handler.dart';
-import '../entities/report_entity.dart';
-import '../repositories/reports_repository.dart';
+import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/domain/features/reports/entities/report_entity.dart';
+import 'package:wowcare/domain/features/reports/repositories/reports_repository.dart';
 import 'report_params.dart';
 
 abstract class UseCase<Type, Params> {

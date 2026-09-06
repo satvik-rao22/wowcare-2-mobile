@@ -5,8 +5,9 @@ import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:wowcare/domain/features/onboarding/entities/page_content.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/onboarding/view_model/onboarding_cubit.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 
-import '../../../../app/theme/colors.dart';
+import 'package:wowcare/app/theme/colors.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({Key? key}) : super(key: key);
@@ -27,7 +28,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.cardColor,
         body: Stack(
         children: [
           PageView(
@@ -83,7 +84,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 dotWidth: 10,
                 spacing: 40,
                 activeDotColor: AppColors.themeColor,
-                dotColor: Colors.grey.shade300,
+                dotColor: AppColors.onboardingInactiveDotColor,
               ),
             ),
           ),
@@ -110,16 +111,19 @@ class OnboardingBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
+    // ResponsiveHelper.isTabletCompact (>=600) rather than a bare inline
+    // literal — one fewer independent breakpoint definition (Mandate 7).
+    final isTablet = ResponsiveHelper(context).isTabletCompact;
 
     // Responsive values
     double buttonBottom = screenHeight * 0.08; // 8% from bottom
-    double buttonWidth = screenWidth > 600 ? 300 : 200;
-    double buttonLeft = screenWidth > 600 ? screenWidth * 0.2 : 32;
-    double buttonRight = screenWidth > 600 ? screenWidth * 0.2 : 32;
-    double titleFontSize = screenWidth > 600 ? 32 : 24;
-    double descFontSize = screenWidth > 600 ? 20 : 16;
-    double buttonFontSize = screenWidth > 600 ? 22 : 16;
-    double iconSize = screenWidth > 600 ? 32 : 24;
+    double buttonWidth = isTablet ? 300 : 200;
+    double buttonLeft = isTablet ? screenWidth * 0.2 : 32;
+    double buttonRight = isTablet ? screenWidth * 0.2 : 32;
+    double titleFontSize = isTablet ? 32 : 24;
+    double descFontSize = isTablet ? 20 : 16;
+    double buttonFontSize = isTablet ? 22 : 16;
+    double iconSize = isTablet ? 32 : 24;
 
     return Stack(
       children: [
@@ -167,7 +171,7 @@ class OnboardingBody extends StatelessWidget {
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.themeColor,
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.cardColor,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 7,
                   vertical: 14,
@@ -193,7 +197,7 @@ class OnboardingBody extends StatelessWidget {
                     )
                   : Icon(
                       Icons.arrow_forward,
-                      color: Colors.white,
+                      color: AppColors.cardColor,
                       size: iconSize,
                     ),
             ),

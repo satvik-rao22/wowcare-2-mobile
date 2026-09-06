@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
@@ -51,7 +52,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
   static const Color _text = AppColors.billingTextColor;
   static TextStyle _ts(double size, FontWeight weight, {Color? color}) =>
       TextStyle(
-        fontFamily: 'Manrope',
+        fontFamily: Fonts.manrope,
         fontSize: size,
         fontWeight: weight,
         color: color ?? _text,
@@ -232,7 +233,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                     child: Text(
                       '${isDiscount ? '-' : '+'}\$${amount.toStringAsFixed(2)}',
                       style: _ts(14, FontWeight.w600,
-                          color: isDiscount ? Colors.red : _text),
+                          color: isDiscount ? AppColors.errorColor : _text),
                       textAlign: TextAlign.end,
                     ),
                   ),
@@ -321,7 +322,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                       onPressed:
                           isProcessing ? null : () => _removeStudent(student),
                       icon: const Icon(Icons.delete_outline,
-                          color: Colors.red, size: 20),
+                          color: AppColors.errorColor, size: 20),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
@@ -417,13 +418,14 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                     child: CircularProgressIndicator(
                       strokeWidth: 2.5,
                       valueColor:
-                          AlwaysStoppedAnimation<Color>(Colors.white),
+                          AlwaysStoppedAnimation<Color>(
+                              AppColors.billingCardOnColorText),
                     ),
                   )
                 : Text(
                     label,
                     style: TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: AppColors.billingCardColor,

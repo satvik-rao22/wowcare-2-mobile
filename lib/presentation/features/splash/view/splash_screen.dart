@@ -7,7 +7,7 @@ import 'package:wowcare/core/util/active_school_switcher.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
-import 'package:wowcare/presentation/features/splash/cubit/splash_cubit.dart';
+import 'package:wowcare/presentation/features/splash/view_model/splash_cubit.dart';
 import 'package:wowcare/shared/common/widgets/animation_slide_widgets.dart';
 
 class SplashScreen extends StatefulWidget {

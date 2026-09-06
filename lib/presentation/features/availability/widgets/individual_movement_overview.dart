@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart'
@@ -52,7 +52,7 @@ class IndividualMovementFilterCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.primaryColor.withValues(alpha: 0.08)),
       ),
@@ -222,12 +222,7 @@ class IndividualMovementPager extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           sections[currentSectionIndex].title,
-          style: const TextStyle(
-            fontFamily: Fonts.manrope,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryColor,
-          ),
+          style: AppTextStyles.movementPagerSectionTitle,
         ),
       ],
     );
@@ -289,7 +284,7 @@ class _MovementSectionCard extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 4),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.cardColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isActive
@@ -303,12 +298,7 @@ class _MovementSectionCard extends StatelessWidget {
             children: <Widget>[
               Text(
                 section.title,
-                style: const TextStyle(
-                  fontFamily: Fonts.manrope,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primaryColor,
-                ),
+                style: AppTextStyles.movementColumnTitle,
               ),
               const SizedBox(height: 12),
               Expanded(
@@ -316,11 +306,7 @@ class _MovementSectionCard extends StatelessWidget {
                     ? const Center(
                         child: Text(
                           'No movements available',
-                          style: TextStyle(
-                            fontFamily: Fonts.manrope,
-                            fontSize: 14,
-                            color: AppColors.primaryColor,
-                          ),
+                          style: AppTextStyles.movementErrorText,
                         ),
                       )
                     : ListView.builder(
@@ -463,80 +449,6 @@ class _MovementRow extends StatelessWidget {
     }
   }
 
-  Widget _typeChip(BuildContext context, String label) {
-    final scheme = Theme.of(context).colorScheme;
-    return Chip(
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.compact,
-      padding: EdgeInsets.zero,
-      side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.18)),
-      backgroundColor: scheme.surface,
-      label: Text(
-        label,
-        style: const TextStyle(
-          fontFamily: Fonts.manrope,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: AppColors.primaryColor,
-        ),
-      ),
-    );
-  }
-
-  Widget _classroomLabel(String value) {
-    final v = value.trim();
-    return Text(
-      v.isEmpty ? '—' : v,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
-        fontFamily: Fonts.manrope,
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: AppColors.primaryColor,
-      ),
-    );
-  }
-
-  Widget _buildFromToRow(BuildContext context) {
-    final from = item.fromClassroom.trim();
-    final to = item.toClassroom.trim();
-
-    final Widget left;
-    final Widget right;
-
-    switch (item.movementType) {
-      case MovementType.moveToNextClassroom:
-        left = _classroomLabel(from);
-        right = _classroomLabel(to);
-        break;
-      case MovementType.startSchool:
-        // Start school chip on the left; destination classroom on the right.
-        left = _typeChip(context, 'Start School');
-        right = _classroomLabel(to);
-        break;
-      case MovementType.leaveSchool:
-        // Source classroom on the left; leave school chip on the right.
-        left = _classroomLabel(from);
-        right = _typeChip(context, 'Leave School');
-        break;
-    }
-
-    return Row(
-      children: <Widget>[
-        Flexible(child: left),
-        const SizedBox(width: 6),
-        const Icon(
-          Icons.arrow_right_alt_rounded,
-          size: 20,
-          color: AppColors.primaryColor,
-        ),
-        const SizedBox(width: 6),
-        Flexible(child: right),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final card = HighlightableCard(
@@ -564,7 +476,7 @@ class _MovementRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Expanded(
-                child: _buildFromToRow(context),
+                child: _FromToRow(item: item),
               ),
               const SizedBox(width: 8),
               if (!isViewOnly)
@@ -572,7 +484,7 @@ class _MovementRow extends StatelessWidget {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.cardColor,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: AppColors.primaryColor.withValues(alpha: 0.1),
@@ -582,7 +494,7 @@ class _MovementRow extends StatelessWidget {
                   child: PopupMenuButton<IndividualMovementAction>(
                     tooltip: 'More',
                     padding: EdgeInsets.zero,
-                    color: Colors.white,
+                    color: AppColors.cardColor,
                     elevation: 8,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -616,30 +528,19 @@ class _MovementRow extends StatelessWidget {
                       : () => onStudentNameTap!(item),
                   child: Text(
                     item.name,
-                    style: const TextStyle(
-                      fontFamily: Fonts.manrope,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.primaryColor,
-                      decoration: TextDecoration.none,
-                    ),
+                    style: AppTextStyles.movementStudentNameLabel,
                   ),
                 ),
               ),
               const Icon(
                 Icons.access_time_rounded,
                 size: 16,
-                color: Color(0xFFF3B413),
+                color: AppColors.movementDueTimeIconColor,
               ),
               const SizedBox(width: 6),
               Text(
                 DateFormat('MMM dd').format(item.movementDate),
-                style: const TextStyle(
-                  fontFamily: Fonts.manrope,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.primaryColor,
-                ),
+                style: AppTextStyles.movementClassroomLabel,
               ),
             ],
           ),
@@ -651,12 +552,7 @@ class _MovementRow extends StatelessWidget {
                 item.comment.trim(),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: Fonts.manrope,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.primaryColor.withValues(alpha: 0.85),
-                ),
+                style: AppTextStyles.movementCommentText,
               ),
             ),
           ],
@@ -681,6 +577,94 @@ class _MovementRow extends StatelessWidget {
       ),
       childWhenDragging: Opacity(opacity: 0.35, child: card),
       child: card,
+    );
+  }
+}
+
+/// "Start School"/"Leave School" type chip shown in place of a classroom name.
+class _TypeChip extends StatelessWidget {
+  const _TypeChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Chip(
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.18)),
+      backgroundColor: scheme.surface,
+      label: Text(
+        label,
+        style: AppTextStyles.movementTypeChipLabel,
+      ),
+    );
+  }
+}
+
+class _ClassroomLabel extends StatelessWidget {
+  const _ClassroomLabel({required this.value});
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final v = value.trim();
+    return Text(
+      v.isEmpty ? '—' : v,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: AppTextStyles.movementClassroomLabel,
+    );
+  }
+}
+
+/// Row showing the movement's source/destination — a classroom name on each
+/// side, or a type chip in place of whichever side doesn't apply.
+class _FromToRow extends StatelessWidget {
+  const _FromToRow({required this.item});
+
+  final MovementItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final from = item.fromClassroom.trim();
+    final to = item.toClassroom.trim();
+
+    final Widget left;
+    final Widget right;
+
+    switch (item.movementType) {
+      case MovementType.moveToNextClassroom:
+        left = _ClassroomLabel(value: from);
+        right = _ClassroomLabel(value: to);
+        break;
+      case MovementType.startSchool:
+        // Start school chip on the left; destination classroom on the right.
+        left = const _TypeChip(label: 'Start School');
+        right = _ClassroomLabel(value: to);
+        break;
+      case MovementType.leaveSchool:
+        // Source classroom on the left; leave school chip on the right.
+        left = _ClassroomLabel(value: from);
+        right = const _TypeChip(label: 'Leave School');
+        break;
+    }
+
+    return Row(
+      children: <Widget>[
+        Flexible(child: left),
+        const SizedBox(width: 6),
+        const Icon(
+          Icons.arrow_right_alt_rounded,
+          size: 20,
+          color: AppColors.primaryColor,
+        ),
+        const SizedBox(width: 6),
+        Flexible(child: right),
+      ],
     );
   }
 }
