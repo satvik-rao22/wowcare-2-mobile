@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 /// Bottom sheet to pick existing students with the same surname as siblings.
 /// Returns selected student codes (may be empty). Null if dismissed without action.
@@ -14,7 +18,7 @@ Future<List<String>?> showSameLastNameSiblingsDialog({
   return showModalBottomSheet<List<String>?>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor: AppColors.transparentColor,
     isDismissible: true,
     enableDrag: true,
     builder: (ctx) {
@@ -58,9 +62,9 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
-    final isLargeTablet = screenWidth > 900;
+    final responsive = ResponsiveHelper(context);
+    final isTablet = responsive.isTabletCompact;
+    final isLargeTablet = responsive.isWide;
     final bottomSafe = MediaQuery.of(context).padding.bottom;
 
     final horizontalPadding =
@@ -92,7 +96,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
             bottom: verticalPadding + bottomSafe,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.whiteColor,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(borderRadius),
               topRight: Radius.circular(borderRadius),
@@ -112,7 +116,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                   ),
                   child: Icon(
                     Icons.groups_outlined,
-                    color: Colors.white,
+                    color: AppColors.whiteColor,
                     size: isLargeTablet ? 40 : 36,
                   ),
                 ),
@@ -124,23 +128,23 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                 child: Text(
                   'We found $count student${count == 1 ? '' : 's'} with the same last name',
                   style: TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: Fonts.manrope,
                     fontSize: titleFontSize,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xff573353),
+                    color: AppColors.primaryColor,
                     height: 1.2,
                   ),
                   textAlign: TextAlign.center,
                 ),
               ),
-              const SizedBox(height: 8),
+              AppSpacing.gapVXs,
               Padding(
                 padding:
                     EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
                 child: Text(
-                  'Would you like to add any of them as siblings?',
+                  StudentStrings.wouldYouLikeToAddAnyOfThemAsSiblings,
                   style: TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: Fonts.manrope,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: AppColors.primaryColor.withValues(alpha: 0.85),
@@ -152,7 +156,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
               SizedBox(height: verticalPadding * 0.75),
               ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.42,
+                  maxHeight: responsive.screenHeight * 0.42,
                 ),
                 child: ListView.separated(
                   shrinkWrap: true,
@@ -168,7 +172,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                         s.classroom.trim().isEmpty ? '—' : s.classroom;
 
                     return Material(
-                      color: Colors.transparent,
+                      color: AppColors.transparentColor,
                       child: InkWell(
                         borderRadius:
                             BorderRadius.circular(borderRadius / 2),
@@ -180,7 +184,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                         child: Container(
                           padding: EdgeInsets.symmetric(
                             horizontal: horizontalPadding / 2,
-                            vertical: isTablet ? 12 : 10,
+                            vertical: isTablet ? AppSpacing.sm : AppSpacing.s10,
                           ),
                           decoration: BoxDecoration(
                             borderRadius:
@@ -193,7 +197,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Padding(
-                                padding: const EdgeInsets.only(top: 2),
+                                padding: const EdgeInsets.only(top: AppSpacing.s2),
                                 child: ShaderMask(
                                   blendMode: BlendMode.srcIn,
                                   shaderCallback: (bounds) =>
@@ -229,17 +233,17 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                                     Text(
                                       name,
                                       style: TextStyle(
-                                        fontFamily: 'Manrope',
+                                        fontFamily: Fonts.manrope,
                                         fontSize: isTablet ? 16 : 15,
                                         fontWeight: FontWeight.w700,
-                                        color: const Color(0xff573353),
+                                        color: AppColors.primaryColor,
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
+                                    AppSpacing.gapVXxs,
                                     Text(
                                       'Status: $status | Classroom: $classroom',
                                       style: TextStyle(
-                                        fontFamily: 'Manrope',
+                                        fontFamily: Fonts.manrope,
                                         fontSize: 13,
                                         color: AppColors.primaryColor
                                             .withValues(alpha: 0.55),
@@ -271,7 +275,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                         padding: const EdgeInsets.all(1),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.whiteColor,
                             borderRadius: BorderRadius.circular(
                                 borderRadius / 2 - 1),
                           ),
@@ -285,9 +289,9 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                               ),
                             ),
                             child: Text(
-                              'Skip',
+                              StudentStrings.skip,
                               style: TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: Fonts.manrope,
                                 fontSize: buttonFontSize,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.primaryColor,
@@ -322,10 +326,10 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: Fonts.manrope,
                             fontSize: buttonFontSize,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                            color: AppColors.whiteColor,
                             height: 1.0,
                           ),
                         ),

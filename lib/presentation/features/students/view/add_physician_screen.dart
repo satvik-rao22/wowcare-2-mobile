@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_physician_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -48,8 +53,6 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
-
-  bool _isSubmitting = false;
 
   /// One cubit instance for this screen so its single-flight guard spans taps
   /// (serviceLocator registers it as a factory — a fresh call would not dedupe).
@@ -99,7 +102,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
     if (first.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'First Name is required',
+        message: StudentStrings.firstNameIsRequired,
         isError: true,
       );
       return;
@@ -107,7 +110,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
     if (last.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Last Name is required',
+        message: StudentStrings.lastNameIsRequired,
         isError: true,
       );
       return;
@@ -116,61 +119,49 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
     if (digits.length != 10) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Please enter a valid 10-digit phone number',
+        message: StudentStrings.pleaseEnterAValid10DigitPhoneNumber,
         isError: true,
       );
       return;
     }
 
-    if (_isSubmitting) return;
+    // Re-entry guard now reads the cubit's own in-flight flag (the cubit also
+    // single-flights identical add/update calls) — no local submit bool.
+    if (_physicianCubit.state.mutationInProgress) return;
 
-    setState(() {
-      _isSubmitting = true;
-    });
+    final storage = serviceLocator<StorageService>();
+    final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
 
-    try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
-
-      final physicianCubit = _physicianCubit;
-
-      if (widget.isEdit &&
-          widget.physicianCode != null &&
-          widget.physicianCode!.isNotEmpty) {
-        await physicianCubit.update(
-          code: widget.physicianCode!,
-          studentCode: widget.studentCode,
-          firstName: first,
-          lastName: last,
-          email: email,
-          phoneNumber: digits,
-          address: address,
-          notes: null,
-          specialty: null,
-        );
-      } else {
-        await physicianCubit.add(
-          schoolCode: schoolCode,
-          studentCode: widget.studentCode,
-          firstName: first,
-          lastName: last,
-          email: email,
-          phoneNumber: digits,
-          address: address,
-          notes: null,
-          specialty: null,
-        );
-      }
-
-      if (!mounted) return;
-      Navigator.pop(context, true);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+    if (widget.isEdit &&
+        widget.physicianCode != null &&
+        widget.physicianCode!.isNotEmpty) {
+      await _physicianCubit.update(
+        code: widget.physicianCode!,
+        studentCode: widget.studentCode,
+        firstName: first,
+        lastName: last,
+        email: email,
+        phoneNumber: digits,
+        address: address,
+        notes: null,
+        specialty: null,
+      );
+    } else {
+      await _physicianCubit.add(
+        schoolCode: schoolCode,
+        studentCode: widget.studentCode,
+        firstName: first,
+        lastName: last,
+        email: email,
+        phoneNumber: digits,
+        address: address,
+        notes: null,
+        specialty: null,
+      );
     }
+
+    if (!mounted) return;
+    context.pop(true);
   }
 
   @override
@@ -182,7 +173,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.whiteColor,
         appBar: const CustomAppBar(hasBackButton: true),
         body: Stack(
           children: [
@@ -200,7 +191,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
             ),
             Column(
               children: [
-                const SizedBox(height: 16),
+                AppSpacing.gapVMd,
                 Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: responsive.horizontalSpacing,
@@ -208,12 +199,12 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      widget.isEdit ? 'Edit Physician' : 'Add Physician',
+                      widget.isEdit ? StudentStrings.editPhysician : StudentStrings.addPhysician,
                       style: TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                         fontSize: responsive.titleFontSize,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xff573353),
+                        color: AppColors.primaryColor,
                       ),
                     ),
                   ),
@@ -227,13 +218,13 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                     ),
                     padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.whiteColor,
                       borderRadius: BorderRadius.all(
                         Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: AppColors.blackColor.withValues(alpha: 0.05),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -247,8 +238,8 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                           children: [
                             Expanded(
                               child: _buildInputField(
-                                label: 'First Name',
-                                hint: 'E.g. John',
+                                label: StudentStrings.firstName,
+                                hint: StudentStrings.eGJohn,
                                 controller: _firstNameController,
                                 isRequired: true,
                                 textCapitalization: TextCapitalization.words,
@@ -257,8 +248,8 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                             SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
                             Expanded(
                               child: _buildInputField(
-                                label: 'Last Name',
-                                hint: 'E.g. Smith',
+                                label: StudentStrings.lastName,
+                                hint: StudentStrings.eGSmith,
                                 controller: _lastNameController,
                                 isRequired: true,
                                 textCapitalization: TextCapitalization.words,
@@ -268,15 +259,15 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
-                          label: 'Email ID',
-                          hint: 'E.g. name@example.com',
+                          label: StudentStrings.emailId,
+                          hint: StudentStrings.eGNameExampleCom,
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
-                          label: 'Phone Number',
-                          hint: 'E.g. (000) 000-0000',
+                          label: StudentStrings.phoneNumber,
+                          hint: StudentStrings.eG0000000000,
                           controller: _phoneController,
                           isRequired: true,
                           keyboardType: TextInputType.phone,
@@ -288,8 +279,8 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
-                          label: 'Address',
-                          hint: 'Enter address',
+                          label: StudentStrings.address,
+                          hint: StudentStrings.enterAddress,
                           controller: _addressController,
                           textCapitalization: TextCapitalization.sentences,
                         ),
@@ -298,7 +289,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                AppSpacing.gapVSm,
               ],
             ),
           ],
@@ -306,15 +297,15 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
         bottomNavigationBar: Container(
           padding: EdgeInsets.only(
             bottom: safeAreaBottom,
-            left: 16,
-            right: 16,
-            top: 8,
+            left: AppSpacing.md,
+            right: AppSpacing.md,
+            top: AppSpacing.xs,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.whiteColor,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
+                color: AppColors.blackColor.withValues(alpha: 0.05),
                 offset: const Offset(0, -4),
                 blurRadius: 16,
               ),
@@ -324,15 +315,19 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
               topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
             ),
           ),
-          child: CustomButtonLayout(
-            confirmButtonLabel: 'Save',
-            cancelButtonLabel: 'Cancel',
-            onPressedConfirm: _onSave,
-            onPressedCancel: () => Navigator.pop(context, false),
-            showCancelButton: true,
-            isForm: false,
-            isLoading: _isSubmitting,
-            gradientCancelLabel: true,
+          child: BlocBuilder<StudentPhysicianCubit, StudentPhysicianState>(
+            bloc: _physicianCubit,
+            buildWhen: (p, c) => p.mutationInProgress != c.mutationInProgress,
+            builder: (context, state) => CustomButtonLayout(
+              confirmButtonLabel: StudentStrings.save,
+              cancelButtonLabel: StudentStrings.cancel,
+              onPressedConfirm: _onSave,
+              onPressedCancel: () => context.pop(false),
+              showCancelButton: true,
+              isForm: false,
+              isLoading: state.mutationInProgress,
+              gradientCancelLabel: true,
+            ),
           ),
         ),
       ),
@@ -351,9 +346,9 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: 'Manrope',
+      fontFamily: Fonts.manrope,
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
 
     return Column(
@@ -367,7 +362,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.errorColor),
                 ),
             ],
           ),
@@ -376,8 +371,8 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.whiteColor,
+            border: Border.all(color: AppColors.inputBorderColor),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -389,7 +384,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
             textCapitalization: textCapitalization,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.attendanceMutedTextColor),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -397,10 +392,10 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
               ),
             ),
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 19 / 14,
             ),
           ),

@@ -1,13 +1,15 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../../../../domain/features/student/entities/student_health.dart';
-import '../../../../domain/features/student/entities/student_health_update_request.dart';
-import '../../../../domain/features/student/entities/student_immunization.dart';
-import '../../../../domain/features/student/usecases/get_student_health_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_immunizations_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_health_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_immunization_record_usecase.dart';
+import 'package:wowcare/domain/features/student/entities/student_health.dart';
+import 'package:wowcare/domain/features/student/entities/student_health_update_request.dart';
+import 'package:wowcare/domain/features/student/entities/student_immunization.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_health_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_immunizations_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_health_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_immunization_record_usecase.dart';
+
+import 'package:wowcare/core/util/api_error_handler.dart';
 
 part 'student_health_state.dart';
 
@@ -57,6 +59,62 @@ class StudentHealthCubit extends Cubit<StudentHealthState> {
       studentCode: studentCode,
       forceRefresh: forceRefresh,
     );
+  }
+
+  /// State-based load of a student's health record — the Health card renders
+  /// `state.health` via BlocBuilder (this cubit instance is health-only).
+  Future<void> loadHealth(String studentCode) async {
+    if (studentCode.isEmpty) {
+      if (!isClosed) {
+        emit(state.copyWith(healthLoading: false, errorMessage: null));
+      }
+      return;
+    }
+    if (isClosed) return;
+    emit(state.copyWith(healthLoading: true, errorMessage: null));
+    try {
+      final health = await _getStudentHealthUseCase(studentCode: studentCode);
+      if (isClosed) return;
+      emit(state.copyWith(
+        health: health,
+        healthLoading: false,
+        errorMessage: null,
+      ));
+    } catch (e) {
+      if (isClosed) return;
+      emit(state.copyWith(
+        healthLoading: false,
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
+      ));
+    }
+  }
+
+  /// State-based load of a student's immunizations — the Immunization card
+  /// renders `state.immunizations` via BlocBuilder (this instance is imm-only).
+  Future<void> loadImmunizations(
+    String studentCode, {
+    bool forceRefresh = false,
+  }) async {
+    if (isClosed) return;
+    emit(state.copyWith(immunizationsLoading: true, errorMessage: null));
+    try {
+      final immunizations = await _getStudentImmunizationsUseCase(
+        studentCode: studentCode,
+        forceRefresh: forceRefresh,
+      );
+      if (isClosed) return;
+      emit(state.copyWith(
+        immunizations: immunizations,
+        immunizationsLoading: false,
+        errorMessage: null,
+      ));
+    } catch (e) {
+      if (isClosed) return;
+      emit(state.copyWith(
+        immunizationsLoading: false,
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
+      ));
+    }
   }
 
   /// In-flight mutations keyed by `action:id`. A second identical call while

@@ -21,7 +21,7 @@ import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_schoo
 import 'package:wowcare/domain/features/student_classroom/entities/student_classroom_item.dart';
 import 'package:wowcare/domain/features/student_classroom/repositories/student_classroom_repository.dart';
 import 'package:wowcare/domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_state.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/notification_badge_cubit.dart';
@@ -29,8 +29,8 @@ import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.d
 import 'package:wowcare/presentation/features/reports/view/student_attendance_per_student_report_screen.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import 'package:wowcare/presentation/features/user-profile/view_model/profile_menu_header_cubit.dart';
-import 'package:wowcare/presentation/features/user-profile/view_model/user_profile_cubit.dart';
+import 'package:wowcare/presentation/features/user_profile/view_model/profile_menu_header_cubit.dart';
+import 'package:wowcare/presentation/features/user_profile/view_model/user_profile_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:go_router/go_router.dart';

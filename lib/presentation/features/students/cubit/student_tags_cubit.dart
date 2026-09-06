@@ -1,10 +1,11 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../../../../domain/features/student/usecases/get_student_tag_names_usecase.dart';
-import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import '../../../../domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_tags_usecase.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_tag_names_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_tags_usecase.dart';
 
 part 'student_tags_state.dart';
 
@@ -43,6 +44,70 @@ class StudentTagsCubit extends Cubit<StudentTagsState> {
   /// Thin Future-based read of a school's tag name → code mapping.
   Future<Map<String, String>> fetchTagNameCodeMap(String schoolCode) {
     return _getTagNameCodeMapForSchoolUseCase(schoolCode: schoolCode);
+  }
+
+  // --- Tags edit-sheet state (load + selection + save) ---
+
+  /// Show the sheet's loader immediately (called sync from the sheet's initState,
+  /// before the school code is resolved) so the first frame isn't the empty form.
+  void beginLoading() {
+    if (isClosed) return;
+    emit(state.copyWith(isLoading: true, errorMessage: null));
+  }
+
+  /// Load the school's available tags + name→code map and seed the selection
+  /// from [initialTagNames], dropping any that no longer exist for the school.
+  Future<void> load({
+    required String schoolCode,
+    required List<String> initialTagNames,
+  }) async {
+    if (isClosed) return;
+    emit(state.copyWith(
+      isLoading: true,
+      errorMessage: null,
+      schoolCode: schoolCode,
+    ));
+    try {
+      final names = await _getTagNamesForSchoolUseCase(schoolCode: schoolCode);
+      final map = await _getTagNameCodeMapForSchoolUseCase(
+        schoolCode: schoolCode,
+      );
+      if (isClosed) return;
+      final selected =
+          initialTagNames.where((t) => names.contains(t)).toList();
+      emit(state.copyWith(
+        availableTagNames: names,
+        tagNameToCode: map,
+        selectedTags: selected,
+        isLoading: false,
+      ));
+    } catch (e) {
+      if (isClosed) return;
+      emit(state.copyWith(
+        isLoading: false,
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
+      ));
+    }
+  }
+
+  void setSelectedTags(List<String> tags) {
+    emit(state.copyWith(selectedTags: tags));
+  }
+
+  /// Persist the current selection: resolve the selected names to codes against
+  /// the loaded map and route through [updateTags] (single-flight +
+  /// `mutationInProgress`). Returns the success message.
+  Future<String> saveTags({required String studentCode}) {
+    final tagCodes = state.selectedTags
+        .map((n) => state.tagNameToCode[n])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+    return updateTags(
+      studentCode: studentCode,
+      schoolCode: state.schoolCode,
+      tagCodes: tagCodes,
+    );
   }
 
   /// In-flight mutations keyed by `action:code`. A second identical call while

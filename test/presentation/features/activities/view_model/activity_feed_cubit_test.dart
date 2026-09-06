@@ -8,9 +8,9 @@ import 'package:wowcare/domain/features/activity/entities/activity_feed_row.dart
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart'
     as af;
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_daily.dart';
-import 'package:wowcare/presentation/features/activities/cubit/activity_feed_cubit.dart';
-import 'package:wowcare/presentation/features/activities/cubit/activity_feed_data_source.dart';
-import 'package:wowcare/presentation/features/activities/cubit/activity_feed_query.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_feed_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_feed_data_source.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_feed_query.dart';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -143,6 +143,27 @@ class _FakeFeedDataSource implements ActivityFeedDataSource {
   Future<ActivityFeedPage> getDailyActivityFeed({
     required String classroomCode,
     required String date,
+    String? studentCode,
+    List<String>? classroomCodes,
+    List<String>? studentCodes,
+    List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
+    bool guardianPersona = false,
+    int page = 0,
+    int size = 200,
+  }) {
+    dailyCalls++;
+    final r =
+        dailyQueue.isNotEmpty ? dailyQueue.removeAt(0) : _feedPage(const [], last: true);
+    if (r is Completer<ActivityFeedPage>) return r.future;
+    return Future<ActivityFeedPage>.value(r as ActivityFeedPage);
+  }
+
+  @override
+  Future<ActivityFeedPage> getRangeActivityFeed({
+    required String classroomCode,
+    required String startDate,
+    required String endDate,
     String? studentCode,
     List<String>? classroomCodes,
     List<String>? studentCodes,

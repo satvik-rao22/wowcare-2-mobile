@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/student/entities/student_pickup.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_pickup_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
@@ -15,7 +20,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/students/view/add_pickup_screen.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import '../../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class StudentPickupTabCard extends StatefulWidget {
   const StudentPickupTabCard({
@@ -40,18 +45,17 @@ class StudentPickupTabCard extends StatefulWidget {
 class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
   static const int _maxPickupsPerStudent = 4;
 
-  late Future<List<StudentPickup>> _pickupsFuture;
   bool _isMutating = false;
 
-  /// One cubit instance for this card so its single-flight delete guard spans
-  /// taps (serviceLocator registers it as a factory — a fresh call per tap
-  /// would not dedupe).
+  /// The cubit OWNS the pickup list (single source of truth); the card renders
+  /// `state.pickups` via BlocBuilder. One instance per card so the single-flight
+  /// delete guard spans taps (serviceLocator registers a factory).
   final StudentPickupCubit _pickupCubit = serviceLocator<StudentPickupCubit>();
 
   @override
   void initState() {
     super.initState();
-    _pickupsFuture = _buildPickupsFuture();
+    _pickupCubit.load(widget.studentCode ?? '');
   }
 
   @override
@@ -60,24 +64,9 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
     super.dispose();
   }
 
-  Future<List<StudentPickup>> _buildPickupsFuture({bool forceRefresh = false}) {
-    final code = widget.studentCode;
-    if (code == null || code.isEmpty) {
-      return Future.value(const <StudentPickup>[]);
-    }
-    return _pickupCubit.fetchPickups(code, forceRefresh: forceRefresh);
-  }
-
   Future<void> _handleRefresh() async {
-    setState(() {
-      _pickupsFuture = _buildPickupsFuture(forceRefresh: true);
-    });
+    await _pickupCubit.load(widget.studentCode ?? '', forceRefresh: true);
     await widget.onRefresh?.call();
-    try {
-      await _pickupsFuture;
-    } catch (_) {
-      // swallow; UI handles errors
-    }
   }
 
   @override
@@ -93,16 +82,21 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
         physics: const AlwaysScrollableScrollPhysics(),
         child: Padding(
           // Space between the tab bar and the heading/+ row.
-          padding: const EdgeInsets.fromLTRB(0, 16, 0, 16),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.none,
+            AppSpacing.md,
+            AppSpacing.none,
+            AppSpacing.md,
+          ),
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 0),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.none),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Pickup details',
+                      StudentStrings.pickupDetails,
                       style: AppTextStyles.value.copyWith(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -114,7 +108,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                         onTap: () async {
                           final code = widget.studentCode ?? '';
                           if (code.isEmpty) return;
-                          final current = await _pickupCubit.fetchPickups(code);
+                          final current = _pickupCubit.state.pickups;
                           if (current.length >= _maxPickupsPerStudent) {
                             if (!mounted) return;
                             CoreUtils.showTopSnackBar(
@@ -125,11 +119,9 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                             );
                             return;
                           }
-                          final result = await Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  AddPickupScreen(studentCode: code),
-                            ),
+                          final result = await context.push<bool>(
+                            AddPickupScreen.routeName,
+                            extra: <String, dynamic>{'studentCode': code},
                           );
                           if (result == true && mounted) {
                             await _handleRefresh();
@@ -137,40 +129,40 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                         },
                         wantedButtonSize: 40,
                         iconSize: 22,
-                        borderRadius: 10,
+                        borderRadius: AppRadius.r10,
                       )
                     else
                       const SizedBox.shrink(),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              FutureBuilder<List<StudentPickup>>(
-                future: _pickupsFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+              AppSpacing.gapVMd,
+              BlocBuilder<StudentPickupCubit, StudentPickupState>(
+                bloc: _pickupCubit,
+                builder: (context, state) {
+                  if (state.isLoading && state.pickups.isEmpty) {
                     return const StudentDetailCardsShimmer();
                   }
 
-                  if (snapshot.hasError) {
+                  if (state.errorMessage != null && state.pickups.isEmpty) {
                     return Padding(
-                      padding: const EdgeInsets.only(top: 16),
+                      padding: const EdgeInsets.only(top: AppSpacing.md),
                       child: Text(
-                        'Failed to load pickups',
+                        StudentStrings.failedToLoadPickups,
                         style: AppTextStyles.value.copyWith(
                           fontSize: 14,
-                          color: Colors.redAccent,
+                          color: AppColors.errorColor,
                         ),
                       ),
                     );
                   }
 
-                  final pickups = snapshot.data ?? const <StudentPickup>[];
+                  final pickups = state.pickups;
                   if (pickups.isEmpty) {
                     return Padding(
-                      padding: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.only(top: AppSpacing.xs),
                       child: Text(
-                        'No pickups found',
+                        StudentStrings.noPickupsFound,
                         style: AppTextStyles.value.copyWith(fontSize: 14),
                       ),
                     );
@@ -205,7 +197,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                           onSetLoading: (v) => setState(() => _isMutating = v),
                           showActionButtons: canStudentWrite,
                         ),
-                        if (i != pickups.length - 1) const SizedBox(height: 12),
+                        if (i != pickups.length - 1) AppSpacing.gapVSm,
                       ],
                     ],
                   );
@@ -310,21 +302,19 @@ class _PickupCardState extends State<_PickupCard> {
   }
 
   Future<void> _onEdit() async {
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => AddPickupScreen(
-          studentCode: widget.studentCode,
-          pickupCode: widget.pickupCode.trim().isEmpty
-              ? null
-              : widget.pickupCode,
-          initialFirstName: widget.firstName,
-          initialLastName: widget.lastName,
-          initialEmail: widget.rawEmail,
-          initialPhoneNumber: widget.rawPhoneNumber,
-          initialRelation: widget.rawRelation,
-          initialClockPin: widget.clockPin,
-        ),
-      ),
+    final result = await context.push<bool>(
+      AddPickupScreen.routeName,
+      extra: <String, dynamic>{
+        'studentCode': widget.studentCode,
+        'pickupCode':
+            widget.pickupCode.trim().isEmpty ? null : widget.pickupCode,
+        'initialFirstName': widget.firstName,
+        'initialLastName': widget.lastName,
+        'initialEmail': widget.rawEmail,
+        'initialPhoneNumber': widget.rawPhoneNumber,
+        'initialRelation': widget.rawRelation,
+        'initialClockPin': widget.clockPin,
+      },
     );
     if (result == true) {
       await widget.onRefresh?.call();
@@ -335,7 +325,7 @@ class _PickupCardState extends State<_PickupCard> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (sheetContext) {
         return DeleteConfirmationBottomSheet(
           name: widget.name,
@@ -382,8 +372,8 @@ class _PickupCardState extends State<_PickupCard> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final responsive = ResponsiveHelper(context);
+    final isTablet = responsive.isTabletCompact;
     final isCarpool = widget.pickupType.trim().toUpperCase() == 'CARPOOL';
 
     return LayoutBuilder(
@@ -393,14 +383,14 @@ class _PickupCardState extends State<_PickupCard> {
             width: constraints.maxWidth,
             // Match the Health tab cards: themeColor outline, square top-left.
             decoration: const BoxDecoration(
-              color: Colors.white,
+              color: AppColors.whiteColor,
               borderRadius: BorderRadius.only(
-                topRight: Radius.circular(8),
-                bottomLeft: Radius.circular(8),
-                bottomRight: Radius.circular(8),
+                topRight: Radius.circular(AppRadius.sm),
+                bottomLeft: Radius.circular(AppRadius.sm),
+                bottomRight: Radius.circular(AppRadius.sm),
               ),
               border: Border.fromBorderSide(
-                BorderSide(color: AppColors.themeColor, width: 1),
+                BorderSide(color: AppColors.themeColor, width: AppDimensions.hairline),
               ),
             ),
             clipBehavior: Clip.antiAlias,
@@ -447,7 +437,12 @@ class _PickupCardState extends State<_PickupCard> {
                   color: AppColors.dividerColor,
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.md,
+                    AppSpacing.md,
+                    AppSpacing.none,
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -456,7 +451,7 @@ class _PickupCardState extends State<_PickupCard> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
-                            'Type',
+                            StudentStrings.type,
                             style: AppTextStyles.label.copyWith(
                               color: AppColors.primaryColor.withValues(
                                 alpha: 0.5,
@@ -471,13 +466,13 @@ class _PickupCardState extends State<_PickupCard> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: AppSpacing.s10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
-                            'Relation',
+                            StudentStrings.relation,
                             style: AppTextStyles.label.copyWith(
                               color: AppColors.primaryColor.withValues(
                                 alpha: 0.5,
@@ -492,13 +487,13 @@ class _PickupCardState extends State<_PickupCard> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: AppSpacing.s10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
-                            'Email ID',
+                            StudentStrings.emailId,
                             style: AppTextStyles.label.copyWith(
                               color: AppColors.primaryColor.withValues(
                                 alpha: 0.5,
@@ -521,13 +516,13 @@ class _PickupCardState extends State<_PickupCard> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: AppSpacing.s10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
-                            'Phone Number',
+                            StudentStrings.phoneNumber,
                             style: AppTextStyles.label.copyWith(
                               color: AppColors.primaryColor.withValues(
                                 alpha: 0.5,
@@ -542,11 +537,11 @@ class _PickupCardState extends State<_PickupCard> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
+                      AppSpacing.gapVLg,
                       if (widget.showActionButtons) ...[
                         if (isCarpool)
                           CustomButtonLayout(
-                            confirmButtonLabel: 'Delete',
+                            confirmButtonLabel: StudentStrings.delete,
                             onPressedConfirm: widget.isLoading
                                 ? null
                                 : _onDelete,
@@ -556,8 +551,8 @@ class _PickupCardState extends State<_PickupCard> {
                           )
                         else
                           CustomButtonLayout(
-                            confirmButtonLabel: 'Edit',
-                            cancelButtonLabel: 'Delete',
+                            confirmButtonLabel: StudentStrings.edit,
+                            cancelButtonLabel: StudentStrings.delete,
                             onPressedConfirm: widget.isLoading ? null : _onEdit,
                             onPressedCancel: widget.isLoading
                                 ? null
@@ -565,7 +560,7 @@ class _PickupCardState extends State<_PickupCard> {
                             isForm: false,
                             isLoading: widget.isLoading,
                           ),
-                        const SizedBox(height: 12),
+                        AppSpacing.gapVSm,
                       ],
                     ],
                   ),

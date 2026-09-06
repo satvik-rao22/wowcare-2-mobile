@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -166,6 +167,21 @@ import 'package:wowcare/presentation/features/scheduling/model/scheduling_route_
 import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
+import 'package:wowcare/presentation/features/students/view/edit_student_important_dates_screen.dart';
+import 'package:wowcare/presentation/features/students/view/edit_student_health_screen.dart';
+import 'package:wowcare/presentation/features/students/view/add_physician_screen.dart';
+import 'package:wowcare/presentation/features/students/view/add_pickup_screen.dart';
+import 'package:wowcare/presentation/features/students/view/add_document_screen.dart';
+import 'package:wowcare/presentation/features/students/view/edit_student_physical_exam_screen.dart';
+import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
+import 'package:wowcare/presentation/features/students/view/edit_student_profile_details_screen.dart';
+import 'package:wowcare/shared/common/views/document_viewer_screen.dart';
+import 'package:wowcare/presentation/features/students/view/add_student_wizard_screen.dart';
+import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
+import 'package:wowcare/presentation/features/students/view/add_student_step3_screen.dart';
+import 'package:wowcare/domain/features/student/entities/student_health.dart';
+import 'package:wowcare/presentation/features/user_profile/view/notification_settings_screen.dart';
+import 'package:wowcare/presentation/features/user_profile/view/user_profile_screen.dart';
 import 'package:wowcare/presentation/features/user_profile/view/edit_user_profile_screen.dart';
 import 'package:wowcare/presentation/features/user_profile/view/notification_settings_screen.dart';
 import 'package:wowcare/presentation/features/user_profile/view/user_profile_screen.dart';
@@ -1744,11 +1760,7 @@ final GoRouter appRouter = GoRouter(
                           classroom: '',
                           tags: const <String>[],
                           schedule: const <String>[],
-                          sibling: const <String, dynamic>{
-                            'name': <dynamic>[],
-                            'relation': <dynamic>[],
-                            'status': <dynamic>[],
-                          },
+                          sibling: const StudentSiblingInfo(),
                           initialTabIndex: int.tryParse(q['tab'] ?? '') ?? 0,
                           initialProfileSubTabIndex:
                               int.tryParse(q['profileTab'] ?? '') ?? 0,
@@ -2428,6 +2440,257 @@ final GoRouter appRouter = GoRouter(
         );
       },
     ),
+    // ---- Student modal editors (migrated from imperative Navigator.push) ----
+    // Full-screen editors pushed over the shell; args travel via state.extra and
+    // the screen returns its result through context.pop(result).
+    GoRoute(
+      path: EditStudentImportantDatesScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          EditStudentImportantDatesScreen(
+            studentCode: args['studentCode'] as String? ?? '',
+            initialEnrollDate: args['initialEnrollDate'] as DateTime?,
+            initialSchoolStartDate: args['initialSchoolStartDate'] as DateTime?,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: EditStudentHealthScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          EditStudentHealthScreen(
+            studentCode: args['studentCode'] as String? ?? '',
+            initialHealth: args['initialHealth'] as StudentHealth?,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: AddPhysicianScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          AddPhysicianScreen(
+            studentCode: args['studentCode'] as String? ?? '',
+            physicianCode: args['physicianCode'] as String?,
+            isEdit: args['isEdit'] as bool? ?? false,
+            initialFirstName: args['initialFirstName'] as String?,
+            initialLastName: args['initialLastName'] as String?,
+            initialEmail: args['initialEmail'] as String?,
+            initialPhoneNumber: args['initialPhoneNumber'] as String?,
+            initialAddress: args['initialAddress'] as String?,
+            initialNotes: args['initialNotes'] as String?,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: AddPickupScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          AddPickupScreen(
+            studentCode: args['studentCode'] as String? ?? '',
+            pickupCode: args['pickupCode'] as String?,
+            initialFirstName: args['initialFirstName'] as String?,
+            initialLastName: args['initialLastName'] as String?,
+            initialEmail: args['initialEmail'] as String?,
+            initialPhoneNumber: args['initialPhoneNumber'] as String?,
+            initialRelation: args['initialRelation'] as String?,
+            initialClockPin: args['initialClockPin'] as String?,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: AddStudentDocumentScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          AddStudentDocumentScreen(
+            studentCode: args['studentCode'] as String? ?? '',
+            isEdit: args['isEdit'] as bool? ?? false,
+            initialDocumentName: args['initialDocumentName'] as String?,
+            initialDocumentType: args['initialDocumentType'] as String?,
+            initialExpiryDate: args['initialExpiryDate'] as DateTime?,
+            initialFilePath: args['initialFilePath'] as String?,
+            initialMimeType: args['initialMimeType'] as String?,
+            initialFileSizeKb: args['initialFileSizeKb'] as int?,
+            initialDocumentNotes: args['initialDocumentNotes'] as String?,
+            initialAssetCode: args['initialAssetCode'] as String?,
+            documentUuid: args['documentUuid'] as String?,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: EditStudentPhysicalExamScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          EditStudentPhysicalExamScreen(
+            studentCode: args['studentCode'] as String? ?? '',
+            initialDate: args['initialDate'] as DateTime?,
+            initialStatus: args['initialStatus'] as String?,
+          ),
+        );
+      },
+    ),
+    // ---- Add-Student wizard (entry + steps as routes; option-2 route-per-step) ----
+    GoRoute(
+      path: AddStudentWizardScreen.routeName,
+      pageBuilder: (context, state) =>
+          _fastPage(state, const AddStudentWizardScreen()),
+    ),
+    GoRoute(
+      path: AddStudentStep2Screen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          AddStudentStep2Screen(
+            studentCode: args['studentCode'] as String?,
+            schoolCode: args['schoolCode'] as String?,
+            createGuardianDirectly:
+                args['createGuardianDirectly'] as bool? ?? false,
+            isOptionalStep: args['isOptionalStep'] as bool? ?? false,
+            editGuardianCode: args['editGuardianCode'] as String?,
+            initialUserCode: args['initialUserCode'] as String?,
+            initialFirstName: args['initialFirstName'] as String?,
+            initialLastName: args['initialLastName'] as String?,
+            initialEmail: args['initialEmail'] as String?,
+            initialPhoneNumber: args['initialPhoneNumber'] as String?,
+            initialRelation: args['initialRelation'] as String?,
+            initialRelationOther: args['initialRelationOther'] as String?,
+            initialIsEmergencyContact:
+                args['initialIsEmergencyContact'] as bool? ?? true,
+            initialIsChildCustody:
+                args['initialIsChildCustody'] as bool? ?? true,
+            initialSelectFromExisting:
+                args['initialSelectFromExisting'] as bool? ?? false,
+            initialSelectedExistingParents:
+                (args['initialSelectedExistingParents'] as List?)
+                    ?.cast<String>() ??
+                const [],
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: AddStudentStep3Screen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          AddStudentStep3Screen(
+            initialSchedule:
+                args['initialSchedule'] as Map<String, Map<String, TimeOfDay>>?,
+            title: args['title'] as String?,
+            primaryButtonLabel: args['primaryButtonLabel'] as String?,
+            showSkip: args['showSkip'] as bool? ?? true,
+          ),
+        );
+      },
+    ),
+    // Student-scoped activity feed (opened from a student profile). Distinct from
+    // the Activities bottom-nav tab so it doesn't disturb tab state.
+    GoRoute(
+      path: '/student-activity-feed',
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          ActivityFeedScreen(
+            fromStudentProfile: args['fromStudentProfile'] as bool? ?? true,
+            allowActivityWrite: args['allowActivityWrite'] as bool? ?? true,
+            studentName: args['studentName'] as Map<String, dynamic>?,
+          ),
+        );
+      },
+    ),
+    // Shared document viewer (also used from student documents).
+    GoRoute(
+      path: DocumentViewerScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          DocumentViewerScreen(
+            url: args['url'] as String? ?? '',
+            documentName: args['documentName'] as String? ?? '',
+            mimeType: args['mimeType'] as String? ?? '',
+          ),
+        );
+      },
+    ),
+    // Edit student profile: needs a ClassroomCubit for the classroom picker.
+    // Loads fresh with the attendance-staff scope (mirrors the old inline wrap).
+    GoRoute(
+      path: EditStudentProfileDetailsScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        List<String> strList(Object? v) =>
+            (v as List?)?.map((e) => e.toString()).toList() ?? const <String>[];
+        return _fastPage(
+          state,
+          BlocProvider<ClassroomCubit>(
+            create: (_) => serviceLocator<ClassroomCubit>()
+              ..loadActiveClassrooms(
+                applyAttendanceStaffScope:
+                    args['applyAttendanceStaffScope'] as bool? ?? false,
+              ),
+            child: EditStudentProfileDetailsScreen(
+              studentCode: args['studentCode'] as String? ?? '',
+              initialFirstName: args['initialFirstName'] as String?,
+              initialLastName: args['initialLastName'] as String?,
+              initialStatus: args['initialStatus'] as String?,
+              initialGender: args['initialGender'] as String?,
+              initialClassroom: args['initialClassroom'] as String?,
+              initialBirthDate: args['initialBirthDate'] as DateTime?,
+              initialNotes: args['initialNotes'] as String?,
+              initialStreet: args['initialStreet'] as String?,
+              initialCity: args['initialCity'] as String?,
+              initialState: args['initialState'] as String?,
+              initialCountry: args['initialCountry'] as String?,
+              initialZipCode: args['initialZipCode'] as String?,
+              initialTags: strList(args['initialTags']),
+              initialSiblings: strList(args['initialSiblings']),
+              initialLegalCustodians: strList(args['initialLegalCustodians']),
+              initialSubsidy: args['initialSubsidy'] as bool? ?? false,
+            ),
+          ),
+        );
+      },
+    ),
+    // Student filter sheet: needs a ClassroomCubit ancestor for the classroom
+    // facet, so the route provides its own (the imperative caller used to share
+    // the list screen's cubit — a load-reuse optimisation, not a dependency).
+    GoRoute(
+      path: StudentFilterScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          BlocProvider<ClassroomCubit>(
+            create: (_) =>
+                serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+            child: StudentFilterScreen(
+              initialFilters:
+                  args['initialFilters'] as Map<String, List<String>>?,
+            ),
+          ),
+        );
+      },
+    ),
     GoRoute(
       path: TransactionDetailsScreen.routeName,
       builder: (context, state) {
@@ -2735,6 +2998,7 @@ Widget _studentProfileScreen(Object? extra) {
           'status': <dynamic>[],
         },
     studentCode: args['studentCode'] as String?,
+    initialEnrollmentStatus: args['initialEnrollmentStatus'] as String?,
     syncWithParentChildSelection:
         args['syncWithParentChildSelection'] as bool? ?? false,
   );

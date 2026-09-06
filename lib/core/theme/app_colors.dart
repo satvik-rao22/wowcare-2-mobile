@@ -850,6 +850,81 @@ class AppColors {
   static const Color activityVideoProgressBufferedColor =
       Colors.white38; // Video-progress buffered segment (recurs 1x)
 
+  // Student specific colors
+  //
+  // General white alias so bare `Colors.white` surfaces/icons resolve through
+  // AppColors, matching the existing [blackColor] alias.
+  static const Color whiteColor = Colors.white;
+
+  // Profile status-chip palette (StudentAboutTabCard): each status pairs a
+  // saturated label color with a 10%-alpha background of the same hue.
+  // Waitlist/Graduated reuse [secondaryColor] (label) + [staffBadgeActiveBg]
+  // (background) — no dedicated token needed.
+  static const Color studentStatusActiveColor = Color(
+    0xFF38C820,
+  ); // Active label (was rgbo(56,200,32,1))
+  static const Color studentStatusActiveBg = Color(
+    0x1A38C820,
+  ); // Active chip bg (was rgbo(56,200,32,0.1))
+  static const Color studentStatusInactiveColor = Color(
+    0xFFFA4141,
+  ); // Inactive label (was rgbo(250,65,65,1))
+  static const Color studentStatusInactiveBg = Color(
+    0x1AFA4141,
+  ); // Inactive chip bg (was rgbo(250,65,65,0.1))
+  static const Color studentStatusUpcomingColor = Color(
+    0xFF8A6E00,
+  ); // Upcoming label (was fromARGB(255,138,110,0))
+  static const Color studentStatusUpcomingBg = Color(
+    0xFFF2EEB0,
+  ); // Upcoming chip bg (was fromARGB(255,242,238,176))
+
+  // Health / immunization / important-dates status palette (health tab cards):
+  // a saturated hue for icons/labels plus a 10%-alpha tint of the same hue for
+  // the row/badge background. [errorColor] (0xFFD32F2F) covers the red case;
+  // [studentErrorBg] is its 10% tint.
+  static const Color studentHealthOrangeColor = Color(0xFFEF6C00); // overdue/warning
+  static const Color studentHealthOrangeBg = Color(0x1AEF6C00);
+  static const Color studentHealthYellowColor = Color(0xFFEABA00); // due-soon
+  static const Color studentHealthYellowBg = Color(0x1AEABA00);
+  static const Color studentStatusActiveBgSolid = Color(
+    0xFFE8F5E9,
+  ); // solid green "complete" background (was 0xFFE8F5E9)
+  static const Color studentErrorBg = Color(0x1AD32F2F); // errorColor @ 10%
+  static const Color studentHealthRedDark = Color(0xFFC62828); // strong error text
+  static const Color studentHealthGreenDark = Color(0xFF1B5E20); // strong success text
+  static const Color studentHealthBlue = Color(0xFF3B82F6); // info accent
+  static const Color studentHealthRedBg = Color(0xFFFFEBEE); // light error background
+  static const Color studentHealthBlueBg = Color(0xFFE8F1FE); // light info background
+  static const Color studentAmberBg = Color(0xFFFFF8E1); // light amber background
+
+  // Neutral greys used across student cards/forms.
+  static const Color studentMutedText = Color(0xFF6C6377); // muted plum-grey label/icon
+  static const Color studentBorderGrey = Color(0xFFC9C5CE); // input/card border
+  static const Color studentDisabledGrey = Color(0xFFB8B3BE); // disabled/placeholder
+  static const Color studentDividerGrey = Color(0xFFECEFF1); // light divider/border
+  static const Color studentSurfaceGrey = Color(0xFFF2F2F2); // light surface fill
+  static const Color studentGrey = Color(0xFF828282); // medium neutral text/icon
+  static const Color studentDarkPlum = Color(0xFF241631); // avatar/photo overlay base
+
+  // Purple / lavender accents (add-student wizard, chips).
+  static const Color studentLavenderTint = Color(0x66EAD6FF); // light lavender chip bg
+  static const Color studentLavenderBorder = Color(
+    0xB3C8BFFF,
+  ); // lavender border (was rgbo(200,191,255,0.7))
+  static const Color studentPurpleTint = Color(
+    0xFFF1EAFF,
+  ); // light purple fill (was rgbo(241,234,255,1))
+  static const Color studentPurple = Color(
+    0xFFAA8DFF,
+  ); // purple accent (was rgbo(170,141,255,1))
+  static const Color studentAccentPurple = Color(
+    0xFF9C84FF,
+  ); // gradient purple accent (was rgbo(156,132,255,1))
+
+  // Info blue (was bare Colors.blue / Colors.blue[50]).
+  static const Color studentInfoColor = Color(0xFF2196F3);
+  static const Color studentInfoBg = Color(0xFFE3F2FD);
   // Auth module colors — Mandate 4 sweep
   //
   // Primary headings/icons/body text across sign-in, org/school selection,

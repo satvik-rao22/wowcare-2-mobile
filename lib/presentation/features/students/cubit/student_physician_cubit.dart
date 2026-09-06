@@ -2,11 +2,11 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 
-import '../../../../domain/features/student/entities/student_physician.dart';
-import '../../../../domain/features/student/usecases/add_physician_usecase.dart';
-import '../../../../domain/features/student/usecases/delete_physician_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_physicians_usecase.dart';
-import '../../../../domain/features/student/usecases/update_physician_usecase.dart';
+import 'package:wowcare/domain/features/student/entities/student_physician.dart';
+import 'package:wowcare/domain/features/student/usecases/add_physician_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/delete_physician_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_physicians_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_physician_usecase.dart';
 
 part 'student_physician_state.dart';
 

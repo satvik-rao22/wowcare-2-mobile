@@ -93,7 +93,7 @@ import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
 import '../../presentation/features/billing/view_model/parent_billing_cubit.dart';
 import '../../presentation/features/onboarding/view_model/onboarding_cubit.dart';
 import '../../presentation/features/user_profile/view_model/profile_menu_header_cubit.dart';
-import '../../presentation/features/reports/cubit/reports_cubit.dart';
+import '../../presentation/features/reports/view_model/reports_cubit.dart';
 import '../../data/features/reports/datasources/reports_remote_datasource.dart';
 import '../../data/features/reports/datasources/reports_remote_datasource_impl.dart';
 import '../../data/features/reports/repositories/reports_repository_impl.dart';
@@ -411,6 +411,7 @@ import '../../presentation/features/students/cubit/student_profile_cubit.dart';
 import '../../presentation/features/students/cubit/student_physical_exam_cubit.dart';
 import '../../presentation/features/students/cubit/student_document_cubit.dart';
 import '../../presentation/features/students/cubit/student_important_dates_cubit.dart';
+import '../../presentation/features/students/cubit/student_schedule_cubit.dart';
 import '../../domain/features/communication/repositories/communication_repository.dart';
 import '../../domain/features/communication/usecases/get_messages_usecase.dart';
 import '../../domain/features/communication/usecases/send_message_usecase.dart';
@@ -2427,6 +2428,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentPageUseCase: serviceLocator(),
       repository: serviceLocator(),
       storageService: serviceLocator(),
+      countsUseCase: serviceLocator(),
+      expectedSummaryUseCase: serviceLocator(),
+      tagNameCodeMapUseCase: serviceLocator(),
+      guardianNameCodeMapUseCase: serviceLocator(),
+      attendanceStatusUseCase: serviceLocator(),
+      classroomByCodeUseCase: serviceLocator(),
     ),
   );
 
@@ -2628,11 +2635,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StudentDocumentCubit(
       addStudentDocumentUseCase: serviceLocator(),
       updateStudentDocumentUseCase: serviceLocator(),
+      imageUploadService: serviceLocator(),
+      storageService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentImportantDatesCubit>(
     () => StudentImportantDatesCubit(
       updateStudentImportantDatesUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentScheduleCubit>(
+    () => StudentScheduleCubit(
+      getSchoolRegularSchedulesUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<CommunicationCubit>(

@@ -4,7 +4,7 @@ import '../../../../domain/features/attendance/usecases/get_staff_absent_form_li
 import '../../../../domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
 import '../../../../domain/features/attendance/usecases/get_staff_sign_out_form_list_usecase.dart';
 import '../../../../domain/features/attendance/usecases/get_staff_transfer_form_list_usecase.dart';
-import '../../attendance/forms/staff_attendance_forms/staff_entity.dart';
+import '../../attendance/model/staff_entity.dart';
 import '../model/staff_attendance_action.dart';
 
 /// Resolves which of the staff members selected in the list are actually

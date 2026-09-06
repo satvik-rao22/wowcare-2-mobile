@@ -1,3 +1,4 @@
+import '../entities/update_guardian_request.dart';
 import '../repositories/student_repository.dart';
 
 /// Use case to update a guardian's details for a student.
@@ -9,12 +10,12 @@ class UpdateGuardianUseCase {
   Future<String> call({
     required String code,
     required String studentCode,
-    required Map<String, dynamic> fields,
+    required UpdateGuardianRequest request,
   }) {
     return _repository.updateGuardian(
       code: code,
       studentCode: studentCode,
-      fields: fields,
+      request: request,
     );
   }
 }

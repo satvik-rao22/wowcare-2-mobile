@@ -72,6 +72,9 @@ class _FakeUpdateStudentTagsUseCase extends UpdateStudentTagsUseCase {
   Object? error;
   String result = 'updated';
   Completer<String>? gate;
+  final List<String> studentCodes = <String>[];
+  final List<String> schoolCodes = <String>[];
+  final List<List<String>> tagCodesArgs = <List<String>>[];
 
   @override
   Future<String> call({
@@ -80,6 +83,9 @@ class _FakeUpdateStudentTagsUseCase extends UpdateStudentTagsUseCase {
     required List<String> tagCodes,
   }) {
     calls++;
+    studentCodes.add(studentCode);
+    schoolCodes.add(schoolCode);
+    tagCodesArgs.add(tagCodes);
     if (error != null) return Future.error(error!);
     if (gate != null) return gate!.future;
     return Future.value(result);
@@ -206,4 +212,104 @@ void main() {
       await cubit.close();
     },
   );
+
+  group('tags edit-sheet (load + selection + save)', () {
+    test('initial form state is empty', () {
+      final cubit = _Fakes().build();
+      expect(cubit.state.isLoading, isFalse);
+      expect(cubit.state.availableTagNames, isEmpty);
+      expect(cubit.state.tagNameToCode, isEmpty);
+      expect(cubit.state.selectedTags, isEmpty);
+      expect(cubit.state.schoolCode, '');
+    });
+
+    test('beginLoading flips isLoading true', () {
+      final cubit = _Fakes().build()..beginLoading();
+      expect(cubit.state.isLoading, isTrue);
+    });
+
+    test('load fetches names + map, keeps only still-valid preselected tags',
+        () async {
+      final fakes = _Fakes();
+      fakes.getTagNamesForSchool.result = const ['Allergy', 'VIP'];
+      fakes.getTagNameCodeMap.result = const {
+        'Allergy': 'TAG_A',
+        'VIP': 'TAG_V',
+      };
+      final cubit = fakes.build();
+
+      await cubit.load(
+        schoolCode: 'SCH',
+        initialTagNames: const ['Allergy', 'Stale'],
+      );
+
+      expect(fakes.getTagNamesForSchool.schoolCodes.single, 'SCH');
+      expect(cubit.state.availableTagNames, const ['Allergy', 'VIP']);
+      expect(cubit.state.tagNameToCode, const {
+        'Allergy': 'TAG_A',
+        'VIP': 'TAG_V',
+      });
+      // 'Stale' dropped (not in the school's tag list); 'Allergy' kept.
+      expect(cubit.state.selectedTags, const ['Allergy']);
+      expect(cubit.state.schoolCode, 'SCH');
+      expect(cubit.state.isLoading, isFalse);
+      expect(cubit.state.errorMessage, isNull);
+    });
+
+    test('load surfaces an error and stops loading', () async {
+      final fakes = _Fakes();
+      fakes.getTagNamesForSchool.error = Exception('boom');
+      final cubit = fakes.build();
+
+      await cubit.load(schoolCode: 'SCH', initialTagNames: const []);
+
+      expect(cubit.state.isLoading, isFalse);
+      expect(cubit.state.errorMessage, isNotNull);
+    });
+
+    test('setSelectedTags replaces the selection', () {
+      final cubit = _Fakes().build()
+        ..setSelectedTags(const ['Allergy', 'VIP']);
+      expect(cubit.state.selectedTags, const ['Allergy', 'VIP']);
+    });
+
+    test('saveTags resolves selected names to codes and calls update', () async {
+      final fakes = _Fakes();
+      fakes.getTagNamesForSchool.result = const ['Allergy', 'VIP'];
+      fakes.getTagNameCodeMap.result = const {
+        'Allergy': 'TAG_A',
+        'VIP': 'TAG_V',
+      };
+      final cubit = fakes.build();
+      await cubit.load(schoolCode: 'SCH', initialTagNames: const ['Allergy']);
+      cubit.setSelectedTags(const ['VIP']);
+
+      final message = await cubit.saveTags(studentCode: 'S1');
+
+      expect(message, 'updated');
+      expect(fakes.update.calls, 1);
+      expect(fakes.update.studentCodes.single, 'S1');
+      expect(fakes.update.schoolCodes.single, 'SCH');
+      expect(fakes.update.tagCodesArgs.single, const ['TAG_V']);
+    });
+
+    test('saveTags flips mutationInProgress true→false (drives Save button)',
+        () async {
+      final fakes = _Fakes();
+      final gate = Completer<String>();
+      fakes.update.gate = gate;
+      final cubit = fakes.build();
+      await cubit.load(schoolCode: 'SCH', initialTagNames: const []);
+
+      expect(cubit.state.mutationInProgress, isFalse);
+      final future = cubit.saveTags(studentCode: 'S1');
+      await Future<void>.delayed(Duration.zero);
+      expect(cubit.state.mutationInProgress, isTrue);
+
+      gate.complete('updated');
+      await future;
+      expect(cubit.state.mutationInProgress, isFalse);
+      await cubit.close();
+    });
+  });
 }

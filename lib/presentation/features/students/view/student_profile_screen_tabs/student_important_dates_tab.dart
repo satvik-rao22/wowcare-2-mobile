@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/domain/features/student/entities/student_important_dates.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_important_dates_usecase.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_important_dates_screen.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class StudentImportantDatesTab extends StatefulWidget {
   const StudentImportantDatesTab({
@@ -50,7 +55,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
     if (studentCode.isEmpty) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Student code is required';
+        _errorMessage = StudentStrings.studentCodeIsRequired;
         _dates = null;
       });
       return;
@@ -71,7 +76,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
         (failure) {
           setState(() {
             _isLoading = false;
-            _errorMessage = failure.message ?? 'Failed to load important dates';
+            _errorMessage = failure.message ?? StudentStrings.failedToLoadImportantDates;
             _dates = null;
           });
         },
@@ -87,7 +92,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Failed to load important dates';
+        _errorMessage = StudentStrings.failedToLoadImportantDates;
         _dates = null;
       });
     }
@@ -108,14 +113,13 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) return;
 
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (context) => EditStudentImportantDatesScreen(
-          studentCode: studentCode,
-          initialEnrollDate: _dates?.enrollDate,
-          initialSchoolStartDate: _dates?.schoolStartDate,
-        ),
-      ),
+    final result = await context.push<bool>(
+      EditStudentImportantDatesScreen.routeName,
+      extra: <String, dynamic>{
+        'studentCode': studentCode,
+        'initialEnrollDate': _dates?.enrollDate,
+        'initialSchoolStartDate': _dates?.schoolStartDate,
+      },
     );
 
     if (result == true && mounted) {
@@ -152,9 +156,9 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
             removeRight: true,
             child: Center(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 child: Text(
-                  'Student code is required to load important dates',
+                  StudentStrings.studentCodeIsRequiredToLoadImportantDates,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.primaryColor.withValues(alpha: 0.7),
@@ -169,14 +173,14 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
     }
 
     final entries = <MapEntry<String, String>>[
-      MapEntry('Enroll Date', _format(_dates?.enrollDate)),
-      MapEntry('School Start Date', _format(_dates?.schoolStartDate)),
+      MapEntry(StudentStrings.enrollDate, _format(_dates?.enrollDate)),
+      MapEntry(StudentStrings.schoolStartDate, _format(_dates?.schoolStartDate)),
       MapEntry(
-        'Current Classroom Start Date',
+        StudentStrings.currentClassroomStartDate,
         _format(_dates?.currentClassroomStartDate),
       ),
-      MapEntry('Upcoming Moving Date', _format(_dates?.upcomingMoveDate)),
-      MapEntry('School Leaving Date', _format(_dates?.schoolLeavingDate)),
+      MapEntry(StudentStrings.upcomingMovingDate, _format(_dates?.upcomingMoveDate)),
+      MapEntry(StudentStrings.schoolLeavingDate, _format(_dates?.schoolLeavingDate)),
     ];
 
     return Stack(
@@ -203,18 +207,18 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
               controller: widget.scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
-                padding: const EdgeInsets.all(8),
+                margin: const EdgeInsets.symmetric(horizontal: AppSpacing.none, vertical: AppSpacing.md),
+                padding: const EdgeInsets.all(AppSpacing.xs),
                 // Match the Family/Pickup cards: themeColor outline, square top-left.
                 decoration: const BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.whiteColor,
                   borderRadius: BorderRadius.only(
-                    topRight: Radius.circular(8),
-                    bottomLeft: Radius.circular(8),
-                    bottomRight: Radius.circular(8),
+                    topRight: Radius.circular(AppRadius.sm),
+                    bottomLeft: Radius.circular(AppRadius.sm),
+                    bottomRight: Radius.circular(AppRadius.sm),
                   ),
                   border: Border.fromBorderSide(
-                    BorderSide(color: AppColors.themeColor, width: 1),
+                    BorderSide(color: AppColors.themeColor, width: AppDimensions.hairline),
                   ),
                 ),
                 child: Column(
@@ -223,7 +227,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Important Dates', style: AppTextStyles.title),
+                        Text(StudentStrings.importantDates, style: AppTextStyles.title),
                         if (canStudentWrite)
                           GestureDetector(
                             onTap: () => _openEdit(context),
@@ -232,35 +236,35 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                               height: 38,
                               decoration: BoxDecoration(
                                 gradient: AppColors.buildPrimaryGradient(),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: AppRadius.allSm,
                               ),
                               alignment: Alignment.center,
                               child: const Icon(
                                 Icons.edit,
                                 size: 22,
-                                color: Colors.white,
+                                color: AppColors.whiteColor,
                               ),
                             ),
                           ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    AppSpacing.gapVMd,
                     if (_isLoading)
                       const StudentImportantDatesShimmer()
                     else if (_errorMessage != null)
                       Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(AppSpacing.md),
                         child: Text(
                           _errorMessage!,
                           style: const TextStyle(
-                            color: Colors.redAccent,
+                            color: AppColors.errorColor,
                             fontSize: 14,
                           ),
                         ),
                       )
                     else
                       ...List.generate(entries.length * 2 - 1, (i) {
-                        if (i.isOdd) return const SizedBox(height: 16);
+                        if (i.isOdd) return AppSpacing.gapVMd;
                         final idx = i ~/ 2;
                         final e = entries[idx];
                         return _DateRow(label: e.key, text: e.value);
@@ -304,7 +308,7 @@ class _DateRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        const SizedBox(width: 12),
+        AppSpacing.gapHSm,
         Expanded(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,

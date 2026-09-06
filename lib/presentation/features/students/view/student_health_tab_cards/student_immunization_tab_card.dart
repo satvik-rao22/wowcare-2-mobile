@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/domain/features/student/entities/student_immunization.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_health_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -40,7 +47,6 @@ class StudentImmunizationTabCard extends StatefulWidget {
 
 class _StudentImmunizationTabCardState
     extends State<StudentImmunizationTabCard> {
-  late Future<List<StudentImmunization>> _immunizationFuture;
   bool _hasShownErrorSnackBar = false;
   final DateFormat _apiFormatter = DateFormat('yyyy-MM-dd');
 
@@ -51,7 +57,7 @@ class _StudentImmunizationTabCardState
   @override
   void initState() {
     super.initState();
-    _immunizationFuture = _buildImmunizationFuture();
+    _healthCubit.loadImmunizations(widget.studentCode ?? '');
   }
 
   @override
@@ -120,11 +126,11 @@ class _StudentImmunizationTabCardState
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (context) {
-        final screenWidth = MediaQuery.of(context).size.width;
-        final isTablet = screenWidth > 600;
-        final isLargeTablet = screenWidth > 900;
+        final responsive = ResponsiveHelper(context);
+        final isTablet = responsive.isTabletCompact;
+        final isLargeTablet = responsive.isWide;
         final bottomSafe = MediaQuery.of(context).padding.bottom;
 
         final horizontalPadding = isLargeTablet
@@ -169,7 +175,7 @@ class _StudentImmunizationTabCardState
                     bottom: verticalPadding + bottomSafe,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.whiteColor,
                     borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(borderRadius),
                       topRight: Radius.circular(borderRadius),
@@ -186,10 +192,10 @@ class _StudentImmunizationTabCardState
                               child: Text(
                                 'Dose ${model.doseNumber}',
                                 style: TextStyle(
-                                  fontFamily: 'Manrope',
+                                  fontFamily: Fonts.manrope,
                                   fontSize: titleFontSize,
                                   fontWeight: FontWeight.w600,
-                                  color: const Color(0xff573353),
+                                  color: AppColors.primaryColor,
                                 ),
                               ),
                             ),
@@ -208,7 +214,7 @@ class _StudentImmunizationTabCardState
                             children: [
                               Expanded(
                                 child: _DialogField(
-                                  label: 'Date *',
+                                  label: StudentStrings.date,
                                   value: selectedDate != null
                                       ? _apiFormatter.format(selectedDate!)
                                       : '',
@@ -239,10 +245,10 @@ class _StudentImmunizationTabCardState
                                   },
                                 ),
                               ),
-                              const SizedBox(width: 16),
+                              AppSpacing.gapHMd,
                               Expanded(
                                 child: _DialogDropdown(
-                                  label: 'Status *',
+                                  label: StudentStrings.status2,
                                   value: statusUi,
                                   options: const [
                                     'Due',
@@ -260,7 +266,7 @@ class _StudentImmunizationTabCardState
                           Column(
                             children: [
                               _DialogField(
-                                label: 'Date *',
+                                label: StudentStrings.date,
                                 value: selectedDate != null
                                     ? _apiFormatter.format(selectedDate!)
                                     : '',
@@ -290,9 +296,9 @@ class _StudentImmunizationTabCardState
                                   setLocalState(() => selectedDate = picked);
                                 },
                               ),
-                              const SizedBox(height: 16),
+                              AppSpacing.gapVMd,
                               _DialogDropdown(
-                                label: 'Status *',
+                                label: StudentStrings.status2,
                                 value: statusUi,
                                 options: const [
                                   'Due',
@@ -306,10 +312,10 @@ class _StudentImmunizationTabCardState
                             ],
                           ),
                         if (statusUi == 'Exempt') ...[
-                          const SizedBox(height: 16),
+                          AppSpacing.gapVMd,
                           TextField(
                             decoration: const InputDecoration(
-                              labelText: 'Exemption Reason *',
+                              labelText: StudentStrings.exemptionReason,
                               border: OutlineInputBorder(),
                             ),
                             controller: TextEditingController(
@@ -323,8 +329,8 @@ class _StudentImmunizationTabCardState
                         ],
                         SizedBox(height: verticalPadding),
                         CustomButtonLayout(
-                          confirmButtonLabel: 'Save',
-                          cancelButtonLabel: 'Cancel',
+                          confirmButtonLabel: StudentStrings.save,
+                          cancelButtonLabel: StudentStrings.cancel,
                           isForm: false,
                           isLoading: isSaving,
                           onPressedCancel: () => Navigator.of(context).pop(),
@@ -347,19 +353,15 @@ class _StudentImmunizationTabCardState
                                     CoreUtils.showTopSnackBar(
                                       context: context,
                                       message:
-                                          'Immunization updated successfully',
+                                          StudentStrings
+                                              .immunizationUpdatedSuccessfully,
                                       isSuccess: true,
                                     );
                                     Navigator.of(context).pop();
                                     if (!mounted) return;
-                                    setState(() {
-                                      _immunizationFuture =
-                                          _healthCubit.fetchImmunizations(
-                                            model.studentCode,
-                                            forceRefresh: true,
-                                          );
-                                      _hasShownErrorSnackBar = false;
-                                    });
+                                    await _reloadImmunizations(
+                                      model.studentCode,
+                                    );
                                   } catch (e) {
                                     if (!context.mounted) return;
                                     CoreUtils.logApiError(e.toString());
@@ -391,16 +393,9 @@ class _StudentImmunizationTabCardState
     );
   }
 
-  Future<List<StudentImmunization>> _buildImmunizationFuture() async {
-    final code = widget.studentCode;
-    if (code == null || code.isEmpty) {
-      return const <StudentImmunization>[];
-    }
-    try {
-      return await _healthCubit.fetchImmunizations(code);
-    } catch (_) {
-      rethrow;
-    }
+  Future<void> _reloadImmunizations(String studentCode) async {
+    _hasShownErrorSnackBar = false;
+    await _healthCubit.loadImmunizations(studentCode, forceRefresh: true);
   }
 
   @override
@@ -408,32 +403,19 @@ class _StudentImmunizationTabCardState
     final canMutateStudent = widget.canEdit;
 
     return CustomRefreshIndicator(
-      onRefresh: () async {
-        setState(() {
-          _immunizationFuture = _healthCubit.fetchImmunizations(
-            widget.studentCode ?? '',
-            forceRefresh: true,
-          );
-          _hasShownErrorSnackBar = false;
-        });
-        try {
-          await _immunizationFuture;
-        } catch (_) {
-          // handled in FutureBuilder
-        }
-      },
+      onRefresh: () => _reloadImmunizations(widget.studentCode ?? ''),
       child: SingleChildScrollView(
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        child: FutureBuilder<List<StudentImmunization>>(
-          future: _immunizationFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
+        child: BlocBuilder<StudentHealthCubit, StudentHealthState>(
+          bloc: _healthCubit,
+          builder: (context, state) {
+            if (state.immunizationsLoading && state.immunizations.isEmpty) {
               return const StudentImmunizationShimmer();
             }
 
-            if (snapshot.hasError) {
-              final message = snapshot.error.toString();
+            if (state.errorMessage != null && state.immunizations.isEmpty) {
+              final message = state.errorMessage!;
               CoreUtils.logApiError(message);
               if (!_hasShownErrorSnackBar) {
                 _hasShownErrorSnackBar = true;
@@ -449,12 +431,12 @@ class _StudentImmunizationTabCardState
               return const SizedBox.shrink();
             }
 
-            final items = snapshot.data ?? const <StudentImmunization>[];
+            final items = state.immunizations;
             if (items.isEmpty) {
               return Padding(
-                padding: const EdgeInsets.only(top: 24),
+                padding: const EdgeInsets.only(top: AppSpacing.xl),
                 child: Text(
-                  'No immunization records found',
+                  StudentStrings.noImmunizationRecordsFound,
                   style: AppTextStyles.value.copyWith(fontSize: 16),
                 ),
               );
@@ -480,7 +462,7 @@ class _StudentImmunizationTabCardState
                         : (_) {},
                     showActions: canMutateStudent,
                   ),
-                  if (i != sortedKeys.length - 1) const SizedBox(height: 20),
+                  if (i != sortedKeys.length - 1) AppSpacing.gapVLg,
                 ],
               ],
             );
@@ -510,19 +492,24 @@ class _ImmunizationCard extends StatelessWidget {
       child: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           borderRadius: BorderRadius.only(
-            topRight: Radius.circular(8),
-            bottomLeft: Radius.circular(8),
-            bottomRight: Radius.circular(8),
+            topRight: Radius.circular(AppRadius.sm),
+            bottomLeft: Radius.circular(AppRadius.sm),
+            bottomRight: Radius.circular(AppRadius.sm),
           ),
           border: Border.fromBorderSide(
-            BorderSide(color: AppColors.themeColor, width: 1),
+            BorderSide(color: AppColors.themeColor, width: AppDimensions.hairline),
           ),
         ),
         clipBehavior: Clip.antiAlias,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.s14,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -547,8 +534,8 @@ class _ImmunizationCard extends StatelessWidget {
                           : () => onMore(doses.first),
                       icon: const Icon(
                         Icons.more_horiz,
-                        size: 20,
-                        color: Color(0xFF573353),
+                        size: AppDimensions.iconSm,
+                        color: AppColors.primaryColor,
                       ),
                       visualDensity: VisualDensity.compact,
                       constraints: const BoxConstraints(
@@ -558,7 +545,7 @@ class _ImmunizationCard extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 8),
+              AppSpacing.gapVXs,
               for (final dose in doses)
                 _DoseRow(
                   model: dose,
@@ -598,14 +585,14 @@ class _DoseRow extends StatelessWidget {
               children: [
                 InkWell(
                   onTap: onMore,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: AppRadius.allSm,
                   child: _Chip(
                     label: _statusLabel(model.status),
                     labelColor: _statusLabelColor(model.status),
                     color: _statusBgColor(model.status),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: AppSpacing.s10),
                 Text(
                   _doseDateText(model),
                   style: AppTextStyles.value.copyWith(fontSize: 15),
@@ -630,22 +617,22 @@ class _DoseRow extends StatelessWidget {
 
   Color _statusLabelColor(String raw) {
     final upper = raw.trim().toUpperCase();
-    if (upper == 'COMPLETED') return const Color(0xFF38C820);
-    if (upper == 'DUE') return const Color(0xFFEABA00);
-    if (upper == 'EXEMPT') return const Color(0xFF6C6377);
-    if (upper == 'MISSED') return const Color(0xFFD32F2F);
-    if (upper == 'OVERDUE') return const Color(0xFFEF6C00);
+    if (upper == 'COMPLETED') return AppColors.studentStatusActiveColor;
+    if (upper == 'DUE') return AppColors.studentHealthYellowColor;
+    if (upper == 'EXEMPT') return AppColors.studentMutedText;
+    if (upper == 'MISSED') return AppColors.errorColor;
+    if (upper == 'OVERDUE') return AppColors.studentHealthOrangeColor;
     return AppColors.primaryColor.withValues(alpha: 0.8);
   }
 
   Color _statusBgColor(String raw) {
     final upper = raw.trim().toUpperCase();
-    if (upper == 'COMPLETED') return const Color(0x1A38C820);
-    if (upper == 'DUE') return const Color(0x1AEABA00);
-    if (upper == 'EXEMPT') return const Color(0xFFECEFF1);
-    if (upper == 'MISSED') return const Color(0x1AD32F2F);
-    if (upper == 'OVERDUE') return const Color(0x1AEF6C00);
-    return const Color(0xFFF3F4FB);
+    if (upper == 'COMPLETED') return AppColors.studentStatusActiveBg;
+    if (upper == 'DUE') return AppColors.studentHealthYellowBg;
+    if (upper == 'EXEMPT') return AppColors.studentDividerGrey;
+    if (upper == 'MISSED') return AppColors.studentErrorBg;
+    if (upper == 'OVERDUE') return AppColors.studentHealthOrangeBg;
+    return AppColors.staffBadgeInactiveBg;
   }
 
   DateTime? _parseIsoDate(String? iso) {
@@ -692,21 +679,21 @@ class _DialogField extends StatelessWidget {
           label,
           style: TextStyle(
             color: AppColors.primaryColor.withValues(alpha: 0.6),
-            fontFamily: 'Manrope',
+            fontFamily: Fonts.manrope,
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 8),
+        AppSpacing.gapVXs,
         InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppRadius.r10),
           child: Container(
             height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
             decoration: BoxDecoration(
-              color: const Color(0xFFF4F4FB),
-              borderRadius: BorderRadius.circular(10),
+              color: AppColors.staffLightBackgroundAltColor,
+              borderRadius: BorderRadius.circular(AppRadius.r10),
             ),
             child: Row(
               children: [
@@ -714,7 +701,7 @@ class _DialogField extends StatelessWidget {
                   child: Text(
                     value,
                     style: const TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primaryColor,
@@ -763,18 +750,18 @@ class _DialogDropdown extends StatelessWidget {
           label,
           style: TextStyle(
             color: AppColors.primaryColor.withValues(alpha: 0.6),
-            fontFamily: 'Manrope',
+            fontFamily: Fonts.manrope,
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 8),
+        AppSpacing.gapVXs,
         Container(
           height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
           decoration: BoxDecoration(
-            color: const Color(0xFFF4F4FB),
-            borderRadius: BorderRadius.circular(10),
+            color: AppColors.staffLightBackgroundAltColor,
+            borderRadius: BorderRadius.circular(AppRadius.r10),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
@@ -791,7 +778,7 @@ class _DialogDropdown extends StatelessWidget {
                       child: Text(
                         o,
                         style: const TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: Fonts.manrope,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,
@@ -825,10 +812,13 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s10,
+        vertical: AppSpacing.xxs,
+      ),
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.allSm,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

@@ -1,4 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
+import 'package:wowcare/domain/features/student/entities/student_regular_schedule_input.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:flutter_svg/svg.dart';
@@ -9,7 +16,6 @@ import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_profile_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -19,12 +25,14 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
+import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
-import '../../../../../shared/common/widgets/profile_info_card.dart';
-import '../../../../../shared/common/widgets/profile_show_widget.dart';
-import '../edit_student_profile_details_screen.dart';
-import '../add_student_step3_screen.dart';
-import '../student_tags_edit_sheet.dart';
+import 'package:wowcare/shared/common/widgets/profile_info_card.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/presentation/features/students/view/edit_student_profile_details_screen.dart';
+import 'package:wowcare/presentation/features/students/view/add_student_step3_screen.dart';
+import 'package:wowcare/presentation/features/students/view/student_tags_edit_sheet.dart';
 
 class StudentAboutTabCard extends StatefulWidget {
   const StudentAboutTabCard({
@@ -45,7 +53,7 @@ class StudentAboutTabCard extends StatefulWidget {
   final String classroom;
   final List<String> tags;
   final List<String> schedule;
-  final Map<String, dynamic> sibling;
+  final StudentSiblingInfo sibling;
   final Future<void> Function()? onRefresh;
   final StudentProfileModel? studentProfile;
   final String? studentCode;
@@ -281,7 +289,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
       }
     }
 
-    return ProfileField(label: 'Upcoming move', value: value);
+    return ProfileField(label: StudentStrings.upcomingMove, value: value);
   }
 
   /// Staff-only tags editor (bottom sheet). Staff can't open the full profile
@@ -324,7 +332,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         await widget.onRefresh?.call();
       },
       child: ProfileInfoCard(
-        title: 'Profile Information',
+        title: StudentStrings.profileInformation,
         // Full width, flush below the tab bar; bottom pads only by the nav's
         // visible height (above the safe area) so the box's bottom border sits
         // right on the bottom nav with no extra gap.
@@ -336,12 +344,12 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         ),
         // Square top so the card reads as one continuous surface with the tabs
         // (rounded top would bump/overlap the tab borders).
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(AppRadius.lg)),
         scrollController: widget.scrollController,
         onEdit: canEdit
             ? (isStaffPersona
                   ? _openTagsEditSheet
-                  : () {
+                  : () async {
                       final profile = widget.studentProfile!;
 
                       // Map status from API format (ACTIVE) to display format (Active)
@@ -435,109 +443,83 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                         }
                       }
 
-                      ClassroomCubit? classroomCubit;
-                      try {
-                        classroomCubit = context.read<ClassroomCubit>();
-                      } catch (_) {
-                        classroomCubit = null;
+                      final edited = await context.push(
+                        EditStudentProfileDetailsScreen.routeName,
+                        extra: <String, dynamic>{
+                          'studentCode': profile.code,
+                          'initialFirstName': profile.firstName,
+                          'initialLastName': profile.lastName,
+                          'initialStatus': statusDisplay,
+                          'initialGender': profile.gender,
+                          'initialClassroom': profile.classroom ?? '',
+                          'initialBirthDate': birthDate,
+                          'initialNotes': profile.notes ?? '',
+                          'initialStreet': street,
+                          'initialCity': city,
+                          'initialState': state,
+                          'initialCountry': country,
+                          'initialZipCode': zipCode,
+                          'initialTags': tags,
+                          'initialSiblings': siblings,
+                          'initialLegalCustodians': legalCustodians,
+                          'initialSubsidy': profile.subsidy,
+                        },
+                      );
+                      // If profile was updated, refresh from API.
+                      if (edited == true) {
+                        await widget.onRefresh?.call();
                       }
-
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) {
-                            final screen = EditStudentProfileDetailsScreen(
-                              studentCode: profile.code,
-                              initialFirstName: profile.firstName,
-                              initialLastName: profile.lastName,
-                              initialStatus: statusDisplay,
-                              initialGender: profile.gender,
-                              initialClassroom: profile.classroom ?? '',
-                              initialBirthDate: birthDate,
-                              initialNotes: profile.notes ?? '',
-                              initialStreet: street,
-                              initialCity: city,
-                              initialState: state,
-                              initialCountry: country,
-                              initialZipCode: zipCode,
-                              initialTags: tags,
-                              initialSiblings: siblings,
-                              initialLegalCustodians: legalCustodians,
-                              initialSubsidy: profile.subsidy,
-                            );
-
-                            // Preserve already-loaded classrooms when available; otherwise load fresh.
-                            if (classroomCubit != null) {
-                              return BlocProvider.value(
-                                value: classroomCubit,
-                                child: screen,
-                              );
-                            }
-                            return BlocProvider(
-                              create: (_) =>
-                                  serviceLocator<ClassroomCubit>()
-                                    ..loadActiveClassrooms(),
-                              child: screen,
-                            );
-                          },
-                        ),
-                      ).then((result) async {
-                        // If profile was updated, refresh from API (like staff implementation).
-                        if (result == true) {
-                          await widget.onRefresh?.call();
-                        }
-                      });
                     })
             : null,
         children: [
-          ProfileField(label: 'Name', value: _getValueOrDash(widget.name)),
+          ProfileField(label: StudentStrings.name, value: _getValueOrDash(widget.name)),
 
           ProfileField(
-            label: 'Status',
+            label: StudentStrings.status,
             valueWidget: _buildStatusChip(widget.studentProfile?.status ?? 'A'),
           ),
 
           ProfileField(
-            label: 'Classroom',
+            label: StudentStrings.classroom,
             value: _getValueOrDash(
               widget.studentProfile?.classroom ?? widget.classroom,
             ),
           ),
 
           ProfileField(
-            label: 'Tags',
+            label: StudentStrings.tags,
             valueWidget: _hasTags()
                 ? _tags(tags: _getTagsList())
                 : const Text(
                     '-',
                     style: TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: 15,
-                      color: Color(0xff573353),
+                      color: AppColors.primaryColor,
                       fontWeight: FontWeight.w400,
                     ),
                   ),
           ),
 
           ProfileField(
-            label: 'Gender',
+            label: StudentStrings.gender,
             value: _getValueOrDash(
               _prettyGender(widget.studentProfile?.gender),
             ),
           ),
 
           ProfileField(
-            label: 'Birth Date',
+            label: StudentStrings.birthDate,
             value: _formatDobWithAge(widget.studentProfile?.dob),
           ),
 
           ProfileField(
-            label: 'Notes',
+            label: StudentStrings.notes,
             value: _getValueOrDash(widget.studentProfile?.notes),
           ),
 
           ProfileField(
-            label: 'Child Custody',
+            label: StudentStrings.childCustody,
             value: (() {
               final custodians = widget.studentProfile?.legalCustodians ?? [];
               final names = <String>[];
@@ -556,31 +538,34 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                   }
                 }
               }
-              if (names.isEmpty) return 'Child custody not selected';
+              if (names.isEmpty) return StudentStrings.childCustodyNotSelected;
               return names.join(', ');
             })(),
           ),
 
           ProfileField(
-            label: 'State Subsidy',
+            label: StudentStrings.stateSubsidy,
             value: widget.studentProfile != null
-                ? (widget.studentProfile!.subsidy ? 'Yes' : 'No')
+                ? (widget.studentProfile!.subsidy
+                      ? StudentStrings.yes
+                      : StudentStrings.no)
                 : '-',
           ),
 
           ProfileField(
-            label: 'Full Time Equivalent (FTE)',
+            label: StudentStrings.fullTimeEquivalentFte,
             value: _fteDisplay(),
           ),
 
           Builder(
             builder: (context) {
-              final names =
-                  (widget.sibling['name'] as List?)?.cast<String>() ??
-                  const <String>[];
+              final names = widget.sibling.names;
 
               if (names.isEmpty) {
-                return ProfileField(label: 'Sibling', value: 'No siblings');
+                return ProfileField(
+                  label: StudentStrings.sibling,
+                  value: StudentStrings.noSiblings,
+                );
               }
 
               final label = names.length == 1 ? 'Sibling' : 'Siblings';
@@ -593,7 +578,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                     final name = names[index];
 
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                       child: Row(
                         children: [
                           DocumentImageWidget(
@@ -601,14 +586,14 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                             name: name,
                             size: 45,
                           ),
-                          const SizedBox(width: 12),
+                          AppSpacing.gapHSm,
                           Text(
                             name,
                             style: const TextStyle(
-                              fontFamily: 'Manrope',
+                              fontFamily: Fonts.manrope,
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xff573353),
+                              color: AppColors.primaryColor,
                               letterSpacing: -0.03 * 16,
                             ),
                           ),
@@ -622,7 +607,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
           ),
 
           ProfileField(
-            label: 'Address',
+            label: StudentStrings.address,
             value: widget.studentProfile?.address != null
                 ? _formatAddress(widget.studentProfile!.address!)
                 : '-',
@@ -707,23 +692,21 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                   initialSchedule = null;
                 }
 
-                final result =
-                    await Navigator.push<Map<String, Map<String, TimeOfDay>>?>(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AddStudentStep3Screen(
-                          title: 'Edit Schedule',
-                          primaryButtonLabel: 'Save',
-                          showSkip: false,
-                          initialSchedule: initialSchedule,
-                        ),
-                      ),
+                final result = await context
+                    .push<Map<String, Map<String, TimeOfDay>>>(
+                      AddStudentStep3Screen.routeName,
+                      extra: <String, dynamic>{
+                        'title': 'Edit Schedule',
+                        'primaryButtonLabel': 'Save',
+                        'showSkip': false,
+                        'initialSchedule': initialSchedule,
+                      },
                     );
 
                 if (result == null || result.isEmpty) return;
 
                 try {
-                  final List<Map<String, dynamic>> payloadSchedule = [];
+                  final List<StudentRegularScheduleInput> payloadSchedule = [];
 
                   String _formatLocalTime(TimeOfDay time) {
                     final h = time.hour.toString().padLeft(2, '0');
@@ -750,12 +733,14 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                       minute: midMinutes % 60,
                     );
 
-                    payloadSchedule.add({
-                      'dayOfWeek': dayName.toUpperCase(), // e.g. MONDAY
-                      'startTime': _formatLocalTime(start),
-                      'halfDay': _formatLocalTime(halfDay),
-                      'endTime': _formatLocalTime(end),
-                    });
+                    payloadSchedule.add(
+                      StudentRegularScheduleInput(
+                        dayOfWeek: dayName.toUpperCase(), // e.g. MONDAY
+                        startTime: _formatLocalTime(start),
+                        halfDay: _formatLocalTime(halfDay),
+                        endTime: _formatLocalTime(end),
+                      ),
+                    );
                   }
 
                   if (payloadSchedule.isEmpty) return;
@@ -770,7 +755,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
 
                   CoreUtils.showTopSnackBar(
                     context: context,
-                    message: 'Schedule updated successfully',
+                    message: StudentStrings.scheduleUpdatedSuccessfully,
                     isSuccess: true,
                   );
                 } catch (e) {
@@ -789,28 +774,28 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'Schedule',
+                        StudentStrings.schedule,
                         style: TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: Fonts.manrope,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xff573353),
+                          color: AppColors.primaryColor,
                         ),
                       ),
                       const Icon(
                         Icons.edit,
-                        size: 16,
-                        color: Color(0x99573353),
+                        size: AppDimensions.iconXs,
+                        color: AppColors.billingTextMuted,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  AppSpacing.gapVXs,
                   Row(
                     children: [
                       Expanded(
                         child: Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
+                          spacing: AppSpacing.xs,
+                          runSpacing: AppSpacing.xs,
                           children:
                               (_schoolOpenDayLabels.isNotEmpty
                                       ? _schoolOpenDayLabels
@@ -934,29 +919,21 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                                           width: 110,
                                           label: fullDay,
                                           labelColor: isAvailable
-                                              ? const Color.fromRGBO(
-                                                  27,
-                                                  35,
-                                                  126,
-                                                  1,
-                                                )
-                                              : Colors.grey.shade700,
+                                              ? AppColors.secondaryColor
+                                              : AppColors
+                                                    .attendanceSearchHintColor,
                                           color: isAvailable
-                                              ? const Color(0x4DB1AFE9)
-                                              : const Color(0xFFF3F4FB),
+                                              ? AppColors.staffBadgeActiveBg
+                                              : AppColors.staffBadgeInactiveBg,
                                         ),
                                         if (isAvailable) ...[
-                                          const SizedBox(height: 6),
+                                          const SizedBox(height: AppSpacing.s6),
                                           _ScheduleChip(
                                             width: 110,
                                             label: timeText,
-                                            labelColor: const Color.fromRGBO(
-                                              27,
-                                              35,
-                                              126,
-                                              1,
-                                            ),
-                                            color: Colors.transparent,
+                                            labelColor:
+                                                AppColors.secondaryColor,
+                                            color: AppColors.transparentColor,
                                             isTimeChip: true,
                                           ),
                                         ],
@@ -976,238 +953,6 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         ],
       ),
     );
-    // this was before using the reusable widget
-    // return SingleChildScrollView(
-    //   controller: widget.scrollController,
-    //   child: Container(
-    //     width: double.infinity,
-    //     padding: const EdgeInsets.all(16),
-    //     decoration: BoxDecoration(
-    //       border: Border.all(color: AppColors.themeColor),
-    //       borderRadius: const BorderRadius.only(
-    //         topRight: Radius.circular(8),
-    //         bottomLeft: Radius.circular(8),
-    //         bottomRight: Radius.circular(8)
-    //       ),
-    //       color: Colors.white,
-    //     ),
-    //     child: Column(
-    //       crossAxisAlignment: CrossAxisAlignment.start,
-    //       children: [
-    //         const SizedBox(height: 8),
-    //         Row(
-    //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    //           children: [
-    //             _Field(label: 'Name', value: widget.name),
-    //             GestureDetector(
-    //               onTap: () {
-    //                 Navigator.push(
-    //                   context,
-    //                   MaterialPageRoute(
-    //                     builder: (context) => const EditStudentProfileDetailsScreen(
-    //                       initialFirstName: 'Jessica',
-    //                       initialLastName: 'Rhodes',
-    //                       initialStatus: 'Active',
-    //                       initialClassroom: '1-Blue D X',
-    //                       initialBirthDate: null,
-    //                       initialNotes: '',
-    //                       initialFTE: '80',
-    //                       initialStreet: '',
-    //                       initialCity: '',
-    //                       initialState: 'New Hampshire',
-    //                       initialCountry: 'United States',
-    //                       initialZipCode: '',
-    //                     ),
-    //                   ),
-    //                 );
-    //               },
-    //               child: Container(
-    //                 width: 38,
-    //                 height: 38,
-    //                 decoration: BoxDecoration(
-    //                   gradient: AppColors.buildPrimaryGradient(),
-    //                   borderRadius: BorderRadius.circular(8),
-    //                 ),
-    //                 alignment: Alignment.center,
-    //                 child: const Icon(
-    //                   Icons.edit,
-    //                   size: 22,
-    //                   color: Colors.white,
-    //                 ),
-    //               ),
-    //             ),
-    //           ],
-    //         ),
-    //         const SizedBox(height: 16),
-    //         _Field(
-    //           label: 'Status',
-    //           value: null,
-    //           trailing: _buildStatusChip('A'),
-    //         ),
-    //         const SizedBox(height: 16),
-    //         _Field(label: 'Classroom', value: widget.classroom),
-    //         const SizedBox(height: 16),
-    //         _Field(label: 'Tags', value:null, trailing: _tags(tags: widget.tags,),),
-    //         const SizedBox(height: 16),
-    //         _Field(
-    //             label: 'Gender',
-    //             value: 'Male/Female'),
-    //         const SizedBox(height: 16),
-    //         _Field(
-    //           label: 'Birth Date',
-    //           value: 'Oct 29, 2001'),
-    //         const SizedBox(height: 16),
-    //         _Field(label: 'Notes', value: "- -"),
-    //         const SizedBox(height: 16),
-    //         _Field(label: 'Child Custody', value: "Child custody not selected"),
-    //         const SizedBox(height: 16),
-    //         _Field(label: 'State Subsidy', value: "No state subsidy"),
-    //         if ((widget.sibling['name'] as List?)?.isNotEmpty == true) ...[
-    //           const SizedBox(height: 16),
-    //           _Field(
-    //             label: (widget.sibling['name'] as List).length == 1 ? 'Sibling' : 'Siblings',
-    //             value: null,
-    //             trailing: Column(
-    //               mainAxisSize: MainAxisSize.min,
-    //               crossAxisAlignment: CrossAxisAlignment.start,
-    //               children: (widget.sibling['name'] as List).asMap().entries.map((entry) {
-    //                 final index = entry.key;
-    //                 final name = widget.sibling['name'][index] as String;
-    //                 final relation = widget.sibling['relation'][index] as String;
-    //                 final status = widget.sibling['status'][index] as String;
-    //
-    //                 final color = status == 'upcoming'
-    //                       ? const Color.fromARGB(255, 253, 205, 22)
-    //                           : status == 'signedIn'
-    //                       ? const Color.fromRGBO(0, 177, 21, 1)
-    //                           : status == 'isAbsent'
-    //                       ? const Color.fromRGBO(200, 32, 32, 1)
-    //                           : Colors.white;
-    //
-    //                 return Padding(
-    //                     padding: EdgeInsets.only(bottom: 12),
-    //                     child: Row(
-    //                       children: [
-    //                         Stack(
-    //                           children: [
-    //                             DocumentImageWidget(
-    //                               fileUuid: '',
-    //                               name: name,
-    //                               size: 45,
-    //                             ),
-    //                             Positioned(
-    //                               right: 0,
-    //                               top: 0,
-    //                               child: Container(
-    //                                 width: 12,
-    //                                 height: 12,
-    //                                 decoration: BoxDecoration(
-    //                                   color: color,
-    //                                   shape: BoxShape.circle,
-    //                                   border: Border.all(color: Colors.white, width: 2),
-    //                                 ),
-    //                               ),
-    //                             ),
-    //                           ],
-    //                         ),
-    //                         const SizedBox(width: 12),
-    //                         Text(
-    //                           '$name ($relation)',
-    //                           style: const TextStyle(
-    //                             fontFamily: 'Manrope',
-    //                             fontSize: 16,
-    //                             color: Color(0xff573353),
-    //                             fontWeight: FontWeight.w600,
-    //                             letterSpacing: -0.03 * 16,
-    //                           ),
-    //                         ),
-    //                       ],
-    //                     ),
-    //                 );
-    //
-    //               }).toList(),
-    //             ),
-    //
-    //           ),
-    //         ],
-    //         const SizedBox(height: 16),
-    //         _Field(
-    //           label: 'Address',
-    //           value: ('12, East Dunstable road, Nashua, NH, USA,\n03062'),
-    //         ),
-    //         const SizedBox(height: 16),
-    //         _Field(
-    //           label: 'Schedule',
-    //           value: null,
-    //           trailing: Row(
-    //             children: [
-    //               Expanded(
-    //                 child: Wrap(
-    //                   spacing: 8,
-    //                   runSpacing: 8,
-    //                   children: [
-    //                     'Monday',
-    //                     'Tuesday',
-    //                     'Wednesday',
-    //                     'Thursday',
-    //                     'Friday',
-    //                   ].map((fullDay) {
-    //                     const dayMap = {
-    //                       'Monday': 'Mon',
-    //                       'Tuesday': 'Tue',
-    //                       'Wednesday': 'Wed',
-    //                       'Thursday': 'Thu',
-    //                       'Friday': 'Fri',
-    //                     };
-    //
-    //                     final shortDay = dayMap[fullDay]!;
-    //                     final isAvailable = widget.schedule.contains(shortDay);
-    //                     final timeText = '07:00AM–05:30PM'; // get the data from backend later
-    //
-    //                     return Column(
-    //                       mainAxisSize: MainAxisSize.min,
-    //                       children: [
-    //                         _ScheduleChip(
-    //                           width: 110,
-    //                           label: fullDay,
-    //                           labelColor: isAvailable
-    //                               ? const Color.fromRGBO(27, 35, 126, 1)
-    //                               : Colors.grey.shade700,
-    //                           color: isAvailable
-    //                               ? const Color(0x4DB1AFE9)
-    //                               : const Color(0xFFF3F4FB),
-    //                         ),
-    //                         if (isAvailable) ...[
-    //                           const SizedBox(height: 6),
-    //                           _ScheduleChip(
-    //                             width: 110,
-    //                             label: timeText,
-    //                             labelColor: const Color.fromRGBO(27, 35, 126, 1),
-    //                             color: Colors.transparent,
-    //                             isTimeChip: true,
-    //                           ),
-    //                         ],
-    //                       ],
-    //                     );
-    //                   }).toList(),
-    //                 ),
-    //               ),
-    //             ],
-    //           ),
-    //         ),
-    //         const SizedBox(height: 16),
-    //         _Field(
-    //             label: 'School leaving Date',
-    //             value: 'Oct 29, 2001'),
-    //         const SizedBox(height: 16),
-    //         UpcomingMoveWidget(month: 'Oct', day: '29', currentClass: '1-Blue-D', nextClass: '2-Green-D ')
-    //         // _Field(
-    //         //     label: 'Upcoming move',
-    //         //     value: 'Oct 29, 2001')
-    //       ],
-    //     ),
-    //   ),
-    // );
   }
 
   Widget _buildStatusChip(String status) {
@@ -1223,28 +968,28 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     final Color bgColor;
     if (isActive) {
       label = 'Active';
-      labelColor = const Color.fromRGBO(56, 200, 32, 1);
-      bgColor = const Color.fromRGBO(56, 200, 32, 0.1);
+      labelColor = AppColors.studentStatusActiveColor;
+      bgColor = AppColors.studentStatusActiveBg;
     } else if (isUpcoming) {
       label = 'Upcoming';
-      labelColor = const Color.fromARGB(255, 138, 110, 0);
-      bgColor = const Color.fromARGB(255, 242, 238, 176);
+      labelColor = AppColors.studentStatusUpcomingColor;
+      bgColor = AppColors.studentStatusUpcomingBg;
     } else if (isWaitlist) {
       label = 'Waitlist';
-      labelColor = const Color.fromRGBO(27, 35, 126, 1);
-      bgColor = const Color.fromRGBO(177, 175, 233, 0.3);
+      labelColor = AppColors.secondaryColor;
+      bgColor = AppColors.staffBadgeActiveBg;
     } else if (isGraduated) {
       label = 'Graduated';
-      labelColor = const Color.fromRGBO(27, 35, 126, 1);
-      bgColor = const Color.fromRGBO(177, 175, 233, 0.3);
+      labelColor = AppColors.secondaryColor;
+      bgColor = AppColors.staffBadgeActiveBg;
     } else if (isInactive) {
       label = 'Inactive';
-      labelColor = const Color.fromRGBO(250, 65, 65, 1);
-      bgColor = const Color.fromRGBO(250, 65, 65, 0.1);
+      labelColor = AppColors.studentStatusInactiveColor;
+      bgColor = AppColors.studentStatusInactiveBg;
     } else {
       label = status.isEmpty ? '-' : status;
-      labelColor = const Color.fromRGBO(250, 65, 65, 1);
-      bgColor = const Color.fromRGBO(250, 65, 65, 0.1);
+      labelColor = AppColors.studentStatusInactiveColor;
+      bgColor = AppColors.studentStatusInactiveBg;
     }
 
     final icon = isActive
@@ -1265,17 +1010,17 @@ class _tags extends StatelessWidget {
   final List<String> tags;
 
   static const List<Color> _chipColors = [
-    Color.fromRGBO(177, 175, 233, 0.3),
-    Color.fromRGBO(203, 246, 255, 0.4),
-    Color.fromRGBO(217, 255, 203, 0.4),
+    AppColors.staffBadgeActiveBg,
+    AppColors.classroomStaffTabColor,
+    AppColors.classroomNotesTabColor,
   ];
 
   @override
   Widget build(BuildContext context) {
     final tagList = tags;
     return Wrap(
-      spacing: 6,
-      runSpacing: 6,
+      spacing: AppSpacing.s6,
+      runSpacing: AppSpacing.s6,
       children: List.generate(tagList.length, (index) {
         return _ProfileTagChip(
           label: tagList[index],
@@ -1295,18 +1040,18 @@ class _ProfileTagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s10, vertical: AppSpacing.xxs),
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.allSm,
       ),
       child: Text(
         label,
         style: const TextStyle(
-          fontFamily: 'Manrope',
+          fontFamily: Fonts.manrope,
           fontWeight: FontWeight.w600,
           fontSize: 15,
-          color: Color.fromRGBO(27, 35, 126, 1),
+          color: AppColors.secondaryColor,
         ),
       ),
     );
@@ -1332,12 +1077,12 @@ class _ScheduleChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: width,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s10, vertical: AppSpacing.s6),
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.allSm,
         border: isTimeChip
-            ? Border.all(color: const Color(0x4DB1AFE9), width: 1.5)
+            ? Border.all(color: AppColors.staffBadgeActiveBg, width: AppDimensions.borderThin)
             : null,
       ),
       alignment: Alignment.center,
@@ -1347,10 +1092,10 @@ class _ScheduleChip extends StatelessWidget {
         maxLines: isTimeChip ? 2 : 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          fontFamily: 'Manrope',
+          fontFamily: Fonts.manrope,
           fontSize: 15,
           fontWeight: FontWeight.w600,
-          color: isTimeChip ? const Color(0xFF4B5B7A) : labelColor,
+          color: isTimeChip ? AppColors.staffBadgeActiveText : labelColor,
         ),
       ),
     );
@@ -1372,19 +1117,19 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s10, vertical: AppSpacing.xxs),
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.allSm,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (icon != null) ...[icon!, const SizedBox(width: 6)],
+          if (icon != null) ...[icon!, const SizedBox(width: AppSpacing.s6)],
           Text(
             label,
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               fontWeight: FontWeight.w600,
               fontSize: 15,
               color: labelColor,

@@ -147,6 +147,35 @@ void main() {
   );
 
   test(
+    'in-place school switch clears School A roster immediately, then loads School B',
+    () async {
+      // School A roster is loaded and displayed.
+      useCase.enqueue(_page(['A1', 'A2'], hasMore: false));
+      await cubit.refresh();
+      expect(cubit.state.items.map((s) => s.code), ['A1', 'A2']);
+      cubit.setSelectAll(true); // A-row selection present
+
+      // Switch to School B, then refresh under a HELD School-B response.
+      storage.schoolCode = 'SCH-B';
+      final gate = Completer<StudentPage>();
+      useCase.enqueue(gate);
+      final future = cubit.refresh();
+      await Future<void>.delayed(Duration.zero);
+
+      // School A's roster + selection are gone at once (full loader for B) —
+      // not lingering as a background refresh over the old school's data.
+      expect(cubit.state.items, isEmpty);
+      expect(cubit.state.selection, isEmpty);
+      expect(cubit.state.status, StudentListStatus.loading);
+
+      // School B lands and populates; no School A codes remain.
+      gate.complete(_page(['B1'], hasMore: false));
+      await future;
+      expect(cubit.state.items.map((s) => s.code), ['B1']);
+    },
+  );
+
+  test(
     'loadNextPage superseded by a filter change is DISCARDED (no cross-query append)',
     () async {
       // Seed: refresh returns page 0 (hasMore) then auto-loads page 1 (hasMore).

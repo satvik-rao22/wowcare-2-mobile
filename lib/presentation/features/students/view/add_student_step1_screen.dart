@@ -3,13 +3,18 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
@@ -33,6 +38,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/duplicate_student_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/widgets/same_last_name_siblings_dialog.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class AddStudentStep1Screen extends StatefulWidget {
   const AddStudentStep1Screen({
@@ -71,38 +77,33 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       10; // safety cap (25 * 10 = 250 scanned)
   static const int _maxParentsPerStudent = 4;
 
-  String? _selectedStatus;
-  String? _selectedClassroom;
-  DateTime? _selectedBirthdate;
-  DateTime? _selectedSchoolStartDate;
-  File? _profilePhoto;
-  String? _calculatedAgeLabel;
-  bool _isSubmitting = false;
-
   final StudentCreateCubit _createCubit = serviceLocator<StudentCreateCubit>();
 
   final List<String> _statusOptions = ['Active', 'Upcoming'];
 
-  bool get _isActive => (_selectedStatus ?? '').toLowerCase() == 'active';
-  bool get _isUpcoming => (_selectedStatus ?? '').toLowerCase() == 'upcoming';
+  // Read the status-derived flags off the cubit-owned form model.
+  bool get _isActive =>
+      (_createCubit.state.step1Status ?? '').toLowerCase() == 'active';
+  bool get _isUpcoming =>
+      (_createCubit.state.step1Status ?? '').toLowerCase() == 'upcoming';
 
   @override
   void initState() {
     super.initState();
-    _selectedStatus = widget.initialStatus ?? 'Active';
     if (widget.initialFirstName != null) {
       _firstNameController.text = widget.initialFirstName!.trim();
     }
     if (widget.initialLastName != null) {
       _lastNameController.text = widget.initialLastName!.trim();
     }
-    _selectedClassroom = widget.initialClassroom;
-    _selectedBirthdate = widget.initialBirthdate;
-    _selectedSchoolStartDate = widget.initialSchoolStartDate;
-    _profilePhoto = widget.initialProfilePhoto;
-    if (_selectedBirthdate != null) {
-      _calculateAge(_selectedBirthdate!);
-    }
+    // Controllers stay local; the rest of the step-1 form model seeds the cubit.
+    _createCubit.initializeStep1(
+      status: widget.initialStatus ?? 'Active',
+      classroom: widget.initialClassroom,
+      birthdate: widget.initialBirthdate,
+      schoolStartDate: widget.initialSchoolStartDate,
+      profilePhoto: widget.initialProfilePhoto,
+    );
   }
 
   @override
@@ -111,31 +112,6 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     _lastNameController.dispose();
     _createCubit.close();
     super.dispose();
-  }
-
-  void _calculateAge(DateTime birthdate) {
-    final now = AppTime.now();
-    int years = now.year - birthdate.year;
-    int months = now.month - birthdate.month;
-    if (now.day < birthdate.day) {
-      months--;
-    }
-    if (months < 0) {
-      years--;
-      months += 12;
-    }
-    setState(() {
-      _calculatedAgeLabel = _formatAgeLabel(years, months);
-    });
-  }
-
-  String _formatAgeLabel(int years, int months) {
-    final yearPart = '$years ${years == 1 ? 'year' : 'years'}';
-    final monthPart = '$months ${months == 1 ? 'month' : 'months'}';
-    if (years <= 0) {
-      return monthPart;
-    }
-    return '$yearPart $monthPart';
   }
 
   Future<void> _pickProfileImage() async {
@@ -156,15 +132,13 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         if (!mounted) return;
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Image size must be less than 10MB',
+          message: StudentStrings.imageSizeMustBeLessThan10mb,
           isError: true,
         );
         return;
       }
 
-      setState(() {
-        _profilePhoto = file;
-      });
+      _createCubit.setStep1ProfilePhoto(file);
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -182,7 +156,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         builder: (context) => CalendarDialog(
           isRangePicker: false,
           isTimePicker: false,
-          initialDate: _selectedBirthdate,
+          initialDate: _createCubit.state.step1Birthdate,
         ),
       );
 
@@ -195,16 +169,14 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         if (selectedDate.isAfter(today.subtract(const Duration(days: 1)))) {
           CoreUtils.showTopSnackBar(
             context: context,
-            message: 'Birthdate must be a past date',
+            message: StudentStrings.birthdateMustBeAPastDate,
             isError: true,
           );
           return;
         }
 
-        setState(() {
-          _selectedBirthdate = selectedDate;
-        });
-        _calculateAge(selectedDate);
+        // Cubit sets the date AND derives the age label.
+        _createCubit.setStep1Birthdate(selectedDate);
       }
     } catch (e) {
       AppLogger.d('Error opening calendar dialog: $e');
@@ -215,7 +187,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     try {
       final now = AppTime.now();
       final today = DateTime(now.year, now.month, now.day);
-      final initial = _selectedSchoolStartDate;
+      final initial = _createCubit.state.step1SchoolStartDate;
       final DateTime? initialForPicker = _isUpcoming
           ? (initial == null || initial.isBefore(today) ? today : initial)
           : initial;
@@ -241,14 +213,12 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         if (_isUpcoming && selDay.isBefore(today)) {
           CoreUtils.showTopSnackBar(
             context: context,
-            message: 'School start date cannot be in the past',
+            message: StudentStrings.schoolStartDateCannotBeInThePast,
             isError: true,
           );
           return;
         }
-        setState(() {
-          _selectedSchoolStartDate = selectedDate;
-        });
+        _createCubit.setStep1SchoolStartDate(selectedDate);
       }
     } catch (e) {
       AppLogger.d('Error opening calendar dialog: $e');
@@ -266,7 +236,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     if (_firstNameController.text.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'First name is required',
+        message: StudentStrings.firstNameIsRequired2,
         isError: true,
       );
       return;
@@ -283,7 +253,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     if (!_nameRegex.hasMatch(_firstNameController.text)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'First name must be letters only and max 50 characters',
+        message: StudentStrings.firstNameMustBeLettersOnlyAndMax50Characters,
         isError: true,
       );
       return;
@@ -292,7 +262,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     if (_lastNameController.text.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Last name is required',
+        message: StudentStrings.lastNameIsRequired2,
         isError: true,
       );
       return;
@@ -309,34 +279,34 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     if (!_nameRegex.hasMatch(_lastNameController.text)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Last name must be letters only and max 50 characters',
+        message: StudentStrings.lastNameMustBeLettersOnlyAndMax50Characters,
         isError: true,
       );
       return;
     }
 
-    if (_selectedClassroom == null) {
+    if (_createCubit.state.step1Classroom == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Please select a classroom',
+        message: StudentStrings.pleaseSelectAClassroom,
         isError: true,
       );
       return;
     }
 
-    if (_isActive && _selectedBirthdate == null) {
+    if (_isActive && _createCubit.state.step1Birthdate == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Birthdate is required for active students',
+        message: StudentStrings.birthdateIsRequiredForActiveStudents,
         isError: true,
       );
       return;
     }
 
-    if (_isUpcoming && _selectedSchoolStartDate == null) {
+    if (_isUpcoming && _createCubit.state.step1SchoolStartDate == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'School start date is required for upcoming students',
+        message: StudentStrings.schoolStartDateIsRequiredForUpcomingStudents,
         isError: true,
       );
       return;
@@ -355,7 +325,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
     final classrooms = context.read<ClassroomCubit>().state.classrooms;
     final selectedClassroom = classrooms.where(
-      (c) => c.name == _selectedClassroom,
+      (c) => c.name == _createCubit.state.step1Classroom,
     );
     final selectedClassroomCode = selectedClassroom.isNotEmpty
         ? selectedClassroom.first.code
@@ -363,7 +333,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     if (selectedClassroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Selected classroom is invalid. Please select again.',
+        message: StudentStrings.selectedClassroomIsInvalidPleaseSelectAgain,
         isError: true,
       );
       return;
@@ -374,7 +344,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     // and let them proceed — matching the web "warn but allow" behaviour.
     final ageWarning = classroomAgeRangeWarning(
       classroom: selectedClassroom.first,
-      birthDate: _selectedBirthdate,
+      birthDate: _createCubit.state.step1Birthdate,
       studentName: _firstNameController.text.trim(),
     );
     if (ageWarning != null) {
@@ -395,12 +365,12 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (ctx) => ConfirmationBottomSheet(
         icon: Icons.warning_amber_rounded,
         title: message,
-        confirmText: 'Continue anyway',
-        cancelText: 'Cancel',
+        confirmText: StudentStrings.continueAnyway,
+        cancelText: StudentStrings.cancel,
         onConfirm: () => Navigator.of(ctx).pop(true),
         onCancel: () => Navigator.of(ctx).pop(false),
       ),
@@ -460,7 +430,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final result = await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.transparentColor,
         builder: (ctx) {
           return DuplicateStudentBottomSheet(
             enteredName: enteredName,
@@ -475,20 +445,19 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                 orElse: () => matches.first,
               );
               Navigator.of(ctx).pop(false);
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => StudentProfileScreen(
-                    name: match.fullName.isNotEmpty
-                        ? match.fullName
-                        : enteredName,
-                    classroom: match.classroom,
-                    tags: match.tags,
-                    schedule: match.schedule,
-                    sibling: const {},
-                    studentCode: match.code,
-                    initialEnrollmentStatus: match.status,
-                  ),
-                ),
+              context.push(
+                StudentProfileScreen.routeName,
+                extra: <String, dynamic>{
+                  'name': match.fullName.isNotEmpty
+                      ? match.fullName
+                      : enteredName,
+                  'classroom': match.classroom,
+                  'tags': match.tags,
+                  'schedule': match.schedule,
+                  'sibling': const <String, dynamic>{},
+                  'studentCode': match.code,
+                  'initialEnrollmentStatus': match.status,
+                },
               );
             },
           );
@@ -578,12 +547,10 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     required String classroomCode,
     required List<String> siblingCodesToLink,
   }) async {
-    setState(() {
-      _isSubmitting = true;
-    });
+    _createCubit.setStep1Submitting(true);
 
     try {
-      final rawStatus = _selectedStatus ?? 'Active';
+      final rawStatus = _createCubit.state.step1Status ?? 'Active';
       final status = rawStatus.toUpperCase();
 
       final storage = serviceLocator<StorageService>();
@@ -597,14 +564,14 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         lastName: lastName,
         status: status,
         classroom: classroomCode,
-        dob: _selectedBirthdate,
-        schoolStartDate: _selectedSchoolStartDate,
+        dob: _createCubit.state.step1Birthdate,
+        schoolStartDate: _createCubit.state.step1SchoolStartDate,
         profilePhotoUrl: null,
       );
 
       // Upload the picked student photo in the BACKGROUND so creation returns
       // immediately; the upload keeps running even after this screen is closed.
-      final pickedPhoto = _profilePhoto;
+      final pickedPhoto = _createCubit.state.step1ProfilePhoto;
       if (pickedPhoto != null && student.code.trim().isNotEmpty) {
         unawaited(
           uploadStudentPhotoInBackground(
@@ -644,16 +611,14 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
       // Step 2 (Add Parent) is now optional: it calls the guardian API itself
       // (createGuardianDirectly) and returns true only if a parent was saved.
-      final parentResult = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (context) => AddStudentStep2Screen(
-            studentCode: student.code,
-            schoolCode: schoolCode,
-            createGuardianDirectly: true,
-            isOptionalStep: true,
-          ),
-        ),
+      final parentResult = await context.push<bool>(
+        AddStudentStep2Screen.routeName,
+        extra: <String, dynamic>{
+          'studentCode': student.code,
+          'schoolCode': schoolCode,
+          'createGuardianDirectly': true,
+          'isOptionalStep': true,
+        },
       );
 
       if (!mounted) return;
@@ -675,9 +640,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       }
     } finally {
       if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
+        _createCubit.setStep1Submitting(false);
       }
     }
   }
@@ -694,11 +657,11 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final addAnother = await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.transparentColor,
         builder: (context) => ConfirmationBottomSheet(
-          title: 'Do you want to add another parent?',
-          confirmText: 'Yes',
-          cancelText: 'Skip',
+          title: StudentStrings.doYouWantToAddAnotherParent,
+          confirmText: StudentStrings.yes,
+          cancelText: StudentStrings.skip,
           icon: Icons.family_restroom,
           onConfirm: () => Navigator.of(context).pop(true),
           onCancel: () => Navigator.of(context).pop(false),
@@ -712,16 +675,14 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             await storage.getString(StorageKeys.schoolCode) ?? '';
         if (!mounted) return;
 
-        final nextParentResult = await Navigator.push<bool>(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AddStudentStep2Screen(
-              studentCode: studentCode,
-              schoolCode: schoolCode,
-              createGuardianDirectly: true,
-              isOptionalStep: true,
-            ),
-          ),
+        final nextParentResult = await context.push<bool>(
+          AddStudentStep2Screen.routeName,
+          extra: <String, dynamic>{
+            'studentCode': studentCode,
+            'schoolCode': schoolCode,
+            'createGuardianDirectly': true,
+            'isOptionalStep': true,
+          },
         );
 
         if (!mounted) return;
@@ -741,11 +702,11 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     final addSchedule = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (context) => ConfirmationBottomSheet(
-        title: 'Do you want to add schedule?',
-        confirmText: 'Yes',
-        cancelText: 'Skip',
+        title: StudentStrings.doYouWantToAddSchedule,
+        confirmText: StudentStrings.yes,
+        cancelText: StudentStrings.skip,
         icon: Icons.schedule,
         onConfirm: () => Navigator.of(context).pop(true),
         onCancel: () => Navigator.of(context).pop(false),
@@ -755,10 +716,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     dynamic scheduleData;
     if (addSchedule == true) {
       if (!mounted) return;
-      final step3Result = await Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const AddStudentStep3Screen()),
-      );
+      final step3Result = await context.push(AddStudentStep3Screen.routeName);
       if (step3Result is Map<String, Map<String, TimeOfDay>>) {
         scheduleData = step3Result;
       } else if (step3Result is Map) {
@@ -850,7 +808,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
     if (!mounted) return;
 
-    final bool anyPhotoUploading = _profilePhoto != null;
+    final bool anyPhotoUploading = _createCubit.state.step1ProfilePhoto != null;
     CoreUtils.showTopSnackBar(
       context: context,
       message:
@@ -872,194 +830,215 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
-    return BlocBuilder<ClassroomCubit, ClassroomState>(
-      builder: (context, classroomState) {
-        final classroomNames = classroomState.classrooms
-            .map((c) => c.name)
-            .toList();
+    return BlocBuilder<StudentCreateCubit, StudentCreateState>(
+      bloc: _createCubit,
+      builder: (context, createState) =>
+          BlocBuilder<ClassroomCubit, ClassroomState>(
+            builder: (context, classroomState) {
+              final classroomNames = classroomState.classrooms
+                  .map((c) => c.name)
+                  .toList();
 
-        return GestureDetector(
-          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-          child: Scaffold(
-            backgroundColor: Colors.white,
-            appBar: const CustomAppBar(hasBackButton: true),
-            body: Stack(
-              children: [
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: AppColors.buildScaffoldGradient(),
-                    ),
-                    child: Image.asset(
-                      MediaRes.wowcareMobileBg,
-                      fit: BoxFit.cover,
-                      alignment: Alignment.topCenter,
-                    ),
-                  ),
-                ),
-                Column(
-                  children: [
-                    const SizedBox(height: 16),
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: responsive.horizontalSpacing,
-                      ),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Add Student - Step 1 of 3',
-                          style: TextStyle(
-                            fontFamily: "Manrope",
-                            fontSize: responsive.titleFontSize,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xff573353),
+              return GestureDetector(
+                onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                child: Scaffold(
+                  backgroundColor: AppColors.whiteColor,
+                  appBar: const CustomAppBar(hasBackButton: true),
+                  body: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: AppColors.buildScaffoldGradient(),
+                          ),
+                          child: Image.asset(
+                            MediaRes.wowcareMobileBg,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.topCenter,
                           ),
                         ),
                       ),
-                    ),
-                    SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
-                    Expanded(
-                      child: Container(
-                        width: responsive.containerWidth,
-                        margin: EdgeInsets.symmetric(
-                          horizontal: responsive.horizontalSpacing,
-                        ),
-                        padding: EdgeInsets.all(
-                          responsive.isTablet ? 32.0 : 16.0,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.all(
-                            Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                      Column(
+                        children: [
+                          AppSpacing.gapVMd,
+                          Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: responsive.horizontalSpacing,
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Expanded(
-                              child: ListView(
-                                padding: EdgeInsets.zero,
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                StudentStrings.addStudentStep1Of3,
+                                style: TextStyle(
+                                  fontFamily: Fonts.manrope,
+                                  fontSize: responsive.titleFontSize,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primaryColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
+                          Expanded(
+                            child: Container(
+                              width: responsive.containerWidth,
+                              margin: EdgeInsets.symmetric(
+                                horizontal: responsive.horizontalSpacing,
+                              ),
+                              padding: EdgeInsets.all(
+                                responsive.isTablet ? 32.0 : 16.0,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.whiteColor,
+                                borderRadius: BorderRadius.all(
+                                  Radius.circular(
+                                    responsive.isTablet ? 40.0 : 24.0,
+                                  ),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.blackColor.withValues(alpha: 0.05),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
                                 children: [
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // Status
-                                  CustomDropdown(
-                                    label: "Status",
-                                    hintText: 'Select',
-                                    items: _statusOptions,
-                                    selectedItem: _selectedStatus,
-                                    labelStyle: TextStyle(
-                                      fontSize: responsive.labelFontSize,
-                                      fontFamily: "Manrope",
-                                      fontWeight: FontWeight.w400,
-                                      color: const Color(0xff573353),
+                                  Expanded(
+                                    child: ListView(
+                                      padding: EdgeInsets.zero,
+                                      children: [
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // Status
+                                        CustomDropdown(
+                                          label: StudentStrings.status,
+                                          hintText: StudentStrings.select,
+                                          items: _statusOptions,
+                                          selectedItem:
+                                              _createCubit.state.step1Status,
+                                          labelStyle: TextStyle(
+                                            fontSize: responsive.labelFontSize,
+                                            fontFamily: Fonts.manrope,
+                                            fontWeight: FontWeight.w400,
+                                            color: AppColors.primaryColor,
+                                          ),
+                                          showAsterisk: true,
+                                          labelBottomSpacing:
+                                              responsive.isTablet ? 8.0 : 6.0,
+                                          onSelect: (val) =>
+                                              _createCubit.setStep1Status(val),
+                                        ),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // First Name and Last Name
+                                        _buildRowInputs(context),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // Classroom
+                                        CustomDropdown(
+                                          label: StudentStrings.classroom,
+                                          hintText: StudentStrings.select,
+                                          items: classroomNames,
+                                          selectedItem:
+                                              _createCubit.state.step1Classroom,
+                                          labelStyle: TextStyle(
+                                            fontSize: responsive.labelFontSize,
+                                            fontFamily: Fonts.manrope,
+                                            fontWeight: FontWeight.w400,
+                                            color: AppColors.primaryColor,
+                                          ),
+                                          showAsterisk: true,
+                                          labelBottomSpacing:
+                                              responsive.isTablet ? 8.0 : 6.0,
+                                          onSelect: (val) => _createCubit
+                                              .setStep1Classroom(val),
+                                        ),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // Profile Photo
+                                        _buildProfilePhotoField(responsive),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // Birthdate
+                                        _buildDateField(
+                                          StudentStrings.birthdate,
+                                          _createCubit.state.step1Birthdate,
+                                          _selectBirthdate,
+                                          isRequired: _isActive,
+                                          ageLabel:
+                                              _createCubit.state.step1AgeLabel,
+                                        ),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // School Start Date
+                                        _buildDateField(
+                                          StudentStrings.schoolStartDate,
+                                          _createCubit
+                                              .state
+                                              .step1SchoolStartDate,
+                                          _selectSchoolStartDate,
+                                          isRequired: _isUpcoming,
+                                        ),
+                                        AppSpacing.gapVSm,
+                                      ],
                                     ),
-                                    showAsterisk: true,
-                                    labelBottomSpacing: responsive.isTablet
-                                        ? 8.0
-                                        : 6.0,
-                                    onSelect: (val) {
-                                      setState(() {
-                                        _selectedStatus = val;
-                                      });
-                                    },
                                   ),
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // First Name and Last Name
-                                  _buildRowInputs(context),
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // Classroom
-                                  CustomDropdown(
-                                    label: "Classroom",
-                                    hintText: 'Select',
-                                    items: classroomNames,
-                                    selectedItem: _selectedClassroom,
-                                    labelStyle: TextStyle(
-                                      fontSize: responsive.labelFontSize,
-                                      fontFamily: "Manrope",
-                                      fontWeight: FontWeight.w400,
-                                      color: const Color(0xff573353),
-                                    ),
-                                    showAsterisk: true,
-                                    labelBottomSpacing: responsive.isTablet
-                                        ? 8.0
-                                        : 6.0,
-                                    onSelect: (val) {
-                                      setState(() {
-                                        _selectedClassroom = val;
-                                      });
-                                    },
-                                  ),
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // Profile Photo
-                                  _buildProfilePhotoField(responsive),
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // Birthdate
-                                  _buildDateField(
-                                    "Birthdate",
-                                    _selectedBirthdate,
-                                    _selectBirthdate,
-                                    isRequired: _isActive,
-                                    ageLabel: _calculatedAgeLabel,
-                                  ),
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // School Start Date
-                                  _buildDateField(
-                                    "School Start Date",
-                                    _selectedSchoolStartDate,
-                                    _selectSchoolStartDate,
-                                    isRequired: _isUpcoming,
-                                  ),
-                                  const SizedBox(height: 12),
                                 ],
                               ),
                             ),
-                          ],
+                          ),
+                          AppSpacing.gapVSm,
+                        ],
+                      ),
+                    ],
+                  ),
+                  bottomNavigationBar: Container(
+                    padding: EdgeInsets.only(
+                      bottom: safeAreaBottom,
+                      left: AppSpacing.md,
+                      right: AppSpacing.md,
+                      top: AppSpacing.xs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.whiteColor,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.blackColor.withValues(alpha: 0.05),
+                          offset: const Offset(0, -4),
+                          blurRadius: 16,
+                        ),
+                      ],
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(
+                          responsive.isTablet ? 40.0 : 24.0,
+                        ),
+                        topRight: Radius.circular(
+                          responsive.isTablet ? 40.0 : 24.0,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                  ],
-                ),
-              ],
-            ),
-            bottomNavigationBar: Container(
-              padding: EdgeInsets.only(
-                bottom: safeAreaBottom,
-                left: 16,
-                right: 16,
-                top: 8,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    offset: const Offset(0, -4),
-                    blurRadius: 16,
+                    child: CustomButtonLayout(
+                      confirmButtonLabel: StudentStrings.next,
+                      onPressedConfirm: _createCubit.state.step1Submitting
+                          ? null
+                          : _onNext,
+                      showCancelButton: false,
+                      isForm: false,
+                      isLoading: _createCubit.state.step1Submitting,
+                    ),
                   ),
-                ],
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                 ),
-              ),
-              child: CustomButtonLayout(
-                confirmButtonLabel: 'Next',
-                onPressedConfirm: _isSubmitting ? null : _onNext,
-                showCancelButton: false,
-                isForm: false,
-                isLoading: _isSubmitting,
-              ),
-            ),
+              );
+            },
           ),
-        );
-      },
     );
   }
 
@@ -1069,8 +1048,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       children: [
         Expanded(
           child: _buildInputField(
-            "First Name",
-            "E.g. John",
+            StudentStrings.firstName,
+            StudentStrings.eGJohn,
             _firstNameController,
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s\-']")),
@@ -1083,8 +1062,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
         Expanded(
           child: _buildInputField(
-            "Last Name",
-            "E.g. Smith",
+            StudentStrings.lastName,
+            StudentStrings.eGSmith,
             _lastNameController,
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s\-']")),
@@ -1107,9 +1086,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: Fonts.manrope,
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
 
     return Column(
@@ -1122,7 +1101,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
               TextSpan(text: label),
               const TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(color: AppColors.errorColor),
               ),
             ],
           ),
@@ -1131,8 +1110,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.whiteColor,
+            border: Border.all(color: AppColors.inputBorderColor),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -1141,15 +1120,15 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             controller: controller,
             inputFormatters: inputFormatters,
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 19 / 14,
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.attendanceMutedTextColor),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -1167,12 +1146,12 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Profile Photo',
+          StudentStrings.profilePhoto,
           style: TextStyle(
             fontSize: responsive.labelFontSize,
-            fontFamily: "Manrope",
+            fontFamily: Fonts.manrope,
             fontWeight: FontWeight.w400,
-            color: const Color(0xff573353),
+            color: AppColors.primaryColor,
           ),
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
@@ -1182,42 +1161,45 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             height: 120,
             width: 120,
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0x66573353)),
+              color: AppColors.attendanceShimmerHighlightColor,
+              borderRadius: AppRadius.allMd,
+              border: Border.all(color: AppColors.inputBorderColor),
             ),
-            child: _profilePhoto != null
+            child: _createCubit.state.step1ProfilePhoto != null
                 ? ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.file(_profilePhoto!, fit: BoxFit.cover),
+                    borderRadius: AppRadius.allMd,
+                    child: Image.file(
+                      _createCubit.state.step1ProfilePhoto!,
+                      fit: BoxFit.cover,
+                    ),
                   )
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         Icons.camera_alt,
-                        color: Colors.grey.shade600,
-                        size: 32,
+                        color: AppColors.attendanceDialogHintTextColor,
+                        size: AppDimensions.iconLg,
                       ),
-                      const SizedBox(height: 8),
+                      AppSpacing.gapVXs,
                       Text(
-                        'Upload Photo',
+                        StudentStrings.uploadPhoto,
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade600,
+                          color: AppColors.attendanceDialogHintTextColor,
                         ),
                       ),
                     ],
                   ),
           ),
         ),
-        const SizedBox(height: 4),
+        AppSpacing.gapVXxs,
         Text(
-          'JPG, PNG, max 10MB (Optional)',
+          StudentStrings.jpgPngMax10mbOptional,
           style: TextStyle(
             fontSize: 12,
-            color: Colors.grey.shade600,
-            fontFamily: 'Manrope',
+            color: AppColors.attendanceDialogHintTextColor,
+            fontFamily: Fonts.manrope,
           ),
         ),
       ],
@@ -1234,9 +1216,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: Fonts.manrope,
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
 
     return Column(
@@ -1250,7 +1232,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.errorColor),
                 ),
             ],
           ),
@@ -1262,8 +1244,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0x66573353)),
+              color: AppColors.whiteColor,
+              border: Border.all(color: AppColors.inputBorderColor),
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,
               ),
@@ -1283,34 +1265,34 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                         Text(
                           selectedDate != null
                               ? DateFormat('MM/dd/yyyy').format(selectedDate)
-                              : 'Select Date',
+                              : StudentStrings.selectDate,
                           style: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: Fonts.manrope,
                             fontSize: responsive.inputFontSize,
                             fontWeight: selectedDate != null
                                 ? FontWeight.w600
                                 : FontWeight.w500,
-                            color: const Color(0xff573353),
+                            color: AppColors.primaryColor,
                             height: 19 / 14,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
                         if (ageLabel != null && selectedDate != null)
                           Padding(
-                            padding: const EdgeInsets.only(top: 4.0),
+                            padding: const EdgeInsets.only(top: AppSpacing.xxs),
                             child: Text(
                               'Age: $ageLabel',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey.shade600,
-                                fontFamily: 'Manrope',
+                                color: AppColors.attendanceDialogHintTextColor,
+                                fontFamily: Fonts.manrope,
                               ),
                             ),
                           ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  AppSpacing.gapHXxs,
                   SvgPicture.asset(
                     MediaRes.calender_icon,
                     height: 20.0,

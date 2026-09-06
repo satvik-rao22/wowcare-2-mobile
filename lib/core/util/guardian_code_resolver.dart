@@ -4,6 +4,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/student/entities/guardian_profile.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 
 /// Composes `"first last"` from persisted profile fields (resolver-owned; callers
@@ -18,51 +19,15 @@ Future<String?> readCachedGuardianProfileDisplayLine() async {
   return line.isNotEmpty ? line : null;
 }
 
-String _guardianRecordCodeFromProfileMap(Map<String, dynamic> data) {
-  final code = (data['code'] ??
-          data['guardianCode'] ??
-          data['GuardianCode'] ??
-          data['parentCode'] ??
-          data['ParentCode'] ??
-          '')
-      .toString()
-      .trim();
-  return code;
-}
-
 Future<void> _persistGuardianProfileSnapshot({
   required StorageService storage,
-  required Map<String, dynamic> data,
+  required GuardianProfile profile,
   required String userCode,
   required String schoolCode,
   required String organizationCode,
 }) async {
-  final code = _guardianRecordCodeFromProfileMap(data);
-  final fn = (data['firstName'] ??
-          data['FirstName'] ??
-          data['first_name'] ??
-          '')
-      .toString()
-      .trim();
-  final ln =
-      (data['lastName'] ?? data['LastName'] ?? data['last_name'] ?? '')
-          .toString()
-          .trim();
-  final photoAssetCode = (data['profilePhotoAssetCode'] ??
-          data['photoAssetCode'] ??
-          data['profileImageAssetCode'] ??
-          '')
-      .toString()
-      .trim();
-  final photoUrl = (data['profilePhotoUrl'] ??
-          data['photoUrl'] ??
-          data['profileImageUrl'] ??
-          data['imageUrl'] ??
-          '')
-      .toString()
-      .trim();
-  if (code.isNotEmpty) {
-    await storage.saveString(StorageKeys.guardianCode, code);
+  if (profile.code.isNotEmpty) {
+    await storage.saveString(StorageKeys.guardianCode, profile.code);
     await storage.saveString(StorageKeys.guardianCodeUser, userCode);
     await storage.saveString(StorageKeys.guardianCodeSchool, schoolCode);
     await storage.saveString(
@@ -70,10 +35,19 @@ Future<void> _persistGuardianProfileSnapshot({
       organizationCode,
     );
   }
-  await storage.saveString(StorageKeys.guardianProfileFirstName, fn);
-  await storage.saveString(StorageKeys.guardianProfileLastName, ln);
-  await storage.saveString(StorageKeys.guardianProfileAssetCode, photoAssetCode);
-  await storage.saveString(StorageKeys.guardianProfilePhotoUrl, photoUrl);
+  await storage.saveString(
+    StorageKeys.guardianProfileFirstName,
+    profile.firstName,
+  );
+  await storage.saveString(StorageKeys.guardianProfileLastName, profile.lastName);
+  await storage.saveString(
+    StorageKeys.guardianProfileAssetCode,
+    profile.photoAssetCode,
+  );
+  await storage.saveString(
+    StorageKeys.guardianProfilePhotoUrl,
+    profile.photoUrl,
+  );
 }
 
 /// Always calls `GET /api/v1/guardian/profile` (when persona + context allow) and
@@ -114,18 +88,18 @@ Future<String> refreshGuardianProfileSnapshotForLoggedInUser() async {
 
   try {
     final repo = serviceLocator<StudentRepository>();
-    final data = await repo.getGuardianProfile(
+    final profile = await repo.getGuardianProfile(
       schoolCode: schoolCode,
       userCode: userCode,
     );
     await _persistGuardianProfileSnapshot(
       storage: storage,
-      data: data,
+      profile: profile,
       userCode: userCode,
       schoolCode: schoolCode,
       organizationCode: organizationCode,
     );
-    return _guardianRecordCodeFromProfileMap(data);
+    return profile.code;
   } catch (_) {
     return (await storage.getString(StorageKeys.guardianCode) ?? '').trim();
   }
@@ -194,18 +168,18 @@ Future<String> resolveGuardianCodeForLoggedInUser() async {
 
   try {
     final repo = serviceLocator<StudentRepository>();
-    final data = await repo.getGuardianProfile(
+    final profile = await repo.getGuardianProfile(
       schoolCode: schoolCode,
       userCode: userCode,
     );
     await _persistGuardianProfileSnapshot(
       storage: storage,
-      data: data,
+      profile: profile,
       userCode: userCode,
       schoolCode: schoolCode,
       organizationCode: organizationCode,
     );
-    final code = _guardianRecordCodeFromProfileMap(data);
+    final code = profile.code;
     if (code.isNotEmpty) return code;
   } catch (_) {
     // Caller shows a generic error; do not fall back to userCode.
