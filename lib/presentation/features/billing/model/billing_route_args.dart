@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/widgets.dart';
 import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/ledger_transaction_entity.dart';
@@ -203,18 +201,8 @@ class AddTransactionArgs {
   final Future<bool> Function(AddTransactionParams params) onSave;
 }
 
-/// [ReportFileViewerScreen] (lives in the reports feature but is only pushed
-/// from billing statements — the route path is billing-owned).
-class ReportFileViewerArgs {
-  const ReportFileViewerArgs({
-    required this.fileData,
-    required this.fileName,
-    required this.fileType,
-  });
-
-  static const String routeName = '/billing/report-file-viewer';
-
-  final Uint8List fileData;
-  final String fileName;
-  final String fileType;
-}
+// `ReportFileViewerArgs` used to be declared here as well as in the reports
+// feature — two classes, one name (§6.5). The reports copy is now the single
+// declaration, since the viewer screen it describes lives there and is pushed
+// from both features. See
+// `presentation/features/reports/model/report_route_args.dart`.

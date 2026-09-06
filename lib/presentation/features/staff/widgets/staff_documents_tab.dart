@@ -20,11 +20,11 @@ import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.d
 import 'package:wowcare/shared/common/views/document_viewer_screen.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_documents_list_cubit.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_document.dart';
-import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
+import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 
 class StaffDocumentsTab extends StatelessWidget {
   const StaffDocumentsTab({
@@ -46,14 +46,11 @@ class StaffDocumentsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<StaffDocumentsListCubit>(
-      create: (_) =>
-          serviceLocator<StaffDocumentsListCubit>()..loadInitial(staffCode),
-      child: _StaffDocumentsTabView(
-        staffCode: staffCode,
-        canEdit: canEdit,
-        highlightCode: highlightCode,
-      ),
+    // Cubits are created by the route builder (§1.6), not here.
+    return _StaffDocumentsTabView(
+      staffCode: staffCode,
+      canEdit: canEdit,
+      highlightCode: highlightCode,
     );
   }
 }
@@ -141,21 +138,21 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
         ? null
         : DateFormat('yyyy-MM-dd').parse(doc.expiryDate!);
 
-    final result = await context.push(
-      '/dashboard/add-document-screen',
-      extra: <String, dynamic>{
-        'staffCode': widget.staffCode,
-        'isEdit': true,
-        'documentUuid': doc.documentUuid,
-        'initialDocumentName': doc.documentName,
-        'initialDocumentType': doc.documentType,
-        'initialExpiryDate': expiryDate,
-        'initialFilePath': doc.documentUrl,
-        'initialMimeType': doc.mimeType,
-        'initialFileSizeKb': doc.documentSizeKb,
-        'initialDocumentNotes': doc.documentNotes,
-        'initialAssetCode': doc.assetCode,
-      },
+    final result = await context.push<bool>(
+      StaffRoutes.documentForm,
+      extra: StaffDocumentFormArgs(
+        staffCode: widget.staffCode,
+        isEdit: true,
+        documentUuid: doc.documentUuid,
+        initialDocumentName: doc.documentName,
+        initialDocumentType: doc.documentType,
+        initialExpiryDate: expiryDate,
+        initialFilePath: doc.documentUrl,
+        initialMimeType: doc.mimeType,
+        initialFileSizeKb: doc.documentSizeKb,
+        initialDocumentNotes: doc.documentNotes,
+        initialAssetCode: doc.assetCode,
+      ),
     );
 
     if (result == true && mounted) {
@@ -239,9 +236,7 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
       return rawUrl;
     }
     if (assetCode.isNotEmpty) {
-      return (await serviceLocator<ImageUploadService>().getMediaAssetUrlByCode(
-        assetCode: assetCode,
-      )).trim();
+      return _documentsListCubit.resolveMediaAssetUrl(assetCode);
     }
     return '';
   }
@@ -268,13 +263,12 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
         );
         return;
       }
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => DocumentViewerScreen(
-            url: url,
-            documentName: doc.documentName,
-            mimeType: doc.mimeType,
-          ),
+      context.push(
+        StaffRoutes.documentViewer,
+        extra: DocumentViewerArgs(
+          url: url,
+          documentName: doc.documentName,
+          mimeType: doc.mimeType,
         ),
       );
     } catch (e, st) {
@@ -855,9 +849,11 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
             child: GradientAddButton(
               onTap: () {
                 context
-                    .push(
-                      '/dashboard/add-document-screen',
-                      extra: <String, dynamic>{'staffCode': widget.staffCode},
+                    .push<bool>(
+                      StaffRoutes.documentForm,
+                      extra: StaffDocumentFormArgs(
+                        staffCode: widget.staffCode,
+                      ),
                     )
                     .then((result) {
                       // Refresh documents list after successfully adding a new document

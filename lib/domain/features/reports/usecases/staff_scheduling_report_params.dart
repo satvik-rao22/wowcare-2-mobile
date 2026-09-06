@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-import '../entities/report_type.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'report_params.dart';
 
 /// Parameters for Staff Scheduling report generation.
@@ -29,19 +29,6 @@ class StaffSchedulingReportParams extends Equatable implements ReportParams {
 
   @override
   final String format;
-
-  @override
-  Map<String, dynamic> toRequestBody() {
-    return {
-      'reportType': reportType.backendValue,
-      'startDate': _formatDate(startDate),
-      'endDate': _formatDate(endDate),
-      if (classroomCodes != null && classroomCodes!.isNotEmpty)
-        'classroomCodes': classroomCodes,
-      'format': format,
-      'schoolName': schoolName,
-    };
-  }
 
   @override
   String toCacheIdentifier() {

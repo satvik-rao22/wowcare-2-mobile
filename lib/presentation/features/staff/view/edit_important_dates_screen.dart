@@ -11,12 +11,12 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/presentation/features/staff/cubit/important_dates_cubit.dart';
-import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/data/features/staff/models/staff_important_dates_models.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_important_date.dart';
+import 'package:go_router/go_router.dart';
 
 class EditImportantDatesScreen extends StatelessWidget {
   const EditImportantDatesScreen({
@@ -41,18 +41,16 @@ class EditImportantDatesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<ImportantDatesCubit>(
-      create: (_) => serviceLocator<ImportantDatesCubit>(),
-      child: _EditImportantDatesScreenView(
-        staffCode: staffCode,
-        initialHireDate: initialHireDate,
-        initialCdaExaminationDate: initialCdaExaminationDate,
-        initialFirstAidCprExpirationDate: initialFirstAidCprExpirationDate,
-        initialBackgroundRecordCheckExpirationDate:
-            initialBackgroundRecordCheckExpirationDate,
-        initialPhysicalCheckupDate: initialPhysicalCheckupDate,
-        initialPhysicalCheckupStatus: initialPhysicalCheckupStatus,
-      ),
+    // Cubits are created by the route builder (§1.6), not here.
+    return _EditImportantDatesScreenView(
+      staffCode: staffCode,
+      initialHireDate: initialHireDate,
+      initialCdaExaminationDate: initialCdaExaminationDate,
+      initialFirstAidCprExpirationDate: initialFirstAidCprExpirationDate,
+      initialBackgroundRecordCheckExpirationDate:
+          initialBackgroundRecordCheckExpirationDate,
+      initialPhysicalCheckupDate: initialPhysicalCheckupDate,
+      initialPhysicalCheckupStatus: initialPhysicalCheckupStatus,
     );
   }
 }
@@ -454,7 +452,7 @@ class _EditImportantDatesScreenViewState
             message: state.message!,
             isSuccess: true,
           );
-          Navigator.pop(context, true);
+          context.pop(true);
         } else if (state.isError && state.message != null) {
           CoreUtils.showTopSnackBar(
             context: context,

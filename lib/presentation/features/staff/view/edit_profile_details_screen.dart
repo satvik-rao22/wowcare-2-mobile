@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
-import 'package:wowcare/presentation/features/staff/staff_photo_background.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen_formatters.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -17,10 +16,8 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.dart';
-import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile_update.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_address_update.dart';
-import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_profile_edit_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
 import 'package:wowcare/presentation/features/classroom/views/classroom_tab_cards/classroom_staff_tab_card.dart'
@@ -30,6 +27,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:go_router/go_router.dart';
 
 class EditProfileDetailsScreen extends StatelessWidget {
   const EditProfileDetailsScreen({
@@ -80,16 +78,8 @@ class EditProfileDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider<StaffProfileEditCubit>(
-          create: (_) => serviceLocator<StaffProfileEditCubit>(),
-        ),
-        BlocProvider<ClassroomCubit>(
-          create: (_) => serviceLocator<ClassroomCubit>(),
-        ),
-      ],
-      child: _EditProfileDetailsScreenView(
+    // Cubits are created by the route builder (§1.6), not here.
+    return _EditProfileDetailsScreenView(
         staffCode: staffCode,
         initialFirstName: initialFirstName,
         initialLastName: initialLastName,
@@ -107,8 +97,7 @@ class EditProfileDetailsScreen extends StatelessWidget {
         initialCountry: initialCountry,
         initialZipCode: initialZipCode,
         initialClassroomNames: initialClassroomNames,
-        initialClassroomCodeByName: initialClassroomCodeByName,
-      ),
+      initialClassroomCodeByName: initialClassroomCodeByName,
     );
   }
 }
@@ -259,7 +248,6 @@ class _EditProfileDetailsScreenViewState
       .toList(growable: false);
   // Country is fixed to United States for this screen; no need to build a dropdown list.
 
-  late final GetStaffProfileUseCase _getStaffProfileUseCase;
   late final StaffProfileEditCubit _profileEditCubit;
 
   // Simple validators (align with Add Staff)
@@ -289,7 +277,6 @@ class _EditProfileDetailsScreenViewState
   @override
   void initState() {
     super.initState();
-    _getStaffProfileUseCase = serviceLocator<GetStaffProfileUseCase>();
     _profileEditCubit = context.read<StaffProfileEditCubit>();
     _classroomCubit = context.read<ClassroomCubit>();
 
@@ -406,7 +393,7 @@ class _EditProfileDetailsScreenViewState
   Future<void> _loadProfileForPrefill() async {
     if (!mounted) return;
     try {
-      final profile = await _getStaffProfileUseCase(
+      final profile = await _profileEditCubit.loadProfileForPrefill(
         staffCode: widget.staffCode,
       );
       if (!mounted) return;
@@ -993,13 +980,11 @@ class _EditProfileDetailsScreenViewState
       // it keeps running even after this screen is popped.
       final photo = _profilePhoto;
       if (photo != null && widget.staffCode.trim().isNotEmpty) {
-        unawaited(
-          uploadStaffPhotoInBackground(
-            staffCode: widget.staffCode.trim(),
-            file: photo,
-            schoolCode: _profileSchoolCode,
-            organizationCode: _profileOrganizationCode,
-          ),
+        context.read<StaffProfileEditCubit>().uploadProfilePhotoInBackground(
+          staffCode: widget.staffCode.trim(),
+          file: photo,
+          schoolCode: _profileSchoolCode,
+          organizationCode: _profileOrganizationCode,
         );
       }
 
@@ -1064,7 +1049,7 @@ class _EditProfileDetailsScreenViewState
         isSuccess: !emailChangeFailed,
         isWarning: emailChangeFailed,
       );
-      Navigator.pop(context, true);
+      context.pop(true);
     } catch (e) {
       if (!mounted) return;
       _isSubmitting.value = false;

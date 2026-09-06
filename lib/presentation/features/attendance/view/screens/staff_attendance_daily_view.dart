@@ -9,6 +9,8 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
+import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
@@ -514,7 +516,10 @@ class _StaffAttendanceDailyViewScreenState
     // subsequent context.go()/drawer navigation (e.g. tapping "Staff
     // Attendance" in the side drawer) found itself already "at" that
     // location and silently no-opped.
-    context.push<void>('/dashboard/staff', extra: {'filter': normalized});
+    context.push<void>(
+      StaffRoutes.list,
+      extra: StaffListArgs(statusFilter: normalized),
+    );
   }
 
   @override
@@ -1257,7 +1262,7 @@ class _StaffAttendanceDailyViewScreenState
       // would force the shared screen's pop semantics to change, risking the
       // other callers — so this stays Navigator. It also carries the live
       // _classroomCubit via BlocProvider.value, which must not be recreated.
-      final result = await Navigator.push<Map<String, dynamic>?>(
+      final result = await Navigator.push<StaffFilterResult?>(
         context,
         MaterialPageRoute(
           builder: (_) => BlocProvider.value(
@@ -1276,11 +1281,10 @@ class _StaffAttendanceDailyViewScreenState
 
       if (!mounted || result == null) return;
 
-      final String? status = (result['status'] as String?)?.trim();
-      final String? designation = (result['designation'] as String?)?.trim();
-      final List<String> classCodes =
-          (result['classCodes'] as List?)?.cast<String>() ?? const <String>[];
-      final String? sortBy = (result['sortBy'] as String?)?.trim();
+      final String? status = result.status?.trim();
+      final String? designation = result.designation?.trim();
+      final List<String> classCodes = result.classCodes;
+      final String sortBy = result.sortBy;
 
       setState(() {
         _staffFilters = FilterData(

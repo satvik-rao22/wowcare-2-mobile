@@ -7,7 +7,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
-
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import '../../../../app/theme/media_res.dart';
@@ -482,7 +481,6 @@ class _MediaUploaderState extends State<MediaUploader> {
     _notifyParent();
   }
 
-
   void _openVideoFullscreen() {
     final url = _existingVideoUrl?.trim();
     if (url != null && url.isNotEmpty) {
@@ -675,7 +673,12 @@ class _MediaUploaderState extends State<MediaUploader> {
               Icons.play_circle_fill,
               size: 60,
               color: AppColors.cardColor.withValues(alpha: 0.9),
-              shadows: const [Shadow(blurRadius: 10, color: AppColors.activityIconBackdropColor)],
+              shadows: const [
+                Shadow(
+                  blurRadius: 10,
+                  color: AppColors.activityIconBackdropColor,
+                ),
+              ],
             ),
           ),
         ],
@@ -692,7 +695,8 @@ class _MediaUploaderState extends State<MediaUploader> {
         fit: BoxFit.cover,
         loadingBuilder: (_, child, progress) =>
             progress == null ? child : const CircularProgressIndicator(),
-        errorBuilder: (_, __, ___) => Container(color: AppColors.activityMediaLoadingPlaceholderBg),
+        errorBuilder: (_, __, ___) =>
+            Container(color: AppColors.activityMediaLoadingPlaceholderBg),
       ),
       onRemove: () => _removeExistingPhoto(url),
       // Open the shared full-screen viewer so a saved (network) photo gets the
@@ -716,7 +720,11 @@ class _MediaUploaderState extends State<MediaUploader> {
           file,
           fit: BoxFit.contain,
           errorBuilder: (_, __, ___) => const Center(
-            child: Icon(Icons.broken_image, color: AppColors.activityMediaPlaceholderIconColor, size: 60),
+            child: Icon(
+              Icons.broken_image,
+              color: AppColors.activityMediaPlaceholderIconColor,
+              size: 60,
+            ),
           ),
         ),
       ),
@@ -787,7 +795,11 @@ class _MediaUploaderState extends State<MediaUploader> {
                     color: AppColors.activityIconBackdropColor,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.close, color: AppColors.cardColor, size: 16),
+                  child: const Icon(
+                    Icons.close,
+                    color: AppColors.cardColor,
+                    size: 16,
+                  ),
                 ),
               ),
             ),
@@ -795,7 +807,6 @@ class _MediaUploaderState extends State<MediaUploader> {
       ),
     );
   }
-
 
   Widget _buildAllPreviews() {
     final showVideoPreview = _keepPhotoAndVideoTogether
@@ -1059,7 +1070,8 @@ class _FullscreenLocalVideoPlayerPageState
                               duration: const Duration(milliseconds: 300),
                               child: const Icon(
                                 Icons.play_circle_fill,
-                                color: AppColors.activityMediaPlaceholderIconColor,
+                                color:
+                                    AppColors.activityMediaPlaceholderIconColor,
                                 size: 72,
                               ),
                             ),

@@ -509,12 +509,12 @@ class AppColors {
       Colors.orange; // Upload-incomplete icon/text (recurs 8x)
   static const Color activityRequiredFieldMarkerColor =
       Colors.red; // Required-field "*" marker (recurs 6x)
-  static const Color activityErrorTextColor =
-      Colors.red; // Validation/error message + destructive action text (recurs 3x)
-  static const Color activityMediaPlaceholderIconColor =
-      Colors.white70; // Icon/text tint on photo/video placeholder overlays (recurs 8x)
-  static const Color activityMutedGreyColor =
-      Colors.grey; // Muted text/icon/border (recurs 9x, incl. 2 .withValues() derivatives)
+  static const Color activityErrorTextColor = Colors
+      .red; // Validation/error message + destructive action text (recurs 3x)
+  static const Color activityMediaPlaceholderIconColor = Colors
+      .white70; // Icon/text tint on photo/video placeholder overlays (recurs 8x)
+  static const Color activityMutedGreyColor = Colors
+      .grey; // Muted text/icon/border (recurs 9x, incl. 2 .withValues() derivatives)
   static const Color activityPlaceholderTextColor = Color(
     0xFF757575,
   ); // Hint/placeholder/unselected text (was Colors.grey[600] / grey.shade600, recurs 6x)
@@ -536,10 +536,52 @@ class AppColors {
   static const Color activityTooltipBackgroundColor = Color(
     0xDD000000,
   ); // Black tooltip bubble background (was Colors.black87, recurs 2x)
-  static const Color activityMediaPlaceholderBg =
-      Colors.black12; // Media placeholder container tint, alpha applied per call site (recurs 3x)
+  static const Color activityMediaPlaceholderBg = Colors
+      .black12; // Media placeholder container tint, alpha applied per call site (recurs 3x)
   static const Color activityVideoProgressTrackColor =
       Colors.white24; // Video-progress unplayed track (recurs 1x)
   static const Color activityVideoProgressBufferedColor =
       Colors.white38; // Video-progress buffered segment (recurs 1x)
+
+  // ── Reports (Mandate M4) ────────────────────────────────────────────────
+  /// Error-state icon on the Generated-reports failure panel. This is the
+  /// exact value of the `Colors.red` it replaced (#F44336), NOT
+  /// [errorColor] (#D32F2F) — substituting the nearer token would have
+  /// changed the rendered colour. Worth consolidating with [errorColor] as a
+  /// deliberate design decision, not as part of a centralisation pass.
+  static const Color reportsErrorIconColor = Color(0xFFF44336);
+
+  /// Muted/inactive grey across the reports module — empty-state icons,
+  /// file-preview placeholder icons, unselected checkbox borders and the
+  /// disabled download gradient. Exact value of the `Colors.grey[400]` /
+  /// `Colors.grey.shade400` it replaced (#BDBDBD). Shares its hex with
+  /// [dividerColor] but means "inactive", not "rule between rows".
+  static const Color reportsMutedColor = Color(0xFFBDBDBD);
+
+  /// Indigo accent — section labels and the "All ... selected by default"
+  /// notes. Exact value of the `Color(0xff4F46E5)` it replaced.
+  static const Color reportsAccentColor = Color(0xFF4F46E5);
+
+  /// Hairline divider inside the report cards (#E9ECEF).
+  static const Color reportsCardDividerColor = Color(0xFFE9ECEF);
+
+  /// Inline "could not load classrooms" panel on the report forms.
+  static const Color reportsInlineErrorBackgroundColor = Color(0xFFFDECEC);
+  static const Color reportsInlineErrorBorderColor = Color(0xFFE53935);
+  static const Color reportsInlineErrorTextColor = Color(0xFFB71C1C);
+
+  /// Selected month chip in the month/year picker (#EEEDF0).
+  static const Color reportsMonthPickerSelectedColor = Color(0xFFEEEDF0);
+
+  /// Disabled control surface — exact value of `Colors.grey[300]` (#E0E0E0).
+  static const Color reportsDisabledSurfaceColor = Color(0xFFE0E0E0);
+
+  /// Disabled control foreground — exact value of `Colors.grey[600]`
+  /// / `Colors.grey.shade600` (#757575).
+  static const Color reportsDisabledForegroundColor = Color(0xFF757575);
+
+  /// Required-field "*" marker. Same value and meaning as
+  /// [activityRequiredFieldMarkerColor]; the two should collapse into one
+  /// shared semantic token in a cross-feature pass.
+  static const Color reportsRequiredFieldMarkerColor = Colors.red;
 }

@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../entities/report_type.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'report_params.dart';
 
 class ReportRequestParams extends Equatable implements ReportParams {
@@ -87,100 +87,6 @@ class ReportRequestParams extends Equatable implements ReportParams {
       transactionTypes: transactionTypes ?? this.transactionTypes,
       paymentMethods: paymentMethods ?? this.paymentMethods,
     );
-  }
-
-  /// Convert params to request body format for API.
-  // Map<String, dynamic> toRequestBody() {
-  //   final Map<String, dynamic> body = {
-  //     'reportType': reportType.backendValue,
-  //     'startDate': startDate.toIso8601String().split('T')[0],
-  //     if (endDate != null) 'endDate': endDate!.toIso8601String().split('T')[0],
-  //     if (schoolName != null && schoolName!.trim().isNotEmpty)
-  //       'schoolName': schoolName,
-  //     'format': format,
-  //   };
-  Map<String, dynamic> toRequestBody() {
-    final Map<String, dynamic> body = {
-      'reportType': reportType.backendValue,
-      'format': format,
-      if (schoolName != null && schoolName!.trim().isNotEmpty)
-        'schoolName': schoolName,
-      if (periodType != null && periodType!.trim().isNotEmpty)
-        'periodType': periodType,
-    };
-
-    if (reportType == ReportType.studentDailyAttendance) {
-      body['date'] = (date ?? startDate).toIso8601String().split('T')[0];
-    } else if (reportType == ReportType.billingOutstanding) {
-      body['asOfDate'] = startDate.toUtc().toIso8601String();
-    } else if (reportType == ReportType.billingTransaction ||
-        reportType == ReportType.billingInvoice ||
-        reportType == ReportType.billingPaymentSummary ||
-        reportType == ReportType.billingRefund ||
-        reportType == ReportType.billingStudentMapping) {
-      body['dateFrom'] = startDate.toUtc().toIso8601String();
-      if (endDate != null) {
-        body['dateTo'] = endDate!.toUtc().toIso8601String();
-      }
-    } else {
-      body['startDate'] = startDate.toIso8601String().split('T')[0];
-      if (endDate != null) {
-        body['endDate'] = endDate!.toIso8601String().split('T')[0];
-      }
-    }
-
-    // Existing room/classroom mapping...
-
-    // Map field names based on report type for API compatibility.
-    // Confirmed against the web client's verified payloads per report type.
-    if (reportType == ReportType.studentAbsent ||
-        reportType == ReportType.studentAttendancePerStudent ||
-        reportType == ReportType.staffAttendancePerStaff ||
-        reportType == ReportType.emergencyContacts ||
-        reportType == ReportType.studentIncident) {
-      // These reports use roomCodes instead of classroomCodes.
-      if (roomCodes != null) {
-        body['roomCodes'] = roomCodes;
-      }
-    } else {
-      // Other reports use classroomCodes.
-      if (roomCodes != null &&
-          reportType != ReportType.billingOutstanding &&
-          reportType != ReportType.billingRefund) {
-        body['classroomCodes'] = roomCodes;
-      }
-    }
-
-    // Add optional fields.
-    if (studentCodes != null) {
-      body['studentCodes'] = studentCodes;
-    }
-    if (staffCodes != null) {
-      body['staffCodes'] = staffCodes;
-    }
-    if (tagCodes != null) {
-      body['tagCodes'] = tagCodes;
-    }
-    if (search != null && search!.trim().isNotEmpty) {
-      body['search'] = search!.trim();
-    }
-    if (folderClassGrouping != null && folderClassGrouping!.isNotEmpty) {
-      body['grouping'] = folderClassGrouping;
-    }
-    if (invoiceStatuses != null && invoiceStatuses!.isNotEmpty) {
-      body['invoiceStatuses'] = invoiceStatuses;
-    }
-    if (transactionStatuses != null && transactionStatuses!.isNotEmpty) {
-      body['transactionStatuses'] = transactionStatuses;
-    }
-    if (transactionTypes != null && transactionTypes!.isNotEmpty) {
-      body['transactionTypes'] = transactionTypes;
-    }
-    if (paymentMethods != null && paymentMethods!.isNotEmpty) {
-      body['paymentMethods'] = paymentMethods;
-    }
-
-    return body;
   }
 
   /// Build cache identifier from params.

@@ -1,6 +1,6 @@
-import '../entities/report_entity.dart';
-import '../entities/report_metadata_entity.dart';
-import '../usecases/report_params.dart';
+import 'package:wowcare/domain/features/reports/entities/report_entity.dart';
+import 'package:wowcare/domain/features/reports/entities/report_metadata_entity.dart';
+import 'package:wowcare/domain/features/reports/usecases/report_params.dart';
 
 abstract class ReportsRepository {
   /// Generate a report based on request params.
