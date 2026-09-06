@@ -397,9 +397,12 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     }
 
     final bool isQrSignOut = widget.qrToken.isNotEmpty;
+    // 'PIN' is reserved for an actual kiosk device (widget.isKiosk) — a
+    // staff-operated kiosk sign-out otherwise fell into the isStaffAdmin
+    // branch and reported 'APP', same class of bug as the sign-in form.
     final String signOutMethod = isQrSignOut
         ? 'QR'
-        : (isStaffAdmin ? 'APP' : 'GPS');
+        : (widget.isKiosk ? 'PIN' : (isStaffAdmin ? 'APP' : 'GPS'));
 
     // QR scan is always self sign-out — the person holding the phone is signing
     // themselves out. Kiosk is always self sign-out (staff member via PIN).
@@ -558,6 +561,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                 itemBuilder: (context, index) => AttendanceRemoveTile(
                   name: _selectedStaff[index].name,
                   photoUuid: _selectedStaff[index].photoUuid ?? '',
+                  staffCode: _selectedStaff[index].staffCode,
                   horizontalPadding: AppSpacing.sm,
                   canRemove: _selectedStaff.length > 1,
                   onRemove: () => _removeStaff(_selectedStaff[index]),

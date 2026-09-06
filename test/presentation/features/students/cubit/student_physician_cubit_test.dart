@@ -37,7 +37,7 @@ class _FakeGetUseCase extends GetStudentPhysiciansUseCase {
   Object? error;
 
   @override
-  Future<List<StudentPhysician>> call({required String studentCode}) async {
+  Future<List<StudentPhysician>> call({required String studentCode, bool forceRefresh = false}) async {
     calls++;
     studentCodes.add(studentCode);
     if (error != null) throw error!;

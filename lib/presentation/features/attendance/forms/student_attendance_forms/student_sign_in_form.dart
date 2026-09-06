@@ -267,10 +267,17 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       geofenceState = null;
     }
     // QR and GPS sign-ins are physical-presence methods — withinGeofence is
-    // always true. APP (staff/admin manual) derives it from the geofence state.
+    // always true. APP (staff/admin manual) derives it from the geofence
+    // state. A kiosk device (widget.isKiosk) is checked first — it's staff-
+    // operated (isParent is false there), so without this check it fell
+    // through to the 'APP' branch and reported an in-app sign-in as the
+    // method for what was actually a kiosk sign-in.
     final String signInMethod;
     final bool withinGeofence;
-    if (isParent) {
+    if (widget.isKiosk) {
+      signInMethod = widget.isQrScan ? 'QR' : 'PIN';
+      withinGeofence = true; // physical presence proven by the kiosk device
+    } else if (isParent) {
       signInMethod = widget.isQrScan ? 'QR' : 'GPS';
       withinGeofence = true; // physical presence proven by QR scan or GPS
     } else {
@@ -555,6 +562,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                     itemBuilder: (context, index) => AttendanceRemoveTile(
                       name: currentStudents[index].fullName,
                       photoUuid: currentStudents[index].photoUuid ?? '',
+                      studentCode: currentStudents[index].studentCode,
                       onRemove: () => _removeStudent(currentStudents[index]),
                       horizontalPadding: AppSpacing.sm,
                     ),

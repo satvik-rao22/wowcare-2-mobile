@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/entities/student_health_update_request.dart';
@@ -51,7 +50,7 @@ class _FakeGetHealthUseCase extends GetStudentHealthUseCase {
   Object? error;
 
   @override
-  Future<StudentHealth> call({required String studentCode}) async {
+  Future<StudentHealth> call({required String studentCode, bool forceRefresh = false}) async {
     calls++;
     studentCodes.add(studentCode);
     if (error != null) throw error!;
@@ -250,30 +249,27 @@ void main() {
     });
   });
 
-  test(
-    'single-flight: two concurrent updateHealth for the same student issue '
-    'ONE use-case call and share the identical future',
-    () async {
-      final fakes = _Fakes();
-      final gate = Completer<StudentHealth>();
-      fakes.updateHealth.gate = gate;
-      final cubit = fakes.build();
+  test('single-flight: two concurrent updateHealth for the same student issue '
+      'ONE use-case call and share the identical future', () async {
+    final fakes = _Fakes();
+    final gate = Completer<StudentHealth>();
+    fakes.updateHealth.gate = gate;
+    final cubit = fakes.build();
 
-      final f1 = cubit.updateHealth(studentCode: 'S1', request: _request());
-      final f2 = cubit.updateHealth(studentCode: 'S1', request: _request());
+    final f1 = cubit.updateHealth(studentCode: 'S1', request: _request());
+    final f2 = cubit.updateHealth(studentCode: 'S1', request: _request());
 
-      expect(identical(f1, f2), isTrue);
+    expect(identical(f1, f2), isTrue);
 
-      await Future<void>.delayed(Duration.zero);
-      expect(fakes.updateHealth.calls, 1);
+    await Future<void>.delayed(Duration.zero);
+    expect(fakes.updateHealth.calls, 1);
 
-      gate.complete(_health());
-      await Future.wait<StudentHealth>([f1, f2]);
+    gate.complete(_health());
+    await Future.wait<StudentHealth>([f1, f2]);
 
-      expect(fakes.updateHealth.calls, 1);
-      await cubit.close();
-    },
-  );
+    expect(fakes.updateHealth.calls, 1);
+    await cubit.close();
+  });
 
   test(
     'updateHealth flips mutationInProgress true while in-flight, false on '
@@ -307,30 +303,29 @@ void main() {
       fakes.updateImmunization.gate = gate;
       final cubit = fakes.build();
 
-      final record = _immunization('I1');
-      final f1 = cubit.updateImmunization(
-        studentCode: 'S1',
-        record: record,
-        date: DateTime(2026, 1, 1),
-        status: 'DUE',
-      );
-      final f2 = cubit.updateImmunization(
-        studentCode: 'S1',
-        record: record,
-        date: DateTime(2026, 1, 1),
-        status: 'DUE',
-      );
+    final record = _immunization('I1');
+    final f1 = cubit.updateImmunization(
+      studentCode: 'S1',
+      record: record,
+      date: DateTime(2026, 1, 1),
+      status: 'DUE',
+    );
+    final f2 = cubit.updateImmunization(
+      studentCode: 'S1',
+      record: record,
+      date: DateTime(2026, 1, 1),
+      status: 'DUE',
+    );
 
-      expect(identical(f1, f2), isTrue);
+    expect(identical(f1, f2), isTrue);
 
-      await Future<void>.delayed(Duration.zero);
-      expect(fakes.updateImmunization.calls, 1);
+    await Future<void>.delayed(Duration.zero);
+    expect(fakes.updateImmunization.calls, 1);
 
-      gate.complete(_immunization('I1'));
-      await Future.wait<StudentImmunization>([f1, f2]);
+    gate.complete(_immunization('I1'));
+    await Future.wait<StudentImmunization>([f1, f2]);
 
-      expect(fakes.updateImmunization.calls, 1);
-      await cubit.close();
-    },
-  );
+    expect(fakes.updateImmunization.calls, 1);
+    await cubit.close();
+  });
 }

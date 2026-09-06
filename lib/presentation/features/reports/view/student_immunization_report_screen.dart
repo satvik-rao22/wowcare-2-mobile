@@ -65,6 +65,8 @@ class _StudentImmunizationReportScreenState
     final now = AppTime.now();
     _startDate = DateTime(now.year, now.month, 1);
     _endDate = now;
+    // All Classrooms are selected by default until the user changes it.
+    _selectedClassrooms = List<String>.from(widget.classrooms);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadVaccines();

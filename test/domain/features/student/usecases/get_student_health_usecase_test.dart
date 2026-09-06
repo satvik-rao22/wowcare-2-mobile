@@ -9,7 +9,7 @@ class _FakeRepo implements StudentRepository {
   final List<Map<String, dynamic>> calls = [];
 
   @override
-  Future<StudentHealth> getStudentHealth({required String studentCode}) async {
+  Future<StudentHealth> getStudentHealth({required String studentCode, bool forceRefresh = false}) async {
     calls.add({'studentCode': studentCode});
     if (errorToThrow != null) throw errorToThrow!;
     return result as StudentHealth;

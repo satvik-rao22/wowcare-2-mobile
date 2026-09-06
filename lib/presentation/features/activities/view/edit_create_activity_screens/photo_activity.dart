@@ -15,34 +15,32 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
-import '../../../../../app/di/di.dart';
-import '../../../../../app/theme/colors.dart';
-import '../../../../../core/storage/storage_service.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
-import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_attachment.dart';
 import '../../../../../domain/features/activity/entities/activity_parameter_value.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
-import '../../cubit/activity_editor_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../domain/features/activity/repositories/activity_media_upload_repository.dart';
-import '../../../../../domain/features/activity/usecases/upload_activity_assets_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_activity_upload_asset_statuses_usecase.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
 import '../../utils/activity_description_limits.dart';
 import '../../utils/activity_selected_date_prefill.dart';
-import '../utils/activity_attendance_window_validator.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_attendance_window_validator.dart';
 import '../../utils/activity_school_time.dart';
 import '../../utils/activity_staff_display.dart';
 import '../../utils/activity_patch_attachments.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
-import '../widgets/activity_admin_approve_reject_bar.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_admin_approve_reject_bar.dart';
 
 class PhotoVideoActivityScreen extends StatelessWidget {
+  static const String routeName = '/activity/photo-video';
+
   const PhotoVideoActivityScreen({
     super.key,
     this.selectedStudents,
@@ -60,15 +58,12 @@ class PhotoVideoActivityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<ActivityEditorCubit>(
-      create: (_) => serviceLocator<ActivityEditorCubit>(),
-      child: _PhotoVideoActivityView(
-        selectedStudents: selectedStudents,
-        isEdit: isEdit,
-        isPhoto: isPhoto,
-        activityData: activityData,
-        readOnly: readOnly,
-      ),
+    return _PhotoVideoActivityView(
+      selectedStudents: selectedStudents,
+      isEdit: isEdit,
+      isPhoto: isPhoto,
+      activityData: activityData,
+      readOnly: readOnly,
     );
   }
 }
@@ -94,8 +89,6 @@ class _PhotoVideoActivityView extends StatefulWidget {
 }
 
 class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
-  static const String _pendingUploadPollStorageKey =
-      'activity_media_pending_upload_poll_v1';
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
   bool get _isAdminDesignation => const {
@@ -163,9 +156,6 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
       _existingVideoUrl != null;
 
   ActivityEditorCubit get _editor => context.read<ActivityEditorCubit>();
-  late final UploadActivityAssetsUseCase _uploadActivityAssetsUseCase;
-  late final GetActivityUploadAssetStatusesUseCase
-  _getUploadAssetStatusesUseCase;
 
   /// Cancels any in-flight activity media upload when this screen is disposed,
   /// so a large video PUT doesn't keep burning bandwidth after the user leaves.
@@ -219,9 +209,6 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
   void initState() {
     super.initState();
     bootstrapActivitySchoolTimezone();
-    _uploadActivityAssetsUseCase = serviceLocator<UploadActivityAssetsUseCase>();
-    _getUploadAssetStatusesUseCase =
-        serviceLocator<GetActivityUploadAssetStatusesUseCase>();
 
     // Create flow: let [DateWidget]/[TimeWidget] apply school zone after
     // [resolveForCurrentSchool] (avoid stale [lastKnownTimeZone] from classroom tab).
@@ -431,27 +418,15 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
   }
 
   Future<void> _loadStaffContext() async {
-    final storage = serviceLocator<StorageService>();
-    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-        .trim();
-    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-        .trim();
-    final organizationCode =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final staffCode = await resolveLoggedInStaffCode();
-    final apiDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
-      staffCode: staffCode,
-    );
+    final ctx = await context.read<ActivityEditorCubit>().loadStaffContext();
     if (!mounted) return;
     setState(() {
-      _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
-      _staffType = staffType.toUpperCase();
-      _staffCode = staffCode;
-      _staffPresentCode = (staffCode ?? '').trim().isEmpty
-          ? null
-          : staffCode!.trim();
-      _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
-      _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
+      _staffName = ctx.staffName;
+      _staffType = ctx.staffType;
+      _staffCode = ctx.staffCode;
+      _staffPresentCode = ctx.staffPresentCode;
+      _schoolCode = ctx.schoolCode;
+      _organizationCode = ctx.organizationCode;
     });
   }
 
@@ -710,7 +685,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
           ),
         );
       }
-      final result = await _uploadActivityAssetsUseCase.call(
+      final result = await _editor.uploadActivityAssets(
         organizationCode: organizationCode,
         schoolCode: schoolCode,
         classroomCode: classroomCode,
@@ -768,8 +743,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
 
   Future<void> _restorePendingProcessingPollIfAny() async {
     try {
-      final storage = serviceLocator<StorageService>();
-      final raw = await storage.getString(_pendingUploadPollStorageKey);
+      final raw = await _editor.getPendingUploadPoll();
       if (raw == null || raw.trim().isEmpty) return;
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return;
@@ -801,9 +775,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
     required List<String> assetCodes,
   }) async {
     try {
-      final storage = serviceLocator<StorageService>();
-      await storage.saveString(
-        _pendingUploadPollStorageKey,
+      await _editor.savePendingUploadPoll(
         jsonEncode(<String, dynamic>{
           'mediaType': widget.isPhoto ? 'PHOTO' : 'VIDEO',
           'sessionCode': sessionCode,
@@ -816,8 +788,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
 
   Future<void> _clearPendingProcessingPoll() async {
     try {
-      final storage = serviceLocator<StorageService>();
-      await storage.remove(_pendingUploadPollStorageKey);
+      await _editor.clearPendingUploadPoll();
     } catch (_) {}
   }
 
@@ -862,7 +833,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
     if (sessionCode == null || sessionCode.isEmpty || assetCodes.isEmpty)
       return;
     try {
-      final statuses = await _getUploadAssetStatusesUseCase.call(
+      final statuses = await _editor.getActivityUploadAssetStatuses(
         sessionCode: sessionCode,
         assetCodes: assetCodes,
       );
@@ -1597,10 +1568,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
                   const SizedBox(height: 8),
                   Text(
                     '${widget.isPhoto ? 'Uploading photo' : 'Uploading video'}... $_uploadProgressPercent% ($_uploadCompletedCount/$_uploadTotalCount)',
-                    style: const TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 13,
-                    ),
+                    style: AppTextStyles.activityUploadProgressPlain,
                   ),
                 ] else if (_isMediaProcessing) ...[
                   const SizedBox(height: 8),
@@ -1611,8 +1579,8 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF2F8FF),
-                      border: Border.all(color: const Color(0xFFD5E9FF)),
+                      color: AppColors.activityProcessingBg,
+                      border: Border.all(color: AppColors.activityProcessingBorder),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -1622,7 +1590,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
                           height: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Color(0xFF1A73E8),
+                            color: AppColors.activityProcessingAccent,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -1633,11 +1601,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
                                 : (widget.isPhoto
                                       ? 'Photo processing in background...'
                                       : 'Video processing in background...'),
-                            style: const TextStyle(
-                              color: Color(0xFF1F3B64),
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: AppTextStyles.activityMediaProcessingLabel,
                           ),
                         ),
                       ],
@@ -1652,16 +1616,12 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
                       const Icon(
                         Icons.check_circle,
                         size: 16,
-                        color: Colors.green,
+                        color: AppColors.activityUploadSuccessColor,
                       ),
                       const SizedBox(width: 8),
                       Text(
                         'Uploaded $_uploadCompletedCount/$_uploadTotalCount',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.green,
-                        ),
+                        style: AppTextStyles.activityUploadSuccessText,
                       ),
                     ],
                   ),

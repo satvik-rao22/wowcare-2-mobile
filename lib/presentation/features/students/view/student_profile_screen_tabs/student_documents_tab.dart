@@ -172,21 +172,22 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
         ? null
         : DateFormat('yyyy-MM-dd').parse(doc.expiryDate);
 
-    final result = await context.push<bool>(
-      AddStudentDocumentScreen.routeName,
-      extra: <String, dynamic>{
-        'studentCode': widget.studentCode ?? '',
-        'isEdit': true,
-        'initialDocumentName': doc.documentName,
-        'initialDocumentType': doc.documentType,
-        'initialExpiryDate': expiryDate,
-        'initialFilePath': doc.documentUrl,
-        'initialMimeType': doc.mimeType,
-        'initialFileSizeKb': doc.documentSizeKb,
-        'initialDocumentNotes': null,
-        'initialAssetCode': doc.assetCode,
-        'documentUuid': doc.documentUuid,
-      },
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AddStudentDocumentScreen(
+          studentCode: widget.studentCode ?? '',
+          isEdit: true,
+          initialDocumentName: doc.documentName,
+          initialDocumentType: doc.documentType,
+          initialExpiryDate: expiryDate,
+          initialFilePath: doc.documentUrl,
+          initialMimeType: doc.mimeType,
+          initialFileSizeKb: doc.documentSizeKb,
+          initialDocumentNotes: doc.notes,
+          initialAssetCode: doc.assetCode,
+          documentUuid: doc.documentUuid,
+        ),
+      ),
     );
 
     if (result == true && mounted) {

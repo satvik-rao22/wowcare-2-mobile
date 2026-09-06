@@ -57,7 +57,7 @@ class _FakeGetHealthUseCase extends GetStudentHealthUseCase {
   Object? error;
 
   @override
-  Future<StudentHealth> call({required String studentCode}) async {
+  Future<StudentHealth> call({required String studentCode, bool forceRefresh = false}) async {
     calls++;
     studentCodes.add(studentCode);
     if (error != null) throw error!;

@@ -3,8 +3,10 @@ import 'dart:io';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:mime/mime.dart';
 
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../core/util/file_picker_utils.dart';
 import '../../../../shared/services/image_upload/image_upload_service.dart';
@@ -93,7 +95,16 @@ class StaffDocumentUploadCubit extends Cubit<StaffDocumentUploadState> {
         return;
       }
 
-      final mimeType = FilePickerUtils.getMimeType(selectedFile.extension);
+      // lookupMimeType checks the real file name/bytes first, falling back to
+      // the extension-only map only when it can't tell - a bare-extension
+      // lookup alone sends 'application/octet-stream' for anything it
+      // doesn't recognize (e.g. an audio file slipped past the picker's
+      // extension filter), which surfaces as a meaningless "Content type
+      // 'application/octet-stream' is not allowed" instead of the backend's
+      // actual, specific rejection reason.
+      final mimeType =
+          lookupMimeType(selectedPath) ??
+          FilePickerUtils.getMimeType(selectedFile.extension);
       final uploadSession = await _imageUploadService
           .createStaffDocumentUploadSession(
             staffCode: staffCode,
@@ -167,7 +178,15 @@ class StaffDocumentUploadCubit extends Cubit<StaffDocumentUploadState> {
           .catchError((_) {});
     } catch (e) {
       if (isClosed) return;
-      emit(StaffDocumentUploadState.error('Failed to upload file: $e'));
+      // Was raw '$e' - a DioException's toString() dump instead of the
+      // actual backend reason (e.g. "Content type 'application/octet-stream'
+      // is not allowed for DOCUMENT.") the {success, message, data} envelope
+      // already carries. extractErrorMessage pulls that out.
+      emit(
+        StaffDocumentUploadState.error(
+          'Failed to upload file: ${ApiErrorHandler.extractErrorMessage(e)}',
+        ),
+      );
     }
   }
 

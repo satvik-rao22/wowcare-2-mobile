@@ -151,10 +151,12 @@ class SchoolStatusCubit extends Cubit<SchoolStatusState> {
         _getStaffAttendanceExpectedSummaryUseCase(
           classroomCode: null,
           schoolWide: true,
+          forceRefresh: forceRefresh,
         ),
         _getStudentAttendanceExpectedSummaryUseCase(
           classroomCode: null,
           schoolWide: true,
+          forceRefresh: forceRefresh,
         ),
         _getSchoolFteUseCase(schoolCode: code, capacity: capacity.capacity),
       ]);

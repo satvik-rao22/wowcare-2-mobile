@@ -40,8 +40,14 @@ class StudentHealthCubit extends Cubit<StudentHealthState> {
       _updateStudentImmunizationRecordUseCase;
 
   /// Thin Future-based read for callers that drive their own `FutureBuilder`.
-  Future<StudentHealth> fetchHealth(String studentCode) {
-    return _getStudentHealthUseCase(studentCode: studentCode);
+  Future<StudentHealth> fetchHealth(
+    String studentCode, {
+    bool forceRefresh = false,
+  }) {
+    return _getStudentHealthUseCase(
+      studentCode: studentCode,
+      forceRefresh: forceRefresh,
+    );
   }
 
   /// Thin Future-based read for callers that drive their own `FutureBuilder`.

@@ -11,6 +11,7 @@ class _FakeRepo implements StudentRepository {
   @override
   Future<List<StudentPhysician>> getStudentPhysicians({
     required String studentCode,
+    bool forceRefresh = false,
   }) async {
     calls.add({'studentCode': studentCode});
     if (errorToThrow != null) throw errorToThrow!;

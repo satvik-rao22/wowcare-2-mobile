@@ -42,8 +42,6 @@ import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.da
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart'
     show FilterData;
 import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
-import 'package:wowcare/presentation/features/students/view/student_screen.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
@@ -1507,29 +1505,17 @@ class _StudentAttendanceDailyViewScreenState
   void _openStudentListWithIncomingFilter(String status) {
     final normalized = status.trim().toUpperCase();
     if (normalized != 'ACTIVE' && normalized != 'UPCOMING') return;
-    // GoRouter holdout (documented): pushes the SHARED StudentScreen wrapped in
-    // an attendance-specific MultiBlocProvider (StudentCubit..loadInitial +
-    // ClassroomCubit..loadActiveClassrooms(applyAttendanceStaffScope:true)). The
-    // existing /dashboard/students route inits ClassroomCubit without the
-    // attendance staff-scope — converting would change that shared route for
-    // non-attendance callers.
-    Navigator.push<void>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => MultiBlocProvider(
-          providers: [
-            BlocProvider<StudentCubit>(
-              create: (_) => serviceLocator<StudentCubit>()..loadInitial(),
-            ),
-            BlocProvider<ClassroomCubit>(
-              create: (_) =>
-                  serviceLocator<ClassroomCubit>()
-                    ..loadActiveClassrooms(applyAttendanceStaffScope: true),
-            ),
-          ],
-          child: StudentScreen(incomingStatusFilter: normalized),
-        ),
-      ),
+    // Pushes the shared /dashboard/students route (go_router), which now
+    // accepts `applyAttendanceStaffScope` via `extra` for exactly this
+    // caller — see that route's doc comment in app_router.dart. This used
+    // to be an imperative Navigator.push of an ad-hoc copy of that same
+    // screen, which bypassed go_router entirely: go_router's own idea of
+    // "current location" never updated, so a subsequent context.go()/drawer
+    // navigation (e.g. tapping "Student Attendance" in the side drawer)
+    // found itself already "at" that location and silently no-opped.
+    context.push<void>(
+      '/dashboard/students',
+      extra: {'filter': normalized, 'applyAttendanceStaffScope': true},
     );
   }
 }

@@ -78,13 +78,54 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
       _loading = false;
       _error = null;
       if (existing != null) {
-        _conversation = existing;
+        _conversation = _withCurrentClassroomName(existing);
         _isDraft = false;
       } else {
         _conversation = _draftConversation(code, widget.selectedRoom?.name);
         _isDraft = true;
       }
     });
+  }
+
+  /// The classroom chat's stored `title` is whatever the classroom was named
+  /// when the conversation was created (or last reconciled) - there is no
+  /// mobile-side classroom-rename flow to trigger a re-reconcile, and a
+  /// rename made elsewhere (e.g. web) doesn't retroactively update it. This
+  /// screen already has the classroom's CURRENT name via [widget.selectedRoom]
+  /// (freshly fetched by the parent Classroom screen), so prefer that for
+  /// display over the possibly-stale stored title.
+  ConversationEntity _withCurrentClassroomName(ConversationEntity conv) {
+    final currentName = widget.selectedRoom?.name.trim() ?? '';
+    if (currentName.isEmpty || currentName == conv.title) return conv;
+    return ConversationEntity(
+      id: conv.id,
+      code: conv.code,
+      title: currentName,
+      type: conv.type,
+      organizationCode: conv.organizationCode,
+      schoolCode: conv.schoolCode,
+      status: conv.status,
+      description: conv.description,
+      avatarUrl: conv.avatarUrl,
+      createdAt: conv.createdAt,
+      createdBy: conv.createdBy,
+      updatedAt: conv.updatedAt,
+      updatedBy: conv.updatedBy,
+      participantCount: conv.participantCount,
+      unreadCount: conv.unreadCount,
+      lastMessagePreview: conv.lastMessagePreview,
+      participants: conv.participants,
+      studentCode: conv.studentCode,
+      studentStatus: conv.studentStatus,
+      classroomCode: conv.classroomCode,
+      lastMessageAt: conv.lastMessageAt,
+      lastMessageBy: conv.lastMessageBy,
+      lastMessageSenderName: conv.lastMessageSenderName,
+      privateModeActive: conv.privateModeActive,
+      privateModeActivatedBy: conv.privateModeActivatedBy,
+      privateModeActivatedAt: conv.privateModeActivatedAt,
+      privateModeStates: conv.privateModeStates,
+    );
   }
 
   /// A placeholder [ConversationEntity] for a classroom that has no chat yet.
@@ -125,9 +166,15 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
         .call(code, classroomName: widget.selectedRoom?.name);
     final conversation = result.fold((_) => null, (c) => c);
     if (conversation != null && mounted) {
+      // GetOrCreateClassroomChatUseCase.call() only passes classroomName
+      // through to a fresh create/reconcile - if it found an already-
+      // existing conversation instead, that title can be just as stale as
+      // findExisting's in _load(). Apply the same current-name override.
+      final resolved = _withCurrentClassroomName(conversation);
       // Keep our own reference in sync so a later rebuild embeds the real thread.
-      _conversation = conversation;
+      _conversation = resolved;
       _isDraft = false;
+      return resolved;
     }
     return conversation;
   }

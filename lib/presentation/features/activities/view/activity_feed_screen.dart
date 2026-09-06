@@ -1,22 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
+import 'package:wowcare/core/util/tab_visibility_events.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_custom_tab.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_student_selection.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_feed_screen_cubit.dart';
 import 'package:wowcare/presentation/features/activities/widgets/school_cloud_image_uploader_dialog.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 
-import '../../../../app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
 import '../../../../app/theme/media_res.dart';
-import '../../../../core/util/core_utils.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import 'choose_activity.dart';
@@ -71,7 +72,22 @@ class ActivityFeedScreen extends StatefulWidget {
 }
 
 class _ActivityFeedScreenState extends State<ActivityFeedScreen>
-    with TickerProviderStateMixin, SchoolSwitchReloadMixin {
+    with
+        TickerProviderStateMixin,
+        SchoolSwitchReloadMixin,
+        TabBecameVisibleMixin {
+  // Activity Feed is branch index 2 in app_router.dart's shell.
+  @override
+  int get tabBranchIndex => 2;
+
+  @override
+  void onTabBecameVisible() {
+    if (!mounted) return;
+    // Same subtree-recreate trick as onSchoolSwitched() below, triggered by
+    // switching back to this tab instead of a school/persona change.
+    setState(() => _contextReloadEpoch++);
+  }
+
   late TabController _tabController;
   final ScrollController _dailyScrollController = ScrollController();
   final ScrollController _customScrollController = ScrollController();
@@ -98,8 +114,11 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
   @override
   void didUpdateWidget(covariant ActivityFeedScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final bool forceReset = widget.resetKey != oldWidget.resetKey && widget.resetKey != null;
-    if (forceReset || (widget.initialTab != oldWidget.initialTab && widget.initialTab != null)) {
+    final bool forceReset =
+        widget.resetKey != oldWidget.resetKey && widget.resetKey != null;
+    if (forceReset ||
+        (widget.initialTab != oldWidget.initialTab &&
+            widget.initialTab != null)) {
       final int initialIndex = widget.initialTab == 1 ? 1 : 0;
       if (_tabController.index != initialIndex) {
         _tabController.animateTo(initialIndex);
@@ -111,7 +130,11 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
   void initState() {
     super.initState();
     final int initialIndex = widget.initialTab == 1 ? 1 : 0;
-    _tabController = TabController(initialIndex: initialIndex, length: 2, vsync: this);
+    _tabController = TabController(
+      initialIndex: initialIndex,
+      length: 2,
+      vsync: this,
+    );
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
@@ -136,18 +159,9 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
       final role = context.read<RoleCubit>();
       if (!role.isStaff) return;
 
-      final storage = serviceLocator<StorageService>();
-      final staffCode =
-          (await storage.getString(StorageKeys.staffCode))?.trim() ?? '';
-      final userCode =
-          (await storage.getString(StorageKeys.userCode))?.trim() ?? '';
-      // Mirrors My Day's `_effectiveStaffCode` fallback.
-      final effectiveCode = staffCode.isNotEmpty ? staffCode : userCode;
-      if (effectiveCode.isEmpty) return;
-
-      final status = await serviceLocator<GetStaffTodaySignInStatusUseCase>()(
-        staffCode: effectiveCode,
-      );
+      final status = await context
+          .read<ActivityFeedScreenCubit>()
+          .getEffectiveStaffTodaySignInStatus();
       if (!mounted) return;
       setState(() {
         _staffSignedInToday = status?.toUpperCase() == 'SIGNED_IN';
@@ -164,7 +178,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
     final renderObject = anchorContext.findRenderObject();
     if (renderObject is! RenderBox) return;
     final position = renderObject.localToGlobal(Offset.zero);
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = ResponsiveHelper(context).screenWidth;
 
     final maxWidth = (screenWidth - 16).clamp(160.0, 320.0);
     // Anchor the tooltip's RIGHT edge to the button's right edge, so it sits
@@ -182,11 +196,11 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
         top: position.dy + renderObject.size.height + 8,
         right: right,
         child: Material(
-          color: Colors.transparent,
+          color: AppColors.transparentColor,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.black87,
+              color: AppColors.activityTooltipBackgroundColor,
               borderRadius: BorderRadius.circular(6),
             ),
             child: ConstrainedBox(
@@ -194,11 +208,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
               child: const Text(
                 'Please sign in to create an activity.',
                 softWrap: true,
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
+                style: AppTextStyles.activityTooltipText,
               ),
             ),
           ),
@@ -223,6 +233,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
 
   @override
   Widget build(BuildContext context) {
+    final responsive = ResponsiveHelper(context);
     final role = context.watch<RoleCubit>();
     final staffLike = !role.isParent;
     final allowWrite =
@@ -267,13 +278,9 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
                           children: [
                             Builder(
                               builder: (_) {
-                                final isTablet =
-                                    MediaQuery.of(context).size.width >= 600;
-                                final isLargeTablet =
-                                    MediaQuery.of(context).size.width >= 900;
-                                final iconSize = isLargeTablet
+                                final iconSize = responsive.isWide
                                     ? 46.0
-                                    : isTablet
+                                    : responsive.isTabletCompact
                                     ? 36.0
                                     : 30.0;
                                 return GestureDetector(
@@ -304,43 +311,27 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
                                     return;
                                   }
                                   if (widget.fromStudentProfile) {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        settings: const RouteSettings(
-                                          name:
-                                              CoreUtils.chooseActivityRouteName,
-                                        ),
-                                        builder: (_) => ChooseActivity(
-                                          selectedStudents:
-                                              widget.studentName != null
-                                              ? [
-                                                  Map<String, dynamic>.from(
-                                                    widget.studentName!,
-                                                  ),
-                                                ]
-                                              : <Map<String, dynamic>>[],
-                                        ),
+                                    context.push(
+                                      ChooseActivity.routeName,
+                                      extra: ChooseActivityArgs(
+                                        selectedStudents:
+                                            widget.studentName != null
+                                            ? [
+                                                Map<String, dynamic>.from(
+                                                  widget.studentName!,
+                                                ),
+                                              ]
+                                            : <Map<String, dynamic>>[],
                                       ),
                                     );
                                   } else {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        settings: const RouteSettings(
-                                          name: CoreUtils
-                                              .activityStudentSelectionRouteName,
-                                        ),
-                                        builder: (_) =>
-                                            ActivityStudentSelection(),
-                                      ),
+                                    context.push(
+                                      ActivityStudentSelection.routeName,
                                     );
                                   }
                                 },
-                                isTablet:
-                                    MediaQuery.of(context).size.width >= 600,
-                                isLargeTablet:
-                                    MediaQuery.of(context).size.width >= 900,
+                                isTablet: responsive.isTabletCompact,
+                                isLargeTablet: responsive.isWide,
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -434,7 +425,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
     required String text,
   }) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparentColor,
       child: InkWell(
         onTap: onPressed,
         borderRadius: BorderRadius.circular(8),
@@ -449,10 +440,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
           ),
           child: Text(
             text,
-            style: TextStyle(
-              color: isSelected ? AppColors.themeColor : Colors.grey,
-              fontWeight: FontWeight.bold,
-            ),
+            style: AppTextStyles.activityTabToggleLabel(isSelected: isSelected),
           ),
         ),
       ),

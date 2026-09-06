@@ -40,6 +40,8 @@ class _StudentDailyAttendanceReportScreenState
   void initState() {
     super.initState();
     _date = ValueNotifier<DateTime>(AppTime.now());
+    // All Classrooms are selected by default until the user changes it.
+    _selectedClassrooms.value = List<String>.from(widget.classrooms);
   }
 
   @override

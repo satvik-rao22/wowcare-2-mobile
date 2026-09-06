@@ -6,7 +6,13 @@ class GetStudentPhysiciansUseCase {
 
   final StudentRepository _repository;
 
-  Future<List<StudentPhysician>> call({required String studentCode}) {
-    return _repository.getStudentPhysicians(studentCode: studentCode);
+  Future<List<StudentPhysician>> call({
+    required String studentCode,
+    bool forceRefresh = false,
+  }) {
+    return _repository.getStudentPhysicians(
+      studentCode: studentCode,
+      forceRefresh: forceRefresh,
+    );
   }
 }

@@ -124,6 +124,14 @@ class ProfileChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      // Caps a single chip's width so one very long classroom name wraps
+      // onto extra lines within the chip instead of rendering at its full
+      // intrinsic width and overflowing past the screen edge — Wrap only
+      // moves children that don't fit onto a new line, it doesn't shrink
+      // a child that's wider than the available space by itself.
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width * 0.7,
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: color,
@@ -131,15 +139,19 @@ class ProfileChip extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (icon != null) ...[icon!, const SizedBox(width: 6)],
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Manrope',
-              fontWeight: FontWeight.w600,
-              fontSize: 15,
-              color: labelColor,
+          Flexible(
+            child: Text(
+              label,
+              softWrap: true,
+              style: TextStyle(
+                fontFamily: 'Manrope',
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+                color: labelColor,
+              ),
             ),
           ),
         ],

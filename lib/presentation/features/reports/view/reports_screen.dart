@@ -5,6 +5,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/domain/features/reports/entities/report_entity.dart';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:wowcare/domain/features/reports/entities/report_metadata_entity.dart';
@@ -121,15 +122,25 @@ class _ReportsScreenState extends State<ReportsScreen>
     unawaited(
       Navigator.of(context)
           .push(
-            MaterialPageRoute<bool>(
+            MaterialPageRoute<dynamic>(
               builder: (_) => BlocProvider<ReportsCubit>.value(
                 value: cubit,
                 child: screen!,
               ),
             ),
           )
-          .then((success) {
-            if (success == true && mounted) {
+          .then((result) {
+            if (result is ReportEntity && mounted) {
+              if (result.assetCode?.startsWith('base64:') == true) {
+                _downloadAndViewReport(
+                  context,
+                  result.assetCode!,
+                  result.fileName ?? 'report.xlsx',
+                );
+              } else {
+                _tabController.animateTo(0);
+              }
+            } else if (result == true && mounted) {
               _tabController.animateTo(0);
             }
           }),
@@ -166,15 +177,25 @@ class _ReportsScreenState extends State<ReportsScreen>
     unawaited(
       Navigator.of(context)
           .push(
-            MaterialPageRoute<bool>(
+            MaterialPageRoute<dynamic>(
               builder: (_) => BlocProvider<ReportsCubit>.value(
                 value: cubit,
                 child: screen!,
               ),
             ),
           )
-          .then((success) {
-            if (success == true && mounted) {
+          .then((result) {
+            if (result is ReportEntity && mounted) {
+              if (result.assetCode?.startsWith('base64:') == true) {
+                _downloadAndViewReport(
+                  context,
+                  result.assetCode!,
+                  result.fileName ?? 'report.xlsx',
+                );
+              } else {
+                _tabController.animateTo(0);
+              }
+            } else if (result == true && mounted) {
               _tabController.animateTo(0);
             }
           }),
@@ -200,15 +221,25 @@ class _ReportsScreenState extends State<ReportsScreen>
     unawaited(
       Navigator.of(context)
           .push(
-            MaterialPageRoute<bool>(
+            MaterialPageRoute<dynamic>(
               builder: (_) => BlocProvider<ReportsCubit>.value(
                 value: cubit,
                 child: screen!,
               ),
             ),
           )
-          .then((success) {
-            if (success == true && mounted) {
+          .then((result) {
+            if (result is ReportEntity && mounted) {
+              if (result.assetCode?.startsWith('base64:') == true) {
+                _downloadAndViewReport(
+                  context,
+                  result.assetCode!,
+                  result.fileName ?? 'report.xlsx',
+                );
+              } else {
+                _tabController.animateTo(0);
+              }
+            } else if (result == true && mounted) {
               _tabController.animateTo(0);
             }
           }),
@@ -273,15 +304,32 @@ class _ReportsScreenState extends State<ReportsScreen>
     unawaited(
       Navigator.of(context)
           .push(
-            MaterialPageRoute<bool>(
+            MaterialPageRoute<dynamic>(
               builder: (_) => BlocProvider<ReportsCubit>.value(
                 value: cubit,
                 child: screen!,
               ),
             ),
           )
-          .then((success) {
-            if (success == true && mounted) {
+          .then((result) {
+            // Billing reports are generated synchronously: the endpoint
+            // streams the file back, so save it and show it right away
+            // instead of only bouncing back to the Generated tab.
+            if (result is ReportEntity && mounted) {
+              final assetCode = result.assetCode;
+              if (assetCode != null && assetCode.isNotEmpty) {
+                unawaited(
+                  _downloadAndSaveReport(
+                    context,
+                    assetCode,
+                    result.fileName ?? 'report.xlsx',
+                    previewPdfInApp: true,
+                  ),
+                );
+              } else {
+                _tabController.animateTo(0);
+              }
+            } else if (result == true && mounted) {
               _tabController.animateTo(0);
             }
           }),
@@ -735,11 +783,17 @@ class _ReportsScreenState extends State<ReportsScreen>
   /// the saved file with the OS's default handler — unlike
   /// [_downloadAndViewReport], which only renders bytes in-memory and never
   /// persists anything, this is what makes "Download" actually download.
+  /// [previewPdfInApp]: after saving, show a PDF in the app's own
+  /// [ReportFileViewerScreen] instead of handing it to the OS — used for a
+  /// report the user just generated, so the result is always visible even on
+  /// devices with no PDF handler installed. Non-PDF files (XLSX) are still
+  /// opened with the OS handler.
   Future<void> _downloadAndSaveReport(
     BuildContext context,
     String assetCode,
-    String fileName,
-  ) async {
+    String fileName, {
+    bool previewPdfInApp = false,
+  }) async {
     final cubit = context.read<ReportsCubit>();
 
     showDialog(
@@ -818,6 +872,20 @@ class _ReportsScreenState extends State<ReportsScreen>
           message: '$fileName saved successfully',
           isSuccess: true,
         );
+      }
+
+      if (previewPdfInApp && fileName.toLowerCase().endsWith('.pdf')) {
+        if (!mounted) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => ReportFileViewerScreen(
+              fileData: Uint8List.fromList(fileData),
+              fileName: fileName,
+              fileType: 'pdf',
+            ),
+          ),
+        );
+        return;
       }
 
       final opened = await cubit.openReportFile(

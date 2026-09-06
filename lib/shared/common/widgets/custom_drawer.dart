@@ -105,7 +105,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
   void _navigate(String location, {Object? extra}) {
     Navigator.pop(context);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      appRouter.go(location, extra: extra);
+      // appRouterGo (not a bare appRouter.go) — the drawer bypasses
+      // CustomNavigationBar's tap handler entirely, so this is what tells a
+      // kept-alive branch screen (e.g. Activities, Classroom) it just became
+      // visible again when reached via a drawer link. See appRouterGo's doc
+      // comment / TabVisibilityEvents for why that's needed at all.
+      appRouterGo(location, extra: extra);
     });
   }
 

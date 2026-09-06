@@ -4,6 +4,7 @@ import '../entities/activity_detail.dart';
 import '../entities/activity_feed_row.dart';
 import '../entities/activity_parameter_value.dart';
 import '../entities/activity_setting.dart';
+import '../entities/activity_shared_card_result.dart';
 import '../entities/activity_type_details.dart';
 import '../entities/activity_type_summary.dart';
 import '../entities/activity_upload_session.dart';
@@ -123,7 +124,7 @@ abstract class ActivityRepository {
   /// Creates shared activity cards via `POST /api/v2/shared-activities`.
   ///
   /// Returns `data` list (each entry contains at least `cardCode`).
-  Future<List<Map<String, dynamic>>> createSharedActivities({
+  Future<List<ActivitySharedCardResult>> createSharedActivities({
     required String activityTypeCode,
     required String classroomCode,
     required List<String> studentCodes,

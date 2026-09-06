@@ -695,14 +695,19 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              details.name,
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+            Expanded(
+              child: Text(
+                details.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
+            const SizedBox(width: 8),
             Row(
               children: [
                 _buildSignedInRatioStatusIcon(details),

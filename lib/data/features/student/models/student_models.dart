@@ -475,6 +475,7 @@ class StudentGuardianModel extends Equatable {
     required this.legalCustody,
     this.profilePhotoUrl,
     this.profilePhotoAssetCode,
+    this.displayNameOverride,
   });
 
   final String guardianCode;
@@ -495,13 +496,52 @@ class StudentGuardianModel extends Equatable {
   /// code instead of a ready URL (resolved to a URL by [DocumentImageWidget]).
   final String? profilePhotoAssetCode;
 
-  String get fullName => '$firstName $lastName'.trim();
+  /// Set by [fromJson] only when [firstName]/[lastName] are both empty but a
+  /// display name is available from a fallback field (top-level `fullName`/
+  /// `name`, or a nested `user` object) — a malformed-but-real guardian
+  /// record. Never overrides a genuine firstName+lastName, so it's purely
+  /// additive; [firstName]/[lastName] themselves stay exactly what the
+  /// backend sent for any consumer that needs the structured name parts
+  /// (e.g. pre-filling an edit-guardian form).
+  final String? displayNameOverride;
+
+  String get fullName {
+    final structured = '$firstName $lastName'.trim();
+    if (structured.isNotEmpty) return structured;
+    return displayNameOverride ?? '';
+  }
 
   factory StudentGuardianModel.fromJson(Map<String, dynamic> json) {
-    String? firstNonEmpty(List<String> keys) {
+    String? firstNonEmpty(List<String> keys, [Map<String, dynamic>? source]) {
+      final map = source ?? json;
       for (final k in keys) {
-        final v = (json[k] as Object?)?.toString().trim() ?? '';
+        final v = (map[k] as Object?)?.toString().trim() ?? '';
         if (v.isNotEmpty) return v;
+      }
+      return null;
+    }
+
+    // Fallback display-name resolution for a malformed guardian record whose
+    // top-level firstName/lastName are both empty — mirrors the pre-MVVM-
+    // migration View helper this replaced: top-level fullName/name, then the
+    // same pair nested under a `user` object.
+    String? resolveDisplayNameOverride() {
+      // Cache round-trip: toJson() persists the already-resolved override
+      // under this key, and the raw API response never uses this exact key
+      // name, so checking it first is safe and avoids re-deriving (and
+      // avoids losing it, since a cached payload won't carry the original
+      // fullName/name/user fields toJson() doesn't persist).
+      final cached = firstNonEmpty(const ['displayNameOverride']);
+      if (cached != null) return cached;
+      final direct = firstNonEmpty(const ['fullName', 'name']);
+      if (direct != null) return direct;
+      final user = json['user'];
+      if (user is Map<String, dynamic>) {
+        final uFirst = firstNonEmpty(const ['firstName', 'first_name'], user);
+        final uLast = firstNonEmpty(const ['lastName', 'last_name'], user);
+        final uCombined = '${uFirst ?? ''} ${uLast ?? ''}'.trim();
+        if (uCombined.isNotEmpty) return uCombined;
+        return firstNonEmpty(const ['fullName', 'name'], user);
       }
       return null;
     }
@@ -533,6 +573,7 @@ class StudentGuardianModel extends Equatable {
         'photoAssetCode',
         'mediaAssetCode',
       ]),
+      displayNameOverride: resolveDisplayNameOverride(),
     );
   }
 
@@ -550,6 +591,7 @@ class StudentGuardianModel extends Equatable {
       'legalCustody': legalCustody,
       'profilePhotoUrl': profilePhotoUrl,
       'profilePhotoAssetCode': profilePhotoAssetCode,
+      'displayNameOverride': displayNameOverride,
     };
   }
 
@@ -567,6 +609,7 @@ class StudentGuardianModel extends Equatable {
     legalCustody,
     profilePhotoUrl,
     profilePhotoAssetCode,
+    displayNameOverride,
   ];
 }
 

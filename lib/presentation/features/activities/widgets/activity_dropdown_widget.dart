@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
-import '../../../../app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 
 class ActivityDropdownWidget extends StatefulWidget {
@@ -66,18 +66,13 @@ class _ActivityDropdownWidgetState extends State<ActivityDropdownWidget> {
       children: [
         RichText(
           text: TextSpan(
-            style: TextStyle(
-              color: AppColors.primaryColor,
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              fontFamily: 'Manrope',
-            ),
+            style: AppTextStyles.activityFieldLabel,
             children: [
               TextSpan(text: widget.dropDownName),
               if (widget.isRequired)
                 TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: AppTextStyles.activityRequiredMarker,
                 ),
             ],
           ),
@@ -118,56 +113,7 @@ class _ActivityDropdownWidgetState extends State<ActivityDropdownWidget> {
               gapHeight: 30,
 
           )
-
-
-
-
       ],
     );
   }
-
-  // Widget _buildCustomDropdown(
-  //     String hintText,
-  //     List<String> items,
-  //     String? selectedItem,
-  //     ValueChanged<String?> onSelect, {
-  //       bool isRequired = false,
-  //       double? height = null
-  //     }) {
-  //   final responsive = ResponsiveHelper(context);
-  //   return CustomDropdown(
-  //     label: null,
-  //     hintText: hintText,
-  //     items: items,
-  //     height: height,
-  //     selectedItem: selectedItem,
-  //     onSelect: onSelect,
-  //     showAsterisk: isRequired,
-  //     labelStyle: TextStyle(
-  //       fontSize: responsive.labelFontSize,
-  //       fontFamily: "Manrope",
-  //       fontWeight: FontWeight.w400,
-  //       color: const Color(0xff573353),
-  //     ),
-  //     labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-  //     fieldHeight: responsive.isTablet ? 64.0 : 56.0,
-  //     selectedTextStyle: TextStyle(
-  //       fontFamily: 'Manrope',
-  //       fontSize: responsive.inputFontSize,
-  //       fontWeight: FontWeight.w600,
-  //       color: const Color(0xff573353),
-  //       height: 19 / 14,
-  //     ),
-  //     popupItemTextStyle: TextStyle(
-  //       fontFamily: 'Manrope',
-  //       fontSize: responsive.inputFontSize,
-  //       fontWeight: FontWeight.w400,
-  //       color: const Color(0xff573353),
-  //     ),
-  //     contentPadding: EdgeInsets.symmetric(
-  //       horizontal: responsive.isTablet ? 16.0 : 12.0,
-  //       vertical: responsive.isTablet ? 16.0 : 12.0,
-  //     ),
-  //   );
-  // }
 }

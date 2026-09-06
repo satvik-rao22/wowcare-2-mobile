@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/activities/cubit/activity_filter_cubit.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_filter_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -75,23 +74,19 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<ActivityFilterCubit>(
-      create: (_) => serviceLocator<ActivityFilterCubit>()
-        ..loadMetadata(schoolCode: widget.schoolCode),
-      child: BlocConsumer<ActivityFilterCubit, ActivityFilterState>(
-        listenWhen: (prev, curr) =>
-            curr.status == ActivityFilterStatus.loaded &&
-            prev.status != ActivityFilterStatus.loaded,
-        listener: (context, state) => _pruneSelectionsToOptions(state),
-        builder: (context, state) {
-          final responsive = ResponsiveHelper(context);
-          return StaffFormLayout(
-            title: 'Filter Activities',
-            child: _buildBody(context, state),
-            bottomBar: _buildBottomBar(context, responsive, state),
-          );
-        },
-      ),
+    return BlocConsumer<ActivityFilterCubit, ActivityFilterState>(
+      listenWhen: (prev, curr) =>
+          curr.status == ActivityFilterStatus.loaded &&
+          prev.status != ActivityFilterStatus.loaded,
+      listener: (context, state) => _pruneSelectionsToOptions(state),
+      builder: (context, state) {
+        final responsive = ResponsiveHelper(context);
+        return StaffFormLayout(
+          title: 'Filter Activities',
+          child: _buildBody(context, state),
+          bottomBar: _buildBottomBar(context, responsive, state),
+        );
+      },
     );
   }
 
@@ -139,11 +134,7 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
             children: [
               Text(
                 label,
-                style: TextStyle(
-                  color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                ),
+                style: AppTextStyles.activityFilterShimmerLabel,
               ),
               const SizedBox(height: 8),
               const ShimmerLoader(height: 40),
@@ -163,10 +154,7 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
               Text(
                 'Could not load filter options.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.primaryColor.withValues(alpha: 0.7),
-                  fontSize: 14,
-                ),
+                style: AppTextStyles.activityFilterErrorText,
               ),
               const SizedBox(height: 16),
               TextButton(

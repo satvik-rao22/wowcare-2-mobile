@@ -8,7 +8,7 @@ class GetCachedConversationsUseCase {
 
   GetCachedConversationsUseCase(this._repository);
 
-  Future<Either<Failure, List<Conversation>>> call() {
-    return _repository.loadCachedConversations();
+  Future<Either<Failure, List<Conversation>>> call({String? type}) {
+    return _repository.loadCachedConversations(type: type);
   }
 }

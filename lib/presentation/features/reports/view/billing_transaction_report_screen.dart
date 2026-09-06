@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/reports/entities/report_entity.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
+import 'package:wowcare/domain/features/student_classroom/entities/student_classroom_item.dart';
+import 'package:wowcare/domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'dart:async';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
@@ -14,6 +17,9 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
+import 'package:wowcare/presentation/features/reports/utils/report_filter_defaults.dart';
 
 import '../widgets/multi_select_filter_field.dart';
 
@@ -30,9 +36,9 @@ class BillingTransactionReportScreen extends StatefulWidget {
 class _BillingTransactionReportScreenState
     extends State<BillingTransactionReportScreen> {
   static const List<String> _transactionOptions = <String>[
-    'All Transactions',
-    'Deposit Report',
-    'Custom',
+    'Success',
+    'Failed',
+    'Refunded',
   ];
 
   static const List<String> _transactionTypeOptions = <String>[
@@ -44,13 +50,13 @@ class _BillingTransactionReportScreenState
 
   late DateTime _startDate;
   late DateTime _endDate;
-  String _transactionType = 'All Transactions';
+  List<String> _selectedTransactionStatuses = <String>[];
   List<String> _selectedTransactionTypes = <String>[];
+  List<String> _selectedPaymentMethods = <String>[];
   String _format = 'XLSX';
   List<String> _availableStudents = <String>[];
   bool _isLoadingStudents = false;
   List<String> _selectedStudents = <String>[];
-  bool get _isCustom => _transactionType == 'Custom';
 
   @override
   void initState() {
@@ -58,6 +64,100 @@ class _BillingTransactionReportScreenState
     final now = AppTime.now();
     _startDate = DateTime(now.year, now.month, 1);
     _endDate = DateTime(now.year, now.month + 1, 0);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _fetchStudents();
+      }
+    });
+  }
+
+  Future<void> _fetchStudents() async {
+    setState(() {
+      _isLoadingStudents = true;
+    });
+
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+
+      final getActiveClassroomsUseCase =
+          serviceLocator<GetActiveClassroomsUseCase>();
+      final classrooms = await getActiveClassroomsUseCase(
+        schoolCode: schoolCode,
+        onlyTypeClassroom: false,
+      );
+
+      final classroomCodes = classrooms.map((c) => c.code).toList();
+
+      if (classroomCodes.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _availableStudents = <String>[];
+          _selectedStudents = <String>[];
+          _isLoadingStudents = false;
+        });
+        return;
+      }
+
+      final getStudentClassroomListUseCase =
+          serviceLocator<GetStudentClassroomListUseCase>();
+
+      final results = <List<StudentClassroomItem>>[];
+      for (final code in classroomCodes) {
+        try {
+          final students = await getStudentClassroomListUseCase(
+            schoolCode: schoolCode,
+            classroomCode: code,
+            status: const ['ACTIVE'],
+            refresh: true,
+          );
+          results.add(students);
+        } catch (_) {
+          results.add(<StudentClassroomItem>[]);
+        }
+      }
+
+      if (!mounted) return;
+
+      final newStudentCodeByName = <String, String>{};
+      for (final studentList in results) {
+        for (final s in studentList) {
+          final fullName = s.fullName.trim();
+          if (fullName.isNotEmpty && s.studentCode.trim().isNotEmpty) {
+            newStudentCodeByName[fullName] = s.studentCode.trim();
+          }
+        }
+      }
+
+      final sortedNames = newStudentCodeByName.keys.toList()
+        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+      setState(() {
+        _availableStudents = sortedNames;
+        if (_selectedStudents.isEmpty) {
+          _selectedStudents = List<String>.from(sortedNames);
+        } else {
+          _selectedStudents = _selectedStudents
+              .where((s) => newStudentCodeByName.containsKey(s))
+              .toList();
+        }
+        _isLoadingStudents = false;
+      });
+
+      if (mounted) {
+        context.read<ReportsCubit>().setStudentNames(
+          sortedNames,
+          nameToCodeMap: newStudentCodeByName,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingStudents = false;
+      });
+    }
   }
 
   Future<void> _onGenerate() async {
@@ -69,10 +169,20 @@ class _BillingTransactionReportScreenState
       );
       return;
     }
-    if (_isCustom && _selectedTransactionTypes.isEmpty) {
+    
+    if (_selectedPaymentMethods.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Please select at least one transaction type',
+        message: 'Please select at least one Payment Method',
+        isError: true,
+      );
+      return;
+    }
+
+    if (_selectedTransactionStatuses.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select at least one Transaction Status',
         isError: true,
       );
       return;
@@ -82,14 +192,46 @@ class _BillingTransactionReportScreenState
     final schoolName = (await storage.getString(StorageKeys.schoolName) ?? '')
         .trim();
 
+    final reportsState = context.read<ReportsCubit>().state;
+    final namesToResolve =
+        _selectedStudents.isEmpty ? _availableStudents : _selectedStudents;
+    final studentCodes = resolveReportCodes(
+      context: context,
+      names: namesToResolve,
+      nameToCode: reportsState.studentNameToCode,
+      labelPlural: 'students',
+    );
+    if (studentCodes == null) return;
+
     context.read<ReportsCubit>().generateReport(
       ReportRequestParams(
         reportType: ReportType.billingTransaction,
         startDate: _startDate,
         endDate: _endDate,
         format: _format,
+        studentCodes: studentCodes,
         schoolName: schoolName.isNotEmpty ? schoolName : null,
+        transactionStatuses: _selectedTransactionStatuses.isNotEmpty
+            ? _selectedTransactionStatuses
+            : null,
+        transactionTypes: _selectedTransactionTypes.isNotEmpty
+            ? _selectedTransactionTypes
+            : null,
+        paymentMethods: _selectedPaymentMethods.isNotEmpty
+            ? _selectedPaymentMethods
+            : null,
       ),
+    );
+  }
+
+  /// The billing endpoints stream the file back labelled `*.xlsx` whatever
+  /// format was asked for, so re-label the generated report with the export
+  /// format the user actually picked — the hub uses that name to save and open
+  /// the file with the right handler.
+  ReportEntity? _withSelectedFormatFileName(dynamic report) {
+    if (report is! ReportEntity) return null;
+    return report.copyWith(
+      fileName: reportFileNameForFormat(report.fileName, _format),
     );
   }
 
@@ -132,10 +274,14 @@ class _BillingTransactionReportScreenState
 
                   // Pop (not context.go) — this screen was pushed via plain
                   // Navigator.push, so only popping actually dismisses it;
-                  // the hub's own .then((success) => tab 0) callback reacts
-                  // to the pop(true) result.
+                  // the hub reacts to the popped result: a ReportEntity makes
+                  // it download and open the generated file, anything else
+                  // just returns to the Generated tab.
+                  final reportToReturn = _withSelectedFormatFileName(
+                    state.generatedReport,
+                  );
                   context.read<ReportsCubit>().clearGeneratedReport();
-                  Navigator.of(context).pop(true);
+                  Navigator.of(context).pop(reportToReturn ?? true);
                 });
               }
             }
@@ -166,52 +312,45 @@ class _BillingTransactionReportScreenState
               onDateSelected: (d) => setState(() => _endDate = d),
             ),
             SizedBox(height: responsive.verticalSpacing),
-
-            // Add the Optional filters:  Payment method (Card, ACH, Cash)
-            CustomDropdown(
-              label: 'Payment Method',
-              hintText: "Payment Method",
-              items: ["Card", "ACH", "Cash"],
-              onSelect: (value) {
-                // Handle selection
-              },
+            const ReportFieldLabel(label: 'Export Format'),
+            ReportFormatSelector(
+              selectedFormat: _format,
+              onFormatChanged: (value) => setState(() => _format = value),
+              showLabel: false,
             ),
             SizedBox(height: responsive.verticalSpacing),
 
-            CustomDropdown(
-              label: 'Transactions',
-              hintText: 'Select',
-              items: _transactionOptions,
-              selectedItem: _transactionType,
-              labelStyle: TextStyle(
-                fontSize: responsive.labelFontSize,
-                fontFamily: 'Manrope',
-                fontWeight: FontWeight.w400,
-                color: const Color(0xff573353),
-              ),
-              showAsterisk: true,
-              labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-              onSelect: (val) {
-                if (val == null) return;
-                setState(() {
-                  _transactionType = val;
-                  if (!_isCustom) {
-                    _selectedTransactionTypes = <String>[];
-                  }
-                });
-              },
+            CustomMultiSelectDropdown(
+              label: 'Payment Method',
+              hintText: "Select Payment Methods",
+              items: const ["Card", "ACH", "Cash"],
+              selectedItems: _selectedPaymentMethods,
+              showSelectAll: true,
+              isRequired: true,
+              onChanged: (s) => setState(() => _selectedPaymentMethods = s),
             ),
-            if (_isCustom) ...[
-              SizedBox(height: responsive.verticalSpacing),
-              CustomMultiSelectDropdown(
-                label: 'Transaction Type',
-                hintText: 'Select Transactions Types',
-                items: _transactionTypeOptions,
-                selectedItems: _selectedTransactionTypes,
-                showSelectAll: true,
-                onChanged: (s) => setState(() => _selectedTransactionTypes = s),
-              ),
-            ],
+            SizedBox(height: responsive.verticalSpacing),
+
+            CustomMultiSelectDropdown(
+              label: 'Transaction Status',
+              hintText: 'Select Transaction Statuses',
+              items: _transactionOptions,
+              selectedItems: _selectedTransactionStatuses,
+              showSelectAll: true,
+              isRequired: true,
+              onChanged: (s) =>
+                  setState(() => _selectedTransactionStatuses = s),
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+
+            // CustomMultiSelectDropdown(
+            //   label: 'Transaction Type',
+            //   hintText: 'Select Transaction Types',
+            //   items: _transactionTypeOptions,
+            //   selectedItems: _selectedTransactionTypes,
+            //   showSelectAll: true,
+            //   onChanged: (s) => setState(() => _selectedTransactionTypes = s),
+            // ),
             SizedBox(height: responsive.verticalSpacing),
             // Student Dropdown
             MultiSelectFilterField<String>(
@@ -229,13 +368,6 @@ class _BillingTransactionReportScreenState
               showSelectAll: true,
               enableSearch: true,
               searchHintText: 'Search Students',
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            const ReportFieldLabel(label: 'Export Format'),
-            ReportFormatSelector(
-              selectedFormat: _format,
-              onFormatChanged: (value) => setState(() => _format = value),
-              showLabel: false,
             ),
           ],
         ),

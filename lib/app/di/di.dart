@@ -301,20 +301,24 @@ import '../../domain/features/student/usecases/get_vaccine_name_to_code_map_for_
 import '../../domain/features/activity/repositories/activity_repository.dart';
 import '../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';
-import '../../presentation/features/activities/cubit/activity_filter_cubit.dart';
-import '../../presentation/features/activities/cubit/activity_student_selection_cubit.dart';
+import '../../presentation/features/activities/view/choose_activity.dart';
+import '../../presentation/features/activities/view_model/activity_filter_cubit.dart';
+import '../../presentation/features/activities/view_model/activity_student_selection_cubit.dart';
+import '../../presentation/features/activities/view_model/choose_activity_cubit.dart';
 import '../../presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_in_selection_cubit.dart';
 import '../../presentation/features/attendance/forms/student_attendance_forms/view_model/student_sign_out_selection_cubit.dart';
 import '../../presentation/features/attendance/forms/student_attendance_forms/view_model/student_transfer_selection_cubit.dart';
 import '../../presentation/features/attendance/forms/student_attendance_forms/view_model/student_mark_absent_selection_cubit.dart';
-import '../../presentation/features/activities/cubit/activity_editor_cubit.dart';
-import '../../presentation/features/activities/cubit/activity_moderation_cubit.dart';
-import '../../presentation/features/activities/cubit/medication_activity_cubit.dart';
-import '../../presentation/features/activities/cubit/bottle_activity_cubit.dart';
-import '../../presentation/features/activities/cubit/nap_activity_cubit.dart';
-import '../../presentation/features/activities/cubit/incident_activity_cubit.dart';
-import '../../presentation/features/activities/cubit/activity_feed_scope_cubit.dart';
-import '../../presentation/features/activities/cubit/activity_feed_cubit.dart';
+import '../../presentation/features/activities/view_model/activity_editor_cubit.dart';
+import '../../presentation/features/activities/view_model/activity_moderation_cubit.dart';
+import '../../presentation/features/activities/view_model/school_cloud_image_uploader_cubit.dart';
+import '../../presentation/features/activities/view_model/activity_feed_screen_cubit.dart';
+import '../../presentation/features/activities/view_model/medication_activity_cubit.dart';
+import '../../presentation/features/activities/view_model/bottle_activity_cubit.dart';
+import '../../presentation/features/activities/view_model/nap_activity_cubit.dart';
+import '../../presentation/features/activities/view_model/incident_activity_cubit.dart';
+import '../../presentation/features/activities/view_model/activity_feed_scope_cubit.dart';
+import '../../presentation/features/activities/view_model/activity_feed_cubit.dart';
 import '../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../domain/features/activity/usecases/create_shared_activities_usecase.dart';
@@ -1555,6 +1559,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetActiveActivityTypesForSchoolUseCase>(
     () => GetActiveActivityTypesForSchoolUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<ChooseActivityCubit>(
+    () => ChooseActivityCubit(
+      settingsUseCase: serviceLocator<GetClassroomActivitySettingsUseCase>(),
+      detailsUseCase: serviceLocator<GetActivityTypeDetailsUseCase>(),
+      knownActivityKeys: ChooseActivity.activityIcons.keys,
+    ),
+  );
   serviceLocator.registerFactory<ActivityFilterCubit>(
     () => ActivityFilterCubit(
       tagMapUseCase: serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
@@ -1644,6 +1655,26 @@ Future<void> configureDependencies({String? baseUrl}) async {
           serviceLocator<GuardianParentSignatureUseCase>(),
       getGuardianNameCodeMapForSchoolUseCase:
           serviceLocator<GetGuardianNameCodeMapForSchoolUseCase>(),
+      getStaffTodaySignInStatusUseCase:
+          serviceLocator<GetStaffTodaySignInStatusUseCase>(),
+      storageService: serviceLocator<StorageService>(),
+      uploadActivityAssetsUseCase: serviceLocator<UploadActivityAssetsUseCase>(),
+      getActivityUploadAssetStatusesUseCase:
+          serviceLocator<GetActivityUploadAssetStatusesUseCase>(),
+      apiClient: serviceLocator<ApiClient>(),
+      staffRepository: serviceLocator<StaffRepository>(),
+      getStaffPageUseCase: serviceLocator<GetStaffPageUseCase>(),
+    ),
+  );
+  serviceLocator.registerFactory<SchoolCloudImageUploaderCubit>(
+    () => SchoolCloudImageUploaderCubit(
+      storageService: serviceLocator<StorageService>(),
+      imageUploadService: serviceLocator<ImageUploadService>(),
+    ),
+  );
+  serviceLocator.registerFactory<ActivityFeedScreenCubit>(
+    () => ActivityFeedScreenCubit(
+      storageService: serviceLocator<StorageService>(),
       getStaffTodaySignInStatusUseCase:
           serviceLocator<GetStaffTodaySignInStatusUseCase>(),
     ),
@@ -2165,6 +2196,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<ClassroomStudentsCubit>(
     () => ClassroomStudentsCubit(
       getStudentClassroomListUseCase: serviceLocator(),
+      getNapStartStudentsUseCase: serviceLocator(),
+      getStudentTodaySignInStatusMapUseCase: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );
@@ -2497,6 +2530,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getClassroomForecastUseCase: serviceLocator(),
       getClassroomForecastRangeUseCase: serviceLocator(),
       getStaffShiftHoursRangeUseCase: serviceLocator(),
+      getStaffTodaySignInStatusMapUseCase: serviceLocator(),
       schedulingStaffListCubit: serviceLocator(),
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),

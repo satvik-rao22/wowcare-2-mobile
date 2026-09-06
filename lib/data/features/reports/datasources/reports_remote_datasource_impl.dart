@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_constants.dart';
@@ -31,10 +32,60 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     _logPayloadFieldTypes(requestBody);
 
     try {
-      final response = await _dio.post<Map<String, dynamic>>(
-        ApiPaths.url(endpoint),
-        data: requestBody,
-      );
+      Response<Map<String, dynamic>> response;
+      if (reportType == ReportType.billingTransaction ||
+          reportType == ReportType.billingInvoice ||
+          reportType == ReportType.billingPaymentSummary ||
+          reportType == ReportType.billingOutstanding ||
+          reportType == ReportType.billingRefund ||
+          reportType == ReportType.billingStudentMapping) {
+        final schoolCode = await _storageService.getString(
+          storage_keys.StorageKeys.schoolCode,
+        );
+        final organizationCode = await _storageService.getString(
+          storage_keys.StorageKeys.organizationCode,
+        );
+
+        final queryParams = Map<String, dynamic>.from(requestBody);
+        if (schoolCode != null && schoolCode.trim().isNotEmpty) {
+          queryParams['schoolCode'] = schoolCode.trim();
+          queryParams['schoolId'] = schoolCode.trim();
+        }
+        if (organizationCode != null && organizationCode.trim().isNotEmpty) {
+          queryParams['organizationCode'] = organizationCode.trim();
+          queryParams['orgId'] = organizationCode.trim();
+        }
+
+        final rawResponse = await _dio.get<List<int>>(
+          ApiPaths.url(endpoint),
+          queryParameters: queryParams,
+          options: Options(
+            responseType: ResponseType.bytes,
+            validateStatus: (status) => true,
+          ),
+        );
+        if (rawResponse.statusCode == 200) {
+          final base64Data = base64Encode(rawResponse.data!);
+          return ReportResponseModel(
+            reportId: 'sync-${DateTime.now().millisecondsSinceEpoch}',
+            reportType: reportType.backendValue,
+            generatedAt: DateTime.now().toIso8601String(),
+            assetCode: 'base64:$base64Data',
+            fileName: '${reportType.backendValue}_report.xlsx',
+          );
+        } else {
+          final errStr = utf8.decode(rawResponse.data!);
+          final json = jsonDecode(errStr);
+          throw FormatException(
+            'Report generation failed: ${json['message'] ?? 'unknown error'}',
+          );
+        }
+      } else {
+        response = await _dio.post<Map<String, dynamic>>(
+          ApiPaths.url(endpoint),
+          data: requestBody,
+        );
+      }
       final responseData = response.data ?? {};
 
       AppLogger.d('========== REPORT RESPONSE ==========');
@@ -120,12 +171,17 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
         // blind risks breaking a currently-working report.
         return ApiPaths.studentImmunizationReport;
       case ReportType.billingTransaction:
+        return ApiPaths.billingTransactionReportGenerate;
       case ReportType.billingInvoice:
+        return ApiPaths.billingInvoiceReportGenerate;
       case ReportType.billingPaymentSummary:
+        return ApiPaths.billingPaymentSummaryReportGenerate;
       case ReportType.billingOutstanding:
+        return ApiPaths.billingOutstandingReportGenerate;
       case ReportType.billingRefund:
+        return ApiPaths.billingRefundReportGenerate;
       case ReportType.billingStudentMapping:
-        return ApiPaths.billingReportGenerate;
+        return ApiPaths.billingStudentMappingReportGenerate;
     }
   }
 
@@ -440,6 +496,11 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
 
   @override
   Future<List<int>> downloadReportFile(String downloadUrl) async {
+    if (downloadUrl.startsWith('base64:')) {
+      final base64String = downloadUrl.substring(7);
+      return base64Decode(base64String);
+    }
+
     AppLogger.d('Downloading report file from URL');
 
     final normalizedUrl = _normalizeDownloadUrl(downloadUrl);

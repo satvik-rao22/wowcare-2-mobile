@@ -20,6 +20,7 @@ import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/presentation/features/classroom/views/filters/designation_display_utils.dart';
+import 'package:wowcare/presentation/features/classroom/forms/widgets/assign_classroom_form_widgets.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart'; // UI-only
 // import 'package:wowcare/core/extentions/context_extentions.dart'; // UI-only
 // import 'package:wowcare/core/services/injection_container.dart'; // UI-only
@@ -28,7 +29,6 @@ import 'package:wowcare/presentation/features/classroom/views/filters/designatio
 // import 'package:wowcare/core/util/string_utils.dart'; // UI-only
 // import 'package:wowcare/core/util/typedefs.dart'; // UI-only
 // import 'package:wowcare/features/...'; // UI-only
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -85,7 +85,8 @@ class _AssignStaffToClassroomFormState
   ];
 
   Map<String, String> get _labelToDesignationCode => {
-    for (final code in _designationCodes) formatDesignationForDisplay(code): code,
+    for (final code in _designationCodes)
+      formatDesignationForDisplay(code): code,
   };
 
   bool isSelectAllChecked = false;
@@ -164,8 +165,8 @@ class _AssignStaffToClassroomFormState
   Future<void> _loadFilterOptionsThenStaffs() async {
     try {
       final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       final getClassrooms = serviceLocator<GetActiveClassroomsUseCase>();
       final classrooms = await getClassrooms(
         schoolCode: schoolCode,
@@ -216,8 +217,8 @@ class _AssignStaffToClassroomFormState
 
       final selectedClassroomCode =
           (_selectedClassroom != null && _selectedClassroom!.trim().isNotEmpty)
-              ? _classroomNameToCode[_selectedClassroom!.trim()]
-              : null;
+          ? _classroomNameToCode[_selectedClassroom!.trim()]
+          : null;
       final designationCodes = _selectedDesignations
           .map((label) => _labelToDesignationCode[label])
           .whereType<String>()
@@ -226,8 +227,9 @@ class _AssignStaffToClassroomFormState
       final roster = await _fetchManageStaffList(
         schoolCode: schoolCode,
         excludeClassroomCode: excludeClassroomCode,
-        primaryClassroomCodes:
-            selectedClassroomCode != null ? [selectedClassroomCode] : null,
+        primaryClassroomCodes: selectedClassroomCode != null
+            ? [selectedClassroomCode]
+            : null,
         designation: designationCodes.isEmpty ? null : designationCodes,
       );
 
@@ -245,8 +247,8 @@ class _AssignStaffToClassroomFormState
       var id = 0;
       for (final s in rows) {
         final rawPhoto = (s.profilePictureUrl ?? '').trim();
-        final looksLikeUrl = rawPhoto.startsWith('http://') ||
-            rawPhoto.startsWith('https://');
+        final looksLikeUrl =
+            rawPhoto.startsWith('http://') || rawPhoto.startsWith('https://');
 
         fetchedStaffs.add(
           Staff(
@@ -255,8 +257,9 @@ class _AssignStaffToClassroomFormState
             name: s.fullName,
             designation: s.designation,
             profileImageUrl: looksLikeUrl ? rawPhoto : null,
-            profilePhotoAssetCode:
-                (!looksLikeUrl && rawPhoto.isNotEmpty) ? rawPhoto : null,
+            profilePhotoAssetCode: (!looksLikeUrl && rawPhoto.isNotEmpty)
+                ? rawPhoto
+                : null,
           ),
         );
       }
@@ -321,8 +324,8 @@ class _AssignStaffToClassroomFormState
     _filteredStaffs = query.isEmpty
         ? _allStaffs
         : _allStaffs
-            .where((staff) => staff.name.toLowerCase().contains(query))
-            .toList();
+              .where((staff) => staff.name.toLowerCase().contains(query))
+              .toList();
     setState(() {});
   }
 
@@ -382,23 +385,7 @@ class _AssignStaffToClassroomFormState
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Assign to ${widget.selectedRoomName}',
-                style: const TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
+          AssignFormHeader(title: 'Assign to ${widget.selectedRoomName}'),
           const SizedBox(height: 16),
           const Text(
             'Select Staffs',
@@ -409,26 +396,9 @@ class _AssignStaffToClassroomFormState
             ),
           ),
           const SizedBox(height: 12),
-          SearchBar(
+          AssignFormSearchBar(
             controller: _searchController,
-            constraints: const BoxConstraints(minHeight: 44),
             hintText: 'Search Staff',
-            hintStyle: WidgetStatePropertyAll(
-              TextStyle(
-                fontFamily: 'Manrope',
-                color: Colors.grey[700],
-              ),
-            ),
-            backgroundColor: const WidgetStatePropertyAll<Color>(Colors.white),
-            surfaceTintColor: const WidgetStatePropertyAll<Color>(Colors.white),
-            elevation: const WidgetStatePropertyAll<double>(0),
-            side: const WidgetStatePropertyAll(
-              BorderSide(
-                width: 1,
-                color: Color.fromARGB(255, 188, 173, 186),
-              ),
-            ),
-            leading: const Icon(Icons.search, color: Colors.grey),
           ),
           const SizedBox(height: 12),
           Row(
@@ -463,67 +433,44 @@ class _AssignStaffToClassroomFormState
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: CustomCheckbox(
-                  borderColor: AppColors.themeColor,
-                  value: isSelectAllChecked,
-                  onChanged: _toggleSelectAll,
-                ),
-              ),
-              const Text('Select All', style: TextStyle(fontFamily: 'Manrope')),
-            ],
+          SelectAllCheckboxRow(
+            value: isSelectAllChecked,
+            onChanged: _toggleSelectAll,
+            checkboxBuilder: (value, onChanged) => CustomCheckbox(
+              borderColor: AppColors.themeColor,
+              value: value,
+              onChanged: onChanged,
+            ),
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: _isLoadingStaffs
-                ? const Center(child: PrimaryCircularLoader())
-                : _staffsError != null
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _staffsError!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontFamily: 'Manrope',
-                            color: Colors.red,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        ElevatedButton(
-                          onPressed: _loadStaffsFromApi,
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  )
-                : GridView.builder(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          mainAxisExtent: 72,
-                        ),
-                    itemCount: _getVisibleStaffs().length,
-                    itemBuilder: (context, index) {
-                      final staff = _getVisibleStaffs()[index];
-                      final isSelected = selectedStaffs.contains(staff);
-                      return StaffListItem(
-                        staff: staff,
-                        isSelected: isSelected,
-                        isSignedIn: _isStaffSignedIn(staff.code),
-                        todayStatusRaw: _todayStatusByCode[staff.code],
-                        onSelectionChanged: (value) {
-                          _toggleStaffSelection(staff, value);
-                        },
-                      );
+            child: AssignFormResultsArea(
+              isLoading: _isLoadingStaffs,
+              errorMessage: _staffsError,
+              onRetry: _loadStaffsFromApi,
+              content: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  mainAxisExtent: 72,
+                ),
+                itemCount: _getVisibleStaffs().length,
+                itemBuilder: (context, index) {
+                  final staff = _getVisibleStaffs()[index];
+                  final isSelected = selectedStaffs.contains(staff);
+                  return StaffListItem(
+                    staff: staff,
+                    isSelected: isSelected,
+                    isSignedIn: _isStaffSignedIn(staff.code),
+                    todayStatusRaw: _todayStatusByCode[staff.code],
+                    onSelectionChanged: (value) {
+                      _toggleStaffSelection(staff, value);
                     },
-                  ),
+                  );
+                },
+              ),
+            ),
           ),
           const SizedBox(height: 16),
           CustomButtonLayout(
@@ -609,39 +556,10 @@ class _StaffConfirmationFormState extends State<StaffConfirmationForm> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  'Assign to ${widget.selectedRoomName}',
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
+          AssignFormHeader(title: 'Assign to ${widget.selectedRoomName}'),
           const SizedBox(height: 16),
           if (currentSelectedStaffs.isEmpty)
-            const Expanded(
-              child: Center(
-                child: Text(
-                  'No staff selected',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    color: const Color(0xff573353),
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            )
+            const AssignFormEmptySelection(message: 'No staff selected')
           else
             Expanded(
               child: GridView.builder(
@@ -706,58 +624,29 @@ class _StaffConfirmationFormState extends State<StaffConfirmationForm> {
             onPressedCancel: () => Navigator.pop(context),
             onPressedConfirm: _isSubmitting
                 ? () {}
-                : () async {
-                    if (currentSelectedStaffs.isEmpty) {
-                      CoreUtils.showTopSnackBar(
-                        context: context,
-                        message: 'Please select at least one staff member',
-                        isWarning: true,
-                      );
-                      return;
-                    }
-                    setState(() => _isSubmitting = true);
-                    try {
-                      final storage = serviceLocator<StorageService>();
-                      final schoolCode = await storage.getString(
-                        StorageKeys.schoolCode,
-                      );
-                      if (schoolCode == null || schoolCode.trim().isEmpty) {
-                        throw 'Missing schoolCode. Please sign in / select a school again.';
+                : () => submitClassroomAssignment(
+                    context: context,
+                    isSelectionEmpty: currentSelectedStaffs.isEmpty,
+                    emptySelectionMessage:
+                        'Please select at least one staff member',
+                    setSubmitting: (submitting) {
+                      if (mounted) {
+                        setState(() => _isSubmitting = submitting);
                       }
-
+                    },
+                    submit: (schoolCode) {
                       final staffCodes = currentSelectedStaffs
                           .map((s) => s.code.trim())
                           .where((code) => code.isNotEmpty)
                           .toList();
-
-                      final message =
-                          await serviceLocator<AssignStaffToClassroomUseCase>()(
-                            schoolCode: schoolCode,
-                            classroomCode: widget.classroomCode,
-                            staffCodes: staffCodes,
-                          );
-
-                      if (!mounted) return;
-                      CoreUtils.showTopSnackBar(
-                        context: context,
-                        message:
-                            message.isEmpty ? 'Assigned successfully' : message,
-                        isSuccess: true,
+                      return serviceLocator<AssignStaffToClassroomUseCase>()(
+                        schoolCode: schoolCode,
+                        classroomCode: widget.classroomCode,
+                        staffCodes: staffCodes,
                       );
-
-                      widget.onStaffsAssigned();
-                      Navigator.pop(context);
-                    } catch (e) {
-                      if (!mounted) return;
-                      CoreUtils.showTopSnackBar(
-                        context: context,
-                        message: e.toString(),
-                        isError: true,
-                      );
-                    } finally {
-                      if (mounted) setState(() => _isSubmitting = false);
-                    }
-                  },
+                    },
+                    onSuccess: widget.onStaffsAssigned,
+                  ),
           ),
         ],
       ),

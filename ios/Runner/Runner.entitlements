@@ -6,7 +6,9 @@
 	<string>development</string>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:uat-wowcare.childcarewow.app</string>
+		<!-- TEMP: local-testing override, points at Sairam's ngrok tunnel
+		     instead of uat-wowcare.childcarewow.app. Revert before commit. -->
+		<string>applinks:fitten-vallie-forthrightly.ngrok-free.dev</string>
 	</array>
 </dict>
 </plist>

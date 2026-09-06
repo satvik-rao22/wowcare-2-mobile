@@ -1,23 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/dimensions.dart';
-import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/student/entities/student_physician.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_physician_cubit.dart';
-import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import '../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/students/view/add_physician_screen.dart';
 
 class StudentPhysicianTabCard extends StatefulWidget {
@@ -44,16 +38,20 @@ class StudentPhysicianTabCard extends StatefulWidget {
 }
 
 class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
-  /// The cubit OWNS the physician list state (single source of truth); the card
-  /// renders it via BlocBuilder. One instance per card so the single-flight
-  /// delete guard spans taps (serviceLocator registers a factory).
+  late Future<List<StudentPhysician>> _physiciansFuture;
+
+  /// One cubit instance for this card so its single-flight delete guard spans
+  /// taps (serviceLocator registers it as a factory — a fresh call per tap
+  /// would not dedupe).
   final StudentPhysicianCubit _physicianCubit =
       serviceLocator<StudentPhysicianCubit>();
 
   @override
   void initState() {
     super.initState();
-    _physicianCubit.load(widget.studentCode ?? '');
+    // Force-fresh on open, not just on pull-to-refresh — otherwise landing on
+    // this tab can show up to 5-minute-old cached data.
+    _physiciansFuture = _buildPhysiciansFuture(forceRefresh: true);
   }
 
   @override
@@ -62,7 +60,29 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
     super.dispose();
   }
 
-  Future<void> _handleRefresh() => _physicianCubit.load(widget.studentCode ?? '');
+  Future<List<StudentPhysician>> _buildPhysiciansFuture({
+    bool forceRefresh = false,
+  }) {
+    final code = widget.studentCode;
+    if (code == null || code.isEmpty) {
+      return Future.value(const <StudentPhysician>[]);
+    }
+    // Route the read through the cubit → use case → repository. The repository
+    // still handles cache via CacheManager; first call may use cache, subsequent
+    // ones will hit API when cache is invalidated after mutations.
+    return _physicianCubit.fetchPhysicians(code, forceRefresh: forceRefresh);
+  }
+
+  Future<void> _handleRefresh() async {
+    setState(() {
+      _physiciansFuture = _buildPhysiciansFuture(forceRefresh: true);
+    });
+    try {
+      await _physiciansFuture;
+    } catch (_) {
+      // errors are surfaced in the UI via FutureBuilder
+    }
+  }
 
   Future<void> _onAddPhysician() async {
     final studentCode = widget.studentCode ?? '';
@@ -70,9 +90,10 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
       return;
     }
 
-    final result = await context.push<bool>(
-      AddPhysicianScreen.routeName,
-      extra: <String, dynamic>{'studentCode': studentCode},
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AddPhysicianScreen(studentCode: studentCode),
+      ),
     );
 
     if (!mounted || result != true) return;
@@ -90,19 +111,16 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.none,
-            vertical: AppSpacing.md,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.none),
+                padding: const EdgeInsets.symmetric(horizontal: 0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      StudentStrings.physicians,
+                      'Physicians',
                       style: AppTextStyles.value.copyWith(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -114,40 +132,41 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                         onTap: _onAddPhysician,
                         wantedButtonSize: 40,
                         iconSize: 22,
-                        borderRadius: AppRadius.r10,
+                        borderRadius: 10,
                       )
                     else
                       const SizedBox.shrink(),
                   ],
                 ),
               ),
-              AppSpacing.gapVMd,
-              BlocBuilder<StudentPhysicianCubit, StudentPhysicianState>(
-                bloc: _physicianCubit,
-                builder: (context, state) {
-                  if (state.isLoading && state.physicians.isEmpty) {
+              const SizedBox(height: 16),
+              FutureBuilder<List<StudentPhysician>>(
+                future: _physiciansFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
                     return const StudentDetailCardsShimmer();
                   }
 
-                  if (state.errorMessage != null && state.physicians.isEmpty) {
+                  if (snapshot.hasError) {
                     return Padding(
-                      padding: const EdgeInsets.only(top: AppSpacing.md),
+                      padding: const EdgeInsets.only(top: 16),
                       child: Text(
-                        StudentStrings.failedToLoadPhysicians,
+                        'Failed to load physicians',
                         style: AppTextStyles.value.copyWith(
                           fontSize: 14,
-                          color: AppColors.errorColor,
+                          color: Colors.redAccent,
                         ),
                       ),
                     );
                   }
 
-                  final physicians = state.physicians;
+                  final physicians =
+                      snapshot.data ?? const <StudentPhysician>[];
                   if (physicians.isEmpty) {
                     return Padding(
-                      padding: const EdgeInsets.only(top: AppSpacing.xs),
+                      padding: const EdgeInsets.only(top: 8),
                       child: Text(
-                        StudentStrings.noPhysiciansAddedYet,
+                        'No physicians added yet',
                         style: AppTextStyles.value.copyWith(fontSize: 14),
                       ),
                     );
@@ -173,7 +192,8 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                           showActionButtons: canStudentWrite,
                           physicianCubit: _physicianCubit,
                         ),
-                        if (i != physicians.length - 1) AppSpacing.gapVSm,
+                        if (i != physicians.length - 1)
+                          const SizedBox(height: 12),
                       ],
                     ],
                   );
@@ -233,21 +253,21 @@ class _PhysicianCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final responsive = ResponsiveHelper(context);
-    final isTablet = responsive.isTabletCompact;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
     return IntrinsicHeight(
       child: Container(
         width: double.infinity,
         // Match the Family/Pickup cards: themeColor outline, square top-left.
         decoration: const BoxDecoration(
-          color: AppColors.whiteColor,
+          color: Colors.white,
           borderRadius: BorderRadius.only(
-            topRight: Radius.circular(AppRadius.sm),
-            bottomLeft: Radius.circular(AppRadius.sm),
-            bottomRight: Radius.circular(AppRadius.sm),
+            topRight: Radius.circular(8),
+            bottomLeft: Radius.circular(8),
+            bottomRight: Radius.circular(8),
           ),
           border: Border.fromBorderSide(
-            BorderSide(color: AppColors.themeColor, width: AppDimensions.hairline),
+            BorderSide(color: AppColors.themeColor, width: 1),
           ),
         ),
         clipBehavior: Clip.antiAlias,
@@ -278,17 +298,12 @@ class _PhysicianCard extends StatelessWidget {
             Divider(
               height: 1,
               thickness: 1,
-              indent: AppSpacing.md,
-              endIndent: AppSpacing.md,
+              indent: 16,
+              endIndent: 16,
               color: AppColors.dividerColor,
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.md,
-                AppSpacing.md,
-                AppSpacing.none,
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -299,7 +314,7 @@ class _PhysicianCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          StudentStrings.phoneNumber,
+                          'Phone Number',
                           style: AppTextStyles.label.copyWith(
                             color: AppColors.primaryColor.withValues(
                               alpha: 0.5,
@@ -308,7 +323,7 @@ class _PhysicianCard extends StatelessWidget {
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
-                        AppSpacing.gapHXs,
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             _formatPhoneNumber(phoneNumber),
@@ -319,7 +334,7 @@ class _PhysicianCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: AppSpacing.s10),
+                    const SizedBox(height: 10),
                   ],
                   if (email != null && email!.trim().isNotEmpty) ...[
                     Row(
@@ -327,7 +342,7 @@ class _PhysicianCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          StudentStrings.emailId,
+                          'Email ID',
                           style: AppTextStyles.label.copyWith(
                             color: AppColors.primaryColor.withValues(
                               alpha: 0.5,
@@ -336,7 +351,7 @@ class _PhysicianCard extends StatelessWidget {
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
-                        AppSpacing.gapHXs,
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             email!,
@@ -347,7 +362,7 @@ class _PhysicianCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: AppSpacing.s10),
+                    const SizedBox(height: 10),
                   ],
                   if (address != null && address!.trim().isNotEmpty) ...[
                     Row(
@@ -355,7 +370,7 @@ class _PhysicianCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          StudentStrings.address,
+                          'Address',
                           style: AppTextStyles.label.copyWith(
                             color: AppColors.primaryColor.withValues(
                               alpha: 0.5,
@@ -364,7 +379,7 @@ class _PhysicianCard extends StatelessWidget {
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
-                        AppSpacing.gapHXs,
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             address!,
@@ -375,7 +390,7 @@ class _PhysicianCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: AppSpacing.s10),
+                    const SizedBox(height: 10),
                   ],
                   if (specialty != null && specialty!.trim().isNotEmpty) ...[
                     Row(
@@ -383,7 +398,7 @@ class _PhysicianCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          StudentStrings.specialty,
+                          'Specialty',
                           style: AppTextStyles.label.copyWith(
                             color: AppColors.primaryColor.withValues(
                               alpha: 0.5,
@@ -392,7 +407,7 @@ class _PhysicianCard extends StatelessWidget {
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
-                        AppSpacing.gapHXs,
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             specialty!,
@@ -403,7 +418,7 @@ class _PhysicianCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: AppSpacing.s10),
+                    const SizedBox(height: 10),
                   ],
                   if (notes != null && notes!.trim().isNotEmpty) ...[
                     Row(
@@ -411,7 +426,7 @@ class _PhysicianCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          StudentStrings.notes,
+                          'Notes',
                           style: AppTextStyles.label.copyWith(
                             color: AppColors.primaryColor.withValues(
                               alpha: 0.5,
@@ -420,7 +435,7 @@ class _PhysicianCard extends StatelessWidget {
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
-                        AppSpacing.gapHXs,
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             notes!,
@@ -430,28 +445,29 @@ class _PhysicianCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: AppSpacing.s10),
+                    const SizedBox(height: 10),
                   ],
                   if (showActionButtons) ...[
-                    AppSpacing.gapVSm,
+                    const SizedBox(height: 12),
                     CustomButtonLayout(
-                      confirmButtonLabel: StudentStrings.edit,
-                      cancelButtonLabel: StudentStrings.delete,
+                      confirmButtonLabel: 'Edit',
+                      cancelButtonLabel: 'Delete',
                       gradientCancelLabel: true,
                       onPressedConfirm: () async {
-                        final result = await context.push<bool>(
-                          AddPhysicianScreen.routeName,
-                          extra: <String, dynamic>{
-                            'studentCode': studentCode,
-                            'physicianCode': code,
-                            'isEdit': true,
-                            'initialFirstName': firstName,
-                            'initialLastName': lastName,
-                            'initialEmail': email,
-                            'initialPhoneNumber': phoneNumber,
-                            'initialAddress': address,
-                            'initialNotes': notes,
-                          },
+                        final result = await Navigator.of(context).push<bool>(
+                          MaterialPageRoute(
+                            builder: (_) => AddPhysicianScreen(
+                              studentCode: studentCode,
+                              physicianCode: code,
+                              isEdit: true,
+                              initialFirstName: firstName,
+                              initialLastName: lastName,
+                              initialEmail: email,
+                              initialPhoneNumber: phoneNumber,
+                              initialAddress: address,
+                              initialNotes: notes,
+                            ),
+                          ),
                         );
 
                         if (result == true && onChanged != null) {
@@ -462,7 +478,7 @@ class _PhysicianCard extends StatelessWidget {
                         showModalBottomSheet(
                           context: context,
                           isScrollControlled: true,
-                          backgroundColor: AppColors.transparentColor,
+                          backgroundColor: Colors.transparent,
                           builder: (ctx) {
                             return DeleteConfirmationBottomSheet(
                               name: name,
@@ -501,7 +517,7 @@ class _PhysicianCard extends StatelessWidget {
                       },
                       isForm: false,
                     ),
-                    AppSpacing.gapVSm,
+                    const SizedBox(height: 12),
                   ],
                 ],
               ),

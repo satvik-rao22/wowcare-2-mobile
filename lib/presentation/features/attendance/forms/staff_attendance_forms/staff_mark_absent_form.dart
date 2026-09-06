@@ -175,6 +175,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                         itemBuilder: (context, index) => AttendanceRemoveTile(
                           name: state.selectedStaff[index].name,
                           photoUuid: state.selectedStaff[index].photoUuid ?? '',
+                          staffCode: state.selectedStaff[index].staffCode,
                           canRemove: state.selectedStaff.length > 1,
                           onRemove: () =>
                               _cubit.removeStaff(state.selectedStaff[index]),

@@ -22,6 +22,7 @@ import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/presentation/features/classroom/forms/assign_student_to_classroom_form.dart';
 import 'package:wowcare/presentation/features/classroom/forms/assign_staff_to_classroom_form.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
+import 'package:wowcare/core/util/tab_visibility_events.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -88,7 +89,26 @@ class ClassroomScreen extends StatefulWidget {
 }
 
 class _ClassroomScreenState extends State<ClassroomScreen>
-    with SingleTickerProviderStateMixin, SchoolSwitchReloadMixin {
+    with
+        SingleTickerProviderStateMixin,
+        SchoolSwitchReloadMixin,
+        TabBecameVisibleMixin {
+  // Classroom is branch index 1 in app_router.dart's shell — see
+  // TabVisibilityEvents' doc comment for why this tab needs to know it.
+  @override
+  int get tabBranchIndex => 1;
+
+  @override
+  void onTabBecameVisible() {
+    if (!mounted) return;
+    // Reuses the exact same "discard and recreate the whole subtree" trick
+    // onSchoolSwitched() already uses — it forces a fresh ClassroomCubit
+    // (loadActiveClassrooms(force: true)) AND fresh Students/Staff/Notes tab
+    // cards for the currently selected classroom, without resetting the
+    // selection itself (unlike an actual school switch).
+    setState(() => _schoolReloadEpoch++);
+  }
+
   late TabController _tabController;
   final ScrollController _studentsScrollController = ScrollController();
   final ScrollController _staffScrollController = ScrollController();
@@ -223,6 +243,31 @@ class _ClassroomScreenState extends State<ClassroomScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       setState(() => selectedRoom = picked);
+    });
+  }
+
+  /// [_applyDefaultClassroomSelection] only ever assigns [selectedRoom] ONCE
+  /// (guarded by [_defaultClassroomApplied]) — after that, a fresh
+  /// [classrooms] list (e.g. from [onTabBecameVisible]'s reload) still
+  /// arrives, but [selectedRoom] keeps pointing at the OLD [Classroom]
+  /// object from before the refresh, so a renamed classroom kept showing its
+  /// old name in the dropdown/header even though the underlying data had
+  /// genuinely refreshed. This re-points it at the matching entry from the
+  /// new list by code, every time the list reloads.
+  void _syncSelectedRoomWithFreshList(List<Classroom> classrooms) {
+    final current = selectedRoom;
+    if (current == null) return;
+    Classroom? fresh;
+    for (final c in classrooms) {
+      if (c.code == current.code) {
+        fresh = c;
+        break;
+      }
+    }
+    if (fresh == null || fresh == current) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => selectedRoom = fresh);
     });
   }
 
@@ -398,12 +443,16 @@ class _ClassroomScreenState extends State<ClassroomScreen>
       key: ValueKey<int>(_schoolReloadEpoch),
       child: BlocProvider<ClassroomCubit>(
       create: (_) => serviceLocator<ClassroomCubit>()
-        ..loadActiveClassrooms(applyAttendanceStaffScope: true),
+        ..loadActiveClassrooms(
+          force: true,
+          applyAttendanceStaffScope: true,
+        ),
       child: BlocBuilder<ClassroomCubit, ClassroomState>(
         builder: (context, state) {
           final classrooms = state.classrooms;
           if (classrooms.isNotEmpty) {
             _applyDefaultClassroomSelection(classrooms);
+            _syncSelectedRoomWithFreshList(classrooms);
           }
 
           final isInitialLoading = state.isLoading && classrooms.isEmpty;

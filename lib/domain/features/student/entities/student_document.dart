@@ -15,6 +15,7 @@ class StudentDocument extends Equatable {
     this.expired = false,
     this.createdAt,
     this.uploadedBy,
+    this.notes,
   });
 
   final String? documentUuid;
@@ -31,6 +32,7 @@ class StudentDocument extends Equatable {
   final bool expired;
   final String? createdAt;
   final String? uploadedBy;
+  final String? notes;
 
   @override
   List<Object?> get props => [
@@ -45,5 +47,6 @@ class StudentDocument extends Equatable {
         expired,
         createdAt,
         uploadedBy,
+        notes,
       ];
 }

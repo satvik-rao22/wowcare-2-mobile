@@ -75,11 +75,17 @@ class StudentPhysicianCubit extends Cubit<StudentPhysicianState> {
   /// Thin Future-based read for callers that still drive their own
   /// `FutureBuilder` (e.g. the physician tab card) — same data SOURCE as
   /// [load], without the state machine.
-  Future<List<StudentPhysician>> fetchPhysicians(String studentCode) {
+  Future<List<StudentPhysician>> fetchPhysicians(
+    String studentCode, {
+    bool forceRefresh = false,
+  }) {
     if (studentCode.isEmpty) {
       return Future.value(const <StudentPhysician>[]);
     }
-    return _getStudentPhysiciansUseCase(studentCode: studentCode);
+    return _getStudentPhysiciansUseCase(
+      studentCode: studentCode,
+      forceRefresh: forceRefresh,
+    );
   }
 
   /// In-flight mutations keyed by `action:code`. A second identical call while

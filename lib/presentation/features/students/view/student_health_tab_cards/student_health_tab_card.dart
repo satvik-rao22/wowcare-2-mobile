@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/dimensions.dart';
-import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/entities/student_health_update_request.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_health_cubit.dart';
-import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
@@ -37,9 +32,7 @@ class StudentHealthTabCard extends StatefulWidget {
 }
 
 class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
-  /// Optimistic local mirror of the photo-permission toggle (category A): the
-  /// card flips it immediately, calls the API, and reverts on failure. Synced
-  /// from `state.health` whenever the cubit (re)loads the record.
+  late Future<StudentHealth?> _healthFuture;
   bool _photoPermission = true;
   bool _hasShownErrorSnackBar = false;
 
@@ -50,7 +43,9 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
   @override
   void initState() {
     super.initState();
-    _healthCubit.loadHealth(widget.studentCode ?? '');
+    // Force-fresh on open, not just on pull-to-refresh — otherwise landing on
+    // this tab can show up to 5-minute-old cached data.
+    _healthFuture = _buildHealthFuture(forceRefresh: true);
   }
 
   @override
@@ -59,9 +54,21 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
     super.dispose();
   }
 
-  Future<void> _reloadHealth() async {
-    _hasShownErrorSnackBar = false;
-    await _healthCubit.loadHealth(widget.studentCode ?? '');
+  Future<StudentHealth?> _buildHealthFuture({bool forceRefresh = false}) async {
+    final code = widget.studentCode;
+    if (code == null || code.isEmpty) {
+      return null;
+    }
+    try {
+      final model = await _healthCubit.fetchHealth(
+        code,
+        forceRefresh: forceRefresh,
+      );
+      _photoPermission = model.photoPermission ?? true;
+      return model;
+    } catch (_) {
+      rethrow;
+    }
   }
 
   @override
@@ -70,30 +77,32 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
     final bottomSafe = MediaQuery.of(context).padding.bottom;
 
     return CustomRefreshIndicator(
-      onRefresh: _reloadHealth,
+      onRefresh: () async {
+        setState(() {
+          _healthFuture = _buildHealthFuture(forceRefresh: true);
+          _hasShownErrorSnackBar = false;
+        });
+        try {
+          await _healthFuture;
+        } catch (_) {
+          // errors handled by FutureBuilder
+        }
+      },
       child: SingleChildScrollView(
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        child: BlocConsumer<StudentHealthCubit, StudentHealthState>(
-          bloc: _healthCubit,
-          listenWhen: (p, c) => p.health != c.health,
-          listener: (context, state) {
-            if (state.health != null) {
-              setState(
-                () => _photoPermission = state.health!.photoPermission ?? true,
-              );
-            }
-          },
-          builder: (context, state) {
-            if (state.healthLoading && state.health == null) {
+        child: FutureBuilder<StudentHealth?>(
+          future: _healthFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
               return const Padding(
-                padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                padding: EdgeInsets.symmetric(vertical: 16),
                 child: StudentHealthCardShimmer(),
               );
             }
 
-            if (state.errorMessage != null && state.health == null) {
-              final message = state.errorMessage!;
+            if (snapshot.hasError) {
+              final message = snapshot.error.toString();
               CoreUtils.logApiError(message);
               if (!_hasShownErrorSnackBar) {
                 _hasShownErrorSnackBar = true;
@@ -110,13 +119,10 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
               return const SizedBox.shrink();
             }
 
-            final health = state.health;
+            final health = snapshot.data;
 
             return Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.none,
-                vertical: AppSpacing.md,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -126,40 +132,44 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                         final code = widget.studentCode;
                         if (code == null || code.isEmpty) return;
                         final currentHealth = health;
-                        final result = await context.push<bool>(
-                          EditStudentHealthScreen.routeName,
-                          extra: <String, dynamic>{
-                            'studentCode': code,
-                            'initialHealth': currentHealth,
-                          },
+                        final result = await Navigator.of(context).push<bool>(
+                          MaterialPageRoute(
+                            builder: (_) => EditStudentHealthScreen(
+                              studentCode: code,
+                              initialHealth: currentHealth,
+                            ),
+                          ),
                         );
                         if (result == true && mounted) {
-                          await _reloadHealth();
+                          setState(() {
+                            _healthFuture = _buildHealthFuture();
+                            _hasShownErrorSnackBar = false;
+                          });
                           widget.onHealthChanged?.call();
                         }
                       },
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(StudentStrings.health, style: AppTextStyles.title),
+                          Text('Health', style: AppTextStyles.title),
                           Container(
                             width: 38,
                             height: 38,
                             decoration: BoxDecoration(
                               gradient: AppColors.buildPrimaryGradient(),
-                              borderRadius: AppRadius.allSm,
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             alignment: Alignment.center,
                             child: const Icon(
                               Icons.edit,
                               size: 22,
-                              color: AppColors.whiteColor,
+                              color: Colors.white,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  AppSpacing.gapVMd,
+                  const SizedBox(height: 16),
                   _HealthCard(
                     allergies: health?.allergy,
                     medication: health?.medications,
@@ -194,7 +204,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                         if (!mounted) return;
                         CoreUtils.showTopSnackBar(
                           context: context,
-                          message: StudentStrings.failedToUpdatePhotoPermission,
+                          message: 'Failed to update photo permission',
                           isError: true,
                         );
                       }
@@ -238,14 +248,14 @@ class _HealthCard extends StatelessWidget {
       child: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
-          color: AppColors.whiteColor,
+          color: Colors.white,
           borderRadius: BorderRadius.only(
-            topRight: Radius.circular(AppRadius.sm),
-            bottomLeft: Radius.circular(AppRadius.sm),
-            bottomRight: Radius.circular(AppRadius.sm),
+            topRight: Radius.circular(8),
+            bottomLeft: Radius.circular(8),
+            bottomRight: Radius.circular(8),
           ),
           border: Border.fromBorderSide(
-            BorderSide(color: AppColors.themeColor, width: AppDimensions.hairline),
+            BorderSide(color: AppColors.themeColor, width: 1),
           ),
         ),
         clipBehavior: Clip.antiAlias,
@@ -253,12 +263,7 @@ class _HealthCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.md,
-                AppSpacing.md,
-                AppSpacing.md,
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -267,74 +272,110 @@ class _HealthCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const Text(
-                        StudentStrings.allergies,
-                        style: AppTextStyles.label,
+                        'Allergies',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: Color(0xff573353),
+                          height: 16 / 13,
+                        ),
                       ),
                       Flexible(
                         child: Text(
-                          _displayOrFallback(
-                            allergies,
-                            StudentStrings.noAllergies,
+                          _displayOrFallback(allergies, 'No Allergies'),
+                          style: const TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xff573353),
+                            height: 19 / 14,
                           ),
-                          style: AppTextStyles.value,
                           softWrap: true,
                           textAlign: TextAlign.right,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppSpacing.s10),
+                  const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const Text(
-                        StudentStrings.medications,
-                        style: AppTextStyles.label,
+                        'Medications',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: Color(0xff573353),
+                          height: 16 / 13,
+                        ),
                       ),
                       Flexible(
                         child: Text(
-                          _displayOrFallback(
-                            medication,
-                            StudentStrings.noMedications,
+                          _displayOrFallback(medication, 'No Medications'),
+                          style: const TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xff573353),
+                            height: 19 / 14,
                           ),
-                          style: AppTextStyles.value,
                           softWrap: true,
                           textAlign: TextAlign.right,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppSpacing.s10),
+                  const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const Text(
-                        StudentStrings.dietRestriction,
-                        style: AppTextStyles.label,
+                        'Diet Restriction',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: Color(0xff573353),
+                          height: 16 / 13,
+                        ),
                       ),
                       Flexible(
                         child: Text(
                           _displayOrFallback(
                             dietRestrictions,
-                            StudentStrings.noDietRestriction,
+                            'No Diet Restriction',
                           ),
-                          style: AppTextStyles.value,
+                          style: const TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xff573353),
+                            height: 19 / 14,
+                          ),
                           softWrap: true,
                           textAlign: TextAlign.right,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppSpacing.s10),
+                  const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const Text(
-                        StudentStrings.photoPermission,
-                        style: AppTextStyles.label,
+                        'Photo Permission',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: Color(0xff573353),
+                          height: 16 / 13,
+                        ),
                       ),
                       if (canMutateStudent)
                         CustomToggle(
@@ -344,8 +385,14 @@ class _HealthCard extends StatelessWidget {
                         )
                       else
                         Text(
-                          photoPermission ? StudentStrings.yes : StudentStrings.no,
-                          style: AppTextStyles.value,
+                          photoPermission ? 'Yes' : 'No',
+                          style: const TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xff573353),
+                            height: 19 / 14,
+                          ),
                         ),
                     ],
                   ),

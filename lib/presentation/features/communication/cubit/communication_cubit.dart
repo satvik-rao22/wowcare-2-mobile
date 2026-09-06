@@ -464,7 +464,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   }) async {
     // 1. Try Loading from cache first for better UX
     if (page == 0) {
-      final cacheResult = await getCachedConversationsUseCase();
+      final cacheResult = await getCachedConversationsUseCase(type: type);
       cacheResult.fold(
         (_) => null, // Ignore cache errors
         (conversations) {
@@ -475,8 +475,11 @@ class CommunicationCubit extends Cubit<CommunicationState> {
                       .conversationsByType
                 : <String?, List<Conversation>>{};
             final mergedMap = Map<String?, List<Conversation>>.from(currentMap);
-            mergedMap[null] = conversations;
-            if (type != null) mergedMap[type] = conversations;
+            if (type != null) {
+              mergedMap[type] = conversations;
+            } else {
+              mergedMap[null] = conversations;
+            }
             _cacheConversations(mergedMap);
             emit(CommunicationConversationsLoaded(mergedMap));
           }

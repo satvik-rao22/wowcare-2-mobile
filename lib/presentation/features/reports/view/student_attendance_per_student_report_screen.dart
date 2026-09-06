@@ -15,6 +15,7 @@ import 'package:wowcare/domain/features/student_classroom/entities/student_class
 import 'package:wowcare/domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
+import 'package:wowcare/presentation/features/reports/utils/report_filter_defaults.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -56,6 +57,7 @@ class _StudentAttendancePerStudentReportScreenState
   bool _isLoadingStudents = false;
   int _fetchId = 0;
   String _format = 'XLSX';
+  final ReportFilterDefault _studentFilter = ReportFilterDefault();
 
   @override
   void initState() {
@@ -63,8 +65,12 @@ class _StudentAttendancePerStudentReportScreenState
     final now = AppTime.now();
     _periodDate = DateTime(now.year, now.month, 1);
 
-    _selectedClassrooms = <String>[];
+    // All Classrooms / All Students are selected by default until the user
+    // changes them; the post-frame fetch below seeds the students for every
+    // classroom.
+    _selectedClassrooms = List<String>.from(widget.classrooms);
     _availableStudents = List<String>.from(widget.students);
+    _selectedStudents = List<String>.from(widget.students);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchStudentsForClassrooms(_selectedClassrooms);
@@ -100,17 +106,6 @@ class _StudentAttendancePerStudentReportScreenState
     List<String> selectedClassroomNames,
   ) async {
     final currentFetchId = ++_fetchId;
-    if (selectedClassroomNames.isEmpty) {
-      if (!mounted) return;
-      setState(() {
-        _availableStudents = <String>[];
-        _selectedStudents = <String>[];
-        _studentCodeByName = <String, String>{};
-        _isLoadingStudents = false;
-      });
-      return;
-    }
-
     setState(() {
       _isLoadingStudents = true;
     });
@@ -144,16 +139,20 @@ class _StudentAttendancePerStudentReportScreenState
       final getStudentClassroomListUseCase =
           serviceLocator<GetStudentClassroomListUseCase>();
 
-      final results = await Future.wait(
-        classroomCodes.map(
-          (code) => getStudentClassroomListUseCase(
+      final results = <List<StudentClassroomItem>>[];
+      for (final code in classroomCodes) {
+        try {
+          final students = await getStudentClassroomListUseCase(
             schoolCode: schoolCode,
             classroomCode: code,
             status: const ['ACTIVE'],
             refresh: true,
-          ).catchError((_) => <StudentClassroomItem>[]),
-        ),
-      );
+          );
+          results.add(students);
+        } catch (_) {
+          results.add(<StudentClassroomItem>[]);
+        }
+      }
 
       if (!mounted || currentFetchId != _fetchId) return;
 
@@ -173,9 +172,10 @@ class _StudentAttendancePerStudentReportScreenState
       setState(() {
         _studentCodeByName = newStudentCodeByName;
         _availableStudents = sortedNames;
-        _selectedStudents = _selectedStudents
-            .where((s) => newStudentCodeByName.containsKey(s))
-            .toList();
+        _selectedStudents = _studentFilter.resolve(
+          options: sortedNames,
+          current: _selectedStudents,
+        );
         _isLoadingStudents = false;
       });
 
@@ -406,7 +406,9 @@ class _StudentAttendancePerStudentReportScreenState
                   items: _availableStudents,
                   isRequired: true,
                   selectedItems: _selectedStudents,
-                  onChanged: (s) => setState(() => _selectedStudents = s),
+                  onChanged: (s) => setState(
+                    () => _selectedStudents = _studentFilter.userSelected(s),
+                  ),
                   itemToString: (item) => item,
                   singularLabel: 'Student',
                   pluralLabel: 'Students',
