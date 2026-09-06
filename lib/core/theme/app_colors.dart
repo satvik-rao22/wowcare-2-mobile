@@ -233,6 +233,183 @@ class AppColors {
   static const Color billingStatusSuccess = Colors.green;
   static const Color billingStatusError = Color(0xFFFF3B30);
 
+  // AutoPay payment methods screen — Mandate 4 sweep
+  static const Color billingAutopayTagBackground = Color(
+    0xFFEEE9FF,
+  ); // "AutoPay"/tag chip background
+  static const Color billingAutopayTagForeground = Color(
+    0xFF6F52FF,
+  ); // "AutoPay"/tag chip text+icon, add-method accent
+  static const Color billingMutedSlateText = Color(
+    0xFF718096,
+  ); // "Saving your payment method…" caption
+  static const Color billingSelectedCardBackground = Color(
+    0xFFF1FFF6,
+  ); // Selected payment-method card fill
+  static const Color billingEditActionColor = Color(
+    0xFF667EEA,
+  ); // Edit icon action button
+  static const Color billingDeleteActionColor = Color(
+    0xFFE53E3E,
+  ); // Delete icon action button
+  static const Color billingEcheckCardBackground = Color(0xFFE8F4FC);
+  static const Color billingEcheckCardBorder = Color(0xFFB8DAEF);
+  static const Color billingEcheckTitleColor = Color(0xFF334455);
+  static const List<Color> billingVisaGradientColors = [
+    Color(0xFF667EEA),
+    Color(0xFF764BA2),
+  ];
+  static const List<Color> billingMastercardGradientColors = [
+    Color(0xFFF093FB),
+    Color(0xFFF5576C),
+  ];
+  static const List<Color> billingDiscoverGradientColors = [
+    Color(0xFFFF9966),
+    Color(0xFFFF5E62),
+  ];
+  static const List<Color> billingGenericCardGradientColors = [
+    Color(0xFF5B5B5B),
+    Color(0xFF1A1A1A),
+  ];
+  static const List<Color> billingCardChipGradientColors = [
+    Color(0xFFD1D1D1),
+    Color(0xFFFCFCFC),
+  ];
+  static const Color billingAddMethodButtonBackground = Color(0xFFF7F6FD);
+
+  // Grey/black/white shade aliases used by the auto-pay screens (billing-scoped
+  // per the codebase's per-feature token convention).
+  static const Color billingBorderStrong = Color(
+    0xFFE0E0E0,
+  ); // was Colors.grey.shade300
+  static const Color billingBadgeInactiveBackground = Color(
+    0xFFEEEEEE,
+  ); // was Colors.grey.shade200 (badge/border fill)
+  static const Color billingMutedIconColor = Color(
+    0xFF9E9E9E,
+  ); // was Colors.grey.shade500 / bare Colors.grey
+  static const Color billingCaptionTextColor = Color(
+    0xFF757575,
+  ); // was Colors.grey.shade600
+  static const Color billingBlackText87 = Color(0xDD000000); // Colors.black87
+  static const Color billingBlackText54 = Color(0x8A000000); // Colors.black54
+  static const Color billingBlackText26 = Color(0x42000000); // Colors.black26
+  static const Color billingDetailLabelOnDark = Color(
+    0xB3FFFFFF,
+  ); // Colors.white70, detail label on a dark/gradient card
+  static const Color billingCardOnColorText =
+      Colors.white; // Text/icon painted on a gradient or dark card surface
+
+  // Receive-payment / issue-refund screen — Mandate 4 sweep
+  static const Color billingBorderFaint = Color(
+    0x33573353,
+  ); // billing text @ 20% alpha — unfocused amount-row border
+  static const Color billingInactiveFieldBackground = Color(
+    0xFFF4F4F6,
+  ); // Amount box fill when `active` is false
+  static const List<Color> billingAvatarPalette = [
+    Color(0xFFB983FF),
+    Color(0xFFF6D365),
+    billingAccentBlue,
+    Color(0xFF7ED9A6),
+    Color(0xFFFF9AA2),
+  ]; // Sibling-row initials-avatar background palette (indexed by name hash)
+  static const Color billingUserAvatarBackground =
+      Colors.orange; // Transaction user-info initials avatar
+
+  // Analytics section — Mandate 4 sweep
+  static const List<Color> billingRevenueGradientColors = [
+    Color(0xFF1BB686),
+    Color(0xFF31C9A5),
+  ];
+  static const List<Color> billingInvoicedGradientColors = [
+    Color(0xFF5A86FF),
+    Color(0xFF3F7DE3),
+  ];
+  static const List<Color> billingRefundsGradientColors = [
+    Color(0xFFFF5A68),
+    Color(0xFFEF3D4B),
+  ];
+  static const List<Color> billingSubsidyBalanceGradientColors = [
+    Color(0xFFFFC453),
+    Color(0xFFFFA600),
+  ];
+  static const List<Color> billingSubsidyInvoicedGradientColors = [
+    Color(0xFF8E6EFF),
+    Color(0xFF6A57E0),
+  ];
+  static const List<Color> billingSubsidyReceivedGradientColors = [
+    Color(0xFF2BC7A2),
+    Color(0xFF1CA482),
+  ];
+  static const Color billingChartGridLineColor = Color(0xFFE9E8EF);
+  static const Color billingChartZeroLineColor = Color(0xFFCFCAD8);
+
+  // Add-credit / receipt screens — Mandate 4 sweep
+  static const Color billingFamilyAvatarBackground = Color(0xFF67C2A6);
+
+  // AutoPay new-method screen — Mandate 4 sweep
+  static const Color billingInfoBannerBackground = Color(
+    0xFFFFF3E0,
+  ); // "Outstanding balance" info block
+  static const Color billingInfoBannerBorder = Color(0x4DFDB813);
+  static const Color billingWarningIconColor = Color(
+    0xFFDD6B20,
+  ); // Shared by both info/fee banners on this screen
+  static const Color billingInfoBannerTextColor = Color(0xFFD97706);
+  static const Color billingFeeBannerBackground = Color(0xFFFFFAF0);
+  static const Color billingFeeBannerBorder = Color(0x40FF9F40);
+  static const Color billingFeeBannerTextColor = Color(0xFFC05621);
+
+  // General ledger detail screen — Mandate 4 sweep
+  static const Color billingLedgerDebitColor = Color(0xFFF85A5A);
+  static const Color billingLedgerCreditColor = Color(0xFF4CAF50);
+  static const Color billingLedgerTypeChipColor = Color(0xFF1565C0);
+
+  // Create-invoice-type dialog — Mandate 4 sweep
+  static const Color billingHighlightSecondaryText =
+      Colors.white70; // Secondary/caption text on the highlighted (selected) tile
+  static const Color billingHighlightIconBackground =
+      Colors.white24; // Icon backdrop on the highlighted tile
+
+  // Sibling-cards stats legend — Mandate 4 sweep
+  static const Color billingSiblingPaidColor = Color(0xFF2E9E5B);
+  static const Color billingSiblingRefundedColor = Color(0xFFE08600);
+  static const Color billingSiblingUnpaidColor = Color(0xFFD64545);
+
+  // Amount-invoiced stat bar legend — Mandate 4 sweep (own palette, distinct
+  // from the sibling-cards legend above)
+  static final Color billingStatBarNetPaidColor = Colors.greenAccent.shade100;
+  static final Color billingStatBarOutstandingColor = Colors.redAccent.shade100;
+  static const Color billingStatBarInProcessColor = Colors.yellow;
+
+  /// Popup drag-handle circle — same value as the second stop of
+  /// [primaryGradientColors]/[secondaryGradientColors], kept as its own
+  /// named token since it's used standalone here, not as part of a gradient.
+  static const Color billingCircleAccentColor = Color.fromRGBO(
+    156,
+    132,
+    255,
+    1,
+  );
+
+  /// Selected-chip tint on the generate-statement screen — same value as
+  /// [attendanceSelectedTintColor], kept billing-scoped per convention.
+  static const Color billingSelectedTintColor = Color.fromRGBO(
+    249,
+    245,
+    250,
+    1,
+  );
+
+  /// Shimmer skeleton base — same value as [billingBorderStrong]
+  /// (`Colors.grey.shade300`), kept as its own alias since the role
+  /// (loading placeholder) is distinct from a border.
+  static const Color billingShimmerBaseColor = billingBorderStrong;
+  static const Color billingShimmerHighlightColor = Color(
+    0xFFF5F5F5,
+  ); // was Colors.grey.shade100
+
   // Additional billing literals centralized (visual-neutral) — Mandate 4 color batch
   static const Color billingBorderDefault = Color(
     0x66573353,

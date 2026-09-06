@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/fonts.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_settings/discounts_section.dart';
 
 class BillingSettingsSection extends StatefulWidget {
@@ -19,11 +20,19 @@ class BillingSettingsSection extends StatefulWidget {
 
 class _BillingSettingsSectionState extends State<BillingSettingsSection> {
   static const List<String> _subTabs = ['Billing'];
-  int _selectedIndex = 0;
+  final ValueNotifier<int> _selectedIndex = ValueNotifier<int>(0);
+
+  @override
+  void dispose() {
+    _selectedIndex.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return ValueListenableBuilder<int>(
+      valueListenable: _selectedIndex,
+      builder: (context, selectedIndex, _) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ── Sub-tab row ──────────────────────────────────────────
@@ -31,9 +40,9 @@ class _BillingSettingsSectionState extends State<BillingSettingsSection> {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: List.generate(_subTabs.length, (index) {
-              final bool isSelected = index == _selectedIndex;
+              final bool isSelected = index == selectedIndex;
               return GestureDetector(
-                onTap: () => setState(() => _selectedIndex = index),
+                onTap: () => _selectedIndex.value = index,
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(4, 6, 12, 6),
                   decoration: BoxDecoration(
@@ -49,7 +58,7 @@ class _BillingSettingsSectionState extends State<BillingSettingsSection> {
                   child: Text(
                     _subTabs[index],
                     style: TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: isSelected
@@ -65,12 +74,13 @@ class _BillingSettingsSectionState extends State<BillingSettingsSection> {
         const SizedBox(height: 12),
 
         // ── Tab content ──────────────────────────────────────────
-        if (_selectedIndex == 0)
+        if (selectedIndex == 0)
           DiscountsSection(
             onRegisterLoadNextPage: widget.onRegisterLoadNextPage,
             onLoadMoreNeeded: widget.onLoadMoreNeeded,
           ),
       ],
+      ),
     );
   }
 }

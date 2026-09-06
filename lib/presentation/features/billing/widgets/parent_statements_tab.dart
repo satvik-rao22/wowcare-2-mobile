@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -9,9 +11,9 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
-import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/admin_statements_cubit.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
-import 'package:wowcare/presentation/features/billing/cubit/parent_statements_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/parent_statements_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view/generate_statement_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_statements_widget.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_transaction_card.dart';
@@ -125,6 +127,8 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
       return;
     }
 
+    // Owned solely by this call: created fresh for the pushed screen and
+    // closed the moment it's popped, so nothing outlives the round trip.
     final statementsCubit = serviceLocator<AdminStatementsCubit>();
 
     final result = await context.push<bool>(
@@ -136,6 +140,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
         familyChildren: widget.familyChildren,
       ),
     );
+    unawaited(statementsCubit.close());
 
     if (!mounted) return;
     if (result == true) {

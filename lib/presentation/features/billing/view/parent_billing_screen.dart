@@ -5,7 +5,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/core/util/tab_visibility_events.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
-import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/parent_billing_cubit.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';

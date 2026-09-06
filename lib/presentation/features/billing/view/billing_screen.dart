@@ -8,9 +8,11 @@ import 'package:wowcare/presentation/features/billing/model/billing_route_args.d
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 // import 'package:wowcare/presentation/features/billing/widgets/subsidies/subsidies_section.dart'; // Subsidies not implemented yet
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/billing/view/Accounting/students.dart';
+import 'package:wowcare/core/theme/fonts.dart';
+import 'package:wowcare/presentation/features/billing/view/accounting/students.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_dialog.dart';
@@ -182,7 +184,9 @@ class _BillingScreenState extends State<BillingScreen>
   Widget build(BuildContext context) {
     final double titleFontSize = ResponsiveSizing.titleFontSize(context);
     final double titleLineHeight = ResponsiveSizing.titleLineHeight(context);
-    final EdgeInsets contentPadding = ResponsiveSizing.contentPadding(context);
+    // ResponsiveHelper.contentPadding is a verbatim port of this method (see
+    // its doc comment) — routed through the single canonical helper.
+    final EdgeInsets contentPadding = ResponsiveHelper(context).contentPadding;
 
     return GlobalScaffold(
       body: DefaultTabController(
@@ -227,7 +231,7 @@ class _BillingScreenState extends State<BillingScreen>
                                 child: Text(
                                   BillingStrings.billing,
                                   style: TextStyle(
-                                    fontFamily: 'Manrope',
+                                    fontFamily: Fonts.manrope,
                                     fontSize: titleFontSize,
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.billingTextColor,
@@ -377,7 +381,7 @@ class _BillingScreenState extends State<BillingScreen>
                                         child: Text(
                                           _tabs[index],
                                           style: const TextStyle(
-                                            fontFamily: 'Manrope',
+                                            fontFamily: Fonts.manrope,
                                             fontSize: 16,
                                             fontWeight: FontWeight.w600,
                                           ),

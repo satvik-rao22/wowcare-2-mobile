@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
-import 'package:wowcare/presentation/features/billing/cubit/transaction_card_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/transaction_card_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_student_vertical_popup.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -265,7 +265,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
           final String type = widget.transaction.transactionType.toLowerCase();
           return Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.billingCardColor,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.cardBorderColor),
             ),

@@ -46,7 +46,7 @@ class DiscountCard extends StatelessWidget {
             child: Text(
               '${percentage.toStringAsFixed(1)}%',
               textAlign: TextAlign.right,
-              style: BillingCardText.value.copyWith(color: Colors.white),
+              style: BillingCardText.value.copyWith(color: AppColors.billingCardOnColorText),
             ),
           ),
         ),
@@ -59,13 +59,13 @@ class DiscountCard extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _OutlineActionButton(label: BillingStrings.view, onTap: onView),
+              child: OutlineActionButton(label: BillingStrings.view, onTap: onView),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: isActive
-                  ? _FilledActionButton(label: BillingStrings.edit, onTap: onEdit)
-                  : _OutlineActionButton(label: BillingStrings.reactivate, onTap: onReactivate),
+                  ? FilledActionButton(label: BillingStrings.edit, onTap: onEdit)
+                  : OutlineActionButton(label: BillingStrings.reactivate, onTap: onReactivate),
             ),
           ],
         ),
@@ -73,86 +73,10 @@ class DiscountCard extends StatelessWidget {
         SizedBox(
           width: double.infinity,
           child: isActive
-              ? _OutlineActionButton(label: BillingStrings.deactivate, onTap: onDeactivate)
-              : _OutlineActionButton(label: BillingStrings.delete, onTap: onDelete),
+              ? OutlineActionButton(label: BillingStrings.deactivate, onTap: onDeactivate)
+              : OutlineActionButton(label: BillingStrings.delete, onTap: onDelete),
         ),
       ],
-    );
-  }
-}
-
-class _FilledActionButton extends StatelessWidget {
-  const _FilledActionButton({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      width: double.infinity,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: TextButton(
-          onPressed: onTap,
-          style: TextButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _OutlineActionButton extends StatelessWidget {
-  const _OutlineActionButton({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback? onTap;
-
-  static const Color _accent = AppColors.billingCardAccent;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      width: double.infinity,
-      child: OutlinedButton(
-        onPressed: onTap,
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: _accent),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: _accent,
-          ),
-        ),
-      ),
     );
   }
 }
