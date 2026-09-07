@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/staff/entities/school_regular_schedule_day.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_schedule_entry.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
@@ -65,6 +66,17 @@ class _FakeUpdateUseCase extends UpdateStaffSchedulesUseCase {
   }
 }
 
+/// The cubit reads the active school code from storage when a caller doesn't
+/// pass one. These tests always pass one explicitly, so an empty store is
+/// enough — it just must not be null.
+class _EmptyStorage implements StorageService {
+  @override
+  Future<String?> getString(String key) async => null;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => Future<void>.value();
+}
+
 class _Fakes {
   final get = _FakeGetUseCase();
   final update = _FakeUpdateUseCase();
@@ -72,6 +84,7 @@ class _Fakes {
   StaffScheduleCubit build() => StaffScheduleCubit(
     getSchoolRegularSchedulesUseCase: get,
     updateStaffSchedulesUseCase: update,
+    storageService: _EmptyStorage(),
   );
 }
 
@@ -144,36 +157,33 @@ void main() {
     });
   });
 
-  test(
-    'single-flight: two concurrent updateSchedules for the same staffCode '
-    'issue ONE use-case call and share the identical future',
-    () async {
-      final fakes = _Fakes();
-      final gate = Completer<String>();
-      fakes.update.gate = gate;
-      final cubit = fakes.build();
+  test('single-flight: two concurrent updateSchedules for the same staffCode '
+      'issue ONE use-case call and share the identical future', () async {
+    final fakes = _Fakes();
+    final gate = Completer<String>();
+    fakes.update.gate = gate;
+    final cubit = fakes.build();
 
-      final f1 = cubit.updateSchedules(
-        staffCode: 'ST1',
-        workSchedules: const [],
-        breakSchedules: const [],
-      );
-      final f2 = cubit.updateSchedules(
-        staffCode: 'ST1',
-        workSchedules: const [],
-        breakSchedules: const [],
-      );
+    final f1 = cubit.updateSchedules(
+      staffCode: 'ST1',
+      workSchedules: const [],
+      breakSchedules: const [],
+    );
+    final f2 = cubit.updateSchedules(
+      staffCode: 'ST1',
+      workSchedules: const [],
+      breakSchedules: const [],
+    );
 
-      expect(identical(f1, f2), isTrue);
+    expect(identical(f1, f2), isTrue);
 
-      await Future<void>.delayed(Duration.zero);
-      expect(fakes.update.calls, 1);
+    await Future<void>.delayed(Duration.zero);
+    expect(fakes.update.calls, 1);
 
-      gate.complete('saved');
-      await Future.wait<String>([f1, f2]);
+    gate.complete('saved');
+    await Future.wait<String>([f1, f2]);
 
-      expect(fakes.update.calls, 1);
-      await cubit.close();
-    },
-  );
+    expect(fakes.update.calls, 1);
+    await cubit.close();
+  });
 }

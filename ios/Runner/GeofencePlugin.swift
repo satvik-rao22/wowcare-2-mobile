@@ -222,6 +222,15 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
     handleAuthorizationChange(status: status)
   }
 
+  /// Whether the bundle declares the `location` UIBackgroundMode. Reading the
+  /// effective Info.plist (rather than hardcoding false) keeps this correct if
+  /// the mode is ever legitimately restored. Mirrors the same guard geolocator
+  /// applies in GeolocationHandler.shouldEnableBackgroundLocationUpdates.
+  private static let backgroundLocationModeDeclared: Bool = {
+    let modes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String]
+    return modes?.contains("location") ?? false
+  }()
+
   private func handleAuthorizationChange(status: CLAuthorizationStatus) {
     switch status {
     case .authorizedWhenInUse:
@@ -233,9 +242,14 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
       print("[iOS LOCATION] Got When In Use — staying foreground-only, no auto-escalation")
       locationManager.allowsBackgroundLocationUpdates = false
     case .authorizedAlways:
-      print("[iOS LOCATION] ✅ Got Always authorization — enabling background updates and restarting region monitoring")
-      // Safe to enable background updates now that "Always" is confirmed.
-      locationManager.allowsBackgroundLocationUpdates = true
+      print("[iOS LOCATION] ✅ Got Always authorization — restarting region monitoring")
+      // Only settable when Info.plist declares the `location` UIBackgroundMode —
+      // setting it to true without that entry throws. The mode was removed for
+      // App Review guideline 2.5.4, so this stays false; region monitoring below
+      // still delivers didEnterRegion/didExitRegion in the background and after
+      // app termination, which is all this feature needs.
+      locationManager.allowsBackgroundLocationUpdates =
+        Self.backgroundLocationModeDeclared
       restartMonitoringWithPersistedConfig()
     case .denied:
       print("[iOS LOCATION] ❌ Authorization denied — geofencing disabled")

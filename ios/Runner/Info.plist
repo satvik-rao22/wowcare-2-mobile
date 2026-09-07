@@ -93,9 +93,20 @@
 	<string>WowCare uses your location to enable attendance within the school premises.</string>
 	<key>UIBackgroundModes</key>
 	<array>
-		<!-- Required for AVPictureInPictureController / media PiP playback. -->
-		<string>audio</string>
-		<string>location</string>
+		<!-- NO `audio` mode. App Review rejected it under guideline 2.5.4: the
+		     app has no persistent-audio feature (music player, streaming audio),
+		     and the video PiP it was declared for was not accepted as one.
+		     Consequence: AVPictureInPictureController can no longer keep playing
+		     once the app is backgrounded, so HlsWebPlayer pauses instead of
+		     floating (see hls_web_player.dart). Do NOT re-add it without first
+		     clearing a persistent-audio feature with App Review. -->
+		<!-- NO `location` mode. App Review rejected it under guideline 2.5.4:
+		     continuous background location updates are not justified by staff
+		     attendance tracking. Geofencing still works without it —
+		     CLLocationManager region monitoring (GeofencePlugin.swift) wakes the
+		     app on region crossings via "Always" authorization, which does not
+		     require this background mode. Do NOT re-add it without a
+		     user-facing feature that Apple accepts as needing it. -->
 		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>

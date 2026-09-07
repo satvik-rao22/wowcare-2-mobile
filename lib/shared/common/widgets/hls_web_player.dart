@@ -1,6 +1,16 @@
+import 'dart:io' show Platform;
+
 import 'package:better_player_plus/better_player_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+// PiP on iPhone means "keep playing in a floating window after you leave the
+// app", which iOS only allows while the `audio` UIBackgroundMode is declared.
+// App Review rejected that mode under guideline 2.5.4 (see ios/Runner/Info.plist),
+// so on iOS AVPictureInPictureController would hand back a window that freezes
+// the moment the app is backgrounded — worse than not offering it. Android PiP
+// is a plain activity mode with no such dependency, so it stays.
+final bool _pipAvailable = !Platform.isIOS;
 
 class HlsWebPlayer extends StatefulWidget {
   const HlsWebPlayer({super.key, required this.videoUrl});
@@ -42,13 +52,12 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
     _initPlayer();
   }
 
-  // Mirrors YouTube's iOS behaviour: leaving the app while a video is
-  // playing shrinks it into the floating PiP window instead of pausing it.
-  // `paused` is Flutter's signal for applicationDidEnterBackground — the
-  // point Apple's docs say to call startPictureInPicture() from, which is
-  // also why the app enables the `audio` UIBackgroundMode and a `.playback`
-  // AVAudioSession category (see AppDelegate.swift): both are required for
-  // AVPictureInPictureController to keep running once the app is backgrounded.
+  // Where PiP is available (Android — see [_pipAvailable]), leaving the app
+  // while a video is playing shrinks it into the floating window instead of
+  // pausing it; `paused` is Flutter's signal for the platform's
+  // did-enter-background callback, the point the docs say to start PiP from.
+  // On iOS [_enterPipMode] declines, so [_handleBackgrounding] falls through
+  // to a plain pause.
   //
   // BetterPlayerConfiguration.handleLifecycle is intentionally off (see
   // _initPlayer): its own AppLifecycleState handling pauses playback on
@@ -269,6 +278,7 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
   /// backgrounding (see [_handleBackgrounding]) know whether to fall back
   /// to a plain pause instead of leaving the video playing off-screen.
   Future<bool> _enterPipMode() async {
+    if (!_pipAvailable) return false;
     if (_isEnteringPip) return false;
     final controller = _controller;
     if (controller == null || _playerKey.currentContext == null) return false;
@@ -357,34 +367,37 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
               ),
             ),
           ),
-          Positioned(
-            top: 0,
-            right: 0,
-            child: SafeArea(
-              child: Padding(
-                // The host screen (ShowFullScreenMedia / ShowFullScreenMediaView)
-                // now overlays its back/download row on top of the video instead
-                // of reserving a fixed AppBar — pushed down here so PiP doesn't
-                // sit underneath it.
-                padding: const EdgeInsets.only(top: 58, right: 14),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: const Color(0xB010141A),
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: const Color(0x6635B6FF)),
-                  ),
-                  child: IconButton(
-                    tooltip: 'PiP',
-                    onPressed: _isEnteringPip ? null : _enterPipMode,
-                    icon: const Icon(
-                      Icons.picture_in_picture_alt_rounded,
-                      color: Colors.white,
+          // Hidden where PiP can't actually keep playing (iOS) rather than
+          // offering a button that hands back a frozen floating window.
+          if (_pipAvailable)
+            Positioned(
+              top: 0,
+              right: 0,
+              child: SafeArea(
+                child: Padding(
+                  // The host screen (ShowFullScreenMedia / ShowFullScreenMediaView)
+                  // now overlays its back/download row on top of the video instead
+                  // of reserving a fixed AppBar — pushed down here so PiP doesn't
+                  // sit underneath it.
+                  padding: const EdgeInsets.only(top: 58, right: 14),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: const Color(0xB010141A),
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: const Color(0x6635B6FF)),
+                    ),
+                    child: IconButton(
+                      tooltip: 'PiP',
+                      onPressed: _isEnteringPip ? null : _enterPipMode,
+                      icon: const Icon(
+                        Icons.picture_in_picture_alt_rounded,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );

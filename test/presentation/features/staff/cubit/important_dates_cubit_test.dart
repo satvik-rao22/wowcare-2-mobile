@@ -7,6 +7,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_important_date.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_important_dates_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/load_cached_important_dates_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/update_important_dates_usecase.dart';
 import 'package:wowcare/presentation/features/staff/cubit/important_dates_cubit.dart';
 
@@ -87,7 +88,7 @@ class _FakeRepo implements StaffRepository, StaffRepositoryWithCache {
 ImportantDatesCubit _cubit(_FakeRepo repo) => ImportantDatesCubit(
   getImportantDatesUseCase: GetImportantDatesUseCase(repo),
   updateImportantDatesUseCase: UpdateImportantDatesUseCase(repo),
-  staffRepository: repo,
+  loadCachedImportantDatesUseCase: LoadCachedImportantDatesUseCase(repo),
   storageService: _FakeStorageService(),
   apiClient: _FakeApiClient(),
 );

@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dartz/dartz.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
@@ -172,16 +174,21 @@ class _FakeMessageEntityRepository implements MessageEntityRepository {
 
   Future<void> dispose() => _messagesController.close();
 
+  /// Draft codes handed to [cacheDraftMessage], in order. `sendMessage` writes
+  /// an optimistic draft before the network call, so these must record rather
+  /// than throw — they were unimplemented stubs, which is what made every
+  /// `sendMessage` case in this file fail.
+  final List<MessageEntity> cachedDrafts = <MessageEntity>[];
+  final List<String> failedDraftCodes = <String>[];
+
   @override
-  Future<void> cacheDraftMessage(MessageEntity message) {
-    // TODO: implement cacheDraftMessage
-    throw UnimplementedError();
+  Future<void> cacheDraftMessage(MessageEntity message) async {
+    cachedDrafts.add(message);
   }
 
   @override
-  Future<void> markDraftMessageFailed(String localTempCode) {
-    // TODO: implement markDraftMessageFailed
-    throw UnimplementedError();
+  Future<void> markDraftMessageFailed(String localTempCode) async {
+    failedDraftCodes.add(localTempCode);
   }
 
   @override
@@ -386,6 +393,33 @@ class _FakeChatAttachmentUploader extends ChatAttachmentUploader {
       attachmentId: attachment.name.hashCode,
     );
   }
+
+  /// Held open by a test that wants to observe the optimistic state while the
+  /// upload is still in flight.
+  Completer<void>? uploadGate;
+
+  /// `sendMessage` batches the whole selection through `uploadAll` (one upload
+  /// session for the lot), not one `upload` per file. Only `upload` was faked,
+  /// so the REAL `uploadAll` ran against a dummy-base-URL ImageUploadService:
+  /// nothing was recorded and no attachmentIds came back.
+  @override
+  Future<List<ChatAttachment>> uploadAll({
+    required String conversationCode,
+    required List<ChatAttachment> attachments,
+  }) async {
+    final gate = uploadGate;
+    if (gate != null) await gate.future;
+    final result = <ChatAttachment>[];
+    for (final attachment in attachments) {
+      result.add(
+        await upload(
+          conversationCode: conversationCode,
+          attachment: attachment,
+        ),
+      );
+    }
+    return result;
+  }
 }
 
 class _UnusedStorageService implements StorageService {
@@ -450,6 +484,41 @@ AttachmentEntity _attachment({
 );
 
 void main() {
+  // ConversationThreadCubit's mark-read path reads
+  // `WidgetsBinding.instance.lifecycleState` (it must not stamp a message read
+  // while the app is backgrounded). These are plain `test`s, not
+  // `testWidgets`, so without this the binding getter throws
+  // "Binding has not yet been initialized" and every case in this file fails.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  // `sendMessage` copies picked files into permanent app storage before
+  // sending (PendingAttachmentStorage.persistLocally), which asks
+  // path_provider for the app-support directory. There is no plugin
+  // implementation under `flutter test`, so the raw MethodChannel threw
+  // MissingPluginException and every attachment case failed. Point it at a
+  // real temp directory instead.
+  late Directory appSupportDir;
+  const pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
+
+  setUpAll(() {
+    appSupportDir = Directory.systemTemp.createTempSync(
+      'conversation_thread_cubit_test_',
+    );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          pathProviderChannel,
+          (call) async => appSupportDir.path,
+        );
+  });
+
+  tearDownAll(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(pathProviderChannel, null);
+    if (appSupportDir.existsSync()) {
+      appSupportDir.deleteSync(recursive: true);
+    }
+  });
+
   late _FakeMessageEntityRepository messageRepo;
   late _FakeConversationEntityRepository conversationRepo;
   late _FakeChatAttachmentUploader attachmentUploader;
@@ -611,30 +680,46 @@ void main() {
       localPath: '/tmp/$name',
     );
 
-    test(
-      'shows the optimistic message with local attachment previews '
-      'immediately, before upload or the network round-trip resolve',
-      () async {
-        final sendFuture = cubit.sendMessage(
-          text: 'hi',
-          senderCode: 'USR-1',
-          senderName: 'Me',
-          senderRole: ParticipantRole.staff,
-          organizationCode: 'ORG-1',
-          schoolCode: 'SCH-1',
-          attachments: [pendingAttachment('photo.jpg')],
-        );
+    test('shows the optimistic message with local attachment previews '
+        'before upload or the network round-trip resolve', () async {
+      // Hold the upload open, so what we observe below is unambiguously the
+      // OPTIMISTIC bubble rather than the settled result.
+      final gate = Completer<void>();
+      attachmentUploader.uploadGate = gate;
 
-        // Optimistic emit happens synchronously before the first upload
-        // `await` — no need to wait for anything.
-        final optimistic = cubit.state.messages.single;
-        expect(optimistic.attachments.single.fileName, 'photo.jpg');
-        expect(optimistic.attachments.single.localFilePath, '/tmp/photo.jpg');
-        expect(optimistic.status, MessageStatus.pending);
+      final sendFuture = cubit.sendMessage(
+        text: 'hi',
+        senderCode: 'USR-1',
+        senderName: 'Me',
+        senderRole: ParticipantRole.staff,
+        organizationCode: 'ORG-1',
+        schoolCode: 'SCH-1',
+        attachments: [pendingAttachment('photo.jpg')],
+      );
 
-        await sendFuture;
-      },
-    );
+      // Not synchronous any more: `sendMessage` first awaits
+      // PendingAttachmentStorage.persistLocally, which copies the picked
+      // files into permanent app storage so a preview survives a restart.
+      // The emit still precedes the upload and the network call, which is
+      // what this test is actually about.
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      final optimistic = cubit.state.messages.single;
+      expect(optimistic.attachments.single.fileName, 'photo.jpg');
+      // The source file doesn't exist here, so persistLocally keeps the
+      // original path (its documented fallback).
+      expect(optimistic.attachments.single.localFilePath, '/tmp/photo.jpg');
+      expect(optimistic.status, MessageStatus.pending);
+      expect(cubit.state.isSending, isTrue);
+      expect(
+        attachmentUploader.uploadedAttachmentNames,
+        isEmpty,
+        reason: 'upload must not have run yet',
+      );
+
+      gate.complete();
+      await sendFuture;
+    });
 
     test(
       'uploads each attachment and sends the resulting attachmentIds',

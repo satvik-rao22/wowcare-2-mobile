@@ -188,52 +188,27 @@ class MockCommunicationCubit extends MockCubit<CommunicationState>
   bool loadConversationsCalled = false;
   bool isClosedCalled = false;
 
-  // @override
-  // Future<void> loadConversations({
-  //   String? type,
-  //   String status = 'ACTIVE',
-  //   int page = 0,
-  //   int size = 20,
-  //   String? designation,
-  //   String? staffStatus,
-  //   String? classroom,
-  //   bool forceRefresh = false,
-  //   bool background = false,
-  //   String? statusFilter,
-  //   String? sort,
-  //   String? sortDirection,
-  //   bool includePrivate = false,
-  //   bool searchAdminChats = false,
-  //   bool searchRoomChats = false,
-  //   String? search,
-  //   String? searchStudentCode,
-  //   String? searchClassroomCode,
-  //   bool? isPrivateModeOnly,
-  //   List<ConversationType>? types,
-  //   String? senderNameFilter,
-  //   String? senderTypeFilter,
-  //   List<String>? userCodesFilter,
-  //   DateTime? from,
-  //   DateTime? to,
-  //   int? beforeDayCount,
-  //   int? afterDayCount,
-  //   bool? includePrivateMode,
-  //   bool? includeArchived,
-  //   bool? isSentByCurrentUser,
-  //   bool? isSentByGuardians,
-  //   bool? isSentByStaff,
-  //   bool? isDeleted,
-  //   bool? isScheduled,
-  //   bool? isParent,
-  //   bool? isStaff,
-  //   bool? mustIncludeAllConversationTypes,
-  //   DateTime? date,
-  //   bool? isParentAdmin,
-  //   int? parentUnreadCount,
-  //   int? studentUnreadCount,
-  // }) async {
-  //   loadConversationsCalled = true;
-  // }
+  // This override was commented out because it had drifted from
+  // CommunicationCubit's signature. Without it `MockCubit.noSuchMethod`
+  // returned `null` where the coordinator awaits a `Future<void>`, so
+  // ParentDashboardCoordinatorCubit's constructor threw
+  // "type 'Null' is not a subtype of type 'Future<void>'". Restored against the
+  // CURRENT signature.
+  @override
+  Future<void> loadConversations({
+    String? type,
+    String status = 'ACTIVE',
+    int page = 0,
+    int size = 20,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
+  }) async {
+    loadConversationsCalled = true;
+  }
 
   @override
   Future<void> close() async {

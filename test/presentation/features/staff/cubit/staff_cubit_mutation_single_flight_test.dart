@@ -189,27 +189,31 @@ void main() {
     },
   );
 
-  test('activateStaff routes through the activate use case to the repository',
-      () async {
-    final repo = _CountingRepo();
-    final cubit = _buildCubit(repo);
+  test(
+    'activateStaff routes through the activate use case to the repository',
+    () async {
+      final repo = _CountingRepo();
+      final cubit = _buildCubit(repo);
 
-    final message = await cubit.activateStaff('S1');
+      final message = await cubit.activateStaff('S1');
 
-    expect(repo.activateCalls, 1);
-    expect(message, 'activated');
-    await cubit.close();
-  });
+      expect(repo.activateCalls, 1);
+      expect(message, 'activated');
+      await cubit.close();
+    },
+  );
 
-  test('deleteStaff routes through the delete use case to the repository',
-      () async {
-    final repo = _CountingRepo();
-    final cubit = _buildCubit(repo);
+  test(
+    'deleteStaff routes through the delete use case to the repository',
+    () async {
+      final repo = _CountingRepo();
+      final cubit = _buildCubit(repo);
 
-    final message = await cubit.deleteStaff('S1');
+      final message = await cubit.deleteStaff('S1');
 
-    expect(repo.deleteCalls, 1);
-    expect(message, 'deleted');
-    await cubit.close();
-  });
+      expect(repo.deleteCalls, 1);
+      expect(message, 'deleted');
+      await cubit.close();
+    },
+  );
 }
