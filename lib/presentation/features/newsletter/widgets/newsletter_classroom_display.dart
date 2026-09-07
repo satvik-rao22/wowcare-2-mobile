@@ -1,3 +1,5 @@
+import 'package:wowcare/core/constants/app_strings.dart';
+
 /// Builds classroom labels for newsletter list cards, hiding codes the user cannot access.
 String buildNewsletterClassroomLabel({
   required List<String> classroomCodes,
@@ -5,7 +7,7 @@ String buildNewsletterClassroomLabel({
   bool restrictToKnownClassrooms = false,
 }) {
   if (classroomCodes.isEmpty) {
-    return restrictToKnownClassrooms ? '' : 'All Classrooms';
+    return restrictToKnownClassrooms ? '' : AppStrings.newsletterAllClassrooms;
   }
 
   final Set<String> knownCodes = nameByCode.keys

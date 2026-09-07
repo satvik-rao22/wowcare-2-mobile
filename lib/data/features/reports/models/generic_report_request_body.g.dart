@@ -7,8 +7,7 @@ part of 'generic_report_request_body.dart';
 // **************************************************************************
 
 Map<String, dynamic> _$GenericReportRequestBodyToJson(
-  GenericReportRequestBody instance,
-) {
+    GenericReportRequestBody instance) {
   final val = <String, dynamic>{
     'reportType': instance.reportType,
     'format': instance.format,

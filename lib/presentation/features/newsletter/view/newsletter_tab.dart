@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/newsletter/view/sent_newsletter_tab.dart';
 
@@ -29,83 +32,13 @@ class _NewsLatterTabState extends State<NewsLatterTab>
     super.dispose();
   }
 
-  Tab _buildSingleMessagingTab({
-    required String label,
-    required int index,
-  }) {
-    return Tab(
-      child: Container(
-        height: 40,
-        width: MediaQuery.of(context).size.width * 0.20,
-        decoration: BoxDecoration(
-          color: newsLetterTabController.index == index
-              ? AppColors.classroomStudentTabColor
-              : const Color.fromARGB(102, 203, 246, 255),
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(12),
-            topRight: Radius.circular(12),
-          ),
-          border: Border.all(
-            color: newsLetterTabController.index == index
-                ? AppColors.themeColor
-                : Colors.transparent,
-            width: 1.25,
-          ),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 15,
-              color: newsLetterTabController.index == index
-                  ? AppColors.primaryColor
-                  : AppColors.primaryColor.withValues(alpha: 0.5),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNewsLatterTabs() {
-    final List<Widget> tabs = [
-      Padding(
-        padding: const EdgeInsets.only(right: 16),
-        child: _buildSingleMessagingTab(
-          label: 'Sent',
-          index: 0,
-        ),
-      ),
-    ];
-
-    final TabBar tabBar = TabBar(
-      tabs: tabs,
-      controller: newsLetterTabController,
-      isScrollable: true,
-      labelColor: Colors.black,
-      unselectedLabelColor: const Color.fromARGB(50, 36, 22, 49),
-      tabAlignment: TabAlignment.center,
-      indicatorColor: Colors.transparent,
-      labelPadding: const EdgeInsets.symmetric(horizontal: 0),
-      dividerHeight: 0,
-      indicator: const BoxDecoration(),
-    );
-    return Padding(
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [tabBar],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         Transform.translate(
           offset: const Offset(0, 5),
-          child: _buildNewsLatterTabs(),
+          child: _NewsletterTabBar(controller: newsLetterTabController),
         ),
         const SizedBox(height: 14),
         Expanded(
@@ -118,6 +51,98 @@ class _NewsLatterTabState extends State<NewsLatterTab>
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The newsletter tab bar.
+///
+/// A private widget rather than a `_build…()` method: a method returning a
+/// Widget cannot be const, cannot take a key, and rebuilds with its whole
+/// enclosing widget (§6).
+class _NewsletterTabBar extends StatelessWidget {
+  const _NewsletterTabBar({required this.controller});
+
+  final TabController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final TabBar tabBar = TabBar(
+      tabs: [
+        Padding(
+          padding: const EdgeInsets.only(right: AppSizes.md),
+          child: _NewsletterTabChip(
+            label: AppStrings.newsletterSentTab,
+            isSelected: controller.index == 0,
+          ),
+        ),
+      ],
+      controller: controller,
+      isScrollable: true,
+      labelColor: AppColors.blackColor,
+      unselectedLabelColor: AppColors.newsletterTabUnselectedLabel,
+      tabAlignment: TabAlignment.center,
+      indicatorColor: AppColors.transparentColor,
+      labelPadding: const EdgeInsets.symmetric(horizontal: 0),
+      dividerHeight: 0,
+      indicator: const BoxDecoration(),
+    );
+    return Padding(
+      padding: const EdgeInsets.all(AppSizes.xxs),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [tabBar],
+      ),
+    );
+  }
+}
+
+/// One selectable tab chip in [_NewsletterTabBar].
+///
+/// Near-identical to `_ParentNewsletterTabChip` in `parent_newsletter_screen`
+/// — see the note there before merging them.
+class _NewsletterTabChip extends StatelessWidget {
+  const _NewsletterTabChip({required this.label, required this.isSelected});
+
+  final String label;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tab(
+      child: Container(
+        height: 40,
+        // §7.6: `sizeOf`, not `of` — `.of` subscribes to the whole
+        // MediaQueryData, so a width read re-runs on every keyboard open.
+        // A continuous proportion, not a breakpoint choice, so it stays a
+        // measurement rather than becoming `context.responsive(...)`.
+        width: MediaQuery.sizeOf(context).width * 0.20,
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.classroomStudentTabColor
+              : AppColors.newsletterTabUnselectedBackground,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(12),
+            topRight: Radius.circular(12),
+          ),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.themeColor
+                : AppColors.transparentColor,
+            width: 1.25,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: AppTextStyles.newsletterTabLabel.copyWith(
+              color: isSelected
+                  ? AppColors.primaryColor
+                  : AppColors.primaryColor.withValues(alpha: 0.5),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

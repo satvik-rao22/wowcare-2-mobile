@@ -1,3 +1,5 @@
+import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
+import 'package:wowcare/domain/features/newsletter/entities/newsletter_component.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_component_entity.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_entity.dart';
 
@@ -73,69 +75,34 @@ NewsletterThumbnailInfo resolveNewsletterThumbnail(NewsletterEntity entity) {
 /// (see `parseComponentParts` in `newsletter_content_parser.dart`) rather than
 /// as flat fields directly on the component, so `parts` must be inspected
 /// first. A flat legacy shape is checked as a fallback for older payloads.
-NewsletterThumbnailInfo? _imageFromComponent(NewsletterComponentEntity component) {
-  final data = component.data;
-
-  final dynamic rawParts = data['parts'];
-  if (rawParts is List) {
-    for (final dynamic rawPart in rawParts) {
-      if (rawPart is! Map) continue;
-      final part = Map<String, dynamic>.from(rawPart);
-      final String partType = (part['type'] ?? '').toString().trim().toUpperCase();
-      if (partType != 'IMAGE') continue;
-      final String url = _firstNonEmpty([
-        part['imageUrl'],
-        part['url'],
-        part['src'],
-        part['downloadUrl'],
-        part['publicUrl'],
-      ]);
-      final String code = _firstNonEmpty([
-        part['assetCode'],
-        part['mediaCode'],
-        part['code'],
-      ]);
-      if (url.isEmpty && code.isEmpty) continue;
-      return NewsletterThumbnailInfo(
-        assetCode: code,
-        directUrl: url,
-        mimeType: resolveThumbnailMimeType(
-          mimeType: part['mimeType']?.toString() ?? part['contentType']?.toString(),
-          url: url,
-          fileName: part['fileName']?.toString() ?? part['name']?.toString(),
-          assetCode: code,
-        ),
-      );
-    }
+NewsletterThumbnailInfo? _imageFromComponent(
+  NewsletterComponentEntity component,
+) {
+  for (final NewsletterComponentMedia part in component.body.parts) {
+    if (!part.isImage) continue;
+    if (!part.hasSource) continue;
+    return _thumbnailFrom(part);
   }
 
   if (_isImageComponent(component.type)) {
-    final String url = _firstNonEmpty([
-      data['url'],
-      data['imageUrl'],
-      data['src'],
-      data['downloadUrl'],
-    ]);
-    final String code = _firstNonEmpty([
-      data['assetCode'],
-      data['mediaCode'],
-      data['code'],
-    ]);
-    if (url.isNotEmpty || code.isNotEmpty) {
-      return NewsletterThumbnailInfo(
-        assetCode: code,
-        directUrl: url,
-        mimeType: resolveThumbnailMimeType(
-          mimeType: data['mimeType']?.toString() ?? data['contentType']?.toString(),
-          url: url,
-          fileName: data['fileName']?.toString() ?? data['name']?.toString(),
-          assetCode: code,
-        ),
-      );
-    }
+    final NewsletterComponentMedia flat = component.body.flat;
+    if (flat.hasSource) return _thumbnailFrom(flat);
   }
 
   return null;
+}
+
+NewsletterThumbnailInfo _thumbnailFrom(NewsletterComponentMedia media) {
+  return NewsletterThumbnailInfo(
+    assetCode: media.assetCode,
+    directUrl: media.imageUrl,
+    mimeType: resolveThumbnailMimeType(
+      mimeType: media.mimeType,
+      url: media.imageUrl,
+      fileName: media.fileName,
+      assetCode: media.assetCode,
+    ),
+  );
 }
 
 bool _isImageComponent(String type) {
@@ -186,4 +153,58 @@ String resolveThumbnailMimeType({
 
   if ((assetCode ?? '').trim().isNotEmpty) return 'image/*';
   return mime.isNotEmpty ? mime : 'image/*';
+}
+
+/// Resolves the thumbnail image for a sent-newsletter list card: an actual
+/// image attachment, then an image embedded in the newsletter body, then a
+/// legacy asset-code pattern in the text — never a non-image document, and
+/// only empty (triggering the default thumbnail) when the newsletter truly
+/// contains no image anywhere.
+NewsletterThumbnailInfo resolveSentNewsletterThumbnail(Newsletter newsletter) {
+  for (final attachment in newsletter.attachments) {
+    final String code = attachment.mediaCode.trim();
+    final String url = attachment.resolvedUrl;
+    if (code.isEmpty && url.isEmpty) continue;
+    final String mimeType = resolveThumbnailMimeType(
+      mimeType: attachment.mimeType,
+      url: url,
+      fileName: attachment.fileName,
+      assetCode: code,
+    );
+    if (!mimeType.startsWith('image/')) continue;
+    return NewsletterThumbnailInfo(
+      assetCode: code,
+      directUrl: url,
+      mimeType: mimeType,
+    );
+  }
+
+  for (final component in newsletter.components) {
+    for (final part in component.parts) {
+      if (part.type != NewsletterPartType.image || !part.hasImage) continue;
+      final String url = part.imageUrl.trim();
+      final String code = part.assetCode.trim();
+      return NewsletterThumbnailInfo(
+        assetCode: code,
+        directUrl: url,
+        mimeType: resolveThumbnailMimeType(
+          url: url,
+          fileName: part.alt,
+          assetCode: code,
+        ),
+      );
+    }
+  }
+
+  final RegExp codePattern = RegExp(r'AST_[A-Z0-9-]+', caseSensitive: false);
+  final String text = '${newsletter.subtitle}\n${newsletter.bodyHtml}';
+  final RegExpMatch? match = codePattern.firstMatch(text);
+  if (match != null) {
+    final String code = (match.group(0) ?? '').trim();
+    if (code.isNotEmpty) {
+      return NewsletterThumbnailInfo(assetCode: code, mimeType: 'image/*');
+    }
+  }
+
+  return const NewsletterThumbnailInfo();
 }

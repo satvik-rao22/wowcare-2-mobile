@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
@@ -16,7 +17,7 @@ class NewsletterListShimmer extends StatelessWidget {
       itemCount: itemCount,
       itemBuilder: (BuildContext context, int index) {
         return const Padding(
-          padding: EdgeInsets.symmetric(vertical: 8),
+          padding: EdgeInsets.symmetric(vertical: AppSizes.xs),
           child: _NewsletterCardShimmer(),
         );
       },
@@ -30,10 +31,10 @@ class _NewsletterCardShimmer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
+      baseColor: AppColors.shimmerBase,
+      highlightColor: AppColors.shimmerHighlight,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: AppSizes.xsPlus, vertical: AppSizes.xsPlus),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
@@ -48,28 +49,28 @@ class _NewsletterCardShimmer extends StatelessWidget {
               width: 84,
               height: 56,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.whiteColor,
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSizes.sm),
             // Text content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _bar(widthFactor: 0.7, height: 14),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSizes.xs),
                   _bar(widthFactor: 0.55, height: 11),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSizes.xs),
                   Row(
                     children: [
                       Expanded(child: _bar(widthFactor: 0.6, height: 11)),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppSizes.sm),
                       _box(width: 34, height: 11),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSizes.xs),
                   _bar(widthFactor: 0.5, height: 11),
                 ],
               ),
@@ -95,7 +96,7 @@ class _NewsletterCardShimmer extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.whiteColor,
         borderRadius: BorderRadius.circular(4),
       ),
     );

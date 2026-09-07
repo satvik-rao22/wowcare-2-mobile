@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/presentation/features/newsletter/util/newsletter_color_theme.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_color_theme.dart';
 
 /// Newsletter title bar with a horizontal theme gradient background.
 class NewsletterThemedTitleBar extends StatelessWidget {
@@ -19,7 +21,7 @@ class NewsletterThemedTitleBar extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: AppSizes.md, vertical: 14),
       decoration: BoxDecoration(
         gradient: theme.titleBarGradient,
         borderRadius: BorderRadius.circular(12),
@@ -30,12 +32,10 @@ class NewsletterThemedTitleBar extends StatelessWidget {
         textAlign: TextAlign.center,
         maxLines: 3,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(
+        // Chrome from AppTextStyles; the colour is the author's
+        // `titleTextColor`, which is data (§4).
+        style: AppTextStyles.newsletterTitleBar.copyWith(
           color: theme.titleTextColor,
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          fontFamily: 'Manrope',
-          height: 1.25,
         ),
       ),
     );

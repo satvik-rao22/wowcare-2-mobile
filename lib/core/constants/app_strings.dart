@@ -92,4 +92,114 @@ abstract final class AppStrings {
 
   /// Relative-time label for the previous day.
   static const String chatPreviewYesterday = 'Yesterday';
+
+  // ── Newsletter ────────────────────────────────────────────────────────────
+  // Naming: `<feature><Context><Thing>`, lowerCamelCase, feature first — the
+  // same shape as the dashboard entries above.
+  //
+  // NOT here, deliberately: newsletter TITLES, SUBTITLES and BODY HTML. Those
+  // arrive from the backend with the record and are author-written content,
+  // not UI copy. Nor are the `SENT`/`DRAFT` status values, which are compared
+  // against API responses (§4, "skip anything not user-visible").
+
+  /// Tab label on the staff/admin newsletter tab.
+  static const String newsletterSentTab = 'Sent';
+
+  /// Screen header and tab label on the parent newsletter screen.
+  static const String newsletterTitle = 'Newsletter';
+
+  /// Search field placeholder on both newsletter lists.
+  static const String newsletterSearchHint = 'Search';
+
+  /// Classroom multi-select placeholder and its inner search placeholder.
+  static const String newsletterClassroomFilterHint = 'Classroom';
+  static const String newsletterClassroomSearchHint = 'Search classroom';
+
+  // ── Empty and error states ────────────────────────────────────────────────
+
+  /// Parent list, no newsletters for the selected child.
+  static const String newsletterNoneParent = 'No Newsletters';
+
+  /// Staff/admin list, nothing sent yet.
+  static const String newsletterNoneSent = 'No Sent Newsletters';
+
+  /// Parent list, before a child has been chosen.
+  static const String newsletterSelectChild =
+      'Select a child to view newsletters.';
+
+  /// Preview screen, the newsletter could not be fetched.
+  static const String newsletterLoadFailed = 'Unable to load newsletter.';
+
+  /// Preview screen, the record arrived without a usable code.
+  static const String newsletterCodeMissing = 'Newsletter code is missing.';
+
+  /// Preview body, the newsletter has no renderable components.
+  static const String newsletterNoContent = 'No newsletter content available.';
+
+  /// Image preview overlay, the image failed to decode.
+  static const String newsletterImageLoadFailed = 'Unable to load image';
+
+  /// Sign-in state lost while resolving the school for the list query.
+  static const String newsletterSchoolCodeMissing =
+      'School code not available. Please sign in again.';
+
+  // ── Hyperlink handling ────────────────────────────────────────────────────
+
+  /// Snackbar when a tapped link has no usable URL.
+  static const String newsletterLinkOpenFailed = 'Unable to open link.';
+
+  /// Snackbar when a tapped link could not be launched. The URL is appended.
+  static const String newsletterLinkOpenFailedPrefix = 'Unable to open link: ';
+
+  // ── Recipients sheet and card meta ────────────────────────────────────────
+
+  static const String newsletterRecipients = 'Recipients';
+  static const String newsletterRecipientsUnavailable =
+      'Recipient names are not available.';
+  static const String newsletterAttachments = 'Attachments';
+  static const String newsletterMetaDate = 'Date';
+  static const String newsletterMetaCreatedBy = 'Created by';
+
+  /// Separator between a card meta label and its value. Kept as a constant
+  /// because the surrounding spaces are load-bearing.
+  static const String newsletterMetaSeparator = ' : ';
+
+  /// Retry action on the newsletter preview's failure state.
+  static const String newsletterRetry = 'Retry';
+
+  /// Parent list, a search matched nothing in the whole (fully paged) history.
+  static const String newsletterNoSearchMatches =
+      'No newsletters match your search.';
+
+  /// Parent list, a search matched nothing YET but more pages are still
+  /// loading. Distinct from [newsletterNoSearchMatches] so the user is not
+  /// told "nothing found" while the answer is still arriving.
+  static const String newsletterSearching = 'Searching…';
+
+  /// Shown to a classroom-scoped staff member when neither their staff profile
+  /// nor the classroom list could be loaded, so there is no classroom to scope
+  /// the newsletter query by. The alternative would be querying the whole
+  /// school, which is what this message exists to prevent.
+  static const String newsletterClassroomScopeUnavailable =
+      'Unable to load your classrooms. Pull to refresh.';
+
+  /// Classroom label on a card when a newsletter targets every classroom.
+  /// Only shown to users who are not classroom-restricted.
+  static const String newsletterAllClassrooms = 'All Classrooms';
+
+  /// Singular / plural noun after the recipient count in the sheet header.
+  static const String newsletterRecipientSingular = 'recipient';
+  static const String newsletterRecipientPlural = 'recipients';
+
+  /// Accessibility label for the image preview barrier.
+  static const String newsletterCloseImagePreview = 'Close image preview';
+
+  /// Shown in the "Created by" slot when the API returns an empty
+  /// `createdByName`.
+  ///
+  /// Was the literal `'Demo Test'`, which shipped to real users against real
+  /// newsletters. Now `'-'`, which is what the PARENT list already used for
+  /// exactly the same case — the two lists disagreed. Aligned on the parent
+  /// list's value rather than inventing a third.
+  static const String newsletterUnknownAuthor = '-';
 }
