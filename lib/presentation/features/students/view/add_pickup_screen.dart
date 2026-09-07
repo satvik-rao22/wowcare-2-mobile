@@ -216,7 +216,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     final email = _emailController.text.trim();
     final phone = _phoneController.text.trim();
     final relation = _relationController.text.trim();
-    final normalizedRelation = _toRelationEnum(relation);
+    final resolvedRelation = _resolveRelationForSubmit(relation);
 
     if (first.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -297,7 +297,8 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
           lastName: last,
           email: email,
           phoneNumber: normalizedPhone,
-          relation: normalizedRelation,
+          relation: resolvedRelation.relation,
+          relationshipDescription: resolvedRelation.relationshipDescription,
           clockPin: (widget.initialClockPin ?? '').trim(),
           pickupType: 'CAREGIVER',
         );
@@ -308,7 +309,8 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
           lastName: last,
           email: email,
           phoneNumber: normalizedPhone,
-          relation: normalizedRelation,
+          relation: resolvedRelation.relation,
+          relationshipDescription: resolvedRelation.relationshipDescription,
           pickupType: 'CAREGIVER',
         );
       }
@@ -678,8 +680,31 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     return '(${d.substring(0, 3)}) ${d.substring(3, 6)}-${d.substring(6)}';
   }
 
-  String _toRelationEnum(String raw) {
-    final normalized = raw.trim().toUpperCase().replaceAll(RegExp(r'\s+'), '_');
-    return normalized.isEmpty ? 'OTHER' : normalized;
+  /// Resolves the `relation` field to send: a canonical enum drawn only
+  /// from [RelationSelector.defaultRelationOptions] (the dropdown's fixed
+  /// values), never arbitrary free text.
+  ///
+  /// [RelationSelector.onChanged] hands back the raw resolved string either
+  /// way - a predefined option as-is, or (when "Other" was picked) whatever
+  /// custom text the user typed in its reveal field - with no way for this
+  /// caller to tell which case it is from the string alone. Naively
+  /// enum-casing that string (uppercase + underscores) sent the free text
+  /// straight through as `relation` (e.g. "family friend" ->
+  /// "FAMILY_FRIEND", not a value the backend's relation enum recognizes).
+  /// Only a match against the dropdown's own known options may become
+  /// `relation`; anything else is the "Other" case and belongs in
+  /// `relationshipDescription` instead, with `relation` fixed to 'OTHER'.
+  ({String relation, String? relationshipDescription}) _resolveRelationForSubmit(
+    String raw,
+  ) {
+    for (final option in RelationSelector.defaultRelationOptions) {
+      if (option.toUpperCase() == raw.toUpperCase()) {
+        return (relation: option.toUpperCase(), relationshipDescription: null);
+      }
+    }
+    return (
+      relation: 'OTHER',
+      relationshipDescription: raw.isEmpty ? null : raw,
+    );
   }
 }
