@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/router/app_routes.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -243,7 +244,7 @@ String getFirstName(String name) {
 }
 
 class StudentAttendanceProfile extends StatefulWidget {
-  static const String routeName = '/dashboard/student-attendance-profile';
+  static const String routeName = DashboardRoutes.studentAttendanceProfile;
 
   const StudentAttendanceProfile({
     super.key,

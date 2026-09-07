@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,12 +9,11 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_shifts_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/presentation/features/scheduling/model/shift_models.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/classroom_name_resolver.dart';
 import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
-import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_day_schedule_calendar.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_schedule_tile.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
@@ -218,7 +218,7 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
                               const SizedBox(height: 16),
 
                               // ── Staff Profile Header (from scheduling screen) ──
-                              _StaffProfileHeader(
+                              _MyShiftsStaffProfileHeader(
                                 staffCode: state.staffCode,
                                 staffName: state.staffName,
                                 designation: state.designation,
@@ -391,9 +391,9 @@ class _DateNavRow extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════════════════
 
 /// Staff profile section: circular photo + name, designation, classroom.
-/// Matches the visual design of _StaffProfileHeader from StaffSchedulingScreen.
-class _StaffProfileHeader extends StatelessWidget {
-  const _StaffProfileHeader({
+/// Matches the visual design of _MyShiftsStaffProfileHeader from StaffSchedulingScreen.
+class _MyShiftsStaffProfileHeader extends StatelessWidget {
+  const _MyShiftsStaffProfileHeader({
     required this.staffCode,
     required this.staffName,
     required this.designation,

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/presentation/features/newsletter/view/preview_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/newsletter/util/newsletter_entity_mapper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -8,11 +10,9 @@ import 'package:wowcare/domain/features/newsletter/entities/newsletter_entity.da
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
-import 'package:wowcare/presentation/features/newsletter/view/preview_newsletter_screen.dart';
-import 'package:wowcare/presentation/features/newsletter/util/newsletter_entity_mapper.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
 import 'package:wowcare/presentation/features/newsletter/util/newsletter_thumbnail_resolver.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -106,7 +106,7 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
 
                     final items = state.items;
                     if (items.isEmpty) {
-                      return _EmptyState(onRefresh: _refresh);
+                      return _NewslettersEmptyState(onRefresh: _refresh);
                     }
 
                     // Preserve original mock design density: show the first 3 rows.
@@ -152,10 +152,7 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
 }
 
 class _NewsletterRow extends StatelessWidget {
-  const _NewsletterRow({
-    required this.item,
-    required this.classroomName,
-  });
+  const _NewsletterRow({required this.item, required this.classroomName});
 
   final NewsletterEntity item;
   final String classroomName;
@@ -225,26 +222,6 @@ class _NewsletterRow extends StatelessWidget {
                           ),
                         ),
                       ),
-                      // Row(
-                      //   mainAxisSize: MainAxisSize.min,
-                      //   children: [
-                      //     Icon(
-                      //       Icons.remove_red_eye_outlined,
-                      //       size: 14,
-                      //       color: Colors.grey[600],
-                      //     ),
-                      //     const SizedBox(width: 4),
-                      //     Text(
-                      //       '$recipientCount',
-                      //       maxLines: 1,
-                      //       overflow: TextOverflow.ellipsis,
-                      //       style: TextStyle(
-                      //         color: Colors.grey[600],
-                      //         fontSize: 13,
-                      //       ),
-                      //     ),
-                      //   ],
-                      // ),
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -347,8 +324,15 @@ class _MetaRow extends StatelessWidget {
   }
 }
 
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onRefresh});
+/// Renamed from `_EmptyState` under Mandate 6 §6.6 — communication declares two
+/// more classes of that name (`conversation_list_screen.dart`,
+/// `admin_chat_host_screen.dart`) and all three have different constructors:
+/// this one takes `onRefresh`, theirs take `ConversationType` and `bool
+/// hasFilters`. They are private, so nothing collided at compile time, but the
+/// name was unsearchable. Follows the repo's own `_GeneratedReportsEmptyState`
+/// convention.
+class _NewslettersEmptyState extends StatelessWidget {
+  const _NewslettersEmptyState({required this.onRefresh});
 
   final Future<void> Function() onRefresh;
 

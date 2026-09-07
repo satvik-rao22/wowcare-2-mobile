@@ -28,9 +28,9 @@ import 'package:wowcare/presentation/features/availability/cubit/individual_move
 import 'package:wowcare/presentation/features/availability/cubit/future_availability_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/viewmodels/parent_dashboard_viewmodel.dart';
-import 'package:wowcare/presentation/features/dashboard/viewmodels/staff_dashboard_viewmodel.dart';
-import 'package:wowcare/presentation/features/dashboard/viewmodels/admin_dashboard_viewmodel.dart';
+import 'package:wowcare/presentation/features/dashboard/model/parent_dashboard_viewmodel.dart';
+import 'package:wowcare/presentation/features/dashboard/model/staff_dashboard_viewmodel.dart';
+import 'package:wowcare/presentation/features/dashboard/model/admin_dashboard_viewmodel.dart';
 
 // Mock Storage Service
 class MockStorageService implements StorageService {

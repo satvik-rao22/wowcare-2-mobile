@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
@@ -32,7 +33,7 @@ class StudentAttendanceTabbedView extends StatefulWidget {
     this.hasBackButton = false,
   });
 
-  static const String routeName = '/dashboard/student-attendance-tabbed-view';
+  static const String routeName = DashboardRoutes.studentAttendanceTabbedView;
 
   final int initialTabIndex; // 0: Daily, 1: Custom, 2: Absent
   final String? dailyIncomingFilter; // forwarded to Daily screen

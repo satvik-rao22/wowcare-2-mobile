@@ -108,8 +108,7 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
     }
 
     final from =
-        state.fromDate ??
-        DateTime(AppTime.now().year, AppTime.now().month, 1);
+        state.fromDate ?? DateTime(AppTime.now().year, AppTime.now().month, 1);
     final to = state.toDate ?? AppTime.now();
 
     await Future.wait([

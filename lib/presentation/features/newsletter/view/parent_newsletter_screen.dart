@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/router/app_routes.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_list_tab.dart';
@@ -11,7 +12,7 @@ import '../../../../app/theme/colors.dart';
 class ParentNewsletterScreen extends StatefulWidget {
   const ParentNewsletterScreen({super.key});
 
-  static const String routeName = '/dashboard/parent-newsletter';
+  static const String routeName = DashboardRoutes.parentNewsletter;
 
   @override
   State<ParentNewsletterScreen> createState() => _ParentNewsletterScreenState();

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,21 +10,34 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
-class StudentAttendanceCard extends StatefulWidget {
-  const StudentAttendanceCard({super.key});
+/// The parent dashboard's attendance SUMMARY card for the selected child.
+///
+/// Renamed from `StudentAttendanceCard` under Mandate 6 §6.6: attendance owns a
+/// widget of that name too
+/// (`attendance/view/screens/widgets/student_attendance_card.dart`), and the two
+/// are not interchangeable — that one is a per-student LIST ROW taking
+/// `StudentAttendanceCardData student, int index, bool isExpanded` plus four
+/// callbacks, this one is a parameterless dashboard card that reads
+/// StudentAttendanceProfileCubit and ParentChildCubit for itself. Merging them
+/// would have meant a widget with two disjoint constructors; renaming is the
+/// correct resolution.
+class StudentAttendanceSummaryCard extends StatefulWidget {
+  const StudentAttendanceSummaryCard({super.key});
 
   @override
-  State<StudentAttendanceCard> createState() => _StudentAttendanceCardState();
+  State<StudentAttendanceSummaryCard> createState() =>
+      _StudentAttendanceSummaryCardState();
 }
 
-class _StudentAttendanceCardState extends State<StudentAttendanceCard>
+class _StudentAttendanceSummaryCardState
+    extends State<StudentAttendanceSummaryCard>
     with AutomaticKeepAliveClientMixin {
   bool _minimized = false;
   late DateTime _fromDate;
@@ -74,20 +88,17 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
     unawaited(
       context.push(
         StudentAttendanceProfile.routeName,
-        extra: <String, dynamic>{
-          'studentCode': selectedChild.code,
-          'studentId': 0,
-          'studentName': selectedChild.name,
-          'studentPhotoUuid': null,
-          'roomName':
+        extra: StudentAttendanceProfileArgs(
+          studentCode: selectedChild.code,
+          studentName: selectedChild.name,
+          roomName:
               (selectedChild.primaryClassroomName ?? selectedChild.classroom)
                   .trim()
                   .isNotEmpty
               ? (selectedChild.primaryClassroomName ?? selectedChild.classroom)
               : '—',
-          'isSignedIn': false,
-          'syncWithParentChildSelection': true,
-        },
+          syncWithParentChildSelection: true,
+        ),
       ),
     );
   }
@@ -322,12 +333,6 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
           valueColor: const Color(0xFF4CAF50),
         ),
         const SizedBox(height: 16),
-        // _buildStatItem(
-        //   icon: MediaRes.timerIcon,
-        //   label: 'Attended Hours',
-        //   value: attendedHoursDisplay,
-        //   valueColor: const Color(0xFF4285F4),
-        // ),
         _buildAttendanceHoursItem(
           icon: MediaRes.timerIcon,
           label: 'Attended Hours',

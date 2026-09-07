@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/tab_visibility_events.dart';
 import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
@@ -100,6 +101,9 @@ import 'package:wowcare/presentation/features/billing/view/general_ledger/create
 import 'package:wowcare/presentation/features/billing/widgets/auto_pay_token_webview.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/add_transaction_dialog.dart';
 import 'package:wowcare/core/router/app_routes.dart';
+import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
+import 'package:wowcare/presentation/features/dashboard/view/qr_code_scanner.dart';
+import 'package:wowcare/core/router/route_not_found_screen.dart';
 import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/model/report_route_args.dart';
 import 'package:wowcare/presentation/features/reports/view/annual_state_immunization_report_screen.dart';
@@ -406,9 +410,29 @@ Map<String, String>? consumePendingNotificationOrgSchool() {
 final GoRouter appRouter = GoRouter(
   navigatorKey: CoreUtils.rootNavigatorKey,
   initialLocation: AppRoutes.splash,
+
+  // An unmatched location previously fell through to go_router's default
+  // ErrorScreen — a red page showing the raw exception and attempted URI, in
+  // RELEASE builds. For an app whose main entry point is a notification- or
+  // email-carried URL, that is a user-visible crash surface: a malformed deep
+  // link, a stale notification payload, or a renamed route segment all land
+  // there. Render something recoverable instead, and report it.
+  //
+  // `errorBuilder` rather than `onException`: go_router ignores errorBuilder
+  // entirely when onException is supplied, and a silent auto-redirect would
+  // hide the failure from both the user and whoever has to debug the bad link.
+  // This shows a recoverable page AND logs the attempted location.
+  errorBuilder: (context, state) {
+    AppLogger.e(
+      '[GoRouter] No route matched "${state.uri}": ${state.error}',
+      state.error,
+    );
+    return RouteNotFoundScreen(attemptedLocation: state.uri.toString());
+  },
   redirect: (context, state) async {
-    // Log navigation events for debugging
-    debugPrint(
+    // AppLogger, not debugPrint: `debugPrint` is NOT stripped from release
+    // builds, so this used to log every navigation path in production.
+    AppLogger.d(
       '[GoRouter] Navigating to: ${state.uri.path} (name: ${state.name})',
     );
 
@@ -416,8 +440,11 @@ final GoRouter appRouter = GoRouter(
     // Use synchronous cache check to avoid race conditions from multiple redirect() calls
     bool isKioskMode = KioskAccessControl.isKioskModeActiveDirect();
 
-    // Fallback: If cache is empty, try async storage check (app startup cold load)
-    if (!isKioskMode) {
+    // Storage fallback, but only until the flag has been read once this
+    // process. Previously the negative result was never remembered, so every
+    // navigation by every non-kiosk user awaited a storage read on the critical
+    // path for the whole session; `isKioskModeResolved` makes it once.
+    if (!isKioskMode && !KioskAccessControl.isKioskModeResolved) {
       try {
         isKioskMode = await serviceLocator<KioskAccessControl>()
             .isKioskModeActive();
@@ -432,7 +459,15 @@ final GoRouter appRouter = GoRouter(
           );
           isKioskMode = await kioskAccess.isKioskModeActive();
         } catch (e2) {
-          AppLogger.e('[KioskAccess] Error checking kiosk mode: $e2');
+          // FAIL CLOSED. This is a containment control on a shared device: if
+          // we cannot establish whether this is a kiosk, the safe answer is
+          // "assume it is" and confine the session to /kiosk, not "assume it
+          // isn't" and open the whole app. Previously both catches swallowed
+          // and left `isKioskMode` false, i.e. the guard failed open.
+          AppLogger.e(
+            '[KioskAccess] Error checking kiosk mode, failing CLOSED: $e2',
+          );
+          isKioskMode = true;
         }
       }
     }
@@ -450,9 +485,24 @@ final GoRouter appRouter = GoRouter(
         AppLogger.d(
           '[KioskAccess] Blocking access to $currentRoute - kiosk user, redirecting to /kiosk',
         );
-        return '/kiosk';
+        return KioskRoutes.root;
       }
     }
+
+    // ── Authorization for the dashboard branch ────────────────────────────
+    //
+    // Mandate 1 puts route guards in the router. Until now the ONLY
+    // router-level authorization was the kiosk check above and the billing
+    // persona rewrite below: nothing stopped a guardian reaching
+    // /dashboard/staff, /dashboard/students, /dashboard/reports or any of the
+    // other 40-odd admin surfaces nested under /dashboard. What actually
+    // gated them was the drawer and bottom nav declining to render a tap
+    // target — which a notification deep-link, a `context.go` from code, or
+    // the killed-state `pendingNotificationDeepLink` path all walk straight
+    // past. The billing rewrite below exists precisely because that happened
+    // once already; this generalises it instead of fixing route number 50.
+    final personaRedirect = _dashboardPersonaRedirect(context, state);
+    if (personaRedirect != null) return personaRedirect;
 
     // Billing is persona-split: the admin billing screen has no data for a
     // guardian. Anything that lands a guardian on /dashboard/billing — most
@@ -1065,12 +1115,12 @@ final GoRouter appRouter = GoRouter(
                   },
                 ),
                 GoRoute(
-                  path: 'billing',
+                  path: DashboardRoutes.billingSegment,
                   pageBuilder: (context, state) =>
                       _fastPage(state, const BillingScreen()),
                 ),
                 GoRoute(
-                  path: 'parent-newsletter',
+                  path: DashboardRoutes.parentNewsletterSegment,
                   pageBuilder: (context, state) => _fastPage(
                     state,
                     BlocProvider<StudentNewslettersCubit>(
@@ -1339,7 +1389,7 @@ final GoRouter appRouter = GoRouter(
                   ],
                 ),
                 GoRoute(
-                  path: 'scheduling',
+                  path: DashboardRoutes.schedulingSegment,
                   pageBuilder: (context, state) => _fastPage(
                     state,
                     MultiBlocProvider(
@@ -1375,7 +1425,7 @@ final GoRouter appRouter = GoRouter(
                   ),
                 ),
                 GoRoute(
-                  path: 'staff-scheduling',
+                  path: DashboardRoutes.staffSchedulingSegment,
                   pageBuilder: (context, state) => _fastPage(
                     state,
                     MultiBlocProvider(
@@ -1531,7 +1581,7 @@ final GoRouter appRouter = GoRouter(
                   },
                 ),
                 GoRoute(
-                  path: 'future-availability',
+                  path: DashboardRoutes.futureAvailabilitySegment,
                   pageBuilder: (context, state) => _fastPage(
                     state,
                     BlocProvider<FutureAvailabilityCubit>(
@@ -1541,7 +1591,7 @@ final GoRouter appRouter = GoRouter(
                   ),
                 ),
                 GoRoute(
-                  path: 'individual-movement',
+                  path: DashboardRoutes.individualMovementSegment,
                   pageBuilder: (context, state) => _fastPage(
                     state,
                     // The board's own cubit — created here (not inside the
@@ -1643,16 +1693,36 @@ final GoRouter appRouter = GoRouter(
                   },
                 ),
                 GoRoute(
-                  path: 'student-attendance-tabbed-view',
+                  path: DashboardRoutes.studentAttendanceTabbedViewSegment,
                   pageBuilder: (context, state) {
-                    final args = state.extra as Map<String, dynamic>?;
-                    final filter = args?['filter'] as String?;
+                    // Typed args (Mandate 1) are accepted ALONGSIDE the legacy
+                    // map, not instead of it: this route has ten callers across
+                    // attendance, students, the drawer and the dashboard, and
+                    // only the dashboard's have been migrated. Every other
+                    // caller keeps working untouched; they can move over one at
+                    // a time and the map branch retires when the last one does.
+                    final typedTab = state.extra is AttendanceTabbedViewArgs
+                        ? state.extra! as AttendanceTabbedViewArgs
+                        : null;
+                    final typedStatus = state.extra is AttendanceStatusFilterArgs
+                        ? state.extra! as AttendanceStatusFilterArgs
+                        : null;
+                    final args = state.extra is Map<String, dynamic>
+                        ? state.extra! as Map<String, dynamic>
+                        : null;
+                    final filter =
+                        typedStatus?.filter ?? args?['filter'] as String?;
                     final classroomFilter =
+                        typedTab?.classroomFilter ??
                         args?['classroomFilter'] as FilterData?;
                     final initialTabIndex =
-                        (args?['initialTabIndex'] as int?) ?? 0;
+                        typedTab?.initialTabIndex ??
+                        (args?['initialTabIndex'] as int?) ??
+                        0;
                     final hasBackButton =
-                        args?['hasBackButton'] as bool? ?? false;
+                        typedStatus?.hasBackButton ??
+                        args?['hasBackButton'] as bool? ??
+                        false;
                     return _fastPage(
                       state,
                       StudentAttendanceTabbedView(
@@ -1667,16 +1737,36 @@ final GoRouter appRouter = GoRouter(
                   },
                 ),
                 GoRoute(
-                  path: 'staff-attendance-tabbed-view',
+                  path: DashboardRoutes.staffAttendanceTabbedViewSegment,
                   pageBuilder: (context, state) {
-                    final args = state.extra as Map<String, dynamic>?;
-                    final filter = args?['filter'] as String?;
+                    // Typed args (Mandate 1) are accepted ALONGSIDE the legacy
+                    // map, not instead of it: this route has ten callers across
+                    // attendance, students, the drawer and the dashboard, and
+                    // only the dashboard's have been migrated. Every other
+                    // caller keeps working untouched; they can move over one at
+                    // a time and the map branch retires when the last one does.
+                    final typedTab = state.extra is AttendanceTabbedViewArgs
+                        ? state.extra! as AttendanceTabbedViewArgs
+                        : null;
+                    final typedStatus = state.extra is AttendanceStatusFilterArgs
+                        ? state.extra! as AttendanceStatusFilterArgs
+                        : null;
+                    final args = state.extra is Map<String, dynamic>
+                        ? state.extra! as Map<String, dynamic>
+                        : null;
+                    final filter =
+                        typedStatus?.filter ?? args?['filter'] as String?;
                     final classroomFilter =
+                        typedTab?.classroomFilter ??
                         args?['classroomFilter'] as FilterData?;
                     final initialTabIndex =
-                        (args?['initialTabIndex'] as int?) ?? 0;
+                        typedTab?.initialTabIndex ??
+                        (args?['initialTabIndex'] as int?) ??
+                        0;
                     final hasBackButton =
-                        args?['hasBackButton'] as bool? ?? false;
+                        typedStatus?.hasBackButton ??
+                        args?['hasBackButton'] as bool? ??
+                        false;
                     return _fastPage(
                       state,
                       StaffAttendanceTabbedView(
@@ -1801,14 +1891,14 @@ final GoRouter appRouter = GoRouter(
                   },
                 ),
                 GoRoute(
-                  path: 'student-attendance-profile',
+                  path: DashboardRoutes.studentAttendanceProfileSegment,
                   pageBuilder: (context, state) => _fastPage(
                     state,
                     _studentAttendanceProfileScreen(state.extra),
                   ),
                 ),
                 GoRoute(
-                  path: 'staff-attendance-profile',
+                  path: DashboardRoutes.staffAttendanceProfileSegment,
                   pageBuilder: (context, state) => _fastPage(
                     state,
                     _staffAttendanceProfileScreen(state.extra),
@@ -1902,17 +1992,31 @@ final GoRouter appRouter = GoRouter(
                   },
                 ),
                 GoRoute(
-                  path: 'student-sign-in-out-selection',
+                  path: DashboardRoutes.childSignInOutSelectionSegment,
                   pageBuilder: (context, state) {
-                    final extra = state.extra as Map<String, dynamic>?;
+                    // Typed args from the dashboard (Mandate 1); the map
+                    // branch remains for the kiosk flow, which supplies
+                    // guardianCode/pin that the dashboard never sends.
+                    final typed = state.extra is ChildSignInOutSelectionArgs
+                        ? state.extra! as ChildSignInOutSelectionArgs
+                        : null;
+                    final extra = state.extra is Map<String, dynamic>
+                        ? state.extra! as Map<String, dynamic>
+                        : null;
                     final signedInCodes =
-                        extra?['signedInCodes'] as List<String>? ?? [];
+                        typed?.signedInCodes ??
+                        extra?['signedInCodes'] as List<String>? ??
+                        [];
                     final signedOutCodes =
-                        extra?['signedOutCodes'] as List<String>? ?? [];
+                        typed?.signedOutCodes ??
+                        extra?['signedOutCodes'] as List<String>? ??
+                        [];
                     final guardianCode = extra?['guardianCode'] as String?;
                     final pin = extra?['pin'] as String?;
-                    final isQrScan = extra?['isQrScan'] as bool? ?? false;
-                    final qrToken = extra?['qrToken'] as String? ?? '';
+                    final isQrScan =
+                        typed?.isQrScan ?? extra?['isQrScan'] as bool? ?? false;
+                    final qrToken =
+                        typed?.qrToken ?? extra?['qrToken'] as String? ?? '';
                     return _fastPage(
                       state,
                       StudentSignInOutSelectionScreen(
@@ -1957,6 +2061,35 @@ final GoRouter appRouter = GoRouter(
                       ),
                     );
                   },
+                ),
+
+                // ── Dashboard-owned destination ────────────────────────────
+                //
+                // Mandate 1, dashboard scope. QrScanScreen is the ONLY screen
+                // the dashboard's raw pushes targeted that the dashboard owns,
+                // so it is the only one routed here. The other twelve push
+                // sites target screens owned by attendance, billing,
+                // scheduling, communication and newsletter; routing those from
+                // this module would put five features' routes under
+                // /dashboard, and six of them would duplicate a route that
+                // already exists at the router root. They are deferred to the
+                // owning feature's own Mandate 1 pass — see the deferred list
+                // in dashboard-baseline.md.
+                //
+                // Registered as a CHILD of /dashboard, not at the root: the
+                // `Navigator.push` it replaces resolved to the shell branch
+                // navigator, so the bottom bar stayed visible over the scanner.
+                GoRoute(
+                  path: DashboardRoutes.qrScannerSegment,
+                  // pageBuilder, not builder: the `MaterialPageRoute` this
+                  // replaces set `fullscreenDialog: true`, which changes both
+                  // the transition (bottom-up) and the leading icon (× rather
+                  // than ←). `MaterialPage` carries that flag through.
+                  pageBuilder: (context, state) => MaterialPage<void>(
+                    key: state.pageKey,
+                    fullscreenDialog: true,
+                    child: const QrScanScreen(),
+                  ),
                 ),
               ],
             ),
@@ -3063,6 +3196,18 @@ Widget _staffProfileScreen(Object? extra) {
 }
 
 Widget _studentAttendanceProfileScreen(Object? extra) {
+  // Typed args (Mandate 1) accepted alongside the legacy map — this route has
+  // nine callers and only the dashboard's has been migrated.
+  if (extra is StudentAttendanceProfileArgs) {
+    return StudentAttendanceProfile(
+      studentCode: extra.studentCode,
+      studentId: extra.studentId,
+      studentName: extra.studentName,
+      studentPhotoUuid: extra.studentPhotoUuid,
+      roomName: extra.roomName,
+      syncWithParentChildSelection: extra.syncWithParentChildSelection,
+    );
+  }
   final args = extra as Map<String, dynamic>? ?? const {};
   return StudentAttendanceProfile(
     studentCode: args['studentCode'] as String? ?? '',
@@ -3082,6 +3227,17 @@ Widget _studentAttendanceProfileScreen(Object? extra) {
 }
 
 Widget _staffAttendanceProfileScreen(Object? extra) {
+  // Typed args (Mandate 1) accepted alongside the legacy map — this route has
+  // several callers and only the dashboard's has been migrated.
+  if (extra is StaffAttendanceProfileArgs) {
+    return StaffAttendanceProfile(
+      staffCode: extra.staffCode,
+      staffId: extra.staffId,
+      staffName: extra.staffName,
+      designationName: extra.designationName,
+      roomName: extra.roomName,
+    );
+  }
   final args = extra as Map<String, dynamic>? ?? const {};
   return StaffAttendanceProfile(
     staffCode: args['staffCode'] as String? ?? '',
@@ -3097,6 +3253,101 @@ Widget _staffAttendanceProfileScreen(Object? extra) {
     profileStatus: args['profileStatus'] as String? ?? 'A',
     initialShowAbsentDays: args['initialShowAbsentDays'] as bool? ?? false,
   );
+}
+
+/// Module required to open each guarded child of `/dashboard`.
+///
+/// Keyed by the FIRST path segment under `/dashboard`, so a deeper location
+/// (`/dashboard/reports/staff/absent`, `/dashboard/staff/edit-schedule-screen`)
+/// inherits its parent's requirement without needing its own entry.
+///
+/// Deliberately mirrors the predicates `CustomDrawer.build` already uses, one
+/// for one — the router must not invent an authorization rule the UI does not
+/// also apply, or a user who can see a menu item would be bounced when they tap
+/// it. Anything absent from this map is unguarded, exactly as before.
+const Map<String, List<String>> _dashboardModuleGuards = <String, List<String>>{
+  StaffRoutes.listSegment: <String>[AppAccessModules.staff],
+  'students': <String>[AppAccessModules.student],
+  'classroom-info-screen': <String>[AppAccessModules.classroom],
+  'billing': <String>[
+    AppAccessModules.transaction,
+    AppAccessModules.invoices,
+    AppAccessModules.recurringPlans,
+    AppAccessModules.billingSettings,
+  ],
+  'parent-newsletter': <String>[AppAccessModules.newsletter],
+  'reports': <String>[AppAccessModules.reports],
+  'scheduling': <String>[AppAccessModules.classroomSchedule],
+  'staff-scheduling': <String>[AppAccessModules.staffScheduling],
+  'future-availability': <String>[AppAccessModules.futureAvailability],
+  'individual-movement': <String>[AppAccessModules.individualMovements],
+  'student-attendance-tabbed-view': <String>[
+    AppAccessModules.studentAttendance,
+  ],
+  'staff-attendance-tabbed-view': <String>[AppAccessModules.staffAttendance],
+};
+
+/// Segments under `/dashboard` that a guardian persona must never open,
+/// regardless of module grants — the staff/admin management surfaces. Mirrors
+/// the drawer, which renders these only inside its `if (!isParent)` branches.
+const Set<String> _dashboardAdminOnlySegments = <String>{
+  StaffRoutes.listSegment,
+  'staff-scheduling',
+  'scheduling',
+  'future-availability',
+  'individual-movement',
+  'staff-attendance-tabbed-view',
+  'reports',
+};
+
+/// Router-level authorization for the dashboard branch. Returns a redirect
+/// location when the current persona must not open [state]'s location, or null
+/// to allow it.
+///
+/// Fails OPEN in exactly two cases, both deliberate and both matching what the
+/// UI already does:
+///   * `RoleCubit` is not reachable or has not resolved a persona yet — the
+///     splash resolves it before `/dashboard` is reached, and bouncing on an
+///     unresolved role would break cold-start deep links.
+///   * The user has no granular permission payload (legacy accounts) —
+///     `canOpenModule` returns true there, which is what the drawer relies on
+///     to avoid hiding every menu item from those users.
+String? _dashboardPersonaRedirect(BuildContext context, GoRouterState state) {
+  final path = state.uri.path;
+  if (!path.startsWith('${DashboardRoutes.root}/')) return null;
+
+  final RoleCubit role;
+  try {
+    role = context.read<RoleCubit>();
+  } catch (_) {
+    // Providers not mounted yet — leave routing untouched, as the billing
+    // rewrite below already does for the same reason.
+    return null;
+  }
+  if (!role.isPersonaResolved) return null;
+
+  final segment = path.substring(DashboardRoutes.root.length + 1).split('/').first;
+
+  if (role.isParent && _dashboardAdminOnlySegments.contains(segment)) {
+    AppLogger.w(
+      '[RouteGuard] Guardian blocked from $path — admin-only segment '
+      '"$segment"; redirecting to ${DashboardRoutes.root}',
+    );
+    return DashboardRoutes.root;
+  }
+
+  final required = _dashboardModuleGuards[segment];
+  if (required != null && !role.canAccessAny(required)) {
+    // canAccessAny mirrors the drawer's own `canAccessAny`/`canOpenModule`
+    // checks, so anyone who can SEE the entry can still open it.
+    AppLogger.w(
+      '[RouteGuard] Blocked $path — persona "${role.role}" lacks any of '
+      '$required; redirecting to ${DashboardRoutes.root}',
+    );
+    return DashboardRoutes.root;
+  }
+
+  return null;
 }
 
 /// Snappier page builder for drill-down routes — the default Material

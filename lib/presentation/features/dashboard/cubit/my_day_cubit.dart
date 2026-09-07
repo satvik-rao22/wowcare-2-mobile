@@ -10,6 +10,7 @@ import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/entities/school_regular_schedule_day.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/school_hours_resolver.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
@@ -30,16 +31,24 @@ class MyDayCubit extends Cubit<MyDayState> {
     required StaffRepository staffRepository,
     required StorageService storageService,
     required ApiClient apiClient,
+    required GetStaffTodaySignInStatusUseCase getStaffTodaySignInStatus,
   }) : _staffRepository = staffRepository,
        _storageService = storageService,
        _apiClient = apiClient,
+       _getStaffTodaySignInStatus = getStaffTodaySignInStatus,
        super(const MyDayState());
 
   final StaffRepository _staffRepository;
   final StorageService _storageService;
   final ApiClient _apiClient;
+  final GetStaffTodaySignInStatusUseCase _getStaffTodaySignInStatus;
 
   bool _isFetching = false;
+
+  /// Invalidates in-flight identity work when the persona switches, so a slow
+  /// response for the previous staff member can never land on the new one.
+  /// Carried over from the widget this state came from.
+  int _profileGeneration = 0;
 
   // ---------------------------------------------------------------------------
   // Public API
@@ -58,6 +67,114 @@ class MyDayCubit extends Cubit<MyDayState> {
 
     await _fetch();
     _isFetching = false;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Staff identity + today's sign-in status
+  //
+  // Mandate 2 bucket A. This ran in `_MyDayCardState` across six `setState`
+  // calls, reading StorageService and GetStaffTodaySignInStatusUseCase
+  // directly from the widget (§2.4, and a Mandate 5 violation besides). The
+  // logic is carried over unchanged, including the `_profileGeneration` token
+  // that discards stale responses after a persona switch.
+  // ---------------------------------------------------------------------------
+
+  /// Reads the staff member's clock-in PIN from storage.
+  Future<void> loadClockPin() async {
+    final pin = (await _storageService.getString(StorageKeys.staffPin) ?? '')
+        .trim();
+    if (isClosed) return;
+    emit(state.copyWith(clockInPin: pin));
+  }
+
+  /// Loads staff identity and today's sign-in status in one pass so button
+  /// taps never hit a timing window where storage hasn't resolved yet.
+  ///
+  /// Returns the resolved `isSignedIn` when the status fetch succeeded, or null
+  /// when it was skipped or failed — the view uses it to sync GeofenceCubit,
+  /// which it must do itself because that is a cubit-to-cubit concern owned by
+  /// the screen, not by this one.
+  Future<bool?> loadStaffIdentity() async {
+    final generation = ++_profileGeneration;
+
+    String code = await resolveStaffCodeForLoggedInUser();
+    if (code.isEmpty) {
+      code =
+          (await _storageService.getString(StorageKeys.staffCode))?.trim() ??
+          '';
+    }
+    final userCode =
+        (await _storageService.getString(StorageKeys.userCode))?.trim() ?? '';
+    final name =
+        (await _storageService.getString(StorageKeys.displayName) ?? '').trim();
+    final designation =
+        (await _storageService.getString(StorageKeys.staffDesignation) ?? '')
+            .trim();
+    if (isClosed || generation != _profileGeneration) return null;
+
+    emit(
+      state.copyWith(
+        staffCode: code,
+        userCode: userCode,
+        staffDisplayName: name,
+        staffDesignation: designation,
+        staffIdentityLoaded: true,
+      ),
+    );
+
+    final effectiveCode = state.effectiveStaffCode;
+    if (effectiveCode.isEmpty) {
+      if (!isClosed && generation == _profileGeneration) {
+        emit(
+          state.copyWith(
+            clearTodayStatusRaw: true,
+            isSignedIn: false,
+            signInStatusLoaded: true,
+          ),
+        );
+      }
+      return null;
+    }
+
+    try {
+      final status = await _getStaffTodaySignInStatus(staffCode: effectiveCode);
+      if (isClosed || generation != _profileGeneration) return null;
+      final signedIn = status?.toUpperCase() == 'SIGNED_IN';
+      emit(
+        state.copyWith(
+          todayStatusRaw: status,
+          clearTodayStatusRaw: status == null,
+          isSignedIn: signedIn,
+          signInStatusLoaded: true,
+        ),
+      );
+      return signedIn;
+    } catch (_) {
+      // Sign-in status check is best-effort.
+      if (!isClosed && generation == _profileGeneration) {
+        emit(state.copyWith(signInStatusLoaded: true));
+      }
+      return null;
+    }
+  }
+
+  /// Clears identity + status on a persona switch and invalidates any in-flight
+  /// [loadStaffIdentity].
+  void resetForProfileSwitch() {
+    _profileGeneration++;
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        signInStatusLoaded: false,
+        staffIdentityLoaded: false,
+        clearTodayStatusRaw: true,
+        isSignedIn: false,
+        staffCode: '',
+        userCode: '',
+        staffDisplayName: '',
+        staffDesignation: '',
+      ),
+    );
   }
 
   /// Pull-to-refresh — keeps current data visible while re-fetching.
@@ -192,7 +309,10 @@ class MyDayCubit extends Cubit<MyDayState> {
     } catch (e) {
       AppLogger.e('[MyDayCubit] fetch failed: $e');
       emit(
-        state.copyWith(status: MyDayStatus.error, errorMessage: ApiErrorHandler.extractErrorMessage(e)),
+        state.copyWith(
+          status: MyDayStatus.error,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
       );
     }
   }

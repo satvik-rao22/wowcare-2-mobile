@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -6,8 +7,8 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/school_status_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
@@ -17,13 +18,25 @@ import 'package:wowcare/presentation/features/attendance/view/staff_attendance_t
 const Color _signedOutColor = Color(0xFF8BB4EF);
 const Color _notMarkedColor = Color(0xFFEBC398);
 
-/// One labelled segment of a breakdown bar (name + count + colour).
+/// One labelled segment of a breakdown bar (name + count + colour + filter).
 class _Seg {
-  const _Seg(this.name, this.count, this.color);
+  const _Seg(this.name, this.count, this.color, this.filter);
 
+  /// Display half. Rendered as "$name ($count)" in the legend.
   final String name;
   final int count;
   final Color color;
+
+  /// Stable identifier half — the status filter this segment navigates to.
+  ///
+  /// Mandate 4 STEP 0. The legend handlers used to derive this by lower-casing
+  /// [name] and calling `startsWith('signed-in')` / `'signed-out'` / `'absent'`
+  /// / `'not'` / `'active'` / `'upcoming'`, so the DISPLAYED text was the
+  /// control-flow key: renaming "Signed-in" to "Signed In" would have silently
+  /// broken navigation with no compile error. `ProgressItemHelper.filterValue`
+  /// and `onLegendTap(label, filterValue)` already existed to carry exactly
+  /// this — the card simply never populated it.
+  final String filter;
 }
 
 /// Converts raw count segments into [ProgressItemHelper]s for
@@ -40,6 +53,7 @@ List<ProgressItemHelper> _percentItems({
           label: '${s.name} (${s.count})',
           value: total == 0 ? 0 : s.count / total * 100,
           color: s.color,
+          filterValue: s.filter,
         ),
       )
       .toList();
@@ -169,20 +183,16 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                       // context.push(ClassroomOverviewScreen.routeName);
                     },
                     onLegendTap: (label, filterValue) {
-                      final normalized = label.trim().toLowerCase();
-                      String filter = 'ACTIVE';
-                      if (normalized.startsWith('active')) {
-                        filter = 'ACTIVE';
-                      } else if (normalized.startsWith('upcoming')) {
-                        filter = 'UPCOMING';
-                      }
+                      // Default preserved from the previous parse: an
+                      // unrecognised segment fell through to 'ACTIVE'.
+                      final filter = filterValue ?? 'ACTIVE';
                       debugPrint(
                         '[EnrollmentCard] Navigating to Student Attendance: '
                         'filter=$filter, route=${StudentAttendanceTabbedView.routeName}',
                       );
                       context.push(
                         StudentAttendanceTabbedView.routeName,
-                        extra: {'filter': filter, 'hasBackButton': true},
+                        extra: AttendanceStatusFilterArgs(filter: filter),
                       );
                     },
                     items: _percentItems(
@@ -192,11 +202,13 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                           'Active',
                           state.activeCount,
                           AppColors.lightBlueProgressBar,
+                          'ACTIVE',
                         ),
                         _Seg(
                           'Upcoming',
                           state.upcomingCount,
                           AppColors.mustardProgressBar,
+                          'UPCOMING',
                         ),
                       ],
                     ),
@@ -215,24 +227,16 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                       // );
                     },
                     onLegendTap: (label, filterValue) {
-                      final normalized = label.trim().toLowerCase();
-                      String filter = 'Expected';
-                      if (normalized.startsWith('signed-in')) {
-                        filter = 'Present';
-                      } else if (normalized.startsWith('signed-out')) {
-                        filter = 'Signed Out';
-                      } else if (normalized.startsWith('absent')) {
-                        filter = 'Absent';
-                      } else if (normalized.startsWith('not')) {
-                        filter = 'Not Marked';
-                      }
+                      // Default preserved from the previous parse: an
+                      // unrecognised segment fell through to 'Expected'.
+                      final filter = filterValue ?? 'Expected';
                       debugPrint(
                         '[EnrollmentCard] Navigating to Student Attendance: '
                         'filter=$filter, label=$label, route=${StudentAttendanceTabbedView.routeName}',
                       );
                       context.push(
                         StudentAttendanceTabbedView.routeName,
-                        extra: {'filter': filter, 'hasBackButton': true},
+                        extra: AttendanceStatusFilterArgs(filter: filter),
                       );
                     },
                     items: _percentItems(
@@ -242,21 +246,25 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                           'Signed-in',
                           state.studentPresent,
                           AppColors.colorBox,
+                          'Present',
                         ),
                         _Seg(
                           'Absent',
                           state.studentAbsent,
                           AppColors.colorBox2,
+                          'Absent',
                         ),
                         _Seg(
                           'Signed-out',
                           state.studentSignOut,
                           _signedOutColor,
+                          'Signed Out',
                         ),
                         _Seg(
                           'Not Marked',
                           state.studentNotMarked,
                           _notMarkedColor,
+                          'Not Marked',
                         ),
                       ],
                     ),
@@ -275,20 +283,12 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                       // );
                     },
                     onLegendTap: (label, filterValue) {
-                      final normalized = label.trim().toLowerCase();
-                      String filter = 'Expected';
-                      if (normalized.startsWith('signed-in')) {
-                        filter = 'Present';
-                      } else if (normalized.startsWith('signed-out')) {
-                        filter = 'Signed Out';
-                      } else if (normalized.startsWith('absent')) {
-                        filter = 'Absent';
-                      } else if (normalized.startsWith('not')) {
-                        filter = 'Not Marked';
-                      }
+                      // Default preserved from the previous parse: an
+                      // unrecognised segment fell through to 'Expected'.
+                      final filter = filterValue ?? 'Expected';
                       context.push(
                         StaffAttendanceTabbedView.routeName,
-                        extra: {'filter': filter, 'hasBackButton': true},
+                        extra: AttendanceStatusFilterArgs(filter: filter),
                       );
                     },
                     items: _percentItems(
@@ -298,13 +298,25 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                           'Signed-in',
                           state.staffPresent,
                           AppColors.colorBox,
+                          'Present',
                         ),
-                        _Seg('Absent', state.staffAbsent, AppColors.colorBox2),
-                        _Seg('Signed-out', state.staffSignOut, _signedOutColor),
+                        _Seg(
+                          'Absent',
+                          state.staffAbsent,
+                          AppColors.colorBox2,
+                          'Absent',
+                        ),
+                        _Seg(
+                          'Signed-out',
+                          state.staffSignOut,
+                          _signedOutColor,
+                          'Signed Out',
+                        ),
                         _Seg(
                           'Not Marked',
                           state.staffNotMarked,
                           _notMarkedColor,
+                          'Not Marked',
                         ),
                       ],
                     ),
@@ -357,28 +369,6 @@ class _StatColumn extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-        // if (showTrend) ...[
-        //   const SizedBox(height: 6),
-        //   const Row(
-        //     mainAxisAlignment: MainAxisAlignment.center,
-        //     crossAxisAlignment: CrossAxisAlignment.start,
-        //     children: [
-        //       Icon(Icons.trending_up, size: 12, color: AppColors.successColor),
-        //       SizedBox(width: 3),
-        //       Flexible(
-        //         child: Text(
-        //           '0% vs last month',
-        //           textAlign: TextAlign.center,
-        //           style: TextStyle(
-        //             color: AppColors.successColor,
-        //             fontSize: 10,
-        //             fontWeight: FontWeight.w600,
-        //           ),
-        //         ),
-        //       ),
-        //     ],
-        //   ),
-        // ],
       ],
     );
   }

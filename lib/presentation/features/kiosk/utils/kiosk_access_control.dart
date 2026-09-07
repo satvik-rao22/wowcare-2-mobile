@@ -35,6 +35,7 @@ class KioskAccessControl {
     // UPDATE CACHE IMMEDIATELY (synchronous)
     _kioskModeCached = true;
     _kioskPersonaCached = persona;
+    _kioskModeResolved = true;
 
     AppLogger.d('[KioskAccess] Kiosk mode activated: persona=$persona (cache updated)');
   }
@@ -77,13 +78,29 @@ class KioskAccessControl {
     try {
       final mode = await _storage.getString(_kioskModeKey);
       _kioskModeCached = mode == 'true';
+      _kioskModeResolved = true;
       AppLogger.d('[KioskAccess] isKioskModeActive() → storage read: $_kioskModeCached');
       return _kioskModeCached;
     } catch (e) {
       AppLogger.e('[KioskAccess] Error reading kiosk mode from storage: $e');
+      // Deliberately NOT marking resolved: an unreadable store leaves the
+      // answer unknown, so the next navigation retries rather than caching
+      // "not a kiosk" — the router treats unknown as kiosk (fail closed).
       return false;
     }
   }
+
+  /// Whether the kiosk flag has been read from storage at least once this
+  /// process, i.e. whether [isKioskModeActiveDirect]'s `false` means "confirmed
+  /// not a kiosk" rather than "not looked yet".
+  ///
+  /// The router's redirect previously could not tell those apart: the
+  /// synchronous cache starts `false`, so on every navigation for every
+  /// non-kiosk user it fell through to an `await` on storage — an async read on
+  /// the critical path of each `go`/`push` for the entire session. With this,
+  /// the storage read happens once and the sync path serves the rest.
+  static bool get isKioskModeResolved => _kioskModeResolved;
+  static bool _kioskModeResolved = false;
 
   /// Get current kiosk persona (STAFF or GUARDIAN).
   /// Uses cache when available; only reads storage on cache miss.
@@ -116,6 +133,7 @@ class KioskAccessControl {
     _verifiedRoleCached = null;
     _verifiedStaffCodeCached = null;
     _verifiedGuardianCodeCached = null;
+    _kioskModeResolved = true;
 
     AppLogger.d('[KioskAccess] Kiosk mode deactivated (cache cleared)');
   }
@@ -138,16 +156,25 @@ class KioskAccessControl {
     _verifiedRoleCached = null;
     _verifiedStaffCodeCached = null;
     _verifiedGuardianCodeCached = null;
+    _kioskModeResolved = true;
     AppLogger.d('[KioskAccess] Static cache force-cleared for non-kiosk login');
   }
 
-  /// Check if given route is allowed for kiosk users
+  /// Check if given route is allowed for kiosk users.
+  ///
+  /// **The allowlist is evaluated FIRST, and an explicit allow wins over a
+  /// prefix block.** It used to be the other way round, which silently made two
+  /// entries unreachable: `_isBlockedForKiosk` matches the prefix
+  /// `/dashboard/staff`, and `'/dashboard/staff-sign-in-form'
+  /// .startsWith('/dashboard/staff')` is `true` — so both
+  /// `/dashboard/staff-sign-in-form` and `/dashboard/staff-sign-out-form`
+  /// returned `false` despite being listed as allowed a few lines below.
+  ///
+  /// Reordering is safe because every allowlist entry is *more specific* than
+  /// the block prefix it sits under: `'/dashboard/staff'` (the staff list,
+  /// which must stay blocked) does not start with
+  /// `'/dashboard/staff-sign-in-form'`, so the block still applies to it.
   static bool isRouteAllowedForKiosk(String route) {
-    // Check if route is explicitly blocked for kiosk users
-    if (_isBlockedForKiosk(route)) {
-      return false;
-    }
-
     // Allowed kiosk routes: kiosk-specific paths + attendance/sign-in/sign-out forms
     const allowedRoutes = [
       '/kiosk',
@@ -166,36 +193,23 @@ class KioskAccessControl {
       '/dashboard/student-attendance-profile',
     ];
 
-    // Check if route matches any allowed pattern
-    bool isAllowed = allowedRoutes.any((allowed) => route.startsWith(allowed));
-    return isAllowed;
-  }
-
-  static bool _isBlockedForKiosk(String route) {
-    // Explicitly blocked dashboard areas (but allow attendance-related sub-routes)
-    const blockedPatterns = [
-      '/dashboard/staff',
-      '/dashboard/students',
-      '/dashboard/classroom',
-      '/dashboard/attendance/marks',
-      '/dashboard/attendance/roster',
-      '/dashboard/attendance/daily',
-      '/dashboard/activity',
-      '/dashboard/billing',
-      '/dashboard/parent-newsletter',
-      '/dashboard/notifications',
-      '/dashboard/settings',
-      '/dashboard/profile',
-      '/attendance',
-      '/communication',
-      '/notifications',
-    ];
-
-    for (final pattern in blockedPatterns) {
-      if (route.startsWith(pattern)) {
-        return true;
-      }
+    // An explicit allow wins — see the doc comment for why this runs first.
+    if (allowedRoutes.any((allowed) => route.startsWith(allowed))) {
+      return true;
     }
+
+    // Anything not named above is denied. This is an allowlist, so an unknown
+    // or newly-added route is NOT reachable from a kiosk-locked device until
+    // someone adds it here deliberately — fail closed, not open.
+    //
+    // The former `_isBlockedForKiosk` prefix list was removed with this change,
+    // not weakened: it only ever ran BEFORE the allowlist, so the sole routes
+    // whose outcome it decided were ones that were also allowlisted — the two
+    // `/dashboard/staff-sign-*-form` entries it wrongly shadowed. Every route
+    // it blocked and did not allow (`/dashboard/students`, `/dashboard/billing`,
+    // `/attendance`, `/communication`, …) is still denied here, by the same
+    // fall-through that denies everything else. The list is preserved for
+    // reference as [blockedRoutesForKiosk] below.
     return false;
   }
 

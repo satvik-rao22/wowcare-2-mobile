@@ -951,6 +951,106 @@ class AppTextStyles {
     fontWeight: FontWeight.w700,
     color: color,
   );
+
+  // ── Dashboard: My Day card ────────────────────────────────────────────────
+  // Mandate 4 §4.4. Exact values lifted from my_day_card.dart's inline styles;
+  // rendered output is unchanged. Named for the role they play, not the size.
+
+  /// The countdown's hour/minute/second digits.
+  static const TextStyle myDayCountdownDigits = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 44,
+    fontWeight: FontWeight.w600,
+  );
+
+  /// The ':' between countdown units. Deliberately a different size from the
+  /// digits — that is the existing rendering, not a mistake.
+  static const TextStyle myDayCountdownSeparator = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 48,
+    fontWeight: FontWeight.w600,
+  );
+
+  /// The 'HH' / 'MM' / 'SS' caption under each countdown unit.
+  static TextStyle myDayCountdownUnitLabel = TextStyle(
+    color: AppColors.primaryColor.withValues(alpha: 0.5),
+    fontSize: 12,
+    height: 0.1,
+  );
+
+  /// Day name shown above the countdown for an upcoming shift.
+  static const TextStyle myDayUpcomingDayName = TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// The card's one-line schedule status sentence.
+  static const TextStyle myDayStatusLine = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+  );
+
+  /// Work Time / Break Time chip label.
+  static const TextStyle myDayChipLabel = TextStyle(
+    color: AppColors.secondaryColor,
+  );
+
+  /// The clock-in PIN, rendered on the primary gradient.
+  static const TextStyle myDayClockInPin = TextStyle(
+    color: AppColors.cardColor,
+    fontSize: 17,
+    fontWeight: FontWeight.bold,
+    letterSpacing: 17 * (-3 / 100),
+  );
+
+  /// Self-attendance action button label (Sign In / Sign Out / Transfer /
+  /// Mark Absent).
+  static const TextStyle myDayActionButtonLabel = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+  );
+
+  /// Geofence status line under the card body.
+  static const TextStyle myDayGeofenceStatus = TextStyle(
+    fontSize: 12,
+    height: 1.4,
+  );
+
+  // ── Dashboard: chat-preview row ───────────────────────────────────────────
+
+  /// "No recent chat" placeholder.
+  static TextStyle chatPreviewEmpty = TextStyle(
+    fontSize: 13,
+    color: AppColors.primaryColor.withValues(alpha: 0.5),
+  );
+
+  /// Conversation title on a preview row.
+  static const TextStyle chatPreviewTitle = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+  );
+
+  /// Relative timestamp on a preview row.
+  static TextStyle chatPreviewTime = TextStyle(
+    fontSize: 11,
+    color: AppColors.primaryColor.withValues(alpha: 0.5),
+  );
+
+  /// Last-message snippet on a preview row.
+  static TextStyle chatPreviewSnippet = TextStyle(
+    fontSize: 12,
+    color: AppColors.primaryColor.withValues(alpha: 0.5),
+  );
+
+  /// Unread-count text inside the badge.
+  static const TextStyle chatPreviewUnreadBadge = TextStyle(
+    color: AppColors.cardColor,
+    fontSize: 10,
+    fontWeight: FontWeight.w600,
+  );
 }
 
 /// Reusable text widgets with predefined styles

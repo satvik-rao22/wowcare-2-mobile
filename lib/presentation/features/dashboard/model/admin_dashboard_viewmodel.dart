@@ -4,12 +4,9 @@ enum AdminDashboardCard {
   enrollment,
   ratioMonitoring,
   classroomShifts,
-  // events,
-  // todo,
   availability,
   movements,
   billing;
-  // classroomProgress,
 
   String get title {
     switch (this) {
@@ -29,12 +26,4 @@ enum AdminDashboardCard {
         return 'Billing';
     }
   }
-}
-
-class AdminDashboardViewModel {
-  const AdminDashboardViewModel();
-
-  static const double maxContentWidth = 640;
-
-  static List<AdminDashboardCard> get defaultCards => AdminDashboardCard.values;
 }

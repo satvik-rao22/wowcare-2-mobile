@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
+import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -30,7 +30,7 @@ class IndividualMovementScreen extends StatefulWidget {
   /// When set, pre-filters the board to this student code.
   final String? studentCode;
 
-  static const String routeName = '/dashboard/individual-movement';
+  static const String routeName = DashboardRoutes.individualMovement;
 
   @override
   State<IndividualMovementScreen> createState() => _IndividualMovementScreenState();

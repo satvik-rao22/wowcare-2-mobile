@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/router/app_routes.dart';
+import 'package:go_router/go_router.dart';
+import 'dart:async';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/presentation/features/dashboard/view/QR_Code_scanner.dart';
 
 /// Tappable icon that opens the full-screen QR scanner.
 ///
@@ -14,13 +16,9 @@ class QrScanButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            fullscreenDialog: true,
-            builder: (_) => const QrScanScreen(),
-          ),
-        );
+        // Registered with `fullscreenDialog: true` on its MaterialPage, so
+        // the bottom-up transition and × leading icon are unchanged.
+        unawaited(context.push<void>(DashboardRoutes.qrScanner));
       },
       icon: SvgPicture.asset(MediaRes.scannerGradientIcon),
     );

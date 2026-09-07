@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/responsive/responsive_scope.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -10,15 +11,15 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_toggle.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_toggle.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_models.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/scheduling_block_status_style.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/day_classroom_section.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_schedule_tile.dart';
 
-import '../../../../../app/theme/media_res.dart';
-import '../../../scheduling/view/scheduling_screen.dart';
+import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/scheduling/view/scheduling_screen.dart';
 
 // date formatter used for the scheduling deep-link
 final _ymd = DateFormat('yyyy-MM-dd');
@@ -53,7 +54,13 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
   /// Per-row override; cleared when [_expandAll] flips so all rows follow it.
   final Map<String, bool> _rowExpanded = {};
 
-  double get _bodyFontSize => MediaQuery.of(context).size.width > 600 ? 16 : 14;
+  /// Mandate 7: this was `MediaQuery.of(context).size.width > 600 ? 16 : 14` —
+  /// a FIFTH live definition of "tablet" in the app, disagreeing with
+  /// `ResponsiveHelper`'s 768 that 122 other files use, and reading through
+  /// `.of` so the getter re-resolved on every keyboard open. The 600 boundary
+  /// is preserved exactly: `AppBreakpoints.compactMaxWidth` is also 600, so
+  /// `compact` is `< 600` and `medium` starts at 600 — identical rendering.
+  double get _bodyFontSize => context.responsive(compact: 14, medium: 16);
 
   /// Guards against re-issuing the full load sequence on every
   /// `didChangeDependencies` firing (ancestor rebuilds, navigation, etc.).
@@ -225,13 +232,13 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
-                                _LegendItem(
+                                _ClassroomShiftsLegendItem(
                                   status: ClassroomRatioStatus.underRatio,
                                   label: 'Not In Ratio',
                                   fontSize: _bodyFontSize,
                                 ),
                                 const SizedBox(width: 16),
-                                _LegendItem(
+                                _ClassroomShiftsLegendItem(
                                   status: ClassroomRatioStatus.inRatio,
                                   label: 'In Ratio',
                                   fontSize: _bodyFontSize,
@@ -326,8 +333,7 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                                           isLast:
                                               i == displayEntries.length - 1 &&
                                               !hasMoreToShow,
-                                          onClassroomNameTap: () =>
-                                              context.go(
+                                          onClassroomNameTap: () => context.go(
                                             '${SchedulingScreen.routeName}'
                                             '?view=day'
                                             '&highlightCode=${displayEntries[i].classroomCode}'
@@ -509,8 +515,8 @@ class _ClassroomSection extends StatelessWidget {
 // Legend item
 // ---------------------------------------------------------------------------
 
-class _LegendItem extends StatelessWidget {
-  const _LegendItem({
+class _ClassroomShiftsLegendItem extends StatelessWidget {
+  const _ClassroomShiftsLegendItem({
     required this.status,
     required this.label,
     required this.fontSize,

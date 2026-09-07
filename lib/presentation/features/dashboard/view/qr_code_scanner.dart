@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:wowcare/core/router/app_routes.dart';
+import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -131,15 +133,15 @@ class _QrScanViewState extends State<_QrScanView>
 
     if (route == QrNavigationRoute.guardianSignInOut) {
       // Mixed state — pop scanner then navigate to selection screen.
-      Navigator.pop(context);
+      context.pop();
       context.go(
-        '/dashboard/student-sign-in-out-selection',
-        extra: <String, dynamic>{
-          'signedInCodes': signedInCodes,
-          'signedOutCodes': signedOutCodes,
-          'isQrScan': true,
-          'qrToken': qrToken,
-        },
+        DashboardRoutes.childSignInOutSelection,
+        extra: ChildSignInOutSelectionArgs(
+          signedInCodes: signedInCodes,
+          signedOutCodes: signedOutCodes,
+          isQrScan: true,
+          qrToken: qrToken,
+        ),
       );
       return;
     }
@@ -238,7 +240,7 @@ class _QrScanViewState extends State<_QrScanView>
                               color: Colors.white,
                               size: 22,
                             ),
-                            onPressed: () => Navigator.pop(context),
+                            onPressed: () => context.pop(),
                           ),
                           const Expanded(
                             child: Text(

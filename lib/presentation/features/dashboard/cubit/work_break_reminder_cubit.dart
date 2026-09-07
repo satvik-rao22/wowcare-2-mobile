@@ -12,10 +12,9 @@ part 'work_break_reminder_state.dart';
 /// - [initial] → [loading] → [success] or [failure]
 /// - [success] or [failure] → [loading] → [success] or [failure] (on retry)
 class WorkBreakReminderCubit extends Cubit<WorkBreakReminderState> {
-  WorkBreakReminderCubit({
-    required StaffRepository staffRepository,
-  })  : _staffRepository = staffRepository,
-        super(const WorkBreakReminderState());
+  WorkBreakReminderCubit({required StaffRepository staffRepository})
+    : _staffRepository = staffRepository,
+      super(const WorkBreakReminderState());
 
   final StaffRepository _staffRepository;
   bool _isProcessing = false;
@@ -41,9 +40,7 @@ class WorkBreakReminderCubit extends Cubit<WorkBreakReminderState> {
         enabled: newEnabled,
       );
 
-      AppLogger.d(
-        '[WorkBreakReminderCubit] Reminder toggled: enabled=$result',
-      );
+      AppLogger.d('[WorkBreakReminderCubit] Reminder toggled: enabled=$result');
 
       emit(
         state.copyWith(

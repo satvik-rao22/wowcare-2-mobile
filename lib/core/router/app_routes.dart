@@ -167,3 +167,104 @@ abstract final class SchedulingRoutes {
   static const String viewShift = '/dashboard/view-shift-screen';
   static const String publishShifts = '/dashboard/publish-shifts-screen';
 }
+
+/// Route paths for the dashboard feature.
+///
+/// Mandate 1 requires route paths to live as constants rather than inline in
+/// the router or retyped at each `context.go`/`context.push` site. Before this
+/// existed, every dashboard destination was declared twice — once as a
+/// `static const routeName` on the screen class (which callers used) and once
+/// as a bare segment literal in `lib/src/app_router.dart` (which registration
+/// used) — with nothing linking the two. Renaming the router segment left the
+/// caller's constant compiling and 404-ing at runtime.
+///
+/// Namespaced like [ReportRoutes] and [StaffRoutes] rather than added to the
+/// app-wide `AppRoutes` in `lib/src/app_router.dart`: a second class of that
+/// name would collide with it (§6.5).
+///
+/// **Every entry below is a child of [root]**, so it is pushed on the dashboard
+/// shell branch's navigator and renders inside the nav shell — exactly as the
+/// `Navigator.push(MaterialPageRoute(...))` calls they replaced did. A route
+/// registered at the router root would be pushed on the ROOT navigator and
+/// would cover the bottom bar, which would be a visible behaviour change.
+class DashboardRoutes {
+  const DashboardRoutes._();
+
+  /// The dashboard itself — shell branch 0. Matches `DashboardScreen.routeName`.
+  static const String root = '/dashboard';
+
+  // ── Relative segments, as registered under the dashboard GoRoute ──────────
+
+
+
+
+
+
+
+  /// Full-screen QR scanner, opened from `QrScanButton`. Presented as a
+  /// fullscreen dialog to match the `fullscreenDialog: true` it replaced.
+  static const String qrScannerSegment = 'qr-scanner';
+
+
+  /// Mixed sign-in/out selection, reached from `MyChildsDayCard` and from a QR
+  /// scan. Already registered; the constant replaces the retyped literal.
+  static const String childSignInOutSelectionSegment =
+      'student-sign-in-out-selection';
+
+
+  // ── Destinations the dashboard's cards navigate to ────────────────────────
+  // Registered as literals in lib/src/app_router.dart and retyped as a
+  // `routeName` static on each screen, with nothing linking the two: renaming
+  // the router segment left every caller compiling and 404-ing at runtime.
+  // Both sides now read these.
+  static const String schedulingSegment = 'scheduling';
+  static const String staffSchedulingSegment = 'staff-scheduling';
+  static const String futureAvailabilitySegment = 'future-availability';
+  static const String individualMovementSegment = 'individual-movement';
+  static const String billingSegment = 'billing';
+  static const String parentNewsletterSegment = 'parent-newsletter';
+  static const String studentAttendanceTabbedViewSegment = 'student-attendance-tabbed-view';
+  static const String staffAttendanceTabbedViewSegment = 'staff-attendance-tabbed-view';
+  static const String studentAttendanceProfileSegment = 'student-attendance-profile';
+  static const String staffAttendanceProfileSegment = 'staff-attendance-profile';
+
+  // ── Absolute locations, for context.push / context.go ────────────────────
+
+  static const String qrScanner = '$root/$qrScannerSegment';
+  static const String scheduling = '$root/$schedulingSegment';
+  static const String staffScheduling = '$root/$staffSchedulingSegment';
+  static const String futureAvailability = '$root/$futureAvailabilitySegment';
+  static const String individualMovement = '$root/$individualMovementSegment';
+  static const String billing = '$root/$billingSegment';
+  static const String parentNewsletter = '$root/$parentNewsletterSegment';
+  static const String studentAttendanceTabbedView = '$root/$studentAttendanceTabbedViewSegment';
+  static const String staffAttendanceTabbedView = '$root/$staffAttendanceTabbedViewSegment';
+  static const String studentAttendanceProfile = '$root/$studentAttendanceProfileSegment';
+  static const String staffAttendanceProfile = '$root/$staffAttendanceProfileSegment';
+
+  static const String childSignInOutSelection =
+      '$root/$childSignInOutSelectionSegment';
+}
+
+/// Shell branch roots the dashboard jumps to cross-branch. Declared here so
+/// the dashboard stops retyping the literal at each `context.go`; the values
+/// match `AppRoutes` in `lib/src/app_router.dart`, which registers them.
+class ShellBranchRoutes {
+  const ShellBranchRoutes._();
+
+  /// Matches `ActivityFeedScreen.routeName` / `AppRoutes.activityFeed`.
+  static const String activityFeed = '/activityFeed';
+}
+
+/// Route paths for the kiosk feature.
+///
+/// Only [root] is declared — it is referenced from outside the kiosk feature
+/// (the router's kiosk redirect and `DashboardScreen`'s last-resort guard),
+/// which is exactly the case Mandate 1 wants a constant for. The kiosk's own
+/// child routes stay registered as segments under it.
+class KioskRoutes {
+  const KioskRoutes._();
+
+  /// Matches `KioskDashboardScreen.routeName`.
+  static const String root = '/kiosk';
+}

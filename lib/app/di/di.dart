@@ -125,6 +125,7 @@ import '../../presentation/features/dashboard/cubit/classroom_shifts_cubit.dart'
 import '../../presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
 import '../../presentation/features/dashboard/cubit/my_day_cubit.dart';
 import '../../presentation/features/dashboard/cubit/work_break_reminder_cubit.dart';
+import '../../presentation/features/dashboard/cubit/chat_preview_cubit.dart';
 import '../../presentation/features/dashboard/cubit/my_shifts_cubit.dart';
 import '../../presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
 import '../../presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
@@ -2218,6 +2219,20 @@ Future<void> configureDependencies({String? baseUrl}) async {
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),
       apiClient: serviceLocator(),
+      getStaffTodaySignInStatus: serviceLocator(),
+    ),
+  );
+  // Dashboard-owned projection of the conversation inbox for the My Day
+  // card's recent-chat rows (Mandate 2 §2.4 — this state used to live in
+  // _CommunicationRowWidgetState). Factory, like every other dashboard cubit;
+  // it is owned by a BlocProvider in the card and closed with it.
+  serviceLocator.registerFactory<ChatPreviewCubit>(
+    () => ChatPreviewCubit(
+      storageService: serviceLocator(),
+      getCachedConversations: serviceLocator(),
+      getConversations: serviceLocator(),
+      watchConversations: serviceLocator(),
+      getActiveClassrooms: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<WorkBreakReminderCubit>(

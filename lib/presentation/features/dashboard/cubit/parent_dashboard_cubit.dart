@@ -1,12 +1,12 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:wowcare/presentation/features/dashboard/viewmodels/parent_dashboard_viewmodel.dart';
+import 'package:wowcare/presentation/features/dashboard/model/parent_dashboard_viewmodel.dart';
 
 part 'parent_dashboard_state.dart';
 
 /// Owns the parent dashboard card list and drag-and-drop reorder logic.
 ///
-/// Replaces [ParentDashboardViewModel] (ChangeNotifier).
+/// Replaces the former ParentDashboardViewModel (ChangeNotifier).
 class ParentDashboardCubit extends Cubit<ParentDashboardState> {
   ParentDashboardCubit()
     : super(
