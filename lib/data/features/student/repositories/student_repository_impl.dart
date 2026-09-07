@@ -731,7 +731,11 @@ class StudentRepositoryImpl
       'studentCode': studentCode,
       'firstName': firstName,
       'lastName': lastName,
-      'email': email,
+      // Same as addPickup: email is optional in the Add/Edit Pickup form, so
+      // omit it when blank rather than sending 'email': '' (backend rejects
+      // an empty string as an invalid email rather than treating it as
+      // absent).
+      if (email.trim().isNotEmpty) 'email': email.trim(),
       'phoneNumber': phoneNumber,
       'relation': relation,
       'code': code,
