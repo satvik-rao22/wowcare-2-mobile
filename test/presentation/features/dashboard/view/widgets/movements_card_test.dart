@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement_board.dart';
 import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/movements_card.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/movements_card.dart';
 
 class MockIndividualMovementsCubit extends Cubit<IndividualMovementsState> implements IndividualMovementsCubit {
   MockIndividualMovementsCubit() : super(const IndividualMovementsState.initial());

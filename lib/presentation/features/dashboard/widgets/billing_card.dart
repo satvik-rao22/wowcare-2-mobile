@@ -11,7 +11,7 @@ import 'package:wowcare/presentation/features/billing/cubit/analytics_cubit.dart
 import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
@@ -35,8 +35,9 @@ class BillingCard extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider<TransactionsCubit>(
-          create: (_) => serviceLocator<TransactionsCubit>()
-            ..loadOverview(dateFrom: monthStart, dateTo: monthEnd),
+          create: (_) =>
+              serviceLocator<TransactionsCubit>()
+                ..loadOverview(dateFrom: monthStart, dateTo: monthEnd),
         ),
         BlocProvider<AnalyticsCubit>(
           create: (_) => serviceLocator<AnalyticsCubit>()..load(),
@@ -93,9 +94,9 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
       _rangeEnd = end;
     });
     return context.read<TransactionsCubit>().loadOverview(
-          dateFrom: start,
-          dateTo: DateTime(end.year, end.month, end.day, 23, 59, 59),
-        );
+      dateFrom: start,
+      dateTo: DateTime(end.year, end.month, end.day, 23, 59, 59),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -119,10 +120,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
       final key = e.name.trim().toLowerCase();
       if (key.length >= 3) byMonth[key.substring(0, 3)] = e.value;
     }
-    return List<double>.generate(
-      12,
-      (i) => byMonth[_monthAbbr[i]] ?? 0.0,
-    );
+    return List<double>.generate(12, (i) => byMonth[_monthAbbr[i]] ?? 0.0);
   }
 
   // ---------------------------------------------------------------------------
@@ -224,9 +222,9 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                           onSelect: (value) {
                             if (value != null) {
                               setState(() => _selectedYear = int.parse(value));
-                              context
-                                  .read<AnalyticsCubit>()
-                                  .setYear(_selectedYear);
+                              context.read<AnalyticsCubit>().setYear(
+                                _selectedYear,
+                              );
                             }
                           },
                         ),
@@ -252,8 +250,9 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                           child: ShimmerLoader(height: 220),
                         );
                       }
-                      final revenue =
-                          _toMonthlyValues(state.analytics?.revenue ?? const []);
+                      final revenue = _toMonthlyValues(
+                        state.analytics?.revenue ?? const [],
+                      );
                       return _buildYearlySection(revenue);
                     },
                   ),
@@ -322,8 +321,10 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
             Expanded(
               child: _buildBillingStatus(
                 amount: '\$${overview.outstanding.toStringAsFixed(2)}',
-                percentage:
-                    _getPercentage(overview.outstanding, totalAllAmounts),
+                percentage: _getPercentage(
+                  overview.outstanding,
+                  totalAllAmounts,
+                ),
                 label: 'Outstanding',
                 percentageColor: Colors.red,
               ),

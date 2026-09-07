@@ -156,8 +156,24 @@ android {
     }
 
 
+    // Android App Link host, injected into AndroidManifest.xml as
+    // ${appLinkHost}. The manifest previously hardcoded this and had no
+    // debug/release split, so a local ngrok tunnel used for testing shipped to
+    // release and broke autoVerify for every real deep link.
+    //
+    // Override locally WITHOUT editing a tracked file:
+    //   flutter run --dart-define=… -PappLinkHost=your-tunnel.ngrok-free.dev
+    // or add `appLinkHost=your-tunnel.ngrok-free.dev` to android/local.properties.
+    val defaultAppLinkHost = "uat-wowcare.childcarewow.app"
+    val overriddenAppLinkHost =
+        (project.findProperty("appLinkHost") as String?)?.takeIf { it.isNotBlank() }
+
     buildTypes {
         release {
+            // Release ALWAYS uses the real host — a local override must never
+            // reach a shipped build, which is the defect this replaces.
+            manifestPlaceholders["appLinkHost"] = defaultAppLinkHost
+
             // ⚠️ Replace with your release keystore later
             signingConfig = signingConfigs.getByName("release")
             // ✅ Enable shrinking
@@ -177,6 +193,13 @@ android {
                     flutterProguardRules,
                 )
             }
+        }
+
+        debug {
+            // Debug may point at a local tunnel via -PappLinkHost=…; defaults to
+            // the same UAT host so a plain `flutter run` behaves like release.
+            manifestPlaceholders["appLinkHost"] =
+                overriddenAppLinkHost ?: defaultAppLinkHost
         }
     }
 }

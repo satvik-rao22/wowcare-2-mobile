@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -436,7 +437,7 @@ class _AttendanceReportModel {
 }
 
 class StaffAttendanceProfile extends StatefulWidget {
-  static const String routeName = '/dashboard/staff-attendance-profile';
+  static const String routeName = DashboardRoutes.staffAttendanceProfile;
 
   const StaffAttendanceProfile({
     super.key,

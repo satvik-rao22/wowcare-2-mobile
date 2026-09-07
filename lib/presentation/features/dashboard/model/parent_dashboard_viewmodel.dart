@@ -18,12 +18,3 @@ enum ParentDashboardCard {
     }
   }
 }
-
-class ParentDashboardViewModel {
-  const ParentDashboardViewModel();
-
-  static const double maxContentWidth = 640;
-
-  static List<ParentDashboardCard> get defaultCards =>
-      ParentDashboardCard.values;
-}

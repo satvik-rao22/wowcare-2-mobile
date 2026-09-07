@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/router/app_routes.dart';
+import 'package:wowcare/presentation/features/scheduling/view/scheduling_screen.dart';
+import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
@@ -187,7 +190,7 @@ class _AttentionGridState extends State<AttentionGrid> {
         if (widget.onIncidentCardTap != null) {
           widget.onIncidentCardTap!();
         } else {
-          context.go('/activityFeed');
+          context.go(ShellBranchRoutes.activityFeed);
         }
 
       case _AttentionCardRoute.classroomRatio:
@@ -201,12 +204,12 @@ class _AttentionGridState extends State<AttentionGrid> {
         if (widget.onShiftsCardTap != null) {
           widget.onShiftsCardTap!();
         } else {
-          context.go('/dashboard/scheduling');
+          context.go(SchedulingScreen.routeName);
         }
 
       case _AttentionCardRoute.pendingMovements:
       case _AttentionCardRoute.overdueMovements:
-        context.go('/dashboard/individual-movement');
+        context.go(IndividualMovementScreen.routeName);
 
       // Disable navigation for Expiry & Physical Checkup cards
       case _AttentionCardRoute.expiredStudentDocs:
@@ -274,9 +277,9 @@ class _AttentionGridState extends State<AttentionGrid> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(child: _ShimmerCard()),
+              Expanded(child: _AttentionShimmerCard()),
               const SizedBox(width: 12),
-              Expanded(child: _ShimmerCard()),
+              Expanded(child: _AttentionShimmerCard()),
             ],
           ),
         ),
@@ -285,9 +288,9 @@ class _AttentionGridState extends State<AttentionGrid> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(child: _ShimmerCard()),
+              Expanded(child: _AttentionShimmerCard()),
               const SizedBox(width: 12),
-              Expanded(child: _ShimmerCard()),
+              Expanded(child: _AttentionShimmerCard()),
             ],
           ),
         ),
@@ -479,7 +482,7 @@ class _ShowMoreButton extends StatelessWidget {
 
 // ── Shimmer placeholder ───────────────────────────────────────────────────────
 
-class _ShimmerCard extends StatelessWidget {
+class _AttentionShimmerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(

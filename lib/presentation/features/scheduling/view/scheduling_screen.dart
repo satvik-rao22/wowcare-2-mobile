@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -48,7 +49,7 @@ class SchedulingScreen extends StatelessWidget {
   /// Notification deep-link: force the DAY view on open (e.g. under-ratio).
   final bool forceDayView;
 
-  static const String routeName = '/dashboard/scheduling';
+  static const String routeName = DashboardRoutes.scheduling;
 
   @override
   Widget build(BuildContext context) {

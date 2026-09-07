@@ -2,11 +2,8 @@
 enum StaffDashboardCard {
   myDay,
   ratioMonitoring,
-  // events,
-  // todo,
   myShifts,
   myAttendance;
-  // classroomProgress,
 
   String get title {
     switch (this) {
@@ -20,12 +17,4 @@ enum StaffDashboardCard {
         return 'My Attendance';
     }
   }
-}
-
-class StaffDashboardViewModel {
-  const StaffDashboardViewModel();
-
-  static const double maxContentWidth = 640;
-
-  static List<StaffDashboardCard> get defaultCards => StaffDashboardCard.values;
 }

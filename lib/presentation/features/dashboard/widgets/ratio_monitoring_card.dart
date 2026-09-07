@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -19,7 +20,7 @@ import 'package:wowcare/domain/features/communication/usecases/get_or_create_cla
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
 import 'package:wowcare/presentation/features/classroom/views/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -346,10 +347,10 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
     unawaited(
       context.push(
         StudentAttendanceTabbedView.routeName,
-        extra: <String, dynamic>{
-          'initialTabIndex': 0,
-          'classroomFilter': filter,
-        },
+        extra: AttendanceTabbedViewArgs(
+          initialTabIndex: 0,
+          classroomFilter: filter,
+        ),
       ),
     );
   }
@@ -368,10 +369,10 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
     unawaited(
       context.push(
         StaffAttendanceTabbedView.routeName,
-        extra: <String, dynamic>{
-          'initialTabIndex': 0,
-          'classroomFilter': filter,
-        },
+        extra: AttendanceTabbedViewArgs(
+          initialTabIndex: 0,
+          classroomFilter: filter,
+        ),
       ),
     );
   }

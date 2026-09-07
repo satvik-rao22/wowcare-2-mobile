@@ -584,4 +584,39 @@ class AppColors {
   /// [activityRequiredFieldMarkerColor]; the two should collapse into one
   /// shared semantic token in a cross-feature pass.
   static const Color reportsRequiredFieldMarkerColor = Colors.red;
+
+  // ── Dashboard: geofence attendance state (SEMANTIC) ────────────────────────
+  // Mandate 4: these encode whether GPS self-attendance is currently possible,
+  // so they are named semantic tokens, not palette entries. Exact hexes carried
+  // over from my_day_card.dart — rendered output is unchanged.
+  //
+  // NOTE (§4.3 accessibility): the inside/outside states are ALSO distinguished
+  // by their label text and dot, not by colour alone.
+
+  /// Dot shown when the user is inside the school geofence.
+  static const Color geofenceInsideIndicator = Color(0xFF22C55E);
+
+  /// Label text for the inside-geofence state.
+  static const Color geofenceInsideText = Color(0xFF16A34A);
+
+  /// Unread-count badge on a dashboard chat-preview row.
+  static const Color chatUnreadBadge = Color(0xFF00B894);
+
+  /// Tint behind the chat-preview strip at the foot of the My Day card.
+  static const Color chatPreviewSurface = Color.fromRGBO(44, 99, 226, 0.05);
+
+  /// Fill behind the Work Time / Break Time chips on the My Day card.
+  static const Color myDayChipSurface = Color.fromRGBO(177, 175, 233, 0.3);
+
+  // ── Dashboard: disabled / shimmer chrome ──────────────────────────────────
+
+  /// Label of a disabled self-attendance action button.
+  static const Color disabledActionLabel = Color(0xFF757575); // Colors.grey[600]
+
+  /// Border of a disabled self-attendance action button.
+  static const Color disabledActionBorder = Color(0xFFBDBDBD); // Colors.grey[400]
+
+  /// Shimmer skeleton base / highlight.
+  static const Color shimmerBase = Color(0xFFE0E0E0);      // Colors.grey[300]
+  static const Color shimmerHighlight = Color(0xFFF5F5F5); // Colors.grey[100]
 }

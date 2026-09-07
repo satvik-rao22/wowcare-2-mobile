@@ -1,4 +1,7 @@
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
+import 'package:wowcare/core/router/app_routes.dart';
+import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -10,8 +13,8 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_childs_day_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/qr_scan_button.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/qr_scan_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -19,7 +22,7 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
-import '../../../../../core/util/storage_keys.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
@@ -32,7 +35,6 @@ import 'package:wowcare/domain/features/student/entities/student_regular_schedul
 import 'dashboard_error_chip.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/messaging_entry_screen.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity_display.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
@@ -647,16 +649,17 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
         final double totalRatio =
             (numUnits * unitRatio) + (numSeparators * separatorRatio);
 
-        // Account for user text scaling preferences
-        double textScaleFactor = 1.0;
-        try {
-          // Use textScaler if available (newer Flutter versions)
-          textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
-        } catch (_) {
-          // Fallback for older Flutter versions
-          // ignore: deprecated_member_use
-          textScaleFactor = MediaQuery.of(context).textScaleFactor;
-        }
+        // Account for user text scaling preferences.
+        //
+        // Mandate 7: field-scoped (`textScalerOf`), not `MediaQuery.of`, so
+        // this depends on the text scale alone and does not re-run when any
+        // other MediaQueryData field changes. The old `catch` fell back to the
+        // deprecated `.of(context).textScaleFactor` "for older Flutter
+        // versions" — unreachable, since both throw under exactly the same
+        // condition (no MediaQuery ancestor).
+        final double textScaleFactor = MediaQuery.textScalerOf(
+          context,
+        ).scale(1.0);
 
         // Calculate maximum font size that fits the available width
         final double calculatedFontSize =
@@ -716,132 +719,6 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
   // ----- Student detail row -----
 
-  // Widget _buildStudentDetailContainer({
-  //   required String studentName,
-  //   required String classroomName,
-  //   required String dayOfWeek,
-  //   required String todayScheduleRange,
-  //   required String schoolTimeZone,
-  //   required DateTime? schoolNow,
-  //   required String studentStatus,
-  // }) {
-  //   final statusColor = studentStatus == 'Upcoming'
-  //       ? const Color.fromARGB(255, 253, 205, 22)
-  //       : studentStatus == 'Active'
-  //       ? const Color.fromRGBO(0, 177, 21, 1)
-  //       : null;
-  //   final scheduleLabel = todayScheduleRange.trim().isNotEmpty
-  //       ? todayScheduleRange.trim()
-  //       : 'No schedule';
-
-  //   return Row(
-  //     mainAxisAlignment: MainAxisAlignment.center,
-  //     children: [
-  //       // LEFT: profile photo with status dot
-  //       Stack(
-  //         children: [
-  //           DocumentImageWidget(
-  //             fileUuid: '',
-  //             name: studentName,
-  //             size: 90,
-  //             fontSize: 28,
-  //             disableProfileLookupFallback: true,
-  //             disableAttendanceStatusLookup: true,
-  //           ),
-  //           if (statusColor != null)
-  //             Positioned(
-  //               right: 4,
-  //               top: 4,
-  //               child: Container(
-  //                 constraints: const BoxConstraints(
-  //                   minWidth: 18,
-  //                   minHeight: 18,
-  //                 ),
-  //                 decoration: BoxDecoration(
-  //                   color: statusColor,
-  //                   borderRadius: BorderRadius.circular(8),
-  //                   border: Border.all(color: Colors.white, width: 2),
-  //                 ),
-  //               ),
-  //             ),
-  //         ],
-  //       ),
-  //       const SizedBox(width: 20),
-  //       // RIGHT: name, hours chip, room
-  //       Expanded(
-  //         child: Column(
-  //           crossAxisAlignment: CrossAxisAlignment.start,
-  //           children: [
-  //             Text(
-  //               studentName,
-  //               maxLines: 1,
-  //               overflow: TextOverflow.ellipsis,
-  //               style: const TextStyle(
-  //                 color: AppColors.primaryColor,
-  //                 fontSize: 18,
-  //                 fontWeight: FontWeight.w600,
-  //               ),
-  //             ),
-  //             const SizedBox(height: 4),
-  //             // School hours chip
-  //             Container(
-  //               padding: const EdgeInsets.symmetric(
-  //                 horizontal: 10,
-  //                 vertical: 4,
-  //               ),
-  //               decoration: BoxDecoration(
-  //                 color: const Color.fromRGBO(177, 175, 233, 0.3),
-  //                 borderRadius: BorderRadius.circular(20),
-  //               ),
-  //               child: Text(
-  //                 scheduleLabel.replaceAll(' - ', ' – '),
-  //                 style: const TextStyle(
-  //                   color: AppColors.secondaryColor,
-  //                   fontWeight: FontWeight.w500,
-  //                   fontSize: 12,
-  //                 ),
-  //               ),
-  //             ),
-  //             const SizedBox(height: 8),
-  //             if (schoolTimeZone.trim().isNotEmpty && schoolNow != null)
-  //               Text(
-  //                 'School Day: ${_formatDayOfWeek(dayOfWeek)}',
-  //                 maxLines: 1,
-  //                 overflow: TextOverflow.ellipsis,
-  //                 style: TextStyle(
-  //                   color: AppColors.primaryColor.withValues(alpha: 0.65),
-  //                   fontWeight: FontWeight.w500,
-  //                   fontSize: 12,
-  //                 ),
-  //               ),
-  //             const SizedBox(height: 8),
-  //             // Room row
-  //             Row(
-  //               children: [
-  //                 // Room avatar (non-person image → Container + icon)
-  //                 const SizedBox(width: 8),
-  //                 Expanded(
-  //                   child: Text(
-  //                     classroomName.trim().isNotEmpty
-  //                         ? classroomName.trim()
-  //                         : '-',
-  //                     maxLines: 1,
-  //                     overflow: TextOverflow.ellipsis,
-  //                     style: const TextStyle(
-  //                       color: AppColors.primaryColor,
-  //                       fontWeight: FontWeight.w500,
-  //                     ),
-  //                   ),
-  //                 ),
-  //               ],
-  //             ),
-  //           ],
-  //         ),
-  //       ),
-  //     ],
-  //   );
-  // }
-
   // ----- Sign-In/Out gradient button -----
 
   Widget _buildSignInOutButton({
@@ -875,11 +752,11 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
       buttonLabel = 'Sign In / Out';
       onPressed = enabled
           ? () => context.go(
-              '/dashboard/student-sign-in-out-selection',
-              extra: <String, dynamic>{
-                'signedInCodes': signedInCodes,
-                'signedOutCodes': signedOutCodes,
-              },
+              DashboardRoutes.childSignInOutSelection,
+              extra: ChildSignInOutSelectionArgs(
+                signedInCodes: signedInCodes,
+                signedOutCodes: signedOutCodes,
+              ),
             )
           : null;
     } else if (signedOutCodes.isEmpty) {
@@ -1313,24 +1190,6 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                                 //       : selectedChild.name,
                                 //   classroomName: isLoaded
                                 //       ? myChildsDayState.classroomName
-                                //       : (selectedChild.primaryClassroomName ??
-                                //                 selectedChild.classroom)
-                                //             .trim(),
-                                //   dayOfWeek: isLoaded
-                                //       ? myChildsDayState.todayDayOfWeek
-                                //       : '',
-                                //   todayScheduleRange: isLoaded
-                                //       ? myChildsDayState.todayScheduleRange
-                                //       : '',
-                                //   schoolTimeZone: isLoaded
-                                //       ? myChildsDayState.schoolTimeZone
-                                //       : '',
-                                //   schoolNow: isLoaded
-                                //       ? myChildsDayState.schoolNow
-                                //       : null,
-                                //   studentStatus: selectedChild.status,
-                                // ),
-                                // const SizedBox(height: 16),
                                 _buildSignInPinRow(
                                   selectedChild: selectedChild,
                                 ),
@@ -1467,7 +1326,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
     final siblings = context.watch<ParentChildCubit>().children;
     return siblings
         .map(
-          (child) => _CommunicationRowWidget(
+          (child) => _MyChildsDayChatPreviewRow(
             // Keyed per child (not the selected one) — each row is its own
             // independent, persistently-mounted widget instance now, so
             // this only needs to disambiguate siblings from each other, not
@@ -1485,8 +1344,8 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 // Communication row (inline, no Firestore / bloc)
 // ---------------------------------------------------------------------------
 
-class _CommunicationRowWidget extends StatefulWidget {
-  const _CommunicationRowWidget({
+class _MyChildsDayChatPreviewRow extends StatefulWidget {
+  const _MyChildsDayChatPreviewRow({
     super.key,
     required this.studentCode,
     required this.childName,
@@ -1512,8 +1371,8 @@ class _CommunicationRowWidget extends StatefulWidget {
   final String childName;
 
   @override
-  State<_CommunicationRowWidget> createState() =>
-      _CommunicationRowWidgetState();
+  State<_MyChildsDayChatPreviewRow> createState() =>
+      _MyChildsDayChatPreviewRowState();
 }
 
 /// Both types this row considers, in no particular order — the more recent
@@ -1523,7 +1382,8 @@ const _kCommunicationRowTypes = [
   ConversationType.roomChat,
 ];
 
-class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
+class _MyChildsDayChatPreviewRowState
+    extends State<_MyChildsDayChatPreviewRow> {
   String _currentUserCode = '';
 
   /// Most-recent conversation per type, filtered to [widget.studentCode].
@@ -1609,20 +1469,20 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
 
     // Fallback to REST concurrently in case Firestore/cache is empty.
     unawaited(
-      serviceLocator<GetConversationsEntityUseCase>()
-          .call(type: type)
-          .then((result) {
-            if (!mounted) return;
-            result.fold((_) {}, (list) {
-              final mine = _latest(list);
-              if (mine != null) {
-                setState(() {
-                  _byType[type] = mine;
-                  _loading = false;
-                });
-              }
+      serviceLocator<GetConversationsEntityUseCase>().call(type: type).then((
+        result,
+      ) {
+        if (!mounted) return;
+        result.fold((_) {}, (list) {
+          final mine = _latest(list);
+          if (mine != null) {
+            setState(() {
+              _byType[type] = mine;
+              _loading = false;
             });
-          }),
+          }
+        });
+      }),
     );
 
     _subs[type] = serviceLocator<WatchConversationsUseCase>()

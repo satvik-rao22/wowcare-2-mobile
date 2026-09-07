@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -19,7 +20,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 class FutureAvailabilityScreen extends StatefulWidget {
   const FutureAvailabilityScreen({super.key});
 
-  static const String routeName = '/dashboard/future-availability';
+  static const String routeName = DashboardRoutes.futureAvailability;
 
   @override
   State<FutureAvailabilityScreen> createState() =>

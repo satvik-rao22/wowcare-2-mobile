@@ -1,4 +1,10 @@
 import 'dart:async';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_out_form.dart';
+import 'package:wowcare/core/router/app_routes.dart';
+import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -7,10 +13,6 @@ import 'package:go_router/go_router.dart';
 import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_out_form.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/qr_validation_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
@@ -131,15 +133,15 @@ class _QrScanViewState extends State<_QrScanView>
 
     if (route == QrNavigationRoute.guardianSignInOut) {
       // Mixed state — pop scanner then navigate to selection screen.
-      Navigator.pop(context);
+      context.pop();
       context.go(
-        '/dashboard/student-sign-in-out-selection',
-        extra: <String, dynamic>{
-          'signedInCodes': signedInCodes,
-          'signedOutCodes': signedOutCodes,
-          'isQrScan': true,
-          'qrToken': qrToken,
-        },
+        DashboardRoutes.childSignInOutSelection,
+        extra: ChildSignInOutSelectionArgs(
+          signedInCodes: signedInCodes,
+          signedOutCodes: signedOutCodes,
+          isQrScan: true,
+          qrToken: qrToken,
+        ),
       );
       return;
     }
@@ -238,7 +240,7 @@ class _QrScanViewState extends State<_QrScanView>
                               color: Colors.white,
                               size: 22,
                             ),
-                            onPressed: () => Navigator.pop(context),
+                            onPressed: () => context.pop(),
                           ),
                           const Expanded(
                             child: Text(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,8 +10,8 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_attendance_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -90,14 +91,10 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
                     showRedirect: true,
                     onRedirect: () => context.push(
                       StaffAttendanceProfile.routeName,
-                      extra: {
-                        'staffCode': state.staffCode,
-                        'staffName': state.staffName,
-                        'staffId': 0,
-                        'staffPhotoUuid': null,
-                        'designationName': '',
-                        'roomName': '-',
-                      },
+                      extra: StaffAttendanceProfileArgs(
+                        staffCode: state.staffCode,
+                        staffName: state.staffName,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),

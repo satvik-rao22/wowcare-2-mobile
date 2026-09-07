@@ -1,4 +1,5 @@
 import 'dart:async' show unawaited;
+import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/core/util/billing_school_time.dart';
 
 import 'package:flutter/material.dart';
@@ -32,7 +33,7 @@ import 'package:wowcare/core/util/school_switch_events.dart';
 class BillingScreen extends StatefulWidget {
   const BillingScreen({super.key});
 
-  static const String routeName = '/dashboard/billing';
+  static const String routeName = DashboardRoutes.billing;
 
   @override
   State<BillingScreen> createState() => _BillingScreenState();

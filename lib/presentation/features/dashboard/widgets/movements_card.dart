@@ -8,8 +8,8 @@ import 'package:wowcare/domain/features/availability/entities/individual_movemen
 import 'package:wowcare/domain/features/availability/entities/individual_movement_board.dart';
 import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -37,6 +37,36 @@ class _MovementStudent {
 // UI-layer grouped movement row
 // ---------------------------------------------------------------------------
 
+/// Which bucket a grouped movement row came from.
+///
+/// Mandate 4 STEP 0. These used to be the bare strings `'Overdue'`,
+/// `'Confirmed'` and `'Upcoming'`, invented in [_groupMovements] and then used
+/// as the sort key, the colour key AND the rendered label at the same time —
+/// so renaming the label would have silently changed sort order and colours,
+/// with no compile error. They are NOT backend values: the source objects
+/// (`board.overdue` / `.confirmed` / `.upcoming`) are already typed.
+///
+/// [label] is the presentational half and must keep rendering
+/// character-for-character what the strings rendered before.
+enum MovementBucket {
+  overdue('Overdue', 0),
+  confirmed('Confirmed', 1),
+  upcoming('Upcoming', 2),
+  rejected('Rejected', 3);
+
+  const MovementBucket(this.label, this.sortPriority);
+
+  /// Display text. The only thing the user sees.
+  final String label;
+
+  /// Overdue > Confirmed > Upcoming, as before.
+  final int sortPriority;
+
+  /// Overdue and Confirmed sort most-recent-first; Upcoming nearest-first.
+  bool get sortsDescending =>
+      this == MovementBucket.overdue || this == MovementBucket.confirmed;
+}
+
 class _GroupedMovement {
   _GroupedMovement({
     required this.movementDate,
@@ -52,7 +82,7 @@ class _GroupedMovement {
   final DateTime movementDate;
   final String movementDay;
   final String movementMonth;
-  final String enrollmentStatus;
+  final MovementBucket enrollmentStatus;
   final bool isLeaving;
   final String? currentRoom;
   final String? nextRoom;
@@ -98,10 +128,11 @@ List<_GroupedMovement> _filterPriorityMovements(
 }) {
   final map = <String, _GroupedMovement>{};
 
-  void addBucket(List<IndividualMovement> movements, String label) {
+  void addBucket(List<IndividualMovement> movements, MovementBucket bucket) {
     for (final m in movements) {
       final dateKey = _dateKey(m.movementDate);
-      final key = '$dateKey|${m.fromClassroomCode}|${m.toClassroomCode}|$label';
+      final key =
+          '$dateKey|${m.fromClassroomCode}|${m.toClassroomCode}|${bucket.name}';
       final existing = map[key];
       if (existing != null) {
         existing.students.add(_studentFrom(m));
@@ -116,7 +147,7 @@ List<_GroupedMovement> _filterPriorityMovements(
           movementDate: m.movementDate,
           movementDay: m.movementDate.day.toString().padLeft(2, '0'),
           movementMonth: _monthAbbr(m.movementDate.month),
-          enrollmentStatus: label,
+          enrollmentStatus: bucket,
           isLeaving: m.movementType == IndividualMovementType.leaveSchool,
           currentRoom: from,
           nextRoom: to,
@@ -132,44 +163,31 @@ List<_GroupedMovement> _filterPriorityMovements(
       .where((m) => _isWithinLastMonth(m.movementDate))
       .toList();
   if (recentOverdue.isNotEmpty) {
-    addBucket(recentOverdue, 'Overdue');
+    addBucket(recentOverdue, MovementBucket.overdue);
   }
 
   // Step 2: Add confirmed
   if (board.confirmed.isNotEmpty) {
-    addBucket(board.confirmed, 'Confirmed');
+    addBucket(board.confirmed, MovementBucket.confirmed);
   }
 
   // Step 3: Add upcoming
   if (board.upcoming.isNotEmpty) {
-    addBucket(board.upcoming, 'Upcoming');
+    addBucket(board.upcoming, MovementBucket.upcoming);
   }
 
   final rows = map.values.toList(growable: false);
 
-  int statusPriority(String status) {
-    switch (status) {
-      case 'Overdue':
-        return 0;
-      case 'Confirmed':
-        return 1;
-      case 'Upcoming':
-        return 2;
-      default:
-        return 3;
-    }
-  }
-
   rows.sort((a, b) {
-    final priorityA = statusPriority(a.enrollmentStatus);
-    final priorityB = statusPriority(b.enrollmentStatus);
+    final priorityA = a.enrollmentStatus.sortPriority;
+    final priorityB = b.enrollmentStatus.sortPriority;
 
     if (priorityA != priorityB) {
       return priorityA.compareTo(priorityB);
     }
 
     // Within same status, sort by date
-    if (a.enrollmentStatus == 'Overdue' || a.enrollmentStatus == 'Confirmed') {
+    if (a.enrollmentStatus.sortsDescending) {
       // most recent/latest first (descending)
       return b.movementDate.compareTo(a.movementDate);
     } else {
@@ -236,35 +254,19 @@ class _MovementsCardState extends State<MovementsCard> {
 
   // ── Status colour helpers ──────────────────────────────────────────────────
 
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'Overdue':
-        return Colors.red;
-      case 'Upcoming':
-        return Colors.yellow.shade700;
-      case 'Confirmed':
-        return Colors.green;
-      case 'Rejected':
-        return Colors.red.shade300;
-      default:
-        return Colors.grey;
-    }
-  }
+  Color _statusColor(MovementBucket status) => switch (status) {
+    MovementBucket.overdue => Colors.red,
+    MovementBucket.upcoming => Colors.yellow.shade700,
+    MovementBucket.confirmed => Colors.green,
+    MovementBucket.rejected => Colors.red.shade300,
+  };
 
-  Color _statusBackground(String status) {
-    switch (status) {
-      case 'Overdue':
-        return Colors.red.withValues(alpha: 0.25);
-      case 'Upcoming':
-        return Colors.yellow.withValues(alpha: 0.25);
-      case 'Confirmed':
-        return Colors.green.withValues(alpha: 0.25);
-      case 'Rejected':
-        return Colors.red.shade300.withValues(alpha: 0.20);
-      default:
-        return Colors.grey.withValues(alpha: 0.25);
-    }
-  }
+  Color _statusBackground(MovementBucket status) => switch (status) {
+    MovementBucket.overdue => Colors.red.withValues(alpha: 0.25),
+    MovementBucket.upcoming => Colors.yellow.withValues(alpha: 0.25),
+    MovementBucket.confirmed => Colors.green.withValues(alpha: 0.25),
+    MovementBucket.rejected => Colors.red.shade300.withValues(alpha: 0.20),
+  };
 
   // ── Students dialog ────────────────────────────────────────────────────────
 
@@ -389,7 +391,7 @@ class _MovementsCardState extends State<MovementsCard> {
 
   // ── Status pill badge ──────────────────────────────────────────────────────
 
-  Widget _buildStatusBadge(String status) {
+  Widget _buildStatusBadge(MovementBucket status) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
       decoration: BoxDecoration(
@@ -397,7 +399,8 @@ class _MovementsCardState extends State<MovementsCard> {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        status,
+        // Display half of the bucket — renders exactly what the bare string did.
+        status.label,
         style: TextStyle(
           fontSize: 16,
           color: _statusColor(status),
@@ -417,7 +420,7 @@ class _MovementsCardState extends State<MovementsCard> {
     required String from,
     required String to,
     required List<_MovementStudent> students,
-    required String status,
+    required MovementBucket status,
   }) {
     return Column(
       children: [
