@@ -1129,4 +1129,75 @@ class AppColors {
   /// Shimmer skeleton base / highlight.
   static const Color shimmerBase = Color(0xFFE0E0E0);      // Colors.grey[300]
   static const Color shimmerHighlight = Color(0xFFF5F5F5); // Colors.grey[100]
+
+  // ── Newsletter (Mandate 4) ────────────────────────────────────────────────
+  // Feature-prefixed, matching the `billing*` convention already in this file.
+  //
+  // NOTE FOR THE OTHER MODULES: the newsletter's *content* colours are NOT
+  // here and must not be. `NewsletterThemeColors` resolves a per-newsletter
+  // palette chosen by the author (vibrant / ocean / forest / sunset /
+  // professional) — that is DATA arriving with the record, not app theming.
+  // Only the app's own chrome around the content is tokenised below.
+
+  /// Unselected newsletter tab label. Was `Color.fromARGB(50, 36, 22, 49)`.
+  static const Color newsletterTabUnselectedLabel = Color.fromARGB(
+    50,
+    36,
+    22,
+    49,
+  );
+
+  /// Unselected newsletter tab chip fill. Was
+  /// `Color.fromARGB(102, 203, 246, 255)`.
+  static const Color newsletterTabUnselectedBackground = Color.fromARGB(
+    102,
+    203,
+    246,
+    255,
+  );
+
+  /// Attachment tile fill in the preview grid.
+  /// Was `Color.fromRGBO(244, 247, 254, 1)`.
+  static const Color newsletterAttachmentTileBackground = Color.fromRGBO(
+    244,
+    247,
+    254,
+    1,
+  );
+
+  /// Document (non-image) thumbnail fill on a list card, when the asset
+  /// resolved. Was `Color(0xFFEAF2FF)`.
+  static const Color newsletterDocumentThumbnailBackground = Color(0xFFEAF2FF);
+
+  /// Document thumbnail fill when no asset resolved, and the fallback behind a
+  /// failed placeholder image. Was `Colors.grey.shade200`.
+  static const Color newsletterThumbnailPlaceholderBackground = Color(
+    0xFFEEEEEE,
+  );
+
+  /// Letterbox behind a component image while it loads.
+  /// Was `Colors.grey.shade100`.
+  ///
+  /// Same hex as [shimmerHighlight] but a different meaning, so it is its own
+  /// token rather than a reuse (§4: a colour that encodes meaning gets a named
+  /// semantic token).
+  static const Color newsletterImageLoadingBackground = Color(0xFFF5F5F5);
+
+  /// Background of the "loaded from cache, refresh failed" banner on the
+  /// preview screen. A SEMANTIC state colour, not a palette entry — it is the
+  /// only thing distinguishing a stale newsletter from a fresh one, and it
+  /// pairs with the banner's own text. Was `Colors.orange.shade50`.
+  static const Color newsletterStaleBannerBackground = Color(0xFFFFF3E0);
+
+  /// Scrim behind the "+N" extra-attachment count on a card thumbnail.
+  /// Was `Colors.black.withValues(alpha: 0.65)`.
+  static final Color newsletterAttachmentCountScrim = blackColor.withValues(
+    alpha: 0.65,
+  );
+
+  /// Card surface of the full-screen image preview overlay.
+  /// Was `Colors.white.withValues(alpha: 0.95)`.
+  static final Color newsletterOverlaySurface = whiteColor.withValues(
+    alpha: 0.95,
+  );
 }

@@ -7,4 +7,6 @@ part of 'student_tags_response.dart';
 // **************************************************************************
 
 StudentTagsResponse _$StudentTagsResponseFromJson(Map<String, dynamic> json) =>
-    StudentTagsResponse(tags: json['tags'] as List<dynamic>?);
+    StudentTagsResponse(
+      tags: json['tags'] as List<dynamic>?,
+    );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/presentation/features/newsletter/view/preview_newsletter_screen.dart';
-import 'package:wowcare/presentation/features/newsletter/util/newsletter_entity_mapper.dart';
+import 'package:wowcare/core/router/app_routes.dart';
+import 'package:wowcare/presentation/features/newsletter/model/newsletter_preview_args.dart';
+import 'package:wowcare/data/features/newsletter/mappers/newsletter_entity_mapper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -11,7 +12,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
-import 'package:wowcare/presentation/features/newsletter/util/newsletter_thumbnail_resolver.dart';
+import 'package:wowcare/domain/features/newsletter/services/newsletter_thumbnail_resolver.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -173,12 +174,10 @@ class _NewsletterRow extends StatelessWidget {
       onTap: () {
         final code = item.code.trim();
         if (code.isEmpty) return;
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => PreviewNewsletterScreen(
-              newsletterCode: code,
-              initialNewsletter: mapNewsletterEntityToNewsletter(item),
-            ),
+        context.push(
+          NewsletterRoutes.dashboardPreview(code),
+          extra: NewsletterPreviewArgs(
+            initialNewsletter: mapNewsletterEntityToNewsletter(item),
           ),
         );
       },

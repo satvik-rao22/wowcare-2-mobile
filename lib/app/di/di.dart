@@ -491,8 +491,9 @@ import '../../data/features/newsletter/repositories/newsletter_repository_impl.d
 import '../../domain/features/newsletter/repositories/newsletter_repository.dart';
 import '../../domain/features/newsletter/usecases/get_sent_newsletters_usecase.dart';
 import '../../domain/features/newsletter/usecases/get_newsletter_by_code_usecase.dart';
-import '../../presentation/features/newsletter/cubit/newsletter_list_cubit.dart';
-import '../../presentation/features/newsletter/cubit/preview_newsletter_cubit.dart';
+import '../../presentation/features/newsletter/view_model/newsletter_asset_url_cubit.dart';
+import '../../presentation/features/newsletter/view_model/newsletter_list_cubit.dart';
+import '../../presentation/features/newsletter/view_model/preview_newsletter_cubit.dart';
 import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
 import '../../presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
@@ -2793,6 +2794,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<PreviewNewsletterCubit>(
     () => PreviewNewsletterCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<NewsletterAssetUrlCubit>(
+    () => NewsletterAssetUrlCubit(
+      imageUploadService: serviceLocator<ImageUploadService>(),
+    ),
   );
 
   // Geofencing Feature

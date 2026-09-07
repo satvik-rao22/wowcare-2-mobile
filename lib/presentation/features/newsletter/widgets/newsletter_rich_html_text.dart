@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart' as html;
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/newsletter/util/newsletter_color_theme.dart';
-import 'package:wowcare/presentation/features/newsletter/util/newsletter_link_launcher.dart';
+import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_color_theme.dart';
+import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_link_launcher.dart';
 
 /// Renders newsletter HTML from `contentJson` text parts.
 ///
@@ -27,14 +30,18 @@ class NewsletterRichHtmlText extends StatelessWidget {
     final String data = htmlData.trim();
     if (data.isEmpty) return const SizedBox.shrink();
 
+    // §4 split. Size / weight / line height are app chrome and come from
+    // AppTextStyles. The COLOUR is the newsletter author's own palette
+    // (`NewsletterThemeColors`), which is data on the record — it is applied
+    // here with copyWith and is deliberately not a token.
+    //
+    // `fontFamily` is gone: it was 'Manrope', and the `?? Fonts.manrope`
+    // fallback in the body style below produces exactly the same family.
     final TextStyle defaults = baseStyle ??
-        TextStyle(
-          color: isHeading ? theme.heading : theme.body,
-          fontSize: isHeading ? 22 : 15,
-          fontWeight: isHeading ? FontWeight.w700 : FontWeight.w500,
-          height: isHeading ? 1.3 : 1.45,
-          fontFamily: 'Manrope',
-        );
+        (isHeading
+                ? AppTextStyles.newsletterRichHeading
+                : AppTextStyles.newsletterRichBody)
+            .copyWith(color: isHeading ? theme.heading : theme.body);
 
     return html.Html(
       data: data,
@@ -54,8 +61,8 @@ class NewsletterRichHtmlText extends StatelessWidget {
       SnackBar(
         content: Text(
           url == null || url.trim().isEmpty
-              ? 'Unable to open link.'
-              : 'Unable to open link: ${url.trim()}',
+              ? AppStrings.newsletterLinkOpenFailed
+              : '${AppStrings.newsletterLinkOpenFailedPrefix}${url.trim()}',
         ),
         backgroundColor: AppColors.warningColor,
       ),
@@ -71,7 +78,10 @@ class NewsletterRichHtmlText extends StatelessWidget {
         margin: html.Margins.zero,
         padding: html.HtmlPaddings.zero,
         fontSize: html.FontSize(defaults.fontSize ?? 15),
-        fontFamily: defaults.fontFamily ?? 'Manrope',
+        // KEPT, unlike the other Manrope lines: flutter_html builds its own
+        // text styles and does NOT inherit ThemeData.fontFamily, so deleting
+        // this would silently change every newsletter's body font.
+        fontFamily: defaults.fontFamily ?? Fonts.manrope,
         color: defaults.color,
         fontWeight: defaults.fontWeight,
         lineHeight: html.LineHeight(defaults.height ?? 1.45),

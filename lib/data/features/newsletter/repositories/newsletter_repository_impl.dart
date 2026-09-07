@@ -73,7 +73,7 @@ class NewsletterRepositoryImpl
       _sentNewslettersCacheKey(schoolCode),
     );
     if (payload == null) return null;
-    return _mapPageModelToEntity(NewsletterPageModel.fromCacheJson(payload));
+    return _mapPageModelToEntity(NewsletterPageModel.fromJson(payload));
   }
 
   NewsletterPage _mapPageModelToEntity(NewsletterPageModel model) {

@@ -127,6 +127,10 @@ import 'package:wowcare/presentation/features/classroom/views/screens/classroom_
 import 'package:wowcare/presentation/features/classroom/views/screens/classroom_info_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/newsletter/view_model/newsletter_asset_url_cubit.dart';
+import 'package:wowcare/presentation/features/newsletter/view_model/newsletter_list_cubit.dart';
+import 'package:wowcare/presentation/features/newsletter/view_model/preview_newsletter_cubit.dart';
+import 'package:wowcare/presentation/features/newsletter/model/newsletter_preview_args.dart';
 import 'package:wowcare/presentation/features/newsletter/view/preview_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/admin_chat_host_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/open_conversation_screen.dart';
@@ -1123,9 +1127,39 @@ final GoRouter appRouter = GoRouter(
                   path: DashboardRoutes.parentNewsletterSegment,
                   pageBuilder: (context, state) => _fastPage(
                     state,
-                    BlocProvider<StudentNewslettersCubit>(
-                      create: (_) => serviceLocator<StudentNewslettersCubit>(),
+                    MultiBlocProvider(
+                      providers: [
+                        BlocProvider<StudentNewslettersCubit>(
+                          create: (_) =>
+                              serviceLocator<StudentNewslettersCubit>(),
+                        ),
+                        // Card thumbnails in the parent list resolve media
+                        // codes to URLs (§5.3).
+                        BlocProvider<NewsletterAssetUrlCubit>(
+                          create: (_) =>
+                              serviceLocator<NewsletterAssetUrlCubit>(),
+                        ),
+                      ],
                       child: const ParentNewsletterScreen(),
+                    ),
+                  ),
+                ),
+                // Newsletter preview, dashboard branch. A SIBLING of
+                // `parent-newsletter`, not a child: both the parent
+                // newsletter list and the parent dashboard's newsletter card
+                // push it, and neither is the other's parent. Registered
+                // inside the shell branch so it is pushed on the branch
+                // navigator and the nav shell stays visible — which is what
+                // the `Navigator.of(context).push` it replaced did.
+                GoRoute(
+                  path: NewsletterRoutes.previewSegment,
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    _newsletterPreview(
+                      newsletterCode:
+                          state.pathParameters[NewsletterRoutes.codeParam] ??
+                          '',
+                      args: NewsletterPreviewArgs.fromExtra(state.extra),
                     ),
                   ),
                 ),
@@ -2176,13 +2210,57 @@ final GoRouter appRouter = GoRouter(
                     ?.trim()
                     .toLowerCase();
                 final initialTabIndex = tab == 'newsletter' ? 1 : 0;
-                return MessagingScreen(
-                  userPersona: isParent
-                      ? UserPersona.parent
-                      : UserPersona.admin,
-                  initialTabIndex: initialTabIndex,
+                // The Sent newsletter tab is a TabBarView child of
+                // MessagingScreen, not a route of its own, so this is the
+                // GoRoute builder that owns its cubits (§5: the only place
+                // serviceLocator may appear on the presentation side).
+                // `create:` constructs only — SentNewsLetterTab still fires
+                // its own loads from initState, so the request count and the
+                // moment they fire are unchanged (§5.4).
+                return MultiBlocProvider(
+                  providers: [
+                    BlocProvider<NewsletterListCubit>(
+                      create: (_) => serviceLocator<NewsletterListCubit>(),
+                    ),
+                    BlocProvider<ClassroomCubit>(
+                      create: (_) => serviceLocator<ClassroomCubit>(),
+                    ),
+                    BlocProvider<NewsletterAssetUrlCubit>(
+                      create: (_) => serviceLocator<NewsletterAssetUrlCubit>(),
+                    ),
+                  ],
+                  child: MessagingScreen(
+                    userPersona: isParent
+                        ? UserPersona.parent
+                        : UserPersona.admin,
+                    initialTabIndex: initialTabIndex,
+                  ),
                 );
               },
+              routes: [
+                // Newsletter preview, messaging branch. The staff/admin Sent
+                // newsletter tab is a `TabBarView` child of MessagingScreen,
+                // not a route of its own, so its preview is registered as a
+                // child of the messaging route — pushed on the messaging
+                // branch navigator, nav shell still visible, exactly as the
+                // `Navigator.of(context).push` it replaced.
+                //
+                // Same screen as the dashboard-branch registration above; see
+                // NewsletterRoutes for why one root-level route could not
+                // serve both without covering the nav shell.
+                GoRoute(
+                  path: NewsletterRoutes.previewSegment,
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    _newsletterPreview(
+                      newsletterCode:
+                          state.pathParameters[NewsletterRoutes.codeParam] ??
+                          '',
+                      args: NewsletterPreviewArgs.fromExtra(state.extra),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -2230,7 +2308,10 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.newsletterPreviewByCode,
       pageBuilder: (context, state) => _fastPage(
         state,
-        PreviewNewsletterScreen(
+        // Query parameter, not a path parameter: the shape is the contract
+        // with `notification_route_resolver.dart` and is unchanged. Root-level
+        // by design — a notification tap opens the newsletter over the shell.
+        _newsletterPreview(
           newsletterCode: state.uri.queryParameters['code'] ?? '',
         ),
       ),
@@ -3353,6 +3434,37 @@ String? _dashboardPersonaRedirect(BuildContext context, GoRouterState state) {
 /// Snappier page builder for drill-down routes — the default Material
 /// transition is ~300 ms which feels sluggish on back; we use a 180 ms slide
 /// so push *and* pop animations stay smooth and tight.
+/// The newsletter preview screen, with the `PreviewNewsletterCubit` its route
+/// owns.
+///
+/// Three routes build this screen — the dashboard branch, the messaging
+/// branch and the notification deep-link — so the `BlocProvider` lives here
+/// once rather than being retyped in each builder. `create:` constructs only;
+/// the screen fires `load()` from `initState` so the fetch happens once per
+/// screen instance rather than on every `pageBuilder` re-run (§5.4).
+Widget _newsletterPreview({
+  required String newsletterCode,
+  NewsletterPreviewArgs? args,
+}) {
+  return MultiBlocProvider(
+    providers: [
+      BlocProvider<PreviewNewsletterCubit>(
+        create: (_) => serviceLocator<PreviewNewsletterCubit>(),
+      ),
+      // The attachment grid and the inline component images resolve media
+      // codes to URLs. Both used to call serviceLocator<ImageUploadService>()
+      // from inside a FutureBuilder (§5.3); the cubit owns that now.
+      BlocProvider<NewsletterAssetUrlCubit>(
+        create: (_) => serviceLocator<NewsletterAssetUrlCubit>(),
+      ),
+    ],
+    child: PreviewNewsletterScreen(
+      newsletterCode: newsletterCode,
+      initialNewsletter: args?.initialNewsletter,
+    ),
+  );
+}
+
 Page<dynamic> _fastPage(GoRouterState state, Widget child) {
   // Notification deep-links carry their target in the query string
   // (e.g. `?code=…&highlightCode=…`). go_router's default `state.pageKey` is

@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_attachment.dart';
-import 'package:wowcare/presentation/features/newsletter/util/newsletter_color_theme.dart';
-import 'package:wowcare/presentation/features/newsletter/view/widgets/newsletter_attachment_grid.dart';
-import 'package:wowcare/presentation/features/newsletter/view/widgets/newsletter_component_view.dart';
-import 'package:wowcare/presentation/features/newsletter/view/widgets/newsletter_rich_html_text.dart';
-import 'package:wowcare/presentation/features/newsletter/view/widgets/newsletter_themed_title_bar.dart';
+import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_color_theme.dart';
+import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_attachment_grid.dart';
+import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_component_view.dart';
+import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_rich_html_text.dart';
+import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_themed_title_bar.dart';
 
 class NewsletterPreviewContent extends StatelessWidget {
   const NewsletterPreviewContent({super.key, required this.newsletter});
@@ -49,7 +52,7 @@ class NewsletterPreviewContent extends StatelessWidget {
     final bool hasComponents = newsletter.components.isNotEmpty;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+      padding: const EdgeInsets.fromLTRB(AppSizes.md, AppSizes.xsPlus, AppSizes.md, AppSizes.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -57,12 +60,12 @@ class NewsletterPreviewContent extends StatelessWidget {
             title: newsletter.title,
             theme: theme,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSizes.xsPlus),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.whiteColor,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: theme.divider.withValues(alpha: 0.55),
@@ -90,16 +93,13 @@ class NewsletterPreviewContent extends StatelessWidget {
                   )
                 else
                   Text(
-                    'No newsletter content available.',
-                    style: TextStyle(
-                      color: AppColors.primaryColor.withValues(alpha: 0.65),
-                      fontSize: 14,
-                    ),
+                    AppStrings.newsletterNoContent,
+                    style: AppTextStyles.newsletterEmptyContent,
                   ),
                 if (attachments.isNotEmpty) ...[
-                  const SizedBox(height: 20),
+                  const SizedBox(height: AppSizes.lg),
                   Divider(color: theme.divider, height: 1),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSizes.md),
                   NewsletterAttachmentGrid(
                     newsletterId: newsletter.id,
                     attachments: attachments,
