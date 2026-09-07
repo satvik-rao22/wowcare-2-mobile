@@ -8,7 +8,6 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/attendance/entities/staff_attendance_daily.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_transfer_request.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/view_model/staff_transfer_submit_cubit.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -71,6 +70,16 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
   // source of truth. Re-hydrated after every successful transfer so this
   // never goes stale.
   String? _currentClassroomCode;
+
+  // Gates the "Transfer to Classroom" dropdown: it stays disabled (showing a
+  // loading hint) until the staff's current classroom has actually been
+  // resolved (see [_hydrateSelfStaffClassroomDataIfNeeded]). Showing the
+  // dropdown before that finishes let the staff's real current classroom
+  // appear as a selectable option for a moment — most visible on entry
+  // points (e.g. the My Day card's "Transfer" button) that don't seed
+  // [StaffEntity.classroomCode] up front, so this stayed false noticeably
+  // longer than on entry points that do.
+  bool _currentClassroomResolved = false;
   bool _hasTransferTargets = true;
   late final ClassroomCubit _classroomCubit;
 
@@ -86,6 +95,11 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
         StaffEntity(id: 1, name: 'Staff Member', primaryRoomId: 1),
       ];
     }
+    // Bulk transfers (multiple staff picked at once) don't run per-staff
+    // hydration below — [build] falls back to the first selected staff's own
+    // (already-known) classroomCode synchronously — so there's nothing to
+    // wait on.
+    _currentClassroomResolved = _selectedStaff.length != 1;
     _classroomCubit = serviceLocator<ClassroomCubit>()
       ..loadActiveClassrooms(
         onlyTypeClassroom: false,
@@ -125,41 +139,40 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
 
   /// Resolves the staff member's LATEST current classroom and stores it in
   /// [_currentClassroomCode]. Called on load and again after every
-  /// successful transfer so the displayed "Current Classroom" — and the
-  /// dropdown's exclusion filter — never goes stale.
+  /// successful transfer so the dropdown's exclusion filter never goes
+  /// stale (this is what prevents "transfer to same classroom").
   ///
   /// `StaffProfile.primaryClassroomCode` looked like the right source but
   /// is actually a STATIC default assignment that does NOT change when a
   /// staff member is transferred — using it showed the staff's permanent
   /// "home" classroom instead of where they currently are. The real source
-  /// of truth is the same "Transfer form list" endpoint the staff-selection
-  /// transfer form uses (`getStaffTransferFormList`, queried for today):
-  /// its `classroomCode` reflects every transfer applied so far, including
-  /// same-day transfers.
-  ///
-  /// A prior version of this method tried to derive the current classroom
-  /// from `getStaffAttendanceDaily` over a 365-day window, picking the item
-  /// where `isLastSequenceEntry == true`. That flag (and `sequenceNumber`)
-  /// is scoped to a single day's sign-in/transfer/sign-out chain, not to the
-  /// whole queried range, and the response wasn't sorted by date — so with
-  /// multiple days of history it could latch onto an old day's "last event"
-  /// and keep showing a stale (often the very first) classroom no matter how
-  /// many transfers had since happened. Only falls back to the (static)
-  /// profile field if today's transfer-form-list can't be resolved at all.
+  /// of truth is today's "Transfer form list" (`getStaffTransferFormList`,
+  /// the same endpoint the staff-selection transfer form uses to build its
+  /// candidate list): the backend keeps ONE attendance record per staff per
+  /// day, and that record's `classroomCode` is kept in sync with every
+  /// transfer applied so far today. It's trusted directly, with no extra
+  /// gating — `classroomName` on the same record is NOT used for matching
+  /// or exclusion since the API can leave it null; a classroom's name is
+  /// only ever resolved from the classroom directory, by code, wherever a
+  /// name is actually needed. Falls back to the (static) profile field only
+  /// when today's list has no record for this staff at all.
   Future<void> _hydrateSelfStaffClassroomDataIfNeeded({
     required bool isAdmin,
   }) async {
     // Run for all roles (including admins) when a single staff member is
     // selected. Admins can be assigned to a classroom too — skipping them
-    // caused 'N/A' in the Current Classroom field for every admin-initiated
-    // transfer.
+    // caused the dropdown's exclusion filter to be skipped for every
+    // admin-initiated transfer.
     if (_selectedStaff.length != 1) return;
     final selected = _selectedStaff.first;
     final selectedStaffCode = (selected.staffCode ?? '').trim();
-    if (selectedStaffCode.isEmpty) return;
+    if (selectedStaffCode.isEmpty) {
+      if (mounted) setState(() => _currentClassroomResolved = true);
+      return;
+    }
 
-    // Seed from the entity immediately so the field isn't blank while the
-    // network round-trip below is in flight.
+    // Seed from the entity immediately so the exclusion filter isn't empty
+    // while the network round-trip below is in flight.
     final existingCode = (selected.classroomCode ?? '').trim();
     if (existingCode.isNotEmpty && (_currentClassroomCode ?? '').isEmpty) {
       if (!mounted) return;
@@ -184,42 +197,15 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
         fromAbsenceDate: today,
         toAbsenceDate: today,
         page: 0,
-        size: 500,
+        size: 1000,
       );
 
-      // The backend keeps ONE attendance record per staff per day — signing
-      // back in after a sign-out just clears signedOutTime and bumps
-      // signedInTime on that SAME record; it does NOT reset classroomCode.
-      // So classroomCode only actually changes when an explicit transfer
-      // happens, and can be left over from a transfer done in an EARLIER
-      // (already signed-out) session. Trusting it whenever the staff is
-      // currently signed in — as a prior version of this did — kept
-      // excluding that stale classroom (e.g. still Room 1 after signing
-      // back in without transferring since) instead of the staff's actual
-      // current location, which is their primary classroom until they
-      // transfer again THIS session.
-      int timeScore(StaffAttendanceTime? t) =>
-          t == null ? -1 : t.hour * 3600 + t.minute * 60 + t.second;
-
-      StaffAttendanceDailyItem? latest;
       for (final item in page.items) {
-        if (item.staffCode.trim() != selectedStaffCode) continue;
-        if (latest == null ||
-            timeScore(item.signedInTime) > timeScore(latest.signedInTime)) {
-          latest = item;
+        if (item.staffCode.trim() == selectedStaffCode) {
+          resolved = item.classroomCode.trim();
+          break;
         }
       }
-      // Trust classroomCode only when: currently signed in (not mid a
-      // closed/signed-out session) AND a transfer has happened AFTER this
-      // sign-in (transferTime later than signedInTime — an older transfer
-      // from a previous session doesn't count). Otherwise leave `resolved`
-      // empty so the static-profile fallback below (primary classroom) wins.
-      final signedInScore = timeScore(latest?.signedInTime);
-      final transferredSinceThisSignIn =
-          latest != null &&
-          latest.signedOutTime == null &&
-          timeScore(latest.transferTime) > signedInScore;
-      resolved = transferredSinceThisSignIn ? latest.classroomCode.trim() : '';
     } catch (_) {
       // Fall through to the static profile fallback below.
     }
@@ -238,15 +224,18 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       }
     }
 
-    if (resolved.isEmpty || !mounted) return;
+    if (!mounted) return;
     setState(() {
-      _currentClassroomCode = resolved;
-      // If the dropdown selection now matches the freshly-resolved current
-      // classroom (e.g. the user picked a target before this async
-      // resolution caught up), it's no longer a valid transfer target —
-      // clear it rather than leaving a stale, now-invalid selection.
-      if (_selectedToClassroomCode == resolved) {
-        _selectedToClassroomCode = null;
+      _currentClassroomResolved = true;
+      if (resolved.isNotEmpty) {
+        _currentClassroomCode = resolved;
+        // If the dropdown selection now matches the freshly-resolved current
+        // classroom (e.g. the user picked a target before this async
+        // resolution caught up), it's no longer a valid transfer target —
+        // clear it rather than leaving a stale, now-invalid selection.
+        if (_selectedToClassroomCode == resolved) {
+          _selectedToClassroomCode = null;
+        }
       }
     });
   }
@@ -501,12 +490,20 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                         ? (_selectedStaff.first.classroomCode ?? '')
                         : '')
                     .trim());
-          final transferOptions = classroomState.classrooms
-              .where((c) => c.name.trim().isNotEmpty)
-              .where((c) => c.code.trim() != currentClassroomCode)
-              .map((c) => c.name)
-              .toList(growable: false);
-          _hasTransferTargets = transferOptions.isNotEmpty;
+          // Both the current-classroom lookup and the classroom directory
+          // must be in before the dropdown is allowed to show anything —
+          // otherwise it can briefly list the staff's own current classroom
+          // as a selectable destination.
+          final isTransferOptionsReady =
+              _currentClassroomResolved && !classroomState.isLoading;
+          final transferOptions = isTransferOptionsReady
+              ? classroomState.classrooms
+                    .where((c) => c.name.trim().isNotEmpty)
+                    .where((c) => c.code.trim() != currentClassroomCode)
+                    .map((c) => c.name)
+                    .toList(growable: false)
+              : const <String>[];
+          _hasTransferTargets = isTransferOptionsReady && transferOptions.isNotEmpty;
           String? selectedToClassroomName;
           for (final entry in _classroomNameToCode.entries) {
             if (entry.value == _selectedToClassroomCode) {
@@ -615,9 +612,11 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                   const AppText.label('Transfer to Classroom'),
                   const SizedBox(height: AppSpacing.xs),
                   CustomDropdown(
-                    hintText: _hasTransferTargets
-                        ? 'Select classroom'
-                        : 'No classroom available',
+                    hintText: !isTransferOptionsReady
+                        ? 'Loading classrooms...'
+                        : (_hasTransferTargets
+                              ? 'Select classroom'
+                              : 'No classroom available'),
                     items: transferOptions,
                     selectedItem: selectedToClassroomName,
                     isEnabled: _hasTransferTargets,
