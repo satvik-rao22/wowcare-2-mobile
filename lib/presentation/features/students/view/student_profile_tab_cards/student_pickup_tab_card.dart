@@ -180,13 +180,18 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                           name: pickups[i].fullName.isNotEmpty
                               ? pickups[i].fullName
                               : '-',
-                          relation: _formatRelation(pickups[i].relation),
+                          relation: _effectiveRelation(
+                            pickups[i].relation,
+                            pickups[i].relationshipDescription,
+                          ),
                           email: _valueOrDash(pickups[i].email),
                           rawEmail: pickups[i].email,
                           phoneNumber: _formatPhoneNumber(
                             pickups[i].phoneNumber,
                           ),
                           rawRelation: pickups[i].relation,
+                          rawRelationshipDescription:
+                              pickups[i].relationshipDescription,
                           rawPhoneNumber: pickups[i].phoneNumber,
                           firstName: pickups[i].firstName,
                           lastName: pickups[i].lastName,
@@ -225,6 +230,23 @@ String _formatPhoneNumber(String? raw) {
   return _valueOrDash(raw);
 }
 
+/// Resolves the relation value to actually show/prefill: for a real
+/// predefined relation this is just its title-cased form, but 'OTHER' on
+/// its own is meaningless to a user - the specific relation they typed
+/// (e.g. "Family Friend") lives in [relationshipDescription] instead. Used
+/// both for the card's displayed relation text and (via [_onEdit] below)
+/// as what seeds RelationSelector when reopening this pickup to edit it -
+/// without this, both showed the literal word "Other" instead of what the
+/// user actually specified.
+String _effectiveRelation(String relation, String? relationshipDescription) {
+  final r = relation.trim();
+  if (r.toUpperCase() == 'OTHER') {
+    final description = (relationshipDescription ?? '').trim();
+    if (description.isNotEmpty) return description;
+  }
+  return _formatRelation(r);
+}
+
 String _formatRelation(String relation) {
   final r = relation.trim();
   if (r.isEmpty) return '-';
@@ -260,6 +282,7 @@ class _PickupCard extends StatefulWidget {
     this.email,
     this.rawEmail,
     this.phoneNumber,
+    this.rawRelationshipDescription,
     this.onRefresh,
     this.showActionButtons = true,
     this.photoUrl,
@@ -274,6 +297,7 @@ class _PickupCard extends StatefulWidget {
   final String lastName;
   final String rawPhoneNumber;
   final String rawRelation;
+  final String? rawRelationshipDescription;
   final bool isLoading;
   final ValueChanged<bool> onSetLoading;
   final String name;
@@ -312,7 +336,15 @@ class _PickupCardState extends State<_PickupCard> {
         'initialLastName': widget.lastName,
         'initialEmail': widget.rawEmail,
         'initialPhoneNumber': widget.rawPhoneNumber,
-        'initialRelation': widget.rawRelation,
+        // Seeds RelationSelector.initialRelation - for relation: 'OTHER'
+        // this must be the actual typed-in relation (relationshipDescription),
+        // not the literal word "OTHER", or the Specify-Relation field on
+        // reopening this pickup to edit it shows "Other" instead of what
+        // was originally entered (e.g. "Family Friend").
+        'initialRelation': _effectiveRelation(
+          widget.rawRelation,
+          widget.rawRelationshipDescription,
+        ),
         'initialClockPin': widget.clockPin,
       },
     );
