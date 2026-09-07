@@ -74,19 +74,32 @@ void main() {
     });
 
     test('convenience getters work correctly', () {
+      // Keys must be the ones the getters on FeatureFlagState actually read
+      // (`bulkMessagingEnabled`, `realtimeEnabled`, …). The earlier
+      // `bulkMessaging` / `privateModeMessaging` spellings matched no getter,
+      // so every assertion below was really testing the getter's DEFAULT —
+      // which is why `isPrivateModeEnabled` "passed" (it defaults to true) and
+      // `isBulkMessagingEnabled` failed (it defaults to false).
       const state = FeatureFlagState(
         flags: {
-          'bulkMessaging': true,
-          'realtimeMessaging': false,
-          'privateModeMessaging': true,
-          'offlineSyncMessaging': true,
+          'bulkMessagingEnabled': true,
+          'realtimeEnabled': false,
+          'privateModeEnabled': true,
         },
       );
 
       expect(state.isBulkMessagingEnabled, isTrue);
-      // expect(state.isRealtimeMessagingEnabled, isFalse);
+      expect(state.isRealtimeEnabled, isFalse);
       expect(state.isPrivateModeEnabled, isTrue);
-      // expect(state.isOfflineSyncEnabled, isTrue);
+    });
+
+    test('convenience getters fall back to their documented defaults', () {
+      const state = FeatureFlagState(flags: {});
+
+      expect(state.isBulkMessagingEnabled, isFalse, reason: 'admin-only, off');
+      expect(state.isPrivateModeEnabled, isTrue);
+      expect(state.isRealtimeEnabled, isTrue);
+      expect(state.isCommunicationEnabled, isTrue);
     });
 
     test('equality works for identical states', () {

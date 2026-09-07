@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -107,7 +108,10 @@ class SessionExpiredCoordinator {
       final ctx = CoreUtils.rootNavigatorKey.currentContext;
       if (ctx != null && ctx.mounted) {
         try {
-          ctx.read<ParentChildCubit>().invalidate();
+          // resetForLogout, not invalidate: an expired session must also
+          // erase the PERSISTED child selection, so nothing of this parent's
+          // context is left on disk for whoever signs in next.
+          unawaited(ctx.read<ParentChildCubit>().resetForLogout());
         } catch (_) {}
         try {
           ctx.read<RoleCubit>().resetSessionForLogout();

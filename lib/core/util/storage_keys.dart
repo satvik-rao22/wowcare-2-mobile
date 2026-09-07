@@ -102,6 +102,21 @@ class StorageKeys {
   static const String guardianProfilePhotoUrl = 'guardianProfilePhotoUrl';
   static const String guardianProfileAssetCode = 'guardianProfileAssetCode';
 
+  /// The guardian's currently-selected child (`ParentChildCubit.selectedChild`),
+  /// persisted so a cold start restores the SAME child the parent was last
+  /// looking at instead of silently falling back to the first one in the list.
+  ///
+  /// Always read together with [selectedStudentContext]: a bare code would
+  /// otherwise survive a logout / school switch / persona switch and be
+  /// re-applied under a different account's child list.
+  static const String selectedStudentCode = 'selectedStudentCode';
+
+  /// The `userCode|organizationCode|schoolCode` scope [selectedStudentCode]
+  /// was recorded under. A restore is only honoured when this matches the
+  /// session being loaded, which is what keeps the selection from leaking
+  /// across users, orgs, schools or personas.
+  static const String selectedStudentContext = 'selectedStudentContext';
+
   /// JSON list of {organizationCode, schoolCode, schoolName} - all org+school combos user has access to.
   static const String organizationsAndSchools = 'organizationsAndSchools';
 

@@ -60,26 +60,23 @@ const _doc = StaffDocument(
 );
 
 void main() {
-  test(
-    'emits a real loading state while the add is in flight, so the save '
-    "button's spinner can actually show",
-    () async {
-      final repo = _FakeRepo()..gate = Completer<String>();
-      final cubit = _cubit(repo);
-      addTearDown(cubit.close);
+  test('emits a real loading state while the add is in flight, so the save '
+      "button's spinner can actually show", () async {
+    final repo = _FakeRepo()..gate = Completer<String>();
+    final cubit = _cubit(repo);
+    addTearDown(cubit.close);
 
-      expect(cubit.state.isLoading, isFalse);
-      final pending = cubit.addDocument(staffCode: 'STF-1', document: _doc);
-      await Future<void>.delayed(Duration.zero);
+    expect(cubit.state.isLoading, isFalse);
+    final pending = cubit.addDocument(staffCode: 'STF-1', document: _doc);
+    await Future<void>.delayed(Duration.zero);
 
-      expect(cubit.state.isLoading, isTrue);
+    expect(cubit.state.isLoading, isTrue);
 
-      repo.gate!.complete('saved');
-      await pending;
-      expect(cubit.state.isLoading, isFalse);
-      expect(cubit.state.isSuccess, isTrue);
-    },
-  );
+    repo.gate!.complete('saved');
+    await pending;
+    expect(cubit.state.isLoading, isFalse);
+    expect(cubit.state.isSuccess, isTrue);
+  });
 
   test('addDocument emits a success state carrying the API message', () async {
     final repo = _FakeRepo()..result = 'Added!';
@@ -93,24 +90,21 @@ void main() {
     await cubit.close();
   });
 
-  test(
-    'an addDocument whose response lands after the cubit is closed does NOT '
-    'emit (isClosed guard — no emit-after-close StateError)',
-    () async {
-      final repo = _FakeRepo()..gate = Completer<String>();
-      final cubit = _cubit(repo);
+  test('an addDocument whose response lands after the cubit is closed does NOT '
+      'emit (isClosed guard — no emit-after-close StateError)', () async {
+    final repo = _FakeRepo()..gate = Completer<String>();
+    final cubit = _cubit(repo);
 
-      final pending = cubit.addDocument(staffCode: 'S1', document: _doc);
-      await Future<void>.delayed(Duration.zero);
+    final pending = cubit.addDocument(staffCode: 'S1', document: _doc);
+    await Future<void>.delayed(Duration.zero);
 
-      // Tear down while the add is in flight, then let the response resolve.
-      await cubit.close();
-      repo.gate!.complete('done');
+    // Tear down while the add is in flight, then let the response resolve.
+    await cubit.close();
+    repo.gate!.complete('done');
 
-      await expectLater(pending, completes);
-      expect(cubit.isClosed, isTrue);
-    },
-  );
+    await expectLater(pending, completes);
+    expect(cubit.isClosed, isTrue);
+  });
 
   test(
     'an updateDocument whose response lands after the cubit is closed does NOT '

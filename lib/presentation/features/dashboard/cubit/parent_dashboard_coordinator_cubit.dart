@@ -77,10 +77,34 @@ class ParentDashboardCoordinatorCubit extends Cubit<DashboardState> {
     }
   }
 
+  /// The child the feature cubits were last loaded for, and the
+  /// [ParentChildState.refreshNonce] they were loaded at. Together these are
+  /// the only two inputs that should cause a reload.
+  String? _loadedForChildCode;
+  int? _loadedForNonce;
+
   void _onChildSelectionChanged(ParentChildState parentChildState) {
     final selectedChild = parentChildState.selectedChild;
     if (selectedChild != null) {
       final studentCode = selectedChild.code;
+      final nonce = parentChildState.refreshNonce;
+
+      // ParentChildCubit emits on FIVE inputs — selected child, child list,
+      // isLoading, isLoaded and refreshNonce — and this listener used to
+      // re-run all four feature loads on every one of them. A single refresh
+      // therefore fired the same four requests two or three times over, each
+      // round racing the previous one's response into the same cubits.
+      //
+      // Only two of those inputs mean "reload": a genuine child SWITCH, and an
+      // explicit `forceRefresh()` (the nonce), which is what the parent
+      // sign-in/sign-out forms use to make the dashboard re-read the child's
+      // day after an attendance action. Both are preserved; the loading-flag
+      // churn is not.
+      if (studentCode == _loadedForChildCode && nonce == _loadedForNonce) {
+        return;
+      }
+      _loadedForChildCode = studentCode;
+      _loadedForNonce = nonce;
 
       // Trigger loads on feature cubits
       myChildsDayCubit.loadForChild(studentCode: studentCode);
@@ -99,6 +123,11 @@ class ParentDashboardCoordinatorCubit extends Cubit<DashboardState> {
 
       // Initialize geofence
       _initGeofence();
+    } else {
+      // Selection cleared (logout, school switch, empty child list) — forget
+      // what was loaded so re-selecting the SAME child still reloads it.
+      _loadedForChildCode = null;
+      _loadedForNonce = null;
     }
   }
 

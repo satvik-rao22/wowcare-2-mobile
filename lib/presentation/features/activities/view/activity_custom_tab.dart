@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -190,7 +190,20 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
   Map<String, String> _tagNameToCode = {};
   final Set<String> _studentCodesForTagFilter = {};
   final Set<String> _parentAllowedStudentCodes = {};
+
+  /// The child the feed is CURRENTLY scoped to, `{studentCode: classroomCode}`.
+  /// Its keys are the guardian fan-out set, so for a guardian it normally holds
+  /// exactly one entry.
   final Map<String, String> _parentStudentClassroomByCode = {};
+
+  /// EVERY linked child's classroom, from the last successful bootstrap — see
+  /// the daily tab's field of the same name for why the narrowed map above
+  /// cannot answer for a sibling.
+  final Map<String, String> _parentClassroomByStudentCodeAll = {};
+
+  /// Guards [_bootstrapParentHome] against re-entry from the per-frame
+  /// [_syncWithGlobalChildSelection] scheduled in `build`.
+  bool _parentBootstrapInFlight = false;
   bool _loadingParentContext = false;
   bool _isFeedRequestInFlight = false;
   bool _forceAllClassroomsOnLoad = false;
@@ -298,8 +311,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
   /// query can even be built, so they can't flow through the cubit. A
   /// bootstrap error takes priority; otherwise fall back to the cubit's own
   /// load error. Mirrors `activity_daily_tab.dart`'s `_displayedFeedError`.
-  String? get _displayedFeedError =>
-      _feedError ?? _effectiveFeedState.error;
+  String? get _displayedFeedError => _feedError ?? _effectiveFeedState.error;
 
   final List<String> activityType = [
     'Sign-in',
@@ -859,7 +871,6 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     sorted.sort(_compareActivityItemsByTimeDesc);
     return sorted;
   }
-
 
   Future<void> _loadNextRangeFeedPage() async {
     if (_parentHome) {
@@ -1744,6 +1755,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
   Future<void> _bootstrapParentHome() async {
     final school = _schoolCode;
     if (school == null || school.isEmpty) return;
+    if (_parentBootstrapInFlight) return;
+    _parentBootstrapInFlight = true;
 
     if (mounted) {
       setState(() {
@@ -1780,6 +1793,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
 
       _parentAllowedStudentCodes.clear();
       _parentStudentClassroomByCode.clear();
+      _parentClassroomByStudentCodeAll.clear();
       for (final s in page.items) {
         final code = s.code.trim();
         if (code.isEmpty) continue;
@@ -1787,6 +1801,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         if (cc.isEmpty) continue;
         _parentAllowedStudentCodes.add(code);
         _parentStudentClassroomByCode[code] = cc;
+        _parentClassroomByStudentCodeAll[code] = cc;
       }
 
       // Parent UX: use the child currently selected in the global dropdown.
@@ -1843,6 +1858,10 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         _parentStudentClassroomByCode.clear();
       });
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
+    } finally {
+      // Released on every exit path (including the early `return`s above) so a
+      // failed bootstrap stays retryable.
+      _parentBootstrapInFlight = false;
     }
   }
 
@@ -2241,6 +2260,12 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     );
   }
 
+  /// Re-scopes the range feed when the global child dropdown changes.
+  ///
+  /// Mirrors the daily tab's method of the same name — see its doc for why the
+  /// latch must not be set before the async bootstrap (a failed bootstrap
+  /// otherwise strands a multi-child parent on the previous child) and why the
+  /// unnarrowed classroom map exists.
   void _syncWithGlobalChildSelection() {
     if (!_parentHome) return;
     final globalSelectedCode =
@@ -2248,17 +2273,23 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     if (globalSelectedCode.isEmpty) return;
     if (_lastGlobalSelectedStudentCode == globalSelectedCode) return;
 
-    _lastGlobalSelectedStudentCode = globalSelectedCode;
+    final classroom =
+        _parentStudentClassroomByCode[globalSelectedCode] ??
+        _parentClassroomByStudentCodeAll[globalSelectedCode];
 
-    // If we don't yet have classroom mapping for this child, bootstrap first.
-    if (_parentStudentClassroomByCode[globalSelectedCode] == null) {
-      _bootstrapParentHome();
+    if (classroom == null || classroom.trim().isEmpty) {
+      unawaited(_bootstrapParentHome());
       return;
     }
+
+    _lastGlobalSelectedStudentCode = globalSelectedCode;
 
     _parentAllowedStudentCodes
       ..clear()
       ..add(globalSelectedCode);
+    _parentStudentClassroomByCode
+      ..clear()
+      ..[globalSelectedCode] = classroom.trim();
 
     _loadRangeFeed(refresh: true);
   }
@@ -2449,9 +2480,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                               badgeCount > 99
                                                   ? '99+'
                                                   : '$badgeCount',
-                                              style:
-                                                  AppTextStyles
-                                                      .activitySmallBadgeText,
+                                              style: AppTextStyles
+                                                  .activitySmallBadgeText,
                                             ),
                                           ),
                                         );
@@ -2722,7 +2752,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                                         : Container(
                                                             width: 122,
                                                             height: 76,
-                                                            color: AppColors.cardColor,
+                                                            color: AppColors
+                                                                .cardColor,
                                                             child: Center(
                                                               child: Builder(
                                                                 builder: (_) {
@@ -3180,7 +3211,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       child: Container(
         constraints: const BoxConstraints(minHeight: 40),
         decoration: BoxDecoration(
-          color: AppColors.activitySoftPurpleFieldColor.withValues(alpha: 0.102),
+          color: AppColors.activitySoftPurpleFieldColor.withValues(
+            alpha: 0.102,
+          ),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Padding(
@@ -3215,7 +3248,6 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       ),
     );
   }
-
 }
 
 // PopupItem is defined in activity_daily_tab.dart (imported above) — both

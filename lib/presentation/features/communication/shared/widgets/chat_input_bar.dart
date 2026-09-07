@@ -438,6 +438,31 @@ class _EditPreview extends StatelessWidget {
 
 // ── Attachment thumbnails ──────────────────────────────────────────────────────
 
+/// Stand-in tile for a pending attachment with no readable file on disk.
+///
+/// Keeps the strip's geometry identical to a real thumbnail so adding/removing
+/// one of these doesn't reflow the row.
+class _AttachmentPlaceholderTile extends StatelessWidget {
+  const _AttachmentPlaceholderTile({required this.isImage});
+
+  final bool isImage;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 76,
+      height: 76,
+      color: Colors.white,
+      alignment: Alignment.center,
+      child: Icon(
+        isImage ? Icons.image_outlined : Icons.insert_drive_file_outlined,
+        color: AppColors.primaryColor,
+        size: 28,
+      ),
+    );
+  }
+}
+
 class _AttachmentPreviewStrip extends StatelessWidget {
   const _AttachmentPreviewStrip({required this.attachments, this.onRemove});
 
@@ -460,8 +485,16 @@ class _AttachmentPreviewStrip extends StatelessWidget {
           final att = attachments[i];
           final isVideo =
               att.type == 'video' || att.mimeType.startsWith('video/');
-          final canPreview =
-              (att.isImage || isVideo) && (att.localPath?.isNotEmpty ?? false);
+          // A pending attachment does not necessarily have a file on disk yet
+          // — one restored from a draft, or rehydrated from `remoteUrl` after a
+          // failed send, carries a null `localPath`. Everything below that
+          // touches the filesystem is gated on this; the tile falls back to a
+          // typed placeholder rather than force-unwrapping (which threw
+          // "Null check operator used on a null value" out of the ListView's
+          // itemBuilder and took down the whole input bar).
+          final localPath = att.localPath?.trim() ?? '';
+          final hasLocalFile = localPath.isNotEmpty;
+          final canPreview = (att.isImage || isVideo) && hasLocalFile;
           return Stack(
             clipBehavior: Clip.none,
             children: [
@@ -472,10 +505,8 @@ class _AttachmentPreviewStrip extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (_) => ShowFullScreenMediaView(
-                            imageFile: att.isImage
-                                ? File(att.localPath!)
-                                : null,
-                            videoFile: isVideo ? File(att.localPath!) : null,
+                            imageFile: att.isImage ? File(localPath) : null,
+                            videoFile: isVideo ? File(localPath) : null,
                             title: att.name,
                           ),
                         ),
@@ -486,17 +517,25 @@ class _AttachmentPreviewStrip extends StatelessWidget {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(10),
-                      child: att.isImage
+                      child: !hasLocalFile
+                          ? _AttachmentPlaceholderTile(isImage: att.isImage)
+                          : att.isImage
                           ? Image.file(
-                              File(att.localPath!),
+                              File(localPath),
                               width: 76,
                               height: 76,
                               fit: BoxFit.cover,
+                              // A file that has been deleted/moved between the
+                              // pick and this build would otherwise throw
+                              // during paint.
+                              errorBuilder: (_, __, ___) =>
+                                  const _AttachmentPlaceholderTile(
+                                    isImage: true,
+                                  ),
                             )
                           : Thumbnail(
                               mimeType: att.mimeType,
-                              dataResolver: () =>
-                                  File(att.localPath!).readAsBytes(),
+                              dataResolver: () => File(localPath).readAsBytes(),
                               widgetSize: 76,
                               decoration: WidgetDecoration(
                                 backgroundColor: Colors.white,

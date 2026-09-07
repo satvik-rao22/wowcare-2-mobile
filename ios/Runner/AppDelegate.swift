@@ -19,10 +19,12 @@ import AVFoundation
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // PiP requires a media-playback audio session in addition to the `audio`
-    // UIBackgroundMode declared in Info.plist. Better Player activates this
-    // session when playback starts; configuring it here makes the capability
-    // available to AVPictureInPictureController on physical iPhones.
+    // A `.playback` session is what makes video audible with the ringer switch
+    // on silent — Better Player activates it when playback starts, and setting
+    // it here means the very first video does not play muted.
+    // NOTE: this alone does NOT keep PiP alive in the background; that needed
+    // the `audio` UIBackgroundMode, which was removed for App Review guideline
+    // 2.5.4 (see Info.plist).
     do {
       try AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
     } catch {

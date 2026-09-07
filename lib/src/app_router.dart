@@ -508,6 +508,14 @@ final GoRouter appRouter = GoRouter(
     final personaRedirect = _dashboardPersonaRedirect(context, state);
     if (personaRedirect != null) return personaRedirect;
 
+    // ── Guardian scoping for student deep-links ───────────────────────────
+    // The persona guard above answers "may this ROLE open this screen"; this
+    // one answers "may this GUARDIAN open it for THIS student". Both are
+    // needed: `/dashboard/student-profile-by-code` is a legitimate parent
+    // route, it is just not legitimate for every student code.
+    final studentScopeRedirect = _guardianStudentScopeRedirect(context, state);
+    if (studentScopeRedirect != null) return studentScopeRedirect;
+
     // Billing is persona-split: the admin billing screen has no data for a
     // guardian. Anything that lands a guardian on /dashboard/billing — most
     // notably a notification deep-link resolved before the persona was known
@@ -2161,6 +2169,7 @@ final GoRouter appRouter = GoRouter(
                 final highlight = (q['highlightCode'] ?? '').trim();
                 final date = q['date'] ?? '';
                 final room = q['classroomCode'] ?? '';
+                final student = q['studentCode'] ?? '';
                 final extra = state.extra as Map<String, dynamic>?;
                 return BlocProvider<ActivityFeedScreenCubit>(
                   create: (_) => serviceLocator<ActivityFeedScreenCubit>(),
@@ -2168,14 +2177,26 @@ final GoRouter appRouter = GoRouter(
                   // The Activities tab lives in an indexed-stack branch and its
                   // Daily tab is keep-alive, so a notification tap into an
                   // already-visited tab reuses the old State — leaving the feed
-                  // on the previously selected DAY/room. Keying a deep-link by
-                  // its target forces a remount, so initState re-runs and
-                  // applies the notification's date, classroom and highlight.
+                  // on the previously selected DAY/room/CHILD. Keying a
+                  // deep-link by its target forces a remount, so initState
+                  // re-runs and applies the notification's date, classroom,
+                  // highlight and — for a guardian — the newly selected child.
+                  //
+                  // The student is part of the key because for a GUARDIAN the
+                  // feed's subject is the selected child, not the room: two
+                  // siblings in the same classroom on the same day produce the
+                  // same date+room, so without it a notification about child B
+                  // reused child A's already-built State and the parent kept
+                  // seeing child A's day.
+                  //
                   // Normal tab navigation carries no highlightCode and keeps a
                   // null key, so ordinary browsing state is preserved.
-                  key: highlight.isNotEmpty
-                      ? ValueKey('activityFeed-$highlight-$date-$room')
-                      : null,
+                  key: activityFeedDeepLinkKey(
+                    highlightCode: highlight,
+                    date: date,
+                    classroomCode: room,
+                    studentCode: student,
+                  ),
                   highlightCode: q['highlightCode'],
                   highlightDate: DateTime.tryParse(date),
                   // The deep-linked activity's classroom, so the feed opens on
@@ -3373,6 +3394,16 @@ const Map<String, List<String>> _dashboardModuleGuards = <String, List<String>>{
 /// the drawer, which renders these only inside its `if (!isParent)` branches.
 const Set<String> _dashboardAdminOnlySegments = <String>{
   StaffRoutes.listSegment,
+  // The whole-school student LIST. Also module-guarded below, but that guard
+  // only holds while a guardian lacks a `student` read grant: a parent who
+  // HAS one — a plausible grant, since it is what lets them see their own
+  // child — passes `canAccessAny` and lands on every student in the school.
+  // Persona, not permission, is the right axis for this screen, exactly as it
+  // already is for staff/scheduling/reports. The parent-facing surfaces are
+  // `student-profile` / `student-attendance-profile`, which stay open;
+  // nothing in the parent UI routes to this list (the drawer renders it only
+  // inside its `if (!isParent)` branch).
+  'students',
   'staff-scheduling',
   'scheduling',
   'future-availability',
@@ -3380,6 +3411,135 @@ const Set<String> _dashboardAdminOnlySegments = <String>{
   'staff-attendance-tabbed-view',
   'reports',
 };
+
+/// Remount key for a deep-linked Activity Feed, or null for ordinary browsing.
+///
+/// Returns null when there is no `highlightCode`, which is what keeps a plain
+/// bottom-nav tap on Activities from throwing away the tab's scroll/filter
+/// state. When there IS one, the key covers every input that changes WHICH
+/// rows the feed should be showing — the card, the day, the room and (for a
+/// guardian) the child — so a second notification that differs in any of them
+/// rebuilds the tab instead of reusing the previous target's State.
+///
+/// Extracted from the route builder so the keying rule is directly testable;
+/// see `test/src/activity_feed_deep_link_key_test.dart`.
+@visibleForTesting
+ValueKey<String>? activityFeedDeepLinkKey({
+  required String highlightCode,
+  required String date,
+  required String classroomCode,
+  required String studentCode,
+}) {
+  if (highlightCode.trim().isEmpty) return null;
+  return ValueKey<String>(
+    'activityFeed-${highlightCode.trim()}-$date-$classroomCode-$studentCode',
+  );
+}
+
+/// Dashboard routes that take a student code straight off the URL, mapped to
+/// the query parameter carrying it.
+///
+/// These are the notification/deep-link entry points: unlike every other
+/// student screen (which is handed its subject through `extra` from a trusted
+/// in-app call site), their subject is attacker-controllable — a hand-edited
+/// link, a stale payload, a replayed notification. [_guardianStudentScopeRedirect]
+/// is what stops a guardian opening one for a child that is not theirs.
+///
+/// The sign-in/sign-out selection forms also read a `studentCode` from the
+/// query string but are deliberately NOT listed here: they already narrow
+/// their own list through `loadGuardianStudentAllowlistForSelection`, which is
+/// the same ownership set expressed at the screen level.
+const Map<String, String> _studentScopedDashboardSegments = <String, String>{
+  'student-profile-by-code': 'code',
+  'student-attendance-profile-by-code': 'code',
+};
+
+/// Router-level guardian scoping for student deep-links.
+///
+/// Navigation correctness is not authorization, and this guard does not
+/// pretend to be the authorization boundary — the backend remains that. It
+/// closes the *client* half: a guardian who follows a link carrying another
+/// family's student code is returned to their dashboard instead of being shown
+/// a screen that then issues requests for that child.
+///
+/// Deterministic, synchronous and side-effect free (§6): it reads two already-
+/// resolved cubits, performs no I/O, mutates nothing — in particular it does
+/// NOT "helpfully" switch the selected child — and its target
+/// ([DashboardRoutes.root]) carries no student code, so it cannot re-enter
+/// itself and loop.
+///
+/// Fails OPEN in three cases, each because failing closed would break a
+/// legitimate flow without closing a real hole:
+///   * the cubits are not reachable / the persona has not resolved yet — the
+///     splash resolves both before `/dashboard` is reached, and bouncing here
+///     would break cold-start deep links (same rule as
+///     [_dashboardPersonaRedirect]);
+///   * the child list has not loaded yet — the answer is genuinely unknown,
+///     and the screens themselves re-check once it arrives;
+///   * the list loaded EMPTY — which a transient fetch failure is
+///     indistinguishable from, and where there is no wrong child to leak to.
+String? _guardianStudentScopeRedirect(
+  BuildContext context,
+  GoRouterState state,
+) {
+  final path = state.uri.path;
+  if (!path.startsWith('${DashboardRoutes.root}/')) return null;
+
+  final segment = path
+      .substring(DashboardRoutes.root.length + 1)
+      .split('/')
+      .first;
+  final param = _studentScopedDashboardSegments[segment];
+  if (param == null) return null;
+
+  final String code = state.uri.queryParameters[param]?.trim() ?? '';
+  if (code.isEmpty) return null;
+
+  final RoleCubit role;
+  final ParentChildCubit parentChild;
+  try {
+    role = context.read<RoleCubit>();
+    parentChild = context.read<ParentChildCubit>();
+  } catch (_) {
+    return null;
+  }
+
+  return guardianStudentScopeDecision(
+    path: path,
+    studentCode: code,
+    isPersonaResolved: role.isPersonaResolved,
+    isParent: role.isParent,
+    childrenLoaded: parentChild.isLoaded,
+    ownedStudentCodes: parentChild.ownedStudentCodes,
+  );
+}
+
+/// The [_guardianStudentScopeRedirect] decision, with the cubit plumbing
+/// factored out — a pure function of the inputs, so the policy is directly
+/// testable without building a router, a widget tree or a DI graph.
+///
+/// Returns the location to redirect to, or null to allow the navigation.
+@visibleForTesting
+String? guardianStudentScopeDecision({
+  required String path,
+  required String studentCode,
+  required bool isPersonaResolved,
+  required bool isParent,
+  required bool childrenLoaded,
+  required Set<String> ownedStudentCodes,
+}) {
+  final code = studentCode.trim();
+  if (code.isEmpty) return null;
+  if (!isPersonaResolved || !isParent) return null;
+  if (!childrenLoaded || ownedStudentCodes.isEmpty) return null;
+  if (ownedStudentCodes.contains(code.toUpperCase())) return null;
+
+  AppLogger.w(
+    '[RouteGuard] Guardian blocked from $path — student "$code" is not linked '
+    'to this account; redirecting to ${DashboardRoutes.root}',
+  );
+  return DashboardRoutes.root;
+}
 
 /// Router-level authorization for the dashboard branch. Returns a redirect
 /// location when the current persona must not open [state]'s location, or null

@@ -1336,7 +1336,10 @@ class AuthCubit extends Cubit<AuthState> {
     final navCtx = CoreUtils.rootNavigatorKey.currentContext;
     if (navCtx != null && navCtx.mounted) {
       try {
-        navCtx.read<ParentChildCubit>().invalidate();
+        // resetForLogout, not invalidate: logout must also erase the
+        // PERSISTED child selection so the next account to sign in on this
+        // device inherits nothing from this one.
+        unawaited(navCtx.read<ParentChildCubit>().resetForLogout());
       } catch (_) {}
       try {
         navCtx.read<RoleCubit>().resetSessionForLogout();
@@ -1351,7 +1354,9 @@ class AuthCubit extends Cubit<AuthState> {
       final navCtx = CoreUtils.rootNavigatorKey.currentContext;
       if (navCtx != null && navCtx.mounted) {
         try {
-          navCtx.read<ParentChildCubit>().invalidate();
+          // Same reasoning as logoutSession above: this path also ends the
+          // session, so the persisted child selection goes with it.
+          unawaited(navCtx.read<ParentChildCubit>().resetForLogout());
         } catch (_) {}
         try {
           navCtx.read<RoleCubit>().resetSessionForLogout();

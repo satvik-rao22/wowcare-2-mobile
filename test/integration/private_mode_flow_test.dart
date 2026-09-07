@@ -67,8 +67,7 @@ class _ControllableRepo implements ConversationEntityRepository {
     String? search,
     bool? unreadOnly,
     bool includeRestUnreadCounts = true,
-  }) async =>
-      const Right([]);
+  }) async => const Right([]);
 
   @override
   Future<Either<Failure, List<ConversationEntity>>> getCachedConversations({
@@ -197,19 +196,25 @@ class _ControllableRepo implements ConversationEntityRepository {
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 
+/// The guardian these tests act as, unless a case overrides it.
+const String _kThisGuardian = 'USR-GUARDIAN-1';
+
 PrivateModeToggleCubit _build(
   _ControllableRepo repo, {
   bool initialEnabled = false,
   RoomChatViewerRole viewerRole = RoomChatViewerRole.guardian,
+  String currentUserCode = _kThisGuardian,
+  String? initialActivatedBy,
 }) => PrivateModeToggleCubit(
   togglePrivateModeUseCase: TogglePrivateModeUseCase(repo),
   conversationCode: 'CONV-INT-001',
   viewerRole: () => viewerRole,
   initialEnabled: initialEnabled,
-  currentUserCode: () {
-    // TODO: implement currentUserCode
-    throw UnimplementedError();
-  },
+  initialActivatedBy: initialActivatedBy,
+  // Was an unimplemented stub that threw on the first `toggle()`, which is
+  // what failed every test in this file. `toggle` reads it to decide whether
+  // this viewer is allowed to turn OFF private mode someone else activated.
+  currentUserCode: () => currentUserCode,
 );
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

@@ -4,7 +4,9 @@ import 'package:wowcare/core/network/file_download_service.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/delete_staff_document_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_documents_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/load_cached_staff_documents_usecase.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_documents_list_cubit.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 class _UnusedRepo implements StaffRepository {
   @override
@@ -32,6 +34,14 @@ class _RecordingDownloader extends FileDownloadService {
   }
 }
 
+/// The cubit takes an uploader (for the delete/preview paths) that this test
+/// never exercises — it only drives `downloadFile`.
+class _UnusedImageUpload implements ImageUploadService {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} was not expected');
+}
+
 void main() {
   test(
     'downloadFile routes through the injected FileDownloadService — the view no '
@@ -41,7 +51,10 @@ void main() {
       final cubit = StaffDocumentsListCubit(
         getStaffDocumentsUseCase: _FakeGet(),
         deleteStaffDocumentUseCase: _FakeDelete(),
-        repository: _UnusedRepo(),
+        loadCachedStaffDocumentsUseCase: LoadCachedStaffDocumentsUseCase(
+          _UnusedRepo(),
+        ),
+        imageUploadService: _UnusedImageUpload(),
         fileDownloadService: downloader,
       );
 
