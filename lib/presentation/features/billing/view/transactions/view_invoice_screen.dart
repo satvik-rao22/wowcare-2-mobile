@@ -9,6 +9,7 @@ import 'package:wowcare/presentation/features/billing/view_model/view_invoice_cu
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 class ViewInvoiceScreen extends StatelessWidget {
   const ViewInvoiceScreen({super.key, required this.transaction});
@@ -67,9 +68,10 @@ class _ViewInvoiceView extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<ViewInvoiceCubit, ViewInvoiceState>(
       builder: (context, state) {
+        final isStaff = context.watch<RoleCubit>().isStaff;
         return StaffFormLayout(
           title: BillingStrings.viewInvoice,
-          bottomBar: _buildBottomBar(context),
+          bottomBar: isStaff ? _buildBottomBar(context) : null,
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
