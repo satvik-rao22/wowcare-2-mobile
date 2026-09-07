@@ -7,10 +7,10 @@ part of 'report_generation_envelope.dart';
 // **************************************************************************
 
 ReportGenerationEnvelope _$ReportGenerationEnvelopeFromJson(
-  Map<String, dynamic> json,
-) => ReportGenerationEnvelope(
-  success: json['success'],
-  message: json['message'],
-  error: json['error'],
-  data: json['data'] as Map<String, dynamic>?,
-);
+        Map<String, dynamic> json) =>
+    ReportGenerationEnvelope(
+      success: json['success'],
+      message: json['message'],
+      error: json['error'],
+      data: json['data'] as Map<String, dynamic>?,
+    );

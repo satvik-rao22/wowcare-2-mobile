@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
 /// Themed floating overlay for newsletter image preview (replaces full-screen black viewer).
@@ -9,7 +12,7 @@ Future<void> showNewsletterImagePreview(
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
-    barrierLabel: 'Close image preview',
+    barrierLabel: AppStrings.newsletterCloseImagePreview,
     barrierColor: AppColors.primaryColor.withValues(alpha: 0.42),
     transitionDuration: const Duration(milliseconds: 220),
     pageBuilder: (BuildContext dialogContext, _, __) {
@@ -48,7 +51,7 @@ class _NewsletterImagePreviewOverlay extends StatelessWidget {
       child: SafeArea(
         child: Center(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            padding: const EdgeInsets.symmetric(horizontal: AppSizes.md, vertical: AppSizes.xl),
             child: ConstrainedBox(
               constraints: BoxConstraints(
                 maxWidth: maxWidth,
@@ -79,7 +82,7 @@ class _NewsletterImagePreviewOverlay extends StatelessWidget {
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 44, 12, 12),
+                        padding: const EdgeInsets.fromLTRB(AppSizes.sm, 44, AppSizes.sm, AppSizes.sm),
                         child: Center(
                           child: InteractiveViewer(
                             minScale: 0.85,
@@ -110,16 +113,11 @@ class _NewsletterImagePreviewOverlay extends StatelessWidget {
                                       alpha: 0.45,
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
+                                  const SizedBox(height: AppSizes.xs),
                                   Text(
-                                    'Unable to load image',
-                                    style: TextStyle(
-                                      color: AppColors.primaryColor.withValues(
-                                        alpha: 0.7,
-                                      ),
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                                    AppStrings.newsletterImageLoadFailed,
+                                    style: AppTextStyles
+                                        .newsletterOverlayCaption,
                                   ),
                                 ],
                               ),
@@ -154,7 +152,7 @@ class _ClosePreviewButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withValues(alpha: 0.95),
+      color: AppColors.newsletterOverlaySurface,
       shape: const CircleBorder(),
       elevation: 2,
       shadowColor: AppColors.primaryColor.withValues(alpha: 0.2),
@@ -162,7 +160,7 @@ class _ClosePreviewButton extends StatelessWidget {
         customBorder: const CircleBorder(),
         onTap: onPressed,
         child: Padding(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(AppSizes.xs),
           child: Icon(
             Icons.close_rounded,
             size: 22,

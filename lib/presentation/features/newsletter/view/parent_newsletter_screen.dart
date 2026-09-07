@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/router/app_routes.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_list_tab.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import '../../../../app/theme/colors.dart';
+import 'package:wowcare/app/theme/colors.dart';
 
 /// Parent-only newsletters screen (student-scoped API, separate from staff/admin sent list).
 class ParentNewsletterScreen extends StatefulWidget {
@@ -59,72 +61,6 @@ class _ParentNewsletterScreenState extends State<ParentNewsletterScreen>
     super.dispose();
   }
 
-  Tab _buildSingleMessagingTab({required String label, required int index}) {
-    return Tab(
-      child: Container(
-        height: 40,
-        constraints: const BoxConstraints(minWidth: 118),
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: _newsLetterTabController.index == index
-              ? AppColors.classroomStudentTabColor
-              : const Color.fromARGB(102, 203, 246, 255),
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(12),
-            topRight: Radius.circular(12),
-          ),
-          border: Border.all(
-            color: _newsLetterTabController.index == index
-                ? AppColors.themeColor
-                : Colors.transparent,
-            width: 1.25,
-          ),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            maxLines: 1,
-            softWrap: false,
-            overflow: TextOverflow.visible,
-            style: TextStyle(
-              fontSize: 15,
-              color: _newsLetterTabController.index == index
-                  ? AppColors.primaryColor
-                  : AppColors.primaryColor.withValues(alpha: 0.5),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNewsLatterTabs() {
-    final TabBar tabBar = TabBar(
-      tabs: [
-        Padding(
-          padding: const EdgeInsets.only(right: 16),
-          child: _buildSingleMessagingTab(label: 'Newsletter', index: 0),
-        ),
-      ],
-      controller: _newsLetterTabController,
-      isScrollable: true,
-      labelColor: Colors.black,
-      unselectedLabelColor: const Color.fromARGB(50, 36, 22, 49),
-      tabAlignment: TabAlignment.center,
-      indicatorColor: Colors.transparent,
-      labelPadding: const EdgeInsets.symmetric(horizontal: 0),
-      dividerHeight: 0,
-      indicator: const BoxDecoration(),
-    );
-    return Padding(
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [tabBar],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ParentChildCubit, ParentChildState>(
@@ -147,21 +83,18 @@ class _ParentNewsletterScreenState extends State<ParentNewsletterScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Padding(
-                padding: EdgeInsets.fromLTRB(4, 4, 4, 0),
+                padding: EdgeInsets.fromLTRB(AppSizes.xxs, AppSizes.xxs, AppSizes.xxs, 0),
                 child: Text(
-                  'Newsletter',
-                  style: TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'Manrope',
-                  ),
+                  AppStrings.newsletterTitle,
+                  style: AppTextStyles.newsletterScreenTitle,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSizes.xs),
               Transform.translate(
                 offset: const Offset(0, 5),
-                child: _buildNewsLatterTabs(),
+                child: _ParentNewsletterTabBar(
+                  controller: _newsLetterTabController,
+                ),
               ),
               const SizedBox(height: 14),
               const Expanded(child: ParentNewsletterListTab()),
@@ -169,6 +102,104 @@ class _ParentNewsletterScreenState extends State<ParentNewsletterScreen>
           ),
         );
       },
+    );
+  }
+}
+
+/// The parent newsletter tab bar.
+///
+/// A private widget rather than a `_build…()` method (§6).
+class _ParentNewsletterTabBar extends StatelessWidget {
+  const _ParentNewsletterTabBar({required this.controller});
+
+  final TabController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final TabBar tabBar = TabBar(
+      tabs: [
+        Padding(
+          padding: const EdgeInsets.only(right: AppSizes.md),
+          child: _ParentNewsletterTabChip(
+            label: AppStrings.newsletterTitle,
+            isSelected: controller.index == 0,
+          ),
+        ),
+      ],
+      controller: controller,
+      isScrollable: true,
+      labelColor: AppColors.blackColor,
+      unselectedLabelColor: AppColors.newsletterTabUnselectedLabel,
+      tabAlignment: TabAlignment.center,
+      indicatorColor: AppColors.transparentColor,
+      labelPadding: const EdgeInsets.symmetric(horizontal: 0),
+      dividerHeight: 0,
+      indicator: const BoxDecoration(),
+    );
+    return Padding(
+      padding: const EdgeInsets.all(AppSizes.xxs),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [tabBar],
+      ),
+    );
+  }
+}
+
+/// One selectable tab chip in [_ParentNewsletterTabBar].
+///
+/// NOT merged with `_NewsletterTabChip` in `newsletter_tab.dart`, though the
+/// structure is the same. The two size and clip their label differently: this
+/// one uses `minWidth: 118` plus horizontal padding and lets the text overflow
+/// visibly on one line, the staff one takes a fixed 20% of screen width and
+/// lets the text wrap. Merging them needs five configuration parameters to
+/// keep both renderings byte-identical, which buys less than it costs (§6,
+/// "do not abstract for its own sake"). Revisit if a third tab bar appears.
+class _ParentNewsletterTabChip extends StatelessWidget {
+  const _ParentNewsletterTabChip({
+    required this.label,
+    required this.isSelected,
+  });
+
+  final String label;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tab(
+      child: Container(
+        height: 40,
+        constraints: const BoxConstraints(minWidth: 118),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.classroomStudentTabColor
+              : AppColors.newsletterTabUnselectedBackground,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(12),
+            topRight: Radius.circular(12),
+          ),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.themeColor
+                : AppColors.transparentColor,
+            width: 1.25,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.visible,
+            style: AppTextStyles.newsletterTabLabel.copyWith(
+              color: isSelected
+                  ? AppColors.primaryColor
+                  : AppColors.primaryColor.withValues(alpha: 0.5),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
 import 'package:wowcare/domain/features/newsletter/usecases/get_newsletter_by_code_usecase.dart';
@@ -18,7 +19,7 @@ class PreviewNewsletterCubit extends Cubit<PreviewNewsletterState> {
     if (code.isEmpty) {
       emit(
         const PreviewNewsletterState.failure(
-          errorMessage: 'Newsletter code is missing.',
+          errorMessage: AppStrings.newsletterCodeMissing,
         ),
       );
       return;

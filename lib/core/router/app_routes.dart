@@ -254,6 +254,10 @@ class ShellBranchRoutes {
 
   /// Matches `ActivityFeedScreen.routeName` / `AppRoutes.activityFeed`.
   static const String activityFeed = '/activityFeed';
+
+  /// Matches `MessagingScreen.routeName` / `AppRoutes.messaging` — shell
+  /// branch 3, which hosts the staff/admin newsletter tab.
+  static const String messaging = '/messageFeed';
 }
 
 /// Route paths for the kiosk feature.
@@ -267,4 +271,109 @@ class KioskRoutes {
 
   /// Matches `KioskDashboardScreen.routeName`.
   static const String root = '/kiosk';
+}
+
+/// Route paths for the newsletter feature.
+///
+/// ## The convention this class establishes
+///
+/// The other feature modules should copy this shape verbatim:
+///
+/// * **`abstract final class <Feature>Routes`.** Not `AppRoutes` — a class of
+///   that name already exists on `lib/src/app_router.dart` and a second one
+///   would collide (§6.5). `abstract final` (as [SchedulingRoutes] already
+///   uses) is preferred over the older `class X { const X._(); }` idiom in
+///   this file: it makes the "namespace, never instantiated" intent a compile
+///   error rather than a convention.
+/// * **Path-parameter names are constants too** ([codeParam]), so the
+///   `GoRoute(path:)` registration and the `state.pathParameters[...]` read on
+///   the other side of the router cannot drift apart. A typo in either half is
+///   otherwise a silent runtime null, not a build error.
+/// * **Three blocks, in this order:** parameter names, relative segments (what
+///   `GoRoute(path:)` is registered with), then absolute locations/helpers
+///   (what callers pass to `context.push`). Segment and absolute are derived
+///   from one another by interpolation, never retyped.
+/// * **A path parameter gets a helper method, not a constant.** A caller must
+///   not be able to hand `context.push` a pattern string with a live `:code`
+///   in it. [dashboardPreview] / [messagingPreview] are the only way to build
+///   these locations, and they encode the value.
+/// * **Non-path arguments are a declared class in the feature's `model/`
+///   folder**, passed through `extra` — here
+///   `NewsletterPreviewArgs`. Never a raw map, never `Object?` at the
+///   receiving end.
+///
+/// ## Why the preview screen is registered twice
+///
+/// `PreviewNewsletterScreen` is opened from two different shell branches: the
+/// parent newsletter list and the parent dashboard card (branch 0,
+/// `/dashboard`) and the staff/admin Sent tab (branch 3, `/messageFeed`). The
+/// `Navigator.of(context).push` calls these replaced resolved to the *branch*
+/// navigator, so the bottom nav bar stayed visible. A single route registered
+/// at the router root would be pushed on the ROOT navigator and would cover
+/// the nav shell — a visible behaviour change.
+///
+/// So the same screen is registered once per branch, which is already the
+/// house pattern: see [ReportRoutes.fileViewer] vs
+/// [ReportRoutes.billingFileViewer], which exist for exactly this reason.
+///
+/// Within the dashboard branch the preview is a **sibling** of
+/// [DashboardRoutes.parentNewsletter], not a child of it, because two
+/// different screens in that branch push it (the list tab and the dashboard's
+/// newsletter card). That mirrors [SchedulingRoutes.addShift], which is a
+/// sibling of both entry screens that push it for the same reason.
+///
+/// The notification deep-link route (`AppRoutes.newsletterPreviewByCode`,
+/// `/newsletter-preview-by-code?code=…`) is a third registration and stays on
+/// `AppRoutes`: it is a root-level route by design — a notification tap should
+/// open the newsletter over the shell — and its query-string shape is part of
+/// the contract with `notification_route_resolver.dart`.
+abstract final class NewsletterRoutes {
+  // ── Path parameter names ─────────────────────────────────────────────────
+
+  /// The newsletter's business code. Read back with
+  /// `state.pathParameters[NewsletterRoutes.codeParam]`.
+  static const String codeParam = 'newsletterCode';
+
+  // ── Relative segments, as registered with `GoRoute(path:)` ───────────────
+
+  /// Registered under [DashboardRoutes.root] and under
+  /// [ShellBranchRoutes.messaging].
+  static const String previewSegment = 'newsletter/:$codeParam';
+
+  // ── Absolute locations ───────────────────────────────────────────────────
+
+  /// The parent-facing newsletter list. Aliases the entry that
+  /// [DashboardRoutes] already owns rather than declaring a second constant
+  /// with the same value — the dashboard registers it as one of its shell
+  /// children, so that class stays the single source of truth.
+  static const String parentList = DashboardRoutes.parentNewsletter;
+
+  /// The staff/admin-facing newsletter list. Not a route of its own: the Sent
+  /// list is a `TabBarView` child of `MessagingScreen`, selected by that
+  /// screen's `?tab=newsletter` query parameter. Kept here so the two entry
+  /// points are findable from one place.
+  static const String staffList = '${ShellBranchRoutes.messaging}?tab=newsletter';
+
+  /// The registered pattern for the dashboard-branch preview, for reference
+  /// and tests. Callers use [dashboardPreview].
+  static const String dashboardPreviewPattern =
+      '${DashboardRoutes.root}/$previewSegment';
+
+  /// The registered pattern for the messaging-branch preview, for reference
+  /// and tests. Callers use [messagingPreview].
+  static const String messagingPreviewPattern =
+      '${ShellBranchRoutes.messaging}/$previewSegment';
+
+  // ── Helpers for path parameters ──────────────────────────────────────────
+
+  /// Newsletter preview, pushed on the **dashboard** branch navigator. Use
+  /// from the parent newsletter list and the parent dashboard's newsletter
+  /// card; the nav shell stays visible.
+  static String dashboardPreview(String newsletterCode) =>
+      '${DashboardRoutes.root}/newsletter/${Uri.encodeComponent(newsletterCode)}';
+
+  /// Newsletter preview, pushed on the **messaging** branch navigator. Use
+  /// from the staff/admin Sent newsletter tab; the nav shell stays visible.
+  static String messagingPreview(String newsletterCode) =>
+      '${ShellBranchRoutes.messaging}/newsletter/${Uri.encodeComponent(newsletterCode)}';
 }

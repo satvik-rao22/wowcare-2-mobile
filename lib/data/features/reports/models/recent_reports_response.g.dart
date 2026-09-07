@@ -7,8 +7,8 @@ part of 'recent_reports_response.dart';
 // **************************************************************************
 
 RecentReportsResponse _$RecentReportsResponseFromJson(
-  Map<String, dynamic> json,
-) => RecentReportsResponse(
-  reports: json['reports'] as List<dynamic>?,
-  data: json['data'],
-);
+        Map<String, dynamic> json) =>
+    RecentReportsResponse(
+      reports: json['reports'] as List<dynamic>?,
+      data: json['data'],
+    );
