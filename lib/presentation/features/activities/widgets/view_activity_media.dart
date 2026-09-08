@@ -5,6 +5,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import '../../../../core/util/core_utils.dart';
+import '../../../../core/util/logger_service.dart';
 import '../view/activity_daily_tab.dart';
 
 class ActivityMediaViewer extends StatefulWidget {
@@ -68,7 +69,7 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
         });
       }
     } catch (e) {
-      debugPrint("Video failed to initialize: $e");
+      AppLogger.e('Video failed to initialize', e);
       _controller?.dispose();
       _controller = null;
       if (!mounted) return;
@@ -120,10 +121,7 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (widget.label != null)
-          Text(
-            widget.label!,
-            style: AppTextStyles.activityFieldLabel,
-          ),
+          Text(widget.label!, style: AppTextStyles.activityFieldLabel),
         if (widget.label != null)
           SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
 
@@ -146,7 +144,9 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
                   _videoInitFailed
                       ? _buildVideoUnsupportedPlaceholder()
                       : const Center(
-                          child: CircularProgressIndicator(color: AppColors.cardColor),
+                          child: CircularProgressIndicator(
+                            color: AppColors.cardColor,
+                          ),
                         )
                 else if (hasPhoto)
                   Image.network(
@@ -203,8 +203,10 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
                       allowScrubbing: true,
                       colors: const VideoProgressColors(
                         playedColor: AppColors.cardColor,
-                        backgroundColor: AppColors.activityVideoProgressTrackColor,
-                        bufferedColor: AppColors.activityVideoProgressBufferedColor,
+                        backgroundColor:
+                            AppColors.activityVideoProgressTrackColor,
+                        bufferedColor:
+                            AppColors.activityVideoProgressBufferedColor,
                       ),
                       padding: const EdgeInsets.symmetric(
                         vertical: 8,
@@ -224,7 +226,11 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
     return Container(
       color: AppColors.activityMediaPlaceholderBg.withValues(alpha: 0.3),
       child: const Center(
-        child: Icon(Icons.broken_image, size: 60, color: AppColors.activityMediaPlaceholderIconColor),
+        child: Icon(
+          Icons.broken_image,
+          size: 60,
+          color: AppColors.activityMediaPlaceholderIconColor,
+        ),
       ),
     );
   }
@@ -236,7 +242,11 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.videocam_off_outlined, size: 42, color: AppColors.activityMediaPlaceholderIconColor),
+            Icon(
+              Icons.videocam_off_outlined,
+              size: 42,
+              color: AppColors.activityMediaPlaceholderIconColor,
+            ),
             SizedBox(height: 8),
             Text(
               'Video preview unavailable',

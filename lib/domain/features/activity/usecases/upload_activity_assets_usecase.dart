@@ -20,6 +20,8 @@ class UploadActivityAssetsUseCase {
     required List<ActivityUploadItem> items,
     void Function(int itemIndex, int totalItems, int percent)? onItemProgress,
     void Function(int completedItems, int totalItems)? onItemComplete,
+    void Function(String filePath, String assetCode, String sessionCode)?
+    onAssetUploaded,
     CancelToken? cancelToken,
   }) {
     return _repository.uploadAssets(
@@ -34,6 +36,7 @@ class UploadActivityAssetsUseCase {
       items: items,
       onItemProgress: onItemProgress,
       onItemComplete: onItemComplete,
+      onAssetUploaded: onAssetUploaded,
       cancelToken: cancelToken,
     );
   }

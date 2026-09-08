@@ -12,9 +12,9 @@ class ActivityFeedScreenCubit extends Cubit<ActivityFeedScreenState> {
   ActivityFeedScreenCubit({
     required StorageService storageService,
     required GetStaffTodaySignInStatusUseCase getStaffTodaySignInStatusUseCase,
-  })  : _storage = storageService,
-        _getStaffTodaySignInStatusUseCase = getStaffTodaySignInStatusUseCase,
-        super(const ActivityFeedScreenState());
+  }) : _storage = storageService,
+       _getStaffTodaySignInStatusUseCase = getStaffTodaySignInStatusUseCase,
+       super(const ActivityFeedScreenState());
 
   final StorageService _storage;
   final GetStaffTodaySignInStatusUseCase _getStaffTodaySignInStatusUseCase;
@@ -25,8 +25,10 @@ class ActivityFeedScreenCubit extends Cubit<ActivityFeedScreenState> {
   /// or the status check fails (best-effort: caller should treat that as "not
   /// gated" rather than blocking activity creation on a failed check).
   Future<String?> getEffectiveStaffTodaySignInStatus() async {
-    final staffCode = (await _storage.getString(StorageKeys.staffCode))?.trim() ?? '';
-    final userCode = (await _storage.getString(StorageKeys.userCode))?.trim() ?? '';
+    final staffCode =
+        (await _storage.getString(StorageKeys.staffCode))?.trim() ?? '';
+    final userCode =
+        (await _storage.getString(StorageKeys.userCode))?.trim() ?? '';
     final effectiveCode = staffCode.isNotEmpty ? staffCode : userCode;
     if (effectiveCode.isEmpty) return null;
     return _getStaffTodaySignInStatusUseCase(staffCode: effectiveCode);

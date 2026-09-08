@@ -1,3 +1,14 @@
+# third_party/ holds vendored upstream packages (see
+# third_party/better_player/FORK.md). They are kept as faithful copies of the
+# published package, which means they carry upstream's own analysis_options.yaml
+# and dev-only lint packages we don't resolve, plus a demo app that is never
+# built here - analyzing them reports ~190 phantom errors that say nothing
+# about this codebase. Our own edits to a vendored package are reviewed against
+# that package's tooling, not this one's.
+analyzer:
+  exclude:
+    - "third_party/**"
+
 # # This file configures the analyzer, which statically analyzes Dart code to
 # # check for errors, warnings, and lints.
 # #

@@ -352,7 +352,9 @@ class _MealActivityViewState extends State<_MealActivityView> {
           final oc = (o.optionCode ?? o.code).trim();
           if (oc.isNotEmpty) {
             return ActivityParameterValue(
-                parameterCode: param.code, selectedOptionCode: oc);
+              parameterCode: param.code,
+              selectedOptionCode: oc,
+            );
           }
         }
       }
@@ -654,19 +656,29 @@ class _MealActivityViewState extends State<_MealActivityView> {
 
       final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
           ActivityParameterValue(
-              parameterCode: staffParamCode, value: staffPresentCode),
+            parameterCode: staffParamCode,
+            value: staffPresentCode,
+          ),
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
           ActivityParameterValue(
-              parameterCode: descParamCode, value: description),
+            parameterCode: descParamCode,
+            value: description,
+          ),
         if (mealTypeEntry != null) mealTypeEntry,
         if (quantityEntry != null) quantityEntry,
       ];
@@ -858,19 +870,29 @@ class _MealActivityViewState extends State<_MealActivityView> {
 
       final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
           ActivityParameterValue(
-              parameterCode: staffParamCode, value: staffPresentCode),
+            parameterCode: staffParamCode,
+            value: staffPresentCode,
+          ),
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
           ActivityParameterValue(
-              parameterCode: descParamCode, value: description),
+            parameterCode: descParamCode,
+            value: description,
+          ),
         if (mealTypeEntry != null) mealTypeEntry,
         if (quantityEntry != null) quantityEntry,
       ];

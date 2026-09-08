@@ -8,13 +8,12 @@ import AVFoundation
 
   // MARK: - UIApplicationDelegate
 
-  // Overriding didFinishLaunchingWithOptions lets us check for a background
-  // location relaunch (UIApplication.LaunchOptionsKey.location). When iOS
-  // terminates the app and the device crosses a CLCircularRegion boundary, iOS
-  // relaunches the process with this key set. CLLocationManager then calls
-  // didEnterRegion / didExitRegion on GeofencePlugin, which shows the local
-  // notification. Checking the key here signals to the OS that we handle this
-  // relaunch scenario intentionally, improving reliability on subsequent kills.
+  // Overriding didFinishLaunchingWithOptions lets us configure the audio session
+  // and log a background location relaunch (UIApplication.LaunchOptionsKey.location).
+  // That relaunch only happens for an app with "Always" location authorization and
+  // active region monitoring; both were dropped for App Review guideline 2.5.4
+  // (see Info.plist), so the branch below is effectively unreachable now and is
+  // kept only for devices still holding an Always grant from an older install.
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -22,16 +21,16 @@ import AVFoundation
     // A `.playback` session is what makes video audible with the ringer switch
     // on silent — Better Player activates it when playback starts, and setting
     // it here means the very first video does not play muted.
-    // NOTE: this alone does NOT keep PiP alive in the background; that needed
-    // the `audio` UIBackgroundMode, which was removed for App Review guideline
-    // 2.5.4 (see Info.plist).
+    // This is one half of what PiP needs; the other is the `audio`
+    // UIBackgroundMode (see Info.plist). Both must be present or
+    // AVPictureInPictureController refuses to start.
     do {
       try AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
     } catch {
       print("[iOS PiP] Failed to configure playback audio session: \(error)")
     }
     if launchOptions?[.location] != nil {
-      print("[iOS GEOFENCE] App relaunched by OS for location event — CLLocationManager delegate will handle the pending region transition")
+      print("[iOS GEOFENCE] App relaunched by OS for location event (legacy Always grant) — CLLocationManager delegate will handle the pending region transition")
     }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }

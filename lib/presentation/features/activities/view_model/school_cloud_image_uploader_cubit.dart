@@ -13,13 +13,14 @@ import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 /// pass-throughs to [StorageService]/[ImageUploadService], matching the
 /// dialog's existing call shapes exactly (Mandate 5: "Presentation calls
 /// cubits only" — the View no longer resolves DI dependencies itself).
-class SchoolCloudImageUploaderCubit extends Cubit<SchoolCloudImageUploaderState> {
+class SchoolCloudImageUploaderCubit
+    extends Cubit<SchoolCloudImageUploaderState> {
   SchoolCloudImageUploaderCubit({
     required StorageService storageService,
     required ImageUploadService imageUploadService,
-  })  : _storage = storageService,
-        _uploadService = imageUploadService,
-        super(const SchoolCloudImageUploaderState());
+  }) : _storage = storageService,
+       _uploadService = imageUploadService,
+       super(const SchoolCloudImageUploaderState());
 
   final StorageService _storage;
   final ImageUploadService _uploadService;
@@ -29,8 +30,7 @@ class SchoolCloudImageUploaderCubit extends Cubit<SchoolCloudImageUploaderState>
 
   Future<UploadSessionResult> createSchoolCloudUploadSession({
     required String schoolCode,
-  }) =>
-      _uploadService.createSchoolCloudUploadSession(schoolCode: schoolCode);
+  }) => _uploadService.createSchoolCloudUploadSession(schoolCode: schoolCode);
 
   Future<AssetPresignResult> createAssetPresign({
     required String sessionCode,
@@ -41,17 +41,16 @@ class SchoolCloudImageUploaderCubit extends Cubit<SchoolCloudImageUploaderState>
     required String mediaType,
     required String ownerType,
     required String ownerCode,
-  }) =>
-      _uploadService.createAssetPresign(
-        sessionCode: sessionCode,
-        documentApiBasePath: documentApiBasePath,
-        fileName: fileName,
-        contentType: contentType,
-        contentLengthBytes: contentLengthBytes,
-        mediaType: mediaType,
-        ownerType: ownerType,
-        ownerCode: ownerCode,
-      );
+  }) => _uploadService.createAssetPresign(
+    sessionCode: sessionCode,
+    documentApiBasePath: documentApiBasePath,
+    fileName: fileName,
+    contentType: contentType,
+    contentLengthBytes: contentLengthBytes,
+    mediaType: mediaType,
+    ownerType: ownerType,
+    ownerCode: ownerCode,
+  );
 
   Future<void> uploadFileToPresignedUrl({
     required File file,
@@ -59,25 +58,23 @@ class SchoolCloudImageUploaderCubit extends Cubit<SchoolCloudImageUploaderState>
     required Map<String, String> requiredHeaders,
     required String fallbackContentType,
     void Function(int sentBytes, int totalBytes, int percent)? onProgress,
-  }) =>
-      _uploadService.uploadFileToPresignedUrl(
-        file: file,
-        presignedPutUrl: presignedPutUrl,
-        requiredHeaders: requiredHeaders,
-        fallbackContentType: fallbackContentType,
-        onProgress: onProgress,
-      );
+  }) => _uploadService.uploadFileToPresignedUrl(
+    file: file,
+    presignedPutUrl: presignedPutUrl,
+    requiredHeaders: requiredHeaders,
+    fallbackContentType: fallbackContentType,
+    onProgress: onProgress,
+  );
 
   Future<void> completeAssetUpload({
     required String sessionCode,
     required String assetCode,
     required String documentApiBasePath,
-  }) =>
-      _uploadService.completeAssetUpload(
-        sessionCode: sessionCode,
-        assetCode: assetCode,
-        documentApiBasePath: documentApiBasePath,
-      );
+  }) => _uploadService.completeAssetUpload(
+    sessionCode: sessionCode,
+    assetCode: assetCode,
+    documentApiBasePath: documentApiBasePath,
+  );
 }
 
 /// Stateless marker state — this cubit is a data facade; the dialog keeps its

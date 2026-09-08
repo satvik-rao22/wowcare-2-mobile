@@ -56,6 +56,7 @@ import 'edit_create_activity_screens/medication_activity.dart';
 import 'edit_create_activity_screens/notes_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
+import '../utils/activity_feed_display_rules.dart';
 import '../utils/activity_staff_display.dart';
 import '../utils/activity_patch_attachments.dart';
 import 'activity_feed_card_permissions.dart';
@@ -103,6 +104,7 @@ class ActivityDailyTab extends StatelessWidget {
     this.highlightCode,
     this.highlightDate,
     this.highlightClassroomCode,
+    this.deepLinkStudentCode,
     this.onRefreshStaffSignInStatus,
   });
 
@@ -118,6 +120,23 @@ class ActivityDailyTab extends StatelessWidget {
   /// time, so without selecting this room the target card isn't in the list and
   /// the highlight silently no-ops.
   final String? highlightClassroomCode;
+
+  /// The child a notification deep-link is about (GUARDIAN persona only).
+  ///
+  /// For a guardian the feed's subject is the selected child, not a classroom,
+  /// so a parent of two children needs to know WHICH child the tapped
+  /// notification concerns. This used to be carried only by the separate
+  /// `ParentChildCubit.selectByCode` call in `NotificationNavigator` /
+  /// `NotificationCenterScreen`, which meant the feed loaded whichever child
+  /// happened to be selected whenever that call hadn't landed yet — a
+  /// cold-launch tap (the splash route never made it at all) or a tap that
+  /// crossed a school switch (which resets the cubit, so the selection is
+  /// deferred until its list reloads).
+  ///
+  /// Untrusted payload input: it is only honoured after being matched against
+  /// the guardian's own student page fetched in [_bootstrapParentHome], so a
+  /// code for someone else's child is ignored, never queried.
+  final String? deepLinkStudentCode;
 
   final bool fromStudentProfile;
 
@@ -158,6 +177,7 @@ class ActivityDailyTab extends StatelessWidget {
         highlightCode: highlightCode,
         highlightDate: highlightDate,
         highlightClassroomCode: highlightClassroomCode,
+        deepLinkStudentCode: deepLinkStudentCode,
         onRefreshStaffSignInStatus: onRefreshStaffSignInStatus,
       ),
     );
@@ -174,12 +194,14 @@ class _ActivityDailyTabView extends StatefulWidget {
     this.highlightCode,
     this.highlightDate,
     this.highlightClassroomCode,
+    this.deepLinkStudentCode,
     this.onRefreshStaffSignInStatus,
   });
 
   final String? highlightCode;
   final DateTime? highlightDate;
   final String? highlightClassroomCode;
+  final String? deepLinkStudentCode;
   final bool fromStudentProfile;
   final String? studentName;
   final Map<String, dynamic>? studentProfile;
@@ -276,6 +298,58 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
   String? _primaryClassroomCode;
   bool _loadingParentContext = false;
   String? _lastGlobalSelectedStudentCode;
+
+  /// Whether the rows on screen answer the question currently being asked —
+  /// this child, this day, this room. Starts false: an empty list before the
+  /// first load means "we don't know yet", not "there are none".
+  ///
+  /// Cleared by [_beginFeedLoad] and set by [_endFeedLoad], which is what keeps
+  /// the two leaks of the "No Activities found" empty state closed:
+  ///
+  ///  * **before the first load** — the pre-bootstrap window, which spans
+  ///    `_bootstrapSchoolZone()` (storage + the timezone API) and
+  ///    `_bootstrap()`'s storage reads. Nothing was flagged as loading yet (the
+  ///    cubit doesn't exist, so `_effectiveFeedState` falls back to
+  ///    `ActivityFeedState.initial()`, and `_loadingParentContext` is only set
+  ///    once `_bootstrapParentHome` is genuinely running), so the screen
+  ///    claimed there were no activities before it had looked;
+  ///  * **on a deep link into an already-open tab** — this State is keep-alive
+  ///    inside an `IndexedStack`, so when the route key doesn't change it is
+  ///    reused, carrying the PREVIOUS visit's completed (and possibly empty)
+  ///    result. `didUpdateWidget` would render that stale answer to the new
+  ///    question for a frame before its reload flipped the cubit's `isLoading`
+  ///    — the reported "empty, then a loader, then the list".
+  bool _feedResultIsCurrent = false;
+
+  /// The feed is busy, or has no result for the current scope: show the loader,
+  /// not "No Activities found". See [shouldShowActivityFeedLoadingPlaceholder]
+  /// for the rule and why a bootstrap error deliberately does not hold the
+  /// loader open.
+  bool get _showFeedLoadingPlaceholder =>
+      shouldShowActivityFeedLoadingPlaceholder(
+        isLoading: _displayedLoadingFeed,
+        isLoadingParentContext: _loadingParentContext,
+        hasCurrentResult: _feedResultIsCurrent,
+        hasBootstrapError: _feedError != null,
+      );
+
+  /// Marks the on-screen rows stale because a (re)load has just been decided.
+  ///
+  /// Must run **synchronously**, before the first `await` of the load, so no
+  /// frame can be painted between the decision and the placeholder going up.
+  void _beginFeedLoad() {
+    if (!_feedResultIsCurrent) return;
+    _feedResultIsCurrent = false;
+    if (mounted) setState(() {});
+  }
+
+  /// Marks the on-screen rows as the answer to the current scope — the load
+  /// finished, so an empty list now genuinely means "no activities".
+  void _endFeedLoad() {
+    if (_feedResultIsCurrent) return;
+    _feedResultIsCurrent = true;
+    if (mounted) setState(() {});
+  }
 
   ActivityFeedScopeCubit get _feedScope =>
       context.read<ActivityFeedScopeCubit>();
@@ -1087,6 +1161,33 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     _allowedClassroomCodes = allowed;
   }
 
+  /// The child the GUARDIAN feed should load — see
+  /// [resolveGuardianFeedStudentCode] for the precedence and why the
+  /// deep-link's student outranks the dropdown exactly once.
+  ///
+  /// The owned set is [_parentClassroomByStudentCodeAll], the student page just
+  /// fetched for this guardian, so an unowned code is never queried. Returns
+  /// null only when the guardian has no children with a classroom, which the
+  /// caller already reports as its own error.
+  String? _resolveParentFeedStudentCode() {
+    final deepLink = widget.deepLinkStudentCode;
+    final resolved = resolveGuardianFeedStudentCode(
+      deepLinkStudentCode: deepLink,
+      deepLinkAlreadyApplied: _deepLinkStudentApplied,
+      selectedChildCode: context.read<ParentChildCubit>().selectedChild?.code,
+      ownedStudentCodes: _parentClassroomByStudentCodeAll.keys,
+    );
+    // Burn the one-shot only when the deep link is what actually answered,
+    // so a tap whose child could not be resolved this time (list still
+    // settling) can still win the retry.
+    if (resolved != null &&
+        !_deepLinkStudentApplied &&
+        resolved.toUpperCase() == (deepLink ?? '').trim().toUpperCase()) {
+      _deepLinkStudentApplied = true;
+    }
+    return resolved;
+  }
+
   Future<void> _bootstrapParentHome() async {
     final school = _schoolCode;
     if (school == null || school.isEmpty) return;
@@ -1139,21 +1240,27 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         _parentClassroomByStudentCodeAll[code] = cc;
       }
 
-      // Parent UX: use the child currently selected in the global dropdown.
-      final globalSelectedCode =
-          (context.read<ParentChildCubit>().selectedChild?.code ?? '').trim();
-      if (globalSelectedCode.isNotEmpty) {
-        final selectedClassroom =
-            _parentStudentClassroomByCode[globalSelectedCode];
+      // Which child this feed is for. See [_resolveParentFeedStudentCode] for
+      // the precedence and why the deep-link's student outranks the dropdown.
+      final targetCode = _resolveParentFeedStudentCode();
+      if (targetCode != null) {
+        // Push the resolution back into the app's single source of truth, so
+        // the app-bar switcher (and every other parent screen) agrees with the
+        // feed. This is also what keeps the post-frame
+        // `_syncWithGlobalChildSelection` from immediately re-scoping to the
+        // PREVIOUSLY selected child and firing a second fetch: the latch below
+        // and the cubit now hold the same code. No-op when they already match.
+        context.read<ParentChildCubit>().selectByCode(targetCode);
+
+        final targetClassroom = _parentClassroomByStudentCodeAll[targetCode];
         _parentAllowedStudentCodes
           ..clear()
-          ..add(globalSelectedCode);
-        _parentStudentClassroomByCode..clear();
-        if (selectedClassroom != null && selectedClassroom.trim().isNotEmpty) {
-          _parentStudentClassroomByCode[globalSelectedCode] = selectedClassroom
-              .trim();
+          ..add(targetCode);
+        _parentStudentClassroomByCode.clear();
+        if (targetClassroom != null && targetClassroom.trim().isNotEmpty) {
+          _parentStudentClassroomByCode[targetCode] = targetClassroom.trim();
         }
-        _lastGlobalSelectedStudentCode = globalSelectedCode;
+        _lastGlobalSelectedStudentCode = targetCode;
       }
 
       if (_parentAllowedStudentCodes.isEmpty) {
@@ -1238,7 +1345,22 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
       ..clear()
       ..[globalSelectedCode] = classroom.trim();
 
-    _loadDailyFeed(refresh: true);
+    // Hold the loading placeholder across the switch. The rows on screen still
+    // belong to the PREVIOUS child until the new fetch emits, and if that child
+    // happened to have an empty day the feed would drop to "No Activities
+    // found" for the gap before `loadDailyForGuardian` flips `isLoading` — the
+    // same wrong-empty-state the deep-link path had.
+    setState(() {
+      _loadingParentContext = true;
+    });
+    unawaited(
+      _loadDailyFeed(refresh: true).whenComplete(() {
+        if (!mounted) return;
+        setState(() {
+          _loadingParentContext = false;
+        });
+      }),
+    );
   }
 
   Future<void> _reloadStudentsAndSettings({
@@ -1622,6 +1744,9 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
   /// branches from the same State instance (see the Mandate 2 note above
   /// `_feedCubitInstance`).
   Future<void> _loadParentHomeDailyFeed({bool refresh = false}) async {
+    // Synchronously, before any await: whatever is on screen no longer answers
+    // the question we are about to ask.
+    _beginFeedLoad();
     final school = _schoolCode;
     final date = _selectedDate;
     if (school == null || school.isEmpty || date == null) {
@@ -1642,6 +1767,12 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
       return;
     }
 
+    // Note there is deliberately no `_endFeedLoad()` on the not-ready return
+    // above: "not ready" means the school, day or child map is still
+    // resolving, which is exactly when the loader must hold. Every genuine
+    // dead end (no school selected, guardian profile unresolvable, no linked
+    // children) sets `_feedError` instead, which the display rule treats as
+    // terminal — so this cannot spin forever.
     final codes = _parentAllowedStudentCodes.toList()..sort();
     final dateStr = _dateQueryParam(date);
     final typeCodes = _activityTypeCodesForApiFilter();
@@ -1672,8 +1803,13 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     if (!refresh && _lastFeedRequestKey == requestKey) {
       // Already-loaded feed: skip the refetch, but still honour a pending
       // deep-link scroll (the rows are on screen; only the trigger was missing).
+      // The in-flight case leaves the result stale on purpose — the request
+      // that is already running will end the load.
       if (_isFeedRequestInFlight) return;
       if (!_lastFeedCompletedWithError) {
+        // Same scope as the completed request: the rows on screen already ARE
+        // the answer, so re-affirm them rather than holding the placeholder.
+        _endFeedLoad();
         _scheduleHighlightScroll();
         return;
       }
@@ -1681,6 +1817,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
       if (completedAt != null &&
           AppTime.nowUtc().difference(completedAt) <
               const Duration(seconds: 3)) {
+        _endFeedLoad();
         _scheduleHighlightScroll();
         return;
       }
@@ -1729,6 +1866,11 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     _lastFeedCompletedAt = AppTime.nowUtc();
     final feedError = _feedCubit.state.error;
     _lastFeedCompletedWithError = feedError != null;
+    // The fetch is done, so the rows on screen now answer the current scope —
+    // an empty list from here on genuinely means "no activities". Set on the
+    // error path too: an errored load is still a completed one, and the
+    // message branch renders the error rather than the empty text.
+    _endFeedLoad();
     if (feedError != null) {
       if (mounted) {
         CoreUtils.logApiError(feedError, showOnScreen: true, context: context);
@@ -1757,6 +1899,8 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
       return _loadParentHomeDailyFeed(refresh: refresh);
     }
 
+    // Synchronously, before any await — see [_beginFeedLoad].
+    _beginFeedLoad();
     final school = _schoolCode;
     final date = _selectedDate;
     final classroomCodes = _selectedClassroomCodesForFeed();
@@ -1785,6 +1929,8 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
       return;
     }
 
+    // As in the guardian branch, the not-ready return above deliberately does
+    // NOT end the load: every genuine dead end sets `_feedError` instead.
     final dateStr = _dateQueryParam(date);
 
     // Resolve the active tag filter to student codes BEFORE fetching/filtering
@@ -1818,7 +1964,8 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
 
     if (!refresh && _lastFeedRequestKey == requestKey) {
       if (_isFeedRequestInFlight) {
-        // Same request is already running; skip duplicate calls.
+        // Same request is already running; skip duplicate calls. The result
+        // stays stale on purpose — the running request will end the load.
         return;
       }
       if (!_lastFeedCompletedWithError) {
@@ -1826,7 +1973,9 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         // (including empty-result success). No need to refetch — but the rows
         // ARE already loaded, so a pending deep-link still needs its scroll.
         // Returning here previously skipped it entirely, which is why a cached
-        // feed highlighted without ever scrolling.
+        // feed highlighted without ever scrolling. Same scope as that
+        // completed request, so the rows on screen already are the answer.
+        _endFeedLoad();
         _scheduleHighlightScroll();
         return;
       }
@@ -1835,6 +1984,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
           AppTime.nowUtc().difference(completedAt) <
               const Duration(seconds: 3)) {
         // Throttle repeated failed requests for same filters.
+        _endFeedLoad();
         _scheduleHighlightScroll();
         return;
       }
@@ -1887,6 +2037,11 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     _lastFeedCompletedAt = AppTime.nowUtc();
     final feedError = _feedCubit.state.error;
     _lastFeedCompletedWithError = feedError != null;
+    // The fetch is done, so the rows on screen now answer the current scope —
+    // an empty list from here on genuinely means "no activities". Set on the
+    // error path too: an errored load is still a completed one, and the
+    // message branch renders the error rather than the empty text.
+    _endFeedLoad();
     if (feedError != null) {
       if (mounted) {
         CoreUtils.logApiError(feedError, showOnScreen: true, context: context);
@@ -1953,6 +2108,21 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
   @override
   void didUpdateWidget(covariant _ActivityDailyTabView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // A deep-link about a DIFFERENT child arriving without a remount — the
+    // route key only changes when there IS a highlightCode, so a student-only
+    // change (or a link carrying no highlight at all) lands here instead.
+    // Routed through the cubit rather than re-scoped locally so the app-bar
+    // switcher and the feed stay in step; `_syncWithGlobalChildSelection` picks
+    // it up on the next frame and does the re-scope + reload.
+    if (_parentHome &&
+        widget.deepLinkStudentCode != oldWidget.deepLinkStudentCode) {
+      _deepLinkStudentApplied = false;
+      final code = (widget.deepLinkStudentCode ?? '').trim();
+      if (code.isNotEmpty) {
+        context.read<ParentChildCubit>().selectByCode(code);
+      }
+    }
+
     final changed =
         widget.highlightCode != oldWidget.highlightCode ||
         widget.highlightDate != oldWidget.highlightDate ||
@@ -1964,6 +2134,13 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
       _highlightApplied = false;
       _highlightScrollScheduled = false;
       _deepLinkClassroomApplied = false;
+      // The scope just changed under us, so the rows currently on screen answer
+      // the PREVIOUS notification's question. Invalidating here — in the same
+      // frame the new target is applied — is what stops a reused keep-alive
+      // State from rendering its stale (possibly empty) result as
+      // "No Activities found" before `_loadDailyFeed` below flips the cubit's
+      // `isLoading`.
+      _feedResultIsCurrent = false;
       if (widget.highlightDate != null) _selectedDate = widget.highlightDate;
       _applyDeepLinkClassroom();
     });
@@ -2183,6 +2360,13 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
   /// Applied once, so a later refresh can't yank the user off a room they
   /// switched to after arriving via the deep link.
   bool _deepLinkClassroomApplied = false;
+
+  /// One-shot, like [_deepLinkClassroomApplied]: the deep-link's student is the
+  /// subject of the TAP, not a standing override. Without this latch a later
+  /// re-bootstrap — the one `_syncWithGlobalChildSelection` triggers when the
+  /// user picks a child whose classroom isn't cached yet — would resolve back
+  /// to the notification's child and fight the dropdown the user just used.
+  bool _deepLinkStudentApplied = false;
 
   /// Keeps the profile student present in the options + selection when launched
   /// from a student profile. Both this widget's pruning and
@@ -2638,8 +2822,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
                 SliverToBoxAdapter(
                   child: SizedBox(height: _parentHome ? 0 : 12),
                 ),
-                if ((_displayedLoadingFeed || _loadingParentContext) &&
-                    _displayedActivities.isEmpty)
+                if (_showFeedLoadingPlaceholder && _displayedActivities.isEmpty)
                   SliverFillRemaining(
                     hasScrollBody: false,
                     child: Padding(
@@ -2664,8 +2847,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
                       ),
                     ),
                   ),
-                if (!_displayedLoadingFeed &&
-                    !_loadingParentContext &&
+                if (!_showFeedLoadingPlaceholder &&
                     _displayedActivities.isEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
@@ -3509,16 +3691,14 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
 
                 const SizedBox(height: 12),
 
-                if ((_displayedLoadingFeed || _loadingParentContext) &&
-                    _displayedActivities.isEmpty)
+                if (_showFeedLoadingPlaceholder && _displayedActivities.isEmpty)
                   Expanded(
                     child: _portraitOverscrollFeedWrapper(
                       child: _dailyFeedLoadingSheet(context),
                     ),
                   ),
 
-                if (!_displayedLoadingFeed &&
-                    !_loadingParentContext &&
+                if (!_showFeedLoadingPlaceholder &&
                     _displayedActivities.isEmpty)
                   Expanded(
                     child: _portraitOverscrollFeedWrapper(

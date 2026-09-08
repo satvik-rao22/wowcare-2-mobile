@@ -11,6 +11,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import '../../../../app/theme/media_res.dart';
 import '../../../../core/util/core_utils.dart';
+import '../../../../core/util/logger_service.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 import '../view/activity_item.dart';
 import 'package:go_router/go_router.dart';
@@ -107,7 +108,7 @@ class _MediaUploaderState extends State<MediaUploader> {
   @override
   void initState() {
     super.initState();
-    debugPrint('[MediaUploader] initState — hashCode=$hashCode');
+    AppLogger.d('[MediaUploader] initState — hashCode=$hashCode');
     maxPhotos = widget.limit;
     photoMaxSizeMB = widget.photoSizeLimit ?? 10;
 
@@ -138,7 +139,7 @@ class _MediaUploaderState extends State<MediaUploader> {
 
   @override
   void dispose() {
-    debugPrint(
+    AppLogger.d(
       '[MediaUploader] dispose — hashCode=$hashCode '
       '(if this fires while the file picker is open, the host activity is '
       'being recreated)',
@@ -163,7 +164,7 @@ class _MediaUploaderState extends State<MediaUploader> {
         });
       }
     } catch (e) {
-      debugPrint('Failed to load remote video thumbnail: $e');
+      AppLogger.e('Failed to load remote video thumbnail', e);
       _remoteVideoController?.dispose();
       _remoteVideoController = null;
       if (mounted) {
@@ -193,7 +194,7 @@ class _MediaUploaderState extends State<MediaUploader> {
         });
       }
     } catch (e) {
-      debugPrint('Thumbnail failed: $e');
+      AppLogger.e('Thumbnail generation failed', e);
     }
   }
 
@@ -217,7 +218,7 @@ class _MediaUploaderState extends State<MediaUploader> {
   }
 
   Future<void> _pickPhotos(ImageSource source) async {
-    debugPrint(
+    AppLogger.d(
       '[MediaUploader] _pickPhotos: start source=$source '
       'hashCode=$hashCode mounted=$mounted',
     );
@@ -237,7 +238,7 @@ class _MediaUploaderState extends State<MediaUploader> {
         source: source,
         imageQuality: 85,
       );
-      debugPrint(
+      AppLogger.d(
         '[MediaUploader] _pickPhotos: camera returned '
         '${camera == null ? 'null' : 'image'} mounted=$mounted',
       );
@@ -356,7 +357,7 @@ class _MediaUploaderState extends State<MediaUploader> {
         file = File(path);
       }
     } catch (e) {
-      debugPrint('[MediaUploader] _pickVideo: picker failed: $e');
+      AppLogger.e('[MediaUploader] _pickVideo: picker failed', e);
       _showWarning(
         source == ImageSource.camera
             ? 'Could not open the camera. Please try again.'

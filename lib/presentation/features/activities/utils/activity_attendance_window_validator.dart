@@ -27,8 +27,9 @@ String _resolveClassroomCodeFromSelectedStudents(
   for (final student in students) {
     final dynamic classroomCodeDynamic =
         student['classroomCode'] ?? student['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
     if (classroomCode.isNotEmpty) return classroomCode;
   }
   return '';
@@ -42,8 +43,9 @@ Future<bool> _shouldRunStaffAtTimeValidation(StorageService storage) async {
     'ASSOCIATE_TEACHER',
     'ASSISTANT_TEACHER',
   };
-  final staffType =
-      (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+  final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+      .trim()
+      .toUpperCase();
   if (staffType.isNotEmpty) return allowedStaffPersonas.contains(staffType);
 
   // ACTIVE persona (single value), not a scan of the account's full cached
@@ -104,11 +106,12 @@ Future<bool> validateStudentsWithinAttendanceWindow({
   final staffCode = (await resolveLoggedInStaffCode() ?? '').trim();
   if (shouldValidateStaff && staffCode.isNotEmpty) {
     try {
-      final staffStatus = await serviceLocator<GetStaffSignInStatusAtTimeUseCase>()(
-        staffCodes: <String>[staffCode],
-        classroomCode: classroomCode,
-        instantUtc: instantUtc,
-      );
+      final staffStatus =
+          await serviceLocator<GetStaffSignInStatusAtTimeUseCase>()(
+            staffCodes: <String>[staffCode],
+            classroomCode: classroomCode,
+            instantUtc: instantUtc,
+          );
       final isStaffPresent = staffStatus[staffCode] == true;
       if (!isStaffPresent) {
         CoreUtils.showTopSnackBar(
@@ -147,11 +150,12 @@ Future<bool> validateStudentsWithinAttendanceWindow({
 
   if (studentCodes.isNotEmpty) {
     try {
-      final studentStatus = await serviceLocator<GetStudentSignInStatusAtTimeUseCase>()(
-        studentCodes: studentCodes,
-        classroomCode: classroomCode,
-        instantUtc: instantUtc,
-      );
+      final studentStatus =
+          await serviceLocator<GetStudentSignInStatusAtTimeUseCase>()(
+            studentCodes: studentCodes,
+            classroomCode: classroomCode,
+            instantUtc: instantUtc,
+          );
       var notSignedInCodes = <String>[
         for (final code in studentCodes)
           if (studentStatus[code] != true) code,
@@ -176,18 +180,19 @@ Future<bool> validateStudentsWithinAttendanceWindow({
           .where((code) => !ambiguousClassroomStudentCodes.contains(code))
           .toList(growable: false);
       if (fallbackEligibleCodes.isNotEmpty &&
-          instantUtc
-                  .difference(ServerTimeService.instance.nowUtc())
-                  .abs() <=
+          instantUtc.difference(ServerTimeService.instance.nowUtc()).abs() <=
               _fallbackSignInCheckTolerance) {
         try {
           final fallbackStatus =
               await serviceLocator<GetStudentTodaySignInStatusMapUseCase>()(
-                  studentCodes: fallbackEligibleCodes);
+                studentCodes: fallbackEligibleCodes,
+              );
           notSignedInCodes = notSignedInCodes
-              .where((code) =>
-                  !fallbackEligibleCodes.contains(code) ||
-                  fallbackStatus[code]?.toUpperCase() != 'SIGNED_IN')
+              .where(
+                (code) =>
+                    !fallbackEligibleCodes.contains(code) ||
+                    fallbackStatus[code]?.toUpperCase() != 'SIGNED_IN',
+              )
               .toList(growable: false);
         } catch (_) {
           // Fallback is best-effort; keep the scoped result on failure.

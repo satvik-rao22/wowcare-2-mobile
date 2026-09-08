@@ -132,7 +132,10 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.themeColor, width: 1),
+                        border: Border.all(
+                          color: AppColors.themeColor,
+                          width: 1,
+                        ),
                         color: AppColors.cardColor,
                       ),
                       child: Row(

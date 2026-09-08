@@ -16,9 +16,9 @@ class ChooseActivityCubit extends Cubit<ChooseActivityState> {
     required GetClassroomActivitySettingsUseCase settingsUseCase,
     required GetActivityTypeDetailsUseCase detailsUseCase,
     required this.knownActivityKeys,
-  })  : _settingsUseCase = settingsUseCase,
-        _detailsUseCase = detailsUseCase,
-        super(const ChooseActivityState.loading());
+  }) : _settingsUseCase = settingsUseCase,
+       _detailsUseCase = detailsUseCase,
+       super(const ChooseActivityState.loading());
 
   final GetClassroomActivitySettingsUseCase _settingsUseCase;
   final GetActivityTypeDetailsUseCase _detailsUseCase;
@@ -125,7 +125,7 @@ class ChooseActivityState extends Equatable {
   });
 
   const ChooseActivityState.loading()
-      : this(status: ChooseActivityStatus.loading);
+    : this(status: ChooseActivityStatus.loading);
 
   const ChooseActivityState.loaded({
     Set<String>? enabledActivities,
@@ -135,14 +135,14 @@ class ChooseActivityState extends Equatable {
     Map<String, String> activityDisplayNameByKey = const <String, String>{},
     String? loadErrorMessage,
   }) : this(
-          status: ChooseActivityStatus.loaded,
-          enabledActivities: enabledActivities,
-          multiStudentAllowed: multiStudentAllowed,
-          visibleActivityKeys: visibleActivityKeys,
-          activityTypeCodeByName: activityTypeCodeByName,
-          activityDisplayNameByKey: activityDisplayNameByKey,
-          loadErrorMessage: loadErrorMessage,
-        );
+         status: ChooseActivityStatus.loaded,
+         enabledActivities: enabledActivities,
+         multiStudentAllowed: multiStudentAllowed,
+         visibleActivityKeys: visibleActivityKeys,
+         activityTypeCodeByName: activityTypeCodeByName,
+         activityDisplayNameByKey: activityDisplayNameByKey,
+         loadErrorMessage: loadErrorMessage,
+       );
 
   final ChooseActivityStatus status;
 
@@ -168,12 +168,12 @@ class ChooseActivityState extends Equatable {
 
   @override
   List<Object?> get props => <Object?>[
-        status,
-        enabledActivities,
-        multiStudentAllowed,
-        visibleActivityKeys,
-        activityTypeCodeByName,
-        activityDisplayNameByKey,
-        loadErrorMessage,
-      ];
+    status,
+    enabledActivities,
+    multiStudentAllowed,
+    visibleActivityKeys,
+    activityTypeCodeByName,
+    activityDisplayNameByKey,
+    loadErrorMessage,
+  ];
 }

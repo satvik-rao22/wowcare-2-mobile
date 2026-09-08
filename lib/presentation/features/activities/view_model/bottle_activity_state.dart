@@ -88,8 +88,9 @@ class BottleActivityState extends Equatable {
           : activityTypeCode as String?,
       staffName: staffName ?? this.staffName,
       staffType: staffType ?? this.staffType,
-      staffCode:
-          identical(staffCode, _unset) ? this.staffCode : staffCode as String?,
+      staffCode: identical(staffCode, _unset)
+          ? this.staffCode
+          : staffCode as String?,
       schoolCode: identical(schoolCode, _unset)
           ? this.schoolCode
           : schoolCode as String?,
@@ -118,24 +119,24 @@ class BottleActivityState extends Equatable {
 
   @override
   List<Object?> get props => [
-        selectedStudents,
-        selectedStudentsData,
-        activityTypeCode,
-        staffName,
-        staffType,
-        staffCode,
-        schoolCode,
-        organizationCode,
-        staffPresentLabelForEdit,
-        requireAdminApproval,
-        isSubmitting,
-        isApprovingOrRejecting,
-        isSavingBeforeApprove,
-        loadingActivityDetail,
-        liveActivity,
-        scopedEditStudentIndices,
-        detailAttachmentRows,
-      ];
+    selectedStudents,
+    selectedStudentsData,
+    activityTypeCode,
+    staffName,
+    staffType,
+    staffCode,
+    schoolCode,
+    organizationCode,
+    staffPresentLabelForEdit,
+    requireAdminApproval,
+    isSubmitting,
+    isApprovingOrRejecting,
+    isSavingBeforeApprove,
+    loadingActivityDetail,
+    liveActivity,
+    scopedEditStudentIndices,
+    detailAttachmentRows,
+  ];
 }
 
 const Object _unset = Object();
