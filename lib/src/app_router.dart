@@ -2178,6 +2178,7 @@ final GoRouter appRouter = GoRouter(
                 return BlocProvider<ActivityFeedScreenCubit>(
                   create: (_) => serviceLocator<ActivityFeedScreenCubit>(),
                   child: ActivityFeedScreen(
+<<<<<<< HEAD
                     // The Activities tab lives in an indexed-stack branch and its
                     // Daily tab is keep-alive, so a notification tap into an
                     // already-visited tab reuses the old State — leaving the feed
@@ -2224,6 +2225,54 @@ final GoRouter appRouter = GoRouter(
                         ? [q['classroom']!]
                         : null,
                     resetKey: extra?['timestamp']?.toString(),
+=======
+                  // The Activities tab lives in an indexed-stack branch and its
+                  // Daily tab is keep-alive, so a notification tap into an
+                  // already-visited tab reuses the old State — leaving the feed
+                  // on the previously selected DAY/room/CHILD. Keying a
+                  // deep-link by its target forces a remount, so initState
+                  // re-runs and applies the notification's date, classroom,
+                  // highlight and — for a guardian — the newly selected child.
+                  //
+                  // The student is part of the key because for a GUARDIAN the
+                  // feed's subject is the selected child, not the room: two
+                  // siblings in the same classroom on the same day produce the
+                  // same date+room, so without it a notification about child B
+                  // reused child A's already-built State and the parent kept
+                  // seeing child A's day.
+                  //
+                  // Normal tab navigation carries no highlightCode and keeps a
+                  // null key, so ordinary browsing state is preserved.
+                  key: activityFeedDeepLinkKey(
+                    highlightCode: highlight,
+                    date: date,
+                    classroomCode: room,
+                    studentCode: student,
+                  ),
+                  highlightCode: q['highlightCode'],
+                  highlightDate: DateTime.tryParse(date),
+                  // The deep-linked activity's classroom, so the feed opens on
+                  // the room that actually contains the card to highlight.
+                  highlightClassroomCode: q['classroomCode'],
+                  // GUARDIAN persona: the child the notification is about.
+                  // Previously this only keyed the remount below, so the feed
+                  // itself still had to learn the subject from ParentChildCubit
+                  // — which has not caught up on a killed-state launch (the
+                  // splash routes here directly) or right after a school switch
+                  // (which resets the cubit), leaving a parent of two children
+                  // on the wrong child's day. Passing it in makes the FIRST
+                  // fetch the right one; ownership is still enforced against
+                  // the guardian's own student list before it is used.
+                  deepLinkStudentCode: student.isEmpty ? null : student,
+                  initialTab: q['tab'] == 'custom' ? 1 : 0,
+                  initialActivityTypes: q['activityType'] != null
+                      ? [q['activityType']!]
+                      : null,
+                  initialClassrooms: q['classroom'] != null
+                      ? [q['classroom']!]
+                      : null,
+                  resetKey: extra?['timestamp']?.toString(),
+>>>>>>> fix/Activity-Redirection
                   ),
                 );
               },
