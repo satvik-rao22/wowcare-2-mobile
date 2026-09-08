@@ -255,7 +255,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
 
   Widget _buildForm(ResponsiveHelper responsive, double safeAreaBottom) {
     return StaffFormLayout(
-      title: widget.isEdit ? StudentStrings.editDocument : StudentStrings.addDocument,
+      title: widget.isEdit
+          ? StudentStrings.editDocument
+          : StudentStrings.addDocument,
       child: GestureDetector(
         onTap: () {
           FocusScope.of(context).unfocus();
@@ -305,7 +307,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         child: BlocBuilder<StudentDocumentCubit, StudentDocumentState>(
           builder: (context, state) {
             return CustomButtonLayout(
-              confirmButtonLabel: widget.isEdit ? StudentStrings.save : StudentStrings.add,
+              confirmButtonLabel: widget.isEdit
+                  ? StudentStrings.save
+                  : StudentStrings.add,
               cancelButtonLabel: StudentStrings.cancel,
               onPressedConfirm: _addDocument,
               onPressedCancel: () => context.pop(false),
@@ -360,7 +364,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             maxLength: _documentNameMaxLength,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: AppColors.attendanceMutedTextColor),
+              hintStyle: labelStyle.copyWith(
+                color: AppColors.attendanceMutedTextColor,
+              ),
               border: InputBorder.none,
               counterText: '',
               contentPadding: EdgeInsets.symmetric(
@@ -375,16 +381,23 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
   }
 
   Widget _buildCustomDropdown() {
-    final selectedType = context
-        .watch<StudentDocumentCubit>()
-        .state
-        .documentType;
-    return CustomDropdown(
-      label: StudentStrings.documentType,
-      hintText: StudentStrings.select,
-      items: _documentTypes,
-      selectedItem: selectedType,
-      onSelect: (value) => _cubit.setDocumentType(value),
+    // BlocBuilder (not context.watch<StudentDocumentCubit>() against this
+    // State's own context) — this method is called from _buildForm, which
+    // is built as `BlocProvider<StudentDocumentCubit>.value(... child:
+    // _buildForm(...))` inside build() below: the PROVIDER doesn't exist
+    // yet on this State's own context at the point _buildForm() runs, only
+    // on the subtree it returns. BlocBuilder resolves the cubit from its
+    // own (correctly descendant) context once mounted, not from here.
+    return BlocBuilder<StudentDocumentCubit, StudentDocumentState>(
+      builder: (context, state) {
+        return CustomDropdown(
+          label: StudentStrings.documentType,
+          hintText: StudentStrings.select,
+          items: _documentTypes,
+          selectedItem: state.documentType,
+          onSelect: (value) => _cubit.setDocumentType(value),
+        );
+      },
     );
   }
 
@@ -393,131 +406,146 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     final labelStyle = AppTextStyles.label.copyWith(
       fontSize: responsive.labelFontSize,
     );
-    final selectedExpiryDate = context
-        .watch<StudentDocumentCubit>()
-        .state
-        .expiryDate;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(StudentStrings.expiryDate, style: labelStyle),
-        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
-        GestureDetector(
-          onTap: _selectExpiryDate,
-          child: Container(
-            constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-            decoration: BoxDecoration(
-              color: AppColors.whiteColor,
-              border: Border.all(color: AppColors.inputBorderColor),
-              borderRadius: BorderRadius.circular(
-                responsive.isTablet ? 12.0 : 8.0,
-              ),
-            ),
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: responsive.isTablet ? 16.0 : 12.0,
-                vertical: responsive.isTablet ? 16.0 : 12.0,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      selectedExpiryDate != null
-                          ? DateFormat(
-                              'MMM dd, yyyy',
-                            ).format(selectedExpiryDate)
-                          : StudentStrings.selectDate,
-                      style: TextStyle(
-                        color: selectedExpiryDate == null
-                            ? AppColors.attendanceMutedTextColor
-                            : AppColors.blackColor,
-                        fontSize: responsive.inputFontSize,
-                        fontFamily: Fonts.manrope,
+    // See _buildCustomDropdown's doc comment for why this is a BlocBuilder
+    // rather than context.watch<StudentDocumentCubit>() against this
+    // State's own context.
+    return BlocBuilder<StudentDocumentCubit, StudentDocumentState>(
+      builder: (context, state) {
+        final selectedExpiryDate = state.expiryDate;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(StudentStrings.expiryDate, style: labelStyle),
+            SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
+            GestureDetector(
+              onTap: _selectExpiryDate,
+              child: Container(
+                constraints: BoxConstraints(
+                  minHeight: responsive.inputFieldHeight,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.whiteColor,
+                  border: Border.all(color: AppColors.inputBorderColor),
+                  borderRadius: BorderRadius.circular(
+                    responsive.isTablet ? 12.0 : 8.0,
+                  ),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: responsive.isTablet ? 16.0 : 12.0,
+                    vertical: responsive.isTablet ? 16.0 : 12.0,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          selectedExpiryDate != null
+                              ? DateFormat(
+                                  'MMM dd, yyyy',
+                                ).format(selectedExpiryDate)
+                              : StudentStrings.selectDate,
+                          style: TextStyle(
+                            color: selectedExpiryDate == null
+                                ? AppColors.attendanceMutedTextColor
+                                : AppColors.blackColor,
+                            fontSize: responsive.inputFontSize,
+                            fontFamily: Fonts.manrope,
+                          ),
+                        ),
                       ),
-                    ),
+                      SvgPicture.asset(
+                        MediaRes.calender_icon,
+                        height: responsive.isTablet ? 28.0 : 24.0,
+                        colorFilter: const ColorFilter.mode(
+                          AppColors.primaryColor,
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                    ],
                   ),
-                  SvgPicture.asset(
-                    MediaRes.calender_icon,
-                    height: responsive.isTablet ? 28.0 : 24.0,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.primaryColor,
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
   Widget _buildFileUploadField() {
     final responsive = ResponsiveHelper(context);
-    final state = context.watch<StudentDocumentCubit>().state;
-    // In edit mode with no newly-picked file, fall back to the existing file.
-    final displayName = state.selectedFileName ?? widget.initialFilePath;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            style: AppTextStyles.label.copyWith(
-              fontSize: responsive.labelFontSize,
-            ),
-            children: [
-              const TextSpan(text: StudentStrings.uploadDocument),
-              const TextSpan(
-                text: ' *',
-                style: TextStyle(color: AppColors.errorColor),
+
+    // See _buildCustomDropdown's doc comment for why this is a BlocBuilder
+    // rather than context.watch<StudentDocumentCubit>() against this
+    // State's own context.
+    return BlocBuilder<StudentDocumentCubit, StudentDocumentState>(
+      builder: (context, state) {
+        // In edit mode with no newly-picked file, fall back to the existing file.
+        final displayName = state.selectedFileName ?? widget.initialFilePath;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            RichText(
+              text: TextSpan(
+                style: AppTextStyles.label.copyWith(
+                  fontSize: responsive.labelFontSize,
+                ),
+                children: [
+                  const TextSpan(text: StudentStrings.uploadDocument),
+                  const TextSpan(
+                    text: ' *',
+                    style: TextStyle(color: AppColors.errorColor),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-        SizedBox(height: responsive.isTablet ? 8.0 : 4.0),
-        GestureDetector(
-          onTap: _selectFile,
-          child: Container(
-            height: responsive.inputFieldHeight,
-            padding: EdgeInsets.symmetric(
-              horizontal: responsive.isTablet ? 20.0 : 16.0,
             ),
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.inputBorderColor),
-              borderRadius: BorderRadius.circular(
-                responsive.isTablet ? 12.0 : 8.0,
-              ),
-              color: AppColors.whiteColor,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    state.isUploading
-                        ? 'Uploading... ${state.uploadPercent}%'
-                        : (displayName ?? StudentStrings.chooseAFile),
-                    style: TextStyle(
-                      color: displayName == null ? AppColors.attendanceMutedTextColor : AppColors.blackColor,
-                      fontSize: responsive.inputFontSize,
-                      fontFamily: Fonts.manrope,
+            SizedBox(height: responsive.isTablet ? 8.0 : 4.0),
+            GestureDetector(
+              onTap: _selectFile,
+              child: Container(
+                height: responsive.inputFieldHeight,
+                padding: EdgeInsets.symmetric(
+                  horizontal: responsive.isTablet ? 20.0 : 16.0,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.inputBorderColor),
+                  borderRadius: BorderRadius.circular(
+                    responsive.isTablet ? 12.0 : 8.0,
+                  ),
+                  color: AppColors.whiteColor,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        state.isUploading
+                            ? 'Uploading... ${state.uploadPercent}%'
+                            : (displayName ?? StudentStrings.chooseAFile),
+                        style: TextStyle(
+                          color: displayName == null
+                              ? AppColors.attendanceMutedTextColor
+                              : AppColors.blackColor,
+                          fontSize: responsive.inputFontSize,
+                          fontFamily: Fonts.manrope,
+                        ),
+                      ),
                     ),
-                  ),
+                    SvgPicture.asset(
+                      MediaRes.uploadIcon,
+                      height: responsive.isTablet ? 28.0 : 24.0,
+                      colorFilter: const ColorFilter.mode(
+                        AppColors.primaryColor,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                  ],
                 ),
-                SvgPicture.asset(
-                  MediaRes.uploadIcon,
-                  height: responsive.isTablet ? 28.0 : 24.0,
-                  colorFilter: const ColorFilter.mode(
-                    AppColors.primaryColor,
-                    BlendMode.srcIn,
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -551,7 +579,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(
               hintText: StudentStrings.addNotes,
-              hintStyle: labelStyle.copyWith(color: AppColors.attendanceMutedTextColor),
+              hintStyle: labelStyle.copyWith(
+                color: AppColors.attendanceMutedTextColor,
+              ),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
