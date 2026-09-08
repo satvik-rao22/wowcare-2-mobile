@@ -269,7 +269,7 @@ void main() {
     );
   }
 
-  testWidgets('Tapping Generate generates STAFF_ABSENT with roomCodes', (
+  testWidgets('A fresh form generates STAFF_ABSENT with no classroom filter', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(800, 1200));
@@ -287,11 +287,13 @@ void main() {
     expect(fakeReportsRepo.lastGeneratedParams, isNotNull);
     final params = fakeReportsRepo.lastGeneratedParams as ReportRequestParams;
     expect(params.reportType, ReportType.staffAbsent);
-    expect(params.roomCodes, ['CLS_06C3AF97-6', 'CLS_BE1976C6-1']);
+    // "All classrooms" is the absence of the key, never an implicitly
+    // expanded list of every code.
+    expect(params.roomCodes, isNull);
 
     final requestBody = ReportRequestPayload.fromParams(params).toJson();
     expect(requestBody['reportType'], 'STAFF_ABSENT');
-    expect(requestBody['roomCodes'], ['CLS_06C3AF97-6', 'CLS_BE1976C6-1']);
+    expect(requestBody.containsKey('roomCodes'), isFalse);
     expect(requestBody.containsKey('startDate'), isTrue);
     expect(requestBody.containsKey('endDate'), isTrue);
   });

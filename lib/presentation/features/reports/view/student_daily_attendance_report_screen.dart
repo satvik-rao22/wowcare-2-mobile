@@ -42,8 +42,6 @@ class _StudentDailyAttendanceReportScreenState
   void initState() {
     super.initState();
     _date = ValueNotifier<DateTime>(AppTime.now());
-    // All Classrooms are selected by default until the user changes it.
-    _selectedClassrooms.value = List<String>.from(widget.classrooms);
   }
 
   @override
@@ -59,11 +57,11 @@ class _StudentDailyAttendanceReportScreenState
 
     final classroomNameToCode = cubit.state.classroomNameToCode;
 
+    // Empty selection → no codes → `roomCodes: null` below omits the key,
+    // which is how this endpoint expresses "all classrooms".
     final roomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms.value.isEmpty
-          ? widget.classrooms
-          : _selectedClassrooms.value,
+      names: _selectedClassrooms.value,
       nameToCode: classroomNameToCode,
       labelPlural: 'classrooms',
     );
@@ -157,16 +155,15 @@ class _StudentDailyAttendanceReportScreenState
                   valueListenable: _selectedClassrooms,
                   builder: (_, selected, __) => CustomMultiSelectDropdown(
                     label: ReportsStrings.classroom,
-                    hintText: ReportsStrings.selectClassroom,
+                    hintText: ReportsStrings.allClassrooms,
                     items: widget.classrooms,
                     selectedItems: selected,
-                    isRequired: true,
                     onChanged: (s) => _selectedClassrooms.value = s,
                     showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(
-                  text: ReportsStrings.noteAllClassroomsWillBeSelectedByDefault,
+                  text: ReportsStrings.noteAllClassroomsIncludedByDefault,
                 ),
                 SizedBox(
                   height: context.responsive(compact: 16.0, medium: 24.0),

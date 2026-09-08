@@ -275,31 +275,33 @@ void main() {
   }
 
   testWidgets(
-    'StudentIncidentReportScreen auto-selects all students by default and does not show classroom dropdown',
+    'StudentIncidentReportScreen selects no student by default and does not show classroom dropdown',
     (tester) async {
       await tester.pumpWidget(buildTestWidget());
       await tester.pumpAndSettle();
 
-      // Verify student multi-select filter field exists and has all students selected
+      // The student filter starts empty and reads "All Students" — nothing is
+      // pre-selected, and an empty filter already means every student.
       final studentFieldFinder = find.byType(MultiSelectFilterField<String>);
       expect(studentFieldFinder, findsOneWidget);
 
       final studentField = tester.widget<MultiSelectFilterField<String>>(
         studentFieldFinder,
       );
-      expect(studentField.selectedItems, equals(testStudents));
+      expect(studentField.selectedItems, isEmpty);
+      expect(find.text('All Students'), findsOneWidget);
 
       // Verify Classroom dropdown is not rendered
-      expect(find.text('Select Classroom'), findsNothing);
+      expect(find.text('All Classrooms'), findsNothing);
       expect(
-        find.text('Note: All Classrooms will be selected by Default.'),
+        find.textContaining('All Classrooms are included'),
         findsNothing,
       );
     },
   );
 
   testWidgets(
-    'Tapping Generate generates student incident report without classroom codes',
+    'Tapping Generate generates student incident report with no student or classroom filter',
     (tester) async {
       await tester.pumpWidget(buildTestWidget());
       await tester.pumpAndSettle();
@@ -314,7 +316,9 @@ void main() {
       expect(fakeReportsRepo.lastGeneratedParams, isNotNull);
       final params = fakeReportsRepo.lastGeneratedParams as ReportRequestParams;
       expect(params.reportType, equals(ReportType.studentIncident));
-      expect(params.studentCodes, equals(['STU-001', 'STU-002', 'STU-003']));
+      // Nothing selected → "all students" is the absence of the key, never an
+      // implicitly expanded list of every code.
+      expect(params.studentCodes, isNull);
       expect(params.roomCodes, isNull);
     },
   );

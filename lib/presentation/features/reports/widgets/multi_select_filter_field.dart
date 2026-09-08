@@ -61,7 +61,8 @@ class MultiSelectFilterField<T> extends StatefulWidget {
   /// Optional: Alternative to showAsterisk
   final bool isRequired;
 
-  /// Note text displayed below field (e.g., "All items will be selected by default")
+  /// Note text displayed below field (e.g., "All items are included unless
+  /// you select specific ones")
   final String? defaultNote;
 
   const MultiSelectFilterField({
