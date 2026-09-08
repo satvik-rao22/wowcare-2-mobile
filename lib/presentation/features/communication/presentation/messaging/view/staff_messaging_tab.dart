@@ -1190,6 +1190,31 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                   statusFilter) {
                                 return false;
                               }
+                              if (statusFilter == 'ACTIVE') {
+                                // conv.status is the THREAD's own
+                                // archived/active state, not the
+                                // counterpart's employment status — an
+                                // Upcoming (not yet started) staff
+                                // member's thread is still "ACTIVE" at
+                                // the thread level, so it slipped
+                                // through the Active filter. Cross-check
+                                // the counterpart's employment status
+                                // too, same "fails open when null"
+                                // convention as the Upcoming branch
+                                // below.
+                                final counterpart = conv.participants
+                                    .where(
+                                      (p) => p.userCode != _currentAccountCode,
+                                    )
+                                    .firstOrNull;
+                                final staffStatus = counterpart?.staffStatus
+                                    ?.trim()
+                                    .toUpperCase();
+                                if (staffStatus != null &&
+                                    staffStatus != 'ACTIVE') {
+                                  return false;
+                                }
+                              }
                             } else {
                               // 'UPCOMING' has no conversation-level
                               // equivalent — fall back to the
