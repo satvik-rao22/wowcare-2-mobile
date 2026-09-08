@@ -36,6 +36,7 @@ import 'package:wowcare/presentation/features/students/view/add_student_step2_sc
 import 'package:wowcare/presentation/features/students/view/add_student_step3_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/duplicate_student_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/widgets/same_last_name_siblings_dialog.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
@@ -454,7 +455,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                   'classroom': match.classroom,
                   'tags': match.tags,
                   'schedule': match.schedule,
-                  'sibling': const <String, dynamic>{},
+                  'sibling': const StudentSiblingInfo(),
                   'studentCode': match.code,
                   'initialEnrollmentStatus': match.status,
                 },
@@ -897,7 +898,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppColors.blackColor.withValues(alpha: 0.05),
+                                    color: AppColors.blackColor.withValues(
+                                      alpha: 0.05,
+                                    ),
                                     blurRadius: 8,
                                     offset: const Offset(0, 2),
                                   ),
@@ -1128,7 +1131,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: AppColors.attendanceMutedTextColor),
+              hintStyle: labelStyle.copyWith(
+                color: AppColors.attendanceMutedTextColor,
+              ),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,

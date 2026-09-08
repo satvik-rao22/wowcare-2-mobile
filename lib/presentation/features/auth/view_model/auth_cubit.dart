@@ -939,8 +939,13 @@ class AuthCubit extends Cubit<AuthState> {
         // failure cascades into permission-denied Firestore listeners), and
         // `loginCompleted` — which setSelectedOrgAndSchool only flips once
         // BOTH org and school are non-empty — stays false, so FCM
-        // registration is skipped too. Default to the single org + its first
-        // available school so the session always ends up usable.
+        // registration is skipped too. Default to the first org + its first
+        // available school so the session always ends up usable — this used
+        // to only apply when the user had exactly one organization, but a
+        // MULTI-org user hitting the same null-LastLogin/dashboard-redirect
+        // combination hit the identical 400 loop (every API call, including
+        // the org/school timezone lookup, 401/400ing with no usable session)
+        // since `orgCodes.length == 1` never matched for them.
         try {
           final storage = _storageService;
           final storedOrgCode =
@@ -952,7 +957,7 @@ class AuthCubit extends Cubit<AuthState> {
                 .where((c) => c.isNotEmpty)
                 .toSet()
                 .toList();
-            if (orgCodes.length == 1) {
+            if (orgCodes.isNotEmpty) {
               final fallbackSchoolCode = response.roles
                   .where((r) => r.organizationCode.trim() == orgCodes.first)
                   .map((r) => r.schoolCode.trim())

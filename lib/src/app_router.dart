@@ -1110,11 +1110,12 @@ final GoRouter appRouter = GoRouter(
                                 serviceLocator<StudentCubit>()..loadInitial(),
                           ),
                           BlocProvider<ClassroomCubit>(
-                            create: (_) => serviceLocator<ClassroomCubit>()
-                              ..loadActiveClassrooms(
-                                applyAttendanceStaffScope:
-                                    applyAttendanceStaffScope,
-                              ),
+                            create: (_) =>
+                                serviceLocator<ClassroomCubit>()
+                                  ..loadActiveClassrooms(
+                                    applyAttendanceStaffScope:
+                                        applyAttendanceStaffScope,
+                                  ),
                           ),
                         ],
                         child: StudentScreen(
@@ -1372,8 +1373,8 @@ final GoRouter appRouter = GoRouter(
 
                     // ── Compliance ───────────────────────────────────────
                     GoRoute(
-                      path: ReportRoutes
-                          .complianceAnnualStateImmunizationSegment,
+                      path:
+                          ReportRoutes.complianceAnnualStateImmunizationSegment,
                       builder: (context, state) {
                         final args = state.extra! as ReportFormArgs;
                         return BlocProvider<ReportsCubit>.value(
@@ -1642,7 +1643,8 @@ final GoRouter appRouter = GoRouter(
                     BlocProvider<IndividualMovementsCubit>(
                       create: (_) => serviceLocator<IndividualMovementsCubit>(),
                       child: IndividualMovementScreen(
-                        highlightCode: state.uri.queryParameters['highlightCode'],
+                        highlightCode:
+                            state.uri.queryParameters['highlightCode'],
                         studentCode: state.uri.queryParameters['studentCode'],
                       ),
                     ),
@@ -1727,8 +1729,7 @@ final GoRouter appRouter = GoRouter(
                         child: EditScheduleScreen(
                           staffCode: args?.staffCode ?? '',
                           initialSchedules:
-                              args?.initialSchedules ??
-                              const <ScheduleEntry>[],
+                              args?.initialSchedules ?? const <ScheduleEntry>[],
                         ),
                       ),
                     );
@@ -1746,7 +1747,8 @@ final GoRouter appRouter = GoRouter(
                     final typedTab = state.extra is AttendanceTabbedViewArgs
                         ? state.extra! as AttendanceTabbedViewArgs
                         : null;
-                    final typedStatus = state.extra is AttendanceStatusFilterArgs
+                    final typedStatus =
+                        state.extra is AttendanceStatusFilterArgs
                         ? state.extra! as AttendanceStatusFilterArgs
                         : null;
                     final args = state.extra is Map<String, dynamic>
@@ -1790,7 +1792,8 @@ final GoRouter appRouter = GoRouter(
                     final typedTab = state.extra is AttendanceTabbedViewArgs
                         ? state.extra! as AttendanceTabbedViewArgs
                         : null;
-                    final typedStatus = state.extra is AttendanceStatusFilterArgs
+                    final typedStatus =
+                        state.extra is AttendanceStatusFilterArgs
                         ? state.extra! as AttendanceStatusFilterArgs
                         : null;
                     final args = state.extra is Map<String, dynamic>
@@ -1832,8 +1835,9 @@ final GoRouter appRouter = GoRouter(
                     ClassroomInfoScreen(
                       initialClassroomCode:
                           state.uri.queryParameters['classroomCode'],
-                      initialClassroom:
-                          state.extra is Classroom ? state.extra as Classroom : null,
+                      initialClassroom: state.extra is Classroom
+                          ? state.extra as Classroom
+                          : null,
                     ),
                   ),
                 ),
@@ -2174,42 +2178,42 @@ final GoRouter appRouter = GoRouter(
                 return BlocProvider<ActivityFeedScreenCubit>(
                   create: (_) => serviceLocator<ActivityFeedScreenCubit>(),
                   child: ActivityFeedScreen(
-                  // The Activities tab lives in an indexed-stack branch and its
-                  // Daily tab is keep-alive, so a notification tap into an
-                  // already-visited tab reuses the old State — leaving the feed
-                  // on the previously selected DAY/room/CHILD. Keying a
-                  // deep-link by its target forces a remount, so initState
-                  // re-runs and applies the notification's date, classroom,
-                  // highlight and — for a guardian — the newly selected child.
-                  //
-                  // The student is part of the key because for a GUARDIAN the
-                  // feed's subject is the selected child, not the room: two
-                  // siblings in the same classroom on the same day produce the
-                  // same date+room, so without it a notification about child B
-                  // reused child A's already-built State and the parent kept
-                  // seeing child A's day.
-                  //
-                  // Normal tab navigation carries no highlightCode and keeps a
-                  // null key, so ordinary browsing state is preserved.
-                  key: activityFeedDeepLinkKey(
-                    highlightCode: highlight,
-                    date: date,
-                    classroomCode: room,
-                    studentCode: student,
-                  ),
-                  highlightCode: q['highlightCode'],
-                  highlightDate: DateTime.tryParse(date),
-                  // The deep-linked activity's classroom, so the feed opens on
-                  // the room that actually contains the card to highlight.
-                  highlightClassroomCode: q['classroomCode'],
-                  initialTab: q['tab'] == 'custom' ? 1 : 0,
-                  initialActivityTypes: q['activityType'] != null
-                      ? [q['activityType']!]
-                      : null,
-                  initialClassrooms: q['classroom'] != null
-                      ? [q['classroom']!]
-                      : null,
-                  resetKey: extra?['timestamp']?.toString(),
+                    // The Activities tab lives in an indexed-stack branch and its
+                    // Daily tab is keep-alive, so a notification tap into an
+                    // already-visited tab reuses the old State — leaving the feed
+                    // on the previously selected DAY/room/CHILD. Keying a
+                    // deep-link by its target forces a remount, so initState
+                    // re-runs and applies the notification's date, classroom,
+                    // highlight and — for a guardian — the newly selected child.
+                    //
+                    // The student is part of the key because for a GUARDIAN the
+                    // feed's subject is the selected child, not the room: two
+                    // siblings in the same classroom on the same day produce the
+                    // same date+room, so without it a notification about child B
+                    // reused child A's already-built State and the parent kept
+                    // seeing child A's day.
+                    //
+                    // Normal tab navigation carries no highlightCode and keeps a
+                    // null key, so ordinary browsing state is preserved.
+                    key: activityFeedDeepLinkKey(
+                      highlightCode: highlight,
+                      date: date,
+                      classroomCode: room,
+                      studentCode: student,
+                    ),
+                    highlightCode: q['highlightCode'],
+                    highlightDate: DateTime.tryParse(date),
+                    // The deep-linked activity's classroom, so the feed opens on
+                    // the room that actually contains the card to highlight.
+                    highlightClassroomCode: q['classroomCode'],
+                    initialTab: q['tab'] == 'custom' ? 1 : 0,
+                    initialActivityTypes: q['activityType'] != null
+                        ? [q['activityType']!]
+                        : null,
+                    initialClassrooms: q['classroom'] != null
+                        ? [q['classroom']!]
+                        : null,
+                    resetKey: extra?['timestamp']?.toString(),
                   ),
                 );
               },
@@ -2384,8 +2388,9 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) {
         final args = state.extra! as ActivityFilterArgs;
         return BlocProvider<ActivityFilterCubit>(
-          create: (_) => serviceLocator<ActivityFilterCubit>()
-            ..loadMetadata(schoolCode: args.schoolCode),
+          create: (_) =>
+              serviceLocator<ActivityFilterCubit>()
+                ..loadMetadata(schoolCode: args.schoolCode),
           child: ActivityFilterScreen(
             schoolCode: args.schoolCode,
             classroomCode: args.classroomCode,
@@ -2431,12 +2436,12 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) {
         final args = state.extra! as ChooseActivityArgs;
         return BlocProvider<ChooseActivityCubit>(
-          create: (_) => serviceLocator<ChooseActivityCubit>()
-            ..loadActivitySettings(
-              classroomCode: classroomCodeFromSelectedStudents(
-                args.selectedStudents,
+          create: (_) =>
+              serviceLocator<ChooseActivityCubit>()..loadActivitySettings(
+                classroomCode: classroomCodeFromSelectedStudents(
+                  args.selectedStudents,
+                ),
               ),
-            ),
           child: ChooseActivity(selectedStudents: args.selectedStudents),
         );
       },
@@ -2878,11 +2883,11 @@ final GoRouter appRouter = GoRouter(
         return _fastPage(
           state,
           BlocProvider<ClassroomCubit>(
-            create: (_) => serviceLocator<ClassroomCubit>()
-              ..loadActiveClassrooms(
-                applyAttendanceStaffScope:
-                    args['applyAttendanceStaffScope'] as bool? ?? false,
-              ),
+            create: (_) =>
+                serviceLocator<ClassroomCubit>()..loadActiveClassrooms(
+                  applyAttendanceStaffScope:
+                      args['applyAttendanceStaffScope'] as bool? ?? false,
+                ),
             child: EditStudentProfileDetailsScreen(
               studentCode: args['studentCode'] as String? ?? '',
               initialFirstName: args['initialFirstName'] as String?,
@@ -3226,12 +3231,7 @@ Widget _studentProfileScreen(Object? extra) {
     tags: args['tags'] ?? const <String, dynamic>{},
     schedule: args['schedule'] ?? const <String, dynamic>{},
     sibling:
-        args['sibling'] ??
-        const <String, dynamic>{
-          'name': <dynamic>[],
-          'relation': <dynamic>[],
-          'status': <dynamic>[],
-        },
+        args['sibling'] as StudentSiblingInfo? ?? const StudentSiblingInfo(),
     studentCode: args['studentCode'] as String?,
     initialEnrollmentStatus: args['initialEnrollmentStatus'] as String?,
     syncWithParentChildSelection:
@@ -3254,8 +3254,8 @@ Widget _staffProfileScope({required String staffCode, required Widget child}) {
   return MultiBlocProvider(
     providers: [
       BlocProvider<StaffProfileCubit>(
-        create: (_) => serviceLocator<StaffProfileCubit>()
-          ..loadInitial(staffCode),
+        create: (_) =>
+            serviceLocator<StaffProfileCubit>()..loadInitial(staffCode),
       ),
       BlocProvider<StaffProfilePhotoUploadCubit>(
         create: (_) => serviceLocator<StaffProfilePhotoUploadCubit>(),
@@ -3267,8 +3267,8 @@ Widget _staffProfileScope({required String staffCode, required Widget child}) {
         create: (_) => serviceLocator<ImportantDatesCubit>(),
       ),
       BlocProvider<StaffDocumentsListCubit>(
-        create: (_) => serviceLocator<StaffDocumentsListCubit>()
-          ..loadInitial(staffCode),
+        create: (_) =>
+            serviceLocator<StaffDocumentsListCubit>()..loadInitial(staffCode),
       ),
       BlocProvider<StaffClassroomNameCubit>(
         create: (_) => serviceLocator<StaffClassroomNameCubit>(),
@@ -3567,7 +3567,10 @@ String? _dashboardPersonaRedirect(BuildContext context, GoRouterState state) {
   }
   if (!role.isPersonaResolved) return null;
 
-  final segment = path.substring(DashboardRoutes.root.length + 1).split('/').first;
+  final segment = path
+      .substring(DashboardRoutes.root.length + 1)
+      .split('/')
+      .first;
 
   if (role.isParent && _dashboardAdminOnlySegments.contains(segment)) {
     AppLogger.w(

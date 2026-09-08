@@ -147,7 +147,14 @@ class StaffRoutes {
   /// Registered at the router ROOT, not under the dashboard shell: the
   /// `MaterialPageRoute` it replaced covered the nav shell, and a shell-nested
   /// route would leave the bottom bar visible over the document.
-  static const String documentViewer = '/document-viewer';
+  ///
+  /// Deliberately distinct from `DocumentViewerScreen.routeName`
+  /// (`/document-viewer`) — go_router matches routes in declaration order,
+  /// and that shared Map-`extra`-based route was registered first, so a
+  /// shared path here silently swallowed every staff push (it cast this
+  /// route's `DocumentViewerArgs` extra as a `Map`, throwing at navigation
+  /// time and making "View" on a staff document a no-op/crash).
+  static const String documentViewer = '/staff-document-viewer';
 }
 
 /// Route paths for the scheduling feature.

@@ -148,6 +148,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   bool _isLoadingOlder = false;
   static const double _loadOlderScrollThreshold = 200.0;
 
+  /// Guards [_maybeMarkConversationRead] so it only ever fires once per
+  /// widget instance (a new instance — and a fresh `false` here — is created
+  /// per conversation via `ParentMessagingThread`'s `ValueKey(selected.code)`
+  /// in ParentDirectMessagingScreen).
+  bool _hasMarkedRead = false;
+
   /// `communication-settings`-driven Delete visibility — see
   /// [MessageBubble.isAdminCanDeleteAny] / [MessageBubble.deleteTimeLimitMinutes].
   /// This screen only ever shows the GUARDIAN's own view of the thread, so
@@ -290,8 +296,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       });
       final convCode = widget.parentInfo['code'] as String;
       final communicationCubit = context.read<CommunicationCubit>();
-      // Fire an immediate, unawaited mark-read on open — matches Room Chat's
-      // sibling screens (staff_messaging_thread.dart,
+      // Fire an immediate, unawaited mark-read on open (when this thread is
+      // actually visible — see [_maybeMarkConversationRead]) — matches Room
+      // Chat's sibling screens (staff_messaging_thread.dart,
       // conversation_thread_screen.dart), which call this unconditionally
       // as soon as the thread opens, before anything else. Previously this
       // was sequenced AFTER `await loadMessages(...)` below: any failure,
@@ -305,7 +312,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       // deliberately NOT gated on `mounted` either: a quick open-then-back
       // tap must still record the read receipt even with no UI left to
       // update.
-      unawaited(communicationCubit.markConversationRead(convCode));
+      _maybeMarkConversationRead();
       await communicationCubit.loadMessages(
         convCode,
         currentUserId: currentUserId,
@@ -332,6 +339,42 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         },
       );
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _maybeMarkConversationRead();
+  }
+
+  /// Fires mark-read only once this thread is actually the visible content,
+  /// not merely constructed. `ParentDirectMessagingScreen` (the parent
+  /// persona's Messages tab) builds this thread inline as soon as a
+  /// child/conversation resolves — including while that whole tab sits
+  /// offstage in the shell's `IndexedStack` (e.g. the parent is still on
+  /// Dashboard, or just switched children without ever opening Messages).
+  /// Firing unconditionally there marked every conversation read the
+  /// instant it resolved, with no view ever happening.
+  ///
+  /// go_router wraps each kept-alive shell branch in
+  /// `TickerMode(enabled: isActive)` (see go_router's
+  /// `_IndexedStackedRouteBranchContainer`), so `TickerMode.valuesOf(context)`
+  /// is a live, always-accurate "is my branch the one on screen" signal — correct
+  /// for a bottom-nav tap, a drawer/notification deep link, or the initial
+  /// route alike, and it re-notifies this exact widget (even while offstage)
+  /// the moment the branch actually becomes active, via the dependency
+  /// `didChangeDependencies` registers. Screens that instead push this
+  /// thread as its own route (AdminChatHostScreen, a tapped chat
+  /// notification) have no TickerMode ancestor, which defaults to `true`, so
+  /// they keep marking read immediately on open exactly as before.
+  void _maybeMarkConversationRead() {
+    if (_hasMarkedRead) return;
+    if (!TickerMode.valuesOf(context).enabled) return;
+    _hasMarkedRead = true;
+    final convCode = widget.parentInfo['code'] as String;
+    unawaited(
+      context.read<CommunicationCubit>().markConversationRead(convCode),
+    );
   }
 
   @override
@@ -3728,7 +3771,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       onViewParticipants: _showParticipantsDialog,
       onAttachmentError: (message) {
         if (!mounted) return;
-        CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: message,
+          isError: true,
+        );
       },
     );
   }
@@ -4044,8 +4091,18 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
 
     const monthNames = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
 
     // Matches web's groupMessagesByDate (ChatMessageArea.tsx): "Today" /

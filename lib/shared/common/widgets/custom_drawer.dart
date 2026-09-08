@@ -11,8 +11,10 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/admin_chat_host_screen.dart';
 import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
+import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
 import 'package:wowcare/presentation/features/classroom/views/screens/classroom_screen.dart';
@@ -579,11 +581,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
           'classroom': selectedChild.classroom,
           'tags': selectedChild.tags,
           'schedule': selectedChild.schedule,
-          'sibling': const <String, dynamic>{
-            'name': <dynamic>[],
-            'relation': <dynamic>[],
-            'status': <dynamic>[],
-          },
+          'sibling': const StudentSiblingInfo(),
           'studentCode': selectedChild.code,
           'syncWithParentChildSelection': true,
         },
@@ -624,16 +622,16 @@ class _CustomDrawerState extends State<CustomDrawer> {
       if (!navigator.context.mounted) return;
       navigator.context.go(
         StaffProfileScreen.routeName,
-        extra: <String, dynamic>{
-          'staffCode': profile.staffCode,
-          'name': profile.fullName.trim().isNotEmpty
+        extra: StaffProfileArgs(
+          staffCode: profile.staffCode,
+          name: profile.fullName.trim().isNotEmpty
               ? profile.fullName.trim()
               : '-',
-          'classroom': classroom,
-          'designation': profile.designation,
-          'phoneNumber': profile.phoneNumber,
-          'employmentStatus': profile.status,
-        },
+          classroom: classroom,
+          designation: profile.designation,
+          phoneNumber: profile.phoneNumber,
+          employmentStatus: profile.status,
+        ),
       );
     } catch (_) {
       ScaffoldMessenger.of(navigator.context).showSnackBar(
@@ -948,9 +946,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.go(
-                                      AdminChatHostScreen.routeName,
-                                    );
+                                    context.go(AdminChatHostScreen.routeName);
                                   },
                                 ),
                               if (showParentNewsletterDrawer)
