@@ -18,9 +18,9 @@ class IncidentActivityCubit extends Cubit<IncidentActivityState> {
   IncidentActivityCubit({
     required StorageService storageService,
     required StaffRepository staffRepository,
-  })  : _storageService = storageService,
-        _staffRepository = staffRepository,
-        super(const IncidentActivityState());
+  }) : _storageService = storageService,
+       _staffRepository = staffRepository,
+       super(const IncidentActivityState());
 
   final StorageService _storageService;
   final StaffRepository _staffRepository;

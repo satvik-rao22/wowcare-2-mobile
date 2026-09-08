@@ -649,8 +649,9 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
       _uploadedAssetCodeByPath.clear();
       _uploadContextKey = contextKey;
     }
-    final missing =
-        media.where((f) => !_uploadedAssetCodeByPath.containsKey(f.path)).toList();
+    final missing = media
+        .where((f) => !_uploadedAssetCodeByPath.containsKey(f.path))
+        .toList();
 
     String? uploadedSessionCode;
     var newlyUploadedCodes = const <String>[];
@@ -699,8 +700,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
           if (!mounted) return;
           final overallFraction =
               ((itemIndex - 1) + (percent / 100)) / totalItems;
-          final overallPercent =
-              (overallFraction * 100).clamp(0, 100).round();
+          final overallPercent = (overallFraction * 100).clamp(0, 100).round();
           setState(() => _uploadProgressPercent = overallPercent);
         },
         onItemComplete: (completed, total) {
@@ -727,8 +727,9 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
         persist: true,
       );
     }
-    final uploadedCodes =
-        media.map((f) => _uploadedAssetCodeByPath[f.path]!).toList();
+    final uploadedCodes = media
+        .map((f) => _uploadedAssetCodeByPath[f.path]!)
+        .toList();
     return uploadedCodes.map((code) {
       if (isShared) {
         return ActivityAttachment(assetCode: code);
@@ -1296,7 +1297,9 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
           ActivityParameterValue(parameterCode: timeCode, value: localTime),
         if (staffCodeParam != null)
           ActivityParameterValue(
-              parameterCode: staffCodeParam, value: staffPresentCode),
+            parameterCode: staffCodeParam,
+            value: staffPresentCode,
+          ),
         if (descriptionCode != null && desc.isNotEmpty)
           ActivityParameterValue(parameterCode: descriptionCode, value: desc),
         if (uploadMediaCode != null && uploadAssetCodes.isNotEmpty)
@@ -1580,7 +1583,9 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
                     ),
                     decoration: BoxDecoration(
                       color: AppColors.activityProcessingBg,
-                      border: Border.all(color: AppColors.activityProcessingBorder),
+                      border: Border.all(
+                        color: AppColors.activityProcessingBorder,
+                      ),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(

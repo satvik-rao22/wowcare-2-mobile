@@ -76,8 +76,9 @@ class _DateWidgetState extends State<DateWidget> {
   Future<void> _setSchoolDefaultDateIfNeeded() async {
     if (widget.initialDate != null && widget.initialDate!.trim().isNotEmpty)
       return;
-    final schoolTimeZone =
-        await context.read<ActivityEditorCubit>().resolveSchoolTimezone();
+    final schoolTimeZone = await context
+        .read<ActivityEditorCubit>()
+        .resolveSchoolTimezone();
     final schoolToday = SchoolZoneDateTime.schoolCalendarTodayOnly(
       schoolTimeZone,
     );
@@ -151,7 +152,9 @@ class _DateWidgetState extends State<DateWidget> {
         width: double.infinity,
         constraints: const BoxConstraints(minHeight: 40),
         decoration: BoxDecoration(
-          color: AppColors.activitySoftPurpleFieldColor.withValues(alpha: 0.102),
+          color: AppColors.activitySoftPurpleFieldColor.withValues(
+            alpha: 0.102,
+          ),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Padding(

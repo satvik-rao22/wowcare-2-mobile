@@ -41,6 +41,7 @@ import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
 import '../../../../shared/common/widgets/primary_circular_loader.dart';
 import '../widgets/avtivity_media_preview.dart';
 import '../widgets/activity_tab_shared_helpers.dart';
+import '../utils/activity_feed_display_rules.dart';
 
 /// Feed card model + permissions (`activity_feed_card_permissions.dart`) come through this barrel export.
 import 'activity_daily_tab.dart';
@@ -300,9 +301,41 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
   List<ActivityItem> get _displayActivities =>
       _sortItemsByLatestFirst(_withClientFilters(_effectiveFeedState.items));
 
+  bool get _displayedLoadingFeed => _effectiveFeedState.isLoading;
+
   bool get _displayedLoadingMoreFeed => _effectiveFeedState.isLoadingMore;
 
   bool get _displayedFeedHasMore => _effectiveFeedState.hasMore;
+
+  /// Whether the rows on screen answer the currently selected scope. Mirrors
+  /// `activity_daily_tab.dart`'s latch of the same name — see it for the two
+  /// windows that used to render "No Activities found" wrongly.
+  bool _feedResultIsCurrent = false;
+
+  /// The feed is busy, or has no result for the current scope: show the loader,
+  /// not "No Activities found". See [shouldShowActivityFeedLoadingPlaceholder].
+  bool get _showFeedLoadingPlaceholder =>
+      shouldShowActivityFeedLoadingPlaceholder(
+        isLoading: _displayedLoadingFeed,
+        isLoadingParentContext: _loadingParentContext,
+        hasCurrentResult: _feedResultIsCurrent,
+        hasBootstrapError: _feedError != null,
+      );
+
+  /// Marks the on-screen rows stale because a (re)load has just been decided.
+  /// Must run synchronously, before the load's first `await`.
+  void _beginFeedLoad() {
+    if (!_feedResultIsCurrent) return;
+    _feedResultIsCurrent = false;
+    if (mounted) setState(() {});
+  }
+
+  /// Marks the on-screen rows as the answer to the current scope.
+  void _endFeedLoad() {
+    if (_feedResultIsCurrent) return;
+    _feedResultIsCurrent = true;
+    if (mounted) setState(() {});
+  }
 
   /// `_feedError` is still written directly by bootstrap
   /// (`_bootstrapRangeFeed`/`_loadStaffClassroomScope`/`_bootstrapParentHome`)
@@ -900,6 +933,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
   /// State instance (see the Mandate 2 note above `_feedCubitInstance`).
   /// Mirrors `activity_daily_tab.dart`'s `_loadParentHomeDailyFeed`.
   Future<void> _loadParentHomeRangeFeed({bool refresh = false}) async {
+    // Synchronously, before any await — see [_beginFeedLoad].
+    _beginFeedLoad();
     final school = _schoolCode;
     final start = _selectedStartDate;
     final end = _selectedEndDate ?? _selectedStartDate;
@@ -921,6 +956,11 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       }
       return;
     }
+
+    // The not-ready return above deliberately does NOT end the load: "not
+    // ready" means the school, range or child map is still resolving, which is
+    // exactly when the loader must hold. Every genuine dead end sets
+    // `_feedError` instead, which the display rule treats as terminal.
     await _rebuildStudentCodesForTagFilter();
     if (!mounted) return;
 
@@ -951,8 +991,14 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     ].join('|');
 
     if (!refresh && _lastFeedRequestKey == requestKey) {
+      // In-flight: leave the result stale, the running request will end it.
       if (_isFeedRequestInFlight) return;
-      if (!_lastFeedCompletedWithError) return;
+      // Same scope as the completed request, so the rows on screen already ARE
+      // the answer — re-affirm them rather than holding the placeholder.
+      if (!_lastFeedCompletedWithError) {
+        _endFeedLoad();
+        return;
+      }
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
           AppTime.nowUtc().difference(completedAt) <
@@ -1002,6 +1048,10 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     _lastFeedCompletedAt = AppTime.nowUtc();
     final feedError = _feedCubit.state.error;
     _lastFeedCompletedWithError = feedError != null;
+    // Fetch done: the rows on screen now answer the current scope. Set on the
+    // error path too — an errored load is still a completed one, and the
+    // message branch renders the error rather than the empty text.
+    _endFeedLoad();
     if (feedError != null) {
       if (mounted) {
         CoreUtils.logApiError(feedError, showOnScreen: true, context: context);
@@ -1804,9 +1854,24 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         _parentClassroomByStudentCodeAll[code] = cc;
       }
 
-      // Parent UX: use the child currently selected in the global dropdown.
+      // Which child this feed is for. The Custom tab is never an activity
+      // notification's own destination (the resolver emits no `tab` param, so
+      // those always land on Daily), hence no deep-link student here — but the
+      // dropdown selection can still be unresolved when a parent switches to
+      // this tab right after a cold launch. Falling back to the first linked
+      // child keeps the range feed scoped to ONE child instead of fanning out
+      // over all of them and rendering a merged list that then shrinks.
       final globalSelectedCode =
-          (context.read<ParentChildCubit>().selectedChild?.code ?? '').trim();
+          resolveGuardianFeedStudentCode(
+            deepLinkStudentCode: null,
+            deepLinkAlreadyApplied: true,
+            selectedChildCode: context
+                .read<ParentChildCubit>()
+                .selectedChild
+                ?.code,
+            ownedStudentCodes: _parentClassroomByStudentCodeAll.keys,
+          ) ??
+          '';
       if (globalSelectedCode.isNotEmpty) {
         final selectedClassroom =
             _parentStudentClassroomByCode[globalSelectedCode];
@@ -1945,6 +2010,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       return _loadParentHomeRangeFeed(refresh: refresh);
     }
 
+    // Synchronously, before any await — see [_beginFeedLoad].
+    _beginFeedLoad();
     final classroomCodes = _selectedClassroomCodesForFeed();
     final classroomCode = classroomCodes.isNotEmpty
         ? classroomCodes.first
@@ -1973,6 +2040,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       return;
     }
 
+    // As in the guardian branch, the not-ready returns here and just below
+    // deliberately do NOT end the load: every genuine dead end sets
+    // `_feedError` instead.
     final start = _selectedStartDate;
     final end = _selectedEndDate ?? _selectedStartDate;
     if (start == null || end == null) return;
@@ -1999,8 +2069,12 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     ].join('|');
 
     if (!refresh && _lastFeedRequestKey == requestKey) {
+      // In-flight: leave the result stale, the running request will end it.
       if (_isFeedRequestInFlight) return;
+      // Same scope as the completed request — the rows on screen are already
+      // the answer.
       if (!_lastFeedCompletedWithError) {
+        _endFeedLoad();
         return;
       }
       final completedAt = _lastFeedCompletedAt;
@@ -2069,6 +2143,10 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     _lastFeedCompletedAt = AppTime.nowUtc();
     final feedError = _feedCubit.state.error;
     _lastFeedCompletedWithError = feedError != null;
+    // Fetch done: the rows on screen now answer the current scope. Set on the
+    // error path too — an errored load is still a completed one, and the
+    // message branch renders the error rather than the empty text.
+    _endFeedLoad();
     if (feedError != null) {
       if (mounted) {
         CoreUtils.logApiError(feedError, showOnScreen: true, context: context);
@@ -2537,7 +2615,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
 
           const SizedBox(height: 12),
 
-          if (_loadingParentContext && _displayActivities.isEmpty)
+          if (_showFeedLoadingPlaceholder && _displayActivities.isEmpty)
             Expanded(
               child: _portraitOverscrollFeedWrapper(
                 child: Padding(
@@ -2562,7 +2640,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                 ),
               ),
             ),
-          if (!_loadingParentContext && _displayActivities.isEmpty)
+          if (!_showFeedLoadingPlaceholder && _displayActivities.isEmpty)
             Expanded(
               child: _portraitOverscrollFeedWrapper(
                 child: Padding(

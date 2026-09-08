@@ -9,6 +9,7 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 import 'package:wowcare/shared/common/widgets/hls_web_player.dart';
 
@@ -40,7 +41,10 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
     return lower.contains('.m3u8');
   }
 
-  Future<String> _materializeVideoToTempFile(String url, String fileName) async {
+  Future<String> _materializeVideoToTempFile(
+    String url,
+    String fileName,
+  ) async {
     final tempDir = await getTemporaryDirectory();
     final outPath = path.join(tempDir.path, fileName);
 
@@ -77,7 +81,10 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
     return outPath;
   }
 
-  Future<String> _materializePhotoToTempFile(String url, String fileName) async {
+  Future<String> _materializePhotoToTempFile(
+    String url,
+    String fileName,
+  ) async {
     final tempDir = await getTemporaryDirectory();
     final outPath = path.join(tempDir.path, fileName);
     await Dio().download(url, outPath);
@@ -93,7 +100,9 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
     if (raw.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Media is still processing. Please try again.')),
+        const SnackBar(
+          content: Text('Media is still processing. Please try again.'),
+        ),
       );
       return;
     }
@@ -109,7 +118,9 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Photos permission is required to save media to your gallery.'),
+            content: Text(
+              'Photos permission is required to save media to your gallery.',
+            ),
           ),
         );
         return;
@@ -120,8 +131,9 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
       final safeExt = ext.isNotEmpty ? ext : (isVideo ? '.mp4' : '.jpg');
       final stamp = AppTime.nowUtc().millisecondsSinceEpoch;
       final baseName = 'wowcare_${isVideo ? 'video' : 'photo'}_$stamp$safeExt';
-      final tempVideoName =
-          isVideo && _isHlsUrl(raw) ? 'wowcare_video_$stamp.mp4' : baseName;
+      final tempVideoName = isVideo && _isHlsUrl(raw)
+          ? 'wowcare_video_$stamp.mp4'
+          : baseName;
 
       if (isVideo) {
         final filePath = await _materializeVideoToTempFile(raw, tempVideoName);
@@ -143,13 +155,13 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
       );
     } on GalException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.type.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.type.message)));
     } catch (e) {
       // Do not log the raw exception: a Dio/HTTP error stringifies the request
       // URI, which here is a pre-signed media URL. Log only the error type.
-      debugPrint('Failed to download media (${e.runtimeType})');
+      AppLogger.e('Failed to download media', e);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -180,41 +192,40 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
             child: hasVideo
                 ? HlsWebPlayer(videoUrl: videoUrl!)
                 : hasPhoto
-                    // Let the InteractiveViewer fill the whole screen (image
-                    // centered inside) so the pan/zoom area is the full
-                    // viewport — not a small box the size of the image.
-                    ? InteractiveViewer(
-                        minScale: 0.8,
-                        maxScale: 4.0,
-                        child: Center(
-                          child: Image.network(
-                            photoUrl!,
-                            fit: BoxFit.contain,
-                            loadingBuilder: (c, child, progress) =>
-                                progress == null
-                                ? child
-                                : const Center(
-                                    child: CircularProgressIndicator(
-                                      color: AppColors.cardColor,
-                                    ),
-                                  ),
-                            errorBuilder: (c, e, s) => const Center(
-                              child: Icon(
-                                Icons.error,
-                                color: AppColors.cardColor,
-                                size: 60,
+                // Let the InteractiveViewer fill the whole screen (image
+                // centered inside) so the pan/zoom area is the full
+                // viewport — not a small box the size of the image.
+                ? InteractiveViewer(
+                    minScale: 0.8,
+                    maxScale: 4.0,
+                    child: Center(
+                      child: Image.network(
+                        photoUrl!,
+                        fit: BoxFit.contain,
+                        loadingBuilder: (c, child, progress) => progress == null
+                            ? child
+                            : const Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.cardColor,
+                                ),
                               ),
-                            ),
+                        errorBuilder: (c, e, s) => const Center(
+                          child: Icon(
+                            Icons.error,
+                            color: AppColors.cardColor,
+                            size: 60,
                           ),
                         ),
-                      )
-                    : const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          color: AppColors.cardColor,
-                          size: 100,
-                        ),
                       ),
+                    ),
+                  )
+                : const Center(
+                    child: Icon(
+                      Icons.broken_image,
+                      color: AppColors.cardColor,
+                      size: 100,
+                    ),
+                  ),
           ),
           Positioned(
             top: 0,

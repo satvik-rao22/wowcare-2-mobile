@@ -31,6 +31,7 @@ class ActivityFeedScreen extends StatefulWidget {
     this.highlightCode,
     this.highlightDate,
     this.highlightClassroomCode,
+    this.deepLinkStudentCode,
     this.initialTab,
     this.initialActivityTypes,
     this.initialClassrooms,
@@ -49,6 +50,12 @@ class ActivityFeedScreen extends StatefulWidget {
   /// Classroom of the deep-linked activity, forwarded so the Daily tab opens on
   /// the room containing the card (the feed loads one classroom at a time).
   final String? highlightClassroomCode;
+
+  /// The child a notification deep-link is about, forwarded to the GUARDIAN
+  /// Daily tab — for a parent the feed is scoped to a child, not a classroom.
+  /// See `ActivityDailyTab.deepLinkStudentCode` for why the URL carries it
+  /// rather than relying on `ParentChildCubit` alone.
+  final String? deepLinkStudentCode;
 
   /// When false, hide add / edit / delete (from [DAILY_ACTIVITY] `write` permission).
   final bool allowActivityWrite;
@@ -402,6 +409,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
                           allowActivityWrite: allowWrite,
                           highlightCode: widget.highlightCode,
                           highlightDate: widget.highlightDate,
+                          deepLinkStudentCode: widget.deepLinkStudentCode,
                         ),
                         ActivityCustomTab(
                           isNotParent: false,

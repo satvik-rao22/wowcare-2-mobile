@@ -49,8 +49,7 @@ class ActivityMediaPreview extends StatelessWidget {
   }
 
   String? _resolveVideoThumbnailUrl() {
-    final rows =
-        activity.snapshotAttachments ?? const <Map<String, dynamic>>[];
+    final rows = activity.snapshotAttachments ?? const <Map<String, dynamic>>[];
     for (final r in rows) {
       if (!_isVideoRow(r)) continue;
       final thumb = (r['thumbnailUrl'] ?? '').toString().trim();
@@ -66,8 +65,7 @@ class ActivityMediaPreview extends StatelessWidget {
   }
 
   bool _hasProcessingMedia() {
-    final rows =
-        activity.snapshotAttachments ?? const <Map<String, dynamic>>[];
+    final rows = activity.snapshotAttachments ?? const <Map<String, dynamic>>[];
     for (final r in rows) {
       final status = (r['status'] ?? '').toString().trim().toUpperCase();
       final isProcessing =
@@ -104,7 +102,9 @@ class ActivityMediaPreview extends StatelessWidget {
               height: 18,
               child: CircularProgressIndicator(
                 strokeWidth: 2.2,
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.activityProcessingAccent),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  AppColors.activityProcessingAccent,
+                ),
               ),
             ),
             SizedBox(height: 8),
@@ -119,8 +119,7 @@ class ActivityMediaPreview extends StatelessWidget {
   }
 
   Widget _buildIconFallback() {
-    final icon =
-        activityIcons[activity.name] ?? MediaRes.notesActivityIcon;
+    final icon = activityIcons[activity.name] ?? MediaRes.notesActivityIcon;
     return Container(
       width: 122,
       height: 76,
@@ -186,9 +185,7 @@ class ActivityMediaPreview extends StatelessWidget {
               fit: BoxFit.cover,
               loadingBuilder: (c, child, progress) => progress == null
                   ? child
-                  : Container(
-                      color: activityColor.withValues(alpha: 0.3),
-                    ),
+                  : Container(color: activityColor.withValues(alpha: 0.3)),
               errorBuilder: (c, e, s) => _buildIconFallback(),
             )
           else if (hasProcessingMedia)

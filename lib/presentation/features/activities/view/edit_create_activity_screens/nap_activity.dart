@@ -443,12 +443,14 @@ class _NapActivityViewState extends State<_NapActivityView> {
       return;
     }
     if (startCode != null && startCode.isNotEmpty) {
-      parameterValues
-          .add(ActivityParameterValue(parameterCode: startCode, value: napStartFlag));
+      parameterValues.add(
+        ActivityParameterValue(parameterCode: startCode, value: napStartFlag),
+      );
     }
     if (endCode != null && endCode.isNotEmpty) {
-      parameterValues
-          .add(ActivityParameterValue(parameterCode: endCode, value: napEndFlag));
+      parameterValues.add(
+        ActivityParameterValue(parameterCode: endCode, value: napEndFlag),
+      );
     }
   }
 
@@ -484,10 +486,12 @@ class _NapActivityViewState extends State<_NapActivityView> {
     if (isNapEnd) return;
     final code = _resolveRemindNap15ParamCode(details);
     if (code == null || code.isEmpty) return;
-    parameterValues.add(ActivityParameterValue(
-      parameterCode: code,
-      value: _remindCheckNapEvery15Minutes,
-    ));
+    parameterValues.add(
+      ActivityParameterValue(
+        parameterCode: code,
+        value: _remindCheckNapEvery15Minutes,
+      ),
+    );
   }
 
   Future<bool?> _resolveNapEndFromCurrentStatus({
@@ -723,19 +727,29 @@ class _NapActivityViewState extends State<_NapActivityView> {
 
       final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
           ActivityParameterValue(
-              parameterCode: staffParamCode, value: staffPresentCode),
+            parameterCode: staffParamCode,
+            value: staffPresentCode,
+          ),
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
           ActivityParameterValue(
-              parameterCode: descParamCode, value: description),
+            parameterCode: descParamCode,
+            value: description,
+          ),
       ];
 
       final isNapEnd = await _resolveNapEndForCreate(
@@ -893,19 +907,29 @@ class _NapActivityViewState extends State<_NapActivityView> {
 
       final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
           ActivityParameterValue(
-              parameterCode: staffParamCode, value: staffPresentCode),
+            parameterCode: staffParamCode,
+            value: staffPresentCode,
+          ),
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
           ActivityParameterValue(
-              parameterCode: descParamCode, value: description),
+            parameterCode: descParamCode,
+            value: description,
+          ),
       ];
 
       _appendNapStartEndBooleans(

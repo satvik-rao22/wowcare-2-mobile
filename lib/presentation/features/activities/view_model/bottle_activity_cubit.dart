@@ -15,7 +15,8 @@ import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in
 import 'package:wowcare/presentation/features/activities/utils/activity_item_edit_mappers.dart'
     show activityItemFromActivityDetail, studentDataMapsForActivityEdit;
 import 'package:wowcare/presentation/features/activities/view/activity_feed_card_permissions.dart';
-import 'package:wowcare/presentation/features/activities/view/activity_item.dart' show ActivityItem;
+import 'package:wowcare/presentation/features/activities/view/activity_item.dart'
+    show ActivityItem;
 import 'package:wowcare/presentation/features/activities/widgets/activity_edit_student_scope_checkboxes.dart';
 import 'activity_editor_cubit.dart';
 import 'activity_form_outcome.dart';
@@ -34,9 +35,9 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
   BottleActivityCubit({
     required ActivityEditorCubit editor,
     required StorageService storageService,
-  })  : _editor = editor,
-        _storageService = storageService,
-        super(const BottleActivityState());
+  }) : _editor = editor,
+       _storageService = storageService,
+       super(const BottleActivityState());
 
   final ActivityEditorCubit _editor;
   final StorageService _storageService;
@@ -100,16 +101,18 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
       _loadActivityContextForCreate(data);
     } else if (_layoutAsEdit) {
       final activity = activityData!;
-      emit(state.copyWith(
-        liveActivity: activity,
-        requireAdminApproval: _isAdminApprovalRequired(activity),
-        selectedStudents: List<String>.from(activity.studentList),
-        selectedStudentsData: studentDataMapsForActivityEdit(activity),
-        activityTypeCode: activity.activityTypeCode,
-        detailAttachmentRows: (activity.snapshotAttachments ?? const [])
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList(),
-      ));
+      emit(
+        state.copyWith(
+          liveActivity: activity,
+          requireAdminApproval: _isAdminApprovalRequired(activity),
+          selectedStudents: List<String>.from(activity.studentList),
+          selectedStudentsData: studentDataMapsForActivityEdit(activity),
+          activityTypeCode: activity.activityTypeCode,
+          detailAttachmentRows: (activity.snapshotAttachments ?? const [])
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList(),
+        ),
+      );
       final iso = activity.activityDateIso;
       if (iso != null && iso.trim().isNotEmpty) {
         try {
@@ -138,7 +141,11 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
       if (!pn.contains('staff')) continue;
       final dt = (p['dataType'] ?? '').toString().toUpperCase();
       if (dt == 'DATE' || dt == 'TIME') continue;
-      for (final key in <String>['selectedOptionLabel', 'optionLabel', 'valueText']) {
+      for (final key in <String>[
+        'selectedOptionLabel',
+        'optionLabel',
+        'valueText',
+      ]) {
         final v = (p[key] ?? '').toString().trim();
         if (v.isNotEmpty) return v;
       }
@@ -146,9 +153,7 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     return null;
   }
 
-  static String? _staffCodeFromParameterRows(
-    List<Map<String, dynamic>> rows,
-  ) {
+  static String? _staffCodeFromParameterRows(List<Map<String, dynamic>> rows) {
     for (final p in rows) {
       final pn = (p['parameterName'] ?? '').toString().trim().toLowerCase();
       if (pn != 'staff present') continue;
@@ -175,15 +180,18 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     );
 
     if (isClosed) return;
-    _staffPresentCode =
-        (staffCode ?? '').trim().isEmpty ? null : staffCode!.trim();
-    emit(state.copyWith(
-      staffName: apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff',
-      staffType: staffType.toUpperCase(),
-      staffCode: staffCode,
-      schoolCode: schoolCode.isNotEmpty ? schoolCode : null,
-      organizationCode: organizationCode.isNotEmpty ? organizationCode : null,
-    ));
+    _staffPresentCode = (staffCode ?? '').trim().isEmpty
+        ? null
+        : staffCode!.trim();
+    emit(
+      state.copyWith(
+        staffName: apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff',
+        staffType: staffType.toUpperCase(),
+        staffCode: staffCode,
+        schoolCode: schoolCode.isNotEmpty ? schoolCode : null,
+        organizationCode: organizationCode.isNotEmpty ? organizationCode : null,
+      ),
+    );
   }
 
   Future<void> _loadActivityContextForCreate(
@@ -193,15 +201,14 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     final first = selectedStudents.first;
     final dynamic classroomCodeDynamic =
         first['classroomCode'] ?? first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
     if (classroomCode.isEmpty) return;
 
     try {
-      final List<ActivitySetting> settings =
-          await _editor.getClassroomActivitySettings(
-        classroomCode: classroomCode,
-      );
+      final List<ActivitySetting> settings = await _editor
+          .getClassroomActivitySettings(classroomCode: classroomCode);
       ActivitySetting? bottleSetting;
       for (final s in settings) {
         if (s.activityTypeName.toLowerCase().contains('bottle')) {
@@ -246,20 +253,24 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
         } catch (_) {}
       }
       final singleStudent = (_activityData?.studentList.length ?? 0) <= 1;
-      emit(state.copyWith(
-        liveActivity: item,
-        requireAdminApproval: _isAdminApprovalRequired(item),
-        activityTypeCode: item.activityTypeCode,
-        staffPresentLabelForEdit: staffLabel,
-        detailAttachmentRows: detail.attachments
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList(),
-        selectedStudents:
-            singleStudent ? List<String>.from(item.studentList) : null,
-        selectedStudentsData:
-            singleStudent ? studentDataMapsForActivityEdit(item) : null,
-        loadingActivityDetail: false,
-      ));
+      emit(
+        state.copyWith(
+          liveActivity: item,
+          requireAdminApproval: _isAdminApprovalRequired(item),
+          activityTypeCode: item.activityTypeCode,
+          staffPresentLabelForEdit: staffLabel,
+          detailAttachmentRows: detail.attachments
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList(),
+          selectedStudents: singleStudent
+              ? List<String>.from(item.studentList)
+              : null,
+          selectedStudentsData: singleStudent
+              ? studentDataMapsForActivityEdit(item)
+              : null,
+          loadingActivityDetail: false,
+        ),
+      );
     } catch (_) {
       if (!isClosed) emit(state.copyWith(loadingActivityDetail: false));
     }
@@ -288,7 +299,9 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     final next = List<String>.from(state.selectedStudents)..remove(name);
     final nextData = List<Map<String, dynamic>>.from(state.selectedStudentsData)
       ..removeWhere((m) => (m['name'] as String?) == name);
-    emit(state.copyWith(selectedStudents: next, selectedStudentsData: nextData));
+    emit(
+      state.copyWith(selectedStudents: next, selectedStudentsData: nextData),
+    );
   }
 
   Future<bool> verifyPickedStaffSignedIn({
@@ -296,13 +309,12 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     required bool isAdminDesignation,
     required String? pickedStaffCode,
     required String? ownStaffCode,
-  }) =>
-      _editor.verifyPickedStaffSignedIn(
-        isEdit: isEdit,
-        isAdminDesignation: isAdminDesignation,
-        pickedStaffCode: pickedStaffCode,
-        ownStaffCode: ownStaffCode,
-      );
+  }) => _editor.verifyPickedStaffSignedIn(
+    isEdit: isEdit,
+    isAdminDesignation: isAdminDesignation,
+    pickedStaffCode: pickedStaffCode,
+    ownStaffCode: ownStaffCode,
+  );
 
   // ─── Submit ──────────────────────────────────────────────────────────────
 
@@ -549,10 +561,9 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
   }) async {
     final code = effectiveActivity.activityCode?.trim();
     if (code == null || code.isEmpty) return const ActivityFormOutcome.noop();
-    emit(state.copyWith(
-      isSavingBeforeApprove: true,
-      isApprovingOrRejecting: true,
-    ));
+    emit(
+      state.copyWith(isSavingBeforeApprove: true, isApprovingOrRejecting: true),
+    );
     try {
       final updated = await _runUpdate(
         description: description,
@@ -566,10 +577,12 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
       return ActivityFormOutcome.error(ApiErrorHandler.extractErrorMessage(e));
     } finally {
       if (!isClosed) {
-        emit(state.copyWith(
-          isSavingBeforeApprove: false,
-          isApprovingOrRejecting: false,
-        ));
+        emit(
+          state.copyWith(
+            isSavingBeforeApprove: false,
+            isApprovingOrRejecting: false,
+          ),
+        );
       }
     }
   }
@@ -627,7 +640,8 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
   }
 
   String _classroomCodeFromSelection() {
-    final classroomCodeDynamic = state.selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeDynamic =
+        state.selectedStudentsData.first['classroomCode'] ??
         state.selectedStudentsData.first['classroomcode'];
     return classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
   }
@@ -659,7 +673,8 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     final timeParamCode = findParamCode('time');
     final staffParamCode = findParamCode('staff');
     final descParamCode = findParamCode('description');
-    final amountParamCode = findParamCode('amount') ??
+    final amountParamCode =
+        findParamCode('amount') ??
         findParamCode('ounce') ??
         findParamCode('oz') ??
         findParamCode('consumed');
@@ -679,15 +694,21 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
           staffParamCode.trim().isNotEmpty &&
           staffPresentCode.isNotEmpty)
         ActivityParameterValue(
-            parameterCode: staffParamCode, value: staffPresentCode),
+          parameterCode: staffParamCode,
+          value: staffPresentCode,
+        ),
       if (descParamCode != null &&
           descParamCode.trim().isNotEmpty &&
           description.isNotEmpty)
         ActivityParameterValue(
-            parameterCode: descParamCode, value: description),
+          parameterCode: descParamCode,
+          value: description,
+        ),
       if (amountParamCode != null && amountParamCode.trim().isNotEmpty)
         ActivityParameterValue(
-            parameterCode: amountParamCode, value: amountOz.toString()),
+          parameterCode: amountParamCode,
+          value: amountOz.toString(),
+        ),
     ];
   }
 }

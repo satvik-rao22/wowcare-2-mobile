@@ -82,13 +82,13 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
     required ActivityFeedDataSource dataSource,
     required StorageService storageService,
     ActivityFeedPresentation presentation = const ActivityFeedPresentation(),
-  })  : _dataSource = dataSource,
-        _storage = storageService,
-        _presentation = presentation,
-        _staffDisplayNameByCode = Map<String, String>.from(
-          presentation.staffDisplayNameByCode,
-        ),
-        super(ActivityFeedState.initial());
+  }) : _dataSource = dataSource,
+       _storage = storageService,
+       _presentation = presentation,
+       _staffDisplayNameByCode = Map<String, String>.from(
+         presentation.staffDisplayNameByCode,
+       ),
+       super(ActivityFeedState.initial());
 
   final ActivityFeedDataSource _dataSource;
   final StorageService _storage;
@@ -132,7 +132,10 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
   /// maps + tag-filters + sorts + groups + dedupes, computes `hasMore`, and
   /// DISCARDS the whole response if it went stale (closed / newer generation /
   /// live school changed) before emitting.
-  Future<void> loadDaily(ActivityFeedQuery query, {bool refresh = false}) async {
+  Future<void> loadDaily(
+    ActivityFeedQuery query, {
+    bool refresh = false,
+  }) async {
     _query = query;
     _guardianClassroomByCode = null;
 
@@ -211,7 +214,8 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
           attendanceRequireDateAndTimeMatch: false,
         )..sort(_compareActivityItemsByTimeDesc),
       );
-      final hasMore = (sub.attendance?.hasMore ?? false) ||
+      final hasMore =
+          (sub.attendance?.hasMore ?? false) ||
           (sub.absent?.hasMore ?? false) ||
           !activityFeedPage.last;
 
@@ -252,7 +256,10 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
   /// `getDailyActivityFeed` (start/end bound instead of a single date), and it
   /// threads `query.endDateStr` through to [_fetchAttendanceSubPages] so the
   /// attendance/absent sub-fetches are range-bound too.
-  Future<void> loadRange(ActivityFeedQuery query, {bool refresh = false}) async {
+  Future<void> loadRange(
+    ActivityFeedQuery query, {
+    bool refresh = false,
+  }) async {
     _query = query;
     _guardianClassroomByCode = null;
 
@@ -344,7 +351,8 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
           attendanceRequireDateAndTimeMatch: true,
         )..sort(_compareActivityItemsByTimeDesc),
       );
-      final hasMore = (sub.attendance?.hasMore ?? false) ||
+      final hasMore =
+          (sub.attendance?.hasMore ?? false) ||
           (sub.absent?.hasMore ?? false) ||
           !activityFeedPage.last;
 
@@ -474,7 +482,8 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
           attendanceRequireDateAndTimeMatch: false,
         )..sort(_compareActivityItemsByTimeDesc),
       );
-      final hasMore = (sub.attendance?.hasMore ?? false) ||
+      final hasMore =
+          (sub.attendance?.hasMore ?? false) ||
           (sub.absent?.hasMore ?? false) ||
           !merged.last;
 
@@ -598,7 +607,8 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
           attendanceRequireDateAndTimeMatch: true,
         )..sort(_compareActivityItemsByTimeDesc),
       );
-      final hasMore = (sub.attendance?.hasMore ?? false) ||
+      final hasMore =
+          (sub.attendance?.hasMore ?? false) ||
           (sub.absent?.hasMore ?? false) ||
           !merged.last;
 
@@ -681,38 +691,39 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
               page: pageIndex,
             )
           : isRange
-              ? await _dataSource.getRangeActivityFeed(
-                  classroomCode: query.classroomCode,
-                  startDate: query.dateStr,
-                  endDate: endDateStr!,
-                  studentCode: query.studentCode,
-                  classroomCodes: query.classroomCodes,
-                  studentCodes: query.studentCodes,
-                  activityTypeCodes: query.typeCodes,
-                  // Pagination intentionally omits approvalStatuses (mirrors the View).
-                  guardianPersona: query.guardianPersona,
-                  page: pageIndex,
-                  size: query.pageSize,
-                )
-              : await _dataSource.getDailyActivityFeed(
-                  classroomCode: query.classroomCode,
-                  date: query.dateStr,
-                  studentCode: query.studentCode,
-                  classroomCodes: query.classroomCodes,
-                  studentCodes: query.studentCodes,
-                  activityTypeCodes: query.typeCodes,
-                  // Pagination intentionally omits approvalStatuses (mirrors the View).
-                  guardianPersona: query.guardianPersona,
-                  page: pageIndex,
-                  size: query.pageSize,
-                );
+          ? await _dataSource.getRangeActivityFeed(
+              classroomCode: query.classroomCode,
+              startDate: query.dateStr,
+              endDate: endDateStr!,
+              studentCode: query.studentCode,
+              classroomCodes: query.classroomCodes,
+              studentCodes: query.studentCodes,
+              activityTypeCodes: query.typeCodes,
+              // Pagination intentionally omits approvalStatuses (mirrors the View).
+              guardianPersona: query.guardianPersona,
+              page: pageIndex,
+              size: query.pageSize,
+            )
+          : await _dataSource.getDailyActivityFeed(
+              classroomCode: query.classroomCode,
+              date: query.dateStr,
+              studentCode: query.studentCode,
+              classroomCodes: query.classroomCodes,
+              studentCodes: query.studentCodes,
+              activityTypeCodes: query.typeCodes,
+              // Pagination intentionally omits approvalStatuses (mirrors the View).
+              guardianPersona: query.guardianPersona,
+              page: pageIndex,
+              size: query.pageSize,
+            );
 
       final sub = await _fetchAttendanceSubPages(
         query,
         page: pageIndex,
         endDateStr: isRange ? endDateStr : null,
-        studentCodesOverride:
-            isGuardian ? guardianClassroomByCode.keys.toList() : null,
+        studentCodesOverride: isGuardian
+            ? guardianClassroomByCode.keys.toList()
+            : null,
       );
 
       await _primeStaffDisplayNames(activityFeedPage.content);
@@ -738,7 +749,8 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
           attendanceRequireDateAndTimeMatch: isRange,
         )..sort(_compareActivityItemsByTimeDesc),
       );
-      final hasMore = (sub.attendance?.hasMore ?? false) ||
+      final hasMore =
+          (sub.attendance?.hasMore ?? false) ||
           (sub.absent?.hasMore ?? false) ||
           !activityFeedPage.last;
 
@@ -858,8 +870,7 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
     final ccForAttendance = classroomCodes.isNotEmpty
         ? classroomCodes
         : <String>[query.classroomCode];
-    final effectiveClassroomCodes =
-        isGuardianFanOut ? null : ccForAttendance;
+    final effectiveClassroomCodes = isGuardianFanOut ? null : ccForAttendance;
     final effectiveStudentCodes = studentCodesOverride ?? query.studentCodes;
     final toAbsenceDate = endDateStr ?? query.dateStr;
 
@@ -932,8 +943,8 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
   // --------------------------------------------------------------------------
 
   Future<String> _readLiveSchool() async {
-    _liveSchoolCode =
-        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    _liveSchoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     return _liveSchoolCode!;
   }
 
@@ -953,15 +964,18 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
     final missingCodes = <String>{};
     String? staffPresentCodeFromRow(ActivityFeedRow row) {
       for (final p in row.parameterValues) {
-        final pName =
-            (p['parameterName'] ?? '').toString().trim().toLowerCase();
-        if (pName != 'staff present') continue;
-        final raw = (p['selectedOptionCode'] ??
-                p['valueText'] ??
-                p['valueNumber'] ??
-                '')
+        final pName = (p['parameterName'] ?? '')
             .toString()
-            .trim();
+            .trim()
+            .toLowerCase();
+        if (pName != 'staff present') continue;
+        final raw =
+            (p['selectedOptionCode'] ??
+                    p['valueText'] ??
+                    p['valueNumber'] ??
+                    '')
+                .toString()
+                .trim();
         if (raw.isNotEmpty) return raw;
       }
       return null;
@@ -994,9 +1008,7 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
     if (_query?.tagCodes.isEmpty ?? true) return items;
     final allowed = _presentation.tagStudentCodes;
     return items
-        .where(
-          (a) => a.studentCode != null && allowed.contains(a.studentCode),
-        )
+        .where((a) => a.studentCode != null && allowed.contains(a.studentCode))
         .toList();
   }
 
@@ -1010,8 +1022,9 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
             row,
             // Guardian feed should not fall back to the guardian display name
             // as "created by" when the API returns system/staff placeholders.
-            viewerDisplayName:
-                query.guardianPersona ? null : _presentation.viewerStaffDisplayName,
+            viewerDisplayName: query.guardianPersona
+                ? null
+                : _presentation.viewerStaffDisplayName,
             schoolIana: _presentation.schoolIana,
             staffDisplayNameByCode: _staffDisplayNameByCode,
             activityTypeOptionCodeToLabel: activityFeedOptionLabelsForType(
@@ -1062,8 +1075,9 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
       } catch (_) {
         day = _dayForQuery(query);
       }
-      final studentName =
-          row.studentName.trim().isEmpty ? 'Student' : row.studentName.trim();
+      final studentName = row.studentName.trim().isEmpty
+          ? 'Student'
+          : row.studentName.trim();
       final studentCode = row.studentCode?.trim();
       final baseClassName = _displayClassroomName(
         classroomCode: row.classroomCode,
@@ -1071,7 +1085,8 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
       );
       if (row.isTransfer == true) {
         if (eventFilter == null || eventFilter == 'Transfer') {
-          final at = _attendanceClockToDateTime(row.transferTime, day) ??
+          final at =
+              _attendanceClockToDateTime(row.transferTime, day) ??
               _attendanceClockToDateTime(row.nextActionTime, day) ??
               day;
           final fromName = _displayClassroomName(
@@ -1086,10 +1101,12 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
           final toCode = (row.toClassroomCode ?? '').trim();
 
           final selectedCode = selectedClassroomCode.trim();
-          final bool viewingFromClassroom = selectedCode.isNotEmpty &&
+          final bool viewingFromClassroom =
+              selectedCode.isNotEmpty &&
               fromCode.isNotEmpty &&
               selectedCode == fromCode;
-          final bool viewingToClassroom = selectedCode.isNotEmpty &&
+          final bool viewingToClassroom =
+              selectedCode.isNotEmpty &&
               toCode.isNotEmpty &&
               selectedCode == toCode;
 
@@ -1138,12 +1155,12 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
           final effectiveClassName = _displayClassroomName(
             classroomCode:
                 (row.toClassroomCode ?? row.classroomCode).trim().isEmpty
-                    ? row.classroomCode
-                    : row.toClassroomCode,
+                ? row.classroomCode
+                : row.toClassroomCode,
             classroomName:
                 (row.toClassroomName ?? row.classroomName).trim().isEmpty
-                    ? row.classroomName
-                    : row.toClassroomName!,
+                ? row.classroomName
+                : row.toClassroomName!,
           );
           out.add(
             ActivityItem(
@@ -1241,15 +1258,17 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
       DateTime recordDay;
       try {
         final src = row.absenceDate.trim();
-        recordDay =
-            src.isEmpty ? (_presentation.selectedDate ?? AppTime.now()) : DateTime.parse(src);
+        recordDay = src.isEmpty
+            ? (_presentation.selectedDate ?? AppTime.now())
+            : DateTime.parse(src);
       } catch (_) {
         recordDay = _presentation.selectedDate ?? AppTime.now();
       }
       final at =
           _absentClockToDateTime(row.markedAbsentTime, recordDay) ?? recordDay;
-      final studentName =
-          row.studentName.trim().isEmpty ? 'Student' : row.studentName.trim();
+      final studentName = row.studentName.trim().isEmpty
+          ? 'Student'
+          : row.studentName.trim();
       final studentCode = row.studentCode.trim();
       final className = _displayClassroomName(
         classroomCode: row.classroomCode,
@@ -1292,8 +1311,9 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
   // --------------------------------------------------------------------------
 
   int _compareActivityItemsByTimeDesc(ActivityItem a, ActivityItem b) {
-    final byTime = _activityItemSortDateTime(b)
-        .compareTo(_activityItemSortDateTime(a));
+    final byTime = _activityItemSortDateTime(
+      b,
+    ).compareTo(_activityItemSortDateTime(a));
     if (byTime != 0) return byTime;
     return b.name.compareTo(a.name);
   }

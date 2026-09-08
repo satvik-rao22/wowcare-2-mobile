@@ -62,6 +62,17 @@ abstract class ActivityMediaUploadRepository {
     required List<ActivityUploadItem> items,
     void Function(int itemIndex, int totalItems, int percent)? onItemProgress,
     void Function(int completedItems, int totalItems)? onItemComplete,
+
+    /// Fired as each item finishes its `complete` call, BEFORE the next item
+    /// starts. Lets a caller record progress that would otherwise be lost when
+    /// a later item throws: the returned [ActivityAssetUploadResult] only ever
+    /// materializes on full success, so without this a failure at item 3 of 5
+    /// discards items 1–2 and the retry re-uploads (and orphans) them.
+    ///
+    /// The asset is uploaded and completed, but NOT yet known to be READY —
+    /// a caller must confirm readiness before letting it be linked.
+    void Function(String filePath, String assetCode, String sessionCode)?
+    onAssetUploaded,
     CancelToken? cancelToken,
   });
 
