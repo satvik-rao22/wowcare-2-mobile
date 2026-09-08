@@ -13,8 +13,8 @@ part 'nap_activity_state.dart';
 class NapActivityCubit extends Cubit<NapActivityState> {
   NapActivityCubit({
     required GetNapStartStudentsUseCase getNapStartStudentsUseCase,
-  })  : _getNapStartStudentsUseCase = getNapStartStudentsUseCase,
-        super(const NapActivityState());
+  }) : _getNapStartStudentsUseCase = getNapStartStudentsUseCase,
+       super(const NapActivityState());
 
   final GetNapStartStudentsUseCase _getNapStartStudentsUseCase;
 

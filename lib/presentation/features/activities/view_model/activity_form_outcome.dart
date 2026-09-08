@@ -13,13 +13,13 @@ class ActivityFormOutcome {
   const ActivityFormOutcome._(this.type, [this.message = '']);
 
   const ActivityFormOutcome.warning(String message)
-      : this._(ActivityFormResultType.warning, message);
+    : this._(ActivityFormResultType.warning, message);
   const ActivityFormOutcome.error(String message)
-      : this._(ActivityFormResultType.error, message);
+    : this._(ActivityFormResultType.error, message);
   const ActivityFormOutcome.successExit(String message)
-      : this._(ActivityFormResultType.successExit, message);
+    : this._(ActivityFormResultType.successExit, message);
   const ActivityFormOutcome.successPop(String message)
-      : this._(ActivityFormResultType.successPop, message);
+    : this._(ActivityFormResultType.successPop, message);
   const ActivityFormOutcome.noop() : this._(ActivityFormResultType.noop);
 
   final ActivityFormResultType type;

@@ -48,16 +48,16 @@ class ActivityFeedState extends Equatable {
   final ActivityFeedQuery? query;
 
   factory ActivityFeedState.initial() => const ActivityFeedState(
-        items: <ActivityItem>[],
-        isLoading: false,
-        isRefreshing: false,
-        isLoadingMore: false,
-        hasMore: false,
-        nextPage: 0,
-        generation: 0,
-        error: null,
-        query: null,
-      );
+    items: <ActivityItem>[],
+    isLoading: false,
+    isRefreshing: false,
+    isLoadingMore: false,
+    hasMore: false,
+    nextPage: 0,
+    generation: 0,
+    error: null,
+    query: null,
+  );
 
   ActivityFeedState copyWith({
     List<ActivityItem>? items,
@@ -87,14 +87,14 @@ class ActivityFeedState extends Equatable {
 
   @override
   List<Object?> get props => [
-        items,
-        isLoading,
-        isRefreshing,
-        isLoadingMore,
-        hasMore,
-        nextPage,
-        generation,
-        error,
-        query,
-      ];
+    items,
+    isLoading,
+    isRefreshing,
+    isLoadingMore,
+    hasMore,
+    nextPage,
+    generation,
+    error,
+    query,
+  ];
 }

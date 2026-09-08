@@ -48,8 +48,9 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
     super.initState();
     final initial = widget.initialFilters ?? const {};
     _selectedTags = List<String>.from(initial['Tags'] ?? const []);
-    _selectedActivityTypes =
-        List<String>.from(initial['Activity Type'] ?? const []);
+    _selectedActivityTypes = List<String>.from(
+      initial['Activity Type'] ?? const [],
+    );
     _selectedStatuses = List<String>.from(initial['Status'] ?? const []);
   }
 
@@ -58,8 +59,9 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
   void _pruneSelectionsToOptions(ActivityFilterState state) {
     setState(() {
       _selectedTags.removeWhere((t) => !state.tagOptions.contains(t));
-      _selectedActivityTypes
-          .removeWhere((t) => !state.activityTypeOptions.contains(t));
+      _selectedActivityTypes.removeWhere(
+        (t) => !state.activityTypeOptions.contains(t),
+      );
       _selectedStatuses.removeWhere((s) => !_approvalStatusOptions.contains(s));
     });
   }
@@ -132,10 +134,7 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                label,
-                style: AppTextStyles.activityFilterShimmerLabel,
-              ),
+              Text(label, style: AppTextStyles.activityFilterShimmerLabel),
               const SizedBox(height: 8),
               const ShimmerLoader(height: 40),
             ],
@@ -202,7 +201,9 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
             selectedItems: _selectedActivityTypes,
             labelBottomSpacing: 4,
             onChanged: (values) {
-              setState(() => _selectedActivityTypes = List<String>.from(values));
+              setState(
+                () => _selectedActivityTypes = List<String>.from(values),
+              );
             },
           );
         }

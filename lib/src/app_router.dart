@@ -2206,6 +2206,16 @@ final GoRouter appRouter = GoRouter(
                     // The deep-linked activity's classroom, so the feed opens on
                     // the room that actually contains the card to highlight.
                     highlightClassroomCode: q['classroomCode'],
+                    // GUARDIAN persona: the child the notification is about.
+                    // Previously this only keyed the remount below, so the feed
+                    // itself still had to learn the subject from ParentChildCubit
+                    // — which has not caught up on a killed-state launch (the
+                    // splash routes here directly) or right after a school switch
+                    // (which resets the cubit), leaving a parent of two children
+                    // on the wrong child's day. Passing it in makes the FIRST
+                    // fetch the right one; ownership is still enforced against
+                    // the guardian's own student list before it is used.
+                    deepLinkStudentCode: student.isEmpty ? null : student,
                     initialTab: q['tab'] == 'custom' ? 1 : 0,
                     initialActivityTypes: q['activityType'] != null
                         ? [q['activityType']!]

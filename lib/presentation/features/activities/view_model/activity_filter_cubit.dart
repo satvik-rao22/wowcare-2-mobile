@@ -16,10 +16,10 @@ class ActivityFilterCubit extends Cubit<ActivityFilterState> {
     required GetTagNameCodeMapForSchoolUseCase tagMapUseCase,
     required GetActiveActivityTypesForSchoolUseCase activityTypesUseCase,
     required CacheManager cacheManager,
-  })  : _tagMapUseCase = tagMapUseCase,
-        _activityTypesUseCase = activityTypesUseCase,
-        _cacheManager = cacheManager,
-        super(const ActivityFilterState.loading());
+  }) : _tagMapUseCase = tagMapUseCase,
+       _activityTypesUseCase = activityTypesUseCase,
+       _cacheManager = cacheManager,
+       super(const ActivityFilterState.loading());
 
   final GetTagNameCodeMapForSchoolUseCase _tagMapUseCase;
   final GetActiveActivityTypesForSchoolUseCase _activityTypesUseCase;
@@ -42,21 +42,22 @@ class ActivityFilterCubit extends Cubit<ActivityFilterState> {
       );
       final typesFuture =
           ActivityFilterMetadataCache.loadActiveActivityTypesForSchool(
-        cacheManager: _cacheManager,
-        useCase: _activityTypesUseCase,
-        schoolCode: schoolCode,
-      );
+            cacheManager: _cacheManager,
+            useCase: _activityTypesUseCase,
+            schoolCode: schoolCode,
+          );
       final tagMap = await tagMapFuture;
       final types = await typesFuture;
 
       final tagNames = tagMap.keys.toList()
         ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-      final typeNames = types
-          .map((ActivityTypeSummary s) => s.name.trim())
-          .where((n) => n.isNotEmpty)
-          .toSet()
-          .toList()
-        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      final typeNames =
+          types
+              .map((ActivityTypeSummary s) => s.name.trim())
+              .where((n) => n.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
       _safeEmit(
         ActivityFilterState.loaded(
@@ -78,19 +79,20 @@ class ActivityFilterState extends Equatable {
     this.errorMessage,
   });
 
-  const ActivityFilterState.loading() : this(status: ActivityFilterStatus.loading);
+  const ActivityFilterState.loading()
+    : this(status: ActivityFilterStatus.loading);
 
   const ActivityFilterState.loaded({
     required List<String> tagOptions,
     required List<String> activityTypeOptions,
   }) : this(
-          status: ActivityFilterStatus.loaded,
-          tagOptions: tagOptions,
-          activityTypeOptions: activityTypeOptions,
-        );
+         status: ActivityFilterStatus.loaded,
+         tagOptions: tagOptions,
+         activityTypeOptions: activityTypeOptions,
+       );
 
   const ActivityFilterState.error(String message)
-      : this(status: ActivityFilterStatus.error, errorMessage: message);
+    : this(status: ActivityFilterStatus.error, errorMessage: message);
 
   final ActivityFilterStatus status;
   final List<String> tagOptions;
@@ -100,6 +102,10 @@ class ActivityFilterState extends Equatable {
   bool get isLoading => status == ActivityFilterStatus.loading;
 
   @override
-  List<Object?> get props =>
-      <Object?>[status, tagOptions, activityTypeOptions, errorMessage];
+  List<Object?> get props => <Object?>[
+    status,
+    tagOptions,
+    activityTypeOptions,
+    errorMessage,
+  ];
 }

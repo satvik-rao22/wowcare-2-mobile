@@ -74,10 +74,7 @@ class ChooseActivity extends StatefulWidget {
     ),
     'Video': (students) => (
       PhotoVideoActivityScreen.routeName,
-      PhotoVideoActivityScreenArgs(
-        selectedStudents: students,
-        isPhoto: false,
-      ),
+      PhotoVideoActivityScreenArgs(selectedStudents: students, isPhoto: false),
     ),
     'Medication': (students) => (
       MedicationActivityScreen.routeName,
@@ -347,7 +344,8 @@ class _ChooseActivityState extends State<ChooseActivity> {
                               decoration: BoxDecoration(
                                 border: Border.all(
                                   color: isDisabled
-                                      ? AppColors.activityMutedGreyColor.withValues(alpha: 0.3)
+                                      ? AppColors.activityMutedGreyColor
+                                            .withValues(alpha: 0.3)
                                       : AppColors.primaryColor.withValues(
                                           alpha: 0.1,
                                         ),
@@ -355,7 +353,8 @@ class _ChooseActivityState extends State<ChooseActivity> {
                                 ),
                                 borderRadius: BorderRadius.circular(8),
                                 color: isDisabled
-                                    ? AppColors.activityMutedGreyColor.withValues(alpha: 0.1)
+                                    ? AppColors.activityMutedGreyColor
+                                          .withValues(alpha: 0.1)
                                     : isSelected
                                     ? const Color.fromARGB(255, 249, 245, 250)
                                     : AppColors.transparentColor,
@@ -382,9 +381,10 @@ class _ChooseActivityState extends State<ChooseActivity> {
                                       maxLines: activityName.contains(' ')
                                           ? 2
                                           : 1,
-                                      style: AppTextStyles.activityGridTileLabel(
-                                        isDisabled: isDisabled,
-                                      ),
+                                      style:
+                                          AppTextStyles.activityGridTileLabel(
+                                            isDisabled: isDisabled,
+                                          ),
                                     ),
                                   ),
                                 ],

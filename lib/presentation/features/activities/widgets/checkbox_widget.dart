@@ -5,7 +5,13 @@ import 'package:wowcare/core/theme/app_text_styles.dart';
 import '../../../../shared/common/widgets/custom_checkbox.dart';
 
 class CheckboxWidget extends StatefulWidget {
-  const CheckboxWidget({super.key, this.isEditable = true, required this.label, this.isChecked = true, this.onChecked});
+  const CheckboxWidget({
+    super.key,
+    this.isEditable = true,
+    required this.label,
+    this.isChecked = true,
+    this.onChecked,
+  });
   final bool isEditable;
   final String label;
   final bool isChecked;
@@ -57,9 +63,11 @@ class _CheckboxWidgetState extends State<CheckboxWidget> {
             ),
           ),
         ),
-        const SizedBox(width: 2,),
+        const SizedBox(width: 2),
         GestureDetector(
-          onTap: widget.isEditable ? () => _handleChanged(!_isChecked.value) : null,
+          onTap: widget.isEditable
+              ? () => _handleChanged(!_isChecked.value)
+              : null,
           child: Text(
             widget.label,
             style: AppTextStyles.activityStrongLabel,

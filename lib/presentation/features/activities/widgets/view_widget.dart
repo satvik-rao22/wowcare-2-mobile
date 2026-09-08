@@ -22,16 +22,15 @@ class ViewWidget extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: AppTextStyles.activityFieldLabel,
-        ),
+        Text(label, style: AppTextStyles.activityFieldLabel),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppColors.activitySoftPurpleFieldColor.withValues(alpha: 0.102),
+            color: AppColors.activitySoftPurpleFieldColor.withValues(
+              alpha: 0.102,
+            ),
             //color: AppColors.cardColor.withValues(alpha:0.85),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppColors.primaryColor),
