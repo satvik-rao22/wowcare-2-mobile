@@ -17,6 +17,7 @@ import 'package:wowcare/domain/features/reports/usecases/get_recent_reports_usec
 import 'package:wowcare/domain/features/reports/usecases/get_student_tags_usecase.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_params.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
+import 'package:wowcare/data/features/reports/models/report_request_payload.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
@@ -275,7 +276,7 @@ void main() {
   }
 
   testWidgets(
-    'StaffAttendancePerWeekReportScreen shows all classrooms including Office and primary rooms',
+    'A fresh form generates with no staff or classroom filter at all',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(800, 1200));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -283,6 +284,7 @@ void main() {
       await tester.pumpWidget(buildTestWidget());
       await tester.pumpAndSettle();
 
+      // Nothing is pre-selected, and generating is not blocked by that.
       final generateBtn = find.text('Generate Report');
       expect(generateBtn, findsOneWidget);
       await tester.tap(generateBtn);
@@ -292,11 +294,14 @@ void main() {
       expect(fakeReportsRepo.lastGeneratedParams, isNotNull);
       final params = fakeReportsRepo.lastGeneratedParams as ReportRequestParams;
       expect(params.reportType, ReportType.staffAttendancePerStaff);
-      expect(params.roomCodes, [
-        'CLS_06C3AF97-6',
-        'CLS_OFFICE_01',
-        'CLS_PRIMARY_01',
-      ]);
+      // "All staff / all classrooms" is the absence of the key, never an
+      // implicitly expanded list of every code.
+      expect(params.roomCodes, isNull);
+      expect(params.staffCodes, isNull);
+
+      final requestBody = ReportRequestPayload.fromParams(params).toJson();
+      expect(requestBody.containsKey('roomCodes'), isFalse);
+      expect(requestBody.containsKey('staffCodes'), isFalse);
     },
   );
 }

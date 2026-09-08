@@ -53,14 +53,16 @@ class _StudentIncidentReportScreenState
     final now = AppTime.now();
     _startDate = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
     _endDate = ValueNotifier<DateTime>(DateTime(now.year, now.month + 1, 0));
-    _selectedStudents.value = List<String>.from(widget.students);
   }
 
   @override
   void didUpdateWidget(covariant StudentIncidentReportScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.students != widget.students) {
-      _selectedStudents.value = List<String>.from(widget.students);
+      // Keep only selections that still exist; never re-select all.
+      _selectedStudents.value = _selectedStudents.value
+          .where(widget.students.contains)
+          .toList();
     }
   }
 
@@ -94,7 +96,8 @@ class _StudentIncidentReportScreenState
       reportType: ReportType.studentIncident,
       startDate: _startDate.value,
       endDate: _endDate.value,
-      studentCodes: studentCodes,
+      // Empty selection → `studentCodes` omitted, i.e. all students.
+      studentCodes: studentCodes.isEmpty ? null : studentCodes,
       format: _format.value,
       schoolName: schoolName,
     );
@@ -201,21 +204,20 @@ class _StudentIncidentReportScreenState
                   valueListenable: _selectedStudents,
                   builder: (_, v, __) => MultiSelectFilterField<String>(
                     label: ReportsStrings.tabStudent,
-                    hintText: ReportsStrings.selectStudents,
+                    hintText: ReportsStrings.allStudents,
                     items: widget.students,
                     selectedItems: v,
                     onChanged: (s) => _selectedStudents.value = s,
                     itemToString: (item) => item,
                     singularLabel: ReportsStrings.tabStudent,
                     pluralLabel: ReportsStrings.students,
-                    isRequired: true,
                     showSelectAll: true,
                     enableSearch: true,
                     searchHintText: ReportsStrings.searchStudents,
                   ),
                 ),
                 const ReportDefaultNote(
-                  text: ReportsStrings.noteAllStudentsWillBeSelectedByDefault,
+                  text: ReportsStrings.noteAllStudentsIncludedByDefault,
                 ),
                 SizedBox(
                   height: context.responsive(compact: 16.0, medium: 24.0),

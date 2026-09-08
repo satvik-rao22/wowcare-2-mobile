@@ -392,7 +392,7 @@ void main() {
   });
 
   testWidgets(
-    'Deselecting all classrooms empties the student list and shows prompt hint',
+    'Deselecting all classrooms still lists every student, and selects none',
     (tester) async {
       await tester.pumpWidget(buildTestWidget());
       await tester.pumpAndSettle();
@@ -409,8 +409,12 @@ void main() {
         find.byType(MultiSelectFilterField<String>),
       );
 
-      expect(studentField.items, isEmpty);
-      expect(studentField.hintText, equals('Select Classroom First'));
+      // An empty classroom filter means "All Classrooms", so the student
+      // picker stays usable: no classroom has to be chosen to pick students.
+      expect(studentField.items, isNotEmpty);
+      expect(studentField.hintText, equals('All Students'));
+      // ...but nothing is auto-selected on the user's behalf.
+      expect(studentField.selectedItems, isEmpty);
     },
   );
 }

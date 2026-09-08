@@ -6,7 +6,6 @@ import 'package:wowcare/domain/features/reports/entities/report_entity.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/model/report_filter_defaults.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_file_name_for_format.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -54,23 +53,16 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
   final ValueNotifier<String> _periodType = ValueNotifier<String>('Monthly');
   final ValueNotifier<List<String>> _selectedStudents =
       ValueNotifier<List<String>>(<String>[]);
-  late final ValueNotifier<List<String>> _selectedClassrooms;
+  final ValueNotifier<List<String>> _selectedClassrooms =
+      ValueNotifier<List<String>>(<String>[]);
   final ValueNotifier<List<String>> _selectedInvoiceStatuses =
       ValueNotifier<List<String>>(<String>[]);
 
   // §2.2 bucket A — the student list, its name→code map and the loading flag
   // are API-owned and now live on ReportsCubit. No local copies.
 
-  final ReportFilterDefault _classroomFilter = ReportFilterDefault();
-  final ReportFilterDefault _studentFilter = ReportFilterDefault();
-
-  /// Only these report types render a classroom / student picker; the others
-  /// (Payment Summary, Outstanding, Refund) have no such filter, so seeding a
-  /// default selection for them would silently change their request payload.
-  bool get _showsClassroomFilter =>
-      widget.reportType == ReportType.billingInvoice ||
-      widget.reportType == ReportType.billingStudentMapping;
-
+  /// Only this report type renders a student picker; the others have no such
+  /// filter, so they must not send `studentCodes` at all.
   bool get _showsStudentFilter =>
       widget.reportType == ReportType.billingInvoice;
 
@@ -81,11 +73,9 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
     _startDate = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
     _endDate = ValueNotifier<DateTime>(DateTime(now.year, now.month + 1, 0));
     _periodDate = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
-    // All Classrooms / All Students are selected by default (on the forms
-    // that expose those filters) until the user changes them.
-    _selectedClassrooms = ValueNotifier<List<String>>(
-      _showsClassroomFilter ? List<String>.from(widget.classrooms) : <String>[],
-    );
+    // Nothing is pre-selected: an empty classroom / student filter means
+    // "All Classrooms" / "All Students". The post-frame fetch populates the
+    // student picker with every student, since no classroom is selected.
     if (_showsStudentFilter) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -139,11 +129,11 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
     final schoolName = await cubit.resolveSchoolName();
     final reportsState = cubit.state;
 
-    final targetStudentNames = !_showsStudentFilter
-        ? const <String>[]
-        : _selectedStudents.value.isEmpty
-        ? reportsState.studentNames
-        : _selectedStudents.value;
+    // Empty selection → no codes → the key is omitted below, which is how
+    // these endpoints express "all classrooms" / "all students".
+    final targetStudentNames = _showsStudentFilter
+        ? _selectedStudents.value
+        : const <String>[];
 
     final studentCodes = targetStudentNames
         .map((name) => reportsState.studentNameToCode[name])
@@ -153,11 +143,7 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
 
     final classroomNameToCode = await cubit.ensureClassroomNameToCode();
 
-    final targetClassroomNames = _selectedClassrooms.value.isEmpty
-        ? widget.classrooms
-        : _selectedClassrooms.value;
-
-    final classroomCodes = targetClassroomNames
+    final classroomCodes = _selectedClassrooms.value
         .map((name) => classroomNameToCode[name])
         .whereType<String>()
         .where((c) => c.trim().isNotEmpty)
@@ -205,18 +191,16 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
   Widget build(BuildContext context) {
     return MultiBlocListener(
       listeners: [
-        // Re-resolve the student selection whenever the cubit publishes a new
-        // student list. `resolve` returns [] for empty options, so this covers
-        // all three branches the old fetch handled inline: no classrooms
-        // selected, no resolvable classroom codes, and a successful fetch.
+        // Drop selections that no longer exist when the cubit publishes a new
+        // student list. Never re-expands to "all" — an empty filter already
+        // means every student.
         BlocListener<ReportsCubit, ReportsState>(
           listenWhen: (previous, current) =>
               previous.studentNames != current.studentNames,
           listener: (context, state) {
-            _selectedStudents.value = _studentFilter.resolve(
-              options: state.studentNames,
-              current: _selectedStudents.value,
-            );
+            _selectedStudents.value = _selectedStudents.value
+                .where(state.studentNames.contains)
+                .toList();
           },
         ),
         BlocListener<ReportsCubit, ReportsState>(
@@ -283,7 +267,6 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
                 endDate: _endDate,
                 format: _format,
                 selectedClassrooms: _selectedClassrooms,
-                classroomFilter: _classroomFilter,
               )
             else if (widget.reportType == ReportType.billingOutstanding) ...[
               const ReportFieldLabel(label: ReportsStrings.asOfDate),
@@ -363,8 +346,6 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
                 selectedInvoiceStatuses: _selectedInvoiceStatuses,
                 selectedClassrooms: _selectedClassrooms,
                 selectedStudents: _selectedStudents,
-                classroomFilter: _classroomFilter,
-                studentFilter: _studentFilter,
               ),
           ],
         ),

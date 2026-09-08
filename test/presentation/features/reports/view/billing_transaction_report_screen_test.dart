@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/data/features/reports/models/report_request_payload.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -272,20 +273,32 @@ void main() {
   }
 
   testWidgets(
-    'Validation blocks submission if payment methods or transaction statuses are not selected',
+    'Generating with no transaction filter sends no transaction keys at all',
     (tester) async {
       await tester.pumpWidget(buildTestWidget());
       await tester.pumpAndSettle();
 
-      // Tap generate button
+      // Nothing is pre-selected and nothing blocks submission: an untouched
+      // form is a request for every transaction.
       final generateBtnFinder = find.text('Generate Report');
       expect(generateBtnFinder, findsOneWidget);
       await tester.tap(generateBtnFinder);
       await tester.pump();
       await tester.pump(const Duration(seconds: 3));
 
-      // No report should be generated
-      expect(fakeReportsRepo.lastGeneratedParams, isNull);
+      expect(fakeReportsRepo.lastGeneratedParams, isNotNull);
+      final params = fakeReportsRepo.lastGeneratedParams as ReportRequestParams;
+      expect(params.reportType, ReportType.billingTransaction);
+      expect(params.transactionTypes, isNull);
+      expect(params.transactionStatuses, isNull);
+      expect(params.paymentMethods, isNull);
+      expect(params.studentCodes, isNull);
+
+      final requestBody = ReportRequestPayload.fromParams(params).toJson();
+      expect(requestBody.containsKey('transactionTypes'), isFalse);
+      expect(requestBody.containsKey('transactionStatuses'), isFalse);
+      expect(requestBody.containsKey('paymentMethods'), isFalse);
+      expect(requestBody.containsKey('studentCodes'), isFalse);
     },
   );
 

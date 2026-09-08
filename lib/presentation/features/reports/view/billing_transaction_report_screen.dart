@@ -89,34 +89,16 @@ class _BillingTransactionReportScreenState
       return;
     }
 
-    if (_selectedPaymentMethods.value.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ReportsStrings.pleaseSelectAtLeastOnePaymentMethod,
-        isError: true,
-      );
-      return;
-    }
-
-    if (_selectedTransactionStatuses.value.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ReportsStrings.pleaseSelectAtLeastOneTransactionStatus,
-        isError: true,
-      );
-      return;
-    }
-
     final schoolName = await context.read<ReportsCubit>().resolveSchoolName();
     if (!mounted) return;
 
     final reportsState = context.read<ReportsCubit>().state;
-    final namesToResolve = _selectedStudents.value.isEmpty
-        ? reportsState.studentNames
-        : _selectedStudents.value;
+    // Empty selection → no codes → every list key below is omitted, which is
+    // how this endpoint expresses "all students / all transaction types /
+    // all statuses / all payment methods".
     final studentCodes = resolveReportCodes(
       context: context,
-      names: namesToResolve,
+      names: _selectedStudents.value,
       nameToCode: reportsState.studentNameToCode,
       labelPlural: 'students',
     );
@@ -128,7 +110,7 @@ class _BillingTransactionReportScreenState
         startDate: _startDate.value,
         endDate: _endDate.value,
         format: _format.value,
-        studentCodes: studentCodes,
+        studentCodes: studentCodes.isEmpty ? null : studentCodes,
         schoolName: schoolName.isNotEmpty ? schoolName : null,
         transactionStatuses: _selectedTransactionStatuses.value.isNotEmpty
             ? _selectedTransactionStatuses.value
@@ -158,19 +140,16 @@ class _BillingTransactionReportScreenState
   Widget build(BuildContext context) {
     return MultiBlocListener(
       listeners: [
-        // Re-resolve the student selection when the cubit publishes a new
-        // list — the same rule the old in-widget fetch applied inline: an
-        // empty selection re-expands to every student, otherwise keep only
-        // the students that still exist.
+        // Drop selections that no longer exist when the cubit publishes a new
+        // student list. Never re-expands to "all" — an empty filter already
+        // means every student.
         BlocListener<ReportsCubit, ReportsState>(
           listenWhen: (previous, current) =>
               previous.studentNames != current.studentNames,
           listener: (context, state) {
-            _selectedStudents.value = _selectedStudents.value.isEmpty
-                ? List<String>.from(state.studentNames)
-                : _selectedStudents.value
-                      .where(state.studentNameToCode.containsKey)
-                      .toList();
+            _selectedStudents.value = _selectedStudents.value
+                .where(state.studentNameToCode.containsKey)
+                .toList();
           },
         ),
         BlocListener<ReportsCubit, ReportsState>(
@@ -269,11 +248,10 @@ class _BillingTransactionReportScreenState
               valueListenable: _selectedPaymentMethods,
               builder: (_, selected, __) => CustomMultiSelectDropdown(
                 label: ReportsStrings.paymentMethod,
-                hintText: "Select Payment Methods",
+                hintText: ReportsStrings.allPaymentMethods,
                 items: const ["Card", "ACH", "Cash"],
                 selectedItems: selected,
                 showSelectAll: true,
-                isRequired: true,
                 onChanged: (s) => _selectedPaymentMethods.value = s,
               ),
             ),
@@ -283,11 +261,10 @@ class _BillingTransactionReportScreenState
               valueListenable: _selectedTransactionStatuses,
               builder: (_, selected, __) => CustomMultiSelectDropdown(
                 label: ReportsStrings.transactionStatus,
-                hintText: ReportsStrings.selectTransactionStatuses,
+                hintText: ReportsStrings.allTransactionStatuses,
                 items: _transactionOptions,
                 selectedItems: selected,
                 showSelectAll: true,
-                isRequired: true,
                 onChanged: (s) => _selectedTransactionStatuses.value = s,
               ),
             ),
@@ -315,9 +292,8 @@ class _BillingTransactionReportScreenState
                           label: ReportsStrings.tabStudent,
                           hintText: students.loading
                               ? ReportsStrings.loadingStudents
-                              : ReportsStrings.selectStudents,
+                              : ReportsStrings.allStudents,
                           items: students.items,
-                          isRequired: true,
                           selectedItems: selected,
                           onChanged: (s) => _selectedStudents.value = s,
                           itemToString: (item) => item,

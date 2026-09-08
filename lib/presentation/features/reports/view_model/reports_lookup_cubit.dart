@@ -166,30 +166,27 @@ abstract class ReportsLookupCubit extends Cubit<ReportsState> {
   /// loading flag are §2.2 bucket A, "no exceptions". Stale responses are
   /// dropped by [_formStudentsFetchId], the same last-write-wins guard the
   /// view's `_fetchId` provided.
+  ///
+  /// An empty [classroomNames] means "all classrooms", not "none" — the
+  /// student picker stays populated with every student while the classroom
+  /// filter is unset, so no classroom has to be chosen just to pick students.
   Future<void> loadFormStudents({
     required List<String> classroomNames,
     bool concurrent = false,
   }) async {
     final fetchId = ++_formStudentsFetchId;
 
-    if (classroomNames.isEmpty) {
-      if (isClosed) return;
-      emit(
-        state.copyWith(
-          studentNames: const <String>[],
-          studentNameToCode: const <String, String>{},
-          formStudentsLoading: false,
-        ),
-      );
-      return;
-    }
-
     emit(state.copyWith(formStudentsLoading: true));
 
     try {
       final classroomNameToCode = await ensureClassroomNameToCode();
-      final classroomCodes = classroomNames
-          .map((name) => classroomNameToCode[name])
+      // An empty classroom filter means "all classrooms", not "none": the
+      // student picker must stay usable — and list every student — while no
+      // classroom is selected, so it falls back to every known classroom
+      // rather than emptying itself.
+      final classroomCodes = (classroomNames.isEmpty
+              ? classroomNameToCode.values
+              : classroomNames.map((name) => classroomNameToCode[name]))
           .whereType<String>()
           .where((c) => c.trim().isNotEmpty)
           .toSet()

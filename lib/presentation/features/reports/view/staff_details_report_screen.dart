@@ -8,7 +8,6 @@ import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.d
 import 'package:wowcare/presentation/features/reports/widgets/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/form_classrooms_field.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
-import 'package:wowcare/presentation/features/reports/model/report_filter_defaults.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -53,6 +52,10 @@ class _StaffDirectoryReportScreenState
     'Is Active',
   ];
 
+  /// The columns ticked when the form opens. Only the *field* checkboxes get
+  /// a default — the classroom filter stays empty, because an empty filter
+  /// means "all classrooms" there, whereas an empty column set means an empty
+  /// report.
   static const List<String> _defaultStaffFields = <String>[
     ReportsStrings.name,
     ReportsStrings.emailId,
@@ -67,20 +70,15 @@ class _StaffDirectoryReportScreenState
 
   /// §2.2 bucket B — which staff columns the report includes.
   final ValueNotifier<Set<String>> _selectedStaffFields =
-      ValueNotifier<Set<String>>(<String>{});
+      ValueNotifier<Set<String>>(_defaultStaffFields.toSet());
   final ValueNotifier<String> _status = ValueNotifier<String>('Active Staff');
   final ValueNotifier<List<String>> _selectedClassrooms =
       ValueNotifier<List<String>>(<String>[]);
   final ValueNotifier<String> _format = ValueNotifier<String>('XLSX');
-  final ReportFilterDefault _classroomFilter = ReportFilterDefault();
 
   @override
   void initState() {
     super.initState();
-    _selectedStaffFields.value = _defaultStaffFields.toSet();
-
-    // All Classrooms are selected by default until the user changes it.
-    _selectedClassrooms.value = List<String>.from(widget.classrooms);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         // Staff reports need the wider list that also contains Office and
@@ -128,11 +126,11 @@ class _StaffDirectoryReportScreenState
     final nameToCode = cubit.state.allClassroomNameToCode.isNotEmpty
         ? cubit.state.allClassroomNameToCode
         : cubit.state.classroomNameToCode;
+    // Empty selection → no codes → `classroomCodes: null` below omits the
+    // key, which is how this endpoint expresses "all classrooms".
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms.value.isEmpty
-          ? widget.classrooms
-          : _selectedClassrooms.value,
+      names: _selectedClassrooms.value,
       nameToCode: nameToCode,
       labelPlural: 'classrooms',
     );
@@ -177,16 +175,16 @@ class _StaffDirectoryReportScreenState
   Widget build(BuildContext context) {
     return MultiBlocListener(
       listeners: [
-        // Keep the "all classrooms selected by default" behaviour once the
-        // wider list arrives, the way the old setState in the fetch did.
+        // Drop selections that no longer exist when a refreshed classroom
+        // list arrives. Never re-expands to "all" — an empty filter already
+        // means every classroom.
         BlocListener<ReportsCubit, ReportsState>(
           listenWhen: (previous, current) =>
               previous.allClassroomNames != current.allClassroomNames,
           listener: (context, state) {
-            _selectedClassrooms.value = _classroomFilter.resolve(
-              options: state.allClassroomNames,
-              current: _selectedClassrooms.value,
-            );
+            _selectedClassrooms.value = _selectedClassrooms.value
+                .where(state.allClassroomNames.contains)
+                .toList();
           },
         ),
         BlocListener<ReportsCubit, ReportsState>(
@@ -295,19 +293,18 @@ class _StaffDirectoryReportScreenState
                           builder: (context, classroomItems) =>
                               CustomMultiSelectDropdown(
                                 label: ReportsStrings.classroom,
-                                hintText: ReportsStrings.selectClassroom,
+                                hintText: ReportsStrings.allClassrooms,
                                 items: classroomItems,
-                                isRequired: true,
                                 selectedItems: _selectedClassrooms.value,
-                                onChanged: (s) => _selectedClassrooms.value =
-                                    _classroomFilter.userSelected(s),
+                                onChanged: (s) =>
+                                    _selectedClassrooms.value = s,
                                 showSelectAll: true,
                               ),
                         ),
                   ),
                   const ReportDefaultNote(
                     text:
-                        ReportsStrings.noteAllClassroomsWillBeSelectedByDefault,
+                        ReportsStrings.noteAllClassroomsIncludedByDefault,
                   ),
                   SizedBox(
                     height: context.responsive(compact: 16.0, medium: 24.0),
